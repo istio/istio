@@ -108,24 +108,19 @@ func TestConvertToCidr(t *testing.T) {
 		Err    string
 	}{
 		{
-			Name: "cidr with 0 /",
-			V:    "192.168.0.0:16",
-			Err:  "invalid cidr range",
-		},
-		{
-			Name: "cidr with 2 /",
+			Name: "cidr with two /",
 			V:    "192.168.0.0//16",
 			Err:  "invalid cidr range",
 		},
 		{
 			Name: "cidr with invalid prefix length",
 			V:    "192.168.0.0/ab",
-			Err:  "invalid prefix length in cidr range",
+			Err:  "invalid cidr range",
 		},
 		{
 			Name: "cidr with negative prefix length",
 			V:    "192.168.0.0/-16",
-			Err:  "invalid prefix length in cidr range",
+			Err:  "invalid cidr range",
 		},
 		{
 			Name: "valid cidr range",
@@ -135,15 +130,36 @@ func TestConvertToCidr(t *testing.T) {
 				PrefixLen:     &types.UInt32Value{Value: 16},
 			},
 		},
+		{
+			Name: "invalid ip address",
+			V:    "19216800",
+			Err:  "invalid ip address",
+		},
+		{
+			Name: "valid ipv4 address",
+			V:    "192.168.0.0",
+			Expect: &core.CidrRange{
+				AddressPrefix: "192.168.0.0",
+				PrefixLen:     &types.UInt32Value{Value: 32},
+			},
+		},
+		{
+			Name: "valid ipv6 address",
+			V:    "2001:abcd:85a3::8a2e:370:1234",
+			Expect: &core.CidrRange{
+				AddressPrefix: "2001:abcd:85a3::8a2e:370:1234",
+				PrefixLen:     &types.UInt32Value{Value: 128},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		actual, err := convertToCidr(tc.V)
 		if tc.Err != "" {
 			if err == nil {
-				t.Errorf("%s: expecting error %s but found no error", tc.Name, tc.Err)
+				t.Errorf("%s: expecting error: %s but found no error", tc.Name, tc.Err)
 			} else if !strings.HasPrefix(err.Error(), tc.Err) {
-				t.Errorf("%s: expecting error %s, but got: %s", tc.Name, tc.Err, err.Error())
+				t.Errorf("%s: expecting error: %s, but got: %s", tc.Name, tc.Err, err.Error())
 			}
 		} else if !reflect.DeepEqual(*tc.Expect, *actual) {
 			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)

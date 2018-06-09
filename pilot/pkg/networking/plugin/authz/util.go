@@ -16,6 +16,7 @@ package authz
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -77,16 +78,35 @@ func suffixMatch(a string, pattern string) bool {
 }
 
 func convertToCidr(v string) (*core.CidrRange, error) {
-	splits := strings.Split(v, "/")
-	if len(splits) != 2 {
-		return nil, fmt.Errorf("invalid cidr range: %s", v)
+	var address string
+	var prefixLen int
+
+	if strings.Contains(v, "/") {
+		if ip, ipnet, err := net.ParseCIDR(v); err == nil {
+			address = ip.String()
+			prefixLen, _ = ipnet.Mask.Size()
+		} else {
+			return nil, fmt.Errorf("invalid cidr range: %v", err)
+		}
+	} else {
+		if ip := net.ParseIP(v); ip != nil {
+			address = ip.String()
+			if strings.Contains(v, ".") {
+				// Set the prefixLen to 32 for ipv4 address.
+				prefixLen = 32
+			} else if strings.Contains(v, ":") {
+				// Set the prefixLen to 128 for ipv6 address.
+				prefixLen = 128
+			} else {
+				return nil, fmt.Errorf("invalid ip address: %s", v)
+			}
+		} else {
+			return nil, fmt.Errorf("invalid ip address: %s", v)
+		}
 	}
-	prefixLen, err := strconv.ParseUint(splits[1], 10, 32)
-	if err != nil || prefixLen < 0 {
-		return nil, fmt.Errorf("invalid prefix length in cidr range: %s: %v", splits[1], err)
-	}
+
 	return &core.CidrRange{
-		AddressPrefix: splits[0],
+		AddressPrefix: address,
 		PrefixLen:     &types.UInt32Value{Value: uint32(prefixLen)},
 	}, nil
 }
