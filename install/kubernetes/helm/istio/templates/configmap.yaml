@@ -78,11 +78,11 @@ data:
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411    
-      
-    {{- if .Values.global.enableStatsd }}
+
+    {{- if .Values.global.proxy.envoyStatsd }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
+      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd }}
     {{- end }}
     
     {{- if .Values.global.controlPlaneSecurityEnabled }}

@@ -45,9 +45,9 @@ spec:
           - istio-ingress
           - --zipkinAddress
           - zipkin:9411
-        {{- if .Values.global.proxy.enableStatsd }}
+        {{- if .Values.global.proxy.envoyStatsd }}
           - --statsdUdpAddress
-          - istio-statsd-prom-bridge:9125
+          - {{ .Values.global.proxy.envoyStatsd }}
         {{- end }}
           - --proxyAdminPort
           - "15000"

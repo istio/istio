@@ -98,7 +98,7 @@ data:
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}      
-      {{- if .Values.global.proxy.enableStatsd }}
+      {{- if .Values.global.proxy.envoyStatsd }}
         - --statsdUdpAddress
         - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
       {{- end }}
