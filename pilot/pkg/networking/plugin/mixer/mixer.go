@@ -22,7 +22,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 
@@ -32,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -161,54 +159,25 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		var nvhs []route.VirtualHost
-		for _, vh := range routeConfiguration.VirtualHosts {
-			nvh := vh
-			var nrs []route.Route
-			for _, r := range vh.Routes {
-				nr := r
-				if nr.PerFilterConfig == nil {
-					nr.PerFilterConfig = make(map[string]*types.Struct)
+		// copy structs in place
+		for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
+			host := routeConfiguration.VirtualHosts[i]
+			for j := 0; j < len(host.Routes); j++ {
+				route := host.Routes[j]
+				if route.PerFilterConfig == nil {
+					route.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(buildMixerPerRouteConfig(in, in.ServiceInstance))
-				nrs = append(nrs, nr)
+				route.PerFilterConfig[mixer] = util.MessageToStruct(buildInboundRouteConfig(in, in.ServiceInstance))
+				host.Routes[j] = route
 			}
-			nvh.Routes = nrs
-			nvhs = append(nvhs, nvh)
+			routeConfiguration.VirtualHosts[i] = host
 		}
-		routeConfiguration.VirtualHosts = nvhs
 
 	case plugin.ListenerTypeTCP:
 		// TODO: implement
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
-}
-
-func buildMixerPerRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
-	config := in.Env.IstioConfigStore
-
-	attrs := make(attributes)
-	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), in.Node.Domain)
-
-	out := &mccpb.ServiceConfig{
-		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
-		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-	}
-
-	apiSpecs := config.HTTPAPISpecByDestination(instance)
-	model.SortHTTPAPISpec(apiSpecs)
-	for _, config := range apiSpecs {
-		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-	}
-
-	quotaSpecs := config.QuotaSpecByDestination(instance)
-	model.SortQuotaSpec(quotaSpecs)
-	for _, config := range quotaSpecs {
-		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
-	}
-
-	return out
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.TransportConfig {
@@ -277,6 +246,33 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 		}),
 	}
 }
+
+func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+	config := in.Env.IstioConfigStore
+
+	attrs := make(attributes)
+	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), in.Node.Domain)
+
+	out := &mccpb.ServiceConfig{
+		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+	}
+
+	apiSpecs := config.HTTPAPISpecByDestination(instance)
+	model.SortHTTPAPISpec(apiSpecs)
+	for _, config := range apiSpecs {
+		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+	}
+
+	quotaSpecs := config.QuotaSpecByDestination(instance)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
+
+	return out
+}
+
 func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
 	// TODO(rshriram): set destination service for TCP outbound requires parsing the struct config
 	return listener.Filter{
