@@ -48,7 +48,7 @@ spec:
           - {{ .Values.service.name }}
           - --zipkinAddress
           - zipkin:9411
-        {{- if .Values.global.enableStatsd }}
+        {{- if .Values.global.proxy.enableStatsd }}
           - --statsdUdpAddress
           - istio-statsd-prom-bridge:9125
         {{- end }}
