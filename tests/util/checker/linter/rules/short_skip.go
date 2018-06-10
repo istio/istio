@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/tests/util/checker"
 )
 
-// SkipByShort requires that a test function should have one of these pattern.
+// ShortSkip requires that a test function should have one of these pattern.
 // Pattern 1
 // func TestA(t *testing.T) {
 //   if !testing.Short() {
@@ -37,15 +37,15 @@ import (
 //   }
 //   ...
 // }
-type SkipByShort struct{}
+type ShortSkip struct{}
 
-// NewSkipByShort creates and returns a SkipByShort object.
-func NewSkipByShort() *SkipByShort {
-	return &SkipByShort{}
+// NewSkipByShort creates and returns a ShortSkip object.
+func NewSkipByShort() *ShortSkip {
+	return &ShortSkip{}
 }
 
 // GetID returns skip_by_short_rule.
-func (lr *SkipByShort) GetID() string {
+func (lr *ShortSkip) GetID() string {
 	return getCallerFileName()
 }
 
@@ -64,7 +64,7 @@ func (lr *SkipByShort) GetID() string {
 //	}
 //	...
 // }
-func (lr *SkipByShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
+func (lr *ShortSkip) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
 			lrp.AddItem(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")

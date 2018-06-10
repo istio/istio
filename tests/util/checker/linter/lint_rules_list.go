@@ -22,7 +22,6 @@ import (
 // LintRulesList is a map that maps test type to list of lint rules. Linter applies corresponding
 // list of lint rules to each type of tests.
 var LintRulesList = map[TestType][]checker.Rule{
-	NonTest: {},
 	UnitTest: { // list of rules which should apply to unit test file
 		rules.NewSkipByIssue(),
 		rules.NewNoGoroutine(),
