@@ -54,7 +54,7 @@ global:
     # Sets the value of the "--statsdUdpAddress" proxy argument.
     # Can be disabled (e.g. when mixer is not installed) by setting this to empty string or removing it.
     # The default is to use the bridge provided by mixer.
-    envoyStatsd: "istio-statsd-prom-bridge.istio-system:9125"
+    envoyStatsd: "istio-statsd-prom-bridge:9125"
 
   proxy_init:
     image: proxy_init
