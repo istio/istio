@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package admin
+package configdump
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 )
 
-// API is a Stdout/Stderr wrapper around the Envoy Admin API that converts the proto to JSON
-type API struct {
+// JSONPrinter is a Stdout/Stderr wrapper around the Envoy Admin config_dump endpoint that converts the proto to JSON
+type JSONPrinter struct {
 	URL            string
 	Stdout, Stderr io.Writer
 }
@@ -36,45 +36,45 @@ const (
 	bootstrapKey = "bootstrap"
 )
 
-// PrintClusterDump prints just the cluster config dump to the API stdout
-func (a *API) PrintClusterDump() {
-	a.genericPrinter(clustersKey)
+// PrintClusterDump prints just the cluster config dump to the JSONPrinter stdout
+func (p *JSONPrinter) PrintClusterDump() {
+	p.genericPrinter(clustersKey)
 }
 
-// PrintListenerDump prints just the listener config dump to the API stdout
-func (a *API) PrintListenerDump() {
-	a.genericPrinter(listenersKey)
+// PrintListenerDump prints just the listener config dump to the JSONPrinter stdout
+func (p *JSONPrinter) PrintListenerDump() {
+	p.genericPrinter(listenersKey)
 }
 
-// PrintRoutesDump prints just the routes config dump to the API stdout
-func (a *API) PrintRoutesDump() {
-	a.genericPrinter(routesKey)
+// PrintRoutesDump prints just the routes config dump to the JSONPrinter stdout
+func (p *JSONPrinter) PrintRoutesDump() {
+	p.genericPrinter(routesKey)
 }
 
-// PrintBootstrapDump prints just the bootstrap config dump to the API stdout
-func (a *API) PrintBootstrapDump() {
-	a.genericPrinter(bootstrapKey)
+// PrintBootstrapDump prints just the bootstrap config dump to the JSONPrinter stdout
+func (p *JSONPrinter) PrintBootstrapDump() {
+	p.genericPrinter(bootstrapKey)
 }
 
-func (a *API) genericPrinter(configKey string) {
-	configDump, err := a.retrieveConfigDump()
+func (p *JSONPrinter) genericPrinter(configKey string) {
+	configDump, err := p.retrieveConfigDump()
 	if err != nil {
-		fmt.Fprintf(a.Stderr, err.Error())
+		fmt.Fprintf(p.Stderr, err.Error())
 		return
 	}
 	scopedDump, ok := configDump.Configs[configKey]
 	if !ok {
-		fmt.Fprintf(a.Stderr, "unable to find %v in Envoy config dump", configKey)
+		fmt.Fprintf(p.Stderr, "unable to find %v in Envoy config dump", configKey)
 		return
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	if err := jsonm.Marshal(a.Stdout, &scopedDump); err != nil {
-		fmt.Fprintf(a.Stderr, "unable to marshal %v in Envoy config dump", configKey)
+	if err := jsonm.Marshal(p.Stdout, &scopedDump); err != nil {
+		fmt.Fprintf(p.Stderr, "unable to marshal %v in Envoy config dump", configKey)
 	}
 }
 
-func (a *API) retrieveConfigDump() (*adminapi.ConfigDump, error) {
-	fullURL := fmt.Sprintf("%v/config_dump", a.URL)
+func (p *JSONPrinter) retrieveConfigDump() (*adminapi.ConfigDump, error) {
+	fullURL := fmt.Sprintf("%v/config_dump", p.URL)
 	resp, err := http.Get(fullURL)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving config dump from Envoy: %v", err)

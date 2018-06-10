@@ -20,11 +20,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/admin"
+	"istio.io/istio/pilot/pkg/proxy/envoy/configdump"
 )
 
 type debug struct {
-	JSONPrinter *admin.API
+	JSONPrinter *configdump.JSONPrinter
 }
 
 var (
@@ -34,7 +34,7 @@ var (
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				JSONPrinter: &admin.API{
+				JSONPrinter: &configdump.JSONPrinter{
 					URL:    "http://127.0.0.1:15000",
 					Stdout: os.Stdout,
 					Stderr: os.Stderr,

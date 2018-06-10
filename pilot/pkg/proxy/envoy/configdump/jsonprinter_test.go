@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package admin
+package configdump
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 )
 
-func TestAPI_PrintClusterDump(t *testing.T) {
+func TestJSONPrinter_PrintClusterDump(t *testing.T) {
 	tests := []struct {
 		name           string
 		envoySuccess   bool
@@ -71,12 +71,12 @@ func TestAPI_PrintClusterDump(t *testing.T) {
 			if tt.envoyNoURL {
 				url = "NotAURL"
 			}
-			a := &API{
+			p := &JSONPrinter{
 				URL:    url,
 				Stdout: gotOut,
 				Stderr: gotErr,
 			}
-			a.PrintClusterDump()
+			p.PrintClusterDump()
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
@@ -89,7 +89,7 @@ func TestAPI_PrintClusterDump(t *testing.T) {
 	}
 }
 
-func TestAPI_PrintListenerDump(t *testing.T) {
+func TestJSONPrinter_PrintListenerDump(t *testing.T) {
 	tests := []struct {
 		name           string
 		envoySuccess   bool
@@ -136,12 +136,12 @@ func TestAPI_PrintListenerDump(t *testing.T) {
 			if tt.envoyNoURL {
 				url = "NotAURL"
 			}
-			a := &API{
+			p := &JSONPrinter{
 				URL:    url,
 				Stdout: gotOut,
 				Stderr: gotErr,
 			}
-			a.PrintListenerDump()
+			p.PrintListenerDump()
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
@@ -154,7 +154,7 @@ func TestAPI_PrintListenerDump(t *testing.T) {
 	}
 }
 
-func TestAPI_PrintRoutesDump(t *testing.T) {
+func TestJSONPrinter_PrintRoutesDump(t *testing.T) {
 	tests := []struct {
 		name           string
 		envoySuccess   bool
@@ -201,12 +201,12 @@ func TestAPI_PrintRoutesDump(t *testing.T) {
 			if tt.envoyNoURL {
 				url = "NotAURL"
 			}
-			a := &API{
+			p := &JSONPrinter{
 				URL:    url,
 				Stdout: gotOut,
 				Stderr: gotErr,
 			}
-			a.PrintRoutesDump()
+			p.PrintRoutesDump()
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
@@ -219,7 +219,7 @@ func TestAPI_PrintRoutesDump(t *testing.T) {
 	}
 }
 
-func TestAPI_PrintBootstrapDump(t *testing.T) {
+func TestJSONPrinter_PrintBootstrapDump(t *testing.T) {
 	tests := []struct {
 		name           string
 		envoySuccess   bool
@@ -266,12 +266,12 @@ func TestAPI_PrintBootstrapDump(t *testing.T) {
 			if tt.envoyNoURL {
 				url = "NotAURL"
 			}
-			a := &API{
+			p := &JSONPrinter{
 				URL:    url,
 				Stdout: gotOut,
 				Stderr: gotErr,
 			}
-			a.PrintBootstrapDump()
+			p.PrintBootstrapDump()
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
