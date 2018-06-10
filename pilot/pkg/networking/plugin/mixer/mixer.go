@@ -38,7 +38,9 @@ import (
 
 type mixerplugin struct{}
 
-type attributes map[string]*mpb.Attributes_AttributeValue
+type attribute = *mpb.Attributes_AttributeValue
+
+type attributes map[string]attribute
 
 const (
 	// UnknownDestination is set for cases when the destination service cannot be determined.
@@ -67,16 +69,16 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		return nil
 	}
 
-	uid := "kubernetes://" + in.Node.ID
 	attrs := attributes{
-		"source.uid":             attrStringValue(uid),
-		"context.reporter.uid":   attrStringValue(uid),
+		"source.uid":             attrUID(in.Node),
+		"context.reporter.uid":   attrUID(in.Node),
 		"context.reporter.local": attrBoolValue(false),
 	}
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
 		if in.Node.Type == model.Router {
+			// TODO: design attributes for the gateway
 			return nil
 		}
 		m := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
@@ -101,34 +103,25 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		return nil
 	}
 
-	ip := ""
-	port := uint32(0)
+	attrs := attributes{
+		"destination.uid":        attrUID(in.Node),
+		"context.reporter.uid":   attrUID(in.Node),
+		"context.reporter.local": attrBoolValue(true),
+	}
+
 	if mutable.Listener != nil {
 		switch address := mutable.Listener.Address.Address.(type) {
 		case *core.Address_SocketAddress:
 			if address != nil && address.SocketAddress != nil {
-				ip = address.SocketAddress.Address
+				attrs["destination.ip"] = attrIPValue(address.SocketAddress.Address)
 				switch portSpec := address.SocketAddress.PortSpecifier.(type) {
 				case *core.SocketAddress_PortValue:
 					if portSpec != nil {
-						port = portSpec.PortValue
+						attrs["destination.port"] = attrIntValue(int64(portSpec.PortValue))
 					}
 				}
 			}
 		}
-	}
-
-	uid := "kubernetes://" + in.Node.ID
-	attrs := attributes{
-		"destination.uid":        attrStringValue(uid),
-		"context.reporter.uid":   attrStringValue(uid),
-		"context.reporter.local": attrBoolValue(true),
-	}
-	if len(ip) > 0 {
-		attrs["destination.ip"] = attrIPValue(ip)
-	}
-	if port != 0 {
-		attrs["destination.port"] = attrIntValue(int64(port))
 	}
 
 	switch in.ListenerType {
@@ -161,19 +154,11 @@ func (mixerplugin) OnInboundCluster(env model.Environment, node model.Proxy, ser
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// TODO:
+	// TODO: set destination service on routes
 }
-
-// oc := BuildMixerConfig(node, serviceName, dest, proxyInstances, config, mesh.DisablePolicyChecks, false)
-// func BuildMixerConfig(source model.Proxy, destName string, dest *model.Service, instances []*model.ServiceInstance, config model.IstioConfigStore,
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	forward := false
-	if in.Node.Type == model.Ingress {
-		forward = true
-	}
-
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
 		var nvhs []route.VirtualHost
@@ -185,8 +170,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 				if nr.PerFilterConfig == nil {
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
-					buildMixerPerRouteConfig(in, false, forward, in.ServiceInstance.Service.Hostname.String()))
+				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(buildMixerPerRouteConfig(in, in.ServiceInstance))
 				nrs = append(nrs, nr)
 			}
 			nvh.Routes = nrs
@@ -201,33 +185,33 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
-func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*disableForward*/ bool, destinationService string) *mccpb.ServiceConfig {
-	role := in.Node
-	disableCheck := in.Env.Mesh.DisablePolicyChecks
+func buildMixerPerRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
-	out := serviceConfig(in.Service.Hostname.String(), in.ServiceInstance, config, disableCheck, false, role.Domain)
-	// Report calls are never disabled. Disable forward is currently not in the proto.
-	out.DisableCheckCalls = disableCheck
+	attrs := make(attributes)
+	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), in.Node.Domain)
 
-	if destinationService != "" {
-		out.MixerAttributes = &mpb.Attributes{}
-		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
-			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
-		}
-		addDestinationServiceAttributes(out.MixerAttributes.Attributes, destinationService, role.Domain)
+	out := &mccpb.ServiceConfig{
+		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 	}
 
-	if !outboundRoute || role.Type == model.Router {
-		// for outboundRoutes there are no default MixerAttributes except for gateway.
-		// specific MixerAttributes are in per route configuration.
-		v1.AddStandardNodeAttributes(out.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	apiSpecs := config.HTTPAPISpecByDestination(instance)
+	model.SortHTTPAPISpec(apiSpecs)
+	for _, config := range apiSpecs {
+		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+	}
+
+	quotaSpecs := config.QuotaSpecByDestination(instance)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
 	}
 
 	return out
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, uid string) *mccpb.TransportConfig {
+func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.TransportConfig {
 	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
@@ -240,41 +224,35 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid string) *mccpb.TransportCon
 		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
 		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{
-			Attributes: attributes{
-				"source.uid": attrStringValue(uid),
-			},
-		},
+		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{
+			"source.uid": uid,
+		}},
 	}
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	uid := "kubernetes://" + node.ID
-
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
 			ForwardAttributes: &mpb.Attributes{Attributes: attributes{
-				"source.uid": attrStringValue(uid),
+				"source.uid": attrUID(node),
 			}},
 			DefaultDestinationService: UnknownDestination,
 			ServiceConfigs: map[string]*mccpb.ServiceConfig{
 				UnknownDestination: {
 					DisableCheckCalls: true, /* TODO: enable client-side checks */
-					MixerAttributes: &mpb.Attributes{Attributes: attributes{
+					MixerAttributes: &mpb.Attributes{Attributes: attributes{ // TODO: fall through destination servicec
 						"destination.service": attrStringValue(UnknownDestination),
 					}},
 				},
 			},
-			Transport: buildTransport(mesh, uid),
+			Transport: buildTransport(mesh, attrUID(node)),
 		}),
 	}
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes, instances []*model.ServiceInstance) *http_conn.HttpFilter {
-	uid := "kubernetes://" + node.ID
-
 	// TODO(rshriram): pick a single service for TCP destination workload. This needs to be removed once mixer config resolution
 	// can scope by workload namespace. The choice of destination service should not be made here!
 	destination := UnknownDestination
@@ -295,18 +273,18 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 				},
 			},
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			Transport:       buildTransport(mesh, uid),
+			Transport:       buildTransport(mesh, attrUID(node)),
 		}),
 	}
 }
 func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
-	// TODO(rshriram): destination service for TCP outbound requires parsing the struct config
+	// TODO(rshriram): set destination service for TCP outbound requires parsing the struct config
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: true, /* TODO: enable client-side checks */
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, "kubernetes://"+node.ID),
+			Transport:         buildTransport(mesh, attrUID(node)),
 		}),
 	}
 }
@@ -327,37 +305,9 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: mesh.DisablePolicyChecks,
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, "kubernetes://"+node.ID),
+			Transport:         buildTransport(mesh, attrUID(node)),
 		}),
 	}
-}
-
-// borrows heavily from v1.ServiceConfig (which this replaces)
-func serviceConfig(serviceHostname string, dest *model.ServiceInstance, config model.IstioConfigStore, disableCheck, disableReport bool, proxyDomain string) *mccpb.ServiceConfig { // nolint: lll
-	sc := &mccpb.ServiceConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"destination.service": attrStringValue(serviceHostname),
-			},
-		},
-		DisableCheckCalls:  disableCheck,
-		DisableReportCalls: disableReport,
-	}
-
-	apiSpecs := config.HTTPAPISpecByDestination(dest)
-	model.SortHTTPAPISpec(apiSpecs)
-	for _, config := range apiSpecs {
-		sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-	}
-
-	quotaSpecs := config.QuotaSpecByDestination(dest)
-	model.SortQuotaSpec(quotaSpecs)
-	for _, config := range quotaSpecs {
-		sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
-	}
-
-	addDestinationServiceAttributes(sc.MixerAttributes.Attributes, serviceHostname, proxyDomain)
-	return sc
 }
 
 func addDestinationServiceAttributes(attrs attributes, destinationHostname, domain string) {
@@ -371,8 +321,8 @@ func addDestinationServiceAttributes(attrs attributes, destinationHostname, doma
 	}
 }
 
-func nameAndNamespace(serviceHostname, domain string) (name, namespace string) {
-	domainParts := strings.SplitN(domain, ".", 2)
+func nameAndNamespace(serviceHostname, proxyDomain string) (name, namespace string) {
+	domainParts := strings.SplitN(proxyDomain, ".", 2)
 	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
 		return serviceHostname, ""
 	}
@@ -385,19 +335,23 @@ func nameAndNamespace(serviceHostname, domain string) (name, namespace string) {
 	return serviceHostname, ""
 }
 
-func attrStringValue(value string) *mpb.Attributes_AttributeValue {
+func attrStringValue(value string) attribute {
 	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: value}}
 }
 
-func attrBoolValue(value bool) *mpb.Attributes_AttributeValue {
+func attrUID(node *model.Proxy) attribute {
+	return attrStringValue("kubernetes://" + node.ID)
+}
+
+func attrBoolValue(value bool) attribute {
 	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: value}}
 }
 
-func attrIntValue(value int64) *mpb.Attributes_AttributeValue {
+func attrIntValue(value int64) attribute {
 	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_Int64Value{Int64Value: value}}
 }
 
-func attrIPValue(ip string) *mpb.Attributes_AttributeValue {
+func attrIPValue(ip string) attribute {
 	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: net.ParseIP(ip)}}
 }
 
