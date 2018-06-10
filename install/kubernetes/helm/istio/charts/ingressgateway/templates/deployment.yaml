@@ -48,8 +48,10 @@ spec:
           - {{ .Values.service.name }}
           - --zipkinAddress
           - zipkin:9411
+        {{- if .Values.global.enableStatsd }}
           - --statsdUdpAddress
           - istio-statsd-prom-bridge:9125
+        {{- end }}
           - --proxyAdminPort
           - "15000"
         {{- if .Values.global.controlPlaneSecurityEnabled }}

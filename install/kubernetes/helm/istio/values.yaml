@@ -51,6 +51,10 @@ global:
     excludeInboundPorts: ""
     policy: enabled
 
+    # Toggles whether to set the "--statsdUdpAddress" as an argument to the proxy.
+    # This should be false in environments where Mixer isn't installed. Default: true.
+    enableStatsd: true
+
   proxy_init:
     image: proxy_init
 

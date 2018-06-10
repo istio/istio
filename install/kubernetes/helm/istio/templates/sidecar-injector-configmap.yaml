@@ -97,9 +97,11 @@ data:
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
         - --connectTimeout
-        - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
+        - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}      
+      {{- if .Values.global.enableStatsd }}
         - --statsdUdpAddress
         - {{ "[[ .ProxyConfig.StatsdUdpAddress ]]" }}
+      {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         - --controlPlaneAuthPolicy
