@@ -219,6 +219,24 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *
 	for key, resource := range e.entries {
 		var info *adapter.Info
 		var found bool
+
+		if key.Kind == constant.HandlerKind {
+			handlerProto := resource.Spec.(*config.Handler)
+			staticConfig := &HandlerStatic{
+				Name:    key.Name,
+				Adapter: e.adapters[handlerProto.Adapter],
+			}
+
+			if handlerProto.Params != nil {
+				// I HAVE NO IDEA HOW TO TURN INTERFACE{} -> PROTO MESSAGE HERE
+				staticConfig.Params = staticConfig.Adapter.DefaultConfig
+			}
+			log.Warnf("adapters: %#v", e.adapters)
+			log.Warnf("adding handler: key = %v, name = %s, config = %v", key.String(), handlerProto.Name, staticConfig)
+			handlers[key.String()] = staticConfig
+			continue
+		}
+
 		if info, found = e.adapters[key.Kind]; !found {
 			// This config resource is not for an adapter (or at least not for one that Mixer is currently aware of).
 			continue

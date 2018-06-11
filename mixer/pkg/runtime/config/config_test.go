@@ -531,6 +531,87 @@ Attributes:
 	},
 
 	{
+		Name: "basic handler cr config",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:    "a1",
+						Adapter: "adapter1",
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+  Name:    a1
+  Adapter: adapter1
+  Params:  <nil>
+Instances:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic handler cr config with params",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "a1",
+					Namespace: "ns",
+					Kind:      "handler",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &configpb.Handler{
+						Name:    "a1",
+						Adapter: "adapter1",
+						Params: &configpb.EmailAddress{
+							Value: "test",
+						},
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+  Name: adapter2
+Handlers:
+  Name:    a1
+  Adapter: adapter1
+  Params:  &EmailAddress{Value:test,}
+Instances:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
 		Name: "no handler due to adapter mismatch",
 		Events1: []*store.Event{
 			{
