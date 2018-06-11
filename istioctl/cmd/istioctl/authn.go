@@ -23,6 +23,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
 	proxy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
