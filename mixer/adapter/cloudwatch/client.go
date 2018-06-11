@@ -17,11 +17,19 @@ package cloudwatch
 import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 )
 
 // newCloudWatchClient creates a cloudwatch client
 func newCloudWatchClient() *cloudwatch.CloudWatch {
 	return cloudwatch.New(session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})))
+}
+
+// newCloudWatchLogsClient creates a cloudwatchlogs client
+func newCloudWatchLogsClient() *cloudwatchlogs.CloudWatchLogs {
+	return cloudwatchlogs.New(session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	})))
 }

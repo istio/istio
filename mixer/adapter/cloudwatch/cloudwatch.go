@@ -19,8 +19,12 @@ package cloudwatch
 import (
 	"context"
 	"fmt"
+	"strings"
+
+	"istio.io/istio/mixer/template/logentry"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
@@ -49,34 +53,44 @@ var supportedDurationUnits = map[config.Params_MetricDatum_Unit]bool{
 
 type (
 	builder struct {
-		adpCfg      *config.Params
-		metricTypes map[string]*metric.Type
+		adpCfg        *config.Params
+		metricTypes   map[string]*metric.Type
+		logEntryTypes map[string]*logentry.Type
 	}
 
 	// handler holds data for the cloudwatch adapter handler
 	handler struct {
-		metricTypes map[string]*metric.Type
-		env         adapter.Env
-		cfg         *config.Params
-		cloudwatch  cloudwatchiface.CloudWatchAPI
+		metricTypes    map[string]*metric.Type
+		logEntryTypes  map[string]*logentry.Type
+		env            adapter.Env
+		cfg            *config.Params
+		cloudwatch     cloudwatchiface.CloudWatchAPI
+		cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI
 	}
 )
 
 // ensure types implement the requisite interfaces
-var _ metric.HandlerBuilder = &builder{}
-var _ metric.Handler = &handler{}
+var (
+	_ metric.HandlerBuilder = &builder{}
+	_ metric.Handler        = &handler{}
+
+	_ logentry.HandlerBuilder = &builder{}
+	_ logentry.Handler        = &handler{}
+)
 
 ///////////////// Configuration-time Methods ///////////////
 
-// newHandler initializes a cloudwatch handler
-func newHandler(metricTypes map[string]*metric.Type, env adapter.Env, cfg *config.Params, cloudwatch cloudwatchiface.CloudWatchAPI) adapter.Handler {
-	return &handler{metricTypes: metricTypes, env: env, cfg: cfg, cloudwatch: cloudwatch}
+// newHandler initializes both cloudwatch and cloudwatchlogs handler
+func newHandler(metricTypes map[string]*metric.Type, logEntryTypes map[string]*logentry.Type, env adapter.Env, cfg *config.Params,
+	cloudwatch cloudwatchiface.CloudWatchAPI, cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI) adapter.Handler {
+	return &handler{metricTypes: metricTypes, logEntryTypes: logEntryTypes, env: env, cfg: cfg, cloudwatch: cloudwatch, cloudwatchlogs: cloudwatchlogs}
 }
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	cloudwatch := newCloudWatchClient()
-	return newHandler(b.metricTypes, env, b.adpCfg, cloudwatch), nil
+	cloudwatchlogs := newCloudWatchLogsClient()
+	return newHandler(b.metricTypes, b.logEntryTypes, env, b.adpCfg, cloudwatch, cloudwatchlogs), nil
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig
@@ -118,6 +132,35 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			ce = ce.Append("dimensions", fmt.Errorf("metrics can only contain %v dimensions", dimensionLimit))
 		}
 	}
+
+	// LogGroupName should not be empty
+	if len(b.adpCfg.GetLogGroupName()) == 0 {
+		ce = ce.Append("log_group_name", fmt.Errorf("log_group_name should not be empty"))
+	}
+
+	// LogStreamName should not be empty
+	if len(b.adpCfg.GetLogStreamName()) == 0 {
+		ce = ce.Append("log_stream_name", fmt.Errorf("log_stream_name should not be empty"))
+	}
+
+	// Logs info should not be nil
+	if b.adpCfg.GetLogs() == nil {
+		ce = ce.Append("logs", fmt.Errorf("logs info should not be nil"))
+	}
+
+	// variables in the attributes should not be empty
+	for _, v := range b.logEntryTypes {
+		if len(v.Variables) == 0 {
+			ce = ce.Append("instancevariables", fmt.Errorf("instance variables should not be empty"))
+		}
+	}
+
+	// replace with default template if payload template is empty in adapter config
+	for _, l := range b.adpCfg.GetLogs() {
+		if strings.TrimSpace(l.PayloadTemplate) == "" {
+			l.PayloadTemplate = defaultTemplate
+		}
+	}
 	return ce
 }
 
@@ -126,10 +169,22 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 	b.metricTypes = types
 }
 
+// logentry.HandlerBuilder#SetLogEntryTypes
+func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
+	b.logEntryTypes = types
+}
+
 // HandleMetric sends metrics to cloudwatch
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
 	metricData := h.generateMetricData(insts)
 	_, err := h.sendMetricsToCloudWatch(metricData)
+	return err
+}
+
+// HandleLogEntry sends logentries to cloudwatchlogs
+func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance) error {
+	logentryData := h.generateLogEntryData(insts)
+	_, err := h.sendLogEntriesToCloudWatch(logentryData)
 	return err
 }
 
@@ -142,9 +197,10 @@ func (h *handler) Close() error {
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "cloudwatch",
-		Description: "Sends metrics to cloudwatch",
+		Description: "Sends metrics to cloudwatch and logs to cloudwatchlogs",
 		SupportedTemplates: []string{
 			metric.TemplateName,
+			logentry.TemplateName,
 		},
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{},
