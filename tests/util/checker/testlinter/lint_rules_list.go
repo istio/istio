@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package linter
+package main
 
 import (
-	"istio.io/istio/tests/util/golinter/rules"
+	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
 // LintRulesList is a map that maps test type to list of lint rules. Linter applies corresponding
 // list of lint rules to each type of tests.
-var LintRulesList = map[TestType][]rules.LintRule{
+var LintRulesList = map[TestType][]checker.Rule{
 	UnitTest: { // list of rules which should apply to unit test file
 		rules.NewSkipByIssue(),
 		rules.NewNoGoroutine(),

@@ -12,29 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rules
+package checker
 
 import (
 	"go/ast"
 	"go/token"
+	"os"
 )
 
-// NoGoroutine requires that go f(x, y, z) is not allowed.
-type NoGoroutine struct{}
-
-// NewNoGoroutine creates and returns a NoGoroutine object.
-func NewNoGoroutine() *NoGoroutine {
-	return &NoGoroutine{}
+// Rule is interface for defining lint rules.
+type Rule interface {
+	// GetID returns ID of the rule in string, ID is equal to the file name of that rule.
+	GetID() string
+	// Check verifies if aNode passes rule check. If verification fails lrp creates a report.
+	Check(aNode ast.Node, fs *token.FileSet, lrp *Report)
 }
 
-// GetID returns no_goroutine_rule.
-func (lr *NoGoroutine) GetID() string {
-	return getCallerFileName()
-}
-
-// Check verifies if aNode is not goroutine. If verification fails lrp creates new report.
-func (lr *NoGoroutine) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
-	if gs, ok := aNode.(*ast.GoStmt); ok {
-		lrp.AddReport(gs.Pos(), fs, "goroutine is disallowed.")
-	}
+// RulesFactory is interface to get Rules from a file path.
+type RulesFactory interface {
+	// GetRules returns a list of rules used to check against the files.
+	GetRules(absp string, info os.FileInfo) []Rule
 }

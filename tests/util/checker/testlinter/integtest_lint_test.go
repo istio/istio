@@ -18,18 +18,18 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/tests/util/golinter/linter"
-	"istio.io/istio/tests/util/golinter/rules"
+	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByIssue()}
+	LintRulesList[IntegTest] = []checker.Rule{rules.NewSkipByIssue()}
 
-	rpts := getReport([]string{"testdata/"})
+	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{
-		getAbsPath("testdata/integ/integtest_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
-		getAbsPath("testdata/integtest_integ_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
+		getAbsPath("testdata/integration/integtest_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)",
+		getAbsPath("testdata/integtest_integ_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -38,17 +38,17 @@ func TestIntegTestSkipByIssueRule(t *testing.T) {
 
 func TestIntegTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []rules.LintRule{rules.NewSkipByShort()}
+	LintRulesList[IntegTest] = []checker.Rule{rules.NewSkipByShort()}
 
-	rpts := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/integ/integtest_test.go") +
-		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
-		getAbsPath("testdata/integ/integtest_test.go") +
-			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{getAbsPath("testdata/integration/integtest_test.go") +
+		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
+		getAbsPath("testdata/integration/integtest_test.go") +
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
 		getAbsPath("testdata/integtest_integ_test.go") +
-			":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+			":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
 		getAbsPath("testdata/integtest_integ_test.go") +
-			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
