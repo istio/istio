@@ -22,10 +22,11 @@ import (
 )
 
 // BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
+// It overrides the current context with the one provided (empty to use default).
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func BuildClientConfig(kubeconfig string) (*rest.Config, error) {
+func BuildClientConfig(kubeconfig string, context string) (*rest.Config, error) {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -43,6 +44,6 @@ func BuildClientConfig(kubeconfig string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 	loadingRules.ExplicitPath = kubeconfig
-	configOverrides := &clientcmd.ConfigOverrides{}
+	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
 }

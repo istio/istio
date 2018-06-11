@@ -89,13 +89,13 @@ type MixerServer struct {
 }
 
 // Check is called by the mock mixer api
-func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (mockapi.CheckResponse, rpc.Status) {
-	result := mockapi.CheckResponse{
-		ValidDuration: mockapi.DefaultValidDuration,
-		ValidUseCount: mockapi.DefaultValidUseCount,
-		Referenced:    ts.checkReferenced,
+func (ts *MixerServer) Check(bag attribute.Bag) mixerpb.CheckResponse_PreconditionResult {
+	return mixerpb.CheckResponse_PreconditionResult{
+		Status:               ts.check.run(bag),
+		ValidDuration:        mockapi.DefaultValidDuration,
+		ValidUseCount:        mockapi.DefaultValidUseCount,
+		ReferencedAttributes: ts.checkReferenced,
 	}
-	return result, ts.check.run(bag)
 }
 
 // Report is called by the mock mixer api

@@ -162,7 +162,7 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			lg.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
 
-			crqr.ReferencedAttributes = protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
+			crqr.ReferencedAttributes = *protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = crqr
 		}
 	}

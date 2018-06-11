@@ -27,3 +27,6 @@ tracing:
 
 servicegraph:
   enabled: true
+
+galley:
+  enabled: true

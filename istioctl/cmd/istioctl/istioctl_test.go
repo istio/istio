@@ -181,6 +181,48 @@ var (
 			},
 		},
 	}
+
+	testDestinationRules = []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "googleapis",
+				Namespace: "default",
+				Type:      model.DestinationRule.Type,
+				Group:     model.DestinationRule.Group,
+				Version:   model.DestinationRule.Version,
+			},
+			Spec: &networking.DestinationRule{
+				Host: "*.googleapis.com",
+				TrafficPolicy: &networking.TrafficPolicy{
+					Tls: &networking.TLSSettings{
+						Mode: networking.TLSSettings_SIMPLE,
+					},
+				},
+			},
+		},
+	}
+
+	testServiceEntries = []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "googleapis",
+				Namespace: "default",
+				Type:      model.ServiceEntry.Type,
+				Group:     model.ServiceEntry.Group,
+				Version:   model.ServiceEntry.Version,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"*.googleapis.com"},
+				Ports: []*networking.Port{
+					{
+						Name:     "https",
+						Number:   443,
+						Protocol: "HTTP",
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestGet(t *testing.T) {
@@ -208,8 +250,8 @@ d         RouteRule.config.v1alpha2   default
 		{ // case 2
 			testGateways,
 			strings.Split("get gateways -n default", " "),
-			`NAME               KIND                          NAMESPACE
-bookinfo-gateway   Gateway.networking.v1alpha3   default
+			`GATEWAY NAME       HOSTS     NAMESPACE
+bookinfo-gateway   *         default
 `,
 			nil,
 			false,
@@ -217,8 +259,8 @@ bookinfo-gateway   Gateway.networking.v1alpha3   default
 		{ // case 3
 			testVirtualServices,
 			strings.Split("get virtualservices -n default", " "),
-			`NAME       KIND                                 NAMESPACE
-bookinfo   VirtualService.networking.v1alpha3   default
+			`VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE
+bookinfo               bookinfo-gateway   *             1        0      default
 `,
 			nil,
 			false,
@@ -233,12 +275,14 @@ bookinfo   VirtualService.networking.v1alpha3   default
 		{ // case 5 all
 			append(testRouteRules, testVirtualServices...),
 			strings.Split("get all", " "),
-			`NAME       KIND                                 NAMESPACE
-bookinfo   VirtualService.networking.v1alpha3   default
-a          RouteRule.config.v1alpha2            default
-b          RouteRule.config.v1alpha2            default
-c          RouteRule.config.v1alpha2            istio-system
-d          RouteRule.config.v1alpha2            default
+			`VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE
+bookinfo               bookinfo-gateway   *             1        0      default
+
+NAME      KIND                        NAMESPACE
+a         RouteRule.config.v1alpha2   default
+b         RouteRule.config.v1alpha2   default
+c         RouteRule.config.v1alpha2   istio-system
+d         RouteRule.config.v1alpha2   default
 `,
 			nil,
 			false,
@@ -247,6 +291,24 @@ d          RouteRule.config.v1alpha2            default
 			[]model.Config{},
 			strings.Split("get all", " "),
 			"No resources found.\n",
+			nil,
+			false,
+		},
+		{ // case 7
+			testDestinationRules,
+			strings.Split("get destinationrules", " "),
+			`DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE
+googleapis              *.googleapis.com             default
+`,
+			nil,
+			false,
+		},
+		{ // case 8
+			testServiceEntries,
+			strings.Split("get serviceentries", " "),
+			`SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE
+googleapis           *.googleapis.com   HTTP/443   default
+`,
 			nil,
 			false,
 		},

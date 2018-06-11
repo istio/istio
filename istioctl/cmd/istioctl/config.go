@@ -135,7 +135,7 @@ func createCoreV1Client() (*rest.RESTClient, error) {
 }
 
 func defaultRestConfig() (*rest.Config, error) {
-	config, err := kube.BuildClientConfig(kubeconfig)
+	config, err := kube.BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}

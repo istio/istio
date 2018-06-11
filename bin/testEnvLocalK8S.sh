@@ -182,8 +182,8 @@ function stopIstio() {
 function startPilot() {
   printf "Pilot starting...\n"
   POD_NAME=pilot POD_NAMESPACE=istio-system \
-  ${ISTIO_OUT}/pilot-discovery discovery --port 18080 \
-                                         --monitoringPort 19093 \
+  ${ISTIO_OUT}/pilot-discovery discovery --httpAddr ":18080" \
+                                         --monitoringAddr ":19093" \
                                          --log_target ${LOG_DIR}/pilot.log \
                                          --kubeconfig ${ISTIO_GO}/.circleci/config &
   echo $! > $LOG_DIR/pilot.pid

@@ -374,6 +374,10 @@ message HTTPRoute {
   // Additional HTTP headers to add before forwarding a request to the
   // destination service.
   map<string, string> append_headers = 11;
+  
+  // Http headers to remove before returning the response to the caller
+  // $hide_from_docs
+  map<string, string> remove_response_headers = 12;
 }
 
 // Describes match conditions and actions for routing TCP traffic. The
