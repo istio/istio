@@ -2,8 +2,14 @@
 - name: Define SCC rules to enable containers running with UID zero for Istio service accounts
   shell: "{{ cmd_path }} adm policy add-scc-to-user anyuid -z {{ item }} -n istio-system"
   with_items:
-    - istio-ingress-service-account
-    - istio-egress-service-account
+    - istio-ingressgateway-service-account
+    - istio-egressgateway-service-account
     - istio-pilot-service-account
     - istio-mixer-service-account
+    - istio-mixer-post-install-account
     - istio-ca-service-account
+    - istio-cleanup-old-ca-service-account
+    - istio-sidecar-injector-service-account
+    - istio-citadel-service-account
+    - prometheus
+    - default
