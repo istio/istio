@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type AuthenticationDebug struct {
+type authenticationDebug struct {
 	Host                     string
 	Port                     int
 	AuthenticationPolicyName string
@@ -35,14 +35,15 @@ type AuthenticationDebug struct {
 	TLSConflictStatus        string
 }
 
-// can allows user to query Istio RBAC effect for a specific request.
-func check() *cobra.Command {
+func tlsCheck() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tls_check",
 		Short: "Check whether TLS setting are matching between authentication policy and destination rules",
 		Long: `
+Requests Pilot to check for what authentication policy and destination rule it uses for each service in
+service registry, and check if TLS settings are compatible between them.
 `,
-		Example: ``,
+		Example: `istioclt authn tls_check`,
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pilots, err := getPilotPods()
@@ -53,7 +54,7 @@ func check() *cobra.Command {
 				return errors.New("unable to find any Pilot instances")
 			}
 			if debug, pilotErr := callPilotDiscoveryDebug(pilots, "", "authn"); pilotErr == nil {
-				var dat []AuthenticationDebug
+				var dat []authenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {
 					panic(err)
 				}
@@ -92,12 +93,14 @@ func AuthN() *cobra.Command {
 		Use:   "authn",
 		Short: "Interact with Istio authentication policies",
 		Long: `
+A group of commands used to interact with Istio authentication policies.
+  tls_check
 `,
 		Example: `# Check whether TLS setting are matching between authentication policy and destination rules:
 istioctl authn tls_check`,
 	}
 
-	cmd.AddCommand(check())
+	cmd.AddCommand(tlsCheck())
 	return cmd
 }
 
