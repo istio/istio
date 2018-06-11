@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/tests/util/golinter/linter"
-	"istio.io/istio/tests/util/golinter/rules"
+	"istio.io/istio/tests/util/checker"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
 func getAbsPath(path string) string {
@@ -31,17 +31,18 @@ func getAbsPath(path string) string {
 }
 
 func clearLintRulesList() {
-	delete(linter.LintRulesList, linter.UnitTest)
-	delete(linter.LintRulesList, linter.IntegTest)
-	delete(linter.LintRulesList, linter.E2eTest)
+	delete(LintRulesList, UnitTest)
+	delete(LintRulesList, IntegTest)
+	delete(LintRulesList, E2eTest)
 }
 
 func TestUnitTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssue()}
+	LintRulesList[UnitTest] = []checker.Rule{rules.NewSkipByIssue()}
 
-	rpts := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue."}
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{getAbsPath("testdata/unit_test.go") +
+		":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -50,10 +51,10 @@ func TestUnitTestSkipByIssueRule(t *testing.T) {
 
 func TestUnitTestNoShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoShort()}
+	LintRulesList[UnitTest] = []checker.Rule{rules.NewNoShort()}
 
-	rpts := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":32:5:testing.Short() is disallowed."}
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":32:5:testing.Short() is disallowed. (no_short)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -62,10 +63,10 @@ func TestUnitTestNoShortRule(t *testing.T) {
 
 func TestUnitTestNoSleepRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoSleep()}
+	LintRulesList[UnitTest] = []checker.Rule{rules.NewNoSleep()}
 
-	rpts := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":49:2:time.Sleep() is disallowed."}
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":49:2:time.Sleep() is disallowed. (no_sleep)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -74,10 +75,10 @@ func TestUnitTestNoSleepRule(t *testing.T) {
 
 func TestUnitTestNoGoroutineRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewNoGoroutine()}
+	LintRulesList[UnitTest] = []checker.Rule{rules.NewNoGoroutine()}
 
-	rpts := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":57:2:goroutine is disallowed."}
+	rpts, _ := getReport([]string{"testdata/"})
+	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":57:2:goroutine is disallowed. (no_goroutine)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
@@ -86,18 +87,18 @@ func TestUnitTestNoGoroutineRule(t *testing.T) {
 
 func TestUnitTestWhitelist(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.UnitTest] = []rules.LintRule{rules.NewSkipByIssue(),
+	LintRulesList[UnitTest] = []checker.Rule{rules.NewSkipByIssue(),
 		rules.NewNoShort(),
 		rules.NewNoSleep(),
 		rules.NewNoGoroutine()}
-	linter.WhitelistPath = make(map[string][]string)
-	linter.WhitelistPath["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
+	Whitelist = make(map[string][]string)
+	Whitelist["testdata/unit_test.go"] = []string{"skip_by_issue_rule", "no_short_rule",
 		"no_sleep_rule", "no_goroutine_rule"}
 
-	rpts := getReport([]string{"testdata/*"})
+	rpts, _ := getReport([]string{"testdata/*"})
 	expectedRpts := []string{}
 
-	if !reflect.DeepEqual(rpts, expectedRpts) {
+	if (len(rpts) > 0 || len(expectedRpts) > 0) && !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
 	}
 }

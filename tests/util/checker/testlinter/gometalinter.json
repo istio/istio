@@ -2,12 +2,12 @@
   "Deadline": "90s",
   "Linters": {
     "golinter": {
-      "Command": "golinter",
+      "Command": "testlinter",
       "Pattern": "PATH:LINE:COL:MESSAGE",
       "PartitionStrategy": "directories"
     }
   },
   "Enable": [
-    "golinter"
+    "testlinter"
   ]
 }
