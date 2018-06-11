@@ -195,7 +195,7 @@ if [ "$opttemplate" = true ]; then
   fi
 
   templateYaml=${template/.proto/.yaml}
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -n foobar -o $templateYaml -n $(basename $(dirname "${template}"))-template
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -n foobar -o $templateYaml -n $(basename $(dirname "${template}"))
 
   rm $templatePG
 
