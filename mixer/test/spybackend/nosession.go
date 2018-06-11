@@ -107,6 +107,8 @@ func newNoSessionServer(a *args) (server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
+	fmt.Printf("listening on :%v", s.listener.Addr())
+
 	s.server = grpc.NewServer()
 	metric.RegisterHandleMetricServiceServer(s.server, s)
 	listentry.RegisterHandleListEntryServiceServer(s.server, s)

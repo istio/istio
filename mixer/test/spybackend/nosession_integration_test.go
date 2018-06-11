@@ -18,11 +18,11 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
-	"istio.io/istio/mixer/pkg/lang/ast"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/template/listentry"
@@ -52,6 +52,7 @@ func TestNoSessionBackend(t *testing.T) {
 					return nil, err
 				}
 				s.Run()
+				t.Logf("Started server at: %v", s.Addr())
 				return s, nil
 			},
 			Teardown: func(ctx interface{}) {
@@ -70,42 +71,30 @@ func TestNoSessionBackend(t *testing.T) {
 	)
 }
 
-
-func loadDynamicTemplate(t *testing.T, path string, name string, variety v1beta1.TemplateVariety) *adapter.DynamicTemplate{
+func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *adapter.DynamicInstance {
 	t.Helper()
+	path := fmt.Sprintf("../../template/%s/template_handler_service.descriptor_set", name)
 	fds, err := protoyaml.GetFileDescSet(path)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
-	return &adapter.DynamicTemplate{
+
+	// ../../template/listentry/template_handler_service.descriptor_set
+	return &adapter.DynamicInstance{
 		Name: name,
-		Variety: variety,
-		FileDescSet: fds,
+		Template: &adapter.DynamicTemplate{
+			Name: name,
+			Variety: variety,
+			FileDescSet: fds,
+		},
 	}
 }
 
 func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 	s := ctx.(*noSessionServer)
-	//req := s.requests
-
-	listentryDi := &adapter.DynamicInstance{
-		Name: "listentry1",
-		Template: loadDynamicTemplate(t,
-			"../../template/listentry/template_handler_service.descriptor_set",
-			"listentry", v1beta1.TEMPLATE_VARIETY_CHECK),
-	}
-	metricDi := &adapter.DynamicInstance{
-		Name: "metric1",
-		Template: loadDynamicTemplate(t,
-			"../../template/metric/template_handler_service.descriptor_set",
-			"metric", v1beta1.TEMPLATE_VARIETY_REPORT),
-	}
-	quotaDi := &adapter.DynamicInstance{
-		Name: "quota1",
-		Template: loadDynamicTemplate(t,
-			"../../template/listentry/template_handler_service.descriptor_set",
-			"quota", v1beta1.TEMPLATE_VARIETY_QUOTA),
-	}
+	listentryDi := loadDynamicInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
+	metricDi := loadDynamicInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
+	quotaDi := loadDynamicInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
 
 	adapterConfig := &types.Any{
 		TypeUrl: "@abc",
@@ -125,69 +114,47 @@ func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 		t.Fatalf("unable to build handler: %v", err)
 	}
 
+	// check
 	linst := &listentry.InstanceMsg{
 		Name: "n1",
 		Value: "v1",
 	}
 	linstBa, _ := linst.Marshal()
-	cr, err := h.HandleRemoteCheck(context.Background(), linstBa, "listentry1")
+	le, err := h.HandleRemoteCheck(context.Background(), linstBa, listentryDi.Name)
 	if err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
-	_ = cr
+
+	expectEqual(linst, s.requests.handleListEntryRequest[0].Instance, t)
+	expectEqual(le, asAdapterCheckResult(s.behavior.handleListEntryResult), t)
+
+	// report
+	minst := &metric.InstanceMsg{
+		Name: metricDi.Name,
+		Value: &attributeV1beta1.Value{
+			Value: &attributeV1beta1.Value_StringValue{
+				StringValue: "aaaaaaaaaaaaaaaa",
+			},
+		},
+	}
+	minstBa, _ := minst.Marshal()
+	if err = h.HandleRemoteReport(context.Background(), [][]byte{minstBa}, metricDi.Name);err != nil {
+		t.Fatalf("HandleRemoteCheck returned: %v", err)
+	}
+	expectEqual(minst, s.requests.handleMetricRequest[0].Instances[0], t)
+
+
 
 	return nil
 }
 
-
-/*
-func validateNoSessionBackend1(ctx interface{}, t *testing.T) error {
-	s := ctx.(*noSessionServer)
-	req := s.requests
-	// Connect the client to Mixer
-	codec := grpc.CallCustomCodec(ByteCodec{})
-	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(codec))
-	if err != nil {
-		t.Fatalf("Unable to connect to gRPC server: %v", err)
+func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
+	return &adapter.CheckResult{
+		Status: result.Status,
+		ValidUseCount: result.ValidUseCount,
+		ValidDuration: result.ValidDuration,
 	}
-	defer closeHelper(conn)
-
-	fds, err := protoyaml.GetFileDescSet("../../template/metric/template_handler_service_proto.descriptor_set")
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
-	res := protoyaml.NewResolver(fds)
-
-
-
-	t.Logf("ra = %s", ra)
-
-	builder := dynamic.NewEncoderBuilder(res, compiler, false)
-	var enc dynamic.Encoder
-	var ba []byte
-
-	enc, err = builder.Build(".metric.InstanceMsg", map[string]interface{}{
-		"name":  "'abc'",
-		"value": 2000,
-	})
-	t.Logf("enc: %v, err:%v ba:%v", enc, err, ba)
-
-	vv := attributeV1beta1.Value_StringValue{}
-	vv.StringValue = "abc"
-	ba, err = enc.Encode(nil, ba)
-
-	t.Logf("%v: %v %v", req, res, compiler)
-
-	//	return validateHandleCalls(
-	//		metric.NewHandleMetricServiceClient(conn),
-	//		listentry.NewHandleListEntryServiceClient(conn),
-	//		quota.NewHandleQuotaServiceClient(conn),
-	//		req)
-
-	return nil
 }
-*/
 
 func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *requests) error {
@@ -217,69 +184,13 @@ func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 	return nil
 }
 
-
-
-// StatdardVocabulary returns Istio standard vocabulary
-func StatdardVocabulary() ast.AttributeDescriptorFinder {
-	attrs := map[string]*attributeV1beta1.AttributeManifest_AttributeInfo{
-		"api.operation":                   {ValueType: attributeV1beta1.STRING},
-		"api.protocol":                    {ValueType: attributeV1beta1.STRING},
-		"api.service":                     {ValueType: attributeV1beta1.STRING},
-		"api.version":                     {ValueType: attributeV1beta1.STRING},
-		"connection.duration":             {ValueType: attributeV1beta1.DURATION},
-		"connection.id":                   {ValueType: attributeV1beta1.STRING},
-		"connection.received.bytes":       {ValueType: attributeV1beta1.INT64},
-		"connection.received.bytes_total": {ValueType: attributeV1beta1.INT64},
-		"connection.sent.bytes":           {ValueType: attributeV1beta1.INT64},
-		"connection.sent.bytes_total":     {ValueType: attributeV1beta1.INT64},
-		"context.protocol":                {ValueType: attributeV1beta1.STRING},
-		"context.time":                    {ValueType: attributeV1beta1.TIMESTAMP},
-		"context.timestamp":               {ValueType: attributeV1beta1.TIMESTAMP},
-		"destination.ip":                  {ValueType: attributeV1beta1.IP_ADDRESS},
-		"destination.labels":              {ValueType: attributeV1beta1.STRING_MAP},
-		"destination.name":                {ValueType: attributeV1beta1.STRING},
-		"destination.namespace":           {ValueType: attributeV1beta1.STRING},
-		"destination.service":             {ValueType: attributeV1beta1.STRING},
-		"destination.serviceAccount":      {ValueType: attributeV1beta1.STRING},
-		"destination.uid":                 {ValueType: attributeV1beta1.STRING},
-		"origin.ip":                       {ValueType: attributeV1beta1.IP_ADDRESS},
-		"origin.uid":                      {ValueType: attributeV1beta1.STRING},
-		"origin.user":                     {ValueType: attributeV1beta1.STRING},
-		"request.api_key":                 {ValueType: attributeV1beta1.STRING},
-		"request.auth.audiences":          {ValueType: attributeV1beta1.STRING},
-		"request.auth.presenter":          {ValueType: attributeV1beta1.STRING},
-		"request.auth.principal":          {ValueType: attributeV1beta1.STRING},
-		"request.auth.claims":             {ValueType: attributeV1beta1.STRING_MAP},
-		"request.headers":                 {ValueType: attributeV1beta1.STRING_MAP},
-		"request.host":                    {ValueType: attributeV1beta1.STRING},
-		"request.id":                      {ValueType: attributeV1beta1.STRING},
-		"request.method":                  {ValueType: attributeV1beta1.STRING},
-		"request.path":                    {ValueType: attributeV1beta1.STRING},
-		"request.reason":                  {ValueType: attributeV1beta1.STRING},
-		"request.referer":                 {ValueType: attributeV1beta1.STRING},
-		"request.scheme":                  {ValueType: attributeV1beta1.STRING},
-		"request.size":                    {ValueType: attributeV1beta1.INT64},
-		"request.time":                    {ValueType: attributeV1beta1.TIMESTAMP},
-		"request.useragent":               {ValueType: attributeV1beta1.STRING},
-		"response.code":                   {ValueType: attributeV1beta1.INT64},
-		"response.duration":               {ValueType: attributeV1beta1.DURATION},
-		"response.headers":                {ValueType: attributeV1beta1.STRING_MAP},
-		"response.size":                   {ValueType: attributeV1beta1.INT64},
-		"response.time":                   {ValueType: attributeV1beta1.TIMESTAMP},
-		"source.ip":                       {ValueType: attributeV1beta1.IP_ADDRESS},
-		"source.labels":                   {ValueType: attributeV1beta1.STRING_MAP},
-		"source.name":                     {ValueType: attributeV1beta1.STRING},
-		"source.namespace":                {ValueType: attributeV1beta1.STRING},
-		"source.service":                  {ValueType: attributeV1beta1.STRING},
-		"source.serviceAccount":           {ValueType: attributeV1beta1.STRING},
-		"source.uid":                      {ValueType: attributeV1beta1.STRING},
-		"source.user":                     {ValueType: attributeV1beta1.STRING},
-		"test.bool":                       {ValueType: attributeV1beta1.BOOL},
-		"test.double":                     {ValueType: attributeV1beta1.DOUBLE},
-		"test.i32":                        {ValueType: attributeV1beta1.INT64},
-		"test.i64":                        {ValueType: attributeV1beta1.INT64},
-		"test.float":                      {ValueType: attributeV1beta1.DOUBLE},
+func expectEqual(got interface{}, want interface{}, t *testing.T) {
+	t.Helper()
+	s, equal:= diff.PrettyDiff(got, want)
+	if equal {
+		return
 	}
 
-	return ast.NewFinder(attrs)
+	t.Logf("difference: %s", s)
+	t.Fatalf("\n got: %v\nwant: %v", got, want)
 }

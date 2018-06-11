@@ -23,10 +23,10 @@ import (
 	policypb "istio.io/api/policy/v1beta1"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"github.com/pkg/errors"
-	"bytes"
 	"go.uber.org/atomic"
 	istiolog "istio.io/istio/pkg/log"
 	"math/rand"
+	"github.com/gogo/protobuf/proto"
 )
 var (
 	 log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
@@ -59,8 +59,9 @@ type (
 		re *RequestEncoder
 	}
 
-	// byteCodec is the noop codec for grpc connection since we provide pre-encoded data
-	byteCodec struct{}
+	// Codec in no-op on the way out and unmarshals using normal means
+	// on the way in.
+	Codec struct{}
 )
 
 // handler: Create a dynamic handler object exposing specific handler interfaces.
@@ -110,7 +111,7 @@ func (h *Handler) Close() error{
 }
 
 func (h *Handler) connect() (err error) {
-	codec := grpc.CallCustomCodec(byteCodec{})
+	codec := grpc.CallCustomCodec(Codec{})
 	// TODO add simple secure option
 	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(codec)); err != nil {
 		log.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
@@ -338,14 +339,18 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 }
 
 
-func (byteCodec) Marshal(v interface{}) ([]byte, error) {
-	return v.(*bytes.Buffer).Bytes(), nil
+// Marshal
+func (Codec) Marshal(v interface{}) ([]byte, error) {
+	return v.([]byte), nil
 }
-func (byteCodec) Unmarshal(data []byte, v interface{}) error {
-	_, err := v.(*bytes.Buffer).Write(data)
-	return err
+func (Codec) Unmarshal(data []byte, v interface{}) error {
+	if um, ok := v.(proto.Unmarshaler); ok {
+		return um.Unmarshal(data)
+	}
+
+	return fmt.Errorf("unable to unmarshal type:%T, %v", v, v)
 }
-func (byteCodec) String() string {
+func (Codec) String() string {
 	return "byte buffer"
 }
 
