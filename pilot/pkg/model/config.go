@@ -31,6 +31,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	// GlobalConfigNamespace policies/configs in this namespace can be matched to services/workloads
+	// in any other namespaces.
+	GlobalConfigNamespace = "istio-global-config"
+
+	GlobalAuthenticationPolicyName = "global"
+)
+
 // ConfigMeta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.
@@ -1007,28 +1015,46 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 }
 
 func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config {
+	var out *Config
+	// Indicate if a policy matched to target destination:
+	// 0 - not match.
+	// 1 - global / cluster scope.
+	// 2 - namespace scope.
+	// 3 - workload / service.
+	currentMatchLevel := 0
+
+	// Check for global policy.
+	// Global authentication policy must be:
+	// - In global config namespace (i.e `istio-global-config`)
+	// - Name is `global`. Policies with different name are ignored.
+	//
+	// Also, the global authentication policy should not have any targets (as it's supposed to
+	// match all), so it's not neccessary to check the targets spec against the requested host/port.
+	if specs, err := store.List(AuthenticationPolicy.Type, GlobalConfigNamespace); err == nil {
+		for i, spec := range specs {
+			if spec.Name == GlobalAuthenticationPolicyName {
+				currentMatchLevel = 1
+				out = &specs[i]
+			}
+		}
+	}
+
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
 	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
-		// Bad hostname, return no policy.
-		return nil
+		// Bad hostname.
+		return out
 	}
 	namespace := parts[1]
-	// TODO(diemtvu): check for 'global' policy first, when available.
-	// Tracking issue https://github.com/istio/istio/issues/4027
+	// Gets all policies in the requested host's namespace
 	specs, err := store.List(AuthenticationPolicy.Type, namespace)
 	if err != nil {
-		return nil
+		return out
 	}
-	var out Config
-	currentMatchLevel := 0
-	for _, spec := range specs {
+
+	for i, spec := range specs {
 		policy := spec.Spec.(*authn.Policy)
-		// Indicate if a policy matched to target destination:
-		// 0 - not match.
-		// 1 - global / cluster scope.
-		// 2 - namespace scope.
-		// 3 - workload (service).
+
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
@@ -1060,14 +1086,10 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		// Swap output policy that is match in more specific scope.
 		if matchLevel > currentMatchLevel {
 			currentMatchLevel = matchLevel
-			out = spec
+			out = &specs[i]
 		}
 	}
-	// Zero-currentMatchLevel implies no config matching the destination found.
-	if currentMatchLevel == 0 {
-		return nil
-	}
-	return &out
+	return out
 }
 
 func (store *istioConfigStore) ServiceRoles(namespace string) []Config {

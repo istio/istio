@@ -643,6 +643,112 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 }
 
+func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	globalPolicy := authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+	namespacePolicy := authn.Policy{}
+	helloPolicy := authn.Policy{
+		Targets: []*authn.TargetSelector{{
+			Name: "hello",
+		}},
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
+	authNPolicies := []struct {
+		name      string
+		namespace string
+		policy    *authn.Policy
+	}{
+		{
+			name:      model.GlobalAuthenticationPolicyName,
+			namespace: model.GlobalConfigNamespace,
+			policy:    &globalPolicy,
+		},
+		{
+			name:      "namespace-policy",
+			namespace: "default",
+			policy:    &namespacePolicy,
+		},
+		{
+			name:      "hello-policy",
+			namespace: "default",
+			policy:    &helloPolicy,
+		},
+	}
+	for _, in := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      in.name,
+				Group:     "authentication",
+				Version:   "v1alpha2",
+				Namespace: in.namespace,
+				Domain:    "cluster.local",
+			},
+			Spec: in.policy,
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname model.Hostname
+		port     int
+		expected *authn.Policy
+	}{
+		{
+			hostname: "hello.default.svc.cluster.local",
+			port:     80,
+			expected: &helloPolicy,
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     80,
+			expected: &namespacePolicy,
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     8080,
+			expected: &namespacePolicy,
+		},
+		{
+			hostname: "hello.another-galaxy.svc.cluster.local",
+			port:     8080,
+			expected: &globalPolicy,
+		},
+		{
+			hostname: "world.another-galaxy.svc.cluster.local",
+			port:     9090,
+			expected: &globalPolicy,
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+
+		if out == nil {
+			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
+			// return non `nill` config.
+			t.Errorf("AuthenticationPolicy(%s:%d) => cannot be nil", testCase.hostname, testCase.port)
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(testCase.expected, policy) {
+				t.Errorf("AuthenticationPolicy(%s:%d) => expected:\n%s\nbut got:\n%s\n(from %s/%s)",
+					testCase.hostname, testCase.port, testCase.expected.String(), policy.String(), out.Name, out.Namespace)
+			}
+		}
+	}
+}
+
 func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
