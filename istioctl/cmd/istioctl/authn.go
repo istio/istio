@@ -23,17 +23,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	proxy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
-
-type authenticationDebug struct {
-	Host                     string
-	Port                     int
-	AuthenticationPolicyName string
-	DestinationRuleName      string
-	ServerProtocol           string
-	ClientProtocol           string
-	TLSConflictStatus        string
-}
 
 func tlsCheck() *cobra.Command {
 	cmd := &cobra.Command{
@@ -54,7 +45,7 @@ service registry, and check if TLS settings are compatible between them.
 				return errors.New("unable to find any Pilot instances")
 			}
 			if debug, pilotErr := callPilotDiscoveryDebug(pilots, "", "authn"); pilotErr == nil {
-				var dat []authenticationDebug
+				var dat []proxy.AuthenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {
 					panic(err)
 				}

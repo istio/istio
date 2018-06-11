@@ -28,8 +28,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -405,21 +405,7 @@ func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, por
 	if rule.TrafficPolicy == nil {
 		return false
 	}
-	/*
-	for _, prule := range rule.TrafficPolicy.PortLevelSettings {
-		switch selector := prule.Port.Port.(type) {
-		case *networking.PortSelector_Name:
-			if port.Name == selector.Name {
-				return prule.Tls != nil && prule.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
-			}
-		case *networking.PortSelector_Number:
-			if uint32(port.Port) == selector.Number {
-				return prule.Tls != nil && prule.Tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
-			}
-		}
-	}
-	*/
-	_, _, _, tls :=  networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
+	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
 	return tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
 }
