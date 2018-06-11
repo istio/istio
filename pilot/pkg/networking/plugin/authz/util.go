@@ -22,7 +22,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 )
 
