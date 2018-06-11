@@ -23,7 +23,6 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -59,6 +58,16 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 	}
 }
 
+// BuildWithLength builds an Encoder that also encodes length of the top level message.
+func (c Builder) BuildWithLength(msgName string, data map[string]interface{}) (Encoder, error) {
+	m := c.resolver.ResolveMessage(msgName)
+	if m == nil {
+		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
+	}
+
+	return c.buildMessage(m, data, false)
+}
+
 // Build builds an Encoder
 func (c Builder) Build(msgName string, data map[string]interface{}) (Encoder, error) {
 	m := c.resolver.ResolveMessage(msgName)
@@ -70,8 +79,6 @@ func (c Builder) Build(msgName string, data map[string]interface{}) (Encoder, er
 }
 
 func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]interface{}, skipEncodeLength bool) (Encoder, error) {
-	var ok bool
-
 	me := messageEncoder{
 		skipEncodeLength: skipEncodeLength,
 	}
@@ -98,6 +105,15 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			return nil, fmt.Errorf("fieldEncoder '%s' not found in message '%s'", k, md.GetName())
 		}
 
+		// If the input already has an encoder
+		// just use it
+		if de, ok := v.(Encoder); ok {
+			fld := makeField(fd)
+			fld.encoder = []Encoder{de}
+			me.fields = append(me.fields, fld)
+			continue
+		}
+
 		// if the message is a map, key is never
 		// treated as an expression.
 		noExpr := isMap && k == "key"
@@ -105,6 +121,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 		switch fd.GetType() {
 		case descriptor.FieldDescriptorProto_TYPE_STRING:
 			var ma []interface{}
+			var ok bool
 			if fd.IsRepeated() {
 				if ma, ok = v.([]interface{}); !ok {
 					return nil, fmt.Errorf("unable to process %s:  %v, got %T, want: []interface{}", fd.GetName(), v, v)
@@ -154,6 +171,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			}
 
 			var ma []interface{}
+			var ok bool
 			if m.GetOptions().GetMapEntry() { // this is a Map
 				ma, err = convertMapToMapentry(v)
 				if err != nil {

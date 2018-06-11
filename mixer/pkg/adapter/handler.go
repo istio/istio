@@ -61,7 +61,7 @@ type (
 		Handler
 
 		// HandleRemoteReport performs report call based on pre encoded instances.
-		HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) (error)
+		HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) error
 	}
 
 	// RemoteQuotaHandler calls remote report adapter.
