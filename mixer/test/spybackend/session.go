@@ -28,7 +28,7 @@ import (
 )
 
 type sessionServer struct {
-	noSessionServer
+	NoSessionServer
 }
 
 var _ adptModel.InfrastructureBackendServer = &sessionServer{}
@@ -38,21 +38,21 @@ var _ quota.HandleQuotaServiceServer = &sessionServer{}
 
 // Non request time rpcs
 func (s *sessionServer) Validate(c context.Context, r *adptModel.ValidateRequest) (*adptModel.ValidateResponse, error) {
-	s.requests.validateRequest = append(s.requests.validateRequest, r)
-	return s.behavior.validateResponse, s.behavior.validateError
+	s.Requests.ValidateRequest = append(s.Requests.ValidateRequest, r)
+	return s.Behavior.ValidateResponse, s.Behavior.ValidateError
 }
 func (s *sessionServer) CreateSession(c context.Context, r *adptModel.CreateSessionRequest) (*adptModel.CreateSessionResponse, error) {
-	s.requests.createSessionRequest = append(s.requests.createSessionRequest, r)
-	return s.behavior.createSessionResponse, s.behavior.createSessionError
+	s.Requests.CreateSessionRequest = append(s.Requests.CreateSessionRequest, r)
+	return s.Behavior.CreateSessionResponse, s.Behavior.CreateSessionError
 }
 func (s *sessionServer) CloseSession(c context.Context, r *adptModel.CloseSessionRequest) (*adptModel.CloseSessionResponse, error) {
-	s.requests.closeSessionRequest = append(s.requests.closeSessionRequest, r)
-	return s.behavior.closeSessionResponse, s.behavior.closeSessionError
+	s.Requests.CloseSessionRequest = append(s.Requests.CloseSessionRequest, r)
+	return s.Behavior.CloseSessionResponse, s.Behavior.CloseSessionError
 }
 
 // nolint:deadcode
-func newSessionServer(a *args) (server, error) {
-	s := &sessionServer{noSessionServer{behavior: a.behavior, requests: a.requests}}
+func newSessionServer(a *Args) (Server, error) {
+	s := &sessionServer{NoSessionServer{Behavior: a.Behavior, Requests: a.Requests}}
 	s.server = grpc.NewServer()
 	var err error
 
