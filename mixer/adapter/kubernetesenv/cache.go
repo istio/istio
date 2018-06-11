@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -71,9 +72,8 @@ func podIP(obj interface{}) ([]string, error) {
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
-func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, is18Cluster bool, env adapter.Env) cacheController {
+func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
 	namespace := "" // todo: address unparam linter issue
-
 	controller := &controllerImpl{
 		env: env,
 		pods: cache.NewSharedIndexInformer(
@@ -91,7 +91,27 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				"ip": podIP,
 			},
 		),
-		appsv1beta2RS: cache.NewSharedIndexInformer(
+	}
+
+	discoveryClient := clientset.Discovery()
+	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1.SchemeGroupVersion); err == nil {
+		controller.appsv1RS = cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+					return clientset.AppsV1().ReplicaSets(namespace).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.AppsV1().ReplicaSets(namespace).Watch(opts)
+				},
+			},
+			&appsv1.ReplicaSet{},
+			refreshDuration,
+			cache.Indexers{},
+		)
+	}
+
+	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1beta2.SchemeGroupVersion); err == nil {
+		controller.appsv1beta2RS = cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 					return clientset.AppsV1beta2().ReplicaSets(namespace).List(opts)
@@ -103,8 +123,11 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 			&appsv1beta2.ReplicaSet{},
 			refreshDuration,
 			cache.Indexers{},
-		),
-		extv1beta1RS: cache.NewSharedIndexInformer(
+		)
+	}
+
+	if err := discovery.ServerSupportsVersion(discoveryClient, extv1beta1.SchemeGroupVersion); err == nil {
+		controller.extv1beta1RS = cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 					return clientset.ExtensionsV1beta1().ReplicaSets(namespace).List(opts)
@@ -114,22 +137,6 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				},
 			},
 			&extv1beta1.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		),
-	}
-
-	if !is18Cluster {
-		controller.appsv1RS = cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.AppsV1().ReplicaSets(namespace).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.AppsV1().ReplicaSets(namespace).Watch(opts)
-				},
-			},
-			&appsv1.ReplicaSet{},
 			refreshDuration,
 			cache.Indexers{},
 		)
