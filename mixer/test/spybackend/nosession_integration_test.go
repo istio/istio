@@ -18,18 +18,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	diff "gopkg.in/d4l3k/messagediff.v1"
+
+	"google.golang.org/grpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
-	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
-	"istio.io/istio/mixer/pkg/adapter"
-	"github.com/gogo/protobuf/types"
 )
 
 // This test for now just validates the backend can be started and tested against. This is will be used to verify
@@ -41,22 +37,21 @@ func TestNoSessionBackend(t *testing.T) {
 		nil,
 		adapter_integration.Scenario{
 			Setup: func() (interface{}, error) {
-				args := defaultArgs()
-				args.behavior.handleMetricResult = &v1beta1.ReportResult{}
-				args.behavior.handleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
-				args.behavior.handleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
+				args := DefaultArgs()
+				args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
+				args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
+				args.Behavior.HandleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
 
-				var s server
+				var s Server
 				var err error
-				if s, err = newNoSessionServer(args); err != nil {
+				if s, err = NewNoSessionServer(args); err != nil {
 					return nil, err
 				}
 				s.Run()
-				t.Logf("Started server at: %v", s.Addr())
 				return s, nil
 			},
 			Teardown: func(ctx interface{}) {
-				_ = ctx.(server).Close()
+				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
 				return nil, validateNoSessionBackend(ctx, t)
@@ -71,93 +66,25 @@ func TestNoSessionBackend(t *testing.T) {
 	)
 }
 
-func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *adapter.DynamicInstance {
-	t.Helper()
-	path := fmt.Sprintf("../../template/%s/template_handler_service.descriptor_set", name)
-	fds, err := protoyaml.GetFileDescSet(path)
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-
-	// ../../template/listentry/template_handler_service.descriptor_set
-	return &adapter.DynamicInstance{
-		Name: name,
-		Template: &adapter.DynamicTemplate{
-			Name: name,
-			Variety: variety,
-			FileDescSet: fds,
-		},
-	}
-}
-
 func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
-	s := ctx.(*noSessionServer)
-	listentryDi := loadDynamicInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
-	metricDi := loadDynamicInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
-	quotaDi := loadDynamicInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
-
-	adapterConfig := &types.Any{
-		TypeUrl: "@abc",
-		Value:   []byte("abcd"),
-	}
-	handlerConfig := &adapter.DynamicHandler{
-		Name: "spy",
-		Connection: &attributeV1beta1.Connection{Address: s.Addr().String()},
-		Adapter: &adapter.Dynamic{
-			SessionBased: false,
-		},
-		AdapterConfig: adapterConfig,
-	}
-
-	h, err := dynamic.BuildHandler(handlerConfig, []*adapter.DynamicInstance{listentryDi, metricDi, quotaDi}, nil)
+	s := ctx.(*NoSessionServer)
+	req := s.Requests
+	// Connect the client to Mixer
+	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
-		t.Fatalf("unable to build handler: %v", err)
+		t.Fatalf("Unable to connect to gRPC server: %v", err)
 	}
+	defer closeHelper(conn)
 
-	// check
-	linst := &listentry.InstanceMsg{
-		Name: "n1",
-		Value: "v1",
-	}
-	linstBa, _ := linst.Marshal()
-	le, err := h.HandleRemoteCheck(context.Background(), linstBa, listentryDi.Name)
-	if err != nil {
-		t.Fatalf("HandleRemoteCheck returned: %v", err)
-	}
-
-	expectEqual(linst, s.requests.handleListEntryRequest[0].Instance, t)
-	expectEqual(le, asAdapterCheckResult(s.behavior.handleListEntryResult), t)
-
-	// report
-	minst := &metric.InstanceMsg{
-		Name: metricDi.Name,
-		Value: &attributeV1beta1.Value{
-			Value: &attributeV1beta1.Value_StringValue{
-				StringValue: "aaaaaaaaaaaaaaaa",
-			},
-		},
-	}
-	minstBa, _ := minst.Marshal()
-	if err = h.HandleRemoteReport(context.Background(), [][]byte{minstBa}, metricDi.Name);err != nil {
-		t.Fatalf("HandleRemoteCheck returned: %v", err)
-	}
-	expectEqual(minst, s.requests.handleMetricRequest[0].Instances[0], t)
-
-
-
-	return nil
-}
-
-func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
-	return &adapter.CheckResult{
-		Status: result.Status,
-		ValidUseCount: result.ValidUseCount,
-		ValidDuration: result.ValidDuration,
-	}
+	return validateHandleCalls(
+		metric.NewHandleMetricServiceClient(conn),
+		listentry.NewHandleListEntryServiceClient(conn),
+		quota.NewHandleQuotaServiceClient(conn),
+		req)
 }
 
 func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
-	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *requests) error {
+	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *Requests) error {
 	if _, err := metricClt.HandleMetric(context.Background(), &metric.HandleMetricRequest{}); err != nil {
 		return err
 	}
@@ -172,25 +99,14 @@ func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 		return fmt.Errorf("got quota.GrantedAmount %v; want %v", qr.Quotas["key1"].GrantedAmount, 31)
 	}
 
-	if len(req.handleQuotaRequest) != 1 {
-		return fmt.Errorf("got quota calls %d; want %d", len(req.handleQuotaRequest), 1)
+	if len(req.HandleQuotaRequest) != 1 {
+		return fmt.Errorf("got quota calls %d; want %d", len(req.HandleQuotaRequest), 1)
 	}
-	if len(req.handleMetricRequest) != 1 {
-		return fmt.Errorf("got metric calls %d; want %d", len(req.handleMetricRequest), 1)
+	if len(req.HandleMetricRequest) != 1 {
+		return fmt.Errorf("got metric calls %d; want %d", len(req.HandleMetricRequest), 1)
 	}
-	if len(req.handleListEntryRequest) != 1 {
-		return fmt.Errorf("got listentry calls %d; want %d", len(req.handleListEntryRequest), 1)
+	if len(req.HandleListEntryRequest) != 1 {
+		return fmt.Errorf("got listentry calls %d; want %d", len(req.HandleListEntryRequest), 1)
 	}
 	return nil
-}
-
-func expectEqual(got interface{}, want interface{}, t *testing.T) {
-	t.Helper()
-	s, equal:= diff.PrettyDiff(got, want)
-	if equal {
-		return
-	}
-
-	t.Logf("difference: %s", s)
-	t.Fatalf("\n got: %v\nwant: %v", got, want)
 }

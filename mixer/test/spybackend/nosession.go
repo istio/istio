@@ -28,43 +28,43 @@ import (
 )
 
 type (
-	server interface {
+	Server interface {
 		Addr() net.Addr
 		Close() error
 		Run()
 	}
 
-	noSessionServer struct {
+	NoSessionServer struct {
 		listener net.Listener
 		shutdown chan error
 		server   *grpc.Server
-		behavior *behavior
-		requests *requests
+		Behavior *Behavior
+		Requests *Requests
 	}
 )
 
-var _ metric.HandleMetricServiceServer = &noSessionServer{}
-var _ listentry.HandleListEntryServiceServer = &noSessionServer{}
-var _ quota.HandleQuotaServiceServer = &noSessionServer{}
+var _ metric.HandleMetricServiceServer = &NoSessionServer{}
+var _ listentry.HandleListEntryServiceServer = &NoSessionServer{}
+var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 
-func (s *noSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
-	s.requests.handleMetricRequest = append(s.requests.handleMetricRequest, r)
-	return s.behavior.handleMetricResult, s.behavior.handleMetricError
+func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
+	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
+	return s.Behavior.HandleMetricResult, s.Behavior.HandleMetricError
 }
-func (s *noSessionServer) HandleListEntry(c context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
-	s.requests.handleListEntryRequest = append(s.requests.handleListEntryRequest, r)
-	return s.behavior.handleListEntryResult, s.behavior.handleListEntryError
+func (s *NoSessionServer) HandleListEntry(c context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
+	s.Requests.HandleListEntryRequest = append(s.Requests.HandleListEntryRequest, r)
+	return s.Behavior.HandleListEntryResult, s.Behavior.HandleListEntryError
 }
-func (s *noSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
-	s.requests.handleQuotaRequest = append(s.requests.handleQuotaRequest, r)
-	return s.behavior.handleQuotaResult, s.behavior.handleQuotaError
+func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
+	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
+	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
 }
 
-func (s *noSessionServer) Addr() net.Addr {
+func (s *NoSessionServer) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-func (s *noSessionServer) Run() {
+func (s *NoSessionServer) Run() {
 	s.shutdown = make(chan error, 1)
 	go func() {
 		err := s.server.Serve(s.listener)
@@ -74,7 +74,7 @@ func (s *noSessionServer) Run() {
 	}()
 }
 
-func (s *noSessionServer) Wait() error {
+func (s *NoSessionServer) Wait() error {
 	if s.shutdown == nil {
 		return fmt.Errorf("server not running")
 	}
@@ -84,7 +84,7 @@ func (s *noSessionServer) Wait() error {
 	return err
 }
 
-func (s *noSessionServer) Close() error {
+func (s *NoSessionServer) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
@@ -98,8 +98,8 @@ func (s *noSessionServer) Close() error {
 }
 
 // nolint:deadcode
-func newNoSessionServer(a *args) (server, error) {
-	s := &noSessionServer{behavior: a.behavior, requests: a.requests}
+func NewNoSessionServer(a *Args) (Server, error) {
+	s := &NoSessionServer{Behavior: a.Behavior, Requests: a.Requests}
 	var err error
 
 	if s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", 0)); err != nil {

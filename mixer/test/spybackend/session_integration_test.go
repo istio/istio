@@ -43,15 +43,15 @@ func TestSessionBackend(t *testing.T) {
 		nil,
 		adapter_integration.Scenario{
 			Setup: func() (interface{}, error) {
-				args := defaultArgs()
-				args.behavior.validateResponse = &v1beta1.ValidateResponse{Status: &rpc.Status{Code: 0}}
-				args.behavior.createSessionResponse = &v1beta1.CreateSessionResponse{Status: &rpc.Status{Code: 0}, SessionId: "1234"}
-				args.behavior.closeSessionResponse = &v1beta1.CloseSessionResponse{Status: &rpc.Status{Code: 0}}
-				args.behavior.handleMetricResult = &v1beta1.ReportResult{}
-				args.behavior.handleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
-				args.behavior.handleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
+				args := DefaultArgs()
+				args.Behavior.ValidateResponse = &v1beta1.ValidateResponse{Status: &rpc.Status{Code: 0}}
+				args.Behavior.CreateSessionResponse = &v1beta1.CreateSessionResponse{Status: &rpc.Status{Code: 0}, SessionId: "1234"}
+				args.Behavior.CloseSessionResponse = &v1beta1.CloseSessionResponse{Status: &rpc.Status{Code: 0}}
+				args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
+				args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
+				args.Behavior.HandleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
 
-				var s server
+				var s Server
 				var err error
 				if s, err = newSessionServer(args); err != nil {
 					return nil, err
@@ -60,7 +60,7 @@ func TestSessionBackend(t *testing.T) {
 				return s, nil
 			},
 			Teardown: func(ctx interface{}) {
-				_ = ctx.(server).Close()
+				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
 				return nil, validateSessionBackend(ctx, t)
@@ -111,5 +111,5 @@ func validateSessionBackend(ctx interface{}, t *testing.T) error {
 		metric.NewHandleMetricServiceClient(conn),
 		listentry.NewHandleListEntryServiceClient(conn),
 		quota.NewHandleQuotaServiceClient(conn),
-		s.requests)
+		s.Requests)
 }
