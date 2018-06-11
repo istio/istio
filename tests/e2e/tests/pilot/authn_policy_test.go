@@ -21,7 +21,7 @@ import (
 )
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
-	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
+	// This policy will enable mTLS globally, and disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl", "testdata/authn/destination-rule.yaml.tmpl"},
