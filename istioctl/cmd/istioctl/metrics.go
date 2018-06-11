@@ -184,8 +184,7 @@ func availablePort() (int, error) {
 		return 0, err
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return port, nil
+	return port, l.Close()
 }
 
 func prometheusAPI(port int) (promv1.API, error) {
@@ -263,7 +262,7 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 func printHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintf(w, "%13sSERVICE\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "")
-	w.Flush()
+	_ = w.Flush()
 }
 
 func printMetrics(sm serviceMetrics) {
@@ -274,5 +273,5 @@ func printMetrics(sm serviceMetrics) {
 	fmt.Fprintf(w, "%s\t", sm.p50Latency)
 	fmt.Fprintf(w, "%s\t", sm.p90Latency)
 	fmt.Fprintf(w, "%s\t\n", sm.p99Latency)
-	w.Flush()
+	_ = w.Flush()
 }
