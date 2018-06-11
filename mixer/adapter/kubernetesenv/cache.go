@@ -188,17 +188,28 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 }
 
 func (c *controllerImpl) HasSynced() bool {
-	return c.pods.HasSynced() &&
-		c.appsv1beta2RS.HasSynced() &&
-		c.extv1beta1RS.HasSynced() &&
-		(c.appsv1RS != nil && c.appsv1RS.HasSynced())
+	synced := c.pods.HasSynced()
+	if c.appsv1RS != nil {
+		synced = synced && c.appsv1RS.HasSynced()
+	}
+	if c.appsv1beta2RS != nil {
+		synced = synced && c.appsv1beta2RS.HasSynced()
+	}
+	if c.extv1beta1RS != nil {
+		synced = synced && c.extv1beta1RS.HasSynced()
+	}
+	return synced
 }
 
 func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
-	c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
-	c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
+	if c.appsv1beta2RS != nil {
+		c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
+	}
+	if c.extv1beta1RS != nil {
+		c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
+	}
 	if c.appsv1RS != nil {
 		c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
 	}
