@@ -57,6 +57,8 @@ func suffixMatch(a string, pattern string) bool {
 	return strings.HasSuffix(a, pattern)
 }
 
+// convertToCidr converts a CIDR or a single IP string to a corresponding CidrRange. For a single IP
+// string the converted CidrRange prefix is either 32 (for ipv4) or 128 (for ipv6).
 func convertToCidr(v string) (*core.CidrRange, error) {
 	var address string
 	var prefixLen int
@@ -91,6 +93,7 @@ func convertToCidr(v string) (*core.CidrRange, error) {
 	}, nil
 }
 
+// convertToPort converts a port string to a uint32.
 func convertToPort(v string) (uint32, error) {
 	p, err := strconv.ParseUint(v, 10, 32)
 	if err != nil || p < 0 || p > 65535 {
@@ -99,6 +102,7 @@ func convertToPort(v string) (uint32, error) {
 	return uint32(p), nil
 }
 
+// convertToHeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 	//TODO(yangminzhu): Update the HeaderMatcher to support prefix and suffix match.
 	if strings.Contains(v, "*") {
