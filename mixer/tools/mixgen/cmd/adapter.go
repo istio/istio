@@ -59,7 +59,7 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 		"whether the adapter is session based or not. TODO link to the documentation")
 	adapterCmd.PersistentFlags().StringArrayVarP(&templates, "templates", "t", nil,
 		"supported template names")
-	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path" +
+	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path"+
 		" to save the configuration")
 	return adapterCmd
 }

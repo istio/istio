@@ -44,7 +44,7 @@ func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Com
 		"protobuf file descriptor set file (protobuf file descriptor set is created using "+
 		"`protoc -o <path to template proto file> <Flags>`)")
 	adapterCmd.PersistentFlags().StringVarP(&name, "name", "n", "", "name of the resource")
-	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path" +
+	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path"+
 		" to save the configuration")
 	adapterCmd.PersistentFlags().StringVar(&ns, "namespace", constant.DefaultConfigNamespace, "namespace of the resource")
 	return adapterCmd
