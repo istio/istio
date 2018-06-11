@@ -15,23 +15,21 @@
 package spybackend
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
-
-	"google.golang.org/grpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/pkg/lang/ast"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/mixer/pkg/adapter"
+	"github.com/gogo/protobuf/types"
 )
 
 // This test for now just validates the backend can be started and tested against. This is will be used to verify
@@ -72,7 +70,78 @@ func TestNoSessionBackend(t *testing.T) {
 	)
 }
 
+
+func loadDynamicTemplate(t *testing.T, path string, name string, variety v1beta1.TemplateVariety) *adapter.DynamicTemplate{
+	t.Helper()
+	fds, err := protoyaml.GetFileDescSet(path)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	return &adapter.DynamicTemplate{
+		Name: name,
+		Variety: variety,
+		FileDescSet: fds,
+	}
+}
+
 func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
+	s := ctx.(*noSessionServer)
+	//req := s.requests
+
+	listentryDi := &adapter.DynamicInstance{
+		Name: "listentry1",
+		Template: loadDynamicTemplate(t,
+			"../../template/listentry/template_handler_service.descriptor_set",
+			"listentry", v1beta1.TEMPLATE_VARIETY_CHECK),
+	}
+	metricDi := &adapter.DynamicInstance{
+		Name: "metric1",
+		Template: loadDynamicTemplate(t,
+			"../../template/metric/template_handler_service.descriptor_set",
+			"metric", v1beta1.TEMPLATE_VARIETY_REPORT),
+	}
+	quotaDi := &adapter.DynamicInstance{
+		Name: "quota1",
+		Template: loadDynamicTemplate(t,
+			"../../template/listentry/template_handler_service.descriptor_set",
+			"quota", v1beta1.TEMPLATE_VARIETY_QUOTA),
+	}
+
+	adapterConfig := &types.Any{
+		TypeUrl: "@abc",
+		Value:   []byte("abcd"),
+	}
+	handlerConfig := &adapter.DynamicHandler{
+		Name: "spy",
+		Connection: &attributeV1beta1.Connection{Address: s.Addr().String()},
+		Adapter: &adapter.Dynamic{
+			SessionBased: false,
+		},
+		AdapterConfig: adapterConfig,
+	}
+
+	h, err := dynamic.BuildHandler(handlerConfig, []*adapter.DynamicInstance{listentryDi, metricDi, quotaDi}, nil)
+	if err != nil {
+		t.Fatalf("unable to build handler: %v", err)
+	}
+
+	linst := &listentry.InstanceMsg{
+		Name: "n1",
+		Value: "v1",
+	}
+	linstBa, _ := linst.Marshal()
+	cr, err := h.HandleRemoteCheck(context.Background(), linstBa, "listentry1")
+	if err != nil {
+		t.Fatalf("HandleRemoteCheck returned: %v", err)
+	}
+	_ = cr
+
+	return nil
+}
+
+
+/*
+func validateNoSessionBackend1(ctx interface{}, t *testing.T) error {
 	s := ctx.(*noSessionServer)
 	req := s.requests
 	// Connect the client to Mixer
@@ -90,10 +159,6 @@ func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 	compiler := compiled.NewBuilder(StatdardVocabulary())
 	res := protoyaml.NewResolver(fds)
 
-	var ra *RemoteAdapter
-	if ra, err = RemoteAdapterSvc("", res); err != nil {
-		t.Fatalf("unable to get service: %v", err)
-	}
 
 
 	t.Logf("ra = %s", ra)
@@ -113,15 +178,16 @@ func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 	ba, err = enc.Encode(nil, ba)
 
 	t.Logf("%v: %v %v", req, res, compiler)
-	/*
-		return validateHandleCalls(
-			metric.NewHandleMetricServiceClient(conn),
-			listentry.NewHandleListEntryServiceClient(conn),
-			quota.NewHandleQuotaServiceClient(conn),
-			req)
-	*/
+
+	//	return validateHandleCalls(
+	//		metric.NewHandleMetricServiceClient(conn),
+	//		listentry.NewHandleListEntryServiceClient(conn),
+	//		quota.NewHandleQuotaServiceClient(conn),
+	//		req)
+
 	return nil
 }
+*/
 
 func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *requests) error {

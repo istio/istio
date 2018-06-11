@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/pkg/log"
 	"encoding/json"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type signature [sha1.Size]byte
@@ -38,10 +39,10 @@ func (s signature) equals(other signature) bool {
 	return !bytes.Equal(s[:], zeroSignature[:]) && bytes.Equal(s[:], other[:])
 }
 
-func calculateSignatureDynamic(handler *config.HandlerDynamic, instances []*config.InstanceDynamic) signature {
+func calculateSignatureDynamic(handler *adapter.DynamicHandler, instances []*adapter.DynamicInstance) signature {
 
 	// sort the instances by name
-	instanceMap := make(map[string]*config.InstanceDynamic)
+	instanceMap := make(map[string]*adapter.DynamicInstance)
 	instanceNames := make([]string, len(instances))
 	for i, instance := range instances {
 		instanceMap[instance.Name] = instance

@@ -117,66 +117,6 @@ func BuildHandler(
 	return
 }
 
-
-// BuildHandler instantiates a handler object using the passed in handler and instances configuration.
-func BuildHandlerDynamic(
-	handler *adapter.DynamicHandler,
-	instances []*adapter.DynamicInstance,
-	env adapter.Env, templates map[string]*template.Info) (h adapter.Handler, err error) {
-
-	var builder adapter.HandlerBuilder
-	// Do not assign the error to err directly, as this would overwrite the err returned by the inner function.
-	panicErr := safecall.Execute("factory.build", func() {
-		builder, err = ValidateBuilder(handler, instances, templates)
-		if err != nil {
-			h = nil
-			err = fmt.Errorf("adapter builder validation failed: %v", err)
-			return
-		}
-
-		h, err = buildHandler(builder, env)
-		if err != nil {
-			h = nil
-			err = fmt.Errorf("adapter instantiation error: %v", err)
-			return
-		}
-
-		// validate if the handlerConfig supports all the necessary interfaces
-		for _, tmpl := range handler.Adapter.SupportedTemplates {
-			tmplName := tmpl.Name
-			// ti should be there for a valid configuration.
-			ti, found := templates[tmplName]
-			if !found {
-				// This is similar to the condition check in the previous loop. That already does logging, so
-				// simply skip.
-				continue
-			}
-
-			if supports := ti.HandlerSupportsTemplate(h); !supports {
-				if err = h.Close(); err != nil {
-					h = nil
-					// log this error, but return the one below. That is likely to be the more important one.
-					log.Errorf("error during adapter close: '%v'", err)
-					return
-				}
-
-				h = nil
-				// adapter is bad since it does not support the necessary interface
-				err = fmt.Errorf("builder for adapter does not actually support template: template='%s', interface='%s'",
-					tmplName, ti.HndlrInterfaceName)
-				return
-			}
-		}
-	})
-
-	if panicErr != nil {
-		h = nil
-		err = panicErr
-	}
-
-	return
-}
-
 func buildHandler(builder adapter.HandlerBuilder, env adapter.Env) (handler adapter.Handler, err error) {
 	return builder.Build(context.Background(), env)
 }

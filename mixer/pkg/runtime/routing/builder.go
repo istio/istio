@@ -163,7 +163,8 @@ func (b *builder) templateInfo(tmpl *adapter.DynamicTemplate) *TemplateInfo {
 			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		return h.HandleRemoteCheck(ctx, encodedInstance, tmpl.Name)
+		cr, err := h.HandleRemoteCheck(ctx, encodedInstance, tmpl.Name)
+		return *cr, err
 	}
 
 	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
@@ -200,7 +201,8 @@ func (b *builder) templateInfo(tmpl *adapter.DynamicTemplate) *TemplateInfo {
 			return adapter.QuotaResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		return h.HandleRemoteQuota(ctx, encodedInstance, args, tmpl.Name)
+		qr, err := h.HandleRemoteQuota(ctx, encodedInstance, &args, tmpl.Name)
+		return *qr, err
 	}
 	return ti
 }

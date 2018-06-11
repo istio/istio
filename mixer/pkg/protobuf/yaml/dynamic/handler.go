@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"go.uber.org/atomic"
 	istiolog "istio.io/istio/pkg/log"
+	"math/rand"
 )
 var (
 	 log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
@@ -65,27 +66,29 @@ type (
 // handler: Create a dynamic handler object exposing specific handler interfaces.
 func BuildHandler(handler *adapter.DynamicHandler,
 	instances []*adapter.DynamicInstance,
-	env adapter.Env)(h adapter.Handler, err error){
+	env adapter.Env)(hh *Handler, err error){
 
 	if err = ValidateHandlerInput(handler, instances); err != nil {
 		return nil, err
 	}
 
-	hh := &Handler{
+	hh = &Handler{
 		env: env,
 		svcMap: make(map[string]*Svc, len(instances)),
 		connConfig: handler.Connection,
+		n: &atomic.Uint64{},
 	}
 
 	var svc *Svc
 	for _, inst := range instances {
 		res := protoyaml.NewResolver(inst.Template.FileDescSet)
-		if svc, err = RemoteAdapterSvc("Handle", res); err!= nil {
+		if svc, err = RemoteAdapterSvc("Handle", res, handler); err!= nil {
 			return nil, err
 		}
 		hh.svcMap[inst.Name] = svc
 	}
 
+	hh.n.Store(rand.Uint64())
 	if err = hh.connect(); err != nil {
 		return nil, err
 	}
@@ -187,7 +190,7 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte,
 }
 
 // RemoteAdapterSvc returns RemoteAdapter service
-func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver) (*Svc, error) {
+func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, handler *adapter.DynamicHandler) (*Svc, error) {
 	svc, pkg := res.ResolveService(namePrefix)
 
 	if svc == nil {
@@ -197,14 +200,20 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver) (*Svc, error) {
 	if len(svc.Method) == 0 {
 		return nil, errors.Errorf("no methods defined in service:'%s'", svc.GetName())
 	}
-
 	method := svc.GetMethod()[0]
+
+	re, err := buildRequestEncoder(NewEncoderBuilder(res, nil, true), method.GetOutputType(), handler)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &Svc{
 		Name:       svc.GetName(),
 		Pkg:        pkg,
 		MethodName: method.GetName(),
 		InputType:  method.GetInputType(),
 		OutputType: method.GetOutputType(),
+		re: re,
 	}, nil
 }
 

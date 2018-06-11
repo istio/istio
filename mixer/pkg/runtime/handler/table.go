@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/safecall"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 )
 
 // Table contains a set of instantiated and configured adapter handlers.
@@ -109,7 +110,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 		}
 
 		e := newEnv(snapshot.ID, handler.Name, gp)
-		instantiatedHandler, err := config.BuildHandlerDynamic(handler, instances, e, snapshot.Templates)
+		instantiatedHandler, err := dynamic.BuildHandler(handler, instances, e)
 
 		if err != nil {
 			t.counters.buildFailure.Inc()
@@ -127,7 +128,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 		t.entries[handler.Name] = Entry{
 			Name:      handler.Name,
 			Handler:   instantiatedHandler,
-			Adapter:   handler.Adapter,
+			//Adapter:   handler.Adapter,  //FIXME change this to AdapterName string
 			Signature: sig,
 			env:       e,
 		}
