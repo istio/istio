@@ -36,6 +36,8 @@ const (
 	// in any other namespaces.
 	GlobalConfigNamespace = "istio-global-config"
 
+	// GlobalAuthenticationPolicyName is the name of the global authentication policy. Only policy with
+	// this name in the `GlobalConfigNamespace` will be considered.
 	GlobalAuthenticationPolicyName = "global"
 )
 
@@ -1080,7 +1082,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 	// - Name is `global`. Policies with different name are ignored.
 	//
 	// Also, the global authentication policy should not have any targets (as it's supposed to
-	// match all), so it's not neccessary to check the targets spec against the requested host/port.
+	// match all), so it's not necessary to check the targets spec against the requested host/port.
 	if specs, err := store.List(AuthenticationPolicy.Type, GlobalConfigNamespace); err == nil {
 		for _, spec := range specs {
 			if spec.Name == GlobalAuthenticationPolicyName {
