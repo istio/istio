@@ -47,4 +47,28 @@ type (
 		// report an error and stop serving runtime traffic to the particular Handler.
 		Build(context.Context, Env) (Handler, error)
 	}
+
+	// RemoteCheckHandler calls remote check adapter.
+	RemoteCheckHandler interface {
+		Handler
+
+		// HandleRemoteCheck performs check call based on pre a encoded instance.
+		HandleRemoteCheck(ctx context.Context, encodedInstance []byte, instanceName string) (*CheckResult, error)
+	}
+
+	// RemoteReportHandler calls remote report adapter.
+	RemoteReportHandler interface {
+		Handler
+
+		// HandleRemoteReport performs report call based on pre encoded instances.
+		HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) (error)
+	}
+
+	// RemoteQuotaHandler calls remote report adapter.
+	RemoteQuotaHandler interface {
+		Handler
+
+		// HandleRemoteQuota performs quota call based on pre encoded instances.
+		HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *QuotaArgs, instanceName string) (*QuotaResult, error)
+	}
 )
