@@ -281,5 +281,5 @@
 - context.reporter.uid
 
 # gRPC trailer return status support
-- response.grpc-status
-- response.grpc-message
+- response.grpc_status
+- response.grpc_message
