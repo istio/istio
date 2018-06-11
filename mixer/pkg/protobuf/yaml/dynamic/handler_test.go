@@ -48,8 +48,8 @@ func TestEncodeCheckRequest(t *testing.T) {
 		t.Fatalf("failed to get service:%v", err)
 	}
 
-	var re *RequestEncoder
-	re, err = buildRequestEncoder(b, inst.InputType, false, adapterConfig)
+	var me *messageEncoder
+	me, err = buildRequestEncoder(b, inst.InputType, false, adapterConfig)
 
 	if err != nil {
 		t.Fatalf("unable build request encoder: %v", err)
@@ -88,7 +88,9 @@ func TestEncodeCheckRequest(t *testing.T) {
 	eed0, _ := ed0.Marshal()
 	eed1, _ := ed1.Marshal()
 
-	br, err1 := re.encodeRequest(nil, dedupString, eed0, eed1)
+	svc := &Svc{encoder: me}
+
+	br, err1 := svc.encodeRequest(nil, dedupString, eed0, eed1)
 	if err1 != nil {
 		t.Fatalf("unable to encode request: %v", err1)
 	}

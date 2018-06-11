@@ -58,7 +58,7 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 	}
 }
 
-// Build builds an Encoder
+// BuildWithLength builds an Encoder that also encodes length of the top level message.
 func (c Builder) BuildWithLength(msgName string, data map[string]interface{}) (Encoder, error) {
 	m := c.resolver.ResolveMessage(msgName)
 	if m == nil {
@@ -79,8 +79,6 @@ func (c Builder) Build(msgName string, data map[string]interface{}) (Encoder, er
 }
 
 func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]interface{}, skipEncodeLength bool) (Encoder, error) {
-	var ok bool
-
 	me := messageEncoder{
 		skipEncodeLength: skipEncodeLength,
 	}
@@ -123,6 +121,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 		switch fd.GetType() {
 		case descriptor.FieldDescriptorProto_TYPE_STRING:
 			var ma []interface{}
+			var ok bool
 			if fd.IsRepeated() {
 				if ma, ok = v.([]interface{}); !ok {
 					return nil, fmt.Errorf("unable to process %s:  %v, got %T, want: []interface{}", fd.GetName(), v, v)
@@ -172,6 +171,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			}
 
 			var ma []interface{}
+			var ok bool
 			if m.GetOptions().GetMapEntry() { // this is a Map
 				ma, err = convertMapToMapentry(v)
 				if err != nil {

@@ -21,7 +21,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -63,7 +62,7 @@ type (
 		InputType  string
 		OutputType string
 
-		re *RequestEncoder
+		encoder *messageEncoder
 	}
 
 	// Instance name
@@ -79,8 +78,8 @@ type (
 	Codec struct{}
 )
 
-// handler: Create a dynamic handler object exposing specific handler interfaces.
-func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig *types.Any,
+// BuildHandler creates a dynamic handler object exposing specific handler interfaces.
+func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig proto.Marshaler,
 	instances []*Instance) (hh *Handler, err error) {
 
 	hh = &Handler{
@@ -107,6 +106,7 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 	return hh, nil
 }
 
+// Close implements io.Closer api
 func (h *Handler) Close() error {
 	if h.conn != nil {
 		return h.conn.Close()
@@ -117,7 +117,8 @@ func (h *Handler) Close() error {
 func (h *Handler) connect() (err error) {
 	codec := grpc.CallCustomCodec(Codec{})
 	// TODO add simple secure option
-	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(codec)); err != nil {
+	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(codec)); err != nil {
 		log.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
@@ -126,7 +127,8 @@ func (h *Handler) connect() (err error) {
 	return nil
 }
 
-func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1beta1.QuotaRequest, dedupID string, resultPtr interface{}, encodedInstances ...[]byte) error {
+func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr proto.Marshaler,
+	dedupID string, resultPtr interface{}, encodedInstances ...[]byte) error {
 	inst := h.svcMap[instanceName]
 	if inst == nil {
 		return errors.Errorf("unable to find instance: %s", instanceName)
@@ -137,7 +139,7 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1b
 		h.n.Inc()
 	}
 
-	ba, err := inst.re.encodeRequest(qr, dedupID, encodedInstances...)
+	ba, err := inst.encodeRequest(qr, dedupID, encodedInstances...)
 	if err != nil {
 		return err
 	}
@@ -151,7 +153,9 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1b
 
 var _ adapter.RemoteCheckHandler = &Handler{}
 
-func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte, instanceName string) (*adapter.CheckResult, error) {
+// HandleRemoteCheck implements adapter.RemoteCheckHandler api
+func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte,
+	instanceName string) (*adapter.CheckResult, error) {
 	result := &v1beta1.CheckResult{}
 	if err := h.handleRemote(ctx, instanceName, nil, "", result, encodedInstance); err != nil {
 		return nil, err
@@ -166,6 +170,7 @@ func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte,
 
 var _ adapter.RemoteReportHandler = &Handler{}
 
+// HandleRemoteReport implements adapter.RemoteReportHandler api
 func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) error {
 	// ReportResult is empty and it is ignored
 	return h.handleRemote(ctx, instanceName, nil, "", &v1beta1.ReportResult{}, encodedInstances...)
@@ -173,7 +178,9 @@ func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances [][]b
 
 var _ adapter.RemoteQuotaHandler = &Handler{}
 
-func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *adapter.QuotaArgs, instanceName string) (*adapter.QuotaResult, error) {
+// HandleRemoteQuota implements adapter.RemoteQuotaHandler api
+func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *adapter.QuotaArgs,
+	instanceName string) (*adapter.QuotaResult, error) {
 	result := &v1beta1.QuotaResult{}
 	qr := &v1beta1.QuotaRequest{
 		Quotas: map[string]v1beta1.QuotaRequest_QuotaParams{
@@ -196,7 +203,7 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte,
 }
 
 // RemoteAdapterSvc returns RemoteAdapter service
-func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool, adapterConfig *types.Any) (*Svc, error) {
+func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool, adapterConfig proto.Marshaler) (*Svc, error) {
 	svc, pkg := res.ResolveService(namePrefix)
 
 	if svc == nil {
@@ -208,7 +215,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 	}
 	method := svc.GetMethod()[0]
 	instBuilder := NewEncoderBuilder(res, nil, true)
-	re, err := buildRequestEncoder(instBuilder, method.GetInputType(), sessionBased, adapterConfig)
+	me, err := buildRequestEncoder(instBuilder, method.GetInputType(), sessionBased, adapterConfig)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -219,12 +226,8 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		MethodName: method.GetName(),
 		InputType:  method.GetInputType(),
 		OutputType: method.GetOutputType(),
-		re:         re,
+		encoder:    me,
 	}, nil
-}
-
-func (ra Svc) GrpcPath() string {
-	return fmt.Sprintf("/%s.%s/%s", ra.Pkg, ra.Name, ra.MethodName)
 }
 
 type staticBag struct {
@@ -251,7 +254,7 @@ const dedupeAttrName = "-dedup_id-"
 const instanceAttrName = "-pre-encoded-instance-"
 
 // buildRequestEncoder is based on code gen check code gen that includes 3/4 fields.
-func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapterConfig *types.Any) (*RequestEncoder, error) {
+func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapterConfig proto.Marshaler) (*messageEncoder, error) {
 	inputData := map[string]interface{}{
 		"instance": &staticAttributeEncoder{ // check and quota have instance
 			attrName: instanceAttrName,
@@ -281,47 +284,46 @@ func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapter
 	if err != nil {
 		return nil, err
 	}
-
-	return &RequestEncoder{m: e.(messageEncoder)}, nil
-}
-
-type RequestEncoder struct {
-	m messageEncoder
+	me := e.(messageEncoder)
+	return &me, nil
 }
 
 func dedupeString(d uint64) string {
 	return fmt.Sprintf("%d", d)
 }
 
+// GrpcPath returns grpc POST url for this service.
+func (s Svc) GrpcPath() string {
+	return fmt.Sprintf("/%s.%s/%s", s.Pkg, s.Name, s.MethodName)
+}
+
 // encodeRequest encodes request using the message encoder. It supports Check, Report and Quota.
 // If qr arg is required when using quota adapter.
-func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string, encodedInstances ...[]byte) (ba []byte, err error) {
-	size := 0
-	for _, ei := range encodedInstances {
-		size += len(ei)
-	}
-	// every fields needs up to 3 bytes
-	size += len(r.m.fields) * 3
-	ba = make([]byte, 0, size)
-
+func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances ...[]byte) ([]byte, error) {
 	v := make(map[string]interface{}, 3) // at most 3 attributes at one time.
-
 	v[dedupeAttrName] = []byte(dedupID)
-
 	if qr != nil {
-		encodedData, err := qr.Marshal()
-		if err != nil {
+		var encodedData []byte
+		var err error
+		if encodedData, err = qr.Marshal(); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		v[quotaRequestAttrName] = encodedData
 	}
 
-	bag := staticBag{
-		v: v,
-	}
+	bag := staticBag{v: v}
 
-	instField := r.m.fields[0]
+	size := 0
 	for _, ei := range encodedInstances {
+		size += len(ei)
+	}
+	// every fields needs up to 3 bytes
+	size += len(s.encoder.fields) * 3
+	ba := make([]byte, 0, size)
+
+	instField := s.encoder.fields[0]
+	for _, ei := range encodedInstances {
+		var err error
 		bag.v[instanceAttrName] = ei
 		ba, err = instField.Encode(&bag, ba)
 		if err != nil {
@@ -329,7 +331,8 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 		}
 	}
 
-	for _, f := range r.m.fields[1:] {
+	for _, f := range s.encoder.fields[1:] {
+		var err error
 		ba, err = f.Encode(&bag, ba)
 		if err != nil {
 			return nil, errors.Errorf("fieldEncoder: %s - %v", f.name, err)
@@ -338,7 +341,7 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 	return ba, nil
 }
 
-// Marshal
+// Marshal does a noo-op marshal if input in bytes, otherwise it is an error.
 func (Codec) Marshal(v interface{}) ([]byte, error) {
 	if ba, ok := v.([]byte); ok {
 		return ba, nil
@@ -346,6 +349,8 @@ func (Codec) Marshal(v interface{}) ([]byte, error) {
 
 	return nil, fmt.Errorf("unable to marshal type:%T, want []byte", v)
 }
+
+// Unmarshal delegates to standard proto Unmarshal
 func (Codec) Unmarshal(data []byte, v interface{}) error {
 	if um, ok := v.(proto.Unmarshaler); ok {
 		return um.Unmarshal(data)
@@ -353,6 +358,8 @@ func (Codec) Unmarshal(data []byte, v interface{}) error {
 
 	return fmt.Errorf("unable to unmarshal type:%T, %v", v, v)
 }
+
+// String returns name of the codec.
 func (Codec) String() string {
-	return "custom codec"
+	return "bytes-out-proto-in-codec"
 }
