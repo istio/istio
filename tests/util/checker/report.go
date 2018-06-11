@@ -29,9 +29,9 @@ func NewLintReport() *Report {
 	return &Report{}
 }
 
-// LReport returns report from Linter
-func (lt *Report) Items() []string {
-	return lt.items
+// Items returns formatted report as a string slice.
+func (lr *Report) Items() []string {
+	return lr.items
 }
 
 // AddItem creates a new lint error report.

@@ -15,7 +15,6 @@
 package checker
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -37,7 +36,7 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 		}
 		err := filepath.Walk(path, func(fpath string, info os.FileInfo, err error) error {
 			if err != nil {
-				return errors.New(fmt.Sprintf("pervent panic by handling failure accessing a path %q: %v", fpath, err))
+				return fmt.Errorf("pervent panic by handling failure accessing a path %q: %v", fpath, err)
 			}
 			rules := factory.GetRules(fpath, info)
 			if len(rules) > 0 {
@@ -46,7 +45,7 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 			return nil
 		})
 		if err != nil {
-			return errors.New(fmt.Sprintf("error visiting the path %q: %v", path, err))
+			return fmt.Errorf("error visiting the path %q: %v", path, err)
 		}
 	}
 	return nil
@@ -71,7 +70,7 @@ func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) 
 	ast.Walk(&v, astFile)
 }
 
-// Linter applies linting rules to a file.
+// FileVisitor visits the go file syntax tree and applies the given rules.
 type FileVisitor struct {
 	path      string
 	rules     []Rule     // rules to check

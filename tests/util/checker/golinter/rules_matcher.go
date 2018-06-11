@@ -63,7 +63,6 @@ func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
 	if strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
 		// Integration tests can be in non integration directories.
 		return LintRulesList[IntegTest]
-	} else {
-		return LintRulesList[UnitTest]
 	}
+	return LintRulesList[UnitTest]
 }

@@ -42,7 +42,8 @@ func TestUnitTestSkipByIssueRule(t *testing.T) {
 	golinter.LintRulesList[golinter.UnitTest] = []checker.Rule{rules.NewSkipByIssue()}
 
 	rpts, _ := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/unit_test.go") + ":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
+	expectedRpts := []string{getAbsPath("testdata/unit_test.go") +
+		":9:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
