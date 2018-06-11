@@ -21,5 +21,10 @@ ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 
 COPY envoy_bootstrap_tmpl.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+# Must be set here to generate core dumps in Circle.
+RUN mkdir -p /var/istio/proxy
+RUN sysctl -w kernel.core_pattern=/var/istio/proxy/core.%e.%p.%t
+RUN ulimit -c unlimited
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
