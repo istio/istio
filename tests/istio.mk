@@ -102,11 +102,15 @@ localregistry_setup:
 ifeq ($(HUB),istio)
 	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
 	GOOS=linux HUB=${REG_LOCAL} make docker push
-	kill $(shell lsof -t -i:5000)
+	ps aux | grep "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
 endif
 localregistry_setup:
 ifeq ($(HUB),istio)
+ifeq ($(LOCALHUB),)
 override HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
+else
+override HUB=${LOCALHUB}
+endif
 endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given

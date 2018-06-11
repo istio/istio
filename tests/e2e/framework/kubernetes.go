@@ -68,9 +68,6 @@ const (
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
-	// Default values for local test env setup
-	localRegistryFile      = "tests/util/localregistry/localregistry.yaml"
-	localRegistryNamespace = "kube-system"
 )
 
 var (
@@ -242,10 +239,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
-	var l *LocalRegistry
-	if os.Getenv("HUB") == "" {
-		l = NewLocalRegistry(localRegistryNamespace, i, localRegistryFile, kubeConfig, os.Getenv("HUB"), os.Getenv("TAG"))
-	}
+	l := GetLocalRegistry(i, kubeConfig)
 
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)

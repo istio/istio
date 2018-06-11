@@ -26,7 +26,6 @@ Vagrant.configure("2") do |config|
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
   # NOTE: This will enable public access to the opened port
-  config.vm.network "forwarded_port", guest: 5000, host: 5000, host_ip: "10.10.0.2"
   config.vm.network "forwarded_port", guest: 8080, host: 8080
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine and only allow access
@@ -82,8 +81,6 @@ Vagrant.configure("2") do |config|
      sudo tar -xf go.linux-amd64.tar.gz
      sudo mv go /usr/local
      sudo rm go.linux-amd64.tar.gz
-     kubectl apply -f /istio.io/istio/tests/e2e/local/localregistry/localregistry.yaml
-     kubectl get pods -n kube-system
   SHELL
 
 end

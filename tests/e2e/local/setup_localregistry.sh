@@ -12,7 +12,7 @@ until $(kubectl -n kube-system get pods | grep -q '^kube-registry-proxy.*1/1.*$'
     printf '.'
     sleep 1
     let count+=1
-    if [[ "$count" -gt 10 ]]; then
+    if [[ "$count" -gt 20 ]]; then
         echo "Time limit reached. Fail to bring local registry proxy up."
         exit 1
     fi
@@ -25,7 +25,7 @@ until $(kubectl -n kube-system get pods | grep -q '^kube-registry-v0.*1/1.*$'); 
     printf '.'
     sleep 1
     let count+=1
-    if [[ "$count" -gt 10 ]]; then
+    if [[ "$count" -gt 20 ]]; then
     	echo "Time limit reached. Fail to bring local registry up."
     	exit 1
     fi

@@ -19,31 +19,32 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+const (
+	// Default values for local test env setup
+	LocalRegistryFile      = "tests/e2e/local/localregistry/localregistry.yaml"
+	LocalRegistryNamespace = "kube-system"
+)
+
 // LocalRegistry provides in-cluster docker registry for test
 type LocalRegistry struct {
 	namespace  string
 	istioctl   *Istioctl
 	active     bool
 	Kubeconfig string
-	file       string
-	hub        string
-	tag        string
 }
 
-// NewLocalRegistry creates a new LocalRegistry
-func NewLocalRegistry(namespace string, istioctl *Istioctl, file, kubeconfig, hub, tag string) *LocalRegistry {
+// GetLocalRegistry detects and returns LocalRegistry if existed
+func GetLocalRegistry(istioctl *Istioctl, kubeconfig string) *LocalRegistry {
+	if _, err := util.Shell("kubectl get service kube-registry -n %s", LocalRegistryNamespace); err != nil {
+		return nil
+	}
 	return &LocalRegistry{
-		namespace:  namespace,
 		istioctl:   istioctl,
 		Kubeconfig: kubeconfig,
-		file:       file,
-		hub:        hub,
-		tag:        tag,
 	}
 }
 
 // Setup implements the Cleanable interface
-// Deploy the local registry to the cluster
 func (l *LocalRegistry) Setup() error {
 	l.active = true
 	return nil
@@ -51,7 +52,7 @@ func (l *LocalRegistry) Setup() error {
 
 // Teardown implements the Cleanable interface
 func (l *LocalRegistry) Teardown() error {
-	if err := util.KubeDelete(l.namespace, l.file, l.Kubeconfig); err != nil {
+	if err := util.KubeDelete(LocalRegistryNamespace, LocalRegistryFile, l.Kubeconfig); err != nil {
 		log.Errorf("Kubectl delete %s failed", l.Kubeconfig)
 		return err
 	}
