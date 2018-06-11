@@ -202,7 +202,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, handler *adapte
 	}
 	method := svc.GetMethod()[0]
 
-	re, err := buildRequestEncoder(NewEncoderBuilder(res, nil, true), method.GetOutputType(), handler)
+	re, err := buildRequestEncoder(NewEncoderBuilder(res, nil, true), method.GetInputType(), handler)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
