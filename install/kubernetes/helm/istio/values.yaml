@@ -51,10 +51,13 @@ global:
     excludeInboundPorts: ""
     policy: enabled
 
-    # Sets the value of the "--statsdUdpAddress" proxy argument.
-    # Can be disabled (e.g. when mixer is not installed) by setting this to empty string or removing it.
-    # The default is to use the bridge provided by mixer.
-    envoyStatsd: "istio-statsd-prom-bridge:9125"
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
 
   proxy_init:
     image: proxy_init

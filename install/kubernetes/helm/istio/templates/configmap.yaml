@@ -79,10 +79,10 @@ data:
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411    
 
-    {{- if .Values.global.proxy.envoyStatsd }}
+    {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd }}
+      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
     
     {{- if .Values.global.controlPlaneSecurityEnabled }}
