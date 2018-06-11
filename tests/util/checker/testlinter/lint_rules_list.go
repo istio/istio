@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package golinter
+package main
 
 import (
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/golinter/rules"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
 // LintRulesList is a map that maps test type to list of lint rules. Linter applies corresponding

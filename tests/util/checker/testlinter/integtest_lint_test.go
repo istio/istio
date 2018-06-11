@@ -19,32 +19,35 @@ import (
 	"testing"
 
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/golinter"
-	"istio.io/istio/tests/util/checker/golinter/rules"
+	"istio.io/istio/tests/util/checker/testlinter/rules"
 )
 
-func TestE2eTestSkipByIssueRule(t *testing.T) {
+func TestIntegTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	golinter.LintRulesList[golinter.E2eTest] = []checker.Rule{rules.NewSkipByIssue()}
+	LintRulesList[IntegTest] = []checker.Rule{rules.NewSkipByIssue()}
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{
-		getAbsPath("testdata/e2e/e2e_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)",
-	}
+		getAbsPath("testdata/integration/integtest_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)",
+		getAbsPath("testdata/integtest_integ_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
 	}
 }
 
-func TestE2eTestSkipByShortRule(t *testing.T) {
+func TestIntegTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	golinter.LintRulesList[golinter.E2eTest] = []checker.Rule{rules.NewSkipByShort()}
+	LintRulesList[IntegTest] = []checker.Rule{rules.NewSkipByShort()}
 
 	rpts, _ := getReport([]string{"testdata/"})
-	expectedRpts := []string{getAbsPath("testdata/e2e/e2e_test.go") +
+	expectedRpts := []string{getAbsPath("testdata/integration/integtest_test.go") +
 		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
-		getAbsPath("testdata/e2e/e2e_test.go") +
+		getAbsPath("testdata/integration/integtest_test.go") +
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
+		getAbsPath("testdata/integtest_integ_test.go") +
+			":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
+		getAbsPath("testdata/integtest_integ_test.go") +
 			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {

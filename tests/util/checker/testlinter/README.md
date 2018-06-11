@@ -1,6 +1,6 @@
-# golinter
+# testlinter
 
-golinter applies different linter rules to test files according to their categories, based on file paths and names. 
+testlinter applies different linter rules to test files according to their categories, based on file paths and names. 
 It is run as part of the Istio pre-submit linter check. Whitelisting allows rule breaking exceptions, and temporarily
 opt-out.
 
@@ -87,7 +87,7 @@ var Whitelist = map[string][]string{
 There are two ways to run this linter.
 ```bash
 go install 
-golinter <target path>
+testlinter <target path>
 ```
 
 ```bash
