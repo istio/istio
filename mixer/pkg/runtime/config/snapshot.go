@@ -16,14 +16,8 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/gogo/protobuf/types"
-
-	adptTmpl "istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -48,25 +42,12 @@ type (
 		//  AdapterMetadatas contains adapter metadata loaded from the store
 		AdapterMetadatas map[string]*AdapterMetadata
 
-		HandlersDynamic  map[string]*HandlerDynamic
-		InstancesDynamic map[string]*InstanceDynamic
+		HandlersDynamic  map[string]*adapter.DynamicHandler
+		InstancesDynamic map[string]*adapter.DynamicInstance
 		Rules            []*Rule
 
 		// Perf Counters relevant to configuration.
 		Counters Counters
-	}
-
-	// HandlerDynamic configuration for dynamically loaded, grpc adapters. Fully resolved.
-	HandlerDynamic struct {
-		Name string
-
-		Adapter *Adapter
-
-		// AdapterConfig used to construct the Handler. This is passed in verbatim to the remote adapter.
-		AdapterConfig *types.Any
-
-		// Connection information for the handler.
-		Connection *v1beta1.Connection
 	}
 
 	// HandlerStatic configuration for compiled in adapters. Fully resolved.
@@ -82,18 +63,6 @@ type (
 		Params proto.Message
 	}
 
-	// InstanceDynamic configuration for dynamically loaded templates. Fully resolved.
-	InstanceDynamic struct {
-		Name string
-
-		Template *Template
-
-		// Encoder to create request instance bytes from attributes
-		Encoder dynamic.Encoder
-
-		// Params used to create the Encoder.
-		Params map[string]interface{}
-	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
 	InstanceStatic struct {
@@ -131,9 +100,9 @@ type (
 	// ActionDynamic configuration. Fully resolved.
 	ActionDynamic struct {
 		// Handler that this action is resolved to.
-		Handler *HandlerDynamic
+		Handler *adapter.DynamicHandler
 		// Instances that should be generated as part of invoking action.
-		Instances []*InstanceDynamic
+		Instances []*adapter.DynamicInstance
 	}
 
 	// ActionStatic configuration. Fully resolved.
@@ -145,47 +114,6 @@ type (
 		Instances []*InstanceStatic
 	}
 
-	// Template contains info about a template
-	Template struct {
-		// Name of the template.
-		//
-		// Note this is the template's resource name and not the template's internal name that adapter developer
-		// uses to implement adapter service.
-		Name string
-
-		// Variety of this template
-		Variety adptTmpl.TemplateVariety
-
-		// InternalPackageDerivedName is the name of the template from adapter developer point of view.
-		// The service and functions implemented by the adapter is based on this name
-		// NOTE: This name derived from template proto package and not the resource name.
-		InternalPackageDerivedName string
-
-		// Template's file descriptor set.
-		// This is the descriptor set that is produced from the *_service proto.
-		// It includes grpc service and template protos.
-		FileDescSet *descriptor.FileDescriptorSet
-
-		// package name of the `Template` message
-		PackageName string
-	}
-
-	// Adapter contains info about an adapter
-	Adapter struct {
-		Name string
-
-		// Adapter's file descriptor set.
-		ConfigDescSet *descriptor.FileDescriptorSet
-
-		// package name of the `Params` message
-		PackageName string
-
-		SupportedTemplates []*Template
-
-		SessionBased bool
-
-		Description string
-	}
 )
 
 // Empty returns a new, empty configuration snapshot.

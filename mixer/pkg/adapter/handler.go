@@ -53,7 +53,7 @@ type (
 		Handler
 
 		// HandleRemoteCheck performs check call based on pre a encoded instance.
-		HandleRemoteCheck(ctx context.Context, encodedInstance []byte, instanceName string) (CheckResult, error)
+		HandleRemoteCheck(ctx context.Context, encodedInstance []byte, instanceName string) (*CheckResult, error)
 	}
 
 	// RemoteReportHandler calls remote report adapter.
@@ -69,6 +69,6 @@ type (
 		Handler
 
 		// HandleRemoteQuota performs quota call based on pre encoded instances.
-		HandleRemoteQuota(ctx context.Context, encodedInstances []byte, args QuotaArgs, instanceName string) (QuotaResult, error)
+		HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *QuotaArgs, instanceName string) (*QuotaResult, error)
 	}
 )

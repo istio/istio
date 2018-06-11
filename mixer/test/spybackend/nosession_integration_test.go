@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
-	"istio.io/istio/mixer/pkg/attribute"
 )
 
 // This test for now just validates the backend can be started and tested against. This is will be used to verify
@@ -153,70 +152,6 @@ func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 }
 
 
-// RemoteAdapterSvc returns RemoteAdapter service
-func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver) (*RemoteAdapter, error) {
-	svc, pkg := res.ResolveService(namePrefix)
-
-	if svc == nil {
-		return nil, fmt.Errorf("no service matched prefix:'%s'", namePrefix)
-	}
-
-	if len(svc.Method) == 0 {
-		return nil, fmt.Errorf("no methods defined in service:'%s'", svc.GetName())
-	}
-
-	method := svc.GetMethod()[0]
-	return &RemoteAdapter{
-		SvcName: svc.GetName(),
-		Pkg: pkg,
-		MethodName: method.GetName(),
-		InputType: method.GetInputType(),
-		OutputType: method.GetOutputType(),
-	}, nil
-}
-
-func (ra RemoteAdapter) GrpcPath() string {
-	return fmt.Sprintf("/%s.%s/%s", ra.Pkg, ra.SvcName, ra.MethodName)
-}
-
-func (ra RemoteAdapter) String() string {
-	return fmt.Sprintf("%s (%s --> %s)", ra.GrpcPath(), ra.InputType, ra.OutputType)
-}
-
-func (ra RemoteAdapter) Connect(addr string) {
-}
-
-func (ra RemoteAdapter) HandleReport(ctx context.Context, conn *grpc.ClientConn, attr attribute.Bag, insts []*dynamic.Encoder) (*v1beta1.ReportResult, error){
- 	result := &v1beta1.ReportResult{}
- 	// generate reqBytes from
- 	// ra.InputType
-	err := conn.Invoke(ctx, ra.GrpcPath(), reqBytes, result)
-	return result, err
-}
-
-
-type RemoteAdapter struct{
-	SvcName string
-	Pkg string
-	MethodName string
-	InputType string
-	OutputType string
-}
-
-type ByteCodec struct{}
-
-func (ByteCodec) Marshal(v interface{}) ([]byte, error) {
-	return v.(*bytes.Buffer).Bytes(), nil
-}
-
-func (ByteCodec) Unmarshal(data []byte, v interface{}) error {
-	_, err := v.(*bytes.Buffer).Write(data)
-	return err
-}
-
-func (ByteCodec) String() string {
-	return "byte buffer"
-}
 
 // StatdardVocabulary returns Istio standard vocabulary
 func StatdardVocabulary() ast.AttributeDescriptorFinder {

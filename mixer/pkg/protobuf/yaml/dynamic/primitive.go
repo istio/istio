@@ -22,6 +22,7 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"github.com/pkg/errors"
 )
 
 type encoderFn func(bag attribute.Bag, ba []byte) ([]byte, error)
@@ -261,9 +262,13 @@ func BuildPrimitiveEvalEncoder(expr compiled.Expression, vt v1beta1.ValueType, f
 type staticEncoder struct {
 	name        string
 	encodedData []byte
+	includeLength bool
 }
 
-func (p staticEncoder) Encode(_ attribute.Bag, ba []byte) ([]byte, error) {
+func (p staticEncoder) Encode(a attribute.Bag, ba []byte) ([]byte, error) {
+	if p.includeLength {
+		ba, _ = EncodeVarint(ba, uint64(len(p.encodedData)))
+	}
 	return append(ba, p.encodedData...), nil
 }
 
@@ -285,3 +290,23 @@ func BuildPrimitiveEncoder(v interface{}, fld *descriptor.FieldDescriptorProto) 
 
 	return pe, nil
 }
+
+// staticAttributeEncoder for pre-encoded data delivered via attribute bag
+type staticAttributeEncoder struct {
+	// name of the attribute to read from
+	attrName string
+}
+
+func (p staticAttributeEncoder) Encode(a attribute.Bag, ba []byte) ([]byte, error) {
+	v, ok := a.Get(p.attrName)
+	if !ok {
+		return nil, errors.Errorf("unable to find attribute: %s", p.attrName)
+	}
+	var ea []byte
+	if ea, ok = v.([]byte); !ok {
+		return nil, errors.Errorf("unexpected attribute (%s) type. got %T, want []byte", p.attrName, v)
+	}
+	ba, _ = EncodeVarint(ba, uint64(len(ea)))
+	return append(ba, ea...), nil
+}
+

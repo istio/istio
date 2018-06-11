@@ -109,7 +109,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 		}
 
 		e := newEnv(snapshot.ID, handler.Name, gp)
-		instantiatedHandler, err := config.BuildHandler(handler, instances, e, snapshot.Templates)
+		instantiatedHandler, err := config.BuildHandlerDynamic(handler, instances, e, snapshot.Templates)
 
 		if err != nil {
 			t.counters.buildFailure.Inc()

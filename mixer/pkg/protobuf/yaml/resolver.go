@@ -57,8 +57,7 @@ func (r *resolver) ResolveService(namePrefix string) (svc *descriptor.ServiceDes
 			svc = fd.Service[idx]
 			pkg = fd.GetPackage()
 			if strings.HasPrefix(svc.GetName(), namePrefix) {
-				fd.GetPackage()
-				return svc, pkg
+				return svc, fd.GetPackage()
 			}
 		}
 	}

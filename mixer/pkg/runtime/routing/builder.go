@@ -143,7 +143,7 @@ func (b *builder) nextID() uint32 {
 }
 
 // templateInfo build method needed dispatch this template
-func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
+func (b *builder) templateInfo(tmpl *adapter.DynamicTemplate) *TemplateInfo {
 	ti :=  &TemplateInfo{
 		Name: tmpl.Name,
 		Variety: tmpl.Variety,
@@ -310,9 +310,9 @@ const defaultInstanceSize = 128
 // is an attribute generator. At present this function never returns an error.
 func (b *builder) getBuilderAndMapperDynamic(
 	finder ast.AttributeDescriptorFinder,
-	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	instance *adapter.DynamicInstance) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	_ = finder   // only needed for APA.
-	
+
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		ba := make([]byte, 0, defaultInstanceSize)
 		// The encoder produces

@@ -118,12 +118,10 @@ func BuildHandler(
 }
 
 
-//FIXME cyclic dependency between this package and dynamic package.
-
 // BuildHandler instantiates a handler object using the passed in handler and instances configuration.
 func BuildHandlerDynamic(
-	handler *HandlerDynamic,
-	instances []*InstanceDynamic,
+	handler *adapter.DynamicHandler,
+	instances []*adapter.DynamicInstance,
 	env adapter.Env, templates map[string]*template.Info) (h adapter.Handler, err error) {
 
 	var builder adapter.HandlerBuilder

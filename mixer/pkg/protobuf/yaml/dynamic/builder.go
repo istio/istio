@@ -23,7 +23,6 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -57,6 +56,16 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 			valueTypeName: valueTypeEncoderBuilder,
 		},
 	}
+}
+
+// Build builds an Encoder
+func (c Builder) BuildWithLength(msgName string, data map[string]interface{}) (Encoder, error) {
+	m := c.resolver.ResolveMessage(msgName)
+	if m == nil {
+		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
+	}
+
+	return c.buildMessage(m, data, false)
 }
 
 // Build builds an Encoder
@@ -96,6 +105,15 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 				continue
 			}
 			return nil, fmt.Errorf("fieldEncoder '%s' not found in message '%s'", k, md.GetName())
+		}
+
+		// If the input already has an encoder
+		// just use it
+		if de, ok := v.(Encoder); ok {
+			fld := makeField(fd)
+			fld.encoder = []Encoder{de}
+			me.fields = append(me.fields, fld)
+			continue
 		}
 
 		// if the message is a map, key is never

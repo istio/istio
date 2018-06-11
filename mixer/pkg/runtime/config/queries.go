@@ -14,6 +14,8 @@
 
 package config
 
+import "istio.io/istio/mixer/pkg/adapter"
+
 // GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
 func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceStatic {
@@ -51,9 +53,9 @@ func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceSt
 
 // GetInstancesGroupedByHandlersDynamic queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
-func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*InstanceDynamic {
+func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*adapter.DynamicHandler][]*adapter.DynamicInstance {
 	// There is no set in Go? map[<item>]bool to the rescue!
-	m := make(map[*HandlerDynamic]map[*InstanceDynamic]bool)
+	m := make(map[*adapter.DynamicHandler]map[*adapter.DynamicInstance]bool)
 
 	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
 	// as values.
@@ -61,7 +63,7 @@ func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*In
 		for _, a := range r.ActionsDynamic {
 			instances, found := m[a.Handler]
 			if !found {
-				instances = make(map[*InstanceDynamic]bool)
+				instances = make(map[*adapter.DynamicInstance]bool)
 				m[a.Handler] = instances
 			}
 
@@ -71,10 +73,10 @@ func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*In
 		}
 	}
 
-	result := make(map[*HandlerDynamic][]*InstanceDynamic, len(m))
+	result := make(map[*adapter.DynamicHandler][]*adapter.DynamicInstance, len(m))
 	for k, v := range m {
 		i := 0
-		instances := make([]*InstanceDynamic, len(v))
+		instances := make([]*adapter.DynamicInstance, len(v))
 		for instance := range v {
 			instances[i] = instance
 			i++
