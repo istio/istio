@@ -17,7 +17,6 @@ package dynamic
 import (
 	"context"
 	"testing"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/adapter"
 	"github.com/gogo/protobuf/types"
@@ -36,10 +35,9 @@ func TestEncodeCheckRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
 	res := protoyaml.NewResolver(fds)
 
-	b := NewEncoderBuilder(res, compiler, true)
+	b := NewEncoderBuilder(res, nil, true)
 	var inst *Svc
 	adapterConfig := &types.Any{
 		TypeUrl: "@abc",
