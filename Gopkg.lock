@@ -261,6 +261,7 @@
   branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
+    "envoy/admin/v2alpha",
     "envoy/api/v2",
     "envoy/api/v2/auth",
     "envoy/api/v2/cluster",
@@ -268,6 +269,7 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/bootstrap/v2",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
@@ -277,6 +279,9 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/rbac/v2alpha",
+    "envoy/config/metrics/v2",
+    "envoy/config/ratelimit/v2",
+    "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
     "pkg/util"
@@ -1611,6 +1616,14 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
+<<<<<<< HEAD
   inputs-digest = "84b22a076c8240323c1d4a5544b96529f7645b913aae735f134c42be9c21fff4"
+=======
+<<<<<<< HEAD
+  inputs-digest = "f5b698e7946265edb5dae820fbea1b699578365dbcba64123fa95986cd85b811"
+=======
+  inputs-digest = "cf36e2c87cf1758a6fc0846a8ae1e6ea8cb2c3e0739df86ef4c288ff0a72537c"
+>>>>>>> Add v2alpha admin api to deps
+>>>>>>> Add v2alpha admin api to deps
   solver-name = "gps-cdcl"
   solver-version = 1
