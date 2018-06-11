@@ -30,7 +30,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
-{{- if $.Values.global.oneNamespace }}
+{{- if .Values.global.istiotesting.oneNameSpace }}
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
