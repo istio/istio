@@ -50,15 +50,6 @@ func TestGetSecret(t *testing.T) {
 		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
 	}
 
-	// Try to get secret again using same token, verify secret isn't re-generated again since cached secret hasn't expired.
-	gotSecret, err = sc.GetSecret(proxyID, jwtToken)
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-	if got, want := gotSecret.CertificateChain, mockCertificateChain1st; bytes.Compare(got, want) != 0 {
-		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
-	}
-
 	// Try to get secret again using different jwt token, verify secret is re-generated.
 	jwtToken = "newToken"
 	gotSecret, err = sc.GetSecret(proxyID, jwtToken)
@@ -127,7 +118,7 @@ func newMockCAClient() *mockCAClient {
 	return &cl
 }
 
-func (c *mockCAClient) Sign(csrPEM []byte, /*PEM-encoded certificate request*/
+func (c *mockCAClient) CSRSign(csrPEM []byte, /*PEM-encoded certificate request*/
 	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
 	atomic.AddUint64(&c.signInvokeCount, 1)
 

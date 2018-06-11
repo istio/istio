@@ -30,7 +30,7 @@ const keySize = 2048
 // CAClient interface defines the clients need to implement to talk to CA for CSR.
 // TODO(quanlin): CAClient here is a placeholder, will move it to separated pkg.
 type CAClient interface {
-	Sign(csrPEM []byte /*PEM-encoded certificate request*/, subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
+	CSRSign(csrPEM []byte /*PEM-encoded certificate request*/, subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -79,22 +79,11 @@ func NewSecretCache(cl CAClient, secretTTL, rotationInterval, evictionDuration t
 	return ret
 }
 
-// GetSecret gets secret from cache.
+// GetSecret gets secret from cache, this function is called by SDS.FetchSecret,
+// Since credential passing from client may change, regenerate secret every time
+// instread of reading from cache.
 func (sc *SecretCache) GetSecret(proxyID, token string) (*SecretItem, error) {
-	now := time.Now()
-
-	// Return directly if secret could be found from cache and not expired.
-	val, found := sc.secrets.Load(proxyID)
-	if found {
-		s := val.(SecretItem)
-		if s.token == token && !sc.checkExpired(&s) {
-			// Update cached secret's lastUsedTime.
-			s.lastUsedTime = now
-			return &s, nil
-		}
-	}
-
-	ns, err := sc.generateSecret(token, now)
+	ns, err := sc.generateSecret(token, time.Now())
 	if err != nil {
 		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 		return nil, err
@@ -169,7 +158,7 @@ func (sc *SecretCache) generateSecret(token string, t time.Time) (*SecretItem, e
 		return nil, err
 	}
 
-	certChainPER, err := sc.caClient.Sign(csrPEM, token, int64(sc.secretTTL.Seconds()))
+	certChainPER, err := sc.caClient.CSRSign(csrPEM, token, int64(sc.secretTTL.Seconds()))
 	if err != nil {
 		return nil, err
 	}
