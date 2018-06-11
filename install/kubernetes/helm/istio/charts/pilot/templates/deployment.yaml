@@ -123,6 +123,10 @@ spec:
           name: istio
       - name: istio-certs
         secret:
-          secretName: "istio.istio-pilot-service-account"
+{{- if .Values.global.rbacEnabled }}
+          secretName: istio.istio-pilot-service-account
+{{- else }}
+          secretName: istio.default
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

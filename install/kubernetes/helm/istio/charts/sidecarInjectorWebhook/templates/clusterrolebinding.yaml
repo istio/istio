@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
@@ -14,6 +13,9 @@ roleRef:
   name: istio-sidecar-injector-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
+{{- if .Values.global.rbacEnabled }}
     name: istio-sidecar-injector-service-account
-    namespace: {{ .Release.Namespace }}
+{{- else }}
+    name: default
 {{- end }}
+    namespace: {{ .Release.Namespace }}
