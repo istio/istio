@@ -1,34 +1,51 @@
 # Checker
 
-The [Checker](checker.go) is an extensible go-file analyzer. It takes a list of directory paths, recursively scan for
-go files, apply [Rule](rule.go)s to the files, and generate a text based report.
+[Checker](checker.go) is an extensible go-file analyzer. It processes source codes in the following steps:
+* Take a list of directory paths and recursively scan for go files
+* Build abstract syntax trees for the relevant go files
+* Apply Rule-based analysis
+* Generate a report
+ 
+The design is pluggable, as different applications can implement different [Rule](rule.go)s for different analytic
+requirements.
 
-The design is pluggable, different applications can implement different [Rule](rule.go)s and define what
-[Rule](rule.go)s should apply to different files.
 
-## Rule
+### Check
 
-Application should implement the [Rule](rule.go) interface, and implement the actual logic
-to produce diagnostic information, using an abstract syntax tree built from a go file. This allows custom
-semantic analysis. Each [Rule](rule.go) is expected to run one specific check against the given syntax
-tree, and multiple [Rule](rule.go) can be implemented for different checks against the same tree 
-(i.e. go file).
+The Check() function is the main entry point, which takes a list of file path (if empty, current directory is implied),
+a RulesFactory, a [Whitelist](whitelist.go) , and a Report. 
+
+The [RulesFactory](rule.go) and the [Whitelist](whitelist.go) are extension points which allow the caller (i.e.
+application) to configure what [Rule](rule.go)s should apply to what files.
+
+```bash
+func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *Report) error
+```
+
+
+### Rule
+
+Application implements the [Rule](rule.go) interface, and provides the actual logic to produce diagnostic information,
+using an abstract syntax tree built from a go file. Each [Rule](rule.go) is expected to run one specific check
+(potentially using information from external systems) against the given syntax tree, and multiple [Rule](rule.go)s can
+be implemented for different checks against the same tree (i.e. go file). This allows custom semantic analysis.
 
 ```bash
 type Rule interface {
-	// GetID returns ID of the rule in string, ID is equal to the file name of that rule.
+	// GetID returns ID of the rule in string
 	GetID() string
-	// Check verifies if aNode passes rule check. If verification fails lrp creates a report.
+	// Check conditions using the given node and produce report if needed.
 	Check(aNode ast.Node, fs *token.FileSet, lrp *Report)
 }
 ```
 
-## RulesFactory
 
-Application should implement the [RulesFactory](rule.go) interface to improve the mapping between
-a file and the applicable [Rule](rule.go)s. This allows a fine granularity control over what [Rule](rule.go)s
-should apply to what files. For example, _test.go files can use a different set of rules from regular
-go files.
+### RulesFactory
+
+Application implements the [RulesFactory](rule.go) interface to provide a mapping from file paths to their
+corresponding rules. This allows fine grained control over what [Rule](rule.go)s should apply to what files. For
+example, “_test.go” files can use a different set of rules from regular go files, or “mixer” files can have different
+rules from “pilot” files.
 
 ```bash
 type RulesFactory interface {
@@ -37,56 +54,49 @@ type RulesFactory interface {
 }
 ```
 
-## Whitelist
 
-In addition to [RulesFactory](rule.go), application can provide a [Whitelist](whitelist.go) to whistlist
-certain files from application some rules. This allows temporary rule disablement until the file is updated
-to comply with the rules.
+### Whitelist
 
-A [Whitelist](whitelist.go) object is backed by a map from string to a string slice, where the keys are file
-paths, and the values are slice of rule IDs, as identified by return value of the GetID() method, in the 
-[Rule](rule.go) interface.
+In addition to [RulesFactory](rule.go), application can provide a [Whitelist](whitelist.go) to opt out selected files
+from certain rules. This allows temporary rule disablement until the file is updated to comply with the rules, or an
+exception mechanism to allow approved files break some rules.
+
+A [Whitelist](whitelist.go) object is backed by a map from string to a string slice, where the keys are file paths, and
+the values are slices of rule IDs, as identified by return value of the GetID() method, in the [Rule](rule.go)
+interface.
 
 ```bash
 func NewWhitelist(ruleWhitelist map[string][]string) *Whitelist {
-	return &Whitelist{ruleWhitelist: ruleWhitelist}
+	return Whitelist{ruleWhitelist: ruleWhitelist}
 }
 ```
-## Report
 
-[Report](report.go) is used to accumulate rule diagnostic information for final consumption. When a 
-[Rule](rule.go) runs a check, it can add information to the [Report](report.go) using the AddItem function
-to provide both the file location information, as well as a diagnostic text string. [report](report.go).
 
-After the checks are done, the Items() function can be used to retrieve the formatted text based report,
-as in a string slice.
+### Report
+
+[Report](report.go) is a utility used to accumulate rule diagnostic information for final consumption. When a
+[Rule](rule.go) runs a check, it can add information to the [Report](report.go) using the AddItem() function to provide
+file location information, and a diagnostic message.
+
+After all checks are done, the Items() function can be used to retrieve the formatted text based report as a string
+slice.
 
 ```bash
-func (lr *Report) AddItem(pos token.Pos, fs *token.FileSet, msg string)
+func (lr *Report) AddItem(pos token.Position, is string, msg string)
 
 func (lt *Report) Items() []string
 ```
 
-## Check
 
-The Check() function is the main entry point to Checker. It takes a list of file path (if empty, current 
-directory is implied), a [RulesFactory](rule.go), a [Whitelist](whitelist.go) , and a [Report](report.go).
+## Example Use Cases
 
-Both the [RulesFactory](rule.go), and the [Whitelist](whitelist.go) allows the caller to configure the
-rules that should apply.
+* The [Checker](checker.go) can go through all Test* functions in _test.go files, and create a warning if a test is
+  being skipped without having a github issue assigned (i.e. in the testing.T.skip() message). This allows us to
+  properly track all skipped tests, and make sure they are restored when the underlying issues are fixed.
 
-```bash
-func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *Report) error {
-```
-
-# Example Use Cases
-
-1. The [Checker](checker.go) can go through all Test* functions in _test.go files, and create a warning if
-   a test is being skipped without having a github issue assigned (i.e. in the testing.T.skip() message)
-   This allows us to properly track all skipped tests, and make sure they are restored when the underlying
-   issue is fixed. 
-
-1. The [Checker](checker.go) can go through all _test.go files and validate if the test is being run in CI.
-   It can then find all the dead tests to either remove, or to hook them back up in the automatic tests.
-
-Both these information are complementary to the coverage information we already obtained via codecov.
+* The [Checker](checker.go) can go through all _test.go files and validate if the test is being run in CI. It can then
+  find all the dead tests for developers to either remove, or to hook them back up in the automatic tests.
+ 
+Information like these are valuable but are currently opaque to us (even codecov report cannot reveal these). The
+extensible [Checker](checker.go) design opens up opportunities to add more code analysis, so we have better insight
+into the Istio code base and maintain better code health.

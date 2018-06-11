@@ -35,12 +35,13 @@ func (lt *Report) Items() []string {
 }
 
 // AddItem creates a new lint error report.
-func (lr *Report) AddItem(pos token.Pos, fs *token.FileSet, msg string) {
-	item := fmt.Sprintf("%v:%v:%v:%s",
-		fs.Position(pos).Filename,
-		fs.Position(pos).Line,
-		fs.Position(pos).Column,
-		msg)
+func (lr *Report) AddItem(pos token.Position, id string, msg string) {
+	item := fmt.Sprintf("%v:%v:%v:%s (%s)",
+		pos.Filename,
+		pos.Line,
+		pos.Column,
+		msg,
+		id)
 	lr.items = append(lr.items, item)
 }
 

@@ -37,6 +37,6 @@ func (lr *NoGoroutine) GetID() string {
 // Check verifies if aNode is not goroutine. If verification fails lrp creates new report.
 func (lr *NoGoroutine) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if gs, ok := aNode.(*ast.GoStmt); ok {
-		lrp.AddItem(gs.Pos(), fs, "goroutine is disallowed.")
+		lrp.AddItem(fs.Position(gs.Pos()), lr.GetID(), "goroutine is disallowed.")
 	}
 }

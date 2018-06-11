@@ -29,7 +29,7 @@ func TestE2eTestSkipByIssueRule(t *testing.T) {
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{
-		getAbsPath("testdata/e2e/e2e_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.",
+		getAbsPath("testdata/e2e/e2e_test.go") + ":11:2:Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue. (skip_issue)",
 	}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
@@ -43,9 +43,9 @@ func TestE2eTestSkipByShortRule(t *testing.T) {
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/e2e/e2e_test.go") +
-		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'",
+		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
 		getAbsPath("testdata/e2e/e2e_test.go") +
-			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'"}
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)"}
 
 	if !reflect.DeepEqual(rpts, expectedRpts) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)

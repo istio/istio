@@ -38,7 +38,7 @@ func (lr *NoShort) GetID() string {
 func (lr *NoShort) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "testing", "Short") {
-			lrp.AddItem(ce.Pos(), fs, "testing.Short() is disallowed.")
+			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "testing.Short() is disallowed.")
 		}
 	}
 }

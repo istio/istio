@@ -38,7 +38,7 @@ func (lr *NoSleep) GetID() string {
 func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if ce, ok := aNode.(*ast.CallExpr); ok {
 		if matchCallExpr(ce, "time", "Sleep") {
-			lrp.AddItem(ce.Pos(), fs, "time.Sleep() is disallowed.")
+			lrp.AddItem(fs.Position(ce.Pos()), lr.GetID(), "time.Sleep() is disallowed.")
 		}
 	}
 }

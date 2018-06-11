@@ -1,11 +1,10 @@
 # golinter
 
-golinter applies customized lint rules to our test files. Test files are categorized into
-unit tests, integration tests, and end to end tests based on file locations and file names, and
-different rules are applied accordingly.
+golinter applies different linter rules to test files according to their categories, based on file paths and names. 
+It is run as part of the Istio pre-submit linter check. Whitelisting allows rule breaking exceptions, and temporarily
+opt-out.
 
-golinter is baed on [Checker](../README.md), and this package provides the custom [Rule](../rule.go)s
-implementation.
+golinter is baed on [Checker](../README.md), and this package provides the [custom rules](rules) implementation.
 
 
 ## End To End Tests
@@ -14,18 +13,28 @@ All "_test.go" files in a "e2e" directory hierarchy are considered as end to end
 
 Example: 
 ```bash
-/istio/tests/e2e/tests/simple/simple_tests.go
+/istio/tests/e2e/tests/simple/simple_test.go
 ```
 
 #### Rules
 
-1. TBD
+1. All skipped tests must be associated with an github issue.
+1. All tests should be skipped if testing.short() is true.  This makes it easier to filter out long running tests
+   using “go test -short ./…”.. Example (from [golang testing doc](https://golang.org/pkg/testing/)):
+```bash
+	func TestTimeConsuming(t *testing.T) {
+	    if testing.Short() {
+	     	   t.Skip("skipping test in short mode.")
+	    }
+	    ...
+	}
+```
 
 
 ## Integration Tests
 
-All "_test.go" files in a "integration" directory hierarchy, or with "_integ_test.go" suffix are
-considered as end to end tests.
+All "_test.go" files in an "integration" directory hierarchy, or with "_integ_test.go" suffix are considered as
+integration tests.
 
 Example: 
 ```bash
@@ -36,12 +45,14 @@ Example:
 
 #### Rules
 
-1. TBD
+1. All skipped tests must be associated with an github issue.
+1. All tests should be skipped if testing.short() is true. (TBD)
 
 
 ## Unit Tests
 
-All "_test.go" files that are not integration tests and end to end tests are considered as unit tests.
+All "_test.go" files that are not integration tests and end to end tests are considered as unit tests. Most tests
+are supposed to be in this category.
 
 Example: 
 ```bash
@@ -51,7 +62,9 @@ Example:
 
 #### Rules
 
-1. TBD
+1. All skipped tests must be associated with an github issue.
+1. Must not fork a new process.
+1. Must not sleep, as unit tests are supposed to finish quickly. (Open to debate)
 
 
 
@@ -60,7 +73,7 @@ If, for some reason, you want to disable lint rule for a file, you can add the f
 [whitelist.go](whitelist.go). Rule ID is the name of that rule file without `.go` extension.
 You could also specify file path in regex.
 
-If you don't want to disable all rule for a file path, you can specify `*` as the ID.
+If you want to disable all rules for a file path, you can specify `*` as the ID.
 
 Example:
 ```base

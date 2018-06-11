@@ -67,7 +67,7 @@ func (lr *ShortSkip) GetID() string {
 func (lr *ShortSkip) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.Name, "Test") {
 		if len(fn.Body.List) == 0 {
-			lrp.AddItem(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+			lrp.AddItem(fs.Position(aNode.Pos()), lr.GetID(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 		} else if len(fn.Body.List) == 1 {
 			if ifStmt, ok := fn.Body.List[0].(*ast.IfStmt); ok {
 				if uExpr, ok := ifStmt.Cond.(*ast.UnaryExpr); ok {
@@ -93,6 +93,6 @@ func (lr *ShortSkip) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Repor
 				}
 			}
 		}
-		lrp.AddItem(aNode.Pos(), fs, "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
+		lrp.AddItem(fs.Position(aNode.Pos()), lr.GetID(), "Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}'")
 	}
 }

@@ -41,8 +41,8 @@ type RulesMatcher struct {
 // (1) e2e test file
 // .../e2e/.../*_test.go
 // (2) integration test file
-// .../integ/.../*_test.go
-// .../integ/.../*_integ_test.go
+// .../integration/.../*_test.go
+// .../integration/.../*_integ_test.go
 // .../*_integ_test.go
 // (3) unit test file
 // .../*_test.go
@@ -56,12 +56,12 @@ func (rf *RulesMatcher) GetRules(absp string, info os.FileInfo) []checker.Rule {
 	for _, path := range paths {
 		if path == "e2e" {
 			return LintRulesList[E2eTest]
-		} else if path == "integ" {
+		} else if path == "integration" {
 			return LintRulesList[IntegTest]
 		}
 	}
 	if strings.HasSuffix(paths[len(paths)-1], "_integ_test.go") {
-		// Integration tests can be in non integ directories.
+		// Integration tests can be in non integration directories.
 		return LintRulesList[IntegTest]
 	} else {
 		return LintRulesList[UnitTest]
