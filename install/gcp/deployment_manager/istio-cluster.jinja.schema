@@ -44,6 +44,8 @@ properties:
     type: string
     description: Install Istio Release version.
     default: 0.8.0
+    enum:
+      - 0.8.0
 
   enableBookInfoSample:
     type: boolean
@@ -70,9 +72,9 @@ properties:
     description: Enable Grafana for metrics/logs
     default: true
 
-  enableZipkin:
+  enableTracing:
     type: boolean
-    description: Enable Zipkin for metrics/logs
+    description: Enable Tracing
     default: true
 
   enableServiceGraph:

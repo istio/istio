@@ -121,8 +121,8 @@ resources:
             ISTIO_OPTIONS=$ISTIO_OPTIONS" --set grafana.enabled=true"
           {% endif %}
 
-          {% if  properties['enableZipkin'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set zipkin.enabled=true "
+          {% if  properties['enableTracing'] %}
+            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set tracing.enabled=true "
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
