@@ -16,18 +16,20 @@ package dynamic
 
 import (
 	"context"
-	"testing"
-	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/mixer/pkg/adapter"
-	"github.com/gogo/protobuf/types"
-	"istio.io/istio/mixer/template/metric"
-	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/mixer/adapter/model/v1beta1"
+	attributeV1beta1 "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/adapter"
+	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/template/listentry"
+	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	spy "istio.io/istio/mixer/test/spybackend"
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	"strings"
 )
 
 func TestEncodeCheckRequest(t *testing.T) {
@@ -78,7 +80,7 @@ func TestEncodeCheckRequest(t *testing.T) {
 			ed1,
 		},
 		AdapterConfig: adapterConfig,
-		DedupId: dedupString,
+		DedupId:       dedupString,
 	}
 
 	got := &metric.HandleMetricRequest{}
@@ -119,7 +121,6 @@ func TestNoSessionBackend(t *testing.T) {
 
 	t.Logf("Started server at: %v", s.Addr())
 
-
 	validateNoSessionBackend(s.(*spy.NoSessionServer), t)
 }
 
@@ -132,10 +133,10 @@ func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *I
 	}
 
 	return &Instance{
-		Name: name,
+		Name:         name,
 		TemplateName: name,
-		FileDescSet: fds,
-		Variety: variety,
+		FileDescSet:  fds,
+		Variety:      variety,
 	}
 }
 
@@ -160,7 +161,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 	}()
 	// check
 	linst := &listentry.InstanceMsg{
-		Name: "n1",
+		Name:  "n1",
 		Value: "v1",
 	}
 	linstBa, _ := linst.Marshal()
@@ -182,7 +183,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 		},
 	}
 	minstBa, _ := minst.Marshal()
-	if err = h.HandleRemoteReport(context.Background(), [][]byte{minstBa}, metricDi.Name);err != nil {
+	if err = h.HandleRemoteReport(context.Background(), [][]byte{minstBa}, metricDi.Name); err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
 	expectEqual(minst, s.Requests.HandleMetricRequest[0].Instances[0], t)
@@ -217,7 +218,7 @@ func asAdapterQuotaResult(qRes *v1beta1.QuotaResult, qname string) *adapter.Quot
 
 func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 	return &adapter.CheckResult{
-		Status: result.Status,
+		Status:        result.Status,
 		ValidUseCount: result.ValidUseCount,
 		ValidDuration: result.ValidDuration,
 	}
@@ -225,7 +226,7 @@ func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 
 func TestCodecErrors(t *testing.T) {
 	c := Codec{}
-	t.Run(c.String() +".marshalError", func(t *testing.T) {
+	t.Run(c.String()+".marshalError", func(t *testing.T) {
 		if _, err := c.Marshal("ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to marshal") {
 				t.Errorf("incorrect error: %v", err)
@@ -234,7 +235,7 @@ func TestCodecErrors(t *testing.T) {
 			t.Errorf("exepcted marshal to fail")
 		}
 	})
-	t.Run(c.String() +".unMarshalError", func(t *testing.T) {
+	t.Run(c.String()+".unMarshalError", func(t *testing.T) {
 		var ba []byte
 		if err := c.Unmarshal(ba, "ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to unmarshal") {
@@ -248,9 +249,9 @@ func TestCodecErrors(t *testing.T) {
 
 func TestBuildHandler_ConnectError(t *testing.T) {
 	/*
-	h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: ""}, false, []*adapter.DynamicInstance{}, false,)
-	if err != nil {
-		t.Fatalf("unable to build handler: %v", err)
-	}
-	h.Close()*/
+		h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: ""}, false, []*adapter.DynamicInstance{}, false,)
+		if err != nil {
+			t.Fatalf("unable to build handler: %v", err)
+		}
+		h.Close()*/
 }

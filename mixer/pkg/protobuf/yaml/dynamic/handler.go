@@ -15,23 +15,26 @@
 package dynamic
 
 import (
-	"istio.io/istio/mixer/pkg/adapter"
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	policypb "istio.io/api/policy/v1beta1"
-	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
+	"math/rand"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
+	"google.golang.org/grpc"
+
+	"istio.io/api/mixer/adapter/model/v1beta1"
+	policypb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/adapter"
+	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	istiolog "istio.io/istio/pkg/log"
-	"math/rand"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
+
 var (
-	 log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
+	log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
 )
 
 type (
@@ -65,10 +68,10 @@ type (
 
 	// Instance name
 	Instance struct {
-		Name string
+		Name         string
 		TemplateName string
-		FileDescSet *descriptor.FileDescriptorSet
-		Variety v1beta1.TemplateVariety
+		FileDescSet  *descriptor.FileDescriptorSet
+		Variety      v1beta1.TemplateVariety
 	}
 
 	// Codec in no-op on the way out and unmarshals using normal means
@@ -78,19 +81,19 @@ type (
 
 // handler: Create a dynamic handler object exposing specific handler interfaces.
 func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig *types.Any,
-	instances []*Instance)(hh *Handler, err error){
+	instances []*Instance) (hh *Handler, err error) {
 
 	hh = &Handler{
-		Name: name,
-		svcMap: make(map[string]*Svc, len(instances)),
+		Name:       name,
+		svcMap:     make(map[string]*Svc, len(instances)),
 		connConfig: connConfig,
-		n: &atomic.Uint64{},
+		n:          &atomic.Uint64{},
 	}
 
 	var svc *Svc
 	for _, inst := range instances {
 		if svc, err = RemoteAdapterSvc("Handle",
-			protoyaml.NewResolver(inst.FileDescSet), sessionBased, adapterConfig); err!= nil {
+			protoyaml.NewResolver(inst.FileDescSet), sessionBased, adapterConfig); err != nil {
 			return nil, err
 		}
 		hh.svcMap[inst.Name] = svc
@@ -104,7 +107,7 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 	return hh, nil
 }
 
-func (h *Handler) Close() error{
+func (h *Handler) Close() error {
 	if h.conn != nil {
 		return h.conn.Close()
 	}
@@ -123,7 +126,7 @@ func (h *Handler) connect() (err error) {
 	return nil
 }
 
-func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1beta1.QuotaRequest, dedupID string, resultPtr interface{}, encodedInstances ... []byte) error {
+func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1beta1.QuotaRequest, dedupID string, resultPtr interface{}, encodedInstances ...[]byte) error {
 	inst := h.svcMap[instanceName]
 	if inst == nil {
 		return errors.Errorf("unable to find instance: %s", instanceName)
@@ -147,47 +150,48 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr *v1b
 }
 
 var _ adapter.RemoteCheckHandler = &Handler{}
+
 func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte, instanceName string) (*adapter.CheckResult, error) {
 	result := &v1beta1.CheckResult{}
-	if err := h.handleRemote(ctx, instanceName, nil, "", result, encodedInstance);err != nil {
+	if err := h.handleRemote(ctx, instanceName, nil, "", result, encodedInstance); err != nil {
 		return nil, err
 	}
 
 	return &adapter.CheckResult{
-		Status: result.Status,
+		Status:        result.Status,
 		ValidUseCount: result.ValidUseCount,
 		ValidDuration: result.ValidDuration,
 	}, nil
 }
 
-
 var _ adapter.RemoteReportHandler = &Handler{}
-func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) (error) {
+
+func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) error {
 	// ReportResult is empty and it is ignored
-	return h.handleRemote(ctx, instanceName,nil, "", &v1beta1.ReportResult{}, encodedInstances...)
+	return h.handleRemote(ctx, instanceName, nil, "", &v1beta1.ReportResult{}, encodedInstances...)
 }
 
-
 var _ adapter.RemoteQuotaHandler = &Handler{}
+
 func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *adapter.QuotaArgs, instanceName string) (*adapter.QuotaResult, error) {
 	result := &v1beta1.QuotaResult{}
 	qr := &v1beta1.QuotaRequest{
 		Quotas: map[string]v1beta1.QuotaRequest_QuotaParams{
 			instanceName: {
-				Amount: args.QuotaAmount,
+				Amount:     args.QuotaAmount,
 				BestEffort: args.BestEffort,
 			},
 		},
 	}
 
-	if err := h.handleRemote(ctx, instanceName, qr, args.DeduplicationID, result, encodedInstance);err != nil {
+	if err := h.handleRemote(ctx, instanceName, qr, args.DeduplicationID, result, encodedInstance); err != nil {
 		return nil, err
 	}
 
 	qRes := result.Quotas[instanceName]
 	return &adapter.QuotaResult{
 		ValidDuration: qRes.ValidDuration,
-		Amount: qRes.GrantedAmount,
+		Amount:        qRes.GrantedAmount,
 	}, nil
 }
 
@@ -215,7 +219,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		MethodName: method.GetName(),
 		InputType:  method.GetInputType(),
 		OutputType: method.GetOutputType(),
-		re: re,
+		re:         re,
 	}, nil
 }
 
@@ -223,9 +227,10 @@ func (ra Svc) GrpcPath() string {
 	return fmt.Sprintf("/%s.%s/%s", ra.Pkg, ra.Name, ra.MethodName)
 }
 
-type staticBag struct{
+type staticBag struct {
 	v map[string]interface{}
 }
+
 func (eb staticBag) Get(name string) (interface{}, bool) {
 	v, found := eb.v[name]
 	return v, found
@@ -238,10 +243,8 @@ func (eb staticBag) Names() []string {
 	}
 	return ret
 }
-func (eb staticBag) Done()                               {}
-func (eb staticBag) String() string                      { return fmt.Sprintf("%v", eb.v) }
-
-
+func (eb staticBag) Done()          {}
+func (eb staticBag) String() string { return fmt.Sprintf("%v", eb.v) }
 
 const quotaRequestAttrName = "-quota-request-"
 const dedupeAttrName = "-dedup_id-"
@@ -250,10 +253,10 @@ const instanceAttrName = "-pre-encoded-instance-"
 // buildRequestEncoder is based on code gen check code gen that includes 3/4 fields.
 func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapterConfig *types.Any) (*RequestEncoder, error) {
 	inputData := map[string]interface{}{
-		"instance": &staticAttributeEncoder{  // check and quota have instance
+		"instance": &staticAttributeEncoder{ // check and quota have instance
 			attrName: instanceAttrName,
 		},
-		"instances": &staticAttributeEncoder{  // report has instances
+		"instances": &staticAttributeEncoder{ // report has instances
 			attrName: instanceAttrName,
 		},
 		"dedup_id": &staticAttributeEncoder{
@@ -269,7 +272,7 @@ func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapter
 			return nil, err // Any.Marshal() never returns an error.
 		}
 		inputData["adapter_config"] = &staticEncoder{
-			encodedData: encodedData,
+			encodedData:   encodedData,
 			includeLength: true,
 		}
 	}
@@ -286,7 +289,7 @@ type RequestEncoder struct {
 	m messageEncoder
 }
 
-func dedupeString(d uint64)string {
+func dedupeString(d uint64) string {
 	return fmt.Sprintf("%d", d)
 }
 
@@ -301,7 +304,7 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 	size += len(r.m.fields) * 3
 	ba = make([]byte, 0, size)
 
-	v:= make(map[string]interface{}, 3) // at most 3 attributes at one time.
+	v := make(map[string]interface{}, 3) // at most 3 attributes at one time.
 
 	v[dedupeAttrName] = []byte(dedupID)
 
@@ -314,7 +317,7 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 	}
 
 	bag := staticBag{
-		v:v,
+		v: v,
 	}
 
 	instField := r.m.fields[0]
@@ -353,4 +356,3 @@ func (Codec) Unmarshal(data []byte, v interface{}) error {
 func (Codec) String() string {
 	return "custom codec"
 }
-

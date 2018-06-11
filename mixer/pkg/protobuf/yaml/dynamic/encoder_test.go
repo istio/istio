@@ -612,7 +612,6 @@ func TestStaticPrecoded(t *testing.T) {
 		expectEqual(vOth, oth, t)
 	}
 
-
 	var enc Encoder
 	{
 		if enc, err = b.Build(".foo.Simple", map[string]interface{}{
@@ -640,7 +639,7 @@ func TestStaticPrecoded(t *testing.T) {
 
 func expectEqual(got interface{}, want interface{}, t *testing.T) {
 	t.Helper()
-	s, equal:= diff.PrettyDiff(got, want)
+	s, equal := diff.PrettyDiff(got, want)
 	if equal {
 		return
 	}
@@ -648,7 +647,6 @@ func expectEqual(got interface{}, want interface{}, t *testing.T) {
 	t.Logf("difference: %s", s)
 	t.Fatalf("\n got: %v\nwant: %v", got, want)
 }
-
 
 func TestDynamicEncoder(t *testing.T) {
 	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")

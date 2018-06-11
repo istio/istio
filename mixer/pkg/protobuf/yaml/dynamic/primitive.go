@@ -18,11 +18,11 @@ import (
 	"fmt"
 
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/pkg/errors"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"github.com/pkg/errors"
 )
 
 type encoderFn func(bag attribute.Bag, ba []byte) ([]byte, error)
@@ -260,8 +260,8 @@ func BuildPrimitiveEvalEncoder(expr compiled.Expression, vt v1beta1.ValueType, f
 
 // staticEncoder for pre-encoded data
 type staticEncoder struct {
-	name        string
-	encodedData []byte
+	name          string
+	encodedData   []byte
 	includeLength bool
 }
 
@@ -309,4 +309,3 @@ func (p staticAttributeEncoder) Encode(a attribute.Bag, ba []byte) ([]byte, erro
 	ba, _ = EncodeVarint(ba, uint64(len(ea)))
 	return append(ba, ea...), nil
 }
-
