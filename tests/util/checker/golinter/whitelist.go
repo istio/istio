@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package linter
+package golinter
 
 // Whitelist contains pairs of file and rule IDs. Each file maps to an array of rules which
 // should not apply to that file. Each rule is represented by its unique rule ID, which is the

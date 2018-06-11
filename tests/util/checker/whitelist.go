@@ -34,7 +34,7 @@ func NewWhitelist(ruleWhitelist map[string][]string) *Whitelist {
 func (wl *Whitelist) Apply(path string, rule Rule) bool {
 	for _, skipRule := range wl.getWhitelistedRules(path) {
 		if skipRule == rule.GetID() {
-			return true;
+			return true
 		}
 	}
 	return false

@@ -19,13 +19,13 @@ import (
 	"testing"
 
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/linter"
-	"istio.io/istio/tests/util/checker/linter/rules"
+	"istio.io/istio/tests/util/checker/golinter"
+	"istio.io/istio/tests/util/checker/golinter/rules"
 )
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []checker.Rule{rules.NewSkipByIssue()}
+	golinter.LintRulesList[golinter.IntegTest] = []checker.Rule{rules.NewSkipByIssue()}
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{
@@ -39,7 +39,7 @@ func TestIntegTestSkipByIssueRule(t *testing.T) {
 
 func TestIntegTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.IntegTest] = []checker.Rule{rules.NewSkipByShort()}
+	golinter.LintRulesList[golinter.IntegTest] = []checker.Rule{rules.NewSkipByShort()}
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/integration/integtest_test.go") +

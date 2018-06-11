@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/linter"
+	"istio.io/istio/tests/util/checker/golinter"
 )
 
 func main() {
@@ -41,8 +41,8 @@ func main() {
 }
 
 func getReport(args []string) ([]string, error) {
-	matcher := linter.RulesMatcher{}
-	whitelist := checker.NewWhitelist(linter.Whitelist)
+	matcher := golinter.RulesMatcher{}
+	whitelist := checker.NewWhitelist(golinter.Whitelist)
 	report := checker.NewLintReport()
 
 	err := checker.Check(args, &matcher, whitelist, report)

@@ -19,13 +19,13 @@ import (
 	"testing"
 
 	"istio.io/istio/tests/util/checker"
-	"istio.io/istio/tests/util/checker/linter"
-	"istio.io/istio/tests/util/checker/linter/rules"
+	"istio.io/istio/tests/util/checker/golinter"
+	"istio.io/istio/tests/util/checker/golinter/rules"
 )
 
 func TestE2eTestSkipByIssueRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []checker.Rule{rules.NewSkipByIssue()}
+	golinter.LintRulesList[golinter.E2eTest] = []checker.Rule{rules.NewSkipByIssue()}
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{
@@ -39,7 +39,7 @@ func TestE2eTestSkipByIssueRule(t *testing.T) {
 
 func TestE2eTestSkipByShortRule(t *testing.T) {
 	clearLintRulesList()
-	linter.LintRulesList[linter.E2eTest] = []checker.Rule{rules.NewSkipByShort()}
+	golinter.LintRulesList[golinter.E2eTest] = []checker.Rule{rules.NewSkipByShort()}
 
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/e2e/e2e_test.go") +

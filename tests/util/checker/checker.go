@@ -80,7 +80,7 @@ type FileVisitor struct {
 	report    *Report // report for linting process
 }
 
-// Visit checks each function call and report if a forbidden function call is detected.
+// Visit checks each node and runs the applicable checks.
 func (fv *FileVisitor) Visit(node ast.Node) ast.Visitor {
 	if node == nil {
 		return nil

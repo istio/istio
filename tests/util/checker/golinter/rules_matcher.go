@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package linter
+package golinter
 
 import (
 	"os"
@@ -35,7 +35,7 @@ const (
 type RulesMatcher struct {
 }
 
-// GetTestType checks path absp and desides whether absp is a test file. It returns true and test type
+// GetRules checks path absp and decides whether absp is a test file. It returns true and test type
 // for a test file. If path absp should be skipped, it returns false.
 // If one of the following cases meet, path absp is a valid path to test file.
 // (1) e2e test file
