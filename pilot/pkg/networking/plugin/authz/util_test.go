@@ -21,48 +21,8 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 )
-
-func TestConvertToStringMatch(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		S      string
-		Expect *envoy_type.StringMatch
-	}{
-		{
-			Name: "exact match", S: "	product page ",
-			Expect: &envoy_type.StringMatch{
-				MatchPattern: &envoy_type.StringMatch_Simple{Simple: "product page"},
-			},
-		},
-		{
-			Name: "wild character match", S: " * ",
-			Expect: &envoy_type.StringMatch{
-				MatchPattern: &envoy_type.StringMatch_Regex{Regex: "*"},
-			},
-		},
-		{
-			Name: "prefix match", S: " product page* ",
-			Expect: &envoy_type.StringMatch{
-				MatchPattern: &envoy_type.StringMatch_Prefix{Prefix: "product page"},
-			},
-		},
-		{
-			Name: "suffix match", S: " *product page ",
-			Expect: &envoy_type.StringMatch{
-				MatchPattern: &envoy_type.StringMatch_Suffix{Suffix: "product page"},
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		if actual := convertToStringMatch(tc.S); !reflect.DeepEqual(actual, tc.Expect) {
-			t.Errorf("%s: expecting: %v, but got: %v", tc.Name, tc.Expect.MatchPattern, actual.MatchPattern)
-		}
-	}
-}
 
 func TestStringMatch(t *testing.T) {
 	testCases := []struct {

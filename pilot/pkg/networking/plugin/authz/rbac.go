@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package authz converts Istio RBAC (role-based-access-control) policies (ServiceRole and ServiceRoleBinding)
+// Package authz converts Istio RBAC (role-based-access-control) policies (ServiceRole and ServiceRoleBinding)
 // to corresponding filter config that is used by the envoy RBAC filter to enforce access control to
 // the service co-located with envoy.
 // Currently the config is only generated for sidecar node on inbound HTTP listener. The generation
@@ -305,23 +305,23 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	switch {
 	case key == destinationIP:
 		converter = func(v string) (*policyproto.Permission, error) {
-			if cidr, err := convertToCidr(v); err != nil {
+			cidr, err := convertToCidr(v)
+			if err != nil {
 				return nil, err
-			} else {
-				return &policyproto.Permission{
-					Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
-				}, nil
 			}
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
+			}, nil
 		}
 	case key == destinationPort:
 		converter = func(v string) (*policyproto.Permission, error) {
-			if port, err := convertToPort(v); err != nil {
+			port, err := convertToPort(v)
+			if err != nil {
 				return nil, err
-			} else {
-				return &policyproto.Permission{
-					Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
-				}, nil
 			}
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_DestinationPort{DestinationPort: port},
+			}, nil
 		}
 	case key == pathHeader || key == methodHeader:
 		converter = func(v string) (*policyproto.Permission, error) {

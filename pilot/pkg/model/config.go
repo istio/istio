@@ -511,6 +511,7 @@ var (
 		Validate:    ValidateServiceRoleBinding,
 	}
 
+	// RbacConfig describes an global RBAC config.
 	RbacConfig = ProtoSchema{
 		Type:        "rbac-config",
 		Plural:      "rbac-configs",

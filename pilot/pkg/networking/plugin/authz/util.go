@@ -22,28 +22,8 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 )
-
-// convertToStringMatch converts a string to a StringMatch, it supports four types of conversion:
-// 1. Wild caracter match. i.e. "*" is converted to a regular expression match of "*"
-// 2. Suffix match, e.g. "*abc" is converted to a suffix match of "abc"
-// 3. Prefix match, e.g. "abc* " is converted to a prefix match of "abc"
-// 4. Exact match, e.g. "abc" is converted to a simple exact match of "abc"
-func convertToStringMatch(s string) *envoy_type.StringMatch {
-	s = strings.TrimSpace(s)
-	switch {
-	case s == "*":
-		return &envoy_type.StringMatch{MatchPattern: &envoy_type.StringMatch_Regex{Regex: "*"}}
-	case strings.HasPrefix(s, "*"):
-		return &envoy_type.StringMatch{MatchPattern: &envoy_type.StringMatch_Suffix{Suffix: strings.TrimPrefix(s, "*")}}
-	case strings.HasSuffix(s, "*"):
-		return &envoy_type.StringMatch{MatchPattern: &envoy_type.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, "*")}}
-	default:
-		return &envoy_type.StringMatch{MatchPattern: &envoy_type.StringMatch_Simple{Simple: s}}
-	}
-}
 
 // stringMatch checks if a string is in a list, it supports four types of string matches:
 // 1. Exact match.
@@ -128,12 +108,11 @@ func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 				RegexMatch: "^" + strings.Replace(v, "*", ".*", -1) + "$",
 			},
 		}
-	} else {
-		return &route.HeaderMatcher{
-			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-				ExactMatch: v,
-			},
-		}
+	}
+	return &route.HeaderMatcher{
+		Name: k,
+		HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+			ExactMatch: v,
+		},
 	}
 }
