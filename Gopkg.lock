@@ -145,12 +145,16 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
     "service/cloudwatch",
     "service/cloudwatch/cloudwatchiface",
+    "service/cloudwatchlogs",
+    "service/cloudwatchlogs/cloudwatchlogsiface",
     "service/sts"
   ]
   revision = "4b5324816e154564ef4e490842c2e40560971f75"
@@ -1609,6 +1613,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8464b70a2fd1459c3de6b9e195be5e83f1498a4db020f4214f69da73565ec6b5"
+  inputs-digest = "28c2a2cdc0e2ef5d5e747c6e3765c2aeb29a7126632a257188e6bba0aeacc0b3"
   solver-name = "gps-cdcl"
   solver-version = 1
