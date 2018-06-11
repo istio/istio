@@ -129,7 +129,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		if err != nil {
 			return nil, fmt.Errorf("could not build kubernetes client: %v", err)
 		}
-		controller = newCacheController(clientset, refresh, env)
+		controller = newCacheController(clientset, refresh, paramsProto.IsV18Cluster, env)
 		env.ScheduleDaemon(func() { controller.Run(stopChan) })
 		// ensure that any request is only handled after
 		// a sync has occurred

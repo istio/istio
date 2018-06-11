@@ -71,8 +71,15 @@ func podIP(obj interface{}) ([]string, error) {
 // Responsible for setting up the cacheController, based on the supplied client.
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
+<<<<<<< HEAD
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
 	return &controllerImpl{
+=======
+func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, is18Cluster bool, env adapter.Env) cacheController {
+	namespace := "" // todo: address unparam linter issue
+
+	controller := &controllerImpl{
+>>>>>>> Add backwards compat for v1.8.x clusters
 		env: env,
 		pods: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
@@ -89,6 +96,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				"ip": podIP,
 			},
 		),
+<<<<<<< HEAD
 		appsv1RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -102,6 +110,8 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 			refreshDuration,
 			cache.Indexers{},
 		),
+=======
+>>>>>>> Add backwards compat for v1.8.x clusters
 		appsv1beta2RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -129,21 +139,41 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 			cache.Indexers{},
 		),
 	}
+
+	if !is18Cluster {
+		controller.appsv1RS = cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+					return clientset.AppsV1().ReplicaSets(namespace).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.AppsV1().ReplicaSets(namespace).Watch(opts)
+				},
+			},
+			&appsv1.ReplicaSet{},
+			refreshDuration,
+			cache.Indexers{},
+		)
+	}
+
+	return controller
 }
 
 func (c *controllerImpl) HasSynced() bool {
 	return c.pods.HasSynced() &&
 		c.appsv1beta2RS.HasSynced() &&
-		c.appsv1RS.HasSynced() &&
-		c.extv1beta1RS.HasSynced()
+		c.extv1beta1RS.HasSynced() &&
+		(c.appsv1RS != nil && c.appsv1RS.HasSynced())
 }
 
 func (c *controllerImpl) Run(stop <-chan struct{}) {
 	// TODO: scheduledaemon
 	c.env.ScheduleDaemon(func() { c.pods.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.appsv1beta2RS.Run(stop) })
-	c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
 	c.env.ScheduleDaemon(func() { c.extv1beta1RS.Run(stop) })
+	if c.appsv1RS != nil {
+		c.env.ScheduleDaemon(func() { c.appsv1RS.Run(stop) })
+	}
 	<-stop
 	// TODO: logging?
 }

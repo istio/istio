@@ -135,7 +135,11 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err";
   fi
 
+<<<<<<< HEAD
   go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP[@]}"
+=======
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go api -t $templateDS --go_out $templateHG --proto_out $templateHSP $TMPL_GEN_MAP
+>>>>>>> Add backwards compat for v1.8.x clusters
 
   err=$($protoc "${IMPORTS[@]}" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
