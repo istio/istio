@@ -453,7 +453,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 					info.ServerProtocol = "HTTP"
 				}
 			} else {
-				info.AuthenticationPolicyName = "N/A"
+				info.AuthenticationPolicyName = "-"
 				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
 					serverSideTLS = true
 					info.ServerProtocol = "TLS"
@@ -473,7 +473,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 					info.ClientProtocol = "HTTP"
 				}
 			} else {
-				info.DestinationRuleName = "N/A"
+				info.DestinationRuleName = "-"
 				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
 					clientSideTLS = true
 					info.ClientProtocol = "TLS"
