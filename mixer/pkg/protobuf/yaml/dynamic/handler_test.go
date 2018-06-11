@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/mixer/template/quota"
 	spy "istio.io/istio/mixer/test/spybackend"
 	"istio.io/api/mixer/adapter/model/v1beta1"
+	"strings"
 )
 
 func TestEncodeCheckRequest(t *testing.T) {
@@ -133,7 +134,7 @@ func TestNoSessionBackend(t *testing.T) {
 	t.Logf("Started server at: %v", s.Addr())
 
 
-	validateNoSessionBackend(s, t)
+	validateNoSessionBackend(s.(*spy.NoSessionServer), t)
 }
 
 func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *adapter.DynamicInstance {
@@ -155,8 +156,7 @@ func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVari
 	}
 }
 
-func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
-	s := ctx.(*spy.NoSessionServer)
+func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 	listentryDi := loadDynamicInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
 	metricDi := loadDynamicInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
 	quotaDi := loadDynamicInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
@@ -179,6 +179,9 @@ func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 		t.Fatalf("unable to build handler: %v", err)
 	}
 
+	defer func() {
+		_ = h.Close()
+	}()
 	// check
 	linst := &listentry.InstanceMsg{
 		Name: "n1",
@@ -242,4 +245,43 @@ func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 		ValidUseCount: result.ValidUseCount,
 		ValidDuration: result.ValidDuration,
 	}
+}
+
+func TestCodecErrors(t *testing.T) {
+	c := Codec{}
+	t.Run(c.String() +".marshalError", func(t *testing.T) {
+		if _, err := c.Marshal("ABC"); err != nil {
+			if !strings.Contains(err.Error(), "unable to marshal") {
+				t.Errorf("incorrect error: %v", err)
+			}
+		} else {
+			t.Errorf("exepcted marshal to fail")
+		}
+	})
+	t.Run(c.String() +".unMarshalError", func(t *testing.T) {
+		var ba []byte
+		if err := c.Unmarshal(ba, "ABC"); err != nil {
+			if !strings.Contains(err.Error(), "unable to unmarshal") {
+				t.Errorf("incorrect error: %v ", err)
+			}
+		} else {
+			t.Errorf("exepcted marshal to fail")
+		}
+	})
+}
+
+func TestBuildHandler_ConnectError(t *testing.T) {
+	handlerConfig := &adapter.DynamicHandler{
+		Name: "spy",
+		Connection: &attributeV1beta1.Connection{Address: ""},
+		Adapter: &adapter.Dynamic{
+			SessionBased: false,
+		},
+	}
+
+	h, err := BuildHandler(handlerConfig, []*adapter.DynamicInstance{}, nil)
+	if err != nil {
+		t.Fatalf("unable to build handler: %v", err)
+	}
+	h.Close()
 }

@@ -82,8 +82,8 @@ func BuildHandler(handler *adapter.DynamicHandler,
 
 	var svc *Svc
 	for _, inst := range instances {
-		res := protoyaml.NewResolver(inst.Template.FileDescSet)
-		if svc, err = RemoteAdapterSvc("Handle", res, handler); err!= nil {
+		if svc, err = RemoteAdapterSvc("Handle",
+			protoyaml.NewResolver(inst.Template.FileDescSet), handler); err!= nil {
 			return nil, err
 		}
 		hh.svcMap[inst.Name] = svc
@@ -222,10 +222,6 @@ func (ra Svc) GrpcPath() string {
 	return fmt.Sprintf("/%s.%s/%s", ra.Pkg, ra.Name, ra.MethodName)
 }
 
-func (ra Svc) String() string {
-	return fmt.Sprintf("%s (%s --> %s)", ra.GrpcPath(), ra.InputType, ra.OutputType)
-}
-
 type staticBag struct{
 	v map[string]interface{}
 }
@@ -341,7 +337,11 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 
 // Marshal
 func (Codec) Marshal(v interface{}) ([]byte, error) {
-	return v.([]byte), nil
+	if ba, ok := v.([]byte); ok {
+		return ba, nil
+	}
+
+	return nil, fmt.Errorf("unable to marshal type:%T, want []byte", v)
 }
 func (Codec) Unmarshal(data []byte, v interface{}) error {
 	if um, ok := v.(proto.Unmarshaler); ok {
@@ -351,6 +351,6 @@ func (Codec) Unmarshal(data []byte, v interface{}) error {
 	return fmt.Errorf("unable to unmarshal type:%T, %v", v, v)
 }
 func (Codec) String() string {
-	return "byte buffer"
+	return "custom codec"
 }
 
