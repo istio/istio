@@ -81,8 +81,18 @@ export TAG="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
 ```
 
 **Option 3:** Testing local changes
-
 If you want to test on uncommitted changes to master istio:
+
+***Option A*** Use in-cluster local registry
+If environment variable `HUB` is not set, local registry will be setup before test.
+All local codes will be compiled/dockered and pushed to it .
+
+* MacOS ONLY
+Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting before running the tests.
+Make sure you have followed this [doc](../local/localregistry/setup_bluemix.md) to configure docker daemons on all nodes.
+
+*Option B*
+
 * Create a PR with your change.
 * This will trigger istio-presubmit.sh. At the end of this script, it creates docker images for mixer, pilot, ca, with
 your changes and upload them to container registry. See the logs of this istio-presubmit.sh and at the end there must

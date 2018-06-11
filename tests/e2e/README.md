@@ -9,16 +9,6 @@ Developers, on the other hand, are recommended to run the tests locally before s
 
 # Running E2E Tests
 
-Image registry option:
-
-1. [In-cluster registry](/local/localregistry) 
-If environment variable `HUB` is not set, local registry will be setup and used automatically.
-*MacOS ONLY*
-Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting before running the tests.
-
-2. Remote registry
-By setting `HUB` to your remote registry, the tests will push and pull images from the remote.
-
 ## Using a local VM
 E2E tests can be run on your local machines. It helps local testing and debuging. You can use one of the following to set up a local testing environment.
 
@@ -32,6 +22,8 @@ All lcoal testing options requires the `--use-local-cluster` flag so the framewo
 ## Using GKE
 Optionally, you can set up a GKE environment to run the E2E tests. See [instructions](UsingGKE.md).
 
+## Using IBM Bluemix
+Setup a Kubernetes cluster on IBM Cloud to run the E2E tests. See [instructions](UsingBluemix.md).
 
 ## Using CI (PR pre-submit stage)
 You can send a PR to trigger all E2E tests in CI, but you should run these tests locally before sending it out to avoid wasting valuable and shared CI resources.

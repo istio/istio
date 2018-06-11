@@ -101,8 +101,8 @@ test_setup: localregistry_setup istioctl generate_yaml
 localregistry_setup:
 ifeq ($(HUB),istio)
 	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
-	GOOS=linux HUB=${REG_LOCAL} make push
-	ps aux | grep "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
+	GOOS=linux HUB=${REG_LOCAL} make docker push
+	kill $(shell lsof -t -i:5000)
 endif
 localregistry_setup:
 ifeq ($(HUB),istio)
