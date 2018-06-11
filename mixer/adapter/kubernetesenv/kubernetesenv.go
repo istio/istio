@@ -161,11 +161,11 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
-			h.fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
 		if p, found := h.findPod(inst.DestinationIp.String()); found {
-			h.fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
 		}
 	}
 
@@ -209,7 +209,21 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func findContainer(p *v1.Pod, port int64) string {
+	if port <= 0 {
+		return ""
+	}
+	for _, c := range p.Spec.Containers {
+		for _, cp := range c.Ports {
+			if int64(cp.ContainerPort) == port {
+				return c.Name
+			}
+		}
+	}
+	return ""
+}
+
+func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.SetDestinationLabels(p.Labels)
 	}
@@ -235,6 +249,9 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *confi
 		if len(wl.selfLinkURL) > 0 {
 			o.SetDestinationOwner(wl.selfLinkURL)
 		}
+	}
+	if cn := findContainer(p, port); cn != "" {
+		o.SetDestinationContainerName(cn)
 	}
 }
 
