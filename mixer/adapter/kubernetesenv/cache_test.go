@@ -48,7 +48,7 @@ func TestClusterInfoCache_Pod(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(tt *testing.T) {
-			c := newCacheController(clientset, 0, false, test.NewEnv(t))
+			c := newCacheController(clientset, 0, test.NewEnv(t))
 			stopCh := make(chan struct{})
 			defer close(stopCh)
 			go c.Run(stopCh)

@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -72,12 +73,15 @@ func podIP(obj interface{}) ([]string, error) {
 // It configures the index informer to list/watch k8sCache and send update events
 // to a mutations channel for processing (in this case, logging).
 <<<<<<< HEAD
+<<<<<<< HEAD
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
 	return &controllerImpl{
 =======
 func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, is18Cluster bool, env adapter.Env) cacheController {
+=======
+func newCacheController(clientset kubernetes.Interface, refreshDuration time.Duration, env adapter.Env) cacheController {
+>>>>>>> Use discovery API to check Watch setup
 	namespace := "" // todo: address unparam linter issue
-
 	controller := &controllerImpl{
 >>>>>>> Add backwards compat for v1.8.x clusters
 		env: env,
@@ -96,6 +100,7 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				"ip": podIP,
 			},
 		),
+<<<<<<< HEAD
 <<<<<<< HEAD
 		appsv1RS: cache.NewSharedIndexInformer(
 			&cache.ListWatch{
@@ -119,28 +124,11 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 					return clientset.AppsV1beta2().ReplicaSets(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&appsv1beta2.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		),
-		extv1beta1RS: cache.NewSharedIndexInformer(
-			&cache.ListWatch{
-				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).List(opts)
-				},
-				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
-				},
-			},
-			&extv1beta1.ReplicaSet{},
-			refreshDuration,
-			cache.Indexers{},
-		),
+=======
 	}
 
-	if !is18Cluster {
+	discoveryClient := clientset.Discovery()
+	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1.SchemeGroupVersion); err == nil {
 		controller.appsv1RS = cache.NewSharedIndexInformer(
 			&cache.ListWatch{
 				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -148,9 +136,49 @@ func newCacheController(clientset kubernetes.Interface, refreshDuration time.Dur
 				},
 				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 					return clientset.AppsV1().ReplicaSets(namespace).Watch(opts)
+>>>>>>> Use discovery API to check Watch setup
 				},
 			},
 			&appsv1.ReplicaSet{},
+			refreshDuration,
+			cache.Indexers{},
+		)
+	}
+
+	if err := discovery.ServerSupportsVersion(discoveryClient, appsv1beta2.SchemeGroupVersion); err == nil {
+		controller.appsv1beta2RS = cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+<<<<<<< HEAD
+					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.ExtensionsV1beta1().ReplicaSets(metav1.NamespaceAll).Watch(opts)
+=======
+					return clientset.AppsV1beta2().ReplicaSets(namespace).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.AppsV1beta2().ReplicaSets(namespace).Watch(opts)
+>>>>>>> Use discovery API to check Watch setup
+				},
+			},
+			&appsv1beta2.ReplicaSet{},
+			refreshDuration,
+			cache.Indexers{},
+		)
+	}
+
+	if err := discovery.ServerSupportsVersion(discoveryClient, extv1beta1.SchemeGroupVersion); err == nil {
+		controller.extv1beta1RS = cache.NewSharedIndexInformer(
+			&cache.ListWatch{
+				ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+					return clientset.ExtensionsV1beta1().ReplicaSets(namespace).List(opts)
+				},
+				WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+					return clientset.ExtensionsV1beta1().ReplicaSets(namespace).Watch(opts)
+				},
+			},
+			&extv1beta1.ReplicaSet{},
 			refreshDuration,
 			cache.Indexers{},
 		)

@@ -67,11 +67,4 @@ message Params {
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
-
-    // Provides support for kubernetes clusters from v1.8.x vintage. Set this to
-    // true if your cluster is not running kuberenetes v1.9 or newer. 1.7 clusters
-    // are not supported.
-    //
-    // Default: false
-    bool is_v18_cluster = 7;
 }
