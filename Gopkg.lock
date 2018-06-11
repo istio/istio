@@ -272,9 +272,11 @@
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/http/jwt_authn/v2alpha",
+    "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/rbac/v2alpha",
     "envoy/service/discovery/v2",
     "envoy/type",
     "pkg/util"
@@ -1609,6 +1611,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f5b698e7946265edb5dae820fbea1b699578365dbcba64123fa95986cd85b811"
+  inputs-digest = "84b22a076c8240323c1d4a5544b96529f7645b913aae735f134c42be9c21fff4"
   solver-name = "gps-cdcl"
   solver-version = 1
