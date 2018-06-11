@@ -33,9 +33,9 @@ func TestTLSMultiplexing(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			// This policy configures c to use PERMISSIVE for port 80 and STRICT for port 8080.
+			// This policy configures b to use PERMISSIVE for port 80 and STRICT for port 8080.
 			"testdata/authn/v1alpha1/multiplexing/authn-policy-permissive.yaml",
-			// This configure serivce c's client to use ISTIO_MUTUAL mTLS when talking to service c.
+			// This configure serivce b's client to use ISTIO_MUTUAL mTLS when talking to service c.
 			"testdata/authn/v1alpha1/multiplexing/destination-rule.yaml",
 		},
 		kubeconfig: tc.Kube.KubeConfig,
@@ -48,15 +48,15 @@ func TestTLSMultiplexing(t *testing.T) {
 	// Pod a has sidecar, will use DestinationRule `ISTIO_MUTUAL` to send TLS traffic.
 	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
-	dstPods := []string{"c"}
+	dstPods := []string{"b"}
 	// TODO(incfly): add 8080 once auth filter works.
-	ports := []string{"80"}
+	ports := []string{"80", "9090"}
 	shouldFails := []struct {
 		src  string
 		dest string
 		port string
 	}{
-		{"t", "c", "8080"},
+		{"t", "b", "9090"},
 	}
 
 	// Run all request tests.
@@ -69,7 +69,6 @@ func TestTLSMultiplexing(t *testing.T) {
 							testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
 							runRetriableTest(t, cluster, testName, 15, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								expectOK := true
 								for _, f := range shouldFails {
 									if f.src == src && f.dest == dst && f.port == port {
@@ -77,13 +76,18 @@ func TestTLSMultiplexing(t *testing.T) {
 										break
 									}
 								}
+								count := 1
+								if !expectOK {
+									count = 15
+								}
+								resp := ClientRequest(cluster, src, reqURL, count, "")
 								if resp.IsHTTPOk() && expectOK {
 									return nil
 								}
 								if !resp.IsHTTPOk() && !expectOK {
 									return nil
 								}
-								log.Errorf("expect %v, returned http %v", expectOK, resp.IsHTTPOk())
+								log.Errorf("multiplex testing failed expect %v, returned http %v", expectOK, resp.IsHTTPOk())
 								return errAgain
 							})
 						}
