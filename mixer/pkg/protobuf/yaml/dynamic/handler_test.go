@@ -31,11 +31,9 @@ import (
 )
 
 func TestEncodeCheckRequest(t *testing.T) {
-	fds, err := protoyaml.GetFileDescSet("../../../../template/metric/template_handler_service.descriptor_set")
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-	res := protoyaml.NewResolver(fds)
+	var err error
+	metricDi := loadInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
+	res := protoyaml.NewResolver(metricDi.FileDescSet)
 
 	b := NewEncoderBuilder(res, nil, true)
 	var inst *Svc
@@ -44,22 +42,12 @@ func TestEncodeCheckRequest(t *testing.T) {
 		Value:   []byte("abcd"),
 	}
 
-	hh := &adapter.DynamicHandler{
-		Adapter: &adapter.Dynamic{},
-		AdapterConfig: adapterConfig,
-	}
-
-	if inst, err = RemoteAdapterSvc("", res, hh); err != nil {
+	if inst, err = RemoteAdapterSvc("", res, false, adapterConfig); err != nil {
 		t.Fatalf("failed to get service:%v", err)
 	}
 
 	var re *RequestEncoder
-	re, err = buildRequestEncoder(b, inst.InputType, &adapter.DynamicHandler{
-		Adapter: &adapter.Dynamic{
-
-		},
-		AdapterConfig: adapterConfig,
-	})
+	re, err = buildRequestEncoder(b, inst.InputType, false, adapterConfig)
 
 	if err != nil {
 		t.Fatalf("unable build request encoder: %v", err)
@@ -135,7 +123,7 @@ func TestNoSessionBackend(t *testing.T) {
 	validateNoSessionBackend(s.(*spy.NoSessionServer), t)
 }
 
-func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *adapter.DynamicInstance {
+func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *Instance {
 	t.Helper()
 	path := fmt.Sprintf("../../../../template/%s/template_handler_service.descriptor_set", name)
 	fds, err := protoyaml.GetFileDescSet(path)
@@ -143,36 +131,26 @@ func loadDynamicInstance(t *testing.T, name string, variety v1beta1.TemplateVari
 		t.Fatalf("error: %v", err)
 	}
 
-	// ../../template/listentry/template_handler_service.descriptor_set
-	return &adapter.DynamicInstance{
+	return &Instance{
 		Name: name,
-		Template: &adapter.DynamicTemplate{
-			Name: name,
-			Variety: variety,
-			FileDescSet: fds,
-		},
+		TemplateName: name,
+		FileDescSet: fds,
+		Variety: variety,
 	}
 }
 
 func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
-	listentryDi := loadDynamicInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
-	metricDi := loadDynamicInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
-	quotaDi := loadDynamicInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
+	listentryDi := loadInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
+	metricDi := loadInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
+	quotaDi := loadInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
 
 	adapterConfig := &types.Any{
 		TypeUrl: "@abc",
 		Value:   []byte("abcd"),
 	}
-	handlerConfig := &adapter.DynamicHandler{
-		Name: "spy",
-		Connection: &attributeV1beta1.Connection{Address: s.Addr().String()},
-		Adapter: &adapter.Dynamic{
-			SessionBased: false,
-		},
-		AdapterConfig: adapterConfig,
-	}
 
-	h, err := BuildHandler(handlerConfig, []*adapter.DynamicInstance{listentryDi, metricDi, quotaDi}, nil)
+	h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig, []*Instance{listentryDi, metricDi, quotaDi})
+
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
 	}
@@ -269,17 +247,10 @@ func TestCodecErrors(t *testing.T) {
 }
 
 func TestBuildHandler_ConnectError(t *testing.T) {
-	handlerConfig := &adapter.DynamicHandler{
-		Name: "spy",
-		Connection: &attributeV1beta1.Connection{Address: ""},
-		Adapter: &adapter.Dynamic{
-			SessionBased: false,
-		},
-	}
-
-	h, err := BuildHandler(handlerConfig, []*adapter.DynamicInstance{}, nil)
+	/*
+	h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: ""}, false, []*adapter.DynamicInstance{}, false,)
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
 	}
-	h.Close()
+	h.Close()*/
 }

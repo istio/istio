@@ -27,6 +27,8 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"math/rand"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 )
 var (
 	 log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
@@ -35,7 +37,8 @@ var (
 type (
 	// Handler is the dynamic handler implementation
 	Handler struct {
-		env adapter.Env
+		// Name is used for debug
+		Name string
 
 		// external grpc connection
 		conn *grpc.ClientConn
@@ -45,10 +48,11 @@ type (
 		// svcMap is instance name to Svc mapping
 		svcMap map[string]*Svc
 
-		// to generate dedupeID when not given.
+		// n generates dedupeID when not given.
 		n *atomic.Uint64
 	}
 
+	// Svc encapsulates abstract service
 	Svc struct {
 		Name       string
 		Pkg        string
@@ -59,31 +63,34 @@ type (
 		re *RequestEncoder
 	}
 
+	// Instance name
+	Instance struct {
+		Name string
+		TemplateName string
+		FileDescSet *descriptor.FileDescriptorSet
+		Variety v1beta1.TemplateVariety
+	}
+
 	// Codec in no-op on the way out and unmarshals using normal means
 	// on the way in.
 	Codec struct{}
 )
 
 // handler: Create a dynamic handler object exposing specific handler interfaces.
-func BuildHandler(handler *adapter.DynamicHandler,
-	instances []*adapter.DynamicInstance,
-	env adapter.Env)(hh *Handler, err error){
-
-	if err = ValidateHandlerInput(handler, instances); err != nil {
-		return nil, err
-	}
+func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig *types.Any,
+	instances []*Instance)(hh *Handler, err error){
 
 	hh = &Handler{
-		env: env,
+		Name: name,
 		svcMap: make(map[string]*Svc, len(instances)),
-		connConfig: handler.Connection,
+		connConfig: connConfig,
 		n: &atomic.Uint64{},
 	}
 
 	var svc *Svc
 	for _, inst := range instances {
 		if svc, err = RemoteAdapterSvc("Handle",
-			protoyaml.NewResolver(inst.Template.FileDescSet), handler); err!= nil {
+			protoyaml.NewResolver(inst.FileDescSet), sessionBased, adapterConfig); err!= nil {
 			return nil, err
 		}
 		hh.svcMap[inst.Name] = svc
@@ -95,12 +102,6 @@ func BuildHandler(handler *adapter.DynamicHandler,
 	}
 
 	return hh, nil
-}
-
-// ValidateHandlerInput validates that the dynamic handler is capable of receiving instances
-func ValidateHandlerInput(handler *adapter.DynamicHandler, instances []*adapter.DynamicInstance) error {
-	// TODO
-	return nil
 }
 
 func (h *Handler) Close() error{
@@ -191,7 +192,7 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte,
 }
 
 // RemoteAdapterSvc returns RemoteAdapter service
-func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, handler *adapter.DynamicHandler) (*Svc, error) {
+func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool, adapterConfig *types.Any) (*Svc, error) {
 	svc, pkg := res.ResolveService(namePrefix)
 
 	if svc == nil {
@@ -202,8 +203,8 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, handler *adapte
 		return nil, errors.Errorf("no methods defined in service:'%s'", svc.GetName())
 	}
 	method := svc.GetMethod()[0]
-
-	re, err := buildRequestEncoder(NewEncoderBuilder(res, nil, true), method.GetInputType(), handler)
+	instBuilder := NewEncoderBuilder(res, nil, true)
+	re, err := buildRequestEncoder(instBuilder, method.GetInputType(), sessionBased, adapterConfig)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -247,7 +248,7 @@ const dedupeAttrName = "-dedup_id-"
 const instanceAttrName = "-pre-encoded-instance-"
 
 // buildRequestEncoder is based on code gen check code gen that includes 3/4 fields.
-func buildRequestEncoder(b *Builder, inputMsg string, handler *adapter.DynamicHandler) (*RequestEncoder, error) {
+func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapterConfig *types.Any) (*RequestEncoder, error) {
 	inputData := map[string]interface{}{
 		"instance": &staticAttributeEncoder{  // check and quota have instance
 			attrName: instanceAttrName,
@@ -262,10 +263,10 @@ func buildRequestEncoder(b *Builder, inputMsg string, handler *adapter.DynamicHa
 			attrName: quotaRequestAttrName,
 		},
 	}
-	if !handler.Adapter.SessionBased {
-		encodedData, err := handler.AdapterConfig.Marshal()
+	if !sessionBased {
+		encodedData, err := adapterConfig.Marshal()
 		if err != nil {
-			return nil, err
+			return nil, err // Any.Marshal() never returns an error.
 		}
 		inputData["adapter_config"] = &staticEncoder{
 			encodedData: encodedData,
@@ -333,7 +334,6 @@ func (r *RequestEncoder) encodeRequest(qr *v1beta1.QuotaRequest, dedupID string,
 	}
 	return ba, nil
 }
-
 
 // Marshal
 func (Codec) Marshal(v interface{}) ([]byte, error) {
