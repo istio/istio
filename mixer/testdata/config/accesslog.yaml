@@ -6,7 +6,7 @@ metadata:
 spec:
   adapter: stdio
   params:
-    outputAsJson: true
+    outputAsJson: false
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry

@@ -21,11 +21,19 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sync"
 
+<<<<<<< HEAD
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
+=======
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
+
+>>>>>>> use jsonpb based conversion
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -213,6 +221,18 @@ func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierro
 	return attrs
 }
 
+// convert converts unstructured spec into the target proto.
+func convert(spec map[string]interface{}, target proto.Message) error {
+	jsonData, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
+		log.Warnf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+	}
+	return err
+}
+
 func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
@@ -228,11 +248,17 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *
 			}
 
 			if handlerProto.Params != nil {
-				// I HAVE NO IDEA HOW TO TURN INTERFACE{} -> PROTO MESSAGE HERE
-				staticConfig.Params = staticConfig.Adapter.DefaultConfig
+				c := staticConfig.Adapter.DefaultConfig
+				switch v := handlerProto.Params.(type) {
+				case map[string]interface{}:
+					if err := convert(v, c); err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
+					}
+				default:
+					log.Warnf("unexpected type for handler params: %T; could not convert handler params; using default config", v)
+				}
+				staticConfig.Params = c
 			}
-			log.Warnf("adapters: %#v", e.adapters)
-			log.Warnf("adding handler: key = %v, name = %s, config = %v", key.String(), handlerProto.Name, staticConfig)
 			handlers[key.String()] = staticConfig
 			continue
 		}
