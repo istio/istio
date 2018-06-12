@@ -18,6 +18,9 @@ echo "Using $vm_driver as VM for Minikube."
 
 echo "Starting Minikube."
 
+# Delete any previous minikube cluster
+minikube delete
+
 # Start minikube
 minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
