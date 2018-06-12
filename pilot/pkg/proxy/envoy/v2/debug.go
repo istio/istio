@@ -412,13 +412,27 @@ func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, por
 
 // AuthenticationDebug holds debug information for service authentication policy.
 type AuthenticationDebug struct {
-	Host                     string
-	Port                     int
-	AuthenticationPolicyName string
-	DestinationRuleName      string
-	ServerProtocol           string
-	ClientProtocol           string
-	TLSConflictStatus        string
+	Host                     string `json:"host"`
+	Port                     int    `json:"port"`
+	AuthenticationPolicyName string `json:"authentication_policy_name"`
+	DestinationRuleName      string `json:"destination_rule_name"`
+	ServerProtocol           string `json:"server_protocol"`
+	ClientProtocol           string `json:"client_protocol"`
+	TLSConflictStatus        string `json:"TLS_conflict_status"`
+}
+
+func configName(config *model.Config) string {
+	if config != nil {
+		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+	}
+	return "-"
+}
+
+func mTLSModeToString(useTLS bool) string {
+	if useTLS {
+		return "mTLS"
+	}
+	return "HTTP"
 }
 
 // Authentication debugging
@@ -442,47 +456,26 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			serverSideTLS := false
-			if config := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p); config != nil {
-				policy := config.Spec.(*authn.Policy)
-				serverSideTLS, _ = authn_plugin.RequireTLS(policy)
-				info.AuthenticationPolicyName = fmt.Sprintf("%s/%s", config.Name, config.Namespace)
-				if serverSideTLS {
-					info.ServerProtocol = "TLS"
-				} else {
-					info.ServerProtocol = "HTTP"
-				}
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			info.AuthenticationPolicyName = configName(authnConfig)
+			if authnConfig != nil {
+				policy := authnConfig.Spec.(*authn.Policy)
+				serverSideTLS, _ := authn_plugin.RequireTLS(policy)
+				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
-				info.AuthenticationPolicyName = "-"
-				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-					serverSideTLS = true
-					info.ServerProtocol = "TLS"
-				} else {
-					serverSideTLS = false
-					info.ServerProtocol = "HTTP"
-				}
+				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
-			clientSideTLS := false
-			if config := s.env.IstioConfigStore.DestinationRule(ss.Hostname); config != nil {
-				rule := config.Spec.(*networking.DestinationRule)
-				clientSideTLS = isMTlsOn(s.env.Mesh, rule, p)
-				info.DestinationRuleName = fmt.Sprintf("%s/%s", config.Name, config.Namespace)
-				if clientSideTLS {
-					info.ClientProtocol = "TLS"
-				} else {
-					info.ClientProtocol = "HTTP"
-				}
+
+			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			info.DestinationRuleName = configName(destConfig)
+			if destConfig != nil {
+				rule := destConfig.Spec.(*networking.DestinationRule)
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
 			} else {
-				info.DestinationRuleName = "-"
-				if s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-					clientSideTLS = true
-					info.ClientProtocol = "TLS"
-				} else {
-					clientSideTLS = false
-					info.ClientProtocol = "HTTP"
-				}
+				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
-			if serverSideTLS != clientSideTLS {
+
+			if info.ClientProtocol != info.ServerProtocol {
 				info.TLSConflictStatus = "CONFLICT"
 			} else {
 				info.TLSConflictStatus = "OK"

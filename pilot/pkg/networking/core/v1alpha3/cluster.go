@@ -259,7 +259,8 @@ func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSetting
 }
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
+func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
+	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
