@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	rbacproto "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -706,5 +708,113 @@ func TestMostSpecificHostMatch(t *testing.T) {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			}
 		})
+	}
+}
+
+func TestServiceRoles(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.ServiceRole.Type, "role1", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRole.Type, "role2", "default", store, t)
+	addRbacConfigToStore(model.ServiceRole.Type, "role3", "istio-system", store, t)
+	tests := []struct {
+		namespace  string
+		expectName map[string]bool
+	}{
+		{namespace: "wrong", expectName: nil},
+		{namespace: "default", expectName: map[string]bool{"role2": true}},
+		{namespace: "istio-system", expectName: map[string]bool{"role1": true, "role3": true}},
+	}
+
+	for _, tt := range tests {
+		config := store.ServiceRoles(tt.namespace)
+		if tt.expectName != nil {
+			for _, cfg := range config {
+				if !tt.expectName[cfg.Name] {
+					t.Errorf("model.ServiceRoles: expecting %v, but got %v", tt.expectName, config)
+				}
+			}
+		} else if len(config) != 0 {
+			t.Errorf("model.ServiceRoles: expecting nil, but got %v", config)
+		}
+	}
+}
+
+func TestServiceRoleBindings(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding1", "istio-system", store, t)
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding2", "default", store, t)
+	addRbacConfigToStore(model.ServiceRoleBinding.Type, "binding3", "istio-system", store, t)
+	tests := []struct {
+		namespace  string
+		expectName map[string]bool
+	}{
+		{namespace: "wrong", expectName: nil},
+		{namespace: "default", expectName: map[string]bool{"binding2": true}},
+		{namespace: "istio-system", expectName: map[string]bool{"binding1": true, "binding3": true}},
+	}
+
+	for _, tt := range tests {
+		config := store.ServiceRoleBindings(tt.namespace)
+		if tt.expectName != nil {
+			for _, cfg := range config {
+				if !tt.expectName[cfg.Name] {
+					t.Errorf("model.ServiceRoleBinding: expecting %v, but got %v", tt.expectName, config)
+				}
+			}
+		} else if len(config) != 0 {
+			t.Errorf("model.ServiceRoleBinding: expecting nil, but got %v", config)
+		}
+	}
+}
+
+func TestRbacConfig(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "istio-system", store, t)
+	tests := []struct {
+		name      string
+		namespace string
+		expect    bool
+	}{
+		{name: "rbac-config", namespace: "istio-system", expect: true},
+		{name: "wrong", namespace: "istio-system", expect: false},
+		{name: "rbac-config", namespace: "wrong", expect: false},
+	}
+
+	for _, tt := range tests {
+		config := store.RbacConfig(tt.name, tt.namespace)
+		if tt.expect {
+			if config.Name != tt.name || config.Namespace != tt.namespace {
+				t.Errorf("model.RbacConfig: expecting rbacConfig(%s, %s), but got rbacConfig(%s, %s)",
+					config.Name, config.Namespace, tt.name, tt.namespace)
+			}
+		} else if config != nil {
+			t.Errorf("model.RbacConfig: expecting nil, but got rbacConfig(%s, %s)", tt.name, tt.namespace)
+		}
+	}
+}
+
+func addRbacConfigToStore(configType, name, namespace string, store model.IstioConfigStore, t *testing.T) {
+	var value proto.Message
+	switch configType {
+	case model.ServiceRole.Type:
+		value = &rbacproto.ServiceRole{Rules: []*rbacproto.AccessRule{
+			{Services: []string{"service0"}, Methods: []string{"GET"}}}}
+	case model.ServiceRoleBinding.Type:
+		value = &rbacproto.ServiceRoleBinding{
+			Subjects: []*rbacproto.Subject{{User: "User0"}},
+			RoleRef:  &rbacproto.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"}}
+	default:
+		value = &rbacproto.RbacConfig{Mode: rbacproto.RbacConfig_ON}
+	}
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      configType,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: value, // Not used in test, added to pass validation.
+	}
+	if _, err := store.Create(config); err != nil {
+		t.Error(err)
 	}
 }
