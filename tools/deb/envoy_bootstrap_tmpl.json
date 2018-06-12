@@ -1,5 +1,6 @@
 {
   "stats_config": {
+{{- if .instance }}
     "use_all_default_tags": true,
     "stats_tags": [
       {
@@ -19,6 +20,9 @@
         "fixed_value": "{{ .instance.pod_name }}"
       }
     ]
+{{- else }}
+    "use_all_default_tags": false
+{{- end }}
   },
   "admin": {
     "access_log_path": "/dev/stdout",
@@ -195,7 +199,11 @@
   {{ if .statsd }}
   "stats_sinks": [
     {
+{{- if .instance }}
       "name": "envoy.dog_statsd",
+{{- else }}
+      "name": "envoy.statsd",
+{{- end }}
       "config": {
         "address": {
           "socket_address": {{ .statsd }}
