@@ -100,7 +100,7 @@ spec:
 	}
 
 	// validate if the file is a file descriptor set with imports.
-	if err := isFds(byts); err != nil {
+	if err = isFds(byts); err != nil {
 		fatalf("config in invalid: %v", err)
 	}
 
