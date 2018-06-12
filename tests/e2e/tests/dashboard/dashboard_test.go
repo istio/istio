@@ -147,7 +147,7 @@ func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 			Out:        os.Stderr,
 		},
 		HTTPOptions: fhttp.HTTPOptions{
-			URL: gateway + "/fortio/?status=404:10,503:15&size=1024:10,512:5",
+			URL: gateway + "/?status=404:10,503:15&size=1024:10,512:5",
 		},
 		AllowInitialErrors: true,
 	}
@@ -327,7 +327,7 @@ func (t *testConfig) Setup() (err error) {
 		return fmt.Errorf("mixer's proxy never was ready to serve traffic: %v", err)
 	}
 
-	gateway, errGw := tc.Kube.Ingress()
+	gateway, errGw := tc.Kube.IngressGateway()
 	if errGw != nil {
 		return errGw
 	}
