@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=false -t metric -t quota -t listentry -o session.yaml
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml
 
 package spybackend
 
