@@ -99,6 +99,10 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -287,7 +291,6 @@ pilot:
 # security configuration
 #
 security:
-  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel

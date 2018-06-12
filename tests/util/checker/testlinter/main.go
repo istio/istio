@@ -12,31 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package rules
+package main
 
 import (
-	"go/ast"
-	"go/token"
+	"flag"
+	"fmt"
+	"os"
+
+	"istio.io/istio/tests/util/checker"
 )
 
-// NoSleep requires that time.Sleep() is not allowed.
-type NoSleep struct{}
+func main() {
+	flag.Parse()
+	exitCode := 0
 
-// NewNoSleep creates and returns a NoSleep object.
-func NewNoSleep() *NoSleep {
-	return &NoSleep{}
-}
-
-// GetID returns no_sleep_rule.
-func (lr *NoSleep) GetID() string {
-	return getCallerFileName()
-}
-
-// Check verifies if aNode is not time.Sleep. If verification fails lrp creates a new report.
-func (lr *NoSleep) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
-	if ce, ok := aNode.(*ast.CallExpr); ok {
-		if matchCallExpr(ce, "time", "Sleep") {
-			lrp.AddReport(ce.Pos(), fs, "time.Sleep() is disallowed.")
+	items, err := getReport(flag.Args())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		exitCode = 2
+	} else {
+		for _, r := range items {
+			fmt.Fprintln(os.Stderr, r)
+			exitCode = 2
 		}
 	}
+	os.Exit(exitCode)
+}
+
+func getReport(args []string) ([]string, error) {
+	matcher := RulesMatcher{}
+	whitelist := checker.NewWhitelist(Whitelist)
+	report := checker.NewLintReport()
+
+	err := checker.Check(args, &matcher, whitelist, report)
+	if err != nil {
+		return []string{}, err
+	}
+	return report.Items(), nil
 }

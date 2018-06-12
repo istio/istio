@@ -17,26 +17,28 @@ package rules
 import (
 	"go/ast"
 	"go/token"
+
+	"istio.io/istio/tests/util/checker"
 )
 
-// SkipByIssue requires that a `t.Skip()` call in test function should contain url to a issue.
+// SkipIssue requires that a `t.Skip()` call in test function should contain url to a issue.
 // This helps to keep tracking of the issue that causes a test to be skipped.
 // For example, this is a valid call,
 // t.Skip("https://github.com/istio/istio/issues/6012")
 // t.SkipNow() and t.Skipf() are not allowed.
-type SkipByIssue struct {
+type SkipIssue struct {
 	skipArgsRegex string // Defines arg in t.Skip() that should match.
 }
 
-// NewSkipByIssue creates and returns a SkipByIssue object.
-func NewSkipByIssue() *SkipByIssue {
-	return &SkipByIssue{
+// NewSkipByIssue creates and returns a SkipIssue object.
+func NewSkipByIssue() *SkipIssue {
+	return &SkipIssue{
 		skipArgsRegex: `https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+`,
 	}
 }
 
 // GetID returns skip_by_issue_rule.
-func (lr *SkipByIssue) GetID() string {
+func (lr *SkipIssue) GetID() string {
 	return getCallerFileName()
 }
 
@@ -47,15 +49,15 @@ func (lr *SkipByIssue) GetID() string {
 // t.Skip("https://istio.io/"),
 // t.SkipNow(),
 // t.Skipf("https://istio.io/%d", x).
-func (lr *SkipByIssue) Check(aNode ast.Node, fs *token.FileSet, lrp *LintReporter) {
+func (lr *SkipIssue) Check(aNode ast.Node, fs *token.FileSet, lrp *checker.Report) {
 	if fn, isFn := aNode.(*ast.FuncDecl); isFn {
 		for _, bd := range fn.Body.List {
 			if ok, _ := matchFunc(bd, "t", "SkipNow"); ok {
-				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lrp.AddItem(fs.Position(bd.Pos()), lr.GetID(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			} else if ok, _ := matchFunc(bd, "t", "Skipf"); ok {
-				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lrp.AddItem(fs.Position(bd.Pos()), lr.GetID(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			} else if ok, fcall := matchFunc(bd, "t", "Skip"); ok && !matchFuncArgs(fcall, lr.skipArgsRegex) {
-				lrp.AddReport(bd.Pos(), fs, "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
+				lrp.AddItem(fs.Position(bd.Pos()), lr.GetID(), "Only t.Skip() is allowed and t.Skip() should contain an url to GitHub issue.")
 			}
 		}
 	}
