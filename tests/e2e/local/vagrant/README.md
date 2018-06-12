@@ -33,7 +33,7 @@ sh setup_host.sh
 
 1. Add `docker.for.mac.localhost:5000` to the "Insecure registries" of Docker Daemon.
 
-## 4. Run tests!
+## 3. Run tests!
 ### On Host
 You can issue test commands on your host machine.
 E.g.
