@@ -70,7 +70,7 @@ spec:
 <tbody>
 <tr id="ConnectionPoolSettings-tcp">
 <td><code>tcp</code></td>
-<td><code><a href="#ConnectionPoolSettings.TCPSettings">ConnectionPoolSettings.TCPSettings</a></code></td>
+<td><code><a href="#ConnectionPoolSettings-TCPSettings">ConnectionPoolSettings.TCPSettings</a></code></td>
 <td>
 <p>Settings common to both HTTP and TCP upstream connections.</p>
 
@@ -78,7 +78,7 @@ spec:
 </tr>
 <tr id="ConnectionPoolSettings-http">
 <td><code>http</code></td>
-<td><code><a href="#ConnectionPoolSettings.HTTPSettings">ConnectionPoolSettings.HTTPSettings</a></code></td>
+<td><code><a href="#ConnectionPoolSettings-HTTPSettings">ConnectionPoolSettings.HTTPSettings</a></code></td>
 <td>
 <p>HTTP connection pool settings.</p>
 
@@ -858,7 +858,7 @@ both are specified simultaneously.</p>
 <tbody>
 <tr id="HTTPFaultInjection-delay">
 <td><code>delay</code></td>
-<td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</a></code></td>
 <td>
 <p>Delay requests before forwarding, emulating various failures such as
 network issues, overloaded upstream service, etc.</p>
@@ -867,7 +867,7 @@ network issues, overloaded upstream service, etc.</p>
 </tr>
 <tr id="HTTPFaultInjection-abort">
 <td><code>abort</code></td>
-<td><code><a href="#HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</a></code></td>
 <td>
 <p>Abort Http request attempts and return error codes back to downstream
 service, giving the impression that the upstream service is faulty.</p>
@@ -1567,13 +1567,13 @@ for the same ratings service using the Cookie header as the hash key.</p>
 <tbody>
 <tr id="LoadBalancerSettings-simple" class="oneof oneof-start">
 <td><code>simple</code></td>
-<td><code><a href="#LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB (oneof)</a></code></td>
+<td><code><a href="#LoadBalancerSettings-SimpleLB">LoadBalancerSettings.SimpleLB (oneof)</a></code></td>
 <td>
 </td>
 </tr>
 <tr id="LoadBalancerSettings-consistent_hash" class="oneof">
 <td><code>consistentHash</code></td>
-<td><code><a href="#LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
+<td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
 </td>
 </tr>
@@ -1721,7 +1721,7 @@ service that can be ejected. Defaults to 10%.</p>
 </tr>
 <tr id="OutlierDetection-http">
 <td><code>http</code></td>
-<td><code><a href="#OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
+<td><code><a href="#OutlierDetection-HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
 <td>
 <p>DEPRECATED.</p>
 
@@ -1954,7 +1954,7 @@ newexample.com will not match.</p>
 </tr>
 <tr id="Server-tls">
 <td><code>tls</code></td>
-<td><code><a href="#Server.TLSOptions">Server.TLSOptions</a></code></td>
+<td><code><a href="#Server-TLSOptions">Server.TLSOptions</a></code></td>
 <td>
 <p>Set of TLS related options that govern the server&rsquo;s behavior. Use
 these options to control if all http requests should be redirected to
@@ -1987,7 +1987,7 @@ http connections, asking the clients to use HTTPS.</p>
 </tr>
 <tr id="Server-TLSOptions-mode">
 <td><code>mode</code></td>
-<td><code><a href="#Server.TLSOptions.TLSmode">Server.TLSOptions.TLSmode</a></code></td>
+<td><code><a href="#Server-TLSOptions-TLSmode">Server.TLSOptions.TLSmode</a></code></td>
 <td>
 <p>Optional: Indicates whether connections to this port should be
 secured using TLS. The value of this field determines how TLS is
@@ -2272,7 +2272,7 @@ port.</p>
 </tr>
 <tr id="ServiceEntry-location">
 <td><code>location</code></td>
-<td><code><a href="#ServiceEntry.Location">ServiceEntry.Location</a></code></td>
+<td><code><a href="#ServiceEntry-Location">ServiceEntry.Location</a></code></td>
 <td>
 <p>Specify whether the service should be considered external to the mesh
 or part of the mesh.</p>
@@ -2281,7 +2281,7 @@ or part of the mesh.</p>
 </tr>
 <tr id="ServiceEntry-resolution">
 <td><code>resolution</code></td>
-<td><code><a href="#ServiceEntry.Resolution">ServiceEntry.Resolution</a></code></td>
+<td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
 <td>
 <p>Service discovery mode for the hosts. If not set, Istio will attempt
 to infer the discovery mode based on the value of hosts and endpoints.</p>
@@ -2290,7 +2290,7 @@ to infer the discovery mode based on the value of hosts and endpoints.</p>
 </tr>
 <tr id="ServiceEntry-endpoints">
 <td><code>endpoints</code></td>
-<td><code><a href="#ServiceEntry.Endpoint">ServiceEntry.Endpoint[]</a></code></td>
+<td><code><a href="#ServiceEntry-Endpoint">ServiceEntry.Endpoint[]</a></code></td>
 <td>
 <p>One or more endpoints associated with the service.</p>
 
@@ -2674,7 +2674,7 @@ spec:
 <tbody>
 <tr id="TLSSettings-mode">
 <td><code>mode</code></td>
-<td><code><a href="#TLSSettings.TLSmode">TLSSettings.TLSmode</a></code></td>
+<td><code><a href="#TLSSettings-TLSmode">TLSSettings.TLSmode</a></code></td>
 <td>
 <p>REQUIRED: Indicates whether connections to this port should be secured
 using TLS. The value of this field determines how TLS is enforced.</p>
@@ -2831,7 +2831,7 @@ destination ports. See DestinationRule for examples.</p>
 </tr>
 <tr id="TrafficPolicy-port_level_settings">
 <td><code>portLevelSettings</code></td>
-<td><code><a href="#TrafficPolicy.PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy[]</a></code></td>
+<td><code><a href="#TrafficPolicy-PortTrafficPolicy">TrafficPolicy.PortTrafficPolicy[]</a></code></td>
 <td>
 <p>Traffic policies specific to individual ports. Note that port level
 settings will override the destination-level settings. Traffic

@@ -143,7 +143,7 @@ If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
 </tr>
 <tr id="AccessRule-constraints">
 <td><code>constraints</code></td>
-<td><code><a href="#AccessRule.Constraint">AccessRule.Constraint[]</a></code></td>
+<td><code><a href="#AccessRule-Constraint">AccessRule.Constraint[]</a></code></td>
 <td>
 <p>Optional. Extra constraints in the ServiceRole specification.
 The above ServiceRole examples shows an example of constraint &ldquo;version&rdquo;.</p>
@@ -224,7 +224,7 @@ spec:
 <tbody>
 <tr id="RbacConfig-mode">
 <td><code>mode</code></td>
-<td><code><a href="#RbacConfig.Mode">RbacConfig.Mode</a></code></td>
+<td><code><a href="#RbacConfig-Mode">RbacConfig.Mode</a></code></td>
 <td>
 <p>Istio RBAC mode.</p>
 
@@ -232,7 +232,7 @@ spec:
 </tr>
 <tr id="RbacConfig-inclusion">
 <td><code>inclusion</code></td>
-<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
 <td>
 <p>A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
 effect only when mode is ON<em>WITH</em>INCLUSION and will be ignored for any other modes.</p>
@@ -241,7 +241,7 @@ effect only when mode is ON<em>WITH</em>INCLUSION and will be ignored for any ot
 </tr>
 <tr id="RbacConfig-exclusion">
 <td><code>exclusion</code></td>
-<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
 <td>
 <p>A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
 effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any other modes.</p>

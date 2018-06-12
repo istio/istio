@@ -161,7 +161,7 @@ spec:
 <tbody>
 <tr id="HTTPAPISpec-attributes">
 <td><code>attributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated when <em>any</em> of the HTTP
 patterns match. This list typically includes the &ldquo;api.service&rdquo;
@@ -272,7 +272,7 @@ generated.</p>
 <tbody>
 <tr id="HTTPAPISpecPattern-attributes">
 <td><code>attributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>List of attributes that are generated if the HTTP request matches
 the specified http<em>method and uri</em>template. This typically
@@ -407,7 +407,7 @@ client request.</p>
 </tr>
 <tr id="HttpClientConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -417,7 +417,7 @@ Report. This typically includes &ldquo;destination.ip&rdquo; and
 </tr>
 <tr id="HttpClientConfig-forward_attributes">
 <td><code>forwardAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to forward to upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.</p>
@@ -502,7 +502,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 <tbody>
 <tr id="NetworkFailPolicy-policy">
 <td><code>policy</code></td>
-<td><code><a href="#NetworkFailPolicy.FailPolicy">NetworkFailPolicy.FailPolicy</a></code></td>
+<td><code><a href="#NetworkFailPolicy-FailPolicy">NetworkFailPolicy.FailPolicy</a></code></td>
 <td>
 <p>Specifies the behavior when the client is unable to connect to Mixer.</p>
 
@@ -655,7 +655,7 @@ IstioService.</p>
 </tr>
 <tr id="QuotaSpecBinding-quota_specs">
 <td><code>quotaSpecs</code></td>
-<td><code><a href="#QuotaSpecBinding.QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference[]</a></code></td>
+<td><code><a href="#QuotaSpecBinding-QuotaSpecReference">QuotaSpecBinding.QuotaSpecReference[]</a></code></td>
 <td>
 <p>REQUIRED. One or more QuotaSpec references that should be mapped to
 the specified service(s). The aggregate collection of match
@@ -732,7 +732,7 @@ metadata namespace field.</p>
 </tr>
 <tr id="ServiceConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Send these attributes to Mixer in both Check and Report. This
 typically includes the &ldquo;destination.service&rdquo; attribute.
@@ -770,7 +770,7 @@ policy][istio.mixer.v1.config.client.TransportConfig.network<em>fail</em>policy]
 </tr>
 <tr id="ServiceConfig-forward_attributes">
 <td><code>forwardAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to forward to upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes.
@@ -854,7 +854,7 @@ case-sensitive.</p>
 </tr>
 <tr id="TcpClientConfig-mixer_attributes">
 <td><code>mixerAttributes</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to send to Mixer in both Check and
 Report. This typically includes &ldquo;destination.ip&rdquo; and
@@ -987,7 +987,7 @@ Istio Grafana dashboards to be reconfigured to use the new name.</p>
 </tr>
 <tr id="TransportConfig-attributes_for_mixer_proxy">
 <td><code>attributesForMixerProxy</code></td>
-<td><code><a href="#istio.mixer.v1.Attributes">istio.mixer.v1.Attributes</a></code></td>
+<td><code><a href="#istio-mixer-v1-Attributes">istio.mixer.v1.Attributes</a></code></td>
 <td>
 <p>Default attributes to forward to mixer upstream. This typically
 includes the &ldquo;source.ip&rdquo; and &ldquo;source.uid&rdquo; attributes. These
@@ -1046,7 +1046,7 @@ Following places may use this message:
 <tbody>
 <tr id="istio-mixer-v1-Attributes-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.mixer.v1.Attributes.AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-mixer-v1-Attributes-AttributeValue">istio.mixer.v1.Attributes.AttributeValue</a>&gt;</code></td>
 <td>
 <p>A map of attribute name to its value.</p>
 

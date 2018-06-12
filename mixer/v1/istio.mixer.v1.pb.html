@@ -90,7 +90,7 @@ Following places may use this message:
 <tbody>
 <tr id="Attributes-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Attributes.AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Attributes-AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
 <td>
 <p>A map of attribute name to its value.</p>
 
@@ -170,7 +170,7 @@ Following places may use this message:
 </tr>
 <tr id="Attributes-AttributeValue-string_map_value" class="oneof">
 <td><code>stringMapValue</code></td>
-<td><code><a href="#Attributes.StringMap">Attributes.StringMap (oneof)</a></code></td>
+<td><code><a href="#Attributes-StringMap">Attributes.StringMap (oneof)</a></code></td>
 <td>
 <p>Used for values of type STRING_MAP</p>
 
@@ -248,7 +248,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tr>
 <tr id="CheckRequest-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#CheckRequest.QuotaParams">CheckRequest.QuotaParams</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckRequest-QuotaParams">CheckRequest.QuotaParams</a>&gt;</code></td>
 <td>
 <p>The individual quotas to allocate</p>
 
@@ -304,7 +304,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 <tbody>
 <tr id="CheckResponse-precondition">
 <td><code>precondition</code></td>
-<td><code><a href="#CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
+<td><code><a href="#CheckResponse-PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
 <td>
 <p>The precondition check results.</p>
 
@@ -312,7 +312,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tr>
 <tr id="CheckResponse-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#CheckResponse.QuotaResult">CheckResponse.QuotaResult</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckResponse-QuotaResult">CheckResponse.QuotaResult</a>&gt;</code></td>
 <td>
 <p>The resulting quota, one entry per requested quota.</p>
 
@@ -336,7 +336,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 <tbody>
 <tr id="CheckResponse-PreconditionResult-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>A status code of OK indicates all preconditions were satisfied. Any other code indicates not
 all preconditions were satisfied and details describe why.</p>
@@ -550,7 +550,7 @@ the request headers.</p>
 </tr>
 <tr id="HeaderOperation-operation">
 <td><code>operation</code></td>
-<td><code><a href="#HeaderOperation.Operation">HeaderOperation.Operation</a></code></td>
+<td><code><a href="#HeaderOperation-Operation">HeaderOperation.Operation</a></code></td>
 <td>
 <p>Header operation.</p>
 
@@ -620,7 +620,7 @@ on using dictionaries.</p>
 </tr>
 <tr id="ReferencedAttributes-attribute_matches">
 <td><code>attributeMatches</code></td>
-<td><code><a href="#ReferencedAttributes.AttributeMatch">ReferencedAttributes.AttributeMatch[]</a></code></td>
+<td><code><a href="#ReferencedAttributes-AttributeMatch">ReferencedAttributes.AttributeMatch[]</a></code></td>
 <td>
 <p>Describes a set of attributes.</p>
 
@@ -653,7 +653,7 @@ to all strings in the <a href="#CompressedAttributes">CompressedAttributes</a> m
 </tr>
 <tr id="ReferencedAttributes-AttributeMatch-condition">
 <td><code>condition</code></td>
-<td><code><a href="#ReferencedAttributes.Condition">ReferencedAttributes.Condition</a></code></td>
+<td><code><a href="#ReferencedAttributes-Condition">ReferencedAttributes.Condition</a></code></td>
 <td>
 <p>The kind of match against the attribute value.</p>
 
@@ -955,7 +955,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>

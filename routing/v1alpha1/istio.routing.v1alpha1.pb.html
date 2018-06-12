@@ -63,7 +63,7 @@ for more details.</p>
 <tbody>
 <tr id="CircuitBreaker-simple_cb" class="oneof oneof-start">
 <td><code>simpleCb</code></td>
-<td><code><a href="#CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy (oneof)</a></code></td>
+<td><code><a href="#CircuitBreaker-SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
@@ -558,7 +558,7 @@ domain of form “</em>-bar.foo.com” will match “baz-bar.foo.com” but not 
 </tr>
 <tr id="EgressRule-ports">
 <td><code>ports</code></td>
-<td><code><a href="#EgressRule.Port">EgressRule.Port[]</a></code></td>
+<td><code><a href="#EgressRule-Port">EgressRule.Port[]</a></code></td>
 <td>
 <p>REQUIRED: list of ports on which the external service is available.</p>
 
@@ -634,7 +634,7 @@ both are specified simultaneously.</p>
 <tbody>
 <tr id="HTTPFaultInjection-delay">
 <td><code>delay</code></td>
-<td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</a></code></td>
 <td>
 <p>Delay requests before forwarding, emulating various failures such as
 network issues, overloaded upstream service, etc.</p>
@@ -643,7 +643,7 @@ network issues, overloaded upstream service, etc.</p>
 </tr>
 <tr id="HTTPFaultInjection-abort">
 <td><code>abort</code></td>
-<td><code><a href="#HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</a></code></td>
 <td>
 <p>Abort Http request attempts and return error codes back to downstream
 service, giving the impression that the upstream service is faulty.</p>
@@ -886,7 +886,7 @@ spec:
 <tbody>
 <tr id="HTTPRetry-simple_retry" class="oneof oneof-start">
 <td><code>simpleRetry</code></td>
-<td><code><a href="#HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy (oneof)</a></code></td>
+<td><code><a href="#HTTPRetry-SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
@@ -1028,7 +1028,7 @@ spec:
 <tbody>
 <tr id="HTTPTimeout-simple_timeout" class="oneof oneof-start">
 <td><code>simpleTimeout</code></td>
-<td><code><a href="#HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy (oneof)</a></code></td>
+<td><code><a href="#HTTPTimeout-SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
@@ -1250,7 +1250,7 @@ component. L4 fault injection is not supported at the moment. &ndash;)</p>
 <tbody>
 <tr id="L4FaultInjection-throttle">
 <td><code>throttle</code></td>
-<td><code><a href="#L4FaultInjection.Throttle">L4FaultInjection.Throttle</a></code></td>
+<td><code><a href="#L4FaultInjection-Throttle">L4FaultInjection.Throttle</a></code></td>
 <td>
 <p>Unlike Http services, we have very little context for raw Tcp|Udp
 connections. We could throttle bandwidth of the connections (slow down
@@ -1262,7 +1262,7 @@ We first throttle (if set) and then terminate the connection.</p>
 </tr>
 <tr id="L4FaultInjection-terminate">
 <td><code>terminate</code></td>
-<td><code><a href="#L4FaultInjection.Terminate">L4FaultInjection.Terminate</a></code></td>
+<td><code><a href="#L4FaultInjection-Terminate">L4FaultInjection.Terminate</a></code></td>
 <td>
 </td>
 </tr>
@@ -1436,7 +1436,7 @@ spec:
 <tbody>
 <tr id="LoadBalancing-name" class="oneof oneof-start">
 <td><code>name</code></td>
-<td><code><a href="#LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy (oneof)</a></code></td>
+<td><code><a href="#LoadBalancing-SimpleLBPolicy">LoadBalancing.SimpleLBPolicy (oneof)</a></code></td>
 <td>
 <p>Load balancing policy name (as defined in SimpleLBPolicy below)</p>
 

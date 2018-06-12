@@ -34,7 +34,7 @@ constructed using the instance &lsquo;RequestCountByService&rsquo;.</p>
 <td><code>string</code></td>
 <td>
 <p>Required. Fully qualified name of the handler to invoke.
-Must match the <code>name</code> of a <a href="#Handler.name">Handler</a>.</p>
+Must match the <code>name</code> of a <a href="#Handler-name">Handler</a>.</p>
 
 </td>
 </tr>
@@ -43,7 +43,7 @@ Must match the <code>name</code> of a <a href="#Handler.name">Handler</a>.</p>
 <td><code>string[]</code></td>
 <td>
 <p>Required. Each value must match the fully qualified name of the
-<a href="#Instance.name">Instance</a>s.
+<a href="#Instance-name">Instance</a>s.
 Referenced instances are evaluated by resolving the attributes/literals for all the fields.
 The constructed objects are then passed to the <code>handler</code> referenced within this action.</p>
 
@@ -86,7 +86,7 @@ the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
 </tr>
 <tr id="AttributeManifest-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#AttributeManifest-AttributeInfo">AttributeManifest.AttributeInfo</a>&gt;</code></td>
 <td>
 <p>The set of attributes this Istio component will be responsible for producing at runtime.
 We map from attribute name to the attribute&rsquo;s specification. The name of an attribute,
@@ -208,7 +208,7 @@ Connection is part of the handler custom resource and is specified alongside ada
 <h2 id="DNSName">DNSName</h2>
 <section>
 <p>An instance field of type DNSName denotes that the expression for the field must evalaute to
-<a href="#ValueType.DNS_NAME">ValueType.DNS_NAME</a></p>
+<a href="#ValueType-DNS_NAME">ValueType.DNS_NAME</a></p>
 
 <p>Objects of type DNSName are also passed to the adapters during request-time for the instance fields of
 type DNSName</p>
@@ -236,7 +236,7 @@ type DNSName</p>
 <h2 id="Duration">Duration</h2>
 <section>
 <p>An instance field of type Duration denotes that the expression for the field must evalaute to
-<a href="#ValueType.DURATION">ValueType.DURATION</a></p>
+<a href="#ValueType-DURATION">ValueType.DURATION</a></p>
 
 <p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
 type Duration</p>
@@ -265,7 +265,7 @@ type Duration</p>
 <section>
 <p>DO NOT USE !! Under Development
 An instance field of type EmailAddress denotes that the expression for the field must evalaute to
-<a href="#ValueType.EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
+<a href="#ValueType-EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
 
 <p>Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
 type EmailAddress</p>
@@ -356,7 +356,7 @@ spec:
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action.handler">Actions</a>
+<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action-handler">Actions</a>
 to refer to this handler.</p>
 
 </td>
@@ -408,7 +408,7 @@ This is used if the adapter is not compiled into Mixer binary and is running as 
 <h2 id="IPAddress">IPAddress</h2>
 <section>
 <p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
-<a href="#ValueType.IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
+<a href="#ValueType-IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
 
 <p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
 type IPAddress</p>
@@ -567,7 +567,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 <h2 id="TimeStamp">TimeStamp</h2>
 <section>
 <p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
-<a href="#ValueType.TIMESTAMP">ValueType.TIMESTAMP</a></p>
+<a href="#ValueType-TIMESTAMP">ValueType.TIMESTAMP</a></p>
 
 <p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
 type TimeStamp</p>
@@ -596,7 +596,7 @@ type TimeStamp</p>
 <section>
 <p>DO NOT USE !! Under Development
 An instance field of type Uri denotes that the expression for the field must evalaute to
-<a href="#ValueType.URI">ValueType.URI</a></p>
+<a href="#ValueType-URI">ValueType.URI</a></p>
 
 <p>Objects of type Uri are also passed to the adapters during request-time for the instance fields of
 type Uri</p>
