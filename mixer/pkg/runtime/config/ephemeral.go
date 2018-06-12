@@ -334,6 +334,11 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 		var params map[string]interface{}
 		var err error
 		if inst.Params != nil {
+			if _, ok := inst.Params.(map[string]interface{}); !ok {
+				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
+					counters.instanceConfigError, "invalid params block. It must be of type map[string]interface{}")
+				continue
+			}
 			params = inst.Params.(map[string]interface{})
 			// name field is not provided by instance config author, instead it is added by Mixer into the request
 			// object that is passed to the adapter.
@@ -372,6 +377,9 @@ func getParamsMsgFullName(pkgName string) string {
 func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
 	if params == nil {
 		return []byte{}, nil
+	}
+	if _, ok := params.(map[string]interface{}); !ok {
+		return []byte{}, fmt.Errorf("invalid params block. It must be of type map[string]interface{}")
 	}
 	return yaml.NewEncoder(fds).EncodeBytes(params.(map[string]interface{}), msgName, false)
 }
