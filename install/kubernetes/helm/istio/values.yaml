@@ -18,7 +18,7 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 128Mi
       # limits:
       #   cpu: 100m
