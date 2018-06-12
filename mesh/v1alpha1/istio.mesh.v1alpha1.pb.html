@@ -198,19 +198,6 @@ at runtime and config gets distributed dynamically.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig.mtls_excluded_services">
-<td><code>mtlsExcludedServices</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>List of remote services for which mTLS authentication should not be expected by Istio .
-Typically, these are control services (e.g kubernetes API server) that don&rsquo;t have Istio sidecar
-to transparently terminate mTLS authentication.
-It has no effect if the authentication policy is already &lsquo;NONE&rsquo;.
-DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
-Instead, use service-level annotations to overwrite the authentication policy.</p>
-
-</td>
-</tr>
 <tr id="MeshConfig.mixer_address">
 <td><code>mixerAddress</code></td>
 <td><code>string</code></td>

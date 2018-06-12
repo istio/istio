@@ -234,13 +234,7 @@ message MeshConfig {
   // at runtime and config gets distributed dynamically.
   ProxyConfig default_config = 14;
 
-  // List of remote services for which mTLS authentication should not be expected by Istio .
-  // Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
-  // to transparently terminate mTLS authentication.
-  // It has no effect if the authentication policy is already 'NONE'.
-  // DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
-  // Instead, use service-level annotations to overwrite the authentication policy.
-  repeated string mtls_excluded_services = 15;
+  reserved 15;
 
   // DEPRECATED. Mixer address. This option will be removed soon. Please
   // use mixer_check and mixer_report.
