@@ -51,10 +51,12 @@ const TemplateName = "edge"
 // spec:
 //   sourceUid: source.uid | "Unknown"
 //   sourceOwner: source.owner | "Unknown"
-//   sourceWorkloadUid: source.workload.uid | "Unknown"
+//   sourceWorkloadName: source.workload.name | "Unknown"
+//   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
 //   destinationUid: destination.uid | "Unknown"
 //   destinationOwner: destination.owner | "Unknown"
-//   destinationWorkloadUid: destination.workload.uid | "Unknown"
+//   destinationWorkloadName: destination.workload.name | "Unknown"
+//   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
 // ```
 type Instance struct {
 	// Name of the instance as specified in configuration.
@@ -64,26 +66,22 @@ type Instance struct {
 	Timestamp time.Time
 
 	// Source of edge.
-	SourceName string
-
-	SourceNamespace string
-
-	SourceOwner string
+	SourceWorkloadNamespace string
 
 	SourceWorkloadName string
 
-	SourceWorkloadNamespace string
+	SourceOwner string
+
+	SourceUid string
 
 	// Destination of edge
-	DestinationName string
-
-	DestinationNamespace string
-
-	DestinationOwner string
+	DestinationWorkloadNamespace string
 
 	DestinationWorkloadName string
 
-	DestinationWorkloadNamespace string
+	DestinationOwner string
+
+	DestinationUid string
 
 	// Protocol used
 	ContextProtocol string

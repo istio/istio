@@ -40,10 +40,12 @@ syntax = "proto3";
 // spec:
 //   sourceUid: source.uid | "Unknown"
 //   sourceOwner: source.owner | "Unknown"
-//   sourceWorkloadUid: source.workload.uid | "Unknown"
+//   sourceWorkloadName: source.workload.name | "Unknown"
+//   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
 //   destinationUid: destination.uid | "Unknown"
 //   destinationOwner: destination.owner | "Unknown"
-//   destinationWorkloadUid: destination.workload.uid | "Unknown"
+//   destinationWorkloadName: destination.workload.name | "Unknown"
+//   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
 // ```
 package edge;
 
@@ -97,40 +99,34 @@ message InstanceMsg {
     istio.policy.v1beta1.TimeStamp timestamp = 1;
     
     // Source of edge.
-    string source_name = 2;
+    string source_workload_namespace = 10;
     
     
-    string source_namespace = 3;
+    string source_workload_name = 11;
     
     
-    string source_owner = 4;
+    string source_owner = 12;
     
     
-    string source_workload_name = 5;
-    
-    
-    string source_workload_namespace = 6;
+    string source_uid = 13;
     
     // Destination of edge
-    string destination_name = 7;
+    string destination_workload_namespace = 20;
     
     
-    string destination_namespace = 8;
+    string destination_workload_name = 21;
     
     
-    string destination_owner = 9;
+    string destination_owner = 22;
     
     
-    string destination_workload_name = 10;
-    
-    
-    string destination_workload_namespace = 11;
+    string destination_uid = 23;
     
     // Protocol used
-    string context_protocol = 12;
+    string context_protocol = 30;
     
     
-    string api_protocol = 13;
+    string api_protocol = 31;
     
 }
 
@@ -147,40 +143,34 @@ message InstanceParam {
     string timestamp = 1;
     
     // Source of edge.
-    string source_name = 2;
+    string source_workload_namespace = 10;
     
     
-    string source_namespace = 3;
+    string source_workload_name = 11;
     
     
-    string source_owner = 4;
+    string source_owner = 12;
     
     
-    string source_workload_name = 5;
-    
-    
-    string source_workload_namespace = 6;
+    string source_uid = 13;
     
     // Destination of edge
-    string destination_name = 7;
+    string destination_workload_namespace = 20;
     
     
-    string destination_namespace = 8;
+    string destination_workload_name = 21;
     
     
-    string destination_owner = 9;
+    string destination_owner = 22;
     
     
-    string destination_workload_name = 10;
-    
-    
-    string destination_workload_namespace = 11;
+    string destination_uid = 23;
     
     // Protocol used
-    string context_protocol = 12;
+    string context_protocol = 30;
     
     
-    string api_protocol = 13;
+    string api_protocol = 31;
     
 }
 

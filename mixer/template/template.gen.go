@@ -1243,30 +1243,12 @@ var (
 						}
 					}
 
-					if param.SourceName != "" {
-						if t, e := tEvalFn(param.SourceName); e != nil || t != istio_policy_v1beta1.STRING {
+					if param.SourceWorkloadNamespace != "" {
+						if t, e := tEvalFn(param.SourceWorkloadNamespace); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceName", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceWorkloadNamespace", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceName", t, istio_policy_v1beta1.STRING)
-						}
-					}
-
-					if param.SourceNamespace != "" {
-						if t, e := tEvalFn(param.SourceNamespace); e != nil || t != istio_policy_v1beta1.STRING {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceNamespace", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceNamespace", t, istio_policy_v1beta1.STRING)
-						}
-					}
-
-					if param.SourceOwner != "" {
-						if t, e := tEvalFn(param.SourceOwner); e != nil || t != istio_policy_v1beta1.STRING {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceOwner", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceOwner", t, istio_policy_v1beta1.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceWorkloadNamespace", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
@@ -1279,39 +1261,30 @@ var (
 						}
 					}
 
-					if param.SourceWorkloadNamespace != "" {
-						if t, e := tEvalFn(param.SourceWorkloadNamespace); e != nil || t != istio_policy_v1beta1.STRING {
+					if param.SourceOwner != "" {
+						if t, e := tEvalFn(param.SourceOwner); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceWorkloadNamespace", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceOwner", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceWorkloadNamespace", t, istio_policy_v1beta1.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceOwner", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
-					if param.DestinationName != "" {
-						if t, e := tEvalFn(param.DestinationName); e != nil || t != istio_policy_v1beta1.STRING {
+					if param.SourceUid != "" {
+						if t, e := tEvalFn(param.SourceUid); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationName", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceUid", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationName", t, istio_policy_v1beta1.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceUid", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
-					if param.DestinationNamespace != "" {
-						if t, e := tEvalFn(param.DestinationNamespace); e != nil || t != istio_policy_v1beta1.STRING {
+					if param.DestinationWorkloadNamespace != "" {
+						if t, e := tEvalFn(param.DestinationWorkloadNamespace); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationNamespace", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationWorkloadNamespace", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationNamespace", t, istio_policy_v1beta1.STRING)
-						}
-					}
-
-					if param.DestinationOwner != "" {
-						if t, e := tEvalFn(param.DestinationOwner); e != nil || t != istio_policy_v1beta1.STRING {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationOwner", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationOwner", t, istio_policy_v1beta1.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationWorkloadNamespace", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
@@ -1324,12 +1297,21 @@ var (
 						}
 					}
 
-					if param.DestinationWorkloadNamespace != "" {
-						if t, e := tEvalFn(param.DestinationWorkloadNamespace); e != nil || t != istio_policy_v1beta1.STRING {
+					if param.DestinationOwner != "" {
+						if t, e := tEvalFn(param.DestinationOwner); e != nil || t != istio_policy_v1beta1.STRING {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationWorkloadNamespace", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationOwner", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationWorkloadNamespace", t, istio_policy_v1beta1.STRING)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationOwner", t, istio_policy_v1beta1.STRING)
+						}
+					}
+
+					if param.DestinationUid != "" {
+						if t, e := tEvalFn(param.DestinationUid); e != nil || t != istio_policy_v1beta1.STRING {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationUid", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationUid", t, istio_policy_v1beta1.STRING)
 						}
 					}
 
@@ -3520,45 +3502,37 @@ type builder_edge_Template struct {
 
 	bldTimestamp compiled.Expression
 
-	// builder for field source_name: string.
+	// builder for field source_workload_namespace: string.
 
-	bldSourceName compiled.Expression
-
-	// builder for field source_namespace: string.
-
-	bldSourceNamespace compiled.Expression
-
-	// builder for field source_owner: string.
-
-	bldSourceOwner compiled.Expression
+	bldSourceWorkloadNamespace compiled.Expression
 
 	// builder for field source_workload_name: string.
 
 	bldSourceWorkloadName compiled.Expression
 
-	// builder for field source_workload_namespace: string.
+	// builder for field source_owner: string.
 
-	bldSourceWorkloadNamespace compiled.Expression
+	bldSourceOwner compiled.Expression
 
-	// builder for field destination_name: string.
+	// builder for field source_uid: string.
 
-	bldDestinationName compiled.Expression
+	bldSourceUid compiled.Expression
 
-	// builder for field destination_namespace: string.
+	// builder for field destination_workload_namespace: string.
 
-	bldDestinationNamespace compiled.Expression
-
-	// builder for field destination_owner: string.
-
-	bldDestinationOwner compiled.Expression
+	bldDestinationWorkloadNamespace compiled.Expression
 
 	// builder for field destination_workload_name: string.
 
 	bldDestinationWorkloadName compiled.Expression
 
-	// builder for field destination_workload_namespace: string.
+	// builder for field destination_owner: string.
 
-	bldDestinationWorkloadNamespace compiled.Expression
+	bldDestinationOwner compiled.Expression
+
+	// builder for field destination_uid: string.
+
+	bldDestinationUid compiled.Expression
 
 	// builder for field context_protocol: string.
 
@@ -3600,47 +3574,17 @@ func newBuilder_edge_Template(
 
 	}
 
-	if param.SourceName == "" {
-		b.bldSourceName = nil
+	if param.SourceWorkloadNamespace == "" {
+		b.bldSourceWorkloadNamespace = nil
 	} else {
-		b.bldSourceName, expType, err = expb.Compile(param.SourceName)
+		b.bldSourceWorkloadNamespace, expType, err = expb.Compile(param.SourceWorkloadNamespace)
 		if err != nil {
-			return nil, template.NewErrorPath("SourceName", err)
+			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
 		}
 
 		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceName)
-			return nil, template.NewErrorPath("SourceName", err)
-		}
-
-	}
-
-	if param.SourceNamespace == "" {
-		b.bldSourceNamespace = nil
-	} else {
-		b.bldSourceNamespace, expType, err = expb.Compile(param.SourceNamespace)
-		if err != nil {
-			return nil, template.NewErrorPath("SourceNamespace", err)
-		}
-
-		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceNamespace)
-			return nil, template.NewErrorPath("SourceNamespace", err)
-		}
-
-	}
-
-	if param.SourceOwner == "" {
-		b.bldSourceOwner = nil
-	} else {
-		b.bldSourceOwner, expType, err = expb.Compile(param.SourceOwner)
-		if err != nil {
-			return nil, template.NewErrorPath("SourceOwner", err)
-		}
-
-		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceOwner)
-			return nil, template.NewErrorPath("SourceOwner", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceWorkloadNamespace)
+			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
 		}
 
 	}
@@ -3660,62 +3604,47 @@ func newBuilder_edge_Template(
 
 	}
 
-	if param.SourceWorkloadNamespace == "" {
-		b.bldSourceWorkloadNamespace = nil
+	if param.SourceOwner == "" {
+		b.bldSourceOwner = nil
 	} else {
-		b.bldSourceWorkloadNamespace, expType, err = expb.Compile(param.SourceWorkloadNamespace)
+		b.bldSourceOwner, expType, err = expb.Compile(param.SourceOwner)
 		if err != nil {
-			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
+			return nil, template.NewErrorPath("SourceOwner", err)
 		}
 
 		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceWorkloadNamespace)
-			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceOwner)
+			return nil, template.NewErrorPath("SourceOwner", err)
 		}
 
 	}
 
-	if param.DestinationName == "" {
-		b.bldDestinationName = nil
+	if param.SourceUid == "" {
+		b.bldSourceUid = nil
 	} else {
-		b.bldDestinationName, expType, err = expb.Compile(param.DestinationName)
+		b.bldSourceUid, expType, err = expb.Compile(param.SourceUid)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationName", err)
+			return nil, template.NewErrorPath("SourceUid", err)
 		}
 
 		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationName)
-			return nil, template.NewErrorPath("DestinationName", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.SourceUid)
+			return nil, template.NewErrorPath("SourceUid", err)
 		}
 
 	}
 
-	if param.DestinationNamespace == "" {
-		b.bldDestinationNamespace = nil
+	if param.DestinationWorkloadNamespace == "" {
+		b.bldDestinationWorkloadNamespace = nil
 	} else {
-		b.bldDestinationNamespace, expType, err = expb.Compile(param.DestinationNamespace)
+		b.bldDestinationWorkloadNamespace, expType, err = expb.Compile(param.DestinationWorkloadNamespace)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationNamespace", err)
+			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
 		}
 
 		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationNamespace)
-			return nil, template.NewErrorPath("DestinationNamespace", err)
-		}
-
-	}
-
-	if param.DestinationOwner == "" {
-		b.bldDestinationOwner = nil
-	} else {
-		b.bldDestinationOwner, expType, err = expb.Compile(param.DestinationOwner)
-		if err != nil {
-			return nil, template.NewErrorPath("DestinationOwner", err)
-		}
-
-		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationOwner)
-			return nil, template.NewErrorPath("DestinationOwner", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationWorkloadNamespace)
+			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
 		}
 
 	}
@@ -3735,17 +3664,32 @@ func newBuilder_edge_Template(
 
 	}
 
-	if param.DestinationWorkloadNamespace == "" {
-		b.bldDestinationWorkloadNamespace = nil
+	if param.DestinationOwner == "" {
+		b.bldDestinationOwner = nil
 	} else {
-		b.bldDestinationWorkloadNamespace, expType, err = expb.Compile(param.DestinationWorkloadNamespace)
+		b.bldDestinationOwner, expType, err = expb.Compile(param.DestinationOwner)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
+			return nil, template.NewErrorPath("DestinationOwner", err)
 		}
 
 		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationWorkloadNamespace)
-			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationOwner)
+			return nil, template.NewErrorPath("DestinationOwner", err)
+		}
+
+	}
+
+	if param.DestinationUid == "" {
+		b.bldDestinationUid = nil
+	} else {
+		b.bldDestinationUid, expType, err = expb.Compile(param.DestinationUid)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationUid", err)
+		}
+
+		if expType != istio_policy_v1beta1.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.DestinationUid)
+			return nil, template.NewErrorPath("DestinationUid", err)
 		}
 
 	}
@@ -3818,33 +3762,13 @@ func (b *builder_edge_Template) build(
 
 	}
 
-	if b.bldSourceName != nil {
+	if b.bldSourceWorkloadNamespace != nil {
 
-		vString, err = b.bldSourceName.EvaluateString(attrs)
+		vString, err = b.bldSourceWorkloadNamespace.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("SourceName", err)
+			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
 		}
-		r.SourceName = vString
-
-	}
-
-	if b.bldSourceNamespace != nil {
-
-		vString, err = b.bldSourceNamespace.EvaluateString(attrs)
-		if err != nil {
-			return nil, template.NewErrorPath("SourceNamespace", err)
-		}
-		r.SourceNamespace = vString
-
-	}
-
-	if b.bldSourceOwner != nil {
-
-		vString, err = b.bldSourceOwner.EvaluateString(attrs)
-		if err != nil {
-			return nil, template.NewErrorPath("SourceOwner", err)
-		}
-		r.SourceOwner = vString
+		r.SourceWorkloadNamespace = vString
 
 	}
 
@@ -3858,43 +3782,33 @@ func (b *builder_edge_Template) build(
 
 	}
 
-	if b.bldSourceWorkloadNamespace != nil {
+	if b.bldSourceOwner != nil {
 
-		vString, err = b.bldSourceWorkloadNamespace.EvaluateString(attrs)
+		vString, err = b.bldSourceOwner.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("SourceWorkloadNamespace", err)
+			return nil, template.NewErrorPath("SourceOwner", err)
 		}
-		r.SourceWorkloadNamespace = vString
+		r.SourceOwner = vString
 
 	}
 
-	if b.bldDestinationName != nil {
+	if b.bldSourceUid != nil {
 
-		vString, err = b.bldDestinationName.EvaluateString(attrs)
+		vString, err = b.bldSourceUid.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationName", err)
+			return nil, template.NewErrorPath("SourceUid", err)
 		}
-		r.DestinationName = vString
+		r.SourceUid = vString
 
 	}
 
-	if b.bldDestinationNamespace != nil {
+	if b.bldDestinationWorkloadNamespace != nil {
 
-		vString, err = b.bldDestinationNamespace.EvaluateString(attrs)
+		vString, err = b.bldDestinationWorkloadNamespace.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationNamespace", err)
+			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
 		}
-		r.DestinationNamespace = vString
-
-	}
-
-	if b.bldDestinationOwner != nil {
-
-		vString, err = b.bldDestinationOwner.EvaluateString(attrs)
-		if err != nil {
-			return nil, template.NewErrorPath("DestinationOwner", err)
-		}
-		r.DestinationOwner = vString
+		r.DestinationWorkloadNamespace = vString
 
 	}
 
@@ -3908,13 +3822,23 @@ func (b *builder_edge_Template) build(
 
 	}
 
-	if b.bldDestinationWorkloadNamespace != nil {
+	if b.bldDestinationOwner != nil {
 
-		vString, err = b.bldDestinationWorkloadNamespace.EvaluateString(attrs)
+		vString, err = b.bldDestinationOwner.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("DestinationWorkloadNamespace", err)
+			return nil, template.NewErrorPath("DestinationOwner", err)
 		}
-		r.DestinationWorkloadNamespace = vString
+		r.DestinationOwner = vString
+
+	}
+
+	if b.bldDestinationUid != nil {
+
+		vString, err = b.bldDestinationUid.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationUid", err)
+		}
+		r.DestinationUid = vString
 
 	}
 

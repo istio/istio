@@ -22,75 +22,79 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/contextgraph/apiv1alpha1"
+	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	"google.golang.org/api/option"
 
 	"istio.io/istio/mixer/adapter/contextgraph/config"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/template/edge"
+	edgepb "istio.io/istio/mixer/template/edge"
 )
 
 type (
 	builder struct {
 		projectID string
+		endpoint  string
 		apiKey    string
 		saPath    string
 		zone      string
 		cluster   string
 	}
 	handler struct {
-		client            *contextgraph.Client
-		env               adapter.Env
-		projectID         string
-		gcpContainer      string
-		workloadContainer string
-		clusterContainer  string
-		wCache            workloadCache
-		tCache            trafficCache
-		workloads         chan workload
-		traffics          chan traffic
-		wToSend           []workload
-		tToSend           []traffic
-		sendTick          *time.Ticker
-		quit              chan int
-		ctx               context.Context
+		client         *contextgraph.Client
+		env            adapter.Env
+		projectID      string
+		meshUID        string
+		zone, cluster  string
+		entityCache    *entityCache
+		edgeCache      *edgeCache
+		traffics       chan trafficAssertion
+		entitiesToSend []entity
+		edgesToSend    []edge
+		sendTick       *time.Ticker
+		quit           chan int
+		ctx            context.Context
 	}
 )
 
 // ensure types implement the requisite interfaces
-var _ edge.HandlerBuilder = &builder{}
-var _ edge.Handler = &handler{}
+var _ edgepb.HandlerBuilder = &builder{}
+var _ edgepb.Handler = &handler{}
 
 ///////////////// Configuration-time Methods ///////////////
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
+	// TODO: meshUID should come from an attribute when
+	// multi-cluster Istio is supported. Currently we assume each
+	// cluster is its own mesh.
 	h := &handler{
-		env:               env,
-		projectID:         b.projectID,
-		gcpContainer:      fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%s", b.projectID),
-		workloadContainer: fmt.Sprintf("//istio.io/projects/%s/workloads", b.projectID),
-		clusterContainer:  fmt.Sprintf("//container.googleapis.com/projects/%s/zones/%s/clusters/%s", b.projectID, b.zone, b.cluster),
-		wCache:            newWorkloadCache(env.Logger()),
-		tCache:            newTrafficCache(),
-		workloads:         make(chan workload),
-		traffics:          make(chan traffic),
-		wToSend:           make([]workload, 0),
-		tToSend:           make([]traffic, 0),
-		sendTick:          time.NewTicker(30 * time.Second),
-		quit:              make(chan int),
-		ctx:               ctx,
+		env:            env,
+		projectID:      b.projectID,
+		meshUID:        fmt.Sprintf("%s/%s/%s", b.projectID, b.zone, b.cluster),
+		zone:           b.zone,
+		cluster:        b.cluster,
+		entityCache:    newEntityCache(env.Logger()),
+		edgeCache:      newEdgeCache(env.Logger()),
+		traffics:       make(chan trafficAssertion),
+		entitiesToSend: make([]entity, 0),
+		edgesToSend:    make([]edge, 0),
+		sendTick:       time.NewTicker(30 * time.Second),
+		quit:           make(chan int),
+		ctx:            ctx,
 	}
 
-	var opts option.ClientOption
+	var opts []option.ClientOption
 	if b.saPath != "" {
-		opts = option.WithCredentialsFile(b.saPath)
+		opts = append(opts, option.WithCredentialsFile(b.saPath))
 	} else if b.apiKey != "" {
-		opts = option.WithAPIKey(b.apiKey)
+		opts = append(opts, option.WithAPIKey(b.apiKey))
+	}
+	if b.endpoint != "" {
+		opts = append(opts, option.WithEndpoint(b.endpoint))
 	}
 	var err error
-	h.client, err = contextgraph.NewClient(ctx, opts)
+	h.client, err = contextgraph.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +110,7 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.projectID = c.ProjectId
 	b.zone = c.Zone
 	b.cluster = c.Cluster
+	b.endpoint = c.Endpoint
 	switch x := c.Creds.(type) {
 	case *config.Params_AppCredentials:
 	case *config.Params_ApiKey:
@@ -121,23 +126,20 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	return
 }
 
-// edge.HandlerBuilder#SetEdgeTypes
-func (b *builder) SetEdgeTypes(types map[string]*edge.Type) {
+// edgepb.HandlerBuilder#SetEdgeTypes
+func (b *builder) SetEdgeTypes(types map[string]*edgepb.Type) {
 }
 
 ////////////////// Request-time Methods //////////////////////////
 
-// edge.Handler#HandleEdge
-func (h *handler) HandleEdge(ctx context.Context, insts []*edge.Instance) error {
+// edgepb.Handler#HandleEdge
+func (h *handler) HandleEdge(ctx context.Context, insts []*edgepb.Instance) error {
 	for _, i := range insts {
-		source := newWorkload(i.SourceOwner, i.SourceWorkloadName, i.SourceWorkloadNamespace, i.Timestamp)
-		dest := newWorkload(i.DestinationOwner, i.DestinationWorkloadName, i.DestinationWorkloadNamespace, i.Timestamp)
-		//h.env.Logger().Debugf("Connection Reported: %v to %v", source.name, dest.name)
-		h.workloads <- source
-		h.workloads <- dest
+		source := workloadInstance{h.meshUID, h.projectID, h.projectID, h.zone, h.cluster, i.SourceUid, i.SourceOwner, i.SourceWorkloadName, i.SourceWorkloadNamespace}
+		destination := workloadInstance{h.meshUID, h.projectID, h.projectID, h.zone, h.cluster, i.DestinationUid, i.DestinationOwner, i.DestinationWorkloadName, i.DestinationWorkloadNamespace}
+		h.traffics <- trafficAssertion{source, destination, i.ContextProtocol, i.ApiProtocol, i.Timestamp}
 
-		t := newTraffic(source, dest, i.ContextProtocol, i.ApiProtocol, i.Timestamp)
-		h.traffics <- t
+		//h.env.Logger().Debugf("Connection Reported: %v to %v", source.name, dest.name)
 	}
 	return nil
 }
@@ -157,7 +159,7 @@ func GetInfo() adapter.Info {
 		Name:        "contextgraph",
 		Description: "Sends graph to Stackdriver Context API",
 		SupportedTemplates: []string{
-			edge.TemplateName,
+			edgepb.TemplateName,
 		},
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{

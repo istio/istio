@@ -15,34 +15,71 @@
 package contextgraph
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+	"google.golang.org/grpc/status"
 )
 
 func (h *handler) cacheAndSend() {
+	epoch := 0
+	var lastFlush time.Time
 	for {
 		select {
-		case w := <-h.workloads:
-			if h.wCache.Check(w) {
-				h.wToSend = append(h.wToSend, w)
-				h.tCache.Invalid(w)
-			}
 		case t := <-h.traffics:
-			if h.tCache.Check(t) {
-				h.tToSend = append(h.tToSend, t)
+			entities, edges := t.Reify(h.env.Logger())
+			for _, entity := range entities {
+				if h.entityCache.AssertAndCheck(entity, epoch) {
+					h.entitiesToSend = append(h.entitiesToSend, entity)
+					h.edgeCache.Invalidate(entity.fullName)
+				}
 			}
-		case <-h.sendTick.C:
-			h.send()
+			for _, edge := range edges {
+				if h.edgeCache.AssertAndCheck(edge, epoch) {
+					h.edgesToSend = append(h.edgesToSend, edge)
+				}
+			}
+		case t := <-h.sendTick.C:
+			if t.After(lastFlush.Add(9 * time.Minute)) {
+				h.entitiesToSend = append(h.entitiesToSend, h.entityCache.Flush(epoch)...)
+				h.edgesToSend = append(h.edgesToSend, h.edgeCache.Flush(epoch)...)
+				lastFlush = t
+			}
+			h.send(t)
+			epoch++
 		case <-h.quit:
 			return
 		}
 	}
 }
 
-func (h *handler) send() {
-	if (len(h.wToSend) == 0) && (len(h.tToSend) == 0) {
+func (e entity) ToProto() *contextgraphpb.Entity {
+	epb := &contextgraphpb.Entity{
+		ContainerFullName: e.containerFullName,
+		TypeName:          e.typeName,
+		Location:          e.location,
+		FullName:          e.fullName,
+	}
+	for _, name := range e.shortNames {
+		if name != "" {
+			epb.ShortNames = append(epb.ShortNames, name)
+		}
+	}
+	return epb
+}
+
+func (e edge) ToProto() *contextgraphpb.Relationship {
+	return &contextgraphpb.Relationship{
+		TypeName:       e.typeName,
+		SourceFullName: e.sourceFullName,
+		TargetFullName: e.destinationFullName,
+	}
+}
+
+func (h *handler) send(t time.Time) {
+	if (len(h.entitiesToSend) == 0) && (len(h.edgesToSend) == 0) {
+		h.env.Logger().Debugf("Nothing to send this tick")
 		return
 	}
 
@@ -51,98 +88,38 @@ func (h *handler) send() {
 		RelationshipPresentAssertions: make([]*contextgraphpb.RelationshipPresentAssertion, 0),
 	}
 
-	for _, wl := range h.wToSend {
-		fullName := fmt.Sprintf("%s/%s", h.workloadContainer, wl.id)
+	for _, entity := range h.entitiesToSend {
 		asst := &contextgraphpb.EntityPresentAssertion{
 			Timestamp: &timestamp.Timestamp{
-				Seconds: wl.seen.Unix(),
+				Seconds: t.Unix(),
 			},
-			Entity: &contextgraphpb.Entity{
-				ContainerFullName: h.gcpContainer,
-				TypeName:          "io.istio.Workload",
-				Location:          "global",
-				FullName:          fullName,
-				ShortNames:        []string{wl.id},
-			},
+			Entity: entity.ToProto(),
 		}
 		req.EntityPresentAssertions = append(req.EntityPresentAssertions, asst)
+	}
 
-		var ownName string
-		switch wl.wlType {
-		case "pods":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/pods/%s", h.clusterContainer, wl.namespace, wl.name)
-		case "replicationcontrollers":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/replicationcontrollers/%s", h.clusterContainer, wl.namespace, wl.name)
-		case "cronjobs":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/batch/cronjobs/%s", h.clusterContainer, wl.namespace, wl.name)
-		case "jobs":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/batch/jobs/%s", h.clusterContainer, wl.namespace, wl.name)
-		case "daemonsets":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/daemonsets/%s", h.clusterContainer, wl.namespace, wl.group, wl.name)
-		case "deployments":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/deployments/%s", h.clusterContainer, wl.namespace, wl.group, wl.name)
-		case "replicasets":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/replicasets/%s", h.clusterContainer, wl.namespace, wl.group, wl.name)
-		case "statefulsets":
-			ownName = fmt.Sprintf("%s/k8s/namespaces/%s/apps/statefulsets/%s", h.clusterContainer, wl.namespace, wl.name)
-		default:
-			// Unknown owner type, don't add relationship
-			h.env.Logger().Warningf("Unknown type of workload: %s", wl.wlType)
-			continue
-		}
-
+	for _, edge := range h.edgesToSend {
 		relAsst := &contextgraphpb.RelationshipPresentAssertion{
 			Timestamp: &timestamp.Timestamp{
-				Seconds: wl.seen.Unix(),
+				Seconds: t.Unix(),
 			},
-			Relationship: &contextgraphpb.Relationship{
-				TypeName:       "google.cloud.contextgraph.Membership",
-				SourceFullName: fullName,
-				TargetFullName: ownName,
-			},
+			Relationship: edge.ToProto(),
 			OwningEntity: contextgraphpb.RelationshipPresentAssertion_SOURCE,
 		}
 		req.RelationshipPresentAssertions = append(req.RelationshipPresentAssertions, relAsst)
 	}
 
-	for _, t := range h.tToSend {
-		var typeName string
-		switch t.protocol {
-		case "http":
-			typeName = "google.cloud.contextgraph.Communication.Http"
-		case "tcp":
-			typeName = "google.cloud.contextgraph.Communication.Tcp"
-		case "https":
-			typeName = "google.cloud.contextgraph.Communication.Https"
-		case "grpc":
-			typeName = "google.cloud.contextgraph.Communication.Grpc"
-		default:
-			h.env.Logger().Warningf("Unknown type of protocol: %s", t.protocol)
-			continue
-		}
-		fullSource := fmt.Sprintf("%s/%s", h.workloadContainer, t.sourceId)
-		fullDest := fmt.Sprintf("%s/%s", h.workloadContainer, t.destId)
-		relAsst := &contextgraphpb.RelationshipPresentAssertion{
-			Timestamp: &timestamp.Timestamp{
-				Seconds: t.seen.Unix(),
-			},
-			Relationship: &contextgraphpb.Relationship{
-				TypeName:       typeName,
-				SourceFullName: fullSource,
-				TargetFullName: fullDest,
-			},
-			OwningEntity: contextgraphpb.RelationshipPresentAssertion_SOURCE,
-		}
-		req.RelationshipPresentAssertions = append(req.RelationshipPresentAssertions, relAsst)
-	}
+	// TODO: Batch requests if there are too many entities and edges in one request.
 
 	h.env.Logger().Debugf("Context api request: %s", req)
 	if _, err := h.client.AssertBatch(h.ctx, req); err != nil {
 		h.env.Logger().Errorf("Request failed: %s\n", err)
+		s, _ := status.FromError(err)
+		h.env.Logger().Errorf("STATUS: %s\n", s.Proto().Details[0].Value)
 		return
-		// s, _ := status.FromError(err)
-		// h.env.Logger().Errorf("STATUS: %s\n", s.Proto().Details[0].Value)
 	}
-	h.wToSend = make([]workload, 0)
-	h.tToSend = make([]traffic, 0)
+
+	// TODO: Reslice to save the old cap()?
+	h.entitiesToSend = nil
+	h.edgesToSend = nil
 }

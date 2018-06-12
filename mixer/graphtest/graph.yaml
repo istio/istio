@@ -6,13 +6,11 @@ metadata:
   namespace: istio-system
 spec:
   timestamp: request.time
-  sourceName: source.name | "Unknown"
-  sourceNamespace: source.namespace | "Unknown"
+  sourceUid: source.uid | "Unknown"
   sourceOwner: source.owner | "Unknown"
   sourceWorkloadName: source.workload.name | "Unknown"
   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
-  destinationName: destination.name | "Unknown"
-  destinationNamespace: destination.namespace | "Unknown"
+  destinationUid: destination.uid | "Unknown"
   destinationOwner: destination.owner | "Unknown"
   destinationWorkloadName: destination.workload.name | "Unknown"
   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
@@ -29,7 +27,7 @@ spec:
   projectId: context-istio-test
   zone: us-central1-f
   cluster: istio-080
-  serviceAccountPath: /home/jeffmendoza/Downloads/context-istio-test-fe8c41aabee9.json
+  serviceAccountPath: /tmp/context-istio-test.json
 ---
 # Rule to send logentry instances to the fluentd handler
 apiVersion: "config.istio.io/v1alpha2"
