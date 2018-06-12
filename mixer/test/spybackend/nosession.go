@@ -28,12 +28,14 @@ import (
 )
 
 type (
+	// Server is basic server interface
 	Server interface {
 		Addr() net.Addr
 		Close() error
 		Run()
 	}
 
+	// NoSessionServer models no session adapter backend.
 	NoSessionServer struct {
 		listener net.Listener
 		shutdown chan error
@@ -47,23 +49,30 @@ var _ metric.HandleMetricServiceServer = &NoSessionServer{}
 var _ listentry.HandleListEntryServiceServer = &NoSessionServer{}
 var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 
+// HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
 	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
 	return s.Behavior.HandleMetricResult, s.Behavior.HandleMetricError
 }
+
+// HandleListEntry records listrequest and responds with the programmed response
 func (s *NoSessionServer) HandleListEntry(c context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
 	s.Requests.HandleListEntryRequest = append(s.Requests.HandleListEntryRequest, r)
 	return s.Behavior.HandleListEntryResult, s.Behavior.HandleListEntryError
 }
+
+// HandleQuota records quotarequest and responds with the programmed response
 func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
 	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
 	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
 }
 
+// Addr returns the listening address of the server
 func (s *NoSessionServer) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
+// Run starts the server run
 func (s *NoSessionServer) Run() {
 	s.shutdown = make(chan error, 1)
 	go func() {
@@ -74,6 +83,7 @@ func (s *NoSessionServer) Run() {
 	}()
 }
 
+// Wait waits for server to stop
 func (s *NoSessionServer) Wait() error {
 	if s.shutdown == nil {
 		return fmt.Errorf("server not running")
@@ -84,6 +94,7 @@ func (s *NoSessionServer) Wait() error {
 	return err
 }
 
+// Close gracefully shuts down the server
 func (s *NoSessionServer) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
@@ -97,7 +108,7 @@ func (s *NoSessionServer) Close() error {
 	return nil
 }
 
-// nolint:deadcode
+// NewNoSessionServer creates a new no session server from given args.
 func NewNoSessionServer(a *Args) (Server, error) {
 	s := &NoSessionServer{Behavior: a.Behavior, Requests: a.Requests}
 	var err error

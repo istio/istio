@@ -22,6 +22,7 @@ import (
 )
 
 type (
+	// Args specify captured requests and programmed behaviour
 	Args struct {
 		// manipulate the behavior of the backend.
 		Behavior *Behavior
@@ -30,6 +31,7 @@ type (
 		Requests *Requests
 	}
 
+	// Behavior specifies programmed behaviour
 	Behavior struct {
 		ValidateResponse *adptModel.ValidateResponse
 		ValidateError    error
@@ -53,6 +55,7 @@ type (
 		HandleQuotaError  error
 	}
 
+	// Requests record captured requests by the spy
 	Requests struct {
 		ValidateRequest []*adptModel.ValidateRequest
 
@@ -66,7 +69,7 @@ type (
 	}
 )
 
-// nolint:deadcode
+// DefaultArgs returns default arguments
 func DefaultArgs() *Args {
 	return &Args{
 		Behavior: &Behavior{},
