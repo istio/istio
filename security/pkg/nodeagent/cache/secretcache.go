@@ -27,8 +27,8 @@ import (
 // The size of a private key for a leaf certificate.
 const keySize = 2048
 
-// SecretStore defines interface that secret storages need to implement.
-type SecretStore interface {
+// SecretManager defines secrets management interface which is used by SDS.
+type SecretManager interface {
 	GetSecret(proxyID, token string) (*SecretItem, error)
 }
 

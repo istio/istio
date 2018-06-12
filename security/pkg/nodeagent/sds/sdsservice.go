@@ -63,13 +63,13 @@ type sdsConnection struct {
 }
 
 type sdsservice struct {
-	st cache.SecretStore
+	st cache.SecretManager
 	//TODO(quanlin), add below properties later:
 	//1. workloadRegistry(store proxies information).
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretStore) *sdsservice {
+func newSDSService(st cache.SecretManager) *sdsservice {
 	return &sdsservice{
 		st: st,
 	}

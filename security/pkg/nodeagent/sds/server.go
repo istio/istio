@@ -41,7 +41,7 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options Options, st cache.SecretStore) (*Server, error) {
+func NewServer(options Options, st cache.SecretManager) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
 		closing:  make(chan bool, 1),
@@ -61,7 +61,7 @@ func (s *Server) Stop() {
 	s.closing <- true
 }
 
-func (s *Server) initDiscoveryService(options *Options, st cache.SecretStore) error {
+func (s *Server) initDiscoveryService(options *Options, st cache.SecretManager) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 
