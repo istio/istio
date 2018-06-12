@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/plugin/dummy"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
@@ -29,5 +30,6 @@ func NewPlugins() []plugin.Plugin {
 	return []plugin.Plugin{
 		authn.NewPlugin(),
 		authz.NewPlugin(),
+		dummy.NewPlugin(),
 		mixer.NewPlugin()}
 }
