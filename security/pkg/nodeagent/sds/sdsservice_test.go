@@ -28,6 +28,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 var (
@@ -165,9 +167,9 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) getSecret() *secret {
-	return &secret{
-		certificateChain: fakeCertificateChain,
-		privateKey:       fakePrivateKey,
-	}
+func (*mockSecretStore) GetSecret(proxyID, token string) (*cache.SecretItem, error) {
+	return &cache.SecretItem{
+		CertificateChain: fakeCertificateChain,
+		PrivateKey:       fakePrivateKey,
+	}, nil
 }
