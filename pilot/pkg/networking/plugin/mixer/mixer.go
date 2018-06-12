@@ -67,10 +67,6 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		return nil
 	}
 
-	if in.Node.Type == model.Router {
-		return nil
-	}
-
 	attrs := attributes{
 		"source.uid":             attrUID(in.Node),
 		"context.reporter.uid":   attrUID(in.Node),
