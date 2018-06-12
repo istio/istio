@@ -1,6 +1,6 @@
 # Run E2E tests on Bluemix
 
-This setup helps you run e2e tests with your local codes against a k8s cluster on BLuemix.
+This setup helps you run e2e tests with your local code against a k8s cluster on BLuemix.
 
 * [Step 0: Install and configure IBM Cloud Kubernetes Service CLI](#step-0-install-and-configure-ibm-cloud-kubernetes-service-cli)
 * [Step 1: Create and configure your kubernetes cluster](#step-1-create-and-configure-your-kubernetes-cluster)
@@ -9,7 +9,7 @@ This setup helps you run e2e tests with your local codes against a k8s cluster o
 
 ## Step 0: Install and configure IBM Cloud Kubernetes Service CLI
 
-### 1. Download and Install IBM Cloud CLI [Full Instructions](https://console.bluemix.net/docs/cli/reference/bluemix_cli/download_cli.html#download_install):
+### 1. Download and Install IBM Cloud CLI:
 
 *macOS*:
 ```shell
@@ -20,6 +20,8 @@ curl -fsSL https://clis.ng.bluemix.net/install/osx | sh
 ```shell
 curl -fsSL https://clis.ng.bluemix.net/install/linux | sh
 ```
+
+See [full instructions](https://console.bluemix.net/docs/cli/reference/bluemix_cli/download_cli.html#download_install) for more details.
 
 ### 2. Install Kubernetes Container Service Plugin:
 
@@ -42,7 +44,7 @@ You should see container-service in the result.
 
 ## Step 1: Create and configure your kubernetes cluster
 
-### Option 1: Create a cluster using CLI
+### Option 1: Create a cluster using the CLI
 
 ```shell
 bx cs cluster-create \
@@ -60,19 +62,19 @@ bx cs cluster-create \
 
 For details of all components, please refer to the [doc](https://console.bluemix.net/docs/containers/cs_clusters.html#clusters_cli)
 
-To create a free one-node cluster(with 2vCPU and 4GB memory, deleted after 30 days) for trial, you can simply run
+To create a free one-node cluster(with 2 CPUs and 4GB memory, deleted after 30 days) for trial, you can simply run
 ```shell
 bx cs cluster-create --name <cluster-name>
 ```
 
-### Option 2: Create a cluster from GUI
+### Option 2: Create a cluster using the GUI
 You can go to [link](https://console.bluemix.net/containers-kubernetes/catalog/cluster/create) to follow steps to create a cluster.
 
 
-## Step 2: Set up registry
+## Step 2: Set up the registry
 
 ### Use remote registry
-Setup HUB and TAG pointing to your prebuilt images on a remote registry, e.g.
+Set the HUB and TAG variables to point to your prebuilt images on a remote registry, e.g.
 ```shell
 export HUB="kimiko"
 export TAG="latest"
