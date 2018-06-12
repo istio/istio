@@ -45,6 +45,9 @@ type Args struct {
 	// TestID is the id of the test suite. This should supplied by the author once, and must be immutable.
 	TestID string
 
+	// Do not cleanup the resources after the test run.
+	NoCleanup bool
+
 	// M is testing.M
 	M *testing.M
 
@@ -57,6 +60,12 @@ type Args struct {
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
 	WorkDir string
+
+	// Hub environment variable
+	Hub string
+
+	// Tag environment variable
+	Tag string
 }
 
 // DefaultArgs returns the default set of arguments.

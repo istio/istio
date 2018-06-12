@@ -18,8 +18,11 @@ const (
 	// Apps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
 	Apps = Instance("apps")
 
+	// Cluster is required for running the test.
+	Cluster = Instance("cluster")
+
 	// GKE dependency
-	GKE = Instance("cluster")
+	GKE = Instance("gke")
 
 	// FortioApps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
 	FortioApps = Instance("fortioApps")

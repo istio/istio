@@ -30,6 +30,7 @@ import (
 var arguments = driver.DefaultArgs()
 var showHelp = false
 var logOptions = log.DefaultOptions()
+var noCleanup = false
 
 // The command we use to parse flags.
 var cmdForLog = &cobra.Command{}
@@ -72,6 +73,15 @@ func processFlags() error {
 		os.Exit(0)
 	}
 
+	// TODO: Instead of using hub/tag, we should be using the local registry to load images from.
+	// See https://github.com/istio/istio/issues/6178 for details.
+
+	// Capture environment variables
+	hub := os.Getenv("HUB")
+	tag := os.Getenv("TAG")
+	arguments.Hub = hub
+	arguments.Tag = tag
+
 	return nil
 }
 
@@ -91,6 +101,8 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 
 	boolVar(&showHelp, "hh", showHelp,
 		"Show the help page for the test framework")
+
+	boolVar(&noCleanup, "no-cleanup", noCleanup, "Do not cleanup resources after test completion")
 }
 
 func doShowHelp() {
