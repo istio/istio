@@ -4,8 +4,6 @@
 /*
 Package v1beta1 is a generated protocol buffer package.
 
-Describes the rules used to configure Mixer's policy and telemetry features.
-
 It is generated from these files:
 	policy/v1beta1/cfg.proto
 

@@ -50,7 +50,7 @@ func (x AuthenticationPolicy) String() string {
 	return proto.EnumName(AuthenticationPolicy_name, int32(x))
 }
 func (AuthenticationPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{0}
 }
 
 // The mode used to redirect inbound traffic to Envoy.
@@ -82,7 +82,7 @@ func (x ProxyConfig_InboundInterceptionMode) String() string {
 	return proto.EnumName(ProxyConfig_InboundInterceptionMode_name, int32(x))
 }
 func (ProxyConfig_InboundInterceptionMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{0, 0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{0, 0}
 }
 
 type MeshConfig_IngressControllerMode int32
@@ -119,7 +119,7 @@ func (x MeshConfig_IngressControllerMode) String() string {
 	return proto.EnumName(MeshConfig_IngressControllerMode_name, int32(x))
 }
 func (MeshConfig_IngressControllerMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{1, 0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{1, 0}
 }
 
 // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above
@@ -145,7 +145,7 @@ func (x MeshConfig_AuthPolicy) String() string {
 	return proto.EnumName(MeshConfig_AuthPolicy_name, int32(x))
 }
 func (MeshConfig_AuthPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{1, 1}
+	return fileDescriptor_config_641a1183ef3faef5, []int{1, 1}
 }
 
 type MeshConfig_OutboundTrafficPolicy_Mode int32
@@ -175,7 +175,7 @@ func (x MeshConfig_OutboundTrafficPolicy_Mode) String() string {
 	return proto.EnumName(MeshConfig_OutboundTrafficPolicy_Mode_name, int32(x))
 }
 func (MeshConfig_OutboundTrafficPolicy_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{1, 0, 0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{1, 0, 0}
 }
 
 // ProxyConfig defines variables for individual Envoy instances.
@@ -249,7 +249,7 @@ func (m *ProxyConfig) Reset()         { *m = ProxyConfig{} }
 func (m *ProxyConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyConfig) ProtoMessage()    {}
 func (*ProxyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{0}
 }
 func (m *ProxyConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProxyConfig.Unmarshal(m, b)
@@ -472,7 +472,7 @@ func (m *MeshConfig) Reset()         { *m = MeshConfig{} }
 func (m *MeshConfig) String() string { return proto.CompactTextString(m) }
 func (*MeshConfig) ProtoMessage()    {}
 func (*MeshConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{1}
+	return fileDescriptor_config_641a1183ef3faef5, []int{1}
 }
 func (m *MeshConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MeshConfig.Unmarshal(m, b)
@@ -616,7 +616,7 @@ func (m *MeshConfig_OutboundTrafficPolicy) Reset()         { *m = MeshConfig_Out
 func (m *MeshConfig_OutboundTrafficPolicy) String() string { return proto.CompactTextString(m) }
 func (*MeshConfig_OutboundTrafficPolicy) ProtoMessage()    {}
 func (*MeshConfig_OutboundTrafficPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_fecc0705b7c3a1a2, []int{1, 0}
+	return fileDescriptor_config_641a1183ef3faef5, []int{1, 0}
 }
 func (m *MeshConfig_OutboundTrafficPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MeshConfig_OutboundTrafficPolicy.Unmarshal(m, b)
@@ -654,9 +654,9 @@ func init() {
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode", MeshConfig_OutboundTrafficPolicy_Mode_name, MeshConfig_OutboundTrafficPolicy_Mode_value)
 }
 
-func init() { proto.RegisterFile("mesh/v1alpha1/config.proto", fileDescriptor_config_fecc0705b7c3a1a2) }
+func init() { proto.RegisterFile("mesh/v1alpha1/config.proto", fileDescriptor_config_641a1183ef3faef5) }
 
-var fileDescriptor_config_fecc0705b7c3a1a2 = []byte{
+var fileDescriptor_config_641a1183ef3faef5 = []byte{
 	// 1147 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0xed, 0x6e, 0x1a, 0x47,
 	0x14, 0x35, 0x0e, 0xb1, 0xf1, 0xc5, 0xe0, 0x65, 0x1c, 0xc7, 0x1b, 0xab, 0x1f, 0x96, 0xa3, 0xa6,
