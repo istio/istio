@@ -61,6 +61,10 @@ fi
 echo "Checking and Installing Minikube version 0.27.0 as required"
 minikube --help > /dev/null
 if [[ $? -ne 0 || (`minikube version` != *"minikube version: v0.27.0"*) ]]; then
+  if [ $? -eq 0]; then
+    echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
+    minikube delete
+  fi
   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
   if [ $? -ne 0 ]; then
       echo "Looks like minikube installation failed."
