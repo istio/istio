@@ -23,6 +23,11 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
+	istiolog "istio.io/istio/pkg/log"
+)
+
+var (
+	builderLog = istiolog.RegisterScope("grpcAdapter", "dynamic proto encoder debugging", 0)
 )
 
 type (
@@ -99,7 +104,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 		fd := yaml.FindFieldByName(md, k)
 		if fd == nil {
 			if c.skipUnknown {
-				log.Debugf("skipping key=%s from message %s", k, md.GetName())
+				builderLog.Debugf("skipping key=%s from message %s", k, md.GetName())
 				continue
 			}
 			return nil, fmt.Errorf("fieldEncoder '%s' not found in message '%s'", k, md.GetName())

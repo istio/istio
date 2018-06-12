@@ -17,6 +17,7 @@ package dynamic
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -32,7 +33,7 @@ import (
 	spy "istio.io/istio/mixer/test/spybackend"
 )
 
-func TestEncodeCheckRequest(t *testing.T) {
+func TestEncodeReportRequest(t *testing.T) {
 	var err error
 	metricDi := loadInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
 	res := protoyaml.NewResolver(metricDi.FileDescSet)
@@ -126,7 +127,7 @@ func TestNoSessionBackend(t *testing.T) {
 	validateNoSessionBackend(s.(*spy.NoSessionServer), t)
 }
 
-func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *Instance {
+func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *TemplateConfig {
 	t.Helper()
 	path := fmt.Sprintf("../../../../template/%s/template_handler_service.descriptor_set", name)
 	fds, err := protoyaml.GetFileDescSet(path)
@@ -134,7 +135,7 @@ func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *I
 		t.Fatalf("error: %v", err)
 	}
 
-	return &Instance{
+	return &TemplateConfig{
 		Name:         name,
 		TemplateName: name,
 		FileDescSet:  fds,
@@ -152,7 +153,9 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 		Value:   []byte("abcd"),
 	}
 
-	h, err := BuildHandler("spy", &attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig, []*Instance{listentryDi, metricDi, quotaDi})
+	h, err := BuildHandler("spy",
+		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi})
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -247,6 +250,27 @@ func TestCodecErrors(t *testing.T) {
 			t.Errorf("exepcted marshal to fail")
 		}
 	})
+}
+
+func TestStaticBag(t *testing.T) {
+	b := &staticBag{
+		v: map[string]interface{}{
+			"attr1": "value",
+		},
+	}
+
+	t.Run(b.String()+".Get", func(t *testing.T) {
+		if v, _ := b.Get("attr1"); v == nil || v != "value" {
+			t.Errorf("Get error got:value want:%v", v)
+		}
+	})
+
+	t.Run(b.String()+".Names", func(t *testing.T) {
+		if v := b.Names(); reflect.DeepEqual(v, []string{"value"}) {
+			t.Errorf("Get error got:value want:%v", v)
+		}
+	})
+	b.Done()
 }
 
 func TestBuildHandler_ConnectError(t *testing.T) {

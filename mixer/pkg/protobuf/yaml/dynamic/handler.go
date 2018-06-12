@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	log = istiolog.RegisterScope("grpcAdapter", "grpc adapter debugging", 0)
+	handlerLog = istiolog.RegisterScope("grpcAdapter", "dynamic grpc adapter debugging", 0)
 )
 
 type (
@@ -65,8 +65,8 @@ type (
 		encoder *messageEncoder
 	}
 
-	// Instance name
-	Instance struct {
+	// TemplateConfig is template configuration
+	TemplateConfig struct {
 		Name         string
 		TemplateName string
 		FileDescSet  *descriptor.FileDescriptorSet
@@ -80,22 +80,30 @@ type (
 
 // BuildHandler creates a dynamic handler object exposing specific handler interfaces.
 func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig proto.Marshaler,
-	instances []*Instance) (hh *Handler, err error) {
+	templateConfig []*TemplateConfig) (hh *Handler, err error) {
 
 	hh = &Handler{
 		Name:       name,
-		svcMap:     make(map[string]*Svc, len(instances)),
+		svcMap:     make(map[string]*Svc, len(templateConfig)),
 		connConfig: connConfig,
 		n:          &atomic.Uint64{},
 	}
 
+	// RemoteAdapterSvc is bound to a template
+	// however the access is via instance name.
+	tmplMap := make(map[string]*Svc, len(templateConfig))
+
 	var svc *Svc
-	for _, inst := range instances {
-		if svc, err = RemoteAdapterSvc("Handle",
-			protoyaml.NewResolver(inst.FileDescSet), sessionBased, adapterConfig); err != nil {
-			return nil, err
+	for _, tc := range templateConfig {
+		svc = tmplMap[tc.TemplateName]
+		if svc == nil {
+			if svc, err = RemoteAdapterSvc("Handle",
+				protoyaml.NewResolver(tc.FileDescSet), sessionBased, adapterConfig); err != nil {
+				return nil, err
+			}
+			tmplMap[tc.TemplateName] = svc
 		}
-		hh.svcMap[inst.Name] = svc
+		hh.svcMap[tc.Name] = svc
 	}
 
 	hh.n.Store(rand.Uint64())
@@ -119,11 +127,11 @@ func (h *Handler) connect() (err error) {
 	// TODO add simple secure option
 	if h.conn, err = grpc.Dial(h.connConfig.GetAddress(), grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(codec)); err != nil {
-		log.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
+		handlerLog.Errorf("Unable to connect to:%s %v", h.connConfig.GetAddress(), err)
 		return errors.WithStack(err)
 	}
 
-	log.Infof("Connected to:%s %v", h.connConfig.GetAddress(), h.conn)
+	handlerLog.Infof("Connected to:%s %v", h.connConfig.GetAddress(), h.conn)
 	return nil
 }
 
@@ -300,19 +308,8 @@ func (s Svc) GrpcPath() string {
 // encodeRequest encodes request using the message encoder. It supports Check, Report and Quota.
 // If qr arg is required when using quota adapter.
 func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances ...[]byte) ([]byte, error) {
-	v := make(map[string]interface{}, 3) // at most 3 attributes at one time.
-	v[dedupeAttrName] = []byte(dedupID)
-	if qr != nil {
-		var encodedData []byte
-		var err error
-		if encodedData, err = qr.Marshal(); err != nil {
-			return nil, errors.WithStack(err)
-		}
-		v[quotaRequestAttrName] = encodedData
-	}
-
-	bag := staticBag{v: v}
-
+	// at most 3 attributes at one time.
+	bag := staticBag{v: make(map[string]interface{}, 3)}
 	size := 0
 	for _, ei := range encodedInstances {
 		size += len(ei)
@@ -329,6 +326,16 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 		if err != nil {
 			return nil, errors.Errorf("fieldEncoder: %s - %v", instField.name, err)
 		}
+	}
+
+	bag.v[dedupeAttrName] = []byte(dedupID)
+	if qr != nil {
+		var encodedData []byte
+		var err error
+		if encodedData, err = qr.Marshal(); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		bag.v[quotaRequestAttrName] = encodedData
 	}
 
 	for _, f := range s.encoder.fields[1:] {

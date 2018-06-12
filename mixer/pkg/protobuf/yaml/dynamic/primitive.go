@@ -265,7 +265,7 @@ type staticEncoder struct {
 	includeLength bool
 }
 
-func (p staticEncoder) Encode(a attribute.Bag, ba []byte) ([]byte, error) {
+func (p staticEncoder) Encode(_ attribute.Bag, ba []byte) ([]byte, error) {
 	if p.includeLength {
 		ba, _ = EncodeVarint(ba, uint64(len(p.encodedData)))
 	}
