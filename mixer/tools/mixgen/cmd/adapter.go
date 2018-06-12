@@ -94,15 +94,20 @@ spec:
 ---
 `
 
-	inPath, _ := filepath.Abs(config)
-	byts, err := ioutil.ReadFile(inPath)
-	if err != nil {
-		fatalf("unable to read file %s. %v", inPath, err)
-	}
+	var byts []byte
+	var err error
 
-	// validate if the file is a file descriptor set with imports.
-	if err = isFds(byts); err != nil {
-		fatalf("config in invalid: %v", err)
+	if config != "" {
+		// no config means adapter has no config.
+		inPath, _ := filepath.Abs(config)
+		byts, err = ioutil.ReadFile(inPath)
+		if err != nil {
+			fatalf("unable to read file %s. %v", inPath, err)
+		}
+		// validate if the file is a file descriptor set with imports.
+		if err = isFds(byts); err != nil {
+			fatalf("config in invalid: %v", err)
+		}
 	}
 
 	goPath := os.Getenv("GOPATH")
