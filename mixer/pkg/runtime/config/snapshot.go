@@ -44,9 +44,9 @@ type (
 		InstancesStatic map[string]*InstanceStatic
 
 		//  TemplateMetadatas contains template descriptors loaded from the store
-		TemplateMetadatas map[string]*TemplateMetadata
+		TemplateMetadatas map[string]*Template
 		//  AdapterMetadatas contains adapter metadata loaded from the store
-		AdapterMetadatas map[string]*AdapterMetadata
+		AdapterMetadatas map[string]*Adapter
 
 		HandlersDynamic  map[string]*HandlerDynamic
 		InstancesDynamic map[string]*InstanceDynamic
@@ -90,6 +90,9 @@ type (
 
 		// Encoder to create request instance bytes from attributes
 		Encoder dynamic.Encoder
+
+		// Params of the instance; used to to create the config SHA.
+		Params map[string]interface{}
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
