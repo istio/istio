@@ -4,11 +4,11 @@
 /*
 	Package tracespan is a generated protocol buffer package.
 
-	TraceSpan represents an individual span within a distributed trace.
+	The `tracespan` template represents an individual span within a distributed trace.
 
 	Example config:
 
-	```
+	```yaml
 	apiVersion: "config.istio.io/v1alpha2"
 	kind: tracespan
 	metadata:
