@@ -334,12 +334,14 @@ func TestCreate(t *testing.T) {
 			[]model.Config{},
 			strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
 			"",
-			regexp.MustCompile("^Warning: route-rule is deprecated and may not be supported in future Istio versions \\(route-rule-80-20\\).\nCreated config route-rule/default/route-rule-80-20.*"),
+			regexp.MustCompile("^Warning: route-rule is deprecated and may not be supported" +
+				" in future Istio versions \\(route-rule-80-20\\).\n" +
+				"Created config route-rule/default/route-rule-80-20.*"),
 			false,
 		},
 		{ // case 2
 			[]model.Config{},
-			strings.Split("create -f convert/testdata/v1alpha3/route-rule-80-20.yaml", " "),
+			strings.Split("create -f convert/testdata/v1alpha3/route-rule-80-20.yaml.golden", " "),
 			"",
 			regexp.MustCompile("^Created config virtual-service/default/helloworld-service.*"),
 			false,
