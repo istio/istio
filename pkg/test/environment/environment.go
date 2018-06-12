@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"testing"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -141,6 +142,9 @@ type DeployedMixer interface {
 // DeployedPilot represents a deployed Pilot instance.
 type DeployedPilot interface {
 	Deployed
+	model.ConfigStore
+
+	CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
 }
 
 // DeployedFortioApp represents a deployed fake Fortio App within the mesh.
