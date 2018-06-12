@@ -18,10 +18,17 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
+	envoyv1 "istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/local/pilot"
+)
+
+const (
+	namespace = "istio-system"
 )
 
 // Environment a local environment for testing. It implements environment.Interface, and also
@@ -51,6 +58,8 @@ func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependen
 		return newMixer(ctx)
 	case dependency.PolicyBackend:
 		return newPolicyBackend(policy.DefaultPort)
+	case dependency.Pilot:
+		return newPilot()
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
 	}
@@ -91,8 +100,11 @@ func (e *Environment) GetMixerOrFail(t testing.TB) environment.DeployedMixer {
 
 // GetPilot returns a deployed Pilot instance in the environment.
 func (e *Environment) GetPilot() (environment.DeployedPilot, error) {
-	// TODO
-	panic("Not yet implemented")
+	p, err := e.get(dependency.Pilot)
+	if err != nil {
+		return nil, err
+	}
+	return p.(environment.DeployedPilot), nil
 }
 
 // GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
@@ -164,4 +176,21 @@ func (e *Environment) getOrFail(t testing.TB, dep dependency.Instance) interface
 		t.Fatalf("Dependency not initialized: %v", dep)
 	}
 	return s
+}
+
+func newPilot() (environment.DeployedPilot, error) {
+	// TODO(nmittler): We need a way to know whether or not mixer will be required.
+	mesh := model.DefaultMeshConfig()
+
+	args := pilot.Args{
+		Namespace: namespace,
+		Options: envoyv1.DiscoveryServiceOptions{
+			HTTPAddr:       ":0",
+			MonitoringAddr: ":0",
+			GrpcAddr:       ":0",
+			SecureGrpcAddr: ":0",
+		},
+		Mesh: &mesh,
+	}
+	return pilot.NewPilot(args)
 }
