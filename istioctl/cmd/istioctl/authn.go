@@ -29,15 +29,26 @@ import (
 
 func tlsCheck() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tls_check",
+		Use:   "tls_check SERVICE",
 		Short: "Check whether TLS setting are matching between authentication policy and destination rules",
 		Long: `
 Requests Pilot to check for what authentication policy and destination rule it uses for each service in
 service registry, and check if TLS settings are compatible between them.
 `,
-		Example: `istioclt authn tls_check`,
-		Args:    cobra.ExactArgs(0),
+		Example: `
+# Check settings for all known services in the service registry:
+istioclt authn tls_check
+
+# Check settings for a specific service
+istioclt authn tls_check foo.bar.svc.cluster.local
+`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			service := ""
+			if len(args) > 0 {
+				service = args[0]
+			}
+
 			pilots, err := getPilotPods()
 			if err != nil {
 				return err
@@ -45,7 +56,7 @@ service registry, and check if TLS settings are compatible between them.
 			if len(pilots) == 0 {
 				return errors.New("unable to find any Pilot instances")
 			}
-			if debug, pilotErr := callPilotDiscoveryDebug(pilots, "", "authn"); pilotErr == nil {
+			if debug, pilotErr := callPilotDiscoveryDebug(pilots, service, "authn"); pilotErr == nil {
 				var dat []proxy.AuthenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {
 					panic(err)

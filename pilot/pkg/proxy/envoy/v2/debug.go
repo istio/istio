@@ -443,7 +443,9 @@ func mTLSModeToString(useTLS bool) string {
 func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
-	interestedSvc := req.Form.Get("svc")
+	// This should be svc. However, use proxyID param for now so it can be used with
+	// `pilot-discovery debug` command
+	interestedSvc := req.Form.Get("proxyID")
 
 	fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.env.ServiceDiscovery.Services()
