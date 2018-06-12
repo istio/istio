@@ -1,21 +1,3 @@
-# Craete istio-global-config namespace to hold global authentication policy. In the future, this
-# namespace may be created with default Istio installation.
-apiVersion: "v1"
-kind: "Namespace"
-metadata:
-  name: "istio-global-config"
-  labels:
-    name: "istio-global-config"
----
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: "global"
-  namespace: "istio-global-config"
-spec:
-  peers:
-  - mtls:
----
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:

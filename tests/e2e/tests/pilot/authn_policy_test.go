@@ -18,18 +18,30 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
-	// This policy will enable mTLS globally, and disable mTLS for c and d:80.
+	// This policy will enable mTLS globally. Policy should be in 'istio-global-config' namespace
+	globalCfg := &deployableConfig{
+		Namespace:  model.GlobalConfigNamespace,
+		YamlFiles:  []string{"testdata/authn/global-mtls.yaml.tmpl"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	// This policy disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl", "testdata/authn/destination-rule.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
+	if err := globalCfg.Setup(); err != nil {
+		t.Fatal(err)
+	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
+	defer globalCfg.Teardown()
 	defer cfgs.Teardown()
 
 	srcPods := []string{"a", "t"}
