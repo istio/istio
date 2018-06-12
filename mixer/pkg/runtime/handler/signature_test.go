@@ -48,7 +48,7 @@ func TestSignature_ProtoMarshalFailure(t *testing.T) {
 	p := &fakeProto{}
 
 	h := config.HandlerStatic{Name: "h1", Params: p, Adapter: &adapter.Info{Name: "a1"}}
-	s := calculateSignature(&h, []*config.InstanceStatic{})
+	s := calculateSignature(&h, []interface{}{})
 
 	// The fake proto will fail serialization. It should return zero-signature.
 	if !reflect.DeepEqual(s, zeroSignature) {
