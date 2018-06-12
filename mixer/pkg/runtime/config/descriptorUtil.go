@@ -62,7 +62,9 @@ func GetTmplDescriptor(base64Tmpl string) (*descriptor.FileDescriptorSet, *descr
 	if nameExt, err = proto.GetExtension(tmplDescProto.GetOptions(), tmpl.E_TemplateName); err != nil {
 		return nil, nil, "", tmplVariety, fmt.Errorf(
 			"proto files %s is missing required template_name option", tmplDescProto.GetName())
-	} else if err = validateTmplName(*(nameExt.(*string))); err != nil {
+	}
+
+	if err = validateTmplName(*(nameExt.(*string))); err != nil {
 		return nil, nil, "", tmplVariety, err
 	}
 
