@@ -209,5 +209,7 @@ var (
 		"destination.container.image",
 		"context.reporter.local",
 		"context.reporter.uid",
+		"response.grpc_status",
+		"response.grpc_message",
     }
 )
