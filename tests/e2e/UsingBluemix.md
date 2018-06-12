@@ -4,12 +4,12 @@ This setup helps you run e2e tests with your local codes against a k8s cluster o
 
 * [Step 0: Install and configure IBM Cloud Kubernetes Service CLI](#step-0-install-and-configure-ibm-cloud-kubernetes-service-cli)
 * [Step 1: Create and configure your kubernetes cluster](#step-1-create-and-configure-your-kubernetes-cluster)
-* [Step 2: Setting docker daemon](#step-2-setting-docker-daemon)
+* [Step 2: Set up Registry](#step-2-set-up-registry)
 * [Step 3: Run the tests](#step-3-run-the-tests)
 
 ## Step 0: Install and configure IBM Cloud Kubernetes Service CLI
 
-1. Download and Install IBM Cloud CLI [Full Instructions](https://console.bluemix.net/docs/cli/reference/bluemix_cli/download_cli.html#download_install):
+### 1. Download and Install IBM Cloud CLI [Full Instructions](https://console.bluemix.net/docs/cli/reference/bluemix_cli/download_cli.html#download_install):
 
 *macOS*:
 ```shell
@@ -21,7 +21,7 @@ curl -fsSL https://clis.ng.bluemix.net/install/osx | sh
 curl -fsSL https://clis.ng.bluemix.net/install/linux | sh
 ```
 
-2. Install Kubernetes Container Service Plugin:
+### 2. Install Kubernetes Container Service Plugin:
 
 Login to your IBM CLoud Account:
 
@@ -42,7 +42,7 @@ You should see container-service in the result.
 
 ## Step 1: Create and configure your kubernetes cluster
 
-1. Option 1: Create a cluster using CLI
+### Option 1: Create a cluster using CLI
 
 ```shell
 bx cs cluster-create \
@@ -65,13 +65,13 @@ To create a free one-node cluster(with 2vCPU and 4GB memory, deleted after 30 da
 bx cs cluster-create --name <cluster-name>
 ```
 
-1. Option 2: Create a cluster from GUI
+### Option 2: Create a cluster from GUI
 You can go to [link](https://console.bluemix.net/containers-kubernetes/catalog/cluster/create) to follow steps to create a cluster.
 
 
 ## Step 2: Set up registry
 
-1. Use remote registry
+### Use remote registry
 Setup HUB and TAG pointing to your prebuilt images on a remote registry, e.g.
 ```shell
 export HUB="kimiko"
@@ -92,4 +92,4 @@ Run one e2e test only, e.g. e2e_simple:
 make e2e_simple
 ```
 
-Please refer to Step 5 [here](UsingGKE.md) for more details about test arguments.
+Please refer to Step 5 [here](UsingGKE.md#step-5-run) for more details about test arguments.
