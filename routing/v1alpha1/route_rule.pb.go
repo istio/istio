@@ -90,57 +90,57 @@ type RouteRule struct {
 	// *Note:* The route rule destination specification represents all version
 	// of the service and therefore the IstioService's labels field MUST be empty.
 	//
-	Destination *IstioService `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
+	Destination *IstioService `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
 	// RECOMMENDED. Precedence is used to disambiguate the order of
 	// application of rules for the same destination service. A higher number
 	// takes priority. If not specified, the value is assumed to be 0.  The
 	// order of application for rules with the same precedence is
 	// unspecified.
-	Precedence int32 `protobuf:"varint,2,opt,name=precedence" json:"precedence,omitempty"`
+	Precedence int32 `protobuf:"varint,2,opt,name=precedence,proto3" json:"precedence,omitempty"`
 	// Match condtions to be satisfied for the route rule to be
 	// activated. If match is omitted, the route rule applies only to HTTP
 	// traffic.
-	Match *MatchCondition `protobuf:"bytes,3,opt,name=match" json:"match,omitempty"`
+	Match *MatchCondition `protobuf:"bytes,3,opt,name=match,proto3" json:"match,omitempty"`
 	// REQUIRED (route|redirect). A routing rule can either redirect traffic or
 	// forward traffic. The forwarding target can be one of several versions
 	// of a service (see glossary in beginning of document). Weights
 	// associated with the service version determine the proportion of
 	// traffic it receives.
-	Route []*DestinationWeight `protobuf:"bytes,4,rep,name=route" json:"route,omitempty"`
+	Route []*DestinationWeight `protobuf:"bytes,4,rep,name=route,proto3" json:"route,omitempty"`
 	// REQUIRED (route|redirect). A routing rule can either redirect traffic or
 	// forward traffic. The redirect primitive can be used to send a HTTP 302
 	// redirect to a different URI or Authority.
-	Redirect *HTTPRedirect `protobuf:"bytes,5,opt,name=redirect" json:"redirect,omitempty"`
+	Redirect *HTTPRedirect `protobuf:"bytes,5,opt,name=redirect,proto3" json:"redirect,omitempty"`
 	// Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
 	// Redirect primitive. Rewrite will be performed before forwarding.
-	Rewrite *HTTPRewrite `protobuf:"bytes,6,opt,name=rewrite" json:"rewrite,omitempty"`
+	Rewrite *HTTPRewrite `protobuf:"bytes,6,opt,name=rewrite,proto3" json:"rewrite,omitempty"`
 	// Indicates that a HTTP/1.1 client connection to this particular route
 	// should be allowed (and expected) to upgrade to a WebSocket connection.
 	// The default is false. Envoy expects the first request to this route
 	// to contain the WebSocket upgrade headers. Otherwise, the request
 	// will be rejected.
-	WebsocketUpgrade bool `protobuf:"varint,7,opt,name=websocket_upgrade,json=websocketUpgrade" json:"websocket_upgrade,omitempty"`
+	WebsocketUpgrade bool `protobuf:"varint,7,opt,name=websocket_upgrade,json=websocketUpgrade,proto3" json:"websocket_upgrade,omitempty"`
 	// Timeout policy for HTTP requests.
-	HttpReqTimeout *HTTPTimeout `protobuf:"bytes,8,opt,name=http_req_timeout,json=httpReqTimeout" json:"http_req_timeout,omitempty"`
+	HttpReqTimeout *HTTPTimeout `protobuf:"bytes,8,opt,name=http_req_timeout,json=httpReqTimeout,proto3" json:"http_req_timeout,omitempty"`
 	// Retry policy for HTTP requests.
-	HttpReqRetries *HTTPRetry `protobuf:"bytes,9,opt,name=http_req_retries,json=httpReqRetries" json:"http_req_retries,omitempty"`
+	HttpReqRetries *HTTPRetry `protobuf:"bytes,9,opt,name=http_req_retries,json=httpReqRetries,proto3" json:"http_req_retries,omitempty"`
 	// Fault injection policy to apply on HTTP traffic
-	HttpFault *HTTPFaultInjection `protobuf:"bytes,10,opt,name=http_fault,json=httpFault" json:"http_fault,omitempty"`
+	HttpFault *HTTPFaultInjection `protobuf:"bytes,10,opt,name=http_fault,json=httpFault,proto3" json:"http_fault,omitempty"`
 	// (-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
-	L4Fault *L4FaultInjection `protobuf:"bytes,11,opt,name=l4_fault,json=l4Fault" json:"l4_fault,omitempty"`
+	L4Fault *L4FaultInjection `protobuf:"bytes,11,opt,name=l4_fault,json=l4Fault,proto3" json:"l4_fault,omitempty"`
 	// Mirror HTTP traffic to a another destination in addition to forwarding
 	// the requests to the intended destination. Mirrored traffic is on best
 	// effort basis where Envoy will not wait for the mirrored cluster to
 	// respond before returning the response from the original destination.
 	// Statistics will be generated for the mirrored destination.
-	Mirror *IstioService `protobuf:"bytes,12,opt,name=mirror" json:"mirror,omitempty"`
+	Mirror *IstioService `protobuf:"bytes,12,opt,name=mirror,proto3" json:"mirror,omitempty"`
 	// Cross-Origin Resource Sharing policy (CORS). Refer to
 	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS for
 	// further details about cross origin resource sharing.
-	CorsPolicy *CorsPolicy `protobuf:"bytes,13,opt,name=cors_policy,json=corsPolicy" json:"cors_policy,omitempty"`
+	CorsPolicy *CorsPolicy `protobuf:"bytes,13,opt,name=cors_policy,json=corsPolicy,proto3" json:"cors_policy,omitempty"`
 	// Additional HTTP headers to add before forwarding a request to the
 	// destnation service.
-	AppendHeaders        map[string]string `protobuf:"bytes,14,rep,name=append_headers,json=appendHeaders" json:"append_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	AppendHeaders        map[string]string `protobuf:"bytes,14,rep,name=append_headers,json=appendHeaders,proto3" json:"append_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -273,18 +273,18 @@ func (m *RouteRule) GetAppendHeaders() map[string]string {
 // (e.g. on Kubernetes, "reviews" + "default" + "svc.cluster.local" -> "reviews.default.svc.cluster.local").
 type IstioService struct {
 	// The short name of the service such as "foo".
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Optional namespace of the service. Defaults to value of metadata namespace field.
-	Namespace string `protobuf:"bytes,2,opt,name=namespace" json:"namespace,omitempty"`
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Domain suffix used to construct the service FQDN in implementations that support such specification.
-	Domain string `protobuf:"bytes,3,opt,name=domain" json:"domain,omitempty"`
+	Domain string `protobuf:"bytes,3,opt,name=domain,proto3" json:"domain,omitempty"`
 	// The service FQDN.
-	Service string `protobuf:"bytes,4,opt,name=service" json:"service,omitempty"`
+	Service string `protobuf:"bytes,4,opt,name=service,proto3" json:"service,omitempty"`
 	// Optional one or more labels that uniquely identify the service version.
 	//
 	// *Note:* When used for a RouteRule destination, labels MUST be empty.
 	//
-	Labels               map[string]string `protobuf:"bytes,5,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels               map[string]string `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -380,13 +380,13 @@ func (m *IstioService) GetLabels() map[string]string {
 // request header must be specified.
 type MatchCondition struct {
 	// Identifies the service initiating a connection or a request.
-	Source *IstioService `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
+	Source *IstioService `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
 	// (-- Set of layer 4 match conditions based on the IP ranges --)
-	Tcp *L4MatchAttributes `protobuf:"bytes,2,opt,name=tcp" json:"tcp,omitempty"`
+	Tcp *L4MatchAttributes `protobuf:"bytes,2,opt,name=tcp,proto3" json:"tcp,omitempty"`
 	// (-- Set of layer 4 match conditions based on the IP ranges --)
-	Udp *L4MatchAttributes `protobuf:"bytes,3,opt,name=udp" json:"udp,omitempty"`
+	Udp *L4MatchAttributes `protobuf:"bytes,3,opt,name=udp,proto3" json:"udp,omitempty"`
 	// Attributes of an HTTP request to match.
-	Request              *MatchRequest `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
+	Request              *MatchRequest `protobuf:"bytes,4,opt,name=request,proto3" json:"request,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -465,7 +465,7 @@ type MatchRequest struct {
 	// *Note 2:* _uri_ can be used to perform URL matches.
 	// For all HTTP headers including _uri_, exact, prefix and ECMA style
 	// regular expression matches are supported.
-	Headers              map[string]*StringMatch `protobuf:"bytes,1,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Headers              map[string]*StringMatch `protobuf:"bytes,1,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -526,17 +526,17 @@ func (m *MatchRequest) GetHeaders() map[string]*StringMatch {
 type DestinationWeight struct {
 	// Sometimes required. Optional destination uniquely identifies the destination service. If not
 	// specified, the value is inherited from the parent route rule.
-	Destination *IstioService `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
+	Destination *IstioService `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
 	// Sometimes required. Service version identifier for the destination service.
 	// (-- N.B. The map is used instead of pstruct due to lack of serialization support
 	// in golang protobuf library (see https://github.com/golang/protobuf/pull/208) --)
-	Labels map[string]string `protobuf:"bytes,2,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Labels map[string]string `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// REQUIRED. The proportion of traffic to be forwarded to the service
 	// version. (0-100). Sum of weights across destinations SHOULD BE ==
 	// 100. If there is only destination in a rule, the weight value is
 	// assumed to be 100. When using multiple weights, either destination or labels must be
 	// specified.
-	Weight               int32    `protobuf:"varint,3,opt,name=weight" json:"weight,omitempty"`
+	Weight               int32    `protobuf:"varint,3,opt,name=weight,proto3" json:"weight,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -592,11 +592,11 @@ func (m *DestinationWeight) GetWeight() int32 {
 type L4MatchAttributes struct {
 	// IPv4 or IPv6 ip address with optional subnet. E.g., a.b.c.d/xx form or
 	// just a.b.c.d
-	SourceSubnet []string `protobuf:"bytes,1,rep,name=source_subnet,json=sourceSubnet" json:"source_subnet,omitempty"`
+	SourceSubnet []string `protobuf:"bytes,1,rep,name=source_subnet,json=sourceSubnet,proto3" json:"source_subnet,omitempty"`
 	// IPv4 or IPv6 ip address of destination with optional subnet.
 	// E.g., a.b.c.d/xx form or just a.b.c.d. This is only valid when the destination
 	// service has several IPs and the application explicitly specifies a particular IP.
-	DestinationSubnet    []string `protobuf:"bytes,2,rep,name=destination_subnet,json=destinationSubnet" json:"destination_subnet,omitempty"`
+	DestinationSubnet    []string `protobuf:"bytes,2,rep,name=destination_subnet,json=destinationSubnet,proto3" json:"destination_subnet,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -664,10 +664,10 @@ type HTTPRedirect struct {
 	// On a redirect, overwrite the Path portion of the URL with this
 	// value. Note that the entire path will be replaced, irrespective of the
 	// request URI being matched as an exact path or prefix.
-	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
 	// On a redirect, overwrite the Authority/Host portion of the URL with
 	// this value
-	Authority            string   `protobuf:"bytes,2,opt,name=authority" json:"authority,omitempty"`
+	Authority            string   `protobuf:"bytes,2,opt,name=authority,proto3" json:"authority,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -738,9 +738,9 @@ type HTTPRewrite struct {
 	// rewrite the Path (or the prefix) portion of the URI with this
 	// value. If the original URI was matched based on prefix, the value
 	// provided in this field will replace the corresponding matched prefix.
-	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
 	// rewrite the Authority/Host header with this value.
-	Authority            string   `protobuf:"bytes,2,opt,name=authority" json:"authority,omitempty"`
+	Authority            string   `protobuf:"bytes,2,opt,name=authority,proto3" json:"authority,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -825,13 +825,13 @@ type isStringMatch_MatchType interface {
 }
 
 type StringMatch_Exact struct {
-	Exact string `protobuf:"bytes,1,opt,name=exact,oneof"`
+	Exact string `protobuf:"bytes,1,opt,name=exact,proto3,oneof"`
 }
 type StringMatch_Prefix struct {
-	Prefix string `protobuf:"bytes,2,opt,name=prefix,oneof"`
+	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3,oneof"`
 }
 type StringMatch_Regex struct {
-	Regex string `protobuf:"bytes,3,opt,name=regex,oneof"`
+	Regex string `protobuf:"bytes,3,opt,name=regex,proto3,oneof"`
 }
 
 func (*StringMatch_Exact) isStringMatch_MatchType()  {}
@@ -1002,10 +1002,10 @@ type isHTTPTimeout_TimeoutPolicy interface {
 }
 
 type HTTPTimeout_SimpleTimeout struct {
-	SimpleTimeout *HTTPTimeout_SimpleTimeoutPolicy `protobuf:"bytes,1,opt,name=simple_timeout,json=simpleTimeout,oneof"`
+	SimpleTimeout *HTTPTimeout_SimpleTimeoutPolicy `protobuf:"bytes,1,opt,name=simple_timeout,json=simpleTimeout,proto3,oneof"`
 }
 type HTTPTimeout_Custom struct {
-	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
+	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,proto3,oneof"`
 }
 
 func (*HTTPTimeout_SimpleTimeout) isHTTPTimeout_TimeoutPolicy() {}
@@ -1111,10 +1111,10 @@ type HTTPTimeout_SimpleTimeoutPolicy struct {
 	// 15s. format: 1h/1m/1s/1ms. MUST BE >=1ms. It is possible to control
 	// timeout per request by supplying the timeout value via
 	// x-envoy-upstream-rq-timeout-ms HTTP header.
-	Timeout *duration.Duration `protobuf:"bytes,1,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout *duration.Duration `protobuf:"bytes,1,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// (-- Downstream service could specify timeout via Http header to
 	// Envoy, if Envoy supports such a feature. --)
-	OverrideHeaderName   string   `protobuf:"bytes,2,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
+	OverrideHeaderName   string   `protobuf:"bytes,2,opt,name=override_header_name,json=overrideHeaderName,proto3" json:"override_header_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1215,10 +1215,10 @@ type isHTTPRetry_RetryPolicy interface {
 }
 
 type HTTPRetry_SimpleRetry struct {
-	SimpleRetry *HTTPRetry_SimpleRetryPolicy `protobuf:"bytes,1,opt,name=simple_retry,json=simpleRetry,oneof"`
+	SimpleRetry *HTTPRetry_SimpleRetryPolicy `protobuf:"bytes,1,opt,name=simple_retry,json=simpleRetry,proto3,oneof"`
 }
 type HTTPRetry_Custom struct {
-	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
+	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,proto3,oneof"`
 }
 
 func (*HTTPRetry_SimpleRetry) isHTTPRetry_RetryPolicy() {}
@@ -1323,12 +1323,12 @@ type HTTPRetry_SimpleRetryPolicy struct {
 	// REQUIRED. Number of retries for a given request. The interval
 	// between retries will be determined automatically (25ms+). Actual
 	// number of retries attempted depends on the httpReqTimeout.
-	Attempts int32 `protobuf:"varint,1,opt,name=attempts" json:"attempts,omitempty"`
+	Attempts int32 `protobuf:"varint,1,opt,name=attempts,proto3" json:"attempts,omitempty"`
 	// Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
-	PerTryTimeout *duration.Duration `protobuf:"bytes,2,opt,name=per_try_timeout,json=perTryTimeout" json:"per_try_timeout,omitempty"`
+	PerTryTimeout *duration.Duration `protobuf:"bytes,2,opt,name=per_try_timeout,json=perTryTimeout,proto3" json:"per_try_timeout,omitempty"`
 	// (-- Downstream Service could specify retry attempts via Http header to
 	// Envoy, if Envoy supports such a feature. --)
-	OverrideHeaderName   string   `protobuf:"bytes,3,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
+	OverrideHeaderName   string   `protobuf:"bytes,3,opt,name=override_header_name,json=overrideHeaderName,proto3" json:"override_header_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1412,23 +1412,23 @@ type CorsPolicy struct {
 	// The list of origins that are allowed to perform CORS requests. The content will
 	// be serialized into the Access-Control-Allow-Origin header. Wildcard * will allow
 	// all origins.
-	AllowOrigin []string `protobuf:"bytes,1,rep,name=allow_origin,json=allowOrigin" json:"allow_origin,omitempty"`
+	AllowOrigin []string `protobuf:"bytes,1,rep,name=allow_origin,json=allowOrigin,proto3" json:"allow_origin,omitempty"`
 	// List of HTTP methods allowed to access the resource. The content will
 	// be serialized into the Access-Control-Allow-Methods header.
-	AllowMethods []string `protobuf:"bytes,2,rep,name=allow_methods,json=allowMethods" json:"allow_methods,omitempty"`
+	AllowMethods []string `protobuf:"bytes,2,rep,name=allow_methods,json=allowMethods,proto3" json:"allow_methods,omitempty"`
 	// List of HTTP headers that can be used when requesting the
 	// resource. Serialized to Access-Control-Allow-Methods header.
-	AllowHeaders []string `protobuf:"bytes,3,rep,name=allow_headers,json=allowHeaders" json:"allow_headers,omitempty"`
+	AllowHeaders []string `protobuf:"bytes,3,rep,name=allow_headers,json=allowHeaders,proto3" json:"allow_headers,omitempty"`
 	// A white list of HTTP headers that the browsers are allowed to
 	// access. Serialized into Access-Control-Expose-Headers header.
-	ExposeHeaders []string `protobuf:"bytes,4,rep,name=expose_headers,json=exposeHeaders" json:"expose_headers,omitempty"`
+	ExposeHeaders []string `protobuf:"bytes,4,rep,name=expose_headers,json=exposeHeaders,proto3" json:"expose_headers,omitempty"`
 	// Specifies how long the the results of a preflight request can be
 	// cached. Translates to the Access-Control-Max-Age header.
-	MaxAge *duration.Duration `protobuf:"bytes,5,opt,name=max_age,json=maxAge" json:"max_age,omitempty"`
+	MaxAge *duration.Duration `protobuf:"bytes,5,opt,name=max_age,json=maxAge,proto3" json:"max_age,omitempty"`
 	// Indicates whether the caller is allowed to send the actual request
 	// (not the preflight) using credentials. Translates to
 	// Access-Control-Allow-Credentials header.
-	AllowCredentials     *wrappers.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials" json:"allow_credentials,omitempty"`
+	AllowCredentials     *wrappers.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials,proto3" json:"allow_credentials,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`

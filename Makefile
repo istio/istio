@@ -11,7 +11,7 @@ repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
 else
-gen_img := gcr.io/istio-testing/protoc:2018-05-17
+gen_img := gcr.io/istio-testing/protoc:2018-06-11
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
