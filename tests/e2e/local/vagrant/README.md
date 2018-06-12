@@ -20,7 +20,7 @@ sh install_prereqs.sh
 ```
 
 # Steps
-## 1. Set up Vagrant Environment and kubectl pointing to the cluster
+## 1. Set up Vagrant Environment
 ```bash
 sh setup_vm.sh
 ```
