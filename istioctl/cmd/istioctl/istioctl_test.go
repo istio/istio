@@ -334,7 +334,7 @@ func TestCreate(t *testing.T) {
 			[]model.Config{},
 			strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
 			"",
-			regexp.MustCompile("^Warning: route-rule is deprecated and may not be supported" +
+			regexp.MustCompile("^Warning: route-rule is deprecated and will not be supported" +
 				" in future Istio versions \\(route-rule-80-20\\).\n" +
 				"Created config route-rule/default/route-rule-80-20.*"),
 			false,
