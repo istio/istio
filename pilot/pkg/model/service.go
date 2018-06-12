@@ -138,6 +138,9 @@ const (
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolBOLT declares the the port uses BOLT.
+	// This is the default protocol for a SOFA RPC service port.
+	ProtocolBOLT Protocol = "BOLT"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
