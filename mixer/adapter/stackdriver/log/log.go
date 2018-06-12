@@ -139,7 +139,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 				_, sinkErr = syncClient.UpdateSink(ctx, sink)
 			}
 			if sinkErr != nil {
-				logger.Warningf("failed to create/update stackdriver logging sink: %v", err)
+				logger.Warningf("failed to create/update stackdriver logging sink: %v", sinkErr)
 			}
 		}
 
