@@ -45,9 +45,9 @@ type htmlGenerator struct {
 	mode   outputMode
 
 	// transient state as individual files are processed
-	currentPackage       *packageDescriptor
-	currentTopMatterFile *fileDescriptor
-	grouping             bool
+	currentPackage             *packageDescriptor
+	currentFrontMatterProvider *fileDescriptor
+	grouping                   bool
 
 	genWarnings      bool
 	emitYAML         bool
@@ -97,7 +97,7 @@ func (g *htmlGenerator) generatePerFileOutput(filesToGen map[*fileDescriptor]boo
 
 	for _, file := range pkg.files {
 		if _, ok := filesToGen[file]; ok {
-			g.currentTopMatterFile = file
+			g.currentFrontMatterProvider = file
 			messages := make(map[string]*messageDescriptor)
 			enums := make(map[string]*enumDescriptor)
 			services := make(map[string]*serviceDescriptor)
@@ -138,7 +138,7 @@ func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plu
 
 	for _, pkg := range g.model.packages {
 		g.currentPackage = pkg
-		g.currentTopMatterFile = pkg.file
+		g.currentFrontMatterProvider = pkg.file
 
 		// anything to output for this package?
 		count := 0
@@ -162,10 +162,10 @@ func (g *htmlGenerator) generateOutput(filesToGen map[*fileDescriptor]bool) *plu
 
 func (g *htmlGenerator) descLocation(desc coreDesc) string {
 	if g.perFile {
-		return desc.fileDesc().homeLocation()
+		return desc.fileDesc().matter.homeLocation
 	}
 	if desc.packageDesc().file != nil {
-		return desc.packageDesc().file.homeLocation()
+		return desc.packageDesc().file.matter.homeLocation
 	}
 	return ""
 }
@@ -291,22 +291,22 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 	if g.mode == htmlFragmentWithFrontMatter {
 		g.emit("---")
 
-		if top != nil && top.title() != "" {
-			g.emit("title: ", top.title())
+		if top != nil && top.matter.title != "" {
+			g.emit("title: ", top.matter.title)
 		} else {
 			g.emit("title: ", name)
 		}
 
-		if top != nil && top.overview() != "" {
-			g.emit("overview: ", top.overview())
+		if top != nil && top.matter.overview != "" {
+			g.emit("overview: ", top.matter.overview)
 		}
 
-		if top != nil && top.description() != "" {
-			g.emit("description: ", top.description())
+		if top != nil && top.matter.description != "" {
+			g.emit("description: ", top.matter.description)
 		}
 
-		if top != nil && top.homeLocation() != "" {
-			g.emit("location: ", top.homeLocation())
+		if top != nil && top.matter.homeLocation != "" {
+			g.emit("location: ", top.matter.homeLocation)
 		}
 
 		g.emit("layout: protoc-gen-docs")
@@ -315,14 +315,14 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 		// emit additional custom front-matter fields
 		if g.perFile {
 			if top != nil {
-				for _, fm := range top.frontMatter() {
+				for _, fm := range top.matter.extra {
 					g.emit(fm)
 				}
 			}
 		} else {
 			// Front matter may be in any of the package's files.
 			for _, file := range g.currentPackage.files {
-				for _, fm := range file.frontMatter() {
+				for _, fm := range file.matter.extra {
 					g.emit(fm)
 				}
 			}
@@ -338,18 +338,18 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 		g.emit("<meta charset=\"utf-8'>")
 		g.emit("<meta name=\"viewport' content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">")
 
-		if top != nil && top.title() != "" {
-			g.emit("<meta name=\"title\" content=\"", top.title(), "\">")
-			g.emit("<meta name=\"og:title\" content=\"", top.title(), "\">")
-			g.emit("<title>", top.title(), "</title>")
+		if top != nil && top.matter.title != "" {
+			g.emit("<meta name=\"title\" content=\"", top.matter.title, "\">")
+			g.emit("<meta name=\"og:title\" content=\"", top.matter.title, "\">")
+			g.emit("<title>", top.matter.title, "</title>")
 		}
 
-		if top != nil && top.overview() != "" {
-			g.emit("<meta name=\"description\" content=\"", top.overview(), "\">")
-			g.emit("<meta name=\"og:description\" content=\"", top.overview(), "\">")
-		} else if top != nil && top.description() != "" {
-			g.emit("<meta name=\"description\" content=\"", top.description(), "\">")
-			g.emit("<meta name=\"og:description\" content=\"", top.description(), "\">")
+		if top != nil && top.matter.overview != "" {
+			g.emit("<meta name=\"description\" content=\"", top.matter.overview, "\">")
+			g.emit("<meta name=\"og:description\" content=\"", top.matter.overview, "\">")
+		} else if top != nil && top.matter.description != "" {
+			g.emit("<meta name=\"description\" content=\"", top.matter.description, "\">")
+			g.emit("<meta name=\"og:description\" content=\"", top.matter.description, "\">")
 		}
 
 		if g.customStyleSheet != "" {
@@ -360,19 +360,19 @@ func (g *htmlGenerator) generateFileHeader(top *fileDescriptor, numEntries int) 
 
 		g.emit("</head>")
 		g.emit("<body>")
-		if top != nil && top.title() != "" {
-			g.emit("<h1>", top.title(), "</h1>")
+		if top != nil && top.matter.title != "" {
+			g.emit("<h1>", top.matter.title, "</h1>")
 		}
 	} else if g.mode == htmlFragment {
 		g.emit("<!-- Generated by protoc-gen-docs -->")
-		if top != nil && top.title() != "" {
-			g.emit("<h1>", top.title(), "</h1>")
+		if top != nil && top.matter.title != "" {
+			g.emit("<h1>", top.matter.title, "</h1>")
 		}
 	}
 
 	if g.perFile {
 		if top != nil {
-			g.generateComment(newLocationDescriptor(top.topMatter.location, top), name)
+			g.generateComment(newLocationDescriptor(top.matter.location, top), name)
 		}
 	} else {
 		g.generateComment(g.currentPackage.location(), name)
@@ -399,7 +399,7 @@ func (g *htmlGenerator) generateSectionHeading(desc coreDesc) {
 
 	name := g.relativeName(desc)
 
-	g.emit("<", heading, " id=\"", name, "\">", name, "</", heading, ">")
+	g.emit("<", heading, " id=\"", normalizeId(name), "\">", name, "</", heading, ">")
 
 	if class != "" {
 		g.emit("<section class=\"", class, "\">")
@@ -459,9 +459,9 @@ func (g *htmlGenerator) generateMessage(message *messageDescriptor) {
 			}
 
 			if class != "" {
-				g.emit("<tr id=\"", g.relativeName(field), "\" class=\"", class, "\">")
+				g.emit("<tr id=\"", normalizeId(g.relativeName(field)), "\" class=\"", class, "\">")
 			} else {
-				g.emit("<tr id=\"", g.relativeName(field), "\">")
+				g.emit("<tr id=\"", normalizeId(g.relativeName(field)), "\">")
 			}
 
 			g.emit("<td><code>", fieldName, "</code></td>")
@@ -532,9 +532,9 @@ func (g *htmlGenerator) generateEnum(enum *enumDescriptor) {
 			}
 
 			if class != "" {
-				g.emit("<tr id=\"", g.relativeName(v), "\" class=\"", class, "\">")
+				g.emit("<tr id=\"", normalizeId(g.relativeName(v)), "\" class=\"", class, "\">")
 			} else {
-				g.emit("<tr id=\"", g.relativeName(v), "\">")
+				g.emit("<tr id=\"", normalizeId(g.relativeName(v)), "\">")
 			}
 			g.emit("<td><code>", name, "</code></td>")
 			g.emit("<td>")
@@ -570,10 +570,10 @@ func (g *htmlGenerator) generateService(service *serviceDescriptor) {
 		}
 
 		if class != "" {
-			g.emit("<pre id=\"", g.relativeName(method), "\" class=\"", class, "\"><code class=\"language-proto\">rpc ",
+			g.emit("<pre id=\"", normalizeId(g.relativeName(method)), "\" class=\"", class, "\"><code class=\"language-proto\">rpc ",
 				method.GetName(), "(", g.relativeName(method.input), ") returns (", g.relativeName(method.output), ")")
 		} else {
-			g.emit("<pre id=\"", g.relativeName(method), "\"><code class=\"language-proto\">rpc ",
+			g.emit("<pre id=\"", normalizeId(g.relativeName(method)), "\"><code class=\"language-proto\">rpc ",
 				method.GetName(), "(", g.relativeName(method.input), ") returns (", g.relativeName(method.output), ")")
 		}
 		g.emit("</code></pre>")
@@ -725,16 +725,16 @@ func (g *htmlGenerator) linkify(o coreDesc, name string) string {
 	if !o.isHidden() {
 		var loc string
 		if g.perFile {
-			loc = o.fileDesc().homeLocation()
+			loc = o.fileDesc().matter.homeLocation
 		} else if o.packageDesc().file != nil {
-			loc = o.packageDesc().file.homeLocation()
+			loc = o.packageDesc().file.matter.homeLocation
 		}
-		if loc != "" && (g.currentTopMatterFile == nil || loc != g.currentTopMatterFile.homeLocation()) {
-			return "<a href=\"" + loc + "#" + dottedName(o) + "\">" + name + "</a>"
+		if loc != "" && (g.currentFrontMatterProvider == nil || loc != g.currentFrontMatterProvider.matter.homeLocation) {
+			return "<a href=\"" + loc + "#" + normalizeId(dottedName(o)) + "\">" + name + "</a>"
 		}
 	}
 
-	return "<a href=\"#" + g.relativeName(o) + "\">" + name + "</a>"
+	return "<a href=\"#" + normalizeId(g.relativeName(o)) + "\">" + name + "</a>"
 }
 
 func (g *htmlGenerator) warn(loc locationDescriptor, format string, args ...interface{}) {
@@ -881,6 +881,11 @@ func camelCase(s string) string {
 	}
 
 	return b.String()
+}
+
+func normalizeId(id string) string {
+	id = strings.Replace(id, " ", "-", -1)
+	return strings.Replace(id, ".", "-", -1)
 }
 
 var htmlStyle = `

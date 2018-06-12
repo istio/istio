@@ -22,12 +22,12 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 )
 
-type annotations struct {
+type frontMatter struct {
 	title        string
 	overview     string
 	description  string
 	homeLocation string
-	frontMatter  []string
+	extra        []string
 	location     *descriptor.SourceCodeInfo_Location
 }
 
@@ -47,49 +47,43 @@ func checkSingle(name string, old string, line string, tag string) string {
 	return result
 }
 
-func extractAnnotations(name string, loc *descriptor.SourceCodeInfo_Location) *annotations {
-	hasAnnotations := false
+func extractFrontMatter(name string, loc *descriptor.SourceCodeInfo_Location) frontMatter {
 	title := ""
 	overview := ""
 	description := ""
 	homeLocation := ""
-	var frontMatter []string = nil
+	var extra []string = nil
+
 	for _, para := range loc.LeadingDetachedComments {
 		lines := strings.Split(para, "\n")
 		for _, l := range lines {
 			l = strings.Trim(l, " ")
 
-			empty := false
-			if strings.HasPrefix(l, titleTag) {
-				title = checkSingle(name, title, l, titleTag)
-			} else if strings.HasPrefix(l, overviewTag) {
-				overview = checkSingle(name, overview, l, overviewTag)
-			} else if strings.HasPrefix(l, descriptionTag) {
-				description = checkSingle(name, description, l, descriptionTag)
-			} else if strings.HasPrefix(l, locationTag) {
-				homeLocation = checkSingle(name, homeLocation, l, locationTag)
-			} else if strings.HasPrefix(l, frontMatterTag) {
-				additional := l[len(frontMatterTag):]
-				frontMatter = append(frontMatter, additional)
-			} else {
-				empty = true
-			}
-			if !empty {
-				hasAnnotations = true
+			if strings.HasPrefix(l, "$") {
+				if strings.HasPrefix(l, titleTag) {
+					title = checkSingle(name, title, l, titleTag)
+				} else if strings.HasPrefix(l, overviewTag) {
+					overview = checkSingle(name, overview, l, overviewTag)
+				} else if strings.HasPrefix(l, descriptionTag) {
+					description = checkSingle(name, description, l, descriptionTag)
+				} else if strings.HasPrefix(l, locationTag) {
+					homeLocation = checkSingle(name, homeLocation, l, locationTag)
+				} else if strings.HasPrefix(l, frontMatterTag) {
+					// old way to specify custom front-matter
+					extra = append(extra, l[len(frontMatterTag):])
+				} else {
+					extra = append(extra, l[1:])
+				}
 			}
 		}
 	}
 
-	if hasAnnotations {
-		return &annotations{
-			title:        title,
-			overview:     overview,
-			description:  description,
-			homeLocation: homeLocation,
-			frontMatter:  frontMatter,
-			location:     loc,
-		}
+	return frontMatter{
+		title:        title,
+		overview:     overview,
+		description:  description,
+		homeLocation: homeLocation,
+		extra:        extra,
+		location:     loc,
 	}
-
-	return nil
 }
