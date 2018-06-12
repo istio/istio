@@ -17,6 +17,7 @@ package spybackend
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -31,7 +32,122 @@ import (
 // This test for now just validates the backend can be started and tested against. This is will be used to verify
 // the OOP adapter work. As various features start lighting up, this test will grow.
 
+// TODO add quota config test..
+
+const (
+	h1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: myh1
+  namespace: istio-system
+spec:
+  adapter: spybackend-nosession
+---
+`
+	i1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: myi1
+  namespace: istio-system
+spec:
+  template: metric
+  param:
+    value: request.size | 123
+    dimensions:
+      destination_service: "\"myservice\""
+      response_code: "200"
+---
+`
+
+	r1H1I1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: myr1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: myh1.istio-system
+    instances:
+    - myi1
+---
+`
+
+	h2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: myh2
+  namespace: istio-system
+spec:
+  adapter: spybackend-nosession
+---
+`
+
+	i2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: myi2
+  namespace: istio-system
+spec:
+  template: metric
+  param:
+    value: request.size | 456
+    dimensions:
+      destination_service: "\"myservice2\""
+      response_code: "400"
+---
+`
+
+	r2H2I2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: myr2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: myh2.istio-system
+    instances:
+    - myi2
+---
+`
+	i3 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: myi3
+  namespace: istio-system
+spec:
+  template: listentry
+  param:
+    value: source.name | ""
+---
+`
+
+	r3H1I3 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: myr3
+  namespace: istio-system
+spec:
+  actions:
+  - handler: myh1.istio-system
+    instances:
+    - myi3
+---
+`
+)
+
 func TestNoSessionBackend(t *testing.T) {
+	adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
+	if err != nil {
+		t.Fatalf("cannot open file: %v", err)
+	}
 	adapter_integration.RunTest(
 		t,
 		nil,
@@ -54,14 +170,106 @@ func TestNoSessionBackend(t *testing.T) {
 				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
+				// TODO validate if the data has received the backend.
 				return nil, validateNoSessionBackend(ctx, t)
 			},
-			ParallelCalls: []adapter_integration.Call{},
-			Configs:       []string{},
-			Want: `{
-              "AdapterState": null,
-		      "Returns": []
-            }`,
+			ParallelCalls: []adapter_integration.Call{
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 666},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 888},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "foobar"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "bazbaz"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+				},
+			},
+			Configs: []string{
+				// CRs for built-in templates are automatically added by the integration test framework.
+				string(adptCfgBytes),
+				h1,
+				i1,
+				r1H1I1,
+				h2,
+				i2,
+				r2H2I2,
+				i3,
+				r3H1I3,
+			},
+			Want: `
+		{
+		 "AdapterState": null,
+		 "Returns": [
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  }
+		 ]
+		}
+`,
 		},
 	)
 }

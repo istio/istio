@@ -300,16 +300,28 @@ func getServerArgs(
 
 	// always include the attribute vocabulary
 	_, filename, _, _ := runtime.Caller(0)
-	if f, err := filepath.Abs(path.Join(path.Dir(filename), "../../../testdata/config/attributes.yaml")); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else if f, err := ioutil.ReadFile(f); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else {
-		data = append(data, string(f))
+	additionalCrs := []string{
+		"../../../testdata/config/attributes.yaml",
+		"../../../template/metric/template.yaml",
+		"../../../template/quota/template.yaml",
+		"../../../template/listentry/template.yaml",
+	}
+
+	for _, fileRelativePath := range additionalCrs {
+		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else if f, err := ioutil.ReadFile(f); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else {
+			data = append(data, string(f))
+		}
 	}
 
 	var err error
 	args.ConfigStore, err = storetest.SetupStoreForTest(data...)
+	if err != nil {
+		return args, fmt.Errorf("%v config has error %v", data, err)
+	}
 	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 	return args, err
 }
