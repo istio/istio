@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -80,11 +81,12 @@ spec:
 		fatalf("template in invalid: %v", err)
 	}
 
+	goPath := os.Getenv("GOPATH")
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,
 		Descriptor: base64.StdEncoding.EncodeToString(byts),
-		RawCommand: rawCommand,
+		RawCommand: strings.Replace(rawCommand, goPath, "$GOPATH", -1),
 	}
 
 	t := gotemplate.New("templatecr")

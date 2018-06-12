@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -104,8 +105,9 @@ spec:
 		fatalf("config in invalid: %v", err)
 	}
 
+	goPath := os.Getenv("GOPATH")
 	adapterObj := &adapterCRVar{
-		RawCommand:   rawCommand,
+		RawCommand:   strings.Replace(rawCommand, goPath, "$GOPATH", -1),
 		Name:         name,
 		Namespace:    namespace,
 		Description:  description,
