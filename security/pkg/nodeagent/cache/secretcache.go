@@ -27,6 +27,11 @@ import (
 // The size of a private key for a leaf certificate.
 const keySize = 2048
 
+// SecretManager defines secrets management interface which is used by SDS.
+type SecretManager interface {
+	GetSecret(proxyID, token string) (*SecretItem, error)
+}
+
 // CAClient interface defines the clients need to implement to talk to CA for CSR.
 // TODO(quanlin): CAClient here is a placeholder, will move it to separated pkg.
 type CAClient interface {
@@ -178,7 +183,7 @@ func (sc *SecretCache) checkExpired(s *SecretItem) bool {
 		return true
 	}
 
-	// TODO(quanlin), check if JWT token has expired.
+	// TODO(quanlin), check if token has expired.
 
 	return false
 }
