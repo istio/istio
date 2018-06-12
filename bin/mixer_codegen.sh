@@ -180,7 +180,7 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err";
   fi
 
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go api -t $templateDS --out_go $templateHG --out_proto $templateHSP $TMPL_GEN_MAP
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go api -t $templateDS --go_out $templateHG --proto_out $templateHSP $TMPL_GEN_MAP
 
   err=`$protoc $IMPORTS $TMPL_PLUGIN $templateHSP`
   if [ ! -z "$err" ]; then
@@ -193,6 +193,9 @@ if [ "$opttemplate" = true ]; then
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
+
+  templateYaml=${template/.proto/.yaml}
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -n foobar -o $templateYaml -n $(basename $(dirname "${template}"))
 
   rm $templatePG
 
