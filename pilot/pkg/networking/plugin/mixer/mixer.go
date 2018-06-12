@@ -75,10 +75,6 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		if in.Node.Type == model.Router {
-			// TODO: design attributes for the gateway
-			return nil
-		}
 		m := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, m)
