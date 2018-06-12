@@ -599,7 +599,7 @@ message DestinationWeight {
 }
 
 // L4 connection match attributes. Note that L4 connection matching support
-// is incomplete. 
+// is incomplete.
 message L4MatchAttributes {
   // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
   // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
