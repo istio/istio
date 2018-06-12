@@ -529,3 +529,278 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
+	roles := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-1"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"service"},
+						Methods:  []string{"GET"},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
+			Spec: &rbacproto.ServiceRole{
+				Mode: rbacproto.EnforcementMode_PERMISSIVE,
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"service"},
+						Methods:  []string{"POST"},
+					},
+				},
+			},
+		},
+	}
+	bindings := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-1"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "user1",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-1",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-2"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Mode: rbacproto.EnforcementMode_PERMISSIVE,
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "user2",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-1",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-3"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "user3",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-2",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-4"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Mode: rbacproto.EnforcementMode_PERMISSIVE,
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "user4",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-2",
+				},
+			},
+		},
+	}
+
+	enforcePolicy1 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "GET",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Authenticated_{
+								Authenticated: &policy.Principal_Authenticated{
+									Name: "user1",
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
+	permissivePolicy1 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "GET",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Authenticated_{
+								Authenticated: &policy.Principal_Authenticated{
+									Name: "user2",
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+
+	permissivePolicy2 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "POST",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Authenticated_{
+								Authenticated: &policy.Principal_Authenticated{
+									Name: "user3",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_Authenticated_{
+									Authenticated: &policy.Principal_Authenticated{
+										Name: "user4",
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+	}
+
+	enforcedRbac := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-1": enforcePolicy1,
+		},
+	}
+	permissiveRbac := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-1": permissivePolicy1,
+			"service-role-2": permissivePolicy2,
+		},
+	}
+	testCases := []struct {
+		name           string
+		service        string
+		rbac           *policy.RBAC
+		permissiveRbac *policy.RBAC
+	}{
+		{
+			name:           "exact matched service",
+			service:        "service",
+			rbac:           enforcedRbac,
+			permissiveRbac: permissiveRbac,
+		},
+	}
+
+	for _, tc := range testCases {
+		rbac := convertRbacRulesToFilterConfig(tc.service, roles, bindings)
+		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
+			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
+		}
+		if !reflect.DeepEqual(*tc.permissiveRbac, *rbac.ShadowRules) {
+			t.Errorf("%s permissive want:\n%v\nbut got:\n%v", tc.name, *tc.permissiveRbac, *rbac.ShadowRules)
+		}
+	}
+}
