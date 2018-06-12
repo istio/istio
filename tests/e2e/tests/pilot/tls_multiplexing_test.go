@@ -25,10 +25,9 @@ func TestTLSMultiplexing(t *testing.T) {
 	if tc.Kube.AuthEnabled {
 		t.Skip("Skipping because multiplexing is used when mesh config auth_enabled is turned off...")
 	}
-	//if tc.V1alpha1 {
-	//fmt.Println("jianfeih debug skipping should!!")
-	//t.Skip("Skipping because multiplexing requires v1alpha3/v2 api...")
-	//}
+	if tc.V1alpha1 {
+		t.Skip("Skipping because multiplexing requires v1alpha3 api...")
+	}
 
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
@@ -49,7 +48,6 @@ func TestTLSMultiplexing(t *testing.T) {
 	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"b"}
-	// TODO(incfly): add 8080 once auth filter works.
 	ports := []string{"80", "9090"}
 	shouldFails := []struct {
 		src  string

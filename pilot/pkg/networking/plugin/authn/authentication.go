@@ -50,9 +50,11 @@ const (
 	// Defautl cache duration for JWT public key. This should be moved to a global config.
 	jwtPublicKeyCacheSeconds = 60 * 5
 
-	// EnvoyTLSInspectorFIlterName is the name for Envoy TLS sniffing listener filter.
+	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
+	// EnvoyRawBufferMatch is the transport protocol name when tls multiplexed is used.
 	EnvoyRawBufferMatch         = "raw_buffer"
+	// EnvoyTLSMatch is the transport protocol name when tls multiplexed is used.
 	EnvoyTLSMatch               = "tls"
 )
 

@@ -8,4 +8,4 @@ global:
   # Default is 10s second
   refreshInterval: 1s
   proxy:
-    image: proxyv2
+    image: proxy
