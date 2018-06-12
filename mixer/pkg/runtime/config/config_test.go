@@ -1582,10 +1582,14 @@ AdaptersStatic:
 HandlersStatic:
 InstancesStatic:
 Rules:
+TemplatesDynamic:
+  Resource Name:  report.template.ns
+    Name:  report.template.ns
+    InternalPackageDerivedName:  foo
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "template='report': same named template already exists inside mixer; please rename to disambiguate",
+		wantErr: "",
 	},
 
 	{
@@ -1817,10 +1821,13 @@ AdaptersStatic:
 HandlersStatic:
 InstancesStatic:
 Rules:
+AdaptersDynamic:
+  Name:      adapter1.adapter.ns
+  Templates:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "adapter='adapter1': same named adapter already exists inside mixer; please rename to disambiguate",
+		wantErr: "",
 	},
 
 	{
@@ -2525,31 +2532,6 @@ Attributes:
 		wantErr: "",
 	},
 	{
-		Name: "add handler - static adapter",
-		Events1: []*store.Event{
-			updateEvent("h1.handler.default", &descriptorpb.Handler{
-				Adapter: "adapter1",
-				Params:  adapter1Params,
-			})},
-		E: `
-ID: 0
-TemplatesStatic:
-  Name: apa
-  Name: check
-  Name: quota
-  Name: report
-AdaptersStatic:
-  Name: adapter1
-  Name: adapter2
-HandlersStatic:
-InstancesStatic:
-Rules:
-Attributes:
-  template.attr: BOOL
-`,
-		wantErr: "",
-	},
-	{
 		Name: "add handler - bad adapter",
 		Events1: []*store.Event{updateEvent("h1.handler.default", &descriptorpb.Handler{
 			Adapter: "not.an.adapter",
@@ -2960,31 +2942,6 @@ Attributes:
 `,
 		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
 			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
-	},
-	{
-		Name: "add instance - static template",
-		Events1: []*store.Event{
-			updateEvent("i1.instance.default", &descriptorpb.Instance{
-				Template: "report",
-			}),
-		},
-		E: `
-ID: 0
-TemplatesStatic:
-  Name: apa
-  Name: check
-  Name: quota
-  Name: report
-AdaptersStatic:
-  Name: adapter1
-  Name: adapter2
-HandlersStatic:
-InstancesStatic:
-Rules:
-Attributes:
-  template.attr: BOOL
-`,
-		wantErr: "",
 	},
 	{
 		Name: "update instance",
@@ -4210,6 +4167,17 @@ func normalize(s string) string {
 	s = strings.Replace(s, "\n", "", -1)
 	s = strings.Replace(s, " ", "", -1)
 	return s
+}
+
+func TestAsAny(t *testing.T) {
+	strVal := types.StringValue{Value: "foo"}
+	d, _ := strVal.Marshal()
+	anyStrVal := asAny("google.protobuf.StringValue", d)
+	strValRes := types.StringValue{}
+	types.UnmarshalAny(anyStrVal, &strValRes)
+	if strVal.Value != strValRes.Value {
+		t.Fatalf("asAny failed. want %s; got %s", strVal.Value, strValRes.Value)
+	}
 }
 
 func updateEvent(keystr string, spec proto.Message) *store.Event {

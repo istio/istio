@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -246,20 +245,18 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 	handlers := make(map[string]*HandlerDynamic, len(e.adapters))
 
 	for key, resource := range e.entries {
-		isHandler, hasStaticAdapter := e.isHandler(key, resource.Spec)
-		if !isHandler || hasStaticAdapter {
-			// static adapter based handlers are processed elsewhere
+		if key.Kind != constant.HandlerKind {
 			continue
 		}
 
 		hdl := resource.Spec.(*config.Handler)
-		an1, an2 := canonicalize(hdl.Adapter, constant.AdapterKind, key.Namespace)
+		adptName, adptAltName := canonicalize(hdl.Adapter, constant.AdapterKind, key.Namespace)
 		handlerName := key.String()
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
-		adapter := adapters[an1]
+		adapter := adapters[adptName]
 		if adapter == nil {
-			adapter = adapters[an2]
+			adapter = adapters[adptAltName]
 		}
 
 		if adapter == nil {
@@ -275,10 +272,8 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 			continue
 		}
 
-		adapterCfg := &types.Any{
-			TypeUrl: adapter.PackageName + ".Params",
-			Value:   bytes,
-		}
+		typeFQN := adapter.PackageName + ".Params"
+		adapterCfg := asAny(typeFQN, bytes)
 
 		cfg := &HandlerDynamic{
 			Name:          handlerName,
@@ -294,25 +289,32 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 	return handlers
 }
 
+const googleApis = "type.googleapis.com/"
+
+func asAny(msgFQN string, bytes []byte) *types.Any {
+	return &types.Any{
+		TypeUrl: googleApis + msgFQN,
+		Value:   bytes,
+	}
+}
+
 func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template,
 	attributes ast.AttributeDescriptorFinder, counters Counters, errs *multierror.Error) map[string]*InstanceDynamic {
 	instances := make(map[string]*InstanceDynamic, len(e.templates))
 
 	for key, resource := range e.entries {
-		isInstance, hasStaticTemplate := e.isInstance(key, resource.Spec)
-		if !isInstance || hasStaticTemplate {
-			// static template based instances are processed elsewhere
+		if key.Kind != constant.InstanceKind {
 			continue
 		}
 
 		inst := resource.Spec.(*config.Instance)
-		tn1, tn2 := canonicalize(inst.Template, constant.TemplateKind, key.Namespace)
+		tmplName, tmplAltName := canonicalize(inst.Template, constant.TemplateKind, key.Namespace)
 		instanceName := key.String()
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
-		template := templates[tn1]
+		template := templates[tmplName]
 		if template == nil {
-			template = templates[tn2]
+			template = templates[tmplAltName]
 		}
 
 		if template == nil {
@@ -333,6 +335,8 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 		var err error
 		if inst.Params != nil {
 			params = inst.Params.(map[string]interface{})
+			// name field is not provided by instance config author, instead it is added by Mixer into the request
+			// object that is passed to the adapter.
 			params["name"] = fmt.Sprintf("\"%s\"", instanceName)
 			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
 			if err != nil {
@@ -363,30 +367,6 @@ func getTemplatesMsgFullName(pkgName string) string {
 
 func getParamsMsgFullName(pkgName string) string {
 	return "." + pkgName + ".Params"
-}
-
-func (e *Ephemeral) isHandler(key store.Key, spec proto.Message) (isHandler bool, hasStaticAdapter bool) {
-	if key.Kind != constant.HandlerKind {
-		return
-	}
-	isHandler = true
-	hdl := spec.(*config.Handler)
-	if _, found := e.adapters[hdl.Adapter]; found {
-		hasStaticAdapter = true
-	}
-	return
-}
-
-func (e *Ephemeral) isInstance(key store.Key, spec proto.Message) (isInstance bool, hasStaticTemplate bool) {
-	if key.Kind != constant.InstanceKind {
-		return
-	}
-	isInstance = true
-	inst := spec.(*config.Instance)
-	if _, found := e.templates[inst.Template]; found {
-		hasStaticTemplate = true
-	}
-	return
 }
 
 func validateEncodeBytes(params interface{}, fds *descriptor.FileDescriptorSet, msgName string) ([]byte, error) {
@@ -447,15 +427,6 @@ func (e *Ephemeral) processDynamicAdapterConfigs(availableTmpls map[string]*Temp
 
 		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
 
-		if _, ok := e.adapters[adapterInfoKey.Name]; ok {
-			// compiled in adapter already contains a same named adapter as key.Name.
-			// This will cause confusion to operator referencing the adapter, so we should disallow this
-			// and let operator rename their adapter's CR name to disambiguate.
-			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterInfoKey.Name), counters.adapterInfoConfigError,
-				"same named adapter already exists inside mixer; please rename to disambiguate")
-			continue
-		}
-
 		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
@@ -464,11 +435,11 @@ func (e *Ephemeral) processDynamicAdapterConfigs(availableTmpls map[string]*Temp
 		}
 		supportedTmpls := make([]*Template, 0)
 		for _, tmplN := range cfg.Templates {
-			tn1, tn2 := canonicalize(tmplN, constant.TemplateKind, adapterInfoKey.Namespace)
-			tmplFullName := tn1
-			if _, ok := availableTmpls[tn1]; !ok {
-				tmplFullName = tn2
-				if _, ok := availableTmpls[tn2]; !ok {
+			tmplName, tmplAltName := canonicalize(tmplN, constant.TemplateKind, adapterInfoKey.Namespace)
+			tmplFullName := tmplName
+			if _, ok := availableTmpls[tmplName]; !ok {
+				tmplFullName = tmplAltName
+				if _, ok := availableTmpls[tmplAltName]; !ok {
 					appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
 						"unable to find template '%s'", tmplN)
 					continue
@@ -546,19 +517,19 @@ func (e *Ephemeral) processRuleConfigs(
 			var isHandlerDynamic bool
 			var sahandler *HandlerStatic
 			var dahandler *HandlerDynamic
-			hn1, hn2 := canonicalize(a.Handler, constant.HandlerKind, ruleKey.Namespace)
+			hdlName, hdlAltName := canonicalize(a.Handler, constant.HandlerKind, ruleKey.Namespace)
 
-			handlerName := hn1
-			if sahandler, isHandlerStat = sHandlers[hn1]; !isHandlerStat {
-				handlerName = hn2
-				sahandler, isHandlerStat = sHandlers[hn2]
+			handlerName := hdlName
+			if sahandler, isHandlerStat = sHandlers[hdlName]; !isHandlerStat {
+				handlerName = hdlAltName
+				sahandler, isHandlerStat = sHandlers[hdlAltName]
 			}
 
 			if !isHandlerStat {
-				handlerName = hn1
-				if dahandler, isHandlerDynamic = dHandlers[hn1]; !isHandlerDynamic {
-					handlerName = hn2
-					dahandler, isHandlerDynamic = dHandlers[hn2]
+				handlerName = hdlName
+				if dahandler, isHandlerDynamic = dHandlers[hdlName]; !isHandlerDynamic {
+					handlerName = hdlAltName
+					dahandler, isHandlerDynamic = dHandlers[hdlAltName]
 				}
 			}
 
@@ -721,14 +692,6 @@ func (e *Ephemeral) processDynamicTemplateConfigs(counters Counters, errs *multi
 		cfg := resource.Spec.(*v1beta1.Template)
 		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
 
-		if _, ok := e.templates[templateKey.Name]; ok {
-			// compiled in templates already contains a same named template as templateKey.Name.
-			// This will cause confusion to operator referencing the template, so we should disallow this
-			// and let operator rename their template's CR name to disambiguate.
-			appendErr(errs, fmt.Sprintf("template='%s'", templateKey.Name), counters.templateConfigError,
-				"same named template already exists inside mixer; please rename to disambiguate")
-			continue
-		}
 		fds, desc, name, variety, err := GetTmplDescriptor(cfg.Descriptor_)
 		if err != nil {
 			appendErr(errs, fmt.Sprintf("template='%s'", templateName), counters.templateConfigError,
