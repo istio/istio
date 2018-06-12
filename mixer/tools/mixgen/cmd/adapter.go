@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -93,19 +94,25 @@ spec:
 ---
 `
 
-	inPath, _ := filepath.Abs(config)
-	byts, err := ioutil.ReadFile(inPath)
-	if err != nil {
-		fatalf("unable to read file %s. %v", inPath, err)
+	var byts []byte
+	var err error
+
+	if config != "" {
+		// no config means adapter has no config.
+		inPath, _ := filepath.Abs(config)
+		byts, err = ioutil.ReadFile(inPath)
+		if err != nil {
+			fatalf("unable to read file %s. %v", inPath, err)
+		}
+		// validate if the file is a file descriptor set with imports.
+		if err = isFds(byts); err != nil {
+			fatalf("config in invalid: %v", err)
+		}
 	}
 
-	// validate if the file is a file descriptor set with imports.
-	if err = isFds(byts); err != nil {
-		fatalf("config in invalid: %v", err)
-	}
-
+	goPath := os.Getenv("GOPATH")
 	adapterObj := &adapterCRVar{
-		RawCommand:   rawCommand,
+		RawCommand:   strings.Replace(rawCommand, goPath, "$GOPATH", -1),
 		Name:         name,
 		Namespace:    namespace,
 		Description:  description,
