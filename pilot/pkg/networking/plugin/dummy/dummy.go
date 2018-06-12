@@ -27,7 +27,7 @@ func (dummy) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		}
 		mutable.Listener.Metadata.FilterMetadata["dummy"] = &types.Struct{
 			Fields: map[string]*types.Value{
-				"dummy": &types.Value{Kind: &types.Value_BoolValue{BoolValue: true}},
+				"dummy": {Kind: &types.Value_BoolValue{BoolValue: true}},
 			},
 		}
 	}
