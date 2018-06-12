@@ -80,7 +80,7 @@ func (p *JSONPrinter) retrieveConfigDump() (*adminapi.ConfigDump, error) {
 		return nil, fmt.Errorf("error retrieving config dump from Envoy: %v", err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("received %v status retrieving config dump from Envoy", resp.StatusCode)
+		return nil, fmt.Errorf("received %v status while retrieving config dump from Envoy", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	configDump := adminapi.ConfigDump{}
