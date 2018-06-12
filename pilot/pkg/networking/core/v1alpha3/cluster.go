@@ -119,7 +119,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			} else {
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
 				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
-					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
+					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts), port)
 				}
 			}
 
@@ -294,7 +294,7 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls)
+	applyUpstreamTLSSettings(cluster, tls, port)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -394,7 +394,7 @@ var ALPNInMeshH2 = []string{"istio", "h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 var ALPNInMesh = []string{"istio"}
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, port *model.Port) {
 	if tls == nil {
 		return
 	}
@@ -452,6 +452,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			},
 			Sni: tls.Sni,
 		}
+
+		// Upgrade to H2 only if we know other side is envoy via ISTIO_MUTUAL
+		// And the original protocol is HTTP
+		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL && port != nil && port.Protocol == model.ProtocolHTTP {
+			designateH2(cluster)
+		}
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
@@ -464,12 +471,17 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
 	if port.Protocol.IsHTTP2() {
-		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
-			// Envoy default value of 100 is too low for data path.
-			MaxConcurrentStreams: &types.UInt32Value{
-				Value: 1073741824,
-			},
-		}
+		designateH2(cluster)
+	}
+}
+
+func designateH2(cluster *v2.Cluster) {
+	if cluster.Http2ProtocolOptions == nil {
+		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+	}
+	// Envoy default value of 100 is too low for data path.
+	cluster.Http2ProtocolOptions.MaxConcurrentStreams = &types.UInt32Value{
+		Value: 1073741824,
 	}
 }
 
