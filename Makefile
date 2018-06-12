@@ -135,8 +135,8 @@ endif
 
 # Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
 ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
-export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-kuat.tar.gz
+export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-kuat.tar.gz
 
 # Variables for the extracted debug/release Envoy artifacts.
 export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
