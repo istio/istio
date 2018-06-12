@@ -102,6 +102,7 @@ var (
 		model.RouteRule.Type:         true,
 		model.IngressRule.Type:       true,
 		model.DestinationPolicy.Type: true,
+		model.EgressRule.Type:        true,
 	}
 
 	// Headings for short format listing specific to type
