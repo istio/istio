@@ -95,6 +95,7 @@ var (
 		model.AuthenticationPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
+		model.RbacConfig,
 	}
 
 	// PilotCertDir is the default location for mTLS certificates used by pilot
