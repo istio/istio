@@ -174,7 +174,9 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 		{
 			generateTestLogEntryData(0),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: errors.New("describe logstream failed")}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{
+				resp: generateLogStreamOutput(), describeError: errors.New("describe logstream failed"),
+			}),
 		},
 		{
 			generateTestLogEntryData(0),
