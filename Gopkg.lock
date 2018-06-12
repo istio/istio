@@ -278,9 +278,9 @@
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
-    "envoy/config/rbac/v2alpha",
     "envoy/config/metrics/v2",
     "envoy/config/ratelimit/v2",
+    "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
@@ -1616,18 +1616,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-<<<<<<< HEAD
-<<<<<<< HEAD
-  inputs-digest = "84b22a076c8240323c1d4a5544b96529f7645b913aae735f134c42be9c21fff4"
-=======
-<<<<<<< HEAD
-  inputs-digest = "f5b698e7946265edb5dae820fbea1b699578365dbcba64123fa95986cd85b811"
-=======
-  inputs-digest = "cf36e2c87cf1758a6fc0846a8ae1e6ea8cb2c3e0739df86ef4c288ff0a72537c"
->>>>>>> Add v2alpha admin api to deps
->>>>>>> Add v2alpha admin api to deps
-=======
-  inputs-digest = "181aa888b51c34459e161bac7e31a0ab4e66058e2d8ae7f09fea72b56fc724a1"
->>>>>>> fix dep conflicts
+  inputs-digest = "251927453ba16e349e793427d1f1164ca3df0416228342a579cc8417df53eff5"
   solver-name = "gps-cdcl"
   solver-version = 1
