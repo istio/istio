@@ -137,8 +137,8 @@ func (h *Handler) connect() (err error) {
 
 func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr proto.Marshaler,
 	dedupID string, resultPtr interface{}, encodedInstances ...[]byte) error {
-	inst := h.svcMap[instanceName]
-	if inst == nil {
+	svc := h.svcMap[instanceName]
+	if svc == nil {
 		return errors.Errorf("unable to find instance: %s", instanceName)
 	}
 
@@ -147,12 +147,12 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr prot
 		h.n.Inc()
 	}
 
-	ba, err := inst.encodeRequest(qr, dedupID, encodedInstances...)
+	ba, err := svc.encodeRequest(qr, dedupID, encodedInstances...)
 	if err != nil {
 		return err
 	}
 
-	if err := h.conn.Invoke(ctx, inst.GrpcPath(), ba, resultPtr); err != nil {
+	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr); err != nil {
 		return errors.WithStack(err)
 	}
 
