@@ -22,54 +22,57 @@ import (
 )
 
 type (
-	args struct {
+	// Args specify captured requests and programmed behaviour
+	Args struct {
 		// manipulate the behavior of the backend.
-		behavior *behavior
+		Behavior *Behavior
 
 		// observed inputs by the backend
-		requests *requests
+		Requests *Requests
 	}
 
-	behavior struct {
-		validateResponse *adptModel.ValidateResponse
-		validateError    error
+	// Behavior specifies programmed behaviour
+	Behavior struct {
+		ValidateResponse *adptModel.ValidateResponse
+		ValidateError    error
 
-		createSessionResponse *adptModel.CreateSessionResponse
-		createSessionError    error
+		CreateSessionResponse *adptModel.CreateSessionResponse
+		CreateSessionError    error
 
-		closeSessionResponse *adptModel.CloseSessionResponse
-		closeSessionError    error
+		CloseSessionResponse *adptModel.CloseSessionResponse
+		CloseSessionError    error
 
 		// report metric IBP
-		handleMetricResult *adptModel.ReportResult
-		handleMetricError  error
+		HandleMetricResult *adptModel.ReportResult
+		HandleMetricError  error
 
 		// check listEntry IBP
-		handleListEntryResult *adptModel.CheckResult
-		handleListEntryError  error
+		HandleListEntryResult *adptModel.CheckResult
+		HandleListEntryError  error
 
 		// quota IBP
-		handleQuotaResult *adptModel.QuotaResult
-		handleQuotaError  error
+		HandleQuotaResult *adptModel.QuotaResult
+		HandleQuotaError  error
 	}
 
-	requests struct {
-		validateRequest []*adptModel.ValidateRequest
+	// Requests record captured requests by the spy
+	Requests struct {
+		ValidateRequest []*adptModel.ValidateRequest
 
-		createSessionRequest []*adptModel.CreateSessionRequest
+		CreateSessionRequest []*adptModel.CreateSessionRequest
 
-		closeSessionRequest []*adptModel.CloseSessionRequest
+		CloseSessionRequest []*adptModel.CloseSessionRequest
 
-		handleMetricRequest    []*metric.HandleMetricRequest
-		handleListEntryRequest []*listentry.HandleListEntryRequest
-		handleQuotaRequest     []*quota.HandleQuotaRequest
+		HandleMetricRequest    []*metric.HandleMetricRequest
+		HandleListEntryRequest []*listentry.HandleListEntryRequest
+		HandleQuotaRequest     []*quota.HandleQuotaRequest
 	}
 )
 
-// nolint:deadcode
-func defaultArgs() *args {
-	return &args{
-		behavior: &behavior{},
-		requests: &requests{},
+// DefaultArgs returns default arguments
+func DefaultArgs() *Args {
+	return &Args{
+		Behavior: &Behavior{},
+		Requests: &Requests{},
 	}
 }
