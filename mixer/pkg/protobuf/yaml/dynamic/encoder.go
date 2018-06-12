@@ -116,6 +116,10 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	return ba, nil
 }
 
+func (m messageEncoder) EncodesLength() bool {
+	return !m.skipEncodeLength
+}
+
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
 // If the repeated fieldEncoder length is more, it involves an array copy
