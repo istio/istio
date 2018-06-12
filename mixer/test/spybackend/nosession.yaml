@@ -9,8 +9,8 @@ spec:
   description: 
   session_based: false
   templates:
-  -metric
-  -quota
-  -listentry
+  - metric
+  - quota
+  - listentry
   config: 
 ---
