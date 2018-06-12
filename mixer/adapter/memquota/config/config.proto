@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: Memory quota
 // $description: Adapter for a simple in-memory quota management system.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/memquota.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/adapters/memquota.html
+// $aliases:
+// $  - /docs/reference/config/adapters/memquota.html
 
 // The `memquota` adapter can be used to support Istio's quota management
 // system. Although functional, this adapter is not intended for production
