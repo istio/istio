@@ -88,7 +88,7 @@ spec:
   session_based: {{.SessionBased}}
   templates:
   {{range .Templates -}}
-  - {{- .}}
+  - {{.}}
   {{end -}}
   config: {{.Config}}
 ---
