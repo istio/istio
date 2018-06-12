@@ -39,25 +39,12 @@ global:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
 
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: false
-
-  # Default mtls policy. If true, mtls between services will be enabled by default.
-  mtls:
-    # Default setting for service-to-service mtls. Can be set explicitly using
-    # destination rules or service annotations.
-    enabled: false
-
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
-
-  # Default is 1 second
-  refreshInterval: 10s
+  imagePullSecrets:
+    # - private-registry-key
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled

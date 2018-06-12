@@ -292,6 +292,15 @@ type IstioConfigStore interface {
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
 	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
+
+	// ServiceRoles selects ServiceRoles in the specified namespace.
+	ServiceRoles(namespace string) []Config
+
+	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
+	ServiceRoleBindings(namespace string) []Config
+
+	// RbacConfig selects the RbacConfig with the specified name in the specified namespace.
+	RbacConfig(name, namespace string) *Config
 }
 
 const (
@@ -502,6 +511,16 @@ var (
 		Validate:    ValidateServiceRoleBinding,
 	}
 
+	// RbacConfig describes an global RBAC config.
+	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -519,6 +538,7 @@ var (
 		AuthenticationPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		RbacConfig,
 	}
 )
 
@@ -1044,6 +1064,40 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		return nil
 	}
 	return &out
+}
+
+func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
+	roles, err := store.List(ServiceRole.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return roles
+}
+
+func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
+	bindings, err := store.List(ServiceRoleBinding.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return bindings
+}
+
+func (store *istioConfigStore) RbacConfig(name, namespace string) *Config {
+	rbacConfigs, err := store.List(RbacConfig.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get rbacConfig: %v", err)
+		return nil
+	}
+	for _, rc := range rbacConfigs {
+		if rc.Name == name {
+			return &rc
+		}
+	}
+	return nil
 }
 
 // SortHTTPAPISpec sorts a slice in a stable manner.
