@@ -29,16 +29,8 @@ bind(
     actual = "//external:ssl",
 )
 
-# We need newer gRPC than Envoy has for ALTS, this could be removed once Envoy picks
-# newer gRPC with ALTS support. (likely v1.11).
-git_repository(
-    name = "com_github_grpc_grpc",
-    remote = "https://github.com/grpc/grpc.git",
-    commit = "c50405364a194a0e4931153cbe329662d90530bc",  # Mar 28, 2018
-)
-
 # When updating envoy sha manually please update the sha in istio.deps file also
-ENVOY_SHA = "c2baf348055284ac761d94e9a06bc37ebf8a3532"
+ENVOY_SHA = "6d3d5d72986c2131a40268467c3ddcc57ef7bbc7"
 
 http_archive(
     name = "envoy",
