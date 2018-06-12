@@ -33,21 +33,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 // SecretType is used for secret discovery service to construct response.
 const SecretType = "type.googleapis.com/envoy.api.v2.Secret"
-
-// TODO(quanlin): secret struct and secretStore interface are placeholders that used for initial check in.
-// will move them to separated file or use existing KeyCertBundle structure.
-type secret struct {
-	certificateChain []byte
-	privateKey       []byte
-}
-
-type secretStore interface {
-	getSecret() *secret
-}
 
 type discoveryStream interface {
 	Send(*xdsapi.DiscoveryResponse) error
@@ -73,14 +63,13 @@ type sdsConnection struct {
 }
 
 type sdsservice struct {
-	st secretStore
+	st cache.SecretManager
 	//TODO(quanlin), add below properties later:
 	//1. workloadRegistry(store proxies information).
-	//2. caClient(interact with CA for CSR).
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st secretStore) *sdsservice {
+func newSDSService(st cache.SecretManager) *sdsservice {
 	return &sdsservice{
 		st: st,
 	}
@@ -128,7 +117,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.modelNode = &nt
 
-			if err := s.pushSDS(s.st.getSecret(), *con.modelNode, con); err != nil {
+			secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
+			if err != nil {
+				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
+				return err
+			}
+
+			if err := s.pushSDS(secret, *con.modelNode, con); err != nil {
 				log.Errorf("SDS failed to push: %v", err)
 				return err
 			}
@@ -152,10 +147,16 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 
 	//TODO(quanlin): add proxy info in workload registry.
 
-	return sdsDiscoveryResponse(s.st.getSecret(), proxy)
+	secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
+	if err != nil {
+		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
+		return nil, err
+	}
+
+	return sdsDiscoveryResponse(secret, proxy)
 }
 
-func (s *sdsservice) pushSDS(secret *secret, proxy model.Proxy, con *sdsConnection) error {
+func (s *sdsservice) pushSDS(secret *cache.SecretItem, proxy model.Proxy, con *sdsConnection) error {
 	response, err := sdsDiscoveryResponse(secret, proxy)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
@@ -171,7 +172,7 @@ func (s *sdsservice) pushSDS(secret *secret, proxy model.Proxy, con *sdsConnecti
 	return nil
 }
 
-func sdsDiscoveryResponse(s *secret, proxy model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *cache.SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	//TODO(quanlin): use timestamp for versionInfo and nouce for now, may change later.
 	t := time.Now().String()
 	resp := &xdsapi.DiscoveryResponse{
@@ -192,12 +193,12 @@ func sdsDiscoveryResponse(s *secret, proxy model.Proxy) (*xdsapi.DiscoveryRespon
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.certificateChain,
+						InlineBytes: s.CertificateChain,
 					},
 				},
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.privateKey,
+						InlineBytes: s.PrivateKey,
 					},
 				},
 			},
