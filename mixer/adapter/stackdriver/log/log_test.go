@@ -332,3 +332,87 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 		})
 	}
 }
+
+func TestProjectMetadata(t *testing.T) {
+	tests := []struct {
+		name string
+		vals []*logentry.Instance
+		want *monitoredres.MonitoredResource
+	}{
+		{
+			"filled",
+			[]*logentry.Instance{
+				{
+					Name: "log",
+					MonitoredResourceType: "mr-type",
+					MonitoredResourceDimensions: map[string]interface{}{
+						"project_id":   "id",
+						"location":     "l",
+						"cluster_name": "c",
+					},
+				},
+			},
+			&monitoredres.MonitoredResource{
+				Type: "mr-type",
+				Labels: map[string]string{
+					"project_id":   "id",
+					"location":     "l",
+					"cluster_name": "c",
+				},
+			},
+		},
+		{
+			"empty",
+			[]*logentry.Instance{
+				{
+					Name: "log",
+					MonitoredResourceType: "mr-type",
+					MonitoredResourceDimensions: map[string]interface{}{
+						"project_id":   "",
+						"location":     "",
+						"cluster_name": "",
+					},
+				},
+			},
+			&monitoredres.MonitoredResource{
+				Type: "mr-type",
+				Labels: map[string]string{
+					"project_id":   "pid",
+					"location":     "location",
+					"cluster_name": "cluster",
+				},
+			},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			logs := make([]logging.Entry, 0)
+			infoMap := map[string]info{
+				"log": {
+					labels: []string{"foo", "time"},
+					tmpl:   template.Must(template.New("").Parse("literal")),
+					log:    func(entry logging.Entry) { logs = append(logs, entry) },
+					flush:  func() error { return nil },
+				},
+			}
+
+			h := &handler{
+				info: infoMap,
+				l:    test.NewEnv(t).Logger(),
+				now:  func() time.Time { return time.Now() },
+				md:   helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
+			}
+			if err := h.HandleLogEntry(context.Background(), tt.vals); err != nil {
+				t.Fatalf("Got error while logging, should never happen.")
+			}
+			if len(logs) != 1 {
+				t.Fatalf("Want 1 log entry, got %d.", len(logs))
+			}
+			got := logs[0].Resource
+			if !reflect.DeepEqual(tt.want.Labels, got.Labels) {
+				t.Errorf("Want monitored resource %v, got %v", tt.want, got)
+			}
+		})
+	}
+}

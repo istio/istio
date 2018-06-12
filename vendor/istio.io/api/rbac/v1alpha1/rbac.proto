@@ -108,12 +108,35 @@ package istio.rbac.v1alpha1;
 
 option go_package="istio.io/api/rbac/v1alpha1";
 
+// $hide_from_docs
+// RBAC config enforcement mode, used to verify new ServiceRole/ServiceBinding configs
+// work as expected before rolling to prod. RBAC engine only logs results from
+// ServiceRole/ServiceBinding configs that are in permissive mode, and discards result
+// before returning to the user.
+enum EnforcementMode {
+  // Policy in ENFORCED mode has impact on user experience. 
+  // Policy is in ENFORCED mode by default. 
+  ENFORCED = 0;
+
+  // Policy in PERMISSIVE doesn't impact on user experience. 
+  // RBAC engine run policies in PERMISSIVE and logs decision.
+  PERMISSIVE = 1;
+ }
+ 
 // ServiceRole specification contains a list of access rules (permissions).
 // This represent the "Spec" part of the ServiceRole object. The name and namespace
 // of the ServiceRole is specified in "metadata" section of the ServiceRole object.
 message ServiceRole {
   // Required. The set of access rules (permissions) that the role has.
   repeated AccessRule rules = 1;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the ServiceRole config.
+  // If ServiceRole is in PERMISSIVE mode, all ServiceRoleBindings that
+  // refers to it will be treated as PERMISSIVE mode.
+  // If ServiceRole is in ENFORCED mode, ServiceRoleBindings that
+  // refers to it will decide their own enforcement modes.
+  EnforcementMode mode = 2;
 }
 
 // AccessRule defines a permission to access a list of services.
@@ -171,6 +194,14 @@ message ServiceRoleBinding {
 
   // Required. Reference to the ServiceRole object.
   RoleRef roleRef = 2;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the ServiceRoleBinding config.
+  // If RoleRef it refers to is in PERMISSIVE mode, the ServiceRoleBinding 
+  // will be treated as PERMISSIVE mode regardless this mode field.
+  // If RoleRef it refers to is in ENFORCED mode, the ServiceRoleBinding 
+  // will decide its own enforcement mode from this mode field.
+  EnforcementMode mode = 3;
 }
 
 // Subject defines an identity or a group of identities. The identity is either a user or

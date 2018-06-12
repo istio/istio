@@ -29,7 +29,7 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 5000Mi
+            memory: 100Mi
         env:
         - name: REGISTRY_HTTP_ADDR
           value: :5000
@@ -73,8 +73,8 @@ spec:
     image: gcr.io/google_containers/kube-registry-proxy:0.3
     resources:
       limits:
-        cpu: 1000m
-        memory: 2500Mi
+        cpu: 100m
+        memory: 50Mi
     env:
     - name: REGISTRY_HOST
       value: kube-registry

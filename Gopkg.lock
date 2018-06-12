@@ -261,6 +261,7 @@
   branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
+    "envoy/admin/v2alpha",
     "envoy/api/v2",
     "envoy/api/v2/auth",
     "envoy/api/v2/cluster",
@@ -268,13 +269,19 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/bootstrap/v2",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
     "envoy/config/filter/http/jwt_authn/v2alpha",
+    "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/metrics/v2",
+    "envoy/config/ratelimit/v2",
+    "envoy/config/rbac/v2alpha",
+    "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
     "pkg/util"
@@ -650,7 +657,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "d7fdf1b48501371ede946114e69ac2d73d8e4206"
+  revision = "ca7e3cf34b0ed739c37e2ff50b6ae0632da9911e"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1311,7 +1318,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "a29d69c48fdc7587835ed174262dea39491cc120"
+  revision = "8c4ad02445802a6d75755fa9fe92beb1c980fb8e"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1609,6 +1616,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8464b70a2fd1459c3de6b9e195be5e83f1498a4db020f4214f69da73565ec6b5"
+  inputs-digest = "251927453ba16e349e793427d1f1164ca3df0416228342a579cc8417df53eff5"
   solver-name = "gps-cdcl"
   solver-version = 1

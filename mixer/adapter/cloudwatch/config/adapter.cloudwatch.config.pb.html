@@ -32,7 +32,7 @@ The metrics specified in both instance and handler configurations will be sent t
 </tr>
 </thead>
 <tbody>
-<tr id="Params.namespace">
+<tr id="Params-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -40,9 +40,9 @@ The metrics specified in both instance and handler configurations will be sent t
 
 </td>
 </tr>
-<tr id="Params.metric_info">
+<tr id="Params-metric_info">
 <td><code>metricInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.MetricDatum">Params.MetricDatum</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricDatum">Params.MetricDatum</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to CloudWatch metric info.</p>
 
@@ -51,7 +51,7 @@ The metrics specified in both instance and handler configurations will be sent t
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricDatum">Params.MetricDatum</h2>
+<h2 id="Params-MetricDatum">Params.MetricDatum</h2>
 <section>
 <p>CloudWatch metric format.</p>
 
@@ -64,9 +64,9 @@ The metrics specified in both instance and handler configurations will be sent t
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricDatum.unit">
+<tr id="Params-MetricDatum-unit">
 <td><code>unit</code></td>
-<td><code><a href="#Params.MetricDatum.Unit">Params.MetricDatum.Unit</a></code></td>
+<td><code><a href="#Params-MetricDatum-Unit">Params.MetricDatum.Unit</a></code></td>
 <td>
 <p>The unit of the metric. Must be valid cloudwatch unit value.
 <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html">CloudWatch docs</a></p>
@@ -76,7 +76,7 @@ The metrics specified in both instance and handler configurations will be sent t
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricDatum.Unit">Params.MetricDatum.Unit</h2>
+<h2 id="Params-MetricDatum-Unit">Params.MetricDatum.Unit</h2>
 <section>
 <table class="enum-values">
 <thead>
@@ -86,137 +86,137 @@ The metrics specified in both instance and handler configurations will be sent t
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricDatum.Unit.None">
+<tr id="Params-MetricDatum-Unit-None">
 <td><code>None</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Seconds">
+<tr id="Params-MetricDatum-Unit-Seconds">
 <td><code>Seconds</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Microseconds">
+<tr id="Params-MetricDatum-Unit-Microseconds">
 <td><code>Microseconds</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Milliseconds">
+<tr id="Params-MetricDatum-Unit-Milliseconds">
 <td><code>Milliseconds</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Count">
+<tr id="Params-MetricDatum-Unit-Count">
 <td><code>Count</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Bytes">
+<tr id="Params-MetricDatum-Unit-Bytes">
 <td><code>Bytes</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Kilobytes">
+<tr id="Params-MetricDatum-Unit-Kilobytes">
 <td><code>Kilobytes</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Megabytes">
+<tr id="Params-MetricDatum-Unit-Megabytes">
 <td><code>Megabytes</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Gigabytes">
+<tr id="Params-MetricDatum-Unit-Gigabytes">
 <td><code>Gigabytes</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Terabytes">
+<tr id="Params-MetricDatum-Unit-Terabytes">
 <td><code>Terabytes</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Bits">
+<tr id="Params-MetricDatum-Unit-Bits">
 <td><code>Bits</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Kilobits">
+<tr id="Params-MetricDatum-Unit-Kilobits">
 <td><code>Kilobits</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Megabits">
+<tr id="Params-MetricDatum-Unit-Megabits">
 <td><code>Megabits</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Gigabits">
+<tr id="Params-MetricDatum-Unit-Gigabits">
 <td><code>Gigabits</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Terabits">
+<tr id="Params-MetricDatum-Unit-Terabits">
 <td><code>Terabits</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Percent">
+<tr id="Params-MetricDatum-Unit-Percent">
 <td><code>Percent</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Bytes_Second">
+<tr id="Params-MetricDatum-Unit-Bytes_Second">
 <td><code>Bytes_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Kilobytes_Second">
+<tr id="Params-MetricDatum-Unit-Kilobytes_Second">
 <td><code>Kilobytes_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Megabytes_Second">
+<tr id="Params-MetricDatum-Unit-Megabytes_Second">
 <td><code>Megabytes_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Gigabytes_Second">
+<tr id="Params-MetricDatum-Unit-Gigabytes_Second">
 <td><code>Gigabytes_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Terabytes_Second">
+<tr id="Params-MetricDatum-Unit-Terabytes_Second">
 <td><code>Terabytes_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Bits_Second">
+<tr id="Params-MetricDatum-Unit-Bits_Second">
 <td><code>Bits_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Kilobits_Second">
+<tr id="Params-MetricDatum-Unit-Kilobits_Second">
 <td><code>Kilobits_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Megabits_Second">
+<tr id="Params-MetricDatum-Unit-Megabits_Second">
 <td><code>Megabits_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Gigabits_Second">
+<tr id="Params-MetricDatum-Unit-Gigabits_Second">
 <td><code>Gigabits_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Terabits_Second">
+<tr id="Params-MetricDatum-Unit-Terabits_Second">
 <td><code>Terabits_Second</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricDatum.Unit.Count_Second">
+<tr id="Params-MetricDatum-Unit-Count_Second">
 <td><code>Count_Second</code></td>
 <td>
 </td>
