@@ -91,7 +91,7 @@ All local codes will be compiled/dockered and pushed to it .
 Add `docker.for.mac.localhost:5000` to insecure registries in the docker daemon setting before running the tests.
 Make sure you have followed this [doc](../local/localregistry/setup_bluemix.md) to configure docker daemons on all nodes.
 
-*Option B*
+***Option B***
 
 * Create a PR with your change.
 * This will trigger istio-presubmit.sh. At the end of this script, it creates docker images for mixer, pilot, ca, with

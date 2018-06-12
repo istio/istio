@@ -14,7 +14,6 @@
   * [curl](https://curl.haxx.se/) - Verify `curl --help` prints the help information.
 
 You can run the following script to check/install of all pre-requisites, or use it as a reference to install them manually.
-(Only Debian is supported at this point.)
 
 ```bash
 . ./install_prereqs.sh

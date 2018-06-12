@@ -72,6 +72,6 @@ For more details on how to run e2e test, please refer to [link](../../README.md)
 You can also modify the image URLs in your deployment yaml files directly:
 
 ```yaml
-image: <REGISTRY_SERVICE_IP>:5000/<APP_NAME>:latest
+image: <REGISTRY_SVC_IP>:5000/<APP_NAME>:latest
 ```
 
