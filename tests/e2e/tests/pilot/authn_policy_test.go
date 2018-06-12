@@ -26,7 +26,7 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 	// This policy will enable mTLS globally. Policy should be in 'istio-global-config' namespace
 	globalCfg := &deployableConfig{
 		Namespace:  model.GlobalConfigNamespace,
-		YamlFiles:  []string{"testdata/authn/global-mtls.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	// This policy disable mTLS for c and d:80.
