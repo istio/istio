@@ -261,6 +261,7 @@
   branch = "master"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
+    "envoy/admin/v2alpha",
     "envoy/api/v2",
     "envoy/api/v2/auth",
     "envoy/api/v2/cluster",
@@ -268,6 +269,7 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/bootstrap/v2",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
@@ -276,7 +278,10 @@
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
+    "envoy/config/metrics/v2",
+    "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
+    "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
     "pkg/util"
@@ -1611,6 +1616,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "84b22a076c8240323c1d4a5544b96529f7645b913aae735f134c42be9c21fff4"
+  inputs-digest = "251927453ba16e349e793427d1f1164ca3df0416228342a579cc8417df53eff5"
   solver-name = "gps-cdcl"
   solver-version = 1
