@@ -113,6 +113,26 @@ var (
 		"service-entry":    printShortServiceEntry,
 	}
 
+	// configTypes is the Istio types supported by the client
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
+	configTypes = model.ConfigDescriptor{
+		model.RouteRule,
+		model.VirtualService,
+		model.Gateway,
+		model.EgressRule,
+		model.ServiceEntry,
+		model.DestinationPolicy,
+		model.DestinationRule,
+		model.HTTPAPISpec,
+		model.HTTPAPISpecBinding,
+		model.QuotaSpec,
+		model.QuotaSpecBinding,
+		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
+		model.RbacConfig,
+	}
+
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
@@ -389,6 +409,9 @@ istioctl get virtualservice bookinfo
 
 			return nil
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -488,6 +511,9 @@ istioctl delete virtualservice bookinfo
 
 			return errs
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -822,24 +848,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, configContext, model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}, "")
+	return crd.NewClient(kubeconfig, configContext, configTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -974,4 +983,20 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
+}
+
+func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
+	}
+	return resourceNames
+}
+
+func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
+	}
+	return resourceNames
 }
