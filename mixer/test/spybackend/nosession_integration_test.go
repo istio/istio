@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/listentry"
@@ -29,27 +29,22 @@ import (
 	"istio.io/istio/mixer/template/quota"
 )
 
-// This test for now just validates the backend can be started and tested against. This is will be used to verify
-// the OOP adapter work. As various features start lighting up, this test will grow.
-
-// TODO add quota config test..
-
 const (
 	h1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: myh1
+  name: h1
   namespace: istio-system
 spec:
   adapter: spybackend-nosession
 ---
 `
-	i1 = `
+	i1Metric = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: myi1
+  name: i1metric
   namespace: istio-system
 spec:
   template: metric
@@ -61,17 +56,17 @@ spec:
 ---
 `
 
-	r1H1I1 = `
+	r1H1I1Metric = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: myr1
+  name: r1
   namespace: istio-system
 spec:
   actions:
-  - handler: myh1.istio-system
+  - handler: h1.istio-system
     instances:
-    - myi1
+    - i1metric
 ---
 `
 
@@ -79,18 +74,18 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
-  name: myh2
+  name: h2
   namespace: istio-system
 spec:
   adapter: spybackend-nosession
 ---
 `
 
-	i2 = `
+	i2Metric = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: myi2
+  name: i2metric
   namespace: istio-system
 spec:
   template: metric
@@ -102,24 +97,24 @@ spec:
 ---
 `
 
-	r2H2I2 = `
+	r2H2I2Metric = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: myr2
+  name: r2
   namespace: istio-system
 spec:
   actions:
-  - handler: myh2.istio-system
+  - handler: h2.istio-system
     instances:
-    - myi2
+    - i2metric
 ---
 `
-	i3 = `
+	i3List = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
-  name: myi3
+  name: i3list
   namespace: istio-system
 spec:
   template: listentry
@@ -128,18 +123,63 @@ spec:
 ---
 `
 
-	r3H1I3 = `
+	r3H1I3List = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: myr3
+  name: r3
   namespace: istio-system
 spec:
   actions:
-  - handler: myh1.istio-system
+  - handler: h1.istio-system
     instances:
-    - myi3
+    - i3list
 ---
+`
+
+i4Quota = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i4quota
+  namespace: istio-system
+spec:
+  template: quota
+  params:
+    dimensions:
+      source: source.labels["app"] | source.service | "unknown"
+      sourceVersion: source.labels["version"] | "unknown"
+      destination: destination.labels["app"] | destination.service | "unknown"
+      destinationVersion: destination.labels["version"] | "unknown"
+---
+`
+
+r4h1i4Quota = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r4
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1
+    instances:
+    - i4quota
+`
+
+
+	r6IfMatchIfReqId_h1i4Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r4
+  namespace: istio-system
+spec:
+  match: request.id | "unknown" != "unknown"
+  actions:
+  - handler: h1
+    instances:
+    - i1metric
 `
 )
 
@@ -170,10 +210,11 @@ func TestNoSessionBackend(t *testing.T) {
 				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
-				// TODO validate if the data has received the backend.
+				// TODO return the state of data received by the spy adapter; deterministic order.
 				return nil, validateNoSessionBackend(ctx, t)
 			},
 			ParallelCalls: []adapter_integration.Call{
+				// 3 report calls; varying request.size attribute and no attributes call too.
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs:    map[string]interface{}{"request.size": 666},
@@ -185,6 +226,8 @@ func TestNoSessionBackend(t *testing.T) {
 				{
 					CallKind: adapter_integration.REPORT,
 				},
+
+				// 3 check calls; varying source.name attribute and no attributes call too.,
 				{
 					CallKind: adapter_integration.CHECK,
 					Attrs:    map[string]interface{}{"source.name": "foobar"},
@@ -196,18 +239,38 @@ func TestNoSessionBackend(t *testing.T) {
 				{
 					CallKind: adapter_integration.CHECK,
 				},
+
+				// one call with quota args
+				{
+					CallKind: adapter_integration.CHECK,
+					Quotas:map[string]istio_mixer_v1.CheckRequest_QuotaParams {
+						"requestCount": {
+							Amount:     30,
+							BestEffort: true,
+						},
+					},
+				},
+
+				// one report request with request.id to match r4 rule
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.id": "somereqid"},
+				},
 			},
 			Configs: []string{
 				// CRs for built-in templates are automatically added by the integration test framework.
 				string(adptCfgBytes),
 				h1,
-				i1,
-				r1H1I1,
+				i1Metric,
+				r1H1I1Metric,
 				h2,
-				i2,
-				r2H2I2,
-				i3,
-				r3H1I3,
+				i2Metric,
+				r2H2I2Metric,
+				i3List,
+				r3H1I3List,
+				i4Quota,
+				r4h1i4Quota,
+				r6IfMatchIfReqId_h1i4Metric,
 			},
 			Want: `
 		{
@@ -265,6 +328,21 @@ func TestNoSessionBackend(t *testing.T) {
 		    "ValidUseCount": 0
 		   },
 		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": {
+		    "requestCount": {
+		     "Status": {},
+		     "ValidDuration": 0,
+		     "Amount": 0
+		    }
+		   },
 		   "Error": null
 		  }
 		 ]
