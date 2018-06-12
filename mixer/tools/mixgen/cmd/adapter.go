@@ -117,7 +117,7 @@ spec:
 	t := gotemplate.New("adaptercr")
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(adapterTmpl)
-	if err := t.Execute(w, adapterObj); err != nil {
+	if err = t.Execute(w, adapterObj); err != nil {
 		fatalf("could not create adapter custom resource" + err.Error())
 	}
 

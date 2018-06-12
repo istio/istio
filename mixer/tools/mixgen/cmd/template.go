@@ -90,7 +90,7 @@ spec:
 	t := gotemplate.New("templatecr")
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(templateCR)
-	if err := t.Execute(w, tmplObj); err != nil {
+	if err = t.Execute(w, tmplObj); err != nil {
 		fatalf("could not create CRD " + err.Error())
 	}
 	if outPath != "" {
