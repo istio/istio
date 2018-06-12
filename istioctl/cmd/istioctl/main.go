@@ -179,7 +179,7 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 				}
 				var rev string
 				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
-					c.Printf("Warning: %s is deprecated and may not be supported in future Istio versions (%s).\n", config.Type, config.Name)
+					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
 				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
