@@ -118,14 +118,13 @@ func TestAdapterCmd_NoInputFile(t *testing.T) {
 		func(format string, a ...interface{}) {},
 		func(format string, a ...interface{}) {
 			gotError = fmt.Sprintf(format, a...)
+			t.Fatalf("want no error; got '%s'", gotError)
+
 			if !strings.Contains(gotError, "unable to read") {
 				t.Fatalf("want error 'unable to read'; got '%s'", gotError)
 			}
 		})
 	_ = cmd.Execute()
-	if gotError == "" {
-		t.Errorf("want error; got nil")
-	}
 }
 
 func getArgs(td adapterCmdTestdata, fName string) []string {

@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: Metric
 // $description: A template that represents a single runtime metric.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/template/metric.html
+// $aliases:
+// $  - /docs/reference/config/template/metric.html
 
 // The `metric` template is designed to let you describe runtime metric to dispatch to
 // monitoring backends.

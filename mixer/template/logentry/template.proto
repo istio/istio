@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: Log Entry
 // $description: A template that represents a single runtime log entry.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/template/logentry.html
+// $aliases:
+// $  - /docs/reference/config/template/logentry.html
 
 // The `logentry` template represents an individual entry within a log.
 //

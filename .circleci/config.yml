@@ -606,6 +606,9 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
             - build
+      - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
+          requires:
+            - build
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
