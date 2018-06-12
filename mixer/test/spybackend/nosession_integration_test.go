@@ -21,8 +21,9 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
@@ -137,7 +138,7 @@ spec:
 ---
 `
 
-i4Quota = `
+	i4Quota = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: instance
 metadata:
@@ -154,7 +155,7 @@ spec:
 ---
 `
 
-r4h1i4Quota = `
+	r4h1i4Quota = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -166,7 +167,6 @@ spec:
     instances:
     - i4quota
 `
-
 
 	r6IfMatchIfReqId_h1i4Metric = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -243,7 +243,7 @@ func TestNoSessionBackend(t *testing.T) {
 				// one call with quota args
 				{
 					CallKind: adapter_integration.CHECK,
-					Quotas:map[string]istio_mixer_v1.CheckRequest_QuotaParams {
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 						"requestCount": {
 							Amount:     30,
 							BestEffort: true,
