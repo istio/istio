@@ -168,7 +168,7 @@ spec:
     - i4quota
 `
 
-	r6IfMatchIfReqId_h1i4Metric = `
+	r6MatchIfReqIdH1i4Metric = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -270,7 +270,7 @@ func TestNoSessionBackend(t *testing.T) {
 				r3H1I3List,
 				i4Quota,
 				r4h1i4Quota,
-				r6IfMatchIfReqId_h1i4Metric,
+				r6MatchIfReqIdH1i4Metric,
 			},
 			Want: `
 		{
@@ -344,10 +344,18 @@ func TestNoSessionBackend(t *testing.T) {
 		    }
 		   },
 		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
 		  }
 		 ]
-		}
-`,
+		}`,
 		},
 	)
 }
