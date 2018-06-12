@@ -147,7 +147,7 @@ func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 			Out:        os.Stderr,
 		},
 		HTTPOptions: fhttp.HTTPOptions{
-			URL: gateway + "/?status=404:10,503:15&size=1024:10,512:5",
+			URL: gateway + "/?status=418:10,520:15&size=1024:10,512:5",
 		},
 		AllowInitialErrors: true,
 	}

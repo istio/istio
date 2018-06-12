@@ -12,7 +12,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: fortio-gateway
+  name: fortiogateway
 spec:
   selector:
     istio: ingressgateway
@@ -22,7 +22,8 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - echosrv
+    - "*"
+
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -30,18 +31,16 @@ metadata:
   name: fortio
 spec:
   hosts:
-  - echosrv
+  - "*"
   gateways:
-  - fortio-gateway
+  - fortiogateway
   http:
-  - match
-    - uri:
-        prefix: /
-    route:
+  - route:
     - destination:
         port:
           number: 8080
         host: echosrv
+
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
