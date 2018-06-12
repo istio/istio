@@ -145,19 +145,19 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	// of listening.
 	expected := `
 ID: 3
-Templates:
+TemplatesStatic:
   Name: tapa
   Name: tcheck
   Name: thalt
   Name: tquota
   Name: treport
-Adapters:
+AdaptersStatic:
   Name: acheck
   Name: apa
   Name: aquota
   Name: areport
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   foo: STRING
