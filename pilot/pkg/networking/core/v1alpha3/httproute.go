@@ -30,13 +30,20 @@ import (
 )
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
-// TODO: enable websockets, trace decorators
+// TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
 	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName)
+	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
+
+	// Enable websocket on default route
+	actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
+	if ok {
+		actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
+	}
 
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),

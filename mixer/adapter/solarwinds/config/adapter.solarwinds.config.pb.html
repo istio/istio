@@ -85,7 +85,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.appoptics_access_token">
+<tr id="Params-appoptics_access_token">
 <td><code>appopticsAccessToken</code></td>
 <td><code>string</code></td>
 <td>
@@ -94,7 +94,7 @@ will NOT be shipped to AppOptics</p>
 
 </td>
 </tr>
-<tr id="Params.appoptics_batch_size">
+<tr id="Params-appoptics_batch_size">
 <td><code>appopticsBatchSize</code></td>
 <td><code>int32</code></td>
 <td>
@@ -104,7 +104,7 @@ If this is unspecified or given a value 0 explicitely, a default batch size of 1
 
 </td>
 </tr>
-<tr id="Params.papertrail_url">
+<tr id="Params-papertrail_url">
 <td><code>papertrailUrl</code></td>
 <td><code>string</code></td>
 <td>
@@ -113,7 +113,7 @@ dropped.</p>
 
 </td>
 </tr>
-<tr id="Params.papertrail_local_retention_duration">
+<tr id="Params-papertrail_local_retention_duration">
 <td><code>papertrailLocalRetentionDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -122,17 +122,17 @@ of a network failure. Default value is 1 hour.</p>
 
 </td>
 </tr>
-<tr id="Params.metrics">
+<tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to solarwinds metric info.</p>
 
 </td>
 </tr>
-<tr id="Params.logs">
+<tr id="Params-logs">
 <td><code>logs</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio logentry name to solarwinds log info.</p>
 
@@ -141,7 +141,7 @@ of a network failure. Default value is 1 hour.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.LogInfo">Params.LogInfo</h2>
+<h2 id="Params-LogInfo">Params.LogInfo</h2>
 <section>
 <p>Describes how to represent an Istio log entry in Solarwinds AppOptics</p>
 
@@ -154,7 +154,7 @@ of a network failure. Default value is 1 hour.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.LogInfo.payload_template">
+<tr id="Params-LogInfo-payload_template">
 <td><code>payloadTemplate</code></td>
 <td><code>string</code></td>
 <td>
@@ -173,7 +173,7 @@ If it is not provided, a default template in place will be used.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
 <section>
 <p>Describes how to represent an Istio metric in Solarwinds AppOptics</p>
 
@@ -186,7 +186,7 @@ If it is not provided, a default template in place will be used.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.label_names">
+<tr id="Params-MetricInfo-label_names">
 <td><code>labelNames</code></td>
 <td><code>string[]</code></td>
 <td>

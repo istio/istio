@@ -250,7 +250,7 @@ func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.M
 		}
 
 		result, resultErr := client.Check(context.Background(), &req)
-		result.Precondition.ReferencedAttributes = istio_mixer_v1.ReferencedAttributes{}
+		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
 		ret.Error = resultErr
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
@@ -310,6 +310,7 @@ func getServerArgs(
 
 	var err error
 	args.ConfigStore, err = storetest.SetupStoreForTest(data...)
+	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 	return args, err
 }
 

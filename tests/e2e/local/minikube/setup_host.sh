@@ -1,21 +1,49 @@
 #!/bin/bash
 
+vm_driver="kvm2"
+
+case "${OSTYPE}" in
+  darwin*) vm_driver="hyperkit";;
+  linux*)
+    DISTRO="$(lsb_release -i -s)"
+    case "${DISTRO}" in
+      Debian|Ubuntu)
+        vm_driver="kvm2";;
+      *) echo "unsupported distro: ${DISTRO}" ;;
+    esac;;
+  *) echo "unsupported: ${OSTYPE}" ;;
+esac
+
+echo "Using $vm_driver as VM for Minikube."
+
+echo "Starting Minikube."
+
 # Start minikube
 minikube start \
     --extra-config=controller-manager.cluster-signing-cert-file="/var/lib/localkube/certs/ca.crt" \
     --extra-config=controller-manager.cluster-signing-key-file="/var/lib/localkube/certs/ca.key" \
     --extra-config=apiserver.admission-control="NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota" \
     --kubernetes-version=v1.10.0 \
-    --vm-driver=kvm2 
+    --insecure-registry="localhost:5000" \
+    --cpus=4 \
+    --memory=8192 \
+    --vm-driver=$vm_driver 
 
 #Setup docker to talk to minikube
 eval $(minikube docker-env)
 
-
-kubectl get pods -n kube-system | grep Running > /dev/null
+kubectl get pods -n kube-system | grep kube-proxy |  grep Running > /dev/null
 while [ $? -ne 0 ]; do
-  kubectl get pods -n kube-system | grep Running > /dev/null
+  echo "kube-proxy not ready, will check again in 5 sec"
+  sleep 5
+  kubectl get pods -n kube-system |  grep kube-proxy | grep Running > /dev/null
 done
+
+# Set up env ISTIO if not done yet
+if [[ -z "${ISTIO// }" ]]; then
+    export ISTIO=$GOPATH/src/istio.io
+    echo 'Set ISTIO to' $ISTIO
+fi
 
 #Setup LocalRegistry
 kubectl apply -f $ISTIO/istio/tests/e2e/local/localregistry/localregistry.yaml
@@ -23,15 +51,14 @@ echo "local registry started"
 
 kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 while [ $? -ne 0 ]; do
+  echo "kube-registry-v0 not ready, will check again in 5 sec"
+  sleep 5
   kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 done
 
 #Setup port forwarding
+echo "Setting up port forwarding"
 POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
 kubectl port-forward --namespace kube-system $POD 5000:5000 &
 
-# Set up env ISTIO if not done yet
-if [[ -z "${ISTIO// }" ]]; then
-    export ISTIO=$GOPATH/src/istio.io
-    echo 'Set ISTIO to' $ISTIO
-fi
+echo "Host Setup Completed"

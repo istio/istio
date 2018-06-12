@@ -85,9 +85,6 @@ func setTestConfig() error {
 
 	tc.Kube.InstallAddons = true // zipkin is used
 
-	// Add mTLS auth exclusion policy.
-	tc.Kube.MTLSExcludedServices = []string{fmt.Sprintf("fake-control.%s.svc.cluster.local", tc.Kube.Namespace)}
-
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err
@@ -273,9 +270,8 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
-		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
-		// environment, pilot can see only services in the test namespaces). This service
-		// will be listed in mtlsExcludedServices in the mesh config.
+		// This service was used to test mtlsExcludedServices in the mesh config. This flag is removed in
+		// PR #. This service and the involved tests can also be removed in the following up PRs.
 		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false),
 	}
 }

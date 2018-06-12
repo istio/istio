@@ -145,7 +145,7 @@ func (tt *testData) checkCalls(t *testing.T, adapters []*spyAdapter.Adapter) {
 	}
 }
 
-func (tt *testData) checkReferencedAttributes(t *testing.T, actual istio_mixer_v1.ReferencedAttributes) {
+func (tt *testData) checkReferencedAttributes(t *testing.T, actual *istio_mixer_v1.ReferencedAttributes) {
 	conditions := make(map[string]istio_mixer_v1.ReferencedAttributes_Condition)
 	mapkeys := make(map[string]string)
 	for _, m := range actual.AttributeMatches {

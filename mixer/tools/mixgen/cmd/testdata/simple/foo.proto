@@ -1,0 +1,8 @@
+syntax = "proto3";
+package istio.mixer.adapter.quota;
+
+import "policy/v1beta1/type.proto";
+
+message a {
+    istio.policy.v1beta1.Value val = 1;
+}

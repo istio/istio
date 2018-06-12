@@ -26,9 +26,9 @@ number_of_entries: 7
 </tr>
 </thead>
 <tbody>
-<tr id="Params.metrics">
+<tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code><a href="#Params.MetricInfo">Params.MetricInfo[]</a></code></td>
+<td><code><a href="#Params-MetricInfo">Params.MetricInfo[]</a></code></td>
 <td>
 <p>The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn&rsquo;t have a corresponding
 shape here, it will not be populated at runtime.</p>
@@ -38,7 +38,7 @@ shape here, it will not be populated at runtime.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
 <section>
 <p>Describes how a metric should be represented in Prometheus.</p>
 
@@ -51,7 +51,7 @@ shape here, it will not be populated at runtime.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.namespace">
+<tr id="Params-MetricInfo-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -66,7 +66,7 @@ Default value: &ldquo;istio&rdquo;.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.name">
+<tr id="Params-MetricInfo-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -76,7 +76,7 @@ If name is not specified a sanitized version of instance_name is used.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.instance_name">
+<tr id="Params-MetricInfo-instance_name">
 <td><code>instanceName</code></td>
 <td><code>string</code></td>
 <td>
@@ -85,7 +85,7 @@ that this MetricInfo processes.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.description">
+<tr id="Params-MetricInfo-description">
 <td><code>description</code></td>
 <td><code>string</code></td>
 <td>
@@ -93,15 +93,15 @@ that this MetricInfo processes.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.kind">
+<tr id="Params-MetricInfo-kind">
 <td><code>kind</code></td>
-<td><code><a href="#Params.MetricInfo.Kind">Params.MetricInfo.Kind</a></code></td>
+<td><code><a href="#Params-MetricInfo-Kind">Params.MetricInfo.Kind</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.buckets">
+<tr id="Params-MetricInfo-buckets">
 <td><code>buckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
 <td>
 <p>For metrics with a metric kind of DISTRIBUTION, this provides a mechanism
 for configuring the buckets that will be used to store the aggregated values.
@@ -110,7 +110,7 @@ This field will be ignored for non-distribution metric kinds.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.label_names">
+<tr id="Params-MetricInfo-label_names">
 <td><code>labelNames</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -122,7 +122,7 @@ TODO: see if we can remove this and rely on only the dimensions in the future.</
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
 <section>
 <p>Describes buckets for DISTRIBUTION kind metrics.</p>
 
@@ -135,25 +135,25 @@ TODO: see if we can remove this and rely on only the dimensions in the future.</
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.linear_buckets" class="oneof oneof-start">
+<tr id="Params-MetricInfo-BucketsDefinition-linear_buckets" class="oneof oneof-start">
 <td><code>linearBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
 <td>
 <p>The linear buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.exponential_buckets" class="oneof">
+<tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
 <td><code>exponentialBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
 <td>
 <p>The exponential buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.explicit_buckets" class="oneof">
+<tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
 <td><code>explicitBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
 <td>
 <p>The explicit buckets.</p>
 
@@ -162,7 +162,7 @@ TODO: see if we can remove this and rely on only the dimensions in the future.</
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
 <section>
 <p>Specifies a set of buckets with arbitrary widths.</p>
 
@@ -187,7 +187,7 @@ element is the common boundary of the overflow and underflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Explicit.bounds">
+<tr id="Params-MetricInfo-BucketsDefinition-Explicit-bounds">
 <td><code>bounds</code></td>
 <td><code>double[]</code></td>
 <td>
@@ -198,7 +198,7 @@ element is the common boundary of the overflow and underflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
 <section>
 <p>Specifies an exponential sequence of buckets that have a width that is
 proportional to the value of the lower bound. Each bucket represents a
@@ -223,7 +223,7 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.num_finite_buckets">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-num_finite_buckets">
 <td><code>numFiniteBuckets</code></td>
 <td><code>int32</code></td>
 <td>
@@ -231,7 +231,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.growth_factor">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-growth_factor">
 <td><code>growthFactor</code></td>
 <td><code>double</code></td>
 <td>
@@ -239,7 +239,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.scale">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-scale">
 <td><code>scale</code></td>
 <td><code>double</code></td>
 <td>
@@ -250,7 +250,7 @@ buckets are the underflow and overflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
 <section>
 <p>Specifies a linear sequence of buckets that all have the same width
 (except overflow and underflow). Each bucket represents a constant
@@ -275,7 +275,7 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.num_finite_buckets">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-num_finite_buckets">
 <td><code>numFiniteBuckets</code></td>
 <td><code>int32</code></td>
 <td>
@@ -283,7 +283,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.width">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-width">
 <td><code>width</code></td>
 <td><code>double</code></td>
 <td>
@@ -291,7 +291,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.offset">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-offset">
 <td><code>offset</code></td>
 <td><code>double</code></td>
 <td>
@@ -302,7 +302,7 @@ buckets are the underflow and overflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.Kind">Params.MetricInfo.Kind</h2>
+<h2 id="Params-MetricInfo-Kind">Params.MetricInfo.Kind</h2>
 <section>
 <p>Describes what kind of metric this is.</p>
 
@@ -314,22 +314,22 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.Kind.UNSPECIFIED">
+<tr id="Params-MetricInfo-Kind-UNSPECIFIED">
 <td><code>UNSPECIFIED</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Kind.GAUGE">
+<tr id="Params-MetricInfo-Kind-GAUGE">
 <td><code>GAUGE</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Kind.COUNTER">
+<tr id="Params-MetricInfo-Kind-COUNTER">
 <td><code>COUNTER</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Kind.DISTRIBUTION">
+<tr id="Params-MetricInfo-Kind-DISTRIBUTION">
 <td><code>DISTRIBUTION</code></td>
 <td>
 </td>

@@ -243,6 +243,7 @@ func decodeStatus(status rpc.Status) string {
 	return result
 }
 
+// nolint:deadcode
 func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAttributes) {
 	if attrs == nil {
 		return

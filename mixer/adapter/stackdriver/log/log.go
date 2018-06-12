@@ -66,6 +66,7 @@ type (
 		l                  adapter.Logger
 		client, syncClient io.Closer
 		info               map[string]info
+		md                 helper.Metadata
 	}
 )
 
@@ -150,7 +151,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			flush:  client.Logger(name).Flush,
 		}
 	}
-	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos}, nil
+	return &handler{client: client, syncClient: syncClient, now: time.Now, l: logger, info: infos, md: md}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -186,9 +187,11 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 
 		// If we don't set a resource the SDK will populate a global resource for us.
 		if v.MonitoredResourceType != "" {
+			labels := helper.ToStringMap(v.MonitoredResourceDimensions)
+			h.md.FillProjectMetadata(labels)
 			e.Resource = &monitoredres.MonitoredResource{
 				Type:   v.MonitoredResourceType,
-				Labels: helper.ToStringMap(v.MonitoredResourceDimensions),
+				Labels: labels,
 			}
 		}
 		linfo.log(e)

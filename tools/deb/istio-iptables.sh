@@ -270,24 +270,24 @@ done
 # localhost.
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
-if [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
-  if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
-    # Redirect exclusions must be applied before inclusions.
-    if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
-      for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
-        iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j RETURN
-      done
-    fi
-    # Redirect remaining outbound traffic to Envoy
-    iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
-  else
-    # User has specified a non-empty list of cidrs to be redirected to Envoy.
-    for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
-      iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j ISTIO_REDIRECT
-    done
-    # All other traffic is not redirected.
-    iptables -t nat -A ISTIO_OUTPUT -j RETURN
-  fi
+# Apply outbound IP exclusions. Must be applied before inclusions.
+if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
+  for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
+    iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j RETURN
+  done
+fi
+
+# Apply outbound IP inclusions.
+if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
+  # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+  iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
+  # User has specified a non-empty list of cidrs to be redirected to Envoy.
+  for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+    iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j ISTIO_REDIRECT
+  done
+  # All other traffic is not redirected.
+  iptables -t nat -A ISTIO_OUTPUT -j RETURN
 fi
 
 # If ENABLE_INBOUND_IPV6 is unset (default unset), restrict IPv6 traffic.

@@ -19,7 +19,6 @@ package crd
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -77,28 +77,6 @@ type Client struct {
 	dynamic *rest.RESTClient
 }
 
-// resolveConfig checks whether to use the in-cluster or out-of-cluster config.
-func resolveConfig(kubeconfig string) (string, error) {
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil {
-			if os.IsNotExist(err) {
-				err = fmt.Errorf("kubernetes configuration file %q does not exist", kubeconfig)
-			} else {
-				err = multierror.Append(err, fmt.Errorf("kubernetes configuration file %q", kubeconfig))
-			}
-			return "", err
-		}
-
-		// if it's an empty file, switch to in-cluster config
-		if info.Size() == 0 {
-			log.Info("using in-cluster configuration")
-			return "", nil
-		}
-	}
-	return kubeconfig, nil
-}
-
 // CreateRESTConfig for cluster API server, pass empty config file for in-cluster
 func CreateRESTConfig(kubeconfig string) (restconfig *rest.Config, err error) {
 	restconfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -141,7 +119,7 @@ func NewClient(config string, descriptor config.Descriptor) (*Client, error) {
 		}
 	}
 
-	kubeconfig, err := resolveConfig(config)
+	kubeconfig, err := kube.ResolveConfig(config)
 	if err != nil {
 		return nil, err
 	}

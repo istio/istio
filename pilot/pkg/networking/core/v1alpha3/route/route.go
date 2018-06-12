@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -39,11 +40,6 @@ const (
 	HeaderMethod    = ":method"
 	HeaderAuthority = ":authority"
 	HeaderScheme    = ":scheme"
-)
-
-const (
-	// DefaultRoute is the default decorator
-	DefaultRoute = "default-route"
 )
 
 var (
@@ -110,10 +106,11 @@ func TranslateVirtualHosts(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				out = append(out, GuardedHost{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -227,19 +224,19 @@ func TranslateRoutes(
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	operation := virtualService.ConfigMeta.Name
+	vsName := virtualService.ConfigMeta.Name
 
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(http, nil, port, vsName, serviceIndex, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(http, match, port, vsName, serviceIndex, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -276,7 +273,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 // translateRoute translates HTTP routes
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	operation string,
+	vsName string,
 	serviceIndex map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
@@ -295,10 +292,7 @@ func translateRoute(in *networking.HTTPRoute,
 	}
 
 	out := &route.Route{
-		Match: translateRouteMatch(match),
-		Decorator: &route.Decorator{
-			Operation: operation,
-		},
+		Match:           translateRouteMatch(match),
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
@@ -319,8 +313,11 @@ func translateRoute(in *networking.HTTPRoute,
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
-			//(Duration) Specifies the timeout for the route. If not specified, the default is 15s.
-			// Having it set to 0 may work as well.
+			action.Timeout = &d
+		} else {
+			// if no timeout is specified, disable timeouts. This is easier
+			// to reason about than assuming some defaults.
+			d := 0 * time.Second
 			action.Timeout = &d
 		}
 
@@ -375,6 +372,9 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 	}
 
+	out.Decorator = &route.Decorator{
+		Operation: getRouteOperation(out, vsName, port),
+	}
 	if fault := in.Fault; fault != nil {
 		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
 	}
@@ -486,16 +486,44 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	return &out
 }
 
+// getRouteOperation returns readable route description for trace.
+func getRouteOperation(in *route.Route, vsName string, port int) string {
+	path := "/*"
+	m := in.GetMatch()
+	ps := m.GetPathSpecifier()
+	if ps != nil {
+		switch ps.(type) {
+		case *route.RouteMatch_Prefix:
+			path = fmt.Sprintf("%s*", m.GetPrefix())
+		case *route.RouteMatch_Path:
+			path = m.GetPath()
+		case *route.RouteMatch_Regex:
+			path = m.GetRegex()
+		}
+	}
+
+	operation := fmt.Sprintf("%s:%d%s", vsName, port, path)
+	// use host:port + match uri if there is only one destination cluster.
+	wc := in.GetRoute().GetWeightedClusters()
+	if c := wc.GetClusters(); len(c) == 1 {
+		_, _, h, p := model.ParseSubsetKey(c[0].Name)
+		operation = fmt.Sprintf("%s:%d%s", h, p, path)
+	}
+	return operation
+}
+
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string) *route.Route {
+func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+	notimeout := 0 * time.Second
 	return &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
-			Operation: DefaultRoute,
+			Operation: operation,
 		},
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
 			},
 		},
 	}

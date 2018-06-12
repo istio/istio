@@ -17,6 +17,7 @@ package dispatcher
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
@@ -25,7 +26,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
@@ -45,13 +46,13 @@ type session struct {
 	// input parameters that was collected as part of the call.
 	ctx          context.Context
 	bag          attribute.Bag
-	quotaArgs    adapter.QuotaArgs
+	quotaArgs    QuotaMethodArgs
 	responseBag  *attribute.MutableBag
 	reportStates map[*routing.Destination]*dispatchState
 
-	// output parameters that gets collected / accumulated as result.
-	checkResult *adapter.CheckResult
-	quotaResult *adapter.QuotaResult
+	// output parameters that get collected / accumulated as results.
+	checkResult adapter.CheckResult
+	quotaResult adapter.QuotaResult
 	err         error
 
 	// The current number of activeDispatches handler dispatches.
@@ -70,14 +71,14 @@ func (s *session) clear() {
 	s.variety = 0
 	s.ctx = nil
 	s.bag = nil
-	s.quotaArgs = adapter.QuotaArgs{}
+	s.quotaArgs = QuotaMethodArgs{}
 	s.responseBag = nil
 	s.reportStates = nil
 
 	s.activeDispatches = 0
 	s.err = nil
-	s.quotaResult = nil
-	s.checkResult = nil
+	s.quotaResult = adapter.QuotaResult{}
+	s.checkResult = adapter.CheckResult{}
 
 	// Drain the channel
 	exit := false
@@ -115,12 +116,13 @@ func (s *session) dispatch() error {
 	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{adapter.Service{identityAttributeValue}})
 
 	// TODO(Issue #2139): This is for old-style metadata based policy decisions. This should be eventually removed.
-	ctxProtocol, _ := s.bag.Get(config.ContextProtocolAttributeName)
-	tcp := ctxProtocol == config.ContextProtocolTCP
+	ctxProtocol, _ := s.bag.Get(constant.ContextProtocolAttributeName)
+	tcp := ctxProtocol == constant.ContextProtocolTCP
 
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
 
+	foundQuota := false
 	ninputs := 0
 	ndestinations := 0
 	for _, destination := range destinations.Entries() {
@@ -142,9 +144,20 @@ func (s *session) dispatch() error {
 			ndestinations++
 
 			for j, input := range group.Builders {
+				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
+					// only dispatch instances with a matching name
+
+					if input.InstanceShortName != s.quotaArgs.Quota {
+						continue
+					}
+
+					foundQuota = true
+				}
+
 				var instance interface{}
-				if instance, err = input(s.bag); err != nil {
-					log.Warnf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
+				if instance, err = input.Builder(s.bag); err != nil {
+					log.Errorf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
+					s.err = multierror.Append(s.err, err)
 					continue
 				}
 				ninputs++
@@ -164,7 +177,9 @@ func (s *session) dispatch() error {
 				}
 
 				// Dispatch for singleton dispatches
-				state.quotaArgs = s.quotaArgs
+				state.quotaArgs.BestEffort = s.quotaArgs.BestEffort
+				state.quotaArgs.DeduplicationID = s.quotaArgs.DeduplicationID
+				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
 				s.dispatchToHandler(state)
 			}
 		}
@@ -172,6 +187,11 @@ func (s *session) dispatch() error {
 
 	updateRequestCounters(ndestinations, ninputs)
 	s.waitForDispatched()
+
+	if s.variety == tpb.TEMPLATE_VARIETY_QUOTA && !foundQuota {
+		log.Errorf("Requested quota '%s' is invalid", s.quotaArgs.Quota)
+		s.err = multierror.Append(s.err, fmt.Errorf("requested quota '%s' is invalid", s.quotaArgs.Quota))
+	}
 
 	return nil
 }
@@ -217,10 +237,11 @@ func (s *session) waitForDispatched() {
 			// Do nothing
 
 		case tpb.TEMPLATE_VARIETY_CHECK:
-			if s.checkResult == nil {
-				r := state.checkResult
-				s.checkResult = &r
+			if s.checkResult.IsDefault() {
+				// no results so far
+				s.checkResult = state.checkResult
 			} else {
+				// combine with a previously obtained result
 				if s.checkResult.ValidDuration > state.checkResult.ValidDuration {
 					s.checkResult.ValidDuration = state.checkResult.ValidDuration
 				}
@@ -231,9 +252,8 @@ func (s *session) waitForDispatched() {
 			st = state.checkResult.Status
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
-			if s.quotaResult == nil {
-				r := state.quotaResult
-				s.quotaResult = &r
+			if s.quotaResult.IsDefault() {
+				s.quotaResult = state.quotaResult
 			} else {
 				log.Warnf("Skipping quota op result due to previous value: '%v', op: '%s'",
 					state.quotaResult, state.destination.FriendlyName)

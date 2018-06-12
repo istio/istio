@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -56,12 +57,16 @@ import (
 
 const (
 	kubePlatform = "kube"
+
+	// Headings for short format listing of unknown types
+	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE"
 )
 
 var (
 	platform string
 
 	kubeconfig       string
+	configContext    string
 	namespace        string
 	istioNamespace   string
 	istioContext     string
@@ -90,6 +95,22 @@ var (
 		model.RouteRule.Type:         5,
 		model.DestinationPolicy.Type: 10,
 		model.EgressRule.Type:        20,
+	}
+
+	// Headings for short format listing specific to type
+	shortOutputHeadings = map[string]string{
+		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE",
+		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE",
+		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE",
+		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE",
+	}
+
+	// Formatters for short format listing specific to type
+	shortOutputters = map[string]func(model.Config, io.Writer){
+		"gateway":          printShortGateway,
+		"virtual-service":  printShortVirtualService,
+		"destination-rule": printShortDestinationRule,
+		"service-entry":    printShortServiceEntry,
 	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
@@ -549,6 +570,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
+	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
+		"The name of the kubeconfig context to use")
+
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
 		"Istio system namespace")
 
@@ -656,16 +680,121 @@ func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.
 
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
-	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
+	prevType := ""
+	var outputter func(model.Config, io.Writer)
 	for _, c := range configList {
-		kind := fmt.Sprintf("%s.%s.%s",
-			crd.KabobCaseToCamelCase(c.Type),
-			c.Group,
-			c.Version,
-		)
-		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
+		if prevType != c.Type {
+			if prevType != "" {
+				// Place a newline between types when doing 'get all'
+				fmt.Fprintf(&w, "\n")
+			}
+			heading, ok := shortOutputHeadings[c.Type]
+			if !ok {
+				heading = unknownShortOutputHeading
+			}
+			fmt.Fprintf(&w, "%s\n", heading)
+			prevType = c.Type
+
+			if outputter, ok = shortOutputters[c.Type]; !ok {
+				outputter = printShortConfig
+			}
+		}
+
+		outputter(c, &w)
 	}
 	w.Flush() // nolint: errcheck
+}
+
+func kindAsString(config model.Config) string {
+	return fmt.Sprintf("%s.%s.%s",
+		crd.KabobCaseToCamelCase(config.Type),
+		config.Group,
+		config.Version,
+	)
+}
+
+func printShortConfig(config model.Config, w io.Writer) {
+	fmt.Fprintf(w, "%s\t%s\t%s\n",
+		config.Name,
+		kindAsString(config),
+		config.Namespace)
+}
+
+func printShortVirtualService(config model.Config, w io.Writer) {
+	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
+	if !ok {
+		fmt.Fprintf(w, "Not a virtualservice: %v", config)
+		return
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\n",
+		config.Name,
+		strings.Join(virtualService.Gateways, ","),
+		strings.Join(virtualService.Hosts, ","),
+		len(virtualService.Http),
+		len(virtualService.Tcp),
+		config.Namespace)
+}
+
+func printShortDestinationRule(config model.Config, w io.Writer) {
+	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
+	if !ok {
+		fmt.Fprintf(w, "Not a destinationrule: %v", config)
+		return
+	}
+
+	subsets := make([]string, 0)
+	for _, subset := range destinationRule.Subsets {
+		subsets = append(subsets, subset.Name)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name,
+		destinationRule.Host,
+		strings.Join(subsets, ","),
+		config.Namespace)
+}
+
+func printShortServiceEntry(config model.Config, w io.Writer) {
+	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
+	if !ok {
+		fmt.Fprintf(w, "Not a serviceentry: %v", config)
+		return
+	}
+
+	ports := make([]string, 0)
+	for _, port := range serviceEntry.Ports {
+		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name,
+		strings.Join(serviceEntry.Hosts, ","),
+		strings.Join(ports, ","),
+		config.Namespace)
+}
+
+func printShortGateway(config model.Config, w io.Writer) {
+	gateway, ok := config.Spec.(*v1alpha3.Gateway)
+	if !ok {
+		fmt.Fprintf(w, "Not a gateway: %v", config)
+		return
+	}
+
+	// Determine the servers
+	servers := make(map[string]bool)
+	for _, server := range gateway.Servers {
+		for _, host := range server.Hosts {
+			servers[host] = true
+		}
+	}
+	hosts := make([]string, 0)
+	for host := range servers {
+		hosts = append(hosts, host)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\n",
+		config.Name, strings.Join(hosts, ","), config.Namespace)
 }
 
 // Print as YAML
@@ -694,7 +823,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 
 func newClient() (model.ConfigStore, error) {
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
+	return crd.NewClient(kubeconfig, configContext, model.ConfigDescriptor{
 		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
@@ -709,6 +838,7 @@ func newClient() (model.ConfigStore, error) {
 		model.AuthenticationPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
+		model.RbacConfig,
 	}, "")
 }
 
@@ -735,7 +865,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = kubecfg.BuildClientConfig(kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig, configContext)
 
 	if err != nil {
 		return
