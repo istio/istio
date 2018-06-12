@@ -38,7 +38,7 @@ func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.Lock()
 	proxyID := r.URL.Query().Get("proxyID")
 	switch r.URL.Path {
-	case "/debug/adsz", "/debug/edsz":
+	case "/debug/adsz", "/debug/edsz", "/debug/authenticationz":
 		if proxyID == p.States[0].wantProxyID {
 			w.WriteHeader(p.States[0].StatusCode)
 			_, _ = w.Write([]byte(p.States[0].Response))
@@ -69,12 +69,14 @@ func Test_debug_run(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
 				{StatusCode: 404, Response: "fine", wantProxyID: "proxyID"},
+				{StatusCode: 404, Response: "fine", wantProxyID: "proxyID"},
 			},
 		},
 		{
 			name: "all configType with all proxyID passes no proxyID",
 			args: []string{"all", "all"},
 			pilotStates: []pilotStubState{
+				{StatusCode: 200, Response: "fine", wantProxyID: ""},
 				{StatusCode: 200, Response: "fine", wantProxyID: ""},
 				{StatusCode: 200, Response: "fine", wantProxyID: ""},
 			},
@@ -91,6 +93,7 @@ func Test_debug_run(t *testing.T) {
 			pilotStates: []pilotStubState{
 				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
 				{StatusCode: 500, Response: "not fine", wantProxyID: "proxyID"},
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
 			},
 			wantError: true,
 		},
@@ -133,6 +136,13 @@ func Test_debug_run(t *testing.T) {
 			args:              []string{"proxyID", "eds"},
 			pilotNotReachable: true,
 			wantError:         true,
+		},
+		{
+			name: "authenticationz configType no error with 200",
+			args: []string{"proxyID", "authn"},
+			pilotStates: []pilotStubState{
+				{StatusCode: 200, Response: "fine", wantProxyID: "proxyID"},
+			},
 		},
 		{
 			name:      "invalid configType returns an error",
