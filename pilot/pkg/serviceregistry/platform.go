@@ -28,4 +28,6 @@ const (
 	EurekaRegistry ServiceRegistry = "Eureka"
 	// CloudFoundryRegistry environment flag
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
+	// ZookeeperRegistry environment flag
+	ZookeeperRegistry = "Zookeeper"
 )
