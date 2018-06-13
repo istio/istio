@@ -65,38 +65,51 @@ func init() {
 	prometheus.MustRegister(noClusterMissingService)
 }
 
-// GuardedHost is a context-dependent virtual host entry with guarded routes.
-type GuardedHost struct {
-	// Port is the capture port (e.g. service port)
+// VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
+// Note: Currently we are not fully utilizing this structure. We could invoke this logic
+// once for all sidecars in the cluster to compute all RDS for inside the mesh and arrange
+// it by listener port. However to properly use such an optimization, we need to have an
+// eventing subsystem to invalidate the computed routes if any service changes/virtual services change.
+type VirtualHostWrapper struct {
+	// Port is the listener port for outbound sidecar (e.g. service port)
 	Port int
 
-	// Services are the services matching the virtual host.
-	// The service host names need to be contextualized by the source.
+	// Services are the services from the registry. Each service
+	// in this list should have a virtual host entry
 	Services []*model.Service
 
-	// Hosts is a list of alternative literal host names for the host.
-	Hosts []string
+	// VirtualServiceHosts is a list of hosts defined in the virtual service
+	// if virtual service hostname is same as a the service registry host, then
+	// the host would appear in Services as we need to generate all variants of the
+	// service's hostname within a platform (e.g., foo, foo.default, foo.default.svc, etc.)
+	VirtualServiceHosts []string
 
 	// Routes in the virtual host
 	Routes []route.Route
 }
 
-// TranslateVirtualHosts creates the entire routing table for Istio v1alpha3 configs.
-// Services are indexed by FQDN hostnames.
-// Cluster domain is used to resolve short service names (e.g. "svc.cluster.local").
-func TranslateVirtualHosts(
-	serviceConfigs []model.Config, services map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayNames map[string]bool) []GuardedHost {
+// BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
+// services from the service registry. Services are indexed by FQDN hostnames.
+func BuildVirtualHostsFromConfigAndRegistry(
+	virtualServices []model.Config, serviceRegistry map[model.Hostname]*model.Service,
+	proxyLabels model.LabelsCollection,
+	gatewayNames map[string]bool) []VirtualHostWrapper {
 
-	out := make([]GuardedHost, 0)
+	out := make([]VirtualHostWrapper, 0)
 
-	// translate all virtual service configs
-	for _, config := range serviceConfigs {
-		out = append(out, translateVirtualHost(config, services, proxyLabels, gatewayNames)...)
+	// translate all virtual service configs into virtual hosts
+	for _, virtualService := range virtualServices {
+		wrappers := buildVirtualHostsForVirtualService(virtualService, serviceRegistry, proxyLabels, gatewayNames)
+		if len(wrappers) == 0 {
+			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
+			continue
+		}
+		out = append(out, wrappers...)
 	}
 
-	// compute services missing service configs
+	// compute services missing virtual service configs
 	missing := make(map[model.Hostname]bool)
-	for fqdn := range services {
+	for fqdn := range serviceRegistry {
 		missing[fqdn] = true
 	}
 	for _, host := range out {
@@ -107,11 +120,11 @@ func TranslateVirtualHosts(
 
 	// append default hosts for the service missing virtual services
 	for fqdn := range missing {
-		svc := services[fqdn]
+		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				out = append(out, GuardedHost{
+				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
 					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster)},
@@ -123,21 +136,23 @@ func TranslateVirtualHosts(
 	return out
 }
 
-// matchServiceHosts splits the virtual service hosts into services and literal hosts
-func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.Service) ([]string, []*model.Service) {
-	rule := in.Spec.(*networking.VirtualService)
+// separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
+// plain non-registry hostnames
+func separateVSHostsAndServices(virtualService model.Config,
+	serviceRegistry map[model.Hostname]*model.Service) ([]string, []*model.Service) {
+	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
-	services := make([]*model.Service, 0)
+	servicesInVirtualService := make([]*model.Service, 0)
 	for _, host := range rule.Hosts {
 		// Say host is *.global
 		vsHostname := model.Hostname(host)
 		foundSvcMatch := false
 		// TODO: Optimize me. This is O(n2) or worse. Need to prune at top level in config
 		// Say we have services *.foo.global, *.bar.global
-		for svcHost, svc := range serviceIndex {
+		for svcHost, svc := range serviceRegistry {
 			// *.foo.global matches *.global
 			if svcHost.Matches(vsHostname) {
-				services = append(services, svc)
+				servicesInVirtualService = append(servicesInVirtualService, svc)
 				foundSvcMatch = true
 			}
 		}
@@ -145,18 +160,24 @@ func matchServiceHosts(in model.Config, serviceIndex map[model.Hostname]*model.S
 			hosts = append(hosts, host)
 		}
 	}
-	return hosts, services
+	return hosts, servicesInVirtualService
 }
 
-// translateVirtualHost creates virtual hosts corresponding to a virtual service.
+// buildVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func translateVirtualHost(
-	in model.Config, serviceIndex map[model.Hostname]*model.Service, proxyLabels model.LabelsCollection, gatewayName map[string]bool) []GuardedHost {
+func buildVirtualHostsForVirtualService(
+	virtualService model.Config, serviceRegistry map[model.Hostname]*model.Service,
+	proxyLabels model.LabelsCollection, gatewayName map[string]bool) []VirtualHostWrapper {
 
-	hosts, services := matchServiceHosts(in, serviceIndex)
+	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+	// Now group these services by port so that we can infer the destination.port if the user
+	// doesn't specify any port for a multiport service. We need to know the destination port in
+	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)
+	// If the destination service is being accessed on port X, we set that as the default
+	// destination port
 	serviceByPort := make(map[int][]*model.Service)
-	for _, svc := range services {
+	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
@@ -164,29 +185,33 @@ func translateVirtualHost(
 		}
 	}
 
-	// if no services matched, then we have no port information -- default to 80 for now
+	// We need to group the virtual hosts by port, because each http connection manager is
+	// going to send a separate RDS request
+	// Note that we need to build non-default HTTP routes only for the virtual services.
+	// The services in the serviceRegistry will always have a default route (/)
 	if len(serviceByPort) == 0 {
+		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
+		// the current code is written.
 		serviceByPort[80] = nil
 	}
-
-	out := make([]GuardedHost, 0, len(serviceByPort))
+	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := TranslateRoutes(in, serviceIndex, port, proxyLabels, gatewayName)
+		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
-		out = append(out, GuardedHost{
-			Port:     port,
-			Services: portServices,
-			Hosts:    hosts,
-			Routes:   routes,
+		out = append(out, VirtualHostWrapper{
+			Port:                port,
+			Services:            portServices,
+			VirtualServiceHosts: hosts,
+			Routes:              routes,
 		})
 	}
 
 	return out
 }
 
-// GetDestinationCluster generate a cluster name for the route, or error if no cluster
+// GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	port := listenerPort
@@ -209,16 +234,16 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, model.Hostname(destination.Host), port)
 }
 
-// TranslateRoutes creates virtual host routes from the v1alpha3 config.
+// BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
 // The rule should be adapted to destination names (outbound clusters).
 // Each rule is guarded by source labels.
 //
 // This is called for each port to compute virtual hosts.
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
-func TranslateRoutes(
+func BuildHTTPRoutesForVirtualService(
 	virtualService model.Config,
-	serviceIndex map[model.Hostname]*model.Service,
+	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
@@ -233,14 +258,14 @@ func TranslateRoutes(
 	out := make([]route.Route, 0, len(rule.Http))
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(http, nil, port, operation, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, operation, serviceIndex, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(http, match, port, operation, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -278,7 +303,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	operation string,
-	serviceIndex map[model.Hostname]*model.Service,
+	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
 
@@ -350,17 +375,24 @@ func translateRoute(in *networking.HTTPRoute,
 		}
 
 		if in.Mirror != nil {
-			n := GetDestinationCluster(in.Mirror, serviceIndex[model.Hostname(in.Mirror.Host)], port)
+			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
 			action.RequestMirrorPolicy = &route.RouteAction_RequestMirrorPolicy{Cluster: n}
 		}
 
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
-			if dst.Weight == 0 {
-				continue
-			}
 			weight := &types.UInt32Value{Value: uint32(dst.Weight)}
-			n := GetDestinationCluster(dst.Destination, serviceIndex[model.Hostname(dst.Destination.Host)], port)
+			if dst.Weight == 0 {
+				// Ignore 0 weighted clusters if there are other clusters in the route.
+				// But if this is the only cluster in the route, then add it as a cluster with weight 100
+				if len(in.Route) == 1 {
+					weight.Value = uint32(100)
+				} else {
+					continue
+				}
+			}
+
+			n := GetDestinationCluster(dst.Destination, serviceRegistry[model.Hostname(dst.Destination.Host)], port)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,

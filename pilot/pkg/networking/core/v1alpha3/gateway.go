@@ -150,7 +150,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	return listeners, nil
 }
 
-func (configgen *ConfigGeneratorImpl) buildGatewayRoutes(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
 	// collect workload labels
@@ -216,7 +216,7 @@ func createGatewayHTTPFilterChainOpts(
 				// DO NOT CHANGE THIS FORMAT. ITs set in model/gateway.go merge function
 				// And used during RDS calls to lookup servers for a route config
 				// TODO: find a cleaner way to do this
-				rds:              fmt.Sprintf("http.%d", servers[0].Port.Number),
+				rds:              model.GatewayRDSRouteName(servers[0]),
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			},
@@ -238,7 +238,7 @@ func createGatewayHTTPFilterChainOpts(
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					routeConfig:      routeCfg,
-					rds:              fmt.Sprintf("https.%d.%s", server.Port.Number, server.Port.Name),
+					rds:              model.GatewayRDSRouteName(server),
 					useRemoteAddress: true,
 					direction:        http_conn.EGRESS, // viewed as from gateway to internal
 				},
@@ -298,6 +298,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 	}
 }
 
+// TODO: Once RDS is permanent, merge this function with buildGatewayHTTPRouteConfig
 func buildGatewayInboundHTTPRouteConfig(
 	env model.Environment,
 	svcs map[model.Hostname]*model.Service,
@@ -327,7 +328,7 @@ func buildGatewayInboundHTTPRouteConfig(
 			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
 			continue
 		}
-		routes, err := istio_route.TranslateRoutes(v, svcs, port, nil, gateways)
+		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways)
 		if err != nil {
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
 			continue

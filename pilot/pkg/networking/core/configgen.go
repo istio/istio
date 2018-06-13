@@ -32,8 +32,8 @@ type ConfigGenerator interface {
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 	BuildClusters(env model.Environment, node model.Proxy) ([]*v2.Cluster, error)
 
-	// BuildRoutes returns the list of routes for the given proxy. This is the RDS output
-	BuildRoutes(env model.Environment, node model.Proxy, routeName string) (*v2.RouteConfiguration, error)
+	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
+	BuildHTTPRoutes(env model.Environment, node model.Proxy, routeName string) (*v2.RouteConfiguration, error)
 }
 
 // NewConfigGenerator creates a new instance of the dataplane configuration generator

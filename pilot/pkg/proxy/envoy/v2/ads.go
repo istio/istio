@@ -549,7 +549,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildRoutes(s.env, *con.modelNode, routeName)
+		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, *con.modelNode, routeName)
 		if err != nil || r == nil {
 			retErr := fmt.Errorf("RDS: Failed to generate routes for route %s: %v", routeName, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route %s: %v", routeName, err)
