@@ -105,6 +105,10 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by uncommenting the resources
+  # block in the relevant section below and setting appropriate resources values.
   defaultControlPlaneResources:
     requests:
       cpu: 100m
