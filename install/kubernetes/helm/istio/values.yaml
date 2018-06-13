@@ -445,7 +445,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.0.Alpha
+    tag: 0.3.1.Alpha
   ingress:
     enabled: false
     ## Used to create an Ingress record.
