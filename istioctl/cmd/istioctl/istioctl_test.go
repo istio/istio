@@ -121,6 +121,7 @@ var (
 					{
 						Port: &networking.Port{
 							Number:   80,
+							Name:     "http",
 							Protocol: "HTTP",
 						},
 						Hosts: []string{"*"},
@@ -332,9 +333,18 @@ func TestCreate(t *testing.T) {
 		},
 		{ // case 1
 			[]model.Config{},
-			strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "), // todo add -f
+			strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
 			"",
-			regexp.MustCompile("^Created config route-rule/default/route-rule-80-20.*"),
+			regexp.MustCompile("^Warning: route-rule is deprecated and will not be supported" +
+				" in future Istio versions \\(route-rule-80-20\\).\n" +
+				"Created config route-rule/default/route-rule-80-20.*"),
+			false,
+		},
+		{ // case 2
+			[]model.Config{},
+			strings.Split("create -f convert/testdata/v1alpha3/route-rule-80-20.yaml.golden", " "),
+			"",
+			regexp.MustCompile("^Created config virtual-service/default/helloworld-service.*"),
 			false,
 		},
 	}

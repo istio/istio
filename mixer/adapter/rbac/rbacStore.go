@@ -201,8 +201,13 @@ func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adap
 					}
 				}
 				subProp := subject.GetProperties()
-				if len(subProp) != 0 && checkSubject(instSub, subProp) {
-					foundMatch = true
+				if len(subProp) != 0 {
+					if checkSubject(instSub, subProp) {
+						foundMatch = true
+					} else {
+						// Found a mismatch, try next subject.
+						continue
+					}
 				}
 				if foundMatch {
 					logger.Debugf("binding matched")
