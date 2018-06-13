@@ -211,6 +211,13 @@ var (
 		}},
 	}
 
+	// ExampleAuthenticationClusterPolicy is an example cluster-scoped authentication Policy
+	ExampleAuthenticationClusterPolicy = &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
 	// ExampleServiceRole is an example rbac service role
 	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 		{
@@ -468,6 +475,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"ClusterPolicy", model.AuthenticationClusterPolicy, ExampleAuthenticationClusterPolicy},
 		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", model.RbacConfig, ExampleRbacConfig},

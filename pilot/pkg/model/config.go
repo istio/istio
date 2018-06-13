@@ -32,13 +32,9 @@ import (
 )
 
 const (
-	// GlobalConfigNamespace policies/configs in this namespace can be matched to services/workloads
-	// in any other namespaces.
-	GlobalConfigNamespace = "istio-global-config"
-
-	// GlobalAuthenticationPolicyName is the name of the global authentication policy. Only policy with
-	// this name in the `GlobalConfigNamespace` will be considered.
-	GlobalAuthenticationPolicyName = "global"
+	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
+	// policy witht this name in the cluster-scoped will be considered.
+	DefaultAuthenticationPolicyName = "default"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -201,6 +197,9 @@ type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
 type ProtoSchema struct {
+	// ClusterScoped is true for resource in cluster-level.
+	ClusterScoped bool
+
 	// Type is the config proto type.
 	Type string
 
@@ -359,11 +358,12 @@ const (
 var (
 	// MockConfig is used purely for testing
 	MockConfig = ProtoSchema{
-		Type:        "mock-config",
-		Plural:      "mock-configs",
-		Group:       "test",
-		Version:     "v1",
-		MessageName: "test.MockConfig",
+		ClusterScoped: false,
+		Type:          "mock-config",
+		Plural:        "mock-configs",
+		Group:         "test",
+		Version:       "v1",
+		MessageName:   "test.MockConfig",
 		Validate: func(config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
 				return errors.New("empty key")
@@ -374,155 +374,181 @@ var (
 
 	// RouteRule describes route rules
 	RouteRule = ProtoSchema{
-		Type:        "route-rule",
-		Plural:      "route-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.RouteRule",
-		Validate:    ValidateRouteRule,
+		ClusterScoped: false,
+		Type:          "route-rule",
+		Plural:        "route-rules",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.routing.v1alpha1.RouteRule",
+		Validate:      ValidateRouteRule,
 	}
 
 	// VirtualService describes v1alpha3 route rules
 	VirtualService = ProtoSchema{
-		Type:        "virtual-service",
-		Plural:      "virtual-services",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.VirtualService",
-		Gogo:        true,
-		Validate:    ValidateVirtualService,
+		ClusterScoped: false,
+		Type:          "virtual-service",
+		Plural:        "virtual-services",
+		Group:         "networking",
+		Version:       "v1alpha3",
+		MessageName:   "istio.networking.v1alpha3.VirtualService",
+		Gogo:          true,
+		Validate:      ValidateVirtualService,
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
 	Gateway = ProtoSchema{
-		Type:        "gateway",
-		Plural:      "gateways",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.Gateway",
-		Gogo:        true,
-		Validate:    ValidateGateway,
+		ClusterScoped: false,
+		Type:          "gateway",
+		Plural:        "gateways",
+		Group:         "networking",
+		Version:       "v1alpha3",
+		MessageName:   "istio.networking.v1alpha3.Gateway",
+		Gogo:          true,
+		Validate:      ValidateGateway,
 	}
 
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
-		Type:        "ingress-rule",
-		Plural:      "ingress-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.IngressRule",
-		Validate:    ValidateIngressRule,
+		ClusterScoped: false,
+		Type:          "ingress-rule",
+		Plural:        "ingress-rules",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.routing.v1alpha1.IngressRule",
+		Validate:      ValidateIngressRule,
 	}
 
 	// EgressRule describes egress rule
 	EgressRule = ProtoSchema{
-		Type:        "egress-rule",
-		Plural:      "egress-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.EgressRule",
-		Validate:    ValidateEgressRule,
+		ClusterScoped: false,
+		Type:          "egress-rule",
+		Plural:        "egress-rules",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.routing.v1alpha1.EgressRule",
+		Validate:      ValidateEgressRule,
 	}
 
 	// ServiceEntry describes service entries
 	ServiceEntry = ProtoSchema{
-		Type:        "service-entry",
-		Plural:      "service-entries",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.ServiceEntry",
-		Gogo:        true,
-		Validate:    ValidateServiceEntry,
+		ClusterScoped: false,
+		Type:          "service-entry",
+		Plural:        "service-entries",
+		Group:         "networking",
+		Version:       "v1alpha3",
+		MessageName:   "istio.networking.v1alpha3.ServiceEntry",
+		Gogo:          true,
+		Validate:      ValidateServiceEntry,
 	}
 
 	// DestinationPolicy describes destination rules
 	DestinationPolicy = ProtoSchema{
-		Type:        "destination-policy",
-		Plural:      "destination-policies",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
-		Validate:    ValidateDestinationPolicy,
+		ClusterScoped: false,
+		Type:          "destination-policy",
+		Plural:        "destination-policies",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.routing.v1alpha1.DestinationPolicy",
+		Validate:      ValidateDestinationPolicy,
 	}
 
 	// DestinationRule describes destination rules
 	DestinationRule = ProtoSchema{
-		Type:        "destination-rule",
-		Plural:      "destination-rules",
-		Group:       "networking",
-		Version:     "v1alpha3",
-		MessageName: "istio.networking.v1alpha3.DestinationRule",
-		Validate:    ValidateDestinationRule,
+		ClusterScoped: false,
+		Type:          "destination-rule",
+		Plural:        "destination-rules",
+		Group:         "networking",
+		Version:       "v1alpha3",
+		MessageName:   "istio.networking.v1alpha3.DestinationRule",
+		Validate:      ValidateDestinationRule,
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
-		Type:        "http-api-spec",
-		Plural:      "http-api-specs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
-		Validate:    ValidateHTTPAPISpec,
+		ClusterScoped: false,
+		Type:          "http-api-spec",
+		Plural:        "http-api-specs",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.mixer.v1.config.client.HTTPAPISpec",
+		Validate:      ValidateHTTPAPISpec,
 	}
 
 	// HTTPAPISpecBinding describes an HTTP API specification binding.
 	HTTPAPISpecBinding = ProtoSchema{
-		Type:        "http-api-spec-binding",
-		Plural:      "http-api-spec-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
-		Validate:    ValidateHTTPAPISpecBinding,
+		ClusterScoped: false,
+		Type:          "http-api-spec-binding",
+		Plural:        "http-api-spec-bindings",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.mixer.v1.config.client.HTTPAPISpecBinding",
+		Validate:      ValidateHTTPAPISpecBinding,
 	}
 
 	// QuotaSpec describes an Quota specification.
 	QuotaSpec = ProtoSchema{
-		Type:        "quota-spec",
-		Plural:      "quota-specs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
-		Validate:    ValidateQuotaSpec,
+		ClusterScoped: false,
+		Type:          "quota-spec",
+		Plural:        "quota-specs",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.mixer.v1.config.client.QuotaSpec",
+		Validate:      ValidateQuotaSpec,
 	}
 
 	// QuotaSpecBinding describes an Quota specification binding.
 	QuotaSpecBinding = ProtoSchema{
-		Type:        "quota-spec-binding",
-		Plural:      "quota-spec-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
-		Validate:    ValidateQuotaSpecBinding,
+		ClusterScoped: false,
+		Type:          "quota-spec-binding",
+		Plural:        "quota-spec-bindings",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.mixer.v1.config.client.QuotaSpecBinding",
+		Validate:      ValidateQuotaSpecBinding,
 	}
 
 	// AuthenticationPolicy describes an authentication policy.
 	AuthenticationPolicy = ProtoSchema{
-		Type:        "policy",
-		Plural:      "policies",
-		Group:       "authentication",
-		Version:     "v1alpha1",
-		MessageName: "istio.authentication.v1alpha1.Policy",
-		Validate:    ValidateAuthenticationPolicy,
+		ClusterScoped: false,
+		Type:          "policy",
+		Plural:        "policies",
+		Group:         "authentication",
+		Version:       "v1alpha1",
+		MessageName:   "istio.authentication.v1alpha1.Policy",
+		Validate:      ValidateAuthenticationPolicy,
+	}
+
+	// AuthenticationClusterPolicy describes an authentication policy at cluster level.
+	AuthenticationClusterPolicy = ProtoSchema{
+		ClusterScoped: true,
+		Type:          "cluster-policy",
+		Plural:        "cluster-policies",
+		Group:         "authentication",
+		Version:       "v1alpha1",
+		MessageName:   "istio.authentication.v1alpha1.Policy",
+		Validate:      ValidateAuthenticationPolicy,
 	}
 
 	// ServiceRole describes an RBAC service role.
 	ServiceRole = ProtoSchema{
-		Type:        "service-role",
-		Plural:      "service-roles",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.rbac.v1alpha1.ServiceRole",
-		Validate:    ValidateServiceRole,
+		ClusterScoped: false,
+		Type:          "service-role",
+		Plural:        "service-roles",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.rbac.v1alpha1.ServiceRole",
+		Validate:      ValidateServiceRole,
 	}
 
 	// ServiceRoleBinding describes an RBAC service role.
 	ServiceRoleBinding = ProtoSchema{
-		Type:        "service-role-binding",
-		Plural:      "service-role-bindings",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.rbac.v1alpha1.ServiceRoleBinding",
-		Validate:    ValidateServiceRoleBinding,
+		ClusterScoped: false,
+		Type:          "service-role-binding",
+		Plural:        "service-role-bindings",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
+		Validate:      ValidateServiceRoleBinding,
 	}
 
 	// RbacConfig describes an global RBAC config.
@@ -550,6 +576,7 @@ var (
 		QuotaSpec,
 		QuotaSpecBinding,
 		AuthenticationPolicy,
+		AuthenticationClusterPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
@@ -1076,20 +1103,20 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		return &out
 	}
 
-	// Reach here if no authentication policy found in service or namespace level; check for global policy.
-	// Note that, global authentication policy must be:
-	// - In global config namespace (i.e `istio-global-config`)
-	// - Name is `global`. Policies with different name are ignored.
-	//
-	// Also, the global authentication policy should not have any targets (as it's supposed to
-	// match all), so it's not necessary to check the targets spec against the requested host/port.
-	if specs, err := store.List(AuthenticationPolicy.Type, GlobalConfigNamespace); err == nil {
+	// Reach here if no authentication policy found in service or namespace level; check for
+	// cluster-scoped (global) policy.
+	// Note: to avoid multiple global policy, we restrict only the one with name equals to
+	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec, if exists,
+	// is also ignored. If policy is submitted with `istioctl create`` command, these conditions will
+	// be validated at submission time.
+	if specs, err := store.List(AuthenticationClusterPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
-			if spec.Name == GlobalAuthenticationPolicyName {
+			if spec.Name == DefaultAuthenticationPolicyName {
 				return &spec
 			}
 		}
 	}
+
 	return nil
 }
 

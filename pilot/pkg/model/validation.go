@@ -99,6 +99,7 @@ func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
 	descriptorTypes := make(map[string]bool)
 	messages := make(map[string]bool)
+	clusterMessages := make(map[string]bool)
 
 	for _, v := range descriptor {
 		if !IsDNS1123Label(v.Type) {
@@ -114,10 +115,17 @@ func (descriptor ConfigDescriptor) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
 		descriptorTypes[v.Type] = true
-		if _, exists := messages[v.MessageName]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+		if v.ClusterScoped {
+			if _, exists := clusterMessages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			clusterMessages[v.MessageName] = true
+		} else {
+			if _, exists := messages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			messages[v.MessageName] = true
 		}
-		messages[v.MessageName] = true
 	}
 	return errs
 }

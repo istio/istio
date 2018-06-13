@@ -231,6 +231,10 @@ func (rc *restClient) registerResources() error {
 	for _, schema := range rc.descriptor {
 		g := ResourceGroup(&schema)
 		name := ResourceName(schema.Plural) + "." + g
+		crdScope := apiextensionsv1beta1.NamespaceScoped
+		if schema.ClusterScoped {
+			crdScope = apiextensionsv1beta1.ClusterScoped
+		}
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: meta_v1.ObjectMeta{
 				Name: name,
@@ -238,7 +242,7 @@ func (rc *restClient) registerResources() error {
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 				Group:   g,
 				Version: schema.Version,
-				Scope:   apiextensionsv1beta1.NamespaceScoped,
+				Scope:   crdScope,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Plural: ResourceName(schema.Plural),
 					Kind:   KabobCaseToCamelCase(schema.Type),
