@@ -170,7 +170,7 @@ dump_kubernetes_resources() {
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   kubectl get --all-namespaces --export \
-      all,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
+      all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
       -o yaml > "${RESOURCES_FILE}"
 }
 
