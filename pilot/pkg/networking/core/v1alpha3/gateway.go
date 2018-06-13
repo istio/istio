@@ -212,7 +212,7 @@ func createGatewayHTTPFilterChainOpts(
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				routeConfig: routeCfg,
+				routeConfig:      routeCfg,
 				rds:              model.GatewayRDSRouteName(servers[0]),
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
