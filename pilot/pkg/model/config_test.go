@@ -32,6 +32,18 @@ import (
 	mock_config "istio.io/istio/pilot/test/mock"
 )
 
+// getByMessageName finds a schema by message name if it is available
+// In test setup, we do not have more than one descriptor with the same message type, so this
+// function is ok for testing purpose.
+func getByMessageName(descriptor model.ConfigDescriptor, name string) (model.ProtoSchema, bool) {
+	for _, schema := range descriptor {
+		if schema.MessageName == name {
+			return schema, true
+		}
+	}
+	return model.ProtoSchema{}, false
+}
+
 func TestConfigDescriptor(t *testing.T) {
 	a := model.ProtoSchema{Type: "a", MessageName: "proxy.A"}
 	descriptor := model.ConfigDescriptor{
@@ -53,11 +65,11 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
-	aSchema, aSchemaExists := descriptor.GetByMessageName(a.MessageName)
+	aSchema, aSchemaExists := getByMessageName(descriptor, a.MessageName)
 	if !aSchemaExists || !reflect.DeepEqual(aSchema, a) {
 		t.Errorf("descriptor.GetByMessageName(a) => got %+v, want %+v", aType, a)
 	}
-	_, aSchemaNotExist := descriptor.GetByMessageName("blah")
+	_, aSchemaNotExist := getByMessageName(descriptor, "blah")
 	if aSchemaNotExist {
 		t.Errorf("descriptor.GetByMessageName(blah) => got true, want false")
 	}

@@ -232,16 +232,6 @@ func (descriptor ConfigDescriptor) Types() []string {
 	return types
 }
 
-// GetByMessageName finds a schema by message name if it is available
-func (descriptor ConfigDescriptor) GetByMessageName(name string) (ProtoSchema, bool) {
-	for _, schema := range descriptor {
-		if schema.MessageName == name {
-			return schema, true
-		}
-	}
-	return ProtoSchema{}, false
-}
-
 // GetByType finds a schema by type if it is available
 func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
 	for _, schema := range descriptor {
