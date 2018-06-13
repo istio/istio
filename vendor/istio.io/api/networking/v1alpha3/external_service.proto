@@ -1,0 +1,228 @@
+// Copyright 2018 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "networking/v1alpha3/gateway.proto";
+
+package istio.networking.v1alpha3;
+
+option go_package = "istio.io/api/networking/v1alpha3";
+
+// External service describes the endpoints, ports and protocols of a
+// white-listed set of mesh-external domains and IP blocks that services in
+// the mesh are allowed to access.
+//
+// For example, the following external service configuration describes the
+// set of services at https://example.com to be accessed internally over
+// plaintext http (i.e. http://example.com:443), with the sidecar originating
+// TLS.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ExternalService
+//     metadata:
+//       name: external-svc-example
+//     spec:
+//       hosts:
+//       - example.com
+//       ports:
+//       - number: 443
+//         name: example-http
+//         protocol: http # not HTTPS.
+//       discovery: DNS
+//
+// and a destination rule to initiate TLS connections to the external service.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: tls-example
+//     spec:
+//       name: example.com
+//       trafficPolicy:
+//         tls:
+//           mode: SIMPLE # initiates HTTPS when talking to example.com
+//
+// The following specification specifies a static set of backend nodes for
+// a MongoDB cluster behind a set of virtual IPs, and sets up a destination
+// rule to initiate mTLS connections upstream.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ExternalService
+//     metadata:
+//       name: external-svc-mongocluster
+//     spec:
+//       hosts:
+//       - 192.192.192.192/24
+//       ports:
+//       - number: 27018
+//         name: mongodb
+//         protocol: mongo
+//       discovery: STATIC
+//       endpoints:
+//       - address: 2.2.2.2
+//       - address: 3.3.3.3
+//
+// and the associated destination rule
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: mtls-mongocluster
+//     spec:
+//       name: 192.192.192.192/24
+//       trafficPolicy:
+//         tls:
+//           mode: MUTUAL
+//           clientCertificate: /etc/certs/myclientcert.pem
+//           privateKey: /etc/certs/client_private_key.pem
+//           caCertificates: /etc/certs/rootcacerts.pem
+//
+// The following example demonstrates the use of wildcards in the hosts. If
+// the connection has to be routed to the IP address requested by the
+// application (i.e. application resolves DNS and attempts to connect to a
+// specific IP), the discovery mode must be set to "none".
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ExternalService
+//     metadata:
+//       name: external-svc-wildcard-example
+//     spec:
+//       hosts:
+//       - "*.bar.com"
+//       ports:
+//       - number: 80
+//         name: http
+//         protocol: http
+//       discovery: NONE
+//
+// For HTTP based services, it is possible to create a virtual service
+// backed by multiple DNS addressible endpoints. In such a scenario, the
+// application can use the HTTP_PROXY environment variable to transparently
+// reroute API calls for the virtual service to a chosen backend. For
+// example, the following configuration creates a non-existent service
+// called foo.bar.com backed by three domains: us.foo.bar.com:8443,
+// uk.foo.bar.com:9443, and in.foo.bar.com:7443
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ExternalService
+//     metadata:
+//       name: external-svc-dns
+//     spec:
+//       hosts:
+//       - foo.bar.com
+//       ports:
+//       - number: 443
+//         name: https
+//         protocol: http
+//       discovery: DNS
+//       endpoints:
+//       - address: us.foo.bar.com
+//         ports:
+//           https: 8443
+//       - address: uk.foo.bar.com
+//         ports:
+//           https: 9443
+//       - address: in.foo.bar.com
+//         ports:
+//           https: 7443
+//
+// and a destination rule to initiate TLS connections to the external service.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: tls-foobar
+//     spec:
+//       name: foo.bar.com
+//       trafficPolicy:
+//         tls:
+//           mode: SIMPLE # initiates HTTPS
+//
+// With HTTP_PROXY=http://localhost:443, calls from the application to
+// http://foo.bar.com will be upgraded to HTTPS and load balanced across
+// the three domains specified above. In other words, a call to
+// http://foo.bar.com/baz would be translated to
+// https://uk.foo.bar.com/baz.
+// 
+// NOTE: In the scenario above, the value of the HTTP Authority/host header
+// associated with the outbound HTTP requests will be based on the
+// endpoint's DNS name, i.e. ":authority: uk.foo.bar.com". Refer to Envoy's
+// auto_host_rewrite for further details. The automatic rewrite can be
+// overridden using a host rewrite route rule.
+//
+message ExternalService {
+  // REQUIRED. The hosts associated with the external service. Could be a
+  // DNS name with wildcard prefix or a CIDR prefix. Note that the hosts
+  // field applies to all protocols. DNS names in hosts will be ignored if
+  // the application accesses the service over non-HTTP protocols such as
+  // mongo/opaque TCP/even HTTPS. In such scenarios, the port on which the
+  // external service is being accessed must not be shared by any other
+  // service in the mesh. In other words, the sidecar will behave as a
+  // simple TCP proxy, forwarding incoming traffic on a specified port to
+  // the specified destination endpoint IP/host.
+  repeated string hosts = 1;
+
+  // REQUIRED. The ports associated with the external service.
+  repeated Port ports = 2;
+
+  // Different ways of discovering the IP addresses associated with the
+  // service.
+  enum Discovery {
+    // If set to "none", the proxy will assume that incoming connections
+    // have already been resolved (to a specific destination IP
+    // address). Such connections are typically routed via the proxy using
+    // mechanisms such as IP table REDIRECT/ eBPF. After performing any
+    // routing related transformations, the proxy will forward the
+    // connection to the IP address to which the connection was bound.
+    NONE = 0;
+
+    // If set to "static", the proxy will use the IP addresses specified in
+    // endpoints (See below) as the backing nodes associated with the
+    // external service.
+    STATIC = 1;
+
+    // If set to "dns", the proxy will attempt to resolve the DNS address
+    // during request processing. If no endpoints are specified, the proxy
+    // will resolve the DNS address specified in the hosts field, if
+    // wildcards are not used. If endpoints are specified, the DNS
+    // addresses specified in the endpoints will be resolved to determine
+    // the destination IP address.
+    DNS = 2;
+  };
+
+  // Service discovery mode for the hosts. If not set, Istio will attempt
+  // to infer the discovery mode based on the value of hosts and endpoints.
+  Discovery discovery = 3;
+
+  // Endpoint defines a network address (IP or hostname) associated with
+  // the external service.
+  message Endpoint {
+    // REQUIRED: Address associated with the network endpoint without the
+    // port ( IP or fully qualified domain name without wildcards).
+    string address = 1;
+
+    // Set of ports associated with the endpoint. The ports must be
+    // associated with a port name that was declared as part of the
+    // service.
+    map<string, uint32> ports = 2;
+    
+    // One or more labels associated with the endpoint.
+    map<string, string> labels = 3;
+  };
+
+  // One or more endpoints associated with the service. Endpoints must be
+  // accessible over the set of outPorts defined at the service level.
+  repeated Endpoint endpoints = 4;
+}

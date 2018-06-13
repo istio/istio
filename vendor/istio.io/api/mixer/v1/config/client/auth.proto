@@ -1,0 +1,186 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+// This policy API is no longer supported, and soon be replaced by
+// [authentication
+// policy](https://github.com/istio/api/tree/master/authentication/v1alpha2) in
+// the near future.
+// Tracking issue: https://github.com/istio/istio/issues/4337
+// Pre-release note: https://goo.gl/43usPn
+
+syntax = "proto3";
+
+package istio.mixer.v1.config.client;
+
+option go_package = "istio.io/api/mixer/v1/config/client";
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+import "mixer/v1/config/client/service.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// JSON Web Token (JWT) token format for authentication as defined by
+// https://tools.ietf.org/html/rfc7519. See [OAuth
+// 2.0](https://tools.ietf.org/html/rfc6749) and [OIDC
+// 1.0](http://openid.net/connect) for how this is used in the whole
+// authentication flow.
+//
+// Example,
+//
+//     issuer: https://example.com
+//     audiences:
+//     - bookstore_android.apps.googleusercontent.com
+//       bookstore_web.apps.googleusercontent.com
+//     jwks_uri: https://example.com/.well-known/jwks.json
+//
+message JWT {
+  // Identifies the principal that issued the JWT. See
+  // https://tools.ietf.org/html/rfc7519#section-4.1.1
+  // Usually a URL or an email address.
+  //
+  // Example: https://securetoken.google.com
+  // Example: 1234567-compute@developer.gserviceaccount.com
+  //
+  string issuer = 1;
+
+  // The list of JWT
+  // [audiences](https://tools.ietf.org/html/rfc7519#section-4.1.3).
+  // that are allowed to access. A JWT containing any of these
+  // audiences will be accepted.
+  //
+  // The service name will be accepted if audiences is empty.
+  //
+  // Example:
+  //
+  //     audiences:
+  //     - bookstore_android.apps.googleusercontent.com
+  //       bookstore_web.apps.googleusercontent.com
+  //
+  repeated string audiences = 2;
+
+  // URL of the provider's public key set to validate signature of the
+  // JWT. See [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
+  //
+  // Optional if the key set document can either (a) be retrieved from
+  // [OpenID
+  // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) of
+  // the issuer or (b) inferred from the email domain of the issuer (e.g. a
+  // Google service account).
+  //
+  // Example: https://www.googleapis.com/oauth2/v1/certs
+  string jwks_uri = 3;
+
+  // If true, forward the entire base64 encoded JWT in the HTTP request.
+  // If false, remove the JWT from the HTTP request and do not forward to the
+  // application.
+  bool forward_jwt = 4;
+
+  // Duration after which the cached public key should be expired. The
+  // system wide default is applied if no duration is explicitly
+  // specified.
+  google.protobuf.Duration public_key_cache_duration = 5;
+
+  // Defines where to extract the JWT from an HTTP request.
+  //
+  // If no explicit location is specified the following default
+  // locations are tried in order:
+  //
+  //     1) The Authorization header using the Bearer schema,
+  //        e.g. Authorization: Bearer <token>. (see
+  //        https://tools.ietf.org/html/rfc6750#section-2.1)
+  //
+  //     2) `access_token` query parameter (see
+  //     https://tools.ietf.org/html/rfc6750#section-2.3)
+  //
+  message Location {
+    oneof scheme {
+      // JWT is sent in a request header. `header` represents the
+      // header name.
+      //
+      // For example, if `header=x-goog-iap-jwt-assertion`, the header
+      // format will be x-goog-iap-jwt-assertion: <JWT>.
+      //
+      string header = 1;
+
+      // JWT is sent in a query parameter. `query` represents the
+      // query parameter name.
+      //
+      // For example, `query=jwt_token`.
+      string query = 2;
+    }
+  }
+  // Zero or more locations to search for JWT in an HTTP request.
+  repeated Location locations = 6;
+
+  // This field is specific for Envoy proxy implementation.
+  // It is the cluster name in the Envoy config for the jwks_uri.
+  string jwks_uri_envoy_cluster = 7;
+}
+
+// Determines how to apply auth policies for individual requests.
+message EndUserAuthenticationPolicySpec {
+  // List of JWT rules to valide.
+  //
+  // If the request includes a JWT it must match one of the JWT listed
+  // here matched by the issuer. If validation is successfull the
+  // follow attributes are included in requests to the mixer:
+  //
+  //     request.auth.principal - The string of the issuer (`iss`) and
+  //     subject (`sub`) claims within a JWT concatenated with “/”
+  //     with a percent-encoded subject value
+  //
+  //     request.auth.audiences - This should reflect the audience
+  //     (`aud`) claim within matched JWT.
+  //
+  //     request.auth.presenter - The authorized presenter of the
+  //     credential. This value should reflect the optional Authorized
+  //     Presenter (`azp`) claim within a JWT
+  //
+  // If no match is found the request is rejected with HTTP status
+  // code 401.
+  //
+  // JWT validation is skipped if the user's traffic request does not
+  // include a JWT.
+  repeated JWT jwts = 2;
+}
+
+// EndUserAuthenticationPolicySpecReference identifies a
+// EndUserAuthenticationPolicySpec that is bound to a set of services.
+message EndUserAuthenticationPolicySpecReference {
+  // REQUIRED. The short name of the
+  // EndUserAuthenticationPolicySpec. This is the resource name
+  // defined by the metadata name field.
+  string name = 1;
+
+  // Optional namespace of the
+  // EndUserAuthenticationPolicySpec. Defaults to the value of the
+  // metadata namespace field.
+  string namespace = 2;
+}
+
+// EndUserAuthenticationPolicySpecBinding defines the binding between
+// EndUserAuthenticationPolicySpecs and one or more IstioService.
+message EndUserAuthenticationPolicySpecBinding {
+  // REQUIRED. One or more services to map the listed
+  // EndUserAuthenticationPolicySpecs onto.
+  repeated IstioService services = 1;
+
+  // REQUIRED. One or more EndUserAuthenticationPolicySpecReference
+  // that should be mapped to the specified service(s).
+  repeated EndUserAuthenticationPolicySpecReference policies = 2;
+}
