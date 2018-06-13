@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
+	"istio.io/istio/pilot/test/util"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -47,9 +48,15 @@ type (
 		// Configs is a list of CRDs that Mixer will read.
 		Configs []string
 
+		// GetConfig specifies a way fetch configuration after the initial  setup
+		GetConfig GetConfigFn
+
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
+
+		// SingleThreaded makes only one call at a time.
+		SingleThreaded bool
 
 		// Setup is a callback function that will be called at the beginning of the test. It is
 		// meant to be used for things like starting a local backend server. Setup function returns a
@@ -79,6 +86,9 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
+
+		// VerifyResult if specified is used to do verification.
+		VerifyResult VerifyResultFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -91,6 +101,9 @@ type (
 	}
 	// CallKind represents the call to make; check or report.
 	CallKind int32
+
+	// VerifyResultFn if specified is used to do verification.
+	VerifyResultFn func(ctx interface{}, result *Result) error
 
 	// Result represents the test baseline
 	Result struct {
@@ -126,6 +139,8 @@ type (
 	// GetStateFn returns the adapter specific state upon test execution. The return value becomes part of
 	// expected Result.AdapterState.
 	GetStateFn func(ctx interface{}) (interface{}, error)
+	// GetConfigFn returns configuration that is generated
+	GetConfigFn func(ctx interface{}) ([]string, error)
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
@@ -167,7 +182,19 @@ func RunTest(
 	if adapterInfo != nil {
 		adapterInfos = append(adapterInfos, adapterInfo)
 	}
-	if args, err = getServerArgs(scenario.Templates, adapterInfos, scenario.Configs); err != nil {
+
+	if scenario.Configs != nil && scenario.GetConfig != nil {
+		t.Fatalf("only one of Configs or GetConfig() is allowed")
+	}
+
+	cfgs := scenario.Configs
+	if scenario.GetConfig != nil {
+		cfgs, err = scenario.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("initial setup failed: %v", err)
+		}
+	}
+	if args, err = getServerArgs(scenario.Templates, adapterInfos, cfgs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 
@@ -191,11 +218,16 @@ func RunTest(
 
 	// Invoke calls async
 	var wg sync.WaitGroup
+
 	wg.Add(len(scenario.ParallelCalls))
 
 	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
 	for i, call := range scenario.ParallelCalls {
-		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		if scenario.SingleThreaded {
+			execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		} else {
+			go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		}
 	}
 	// wait for calls to finish
 	wg.Wait()
@@ -219,6 +251,13 @@ func RunTest(
 		}
 	}
 
+	if scenario.VerifyResult != nil {
+		if err = scenario.VerifyResult(ctx, &got); err != nil {
+			t.Fatalf("verification failed: %v", err)
+		}
+		return
+	}
+
 	var want Result
 	if err = json.Unmarshal([]byte(scenario.Want), &want); err != nil {
 		t.Fatalf("Unable to unmarshal %s into Result: %v", scenario.Want, err)
@@ -234,7 +273,8 @@ func RunTest(
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
-		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
+
+		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
 	}
 }
 
@@ -300,16 +340,28 @@ func getServerArgs(
 
 	// always include the attribute vocabulary
 	_, filename, _, _ := runtime.Caller(0)
-	if f, err := filepath.Abs(path.Join(path.Dir(filename), "../../../testdata/config/attributes.yaml")); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else if f, err := ioutil.ReadFile(f); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else {
-		data = append(data, string(f))
+	additionalCrs := []string{
+		"../../../testdata/config/attributes.yaml",
+		"../../../template/metric/template.yaml",
+		"../../../template/quota/template.yaml",
+		"../../../template/listentry/template.yaml",
+	}
+
+	for _, fileRelativePath := range additionalCrs {
+		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else if f, err := ioutil.ReadFile(f); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else {
+			data = append(data, string(f))
+		}
 	}
 
 	var err error
 	args.ConfigStore, err = storetest.SetupStoreForTest(data...)
+	if err != nil {
+		return args, fmt.Errorf("%v config has error %v", data, err)
+	}
 	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 	return args, err
 }

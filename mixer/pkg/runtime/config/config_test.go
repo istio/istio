@@ -4247,7 +4247,9 @@ func TestAsAny(t *testing.T) {
 	d, _ := strVal.Marshal()
 	anyStrVal := asAny("google.protobuf.StringValue", d)
 	strValRes := types.StringValue{}
-	_ = types.UnmarshalAny(anyStrVal, &strValRes)
+	if err := types.UnmarshalAny(anyStrVal, &strValRes); err != nil {
+		t.Errorf("unmarshal failed: %v", err)
+	}
 	if strVal.Value != strValRes.Value {
 		t.Fatalf("asAny failed. want %s; got %s", strVal.Value, strValRes.Value)
 	}
