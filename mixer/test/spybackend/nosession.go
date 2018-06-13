@@ -113,6 +113,7 @@ func (s *NoSessionServer) Close() error {
 	return nil
 }
 
+// GetState returns the adapters observed state.
 func (s *NoSessionServer) GetState() interface{} {
 	result := make([]interface{}, 0)
 	result = append(result, s.printMetrics()...)
@@ -122,16 +123,19 @@ func (s *NoSessionServer) GetState() interface{} {
 	return result
 }
 
+const stripText = "stripped_for_test"
+
 func (s *NoSessionServer) printMetrics() []interface{} {
 	result := make([]interface{}, 0)
 
 	if len(s.Requests.HandleMetricRequest) > 0 {
 		// Stable sort order for varieties.
 		for _, mr := range s.Requests.HandleMetricRequest {
-			mr.DedupId = "stripped_for_test"
+			mr.DedupId = stripText
 		}
 		sort.Slice(s.Requests.HandleMetricRequest, func(i, j int) bool {
-			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleMetricRequest[i].Instances), fmt.Sprintf("%v", s.Requests.HandleMetricRequest[j].Instances)) > 0
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleMetricRequest[i].Instances),
+				fmt.Sprintf("%v", s.Requests.HandleMetricRequest[j].Instances)) > 0
 		})
 
 		for _, mr := range s.Requests.HandleMetricRequest {
@@ -147,10 +151,11 @@ func (s *NoSessionServer) printListEntry() []interface{} {
 	if len(s.Requests.HandleListEntryRequest) > 0 {
 		// Stable sort order for varieties.
 		for _, mr := range s.Requests.HandleListEntryRequest {
-			mr.DedupId = "stripped_for_test"
+			mr.DedupId = stripText
 		}
 		sort.Slice(s.Requests.HandleListEntryRequest, func(i, j int) bool {
-			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[i].Instance), fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[j].Instance)) > 0
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[i].Instance),
+				fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[j].Instance)) > 0
 		})
 
 		for _, mr := range s.Requests.HandleListEntryRequest {
@@ -166,10 +171,11 @@ func (s *NoSessionServer) printQuota() []interface{} {
 	if len(s.Requests.HandleQuotaRequest) > 0 {
 		// Stable sort order for varieties.
 		for _, mr := range s.Requests.HandleQuotaRequest {
-			mr.DedupId = "stripped_for_test"
+			mr.DedupId = stripText
 		}
 		sort.Slice(s.Requests.HandleQuotaRequest, func(i, j int) bool {
-			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[i].Instance), fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[j].Instance)) > 0
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[i].Instance),
+				fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[j].Instance)) > 0
 		})
 
 		for _, mr := range s.Requests.HandleQuotaRequest {

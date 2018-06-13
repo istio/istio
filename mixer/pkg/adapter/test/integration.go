@@ -86,9 +86,6 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
-
-		// VerifyResult if specified is used to do verification.
-		VerifyResult VerifyResultFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -249,13 +246,6 @@ func RunTest(
 		if err = json.Unmarshal(adptStateBytes, &got.AdapterState); err != nil {
 			t.Fatalf("Unable to unmarshal %s into interface{}: %v", string(adptStateBytes), err)
 		}
-	}
-
-	if scenario.VerifyResult != nil {
-		if err = scenario.VerifyResult(ctx, &got); err != nil {
-			t.Fatalf("verification failed: %v", err)
-		}
-		return
 	}
 
 	var want Result
