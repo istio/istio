@@ -156,12 +156,6 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
-	// Need to get service account of service registered with zookeeper
-	// Currently zookeeper does not have service account or equivalent concept
-	// As a step-1, to enabling istio security in zookeeper, We assume all the services run in default service account
-	// This will allow all the zookeeper services to do mTLS
-	// Follow - https://goo.gl/Dt11Ct
-
 	return []string{
 		"spiffe://cluster.local/ns/default/sa/default",
 	}

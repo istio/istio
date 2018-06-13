@@ -28,16 +28,17 @@ func NewClient(root string, conn *zk.Conn) *Client {
 	return client
 }
 
-// events is a stream of Service and instance updates
+// Events channel is a stream of Service and instance updates
 func (c *Client) Events() <-chan ServiceEvent {
 	return c.out
 }
 
+// Service retrieve the service by its hostname
 func (c *Client) Service(hostname string) *Service {
 	return c.services[hostname]
 }
 
-// Services is the list of current registered services
+// Services list all of the current registered services
 func (c *Client) Services() []*Service {
 	services := make([]*Service, len(c.services))
 	for _, service := range c.services {
