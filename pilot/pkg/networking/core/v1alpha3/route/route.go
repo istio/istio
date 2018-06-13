@@ -377,13 +377,6 @@ func translateRoute(in *networking.HTTPRoute,
 			weight := &types.UInt32Value{Value: uint32(dst.Weight)}
 			if dst.Weight == 0 {
 				weight.Value = uint32(100)
-				//// Ignore 0 weighted clusters if there are other clusters in the route.
-				//// But if this is the only cluster in the route, then add it as a cluster with weight 100
-				//if len(in.Route) == 1 {
-				//	weight.Value = uint32(100)
-				//} else {
-				//	continue
-				//}
 			}
 
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[model.Hostname(dst.Destination.Host)], port)
