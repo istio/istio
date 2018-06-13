@@ -26,6 +26,7 @@ import (
 	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/util"
 )
 
 // sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
@@ -38,8 +39,19 @@ type testCase struct {
 	configs []model.Config
 	args    []string
 
-	// Typically use one or the other
+	// Typically use one of the three
 	expectedOutput string         // Expected constant output
+	expectedRegexp *regexp.Regexp // Expected regexp output
+	goldenFilename string         // Expected output stored in golden file
+
+	wantException bool
+}
+
+type testCaseGoldenFile struct {
+	configs []model.Config
+	args    []string
+
+	filename       string         // Expected constant output
 	expectedRegexp *regexp.Regexp // Expected regexp output
 
 	wantException bool
@@ -233,6 +245,7 @@ func TestGet(t *testing.T) {
 			`No resources found.
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 1
@@ -245,6 +258,7 @@ c         RouteRule.config.v1alpha2   istio-system
 d         RouteRule.config.v1alpha2   default
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 2
@@ -254,6 +268,7 @@ d         RouteRule.config.v1alpha2   default
 bookinfo-gateway   *         default
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 3
@@ -263,6 +278,7 @@ bookinfo-gateway   *         default
 bookinfo               bookinfo-gateway   *             1        0      default
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 4 invalid type
@@ -270,6 +286,7 @@ bookinfo               bookinfo-gateway   *             1        0      default
 			strings.Split("get invalid", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
+			"",
 			true, // "istioctl get invalid" should fail
 		},
 		{ // case 5 all
@@ -285,6 +302,7 @@ c         RouteRule.config.v1alpha2   istio-system
 d         RouteRule.config.v1alpha2   default
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 6 all with no data
@@ -292,6 +310,7 @@ d         RouteRule.config.v1alpha2   default
 			strings.Split("get all", " "),
 			"No resources found.\n",
 			nil,
+			"",
 			false,
 		},
 		{ // case 7
@@ -301,6 +320,7 @@ d         RouteRule.config.v1alpha2   default
 googleapis              *.googleapis.com             default
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 8
@@ -310,6 +330,7 @@ googleapis              *.googleapis.com             default
 googleapis           *.googleapis.com   HTTP/443   default
 `,
 			nil,
+			"",
 			false,
 		},
 	}
@@ -328,6 +349,7 @@ func TestCreate(t *testing.T) {
 			strings.Split("create routerules", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
+			"",
 			true,
 		},
 		{ // case 1
@@ -337,6 +359,7 @@ func TestCreate(t *testing.T) {
 			regexp.MustCompile("^Warning: route-rule is deprecated and will not be supported" +
 				" in future Istio versions \\(route-rule-80-20\\).\n" +
 				"Created config route-rule/default/route-rule-80-20.*"),
+			"",
 			false,
 		},
 		{ // case 2
@@ -344,6 +367,7 @@ func TestCreate(t *testing.T) {
 			strings.Split("create -f convert/testdata/v1alpha3/route-rule-80-20.yaml.golden", " "),
 			"",
 			regexp.MustCompile("^Created config virtual-service/default/helloworld-service.*"),
+			"",
 			false,
 		},
 	}
@@ -362,6 +386,7 @@ func TestReplace(t *testing.T) {
 			strings.Split("replace routerules", " "),
 			"",
 			regexp.MustCompile("^Usage:.*"),
+			"",
 			true,
 		},
 	}
@@ -380,6 +405,7 @@ func TestDelete(t *testing.T) {
 			strings.Split("delete routerule unknown", " "),
 			"",
 			regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete unknown: item not found\n$"),
+			"",
 			true,
 		},
 		{ // case 1
@@ -388,6 +414,7 @@ func TestDelete(t *testing.T) {
 			`Deleted config: routerule a
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 2
@@ -397,6 +424,7 @@ func TestDelete(t *testing.T) {
 Deleted config: routerule b
 `,
 			nil,
+			"",
 			false,
 		},
 		{ // case 3 - delete by filename of istio config which doesn't exist
@@ -404,6 +432,7 @@ Deleted config: routerule b
 			strings.Split("delete -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
 			"",
 			regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete route-rule/default/route-rule-80-20: item not found\n$"),
+			"",
 			true,
 		},
 		{ // case 4 - "all" not valid for delete
@@ -411,6 +440,7 @@ Deleted config: routerule b
 			strings.Split("delete all foo", " "),
 			"",
 			regexp.MustCompile("^Error: configuration type all not found"),
+			"",
 			true,
 		},
 	}
@@ -510,6 +540,10 @@ func verifyOutput(t *testing.T, c testCase) {
 			strings.Join(c.args, " "), output, c.expectedRegexp)
 	}
 
+	if c.goldenFilename != "" {
+		util.CompareContent([]byte(output), c.goldenFilename, t)
+	}
+
 	if c.wantException {
 		if fErr == nil {
 			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
@@ -519,5 +553,40 @@ func verifyOutput(t *testing.T, c testCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
+	}
+}
+
+func TestKubeInject(t *testing.T) {
+	cases := []testCase{
+		{ // case 0
+			[]model.Config{},
+			strings.Split("kube-inject", " "),
+			"Error: filename not specified (see --filename or -f)\n",
+			nil,
+			"",
+			true,
+		},
+		{ // case 1
+			[]model.Config{},
+			strings.Split("kube-inject -f missing.yaml", " "),
+			"Error: open missing.yaml: no such file or directory\n",
+			nil,
+			"",
+			true,
+		},
+		{ // case 2
+			[]model.Config{},
+			strings.Split("kube-inject --meshConfigFile testdata/mesh-config.yaml --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml", " "),
+			"",
+			nil,
+			"testdata/deployment/hello.yaml.injected",
+			false,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			verifyOutput(t, c)
+		})
 	}
 }
