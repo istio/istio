@@ -55,6 +55,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 			Labels:          meta.Labels,
 			Annotations:     meta.Annotations,
 			ResourceVersion: meta.ResourceVersion,
+			CreationTimestamp: meta.CreationTimestamp,
 		},
 		Spec: data,
 	}, nil
