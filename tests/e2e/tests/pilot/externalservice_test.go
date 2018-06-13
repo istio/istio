@@ -97,8 +97,9 @@ func TestServiceEntry(t *testing.T) {
 
 			// Apply the new rule
 			cfgs = &deployableConfig{
-				Namespace: tc.Kube.Namespace,
-				YamlFiles: []string{ruleYaml},
+				Namespace:  tc.Kube.Namespace,
+				YamlFiles:  []string{ruleYaml},
+				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
 				t.Fatal(err)
