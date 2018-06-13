@@ -85,7 +85,7 @@ var (
 
 	loggingOptions = log.DefaultOptions()
 
-	// This defines the output order for "get all".  We show the V3 types first.
+	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
 		model.Gateway.Type:           -10,
 		model.VirtualService.Type:    -5,
@@ -95,6 +95,14 @@ var (
 		model.RouteRule.Type:         5,
 		model.DestinationPolicy.Type: 10,
 		model.EgressRule.Type:        20,
+	}
+
+	// deprecatedTypes tracks if a deprecation warning is needed
+	deprecatedTypes = map[string]bool{
+		model.RouteRule.Type:         true,
+		model.IngressRule.Type:       true,
+		model.DestinationPolicy.Type: true,
+		model.EgressRule.Type:        true,
 	}
 
 	// Headings for short format listing specific to type
@@ -191,6 +199,9 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
+				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
+					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
+				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
