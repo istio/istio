@@ -53,7 +53,6 @@ global:
 # security configuration
 #
 security:
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
   resources: {}
