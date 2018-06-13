@@ -67,9 +67,8 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 
 	internalRouteServicePort := &model.Port{
-		Port:     sd.ServicePort,
-		Protocol: model.ProtocolTCP,
-		Name:     "tcp",
+		Port: sd.ServicePort,
+		Name: "tcp",
 	}
 
 	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
@@ -160,9 +159,8 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 	}
 
 	internalRouteServicePort := &model.Port{
-		Port:     sd.ServicePort,
-		Protocol: model.ProtocolTCP,
-		Name:     "tcp",
+		Port: sd.ServicePort,
+		Name: "tcp",
 	}
 
 	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
