@@ -368,6 +368,8 @@ func (m *HealthCheck_HttpHealthCheck) Validate() error {
 
 	}
 
+	// no validation rules for UseHttp2
+
 	return nil
 }
 
