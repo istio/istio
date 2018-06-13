@@ -45,6 +45,14 @@ type discoveryStream interface {
 	grpc.ServerStream
 }
 
+// SdsEvent represents a config or registry event that results in a push.
+type SdsEvent struct {
+
+	// If not empty, it is used to indicate the event is caused by a change in the clusters.
+	// Only EDS for the listed clusters will be sent.
+	clusters []string
+}
+
 type sdsConnection struct {
 	// PeerAddr is the address of the client envoy, from network layer.
 	PeerAddr string
@@ -54,6 +62,8 @@ type sdsConnection struct {
 
 	// The proxy from which the connection comes from.
 	modelNode *model.Proxy
+
+	pushChannel chan *SdsEvent
 
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
@@ -218,6 +228,7 @@ func sdsDiscoveryResponse(s *cache.SecretItem, proxy model.Proxy) (*xdsapi.Disco
 func newSDSConnection(peerAddr string, stream discoveryStream) *sdsConnection {
 	return &sdsConnection{
 		doneChannel: make(chan int, 1),
+		pushChannel: make(chan *SdsEvent, 1),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
