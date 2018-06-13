@@ -216,7 +216,11 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance *adapte
 		return nil, err
 	}
 
-	qRes := result.Quotas[encodedInstance.Name]
+	qRes, found := result.Quotas[encodedInstance.Name]
+	if !found {
+		return nil, errors.Errorf("remote server did not respond with the requested quota '%s'. quotas granted: %v", encodedInstance.Name, result.Quotas)
+	}
+
 	return &adapter.QuotaResult{
 		ValidDuration: qRes.ValidDuration,
 		Amount:        qRes.GrantedAmount,

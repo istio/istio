@@ -18,21 +18,17 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -50,6 +46,14 @@ global:
     includeInboundPorts: "*"
     excludeInboundPorts: ""
     policy: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
 
   proxy_init:
     image: proxy_init
@@ -85,11 +89,6 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
-
-  # Enable multicluster operation.  Must be set to true if multicluster operation
-  # is desired.
-  multicluster:
-    enabled: false
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled

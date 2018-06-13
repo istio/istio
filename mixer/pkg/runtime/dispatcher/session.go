@@ -220,14 +220,13 @@ func (s *session) waitForDispatched() {
 	var buf *bytes.Buffer
 	code := rpc.OK
 
-	var err error
 	for s.activeDispatches > 0 {
 		state := <-s.completed
 		s.activeDispatches--
 
 		// Aggregate errors
 		if state.err != nil {
-			err = multierror.Append(err, state.err)
+			s.err = multierror.Append(s.err, state.err)
 		}
 
 		st := rpc.Status{Code: int32(rpc.OK)}
@@ -280,7 +279,6 @@ func (s *session) waitForDispatched() {
 
 		s.impl.putDispatchState(state)
 	}
-	s.err = err
 
 	if buf != nil {
 		switch s.variety {
