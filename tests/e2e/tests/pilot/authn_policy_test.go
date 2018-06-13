@@ -128,6 +128,8 @@ func TestAuthNJwt(t *testing.T) {
 				return nil
 			}
 
+			t.Logf("resp: %+v", resp)
+
 			return errAgain
 		})
 	}
