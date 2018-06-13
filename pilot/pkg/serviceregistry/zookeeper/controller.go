@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type serviceHandler func(*model.Service, model.Event) error
-type instanceHandler func(*model.ServiceInstance, model.Event) error
+type serviceHandler func(*model.Service, model.Event)
+type instanceHandler func(*model.ServiceInstance, model.Event)
 
 // Controller communicate with zookeeper.
 type Controller struct {
@@ -24,9 +24,9 @@ type Controller struct {
 }
 
 // NewController create a Controller instance
-func NewController(address string, interval time.Duration) (*Controller, error) {
+func NewController(address string, root string) (*Controller, error) {
 	servers := strings.Split(address, ",")
-	conn, _, err := zk.Connect(servers, interval)
+	conn, _, err := zk.Connect(servers, 15 * time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -38,15 +38,15 @@ func NewController(address string, interval time.Duration) (*Controller, error) 
 }
 
 // AppendServiceHandler notifies about changes to the service catalog.
-func (c *Controller) AppendServiceHandler(handler serviceHandler) error {
-	c.serviceHandlers = append(c.serviceHandlers, logServiceHandler(handler))
+func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+	c.serviceHandlers = append(c.serviceHandlers, f)
 	return nil
 }
 
 // AppendInstanceHandler notifies about changes to the service instances
 // for a service.
-func (c *Controller) AppendInstanceHandler(handler instanceHandler) error {
-	c.instanceHandlers = append(c.instanceHandlers, logInstanceHandler(handler))
+func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
@@ -164,26 +164,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 // returns true if an instance's port matches with any in the provided list
 func portMatch(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.Endpoint.ServicePort.Port
-}
-
-func logServiceHandler(handler serviceHandler) serviceHandler {
-	return func(service *model.Service, event model.Event) error {
-		if err := handler(service, event); err != nil {
-			log.Warnf("Error executing service handler function: %v", err)
-			return err
-		}
-		return nil
-	}
-}
-
-func logInstanceHandler(handler instanceHandler) instanceHandler {
-	return func(instance *model.ServiceInstance, event model.Event) error {
-		if err := handler(instance, event); err != nil {
-			log.Warnf("Error executing instance handler function: %v", err)
-			return err
-		}
-		return nil
-	}
 }
 
 func toService(name string) *model.Service {

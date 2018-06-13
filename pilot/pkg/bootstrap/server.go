@@ -58,6 +58,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
+	"istio.io/istio/pilot/pkg/serviceregistry/zookeeper"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/ctrlz"
@@ -135,11 +136,17 @@ type EurekaArgs struct {
 	Interval  time.Duration
 }
 
+type ZookeeperArgs struct {
+	ServerURL string
+	Root string
+}
+
 // ServiceArgs provides the composite configuration for all service registries in the system.
 type ServiceArgs struct {
 	Registries []string
 	Consul     ConsulArgs
 	Eureka     EurekaArgs
+	Zookeeper  ZookeeperArgs
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -673,6 +680,21 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
 			})
+		case serviceregistry.ZookeeperRegistry:
+			log.Infof("Zookeeper url: %v", args.Service.Zookeeper.ServerURL)
+			zkctl, zkerr := zookeeper.NewController(
+				args.Service.Zookeeper.ServerURL, args.Service.Zookeeper.Root)
+			if zkerr != nil {
+				return fmt.Errorf("failed to create Consul controller: %v", zkerr)
+			}
+			serviceControllers.AddRegistry(
+				aggregate.Registry{
+					Name:             serviceregistry.ServiceRegistry(r),
+					ClusterID:        string(serviceregistry.ZookeeperRegistry),
+					ServiceDiscovery: zkctl,
+					ServiceAccounts:  zkctl,
+					Controller:       zkctl,
+				})
 
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")

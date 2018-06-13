@@ -77,9 +77,9 @@ var (
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s, %s})",
 			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry,
-			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry))
+			serviceregistry.CloudFoundryRegistry, serviceregistry.ZookeeperRegistry, serviceregistry.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
 		"Cloud Foundry config file")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesConfigmap, "clusterRegistriesConfigMap", "",
@@ -111,6 +111,10 @@ func init() {
 		"URL for the Eureka server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Eureka.Interval, "eurekaserverInterval", 2*time.Second,
 		"Interval (in seconds) for polling the Eureka service registry")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Zookeeper.ServerURL, "zookeeperserverURL", "",
+		"URL for the Zookeepers servers, comma separated")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Zookeeper.Root, "zookeeperRoot", "",
+		"Root path of the zookeeper registry")
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.DiscoveryOptions.Port, "port", 8080,
 		"Discovery service port")
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
