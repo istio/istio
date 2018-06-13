@@ -201,7 +201,7 @@ func TestNoSessionBackend(t *testing.T) {
 				args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
 				args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
 				args.Behavior.HandleQuotaResult = &v1beta1.QuotaResult{
-					Quotas: map[string]v1beta1.QuotaResult_Result{"requestQuota": {GrantedAmount: 32}}}
+					Quotas: map[string]v1beta1.QuotaResult_Result{"requestQuota.instance.istio-system": {GrantedAmount: 32}}}
 
 				var s Server
 				var err error
@@ -251,7 +251,7 @@ func TestNoSessionBackend(t *testing.T) {
 					CallKind: adapter_integration.CHECK,
 					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 						"requestQuota": {
-							Amount:     30,
+							Amount:     35,
 							BestEffort: true,
 						},
 					},
@@ -349,7 +349,7 @@ func TestNoSessionBackend(t *testing.T) {
 		    "requestQuota": {
 		     "Status": {},
 		     "ValidDuration": 0,
-		     "Amount": 0
+		     "Amount": 32
 		    }
 		   },
 		   "Error": null
