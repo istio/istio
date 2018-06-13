@@ -9,7 +9,7 @@ resources:
     gkeClusterName: istio-cluster
     zone: us-central1-a
     initialNodeCount: 4
-    instanceType: n1-standard-2
+    instanceType: n1-standard-1
     enableAutomaticSidecarInjection: true
     enableMutualTLS: true
     enablePrometheus: true

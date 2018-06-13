@@ -35,7 +35,7 @@ properties:
   instanceType:
     type: string
     description: Node machineType
-    default: n1-standard-2
+    default: n1-standard-1
     x-googleProperty:
       type: GCE_MACHINE_TYPE
       zoneProperty: zone
