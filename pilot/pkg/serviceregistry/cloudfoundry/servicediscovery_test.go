@@ -158,7 +158,7 @@ func TestServiceDiscovery_Services(t *testing.T) {
 		{
 			Hostname: "something.apps.internal",
 			Address:  "127.1.1.1",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolTCP, Name: "tcp"}},
+			Ports:    []*model.Port{{Port: defaultServicePort, Name: "tcp"}},
 		},
 	}))
 }
@@ -228,9 +228,8 @@ func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T)
 				Address: "10.255.30.1",
 				Port:    6868,
 				ServicePort: &model.Port{
-					Port:     defaultServicePort,
-					Protocol: model.ProtocolTCP,
-					Name:     "tcp",
+					Port: defaultServicePort,
+					Name: "tcp",
 				},
 			},
 			Service: &model.Service{
@@ -238,9 +237,8 @@ func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T)
 				Address:  "127.1.1.1",
 				Ports: []*model.Port{
 					{
-						Port:     defaultServicePort,
-						Protocol: model.ProtocolTCP,
-						Name:     "tcp",
+						Port: defaultServicePort,
+						Name: "tcp",
 					},
 				},
 			},
