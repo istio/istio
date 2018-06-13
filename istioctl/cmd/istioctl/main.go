@@ -23,8 +23,8 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"time"
 	"text/tabwriter"
+	"time"
 
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"

@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -28,8 +29,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
-
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
