@@ -252,7 +252,7 @@ func RunTest(
 	}
 
 	if scenario.VerifyResult != nil {
-		if err := scenario.VerifyResult(ctx, &got); err != nil {
+		if err = scenario.VerifyResult(ctx, &got); err != nil {
 			t.Fatalf("verification failed: %v", err)
 		}
 		return
