@@ -55,6 +55,7 @@ func TestSessionPool(t *testing.T) {
 		expected := &session{
 			impl: d,
 			rc:   d.rc,
+			ctx:  context.TODO(),
 		}
 
 		if !reflect.DeepEqual(s, expected) {

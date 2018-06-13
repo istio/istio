@@ -50,7 +50,9 @@ func TestDispatchStatePool(t *testing.T) {
 		d.putDispatchState(states[i])
 	}
 
-	expected := &dispatchState{}
+	expected := &dispatchState{
+		ctx: context.TODO(),
+	}
 
 	for i := 0; i < 100; i++ {
 		s := d.getDispatchState(context.TODO(), nil)
