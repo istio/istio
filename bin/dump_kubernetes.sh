@@ -124,7 +124,7 @@ copy_core_dumps_if_istio_proxy() {
     mkdir -p "${out_dir}"
     local core_dumps
     core_dumps=$(kubectl exec -n "${namespace}" "${pod}" -c "${container}" -- \
-        find /etc/istio/proxy -name 'core.*')
+        find /etc/istio/proxy /var/istio/proxy -name 'core.*')
     for f in ${core_dumps}; do
       local out_file
       out_file="${out_dir}/$(basename "${f}")"
