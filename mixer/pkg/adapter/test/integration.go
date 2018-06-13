@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
+	"istio.io/istio/pilot/test/util"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -53,6 +54,9 @@ type (
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
+
+		// SingleThreaded makes only one call at a time.
+		SingleThreaded bool
 
 		// Setup is a callback function that will be called at the beginning of the test. It is
 		// meant to be used for things like starting a local backend server. Setup function returns a
@@ -82,6 +86,9 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
+
+		// VerifyResult if specified is used to do verification.
+		VerifyResult VerifyResultFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -94,6 +101,9 @@ type (
 	}
 	// CallKind represents the call to make; check or report.
 	CallKind int32
+
+	// VerifyResultFn if specified is used to do verification.
+	VerifyResultFn func(ctx interface{}, result *Result) error
 
 	// Result represents the test baseline
 	Result struct {
@@ -172,6 +182,11 @@ func RunTest(
 	if adapterInfo != nil {
 		adapterInfos = append(adapterInfos, adapterInfo)
 	}
+
+	if scenario.Configs != nil && scenario.GetConfig != nil {
+		t.Fatalf("only one of Configs or GetConfig() is allowed")
+	}
+
 	cfgs := scenario.Configs
 	if scenario.GetConfig != nil {
 		cfgs, err = scenario.GetConfig(ctx)
@@ -203,11 +218,16 @@ func RunTest(
 
 	// Invoke calls async
 	var wg sync.WaitGroup
+
 	wg.Add(len(scenario.ParallelCalls))
 
 	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
 	for i, call := range scenario.ParallelCalls {
-		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		if scenario.SingleThreaded {
+			execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		} else {
+			go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		}
 	}
 	// wait for calls to finish
 	wg.Wait()
@@ -231,6 +251,13 @@ func RunTest(
 		}
 	}
 
+	if scenario.VerifyResult != nil {
+		if err := scenario.VerifyResult(ctx, &got); err != nil {
+			t.Fatalf("verification failed: %v", err)
+		}
+		return
+	}
+
 	var want Result
 	if err = json.Unmarshal([]byte(scenario.Want), &want); err != nil {
 		t.Fatalf("Unable to unmarshal %s into Result: %v", scenario.Want, err)
@@ -246,7 +273,8 @@ func RunTest(
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
-		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
+
+		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
 	}
 }
 
