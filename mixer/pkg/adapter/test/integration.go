@@ -275,6 +275,7 @@ func RunTest(
 		}
 
 		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
+		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
 	}
 }
 

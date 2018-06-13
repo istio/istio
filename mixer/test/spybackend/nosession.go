@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -109,6 +111,89 @@ func (s *NoSessionServer) Close() error {
 	}
 
 	return nil
+}
+
+func (s *NoSessionServer) GetState() interface{} {
+	result := make([]interface{}, 0)
+	result = append(result, s.printMetrics()...)
+	result = append(result, s.printListEntry()...)
+	result = append(result, s.printQuota()...)
+	result = append(result, s.printValidationRequest()...)
+	return result
+}
+
+func (s *NoSessionServer) printMetrics() []interface{} {
+	result := make([]interface{}, 0)
+
+	if len(s.Requests.HandleMetricRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleMetricRequest {
+			mr.DedupId = "stripped_for_test"
+		}
+		sort.Slice(s.Requests.HandleMetricRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleMetricRequest[i].Instances), fmt.Sprintf("%v", s.Requests.HandleMetricRequest[j].Instances)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleMetricRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printListEntry() []interface{} {
+	result := make([]interface{}, 0)
+
+	if len(s.Requests.HandleListEntryRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleListEntryRequest {
+			mr.DedupId = "stripped_for_test"
+		}
+		sort.Slice(s.Requests.HandleListEntryRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[i].Instance), fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[j].Instance)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleListEntryRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printQuota() []interface{} {
+	result := make([]interface{}, 0)
+
+	if len(s.Requests.HandleQuotaRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleQuotaRequest {
+			mr.DedupId = "stripped_for_test"
+		}
+		sort.Slice(s.Requests.HandleQuotaRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[i].Instance), fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[j].Instance)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleQuotaRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printValidationRequest() []interface{} {
+	result := make([]interface{}, 0)
+
+	if len(s.Requests.ValidateRequest) > 0 {
+		// Stable sort order for varieties.
+		sort.Slice(s.Requests.ValidateRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.ValidateRequest[i].InferredTypes),
+				fmt.Sprintf("%v", s.Requests.ValidateRequest[j].InferredTypes)) > 0
+		})
+
+		for _, mr := range s.Requests.ValidateRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
 }
 
 // NewNoSessionServer creates a new no session server from given args.
