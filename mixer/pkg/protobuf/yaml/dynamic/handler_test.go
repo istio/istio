@@ -148,6 +148,12 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 	listentryDi := loadInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
 	metricDi := loadInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
 	quotaDi := loadInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
+	unknownQuota := &TemplateConfig{
+		Name:         "unknownQuota",
+		TemplateName: quotaDi.TemplateName,
+		FileDescSet:  quotaDi.FileDescSet,
+		Variety:      quotaDi.Variety,
+	}
 
 	adapterConfig := &types.Any{
 		TypeUrl: "@abc",
@@ -156,7 +162,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
-		[]*TemplateConfig{listentryDi, metricDi, quotaDi})
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota})
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -220,6 +226,15 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 	}
 	expectEqual(qinst, s.Requests.HandleQuotaRequest[0].Instance, t)
 	expectEqual(qe, asAdapterQuotaResult(s.Behavior.HandleQuotaResult, quotaDi.Name), t)
+
+	unknownQi := &adapter.EncodedInstance{
+		Name: unknownQuota.Name,
+		Data: qinstBa,
+	}
+	_, err = h.HandleRemoteQuota(context.Background(), unknownQi, &adapter.QuotaArgs{})
+	if err == nil || !strings.Contains(err.Error(), "did not respond with the requested quota") {
+		t.Fatalf("HandleRemoteCheck unexpected error: got %v, want: no quota", err)
+	}
 
 	return nil
 }
