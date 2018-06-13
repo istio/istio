@@ -1717,16 +1717,21 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 	return errs
 }
 
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-func ValidateAuthenticationPolicy(msg proto.Message) error {
+func validateAuthenticationPolicyImpl(msg proto.Message, clusterScoped bool) error {
 	in, ok := msg.(*authn.Policy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy")
 	}
 	var errs error
 
-	for _, target := range in.Targets {
-		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+	if !clusterScoped {
+		for _, target := range in.Targets {
+			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+		}
+	} else {
+		if len(in.Targets) > 0 {
+			errs = appendErrors(errs, fmt.Errorf("Cluster-scoped authentication policy must not have targets"))
+		}
 	}
 
 	jwtIssuers := make(map[string]bool)
@@ -1750,6 +1755,16 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 	}
 
 	return errs
+}
+
+// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
+func ValidateAuthenticationPolicy(msg proto.Message) error {
+	return validateAuthenticationPolicyImpl(msg, false)
+}
+
+// ValidateAuthenticationClusterPolicy checks that AuthenticationPolicy is well-formed.
+func ValidateAuthenticationClusterPolicy(msg proto.Message) error {
+	return validateAuthenticationPolicyImpl(msg, true)
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.

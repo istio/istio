@@ -667,9 +667,8 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		policy    *authn.Policy
 	}{
 		{
-			name:      model.GlobalAuthenticationPolicyName,
-			namespace: model.GlobalConfigNamespace,
-			policy:    &globalPolicy,
+			name:   model.DefaultAuthenticationPolicyName,
+			policy: &globalPolicy,
 		},
 		{
 			name:      "namespace-policy",
@@ -685,14 +684,20 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 	for _, in := range authNPolicies {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.AuthenticationPolicy.Type,
-				Name:      in.name,
-				Group:     "authentication",
-				Version:   "v1alpha2",
-				Namespace: in.namespace,
-				Domain:    "cluster.local",
+				// Type:    model.AuthenticationClusterPolicy.Type,
+				Name:    in.name,
+				Group:   "authentication",
+				Version: "v1alpha2",
+				Domain:  "cluster.local",
 			},
 			Spec: in.policy,
+		}
+		if in.namespace == "" {
+			// Cluster-scoped policy
+			config.ConfigMeta.Type = model.AuthenticationClusterPolicy.Type
+		} else {
+			config.ConfigMeta.Type = model.AuthenticationPolicy.Type
+			config.ConfigMeta.Namespace = in.namespace
 		}
 		if _, err := store.Create(config); err != nil {
 			t.Error(err)

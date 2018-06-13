@@ -526,7 +526,7 @@ var (
 		Group:         "authentication",
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
-		Validate:      ValidateAuthenticationPolicy,
+		Validate:      ValidateAuthenticationClusterPolicy,
 	}
 
 	// ServiceRole describes an RBAC service role.
@@ -1107,8 +1107,8 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 	// cluster-scoped (global) policy.
 	// Note: to avoid multiple global policy, we restrict only the one with name equals to
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec, if exists,
-	// is also ignored. If policy is submitted with `istioctl create`` command, these conditions will
-	// be validated at submission time.
+	// is also ignored (if policy is submitted with `istioctl create`` command, this condition will
+	// be validated at submission time)
 	if specs, err := store.List(AuthenticationClusterPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
 			if spec.Name == DefaultAuthenticationPolicyName {
