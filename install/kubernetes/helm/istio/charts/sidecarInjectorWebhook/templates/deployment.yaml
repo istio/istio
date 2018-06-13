@@ -60,7 +60,11 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultControlPlaneResources | indent 12 }}
+{{- end }}
       volumes:
       - name: config-volume
         configMap:

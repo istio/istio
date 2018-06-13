@@ -43,7 +43,11 @@ spec:
               path: /-/ready
               port: 9090
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultControlPlaneResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus

@@ -40,7 +40,11 @@ spec:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
         resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{- end }}
       volumes:
       - name: kiali-configuration
         configMap:

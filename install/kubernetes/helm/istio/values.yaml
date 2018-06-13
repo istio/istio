@@ -105,6 +105,10 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  defaultControlPlaneResources:
+    requests:
+      cpu: 100m
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -118,13 +122,13 @@ ingress:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   service:
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -145,13 +149,13 @@ ingressgateway:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   service:
     name: istio-ingressgateway #DNS addressible
     labels:
@@ -191,13 +195,13 @@ egressgateway:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   service:
     name: istio-egressgateway #DNS addressible
     labels:
@@ -228,13 +232,13 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
 #
 # galley configuration
@@ -244,13 +248,13 @@ galley:
   serviceAccountName: default
   replicaCount: 1
   image: galley
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
 #
 # mixer configuration
@@ -260,13 +264,13 @@ mixer:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
@@ -281,13 +285,13 @@ pilot:
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
 #
 # security configuration
@@ -298,12 +302,13 @@ security:
   image: citadel
   resources: {}
   selfSigned: true # indicate if self-signed CA is used.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   cleanUpOldCA: true
 
 #
@@ -332,13 +337,13 @@ grafana:
       #   hosts:
       #     - grafana.local
 
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
 prometheus:
   enabled: true
@@ -359,13 +364,13 @@ prometheus:
       # - secretName: prometheus-tls
       #   hosts:
       #     - prometheus.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   service:
     nodePort:
       enabled: false
@@ -393,13 +398,13 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -432,13 +437,13 @@ tracing:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
 
 kiali:
   enabled: false
@@ -459,13 +464,13 @@ kiali:
       # - secretName: kiali-tls
       #   hosts:
       #     - kiali.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+  # resources:
+  #   limits:
+  #     cpu: 100m
+  #     memory: 128Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 128Mi
   dashboard:
     username: admin
     password: admin

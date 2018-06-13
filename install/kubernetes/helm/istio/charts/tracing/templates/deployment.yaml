@@ -49,6 +49,10 @@ spec:
               path: /
               port: {{ .Values.service.uiPort }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultControlPlaneResources | indent 12 }}
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
