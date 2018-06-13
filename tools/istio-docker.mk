@@ -110,9 +110,9 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
+${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_DEBUG_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
-	cp ${ISTIO_ENVOY_RELEASE_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_ENVOY_RELEASE_DIR}/envoy
 
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
 # will scale better and have v2-specific features. Not built automatically until it passes
