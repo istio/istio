@@ -201,6 +201,7 @@ func TestRBACStore_CheckPermission(t *testing.T) {
 		{"ns1", "bookstore", "/shelf", "GET", "", "acme", "svc1", "svc@gserviceaccount.com", false},
 		{"ns1", "fishpond", "/pond/a", "GET", "v1", "abcfish", "serv", "svc@gserviceaccount.com", true},
 		{"ns1", "fish", "/pond/review", "GET", "v1", "mynamespace", "xyz", "alice@yahoo.com", true},
+		{"ns1", "fish", "/pond/review", "GET", "v1", "wonrgnamespace", "xyz", "alice@yahoo.com", false},
 		{"ns1", "fishpond", "/pond/review", "GET", "v1", "mynamespace", "xyz", "alice@yahoo.com", false},
 		{"ns1", "fish", "/pond/review", "GET", "v1", "mynamespace", "xyz", "bob@yahoo.com", false},
 		{"ns1", "abc", "/index", "GET", "", "mynamespace", "xyz", "anyuser", true},
