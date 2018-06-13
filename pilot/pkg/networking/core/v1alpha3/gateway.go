@@ -170,9 +170,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Envi
 
 	// make sure that there is some server listening on this port
 	if _, ok := merged.RDSRouteConfigNames[routeName]; !ok {
-		err := fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
-		log.Errora(err)
-		return nil, err
+		log.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
+		return nil, fmt.Errorf("buildGatewayRoutes: could not find server for routeName %s, have %v", routeName, merged.RDSRouteConfigNames)
 	}
 
 	servers := merged.RDSRouteConfigNames[routeName]
@@ -183,6 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Envi
 	}
 
 	routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, merged.Names, servers)
+	log.Debugf("Returning route config (%s) %v", routeName, routeCfg)
 	return routeCfg, nil
 }
 

@@ -73,12 +73,23 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						continue
 					}
 					rdsName := GatewayRDSRouteName(s)
+					if rdsName == "" {
+						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
+							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+						continue
+					}
 					rdsRouteConfigNames[rdsName] = append(rdsRouteConfigNames[rdsName], s)
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
 					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
 					if isHTTPServer(s) {
 						rdsName := GatewayRDSRouteName(s)
+						if rdsName == "" {
+							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
+								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
+							continue
+						}
+
 						// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
 						// WE cannot have two servers with same port name because we need the port name to distinguish one HTTPS server from another
 						// WE cannot merge two HTTPS servers even if their TLS settings have same path to the keys, because we don't know if the contents

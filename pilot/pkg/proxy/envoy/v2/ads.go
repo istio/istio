@@ -171,8 +171,8 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener `json:"-"`
-	RouteConfigs  map[string]*xdsapi.RouteConfiguration
+	HTTPListeners []*xdsapi.Listener                    `json:"-"`
+	RouteConfigs  map[string]*xdsapi.RouteConfiguration `json:"-"`
 	HTTPClusters  []*xdsapi.Cluster
 
 	// current list of clusters monitored by the client
@@ -242,6 +242,7 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	adsLog.SetOutputLevel(istiolog.DebugLevel)
 	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
 	if ok {
@@ -538,8 +539,8 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 //}
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rc := []*xdsapi.RouteConfiguration{}
-
+	rc := make([]*xdsapi.RouteConfiguration, 0)
+	adsLog.SetOutputLevel(istiolog.DebugLevel)
 	// TODO: Follow this logic for other xDS resources as well
 	// And cache/retrieve this info on-demand, not for every request from every proxy
 	//var services []*model.Service
