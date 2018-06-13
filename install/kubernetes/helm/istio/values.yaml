@@ -111,7 +111,7 @@ global:
   # block in the relevant section below and setting appropriate resources values.
   defaultControlPlaneResources:
     requests:
-      cpu: 100m
+      cpu: 50m
 
 # Any customization for istio testing should be here
 istiotesting:
