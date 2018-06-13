@@ -39,6 +39,8 @@ metadata:
   namespace: istio-system
 spec:
   adapter: spybackend-nosession
+  connection:
+    address: "%s"
 ---
 `
 	i1Metric = `
@@ -49,7 +51,7 @@ metadata:
   namespace: istio-system
 spec:
   template: metric
-  param:
+  params:
     value: request.size | 123
     dimensions:
       destination_service: "\"myservice\""
@@ -79,6 +81,8 @@ metadata:
   namespace: istio-system
 spec:
   adapter: spybackend-nosession
+  connection:
+    address: "%s"
 ---
 `
 
@@ -90,7 +94,7 @@ metadata:
   namespace: istio-system
 spec:
   template: metric
-  param:
+  params:
     value: request.size | 456
     dimensions:
       destination_service: "\"myservice2\""
@@ -119,7 +123,7 @@ metadata:
   namespace: istio-system
 spec:
   template: listentry
-  param:
+  params:
     value: source.name | ""
 ---
 `
@@ -257,20 +261,23 @@ func TestNoSessionBackend(t *testing.T) {
 					Attrs:    map[string]interface{}{"request.id": "somereqid"},
 				},
 			},
-			Configs: []string{
-				// CRs for built-in templates are automatically added by the integration test framework.
-				string(adptCfgBytes),
-				h1,
-				i1Metric,
-				r1H1I1Metric,
-				h2,
-				i2Metric,
-				r2H2I2Metric,
-				i3List,
-				r3H1I3List,
-				i4Quota,
-				r4h1i4Quota,
-				r6MatchIfReqIdH1i4Metric,
+			GetConfig: func(ctx interface{}) ([]string, error) {
+				s := ctx.(Server)
+				return []string{
+					// CRs for built-in templates are automatically added by the integration test framework.
+					string(adptCfgBytes),
+					fmt.Sprintf(h1, s.Addr().String()),
+					i1Metric,
+					r1H1I1Metric,
+					fmt.Sprintf(h2, s.Addr().String()),
+					i2Metric,
+					r2H2I2Metric,
+					i3List,
+					r3H1I3List,
+					i4Quota,
+					r4h1i4Quota,
+					r6MatchIfReqIdH1i4Metric,
+				}, nil
 			},
 			Want: `
 		{

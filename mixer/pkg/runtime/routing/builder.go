@@ -422,56 +422,62 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
 		var h adapter.RemoteCheckHandler
 		var ok bool
-		var encodedInstance []byte
+		var encodedInstance *adapter.EncodedInstance
 
 		if h, ok = handler.(adapter.RemoteCheckHandler); !ok {
 			return adapter.CheckResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteCheckHandler", handler)
 		}
 
-		if encodedInstance, ok = instance.([]byte); !ok {
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
 			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		cr, err := h.HandleRemoteCheck(ctx, encodedInstance, tmpl.Name)
-		return *cr, err
+		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
+		if err != nil {
+			return adapter.CheckResult{}, err
+		}
+		return *cr, nil
 	}
 
 	ti.DispatchReport = func(ctx context.Context, handler adapter.Handler, instances []interface{}) error {
 		var h adapter.RemoteReportHandler
 		var ok bool
-		var encodedInstance []byte
+		var encodedInstance *adapter.EncodedInstance
 
 		if h, ok = handler.(adapter.RemoteReportHandler); !ok {
 			return fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteReportHandler", handler)
 		}
 
-		encodedInstances := make([][]byte, len(instances))
+		encodedInstances := make([]*adapter.EncodedInstance, len(instances))
 
 		for i := range instances {
 			instance := instances[i]
-			if encodedInstance, ok = instance.([]byte); !ok {
+			if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
 				return fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 			}
 			encodedInstances[i] = encodedInstance
 		}
-		return h.HandleRemoteReport(ctx, encodedInstances, tmpl.Name)
+		return h.HandleRemoteReport(ctx, encodedInstances)
 	}
 
 	ti.DispatchQuota = func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 		var h adapter.RemoteQuotaHandler
 		var ok bool
-		var encodedInstance []byte
+		var encodedInstance *adapter.EncodedInstance
 
 		if h, ok = handler.(adapter.RemoteQuotaHandler); !ok {
 			return adapter.QuotaResult{}, fmt.Errorf("internal: handler of incorrect type. got %T, want: RemoteQuotaHandler", handler)
 		}
 
-		if encodedInstance, ok = instance.([]byte); !ok {
+		if encodedInstance, ok = instance.(*adapter.EncodedInstance); !ok {
 			return adapter.QuotaResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		qr, err := h.HandleRemoteQuota(ctx, encodedInstance, &args, tmpl.Name)
-		return *qr, err
+		qr, err := h.HandleRemoteQuota(ctx, encodedInstance, &args)
+		if err != nil {
+			return adapter.QuotaResult{}, err
+		}
+		return *qr, nil
 	}
 	return ti
 }
@@ -483,9 +489,17 @@ const defaultInstanceSize = 128
 func (b *builder) getBuilderAndMapperDynamic(_ ast.AttributeDescriptorFinder,
 	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
+		var err error
 		ba := make([]byte, 0, defaultInstanceSize)
 		// The encoder produces
-		return instance.Encoder.Encode(attrs, ba)
+		if ba, err = instance.Encoder.Encode(attrs, ba); err != nil {
+			return nil, err
+		}
+
+		return &adapter.EncodedInstance{
+			Name: instance.Name,
+			Data: ba,
+		}, nil
 	}
 	return instBuilder, nil, nil
 }

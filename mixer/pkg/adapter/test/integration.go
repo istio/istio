@@ -47,6 +47,9 @@ type (
 		// Configs is a list of CRDs that Mixer will read.
 		Configs []string
 
+		// GetConfig specifies a way fetch configuration after the initial  setup
+		GetConfig GetConfigFn
+
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
@@ -126,6 +129,8 @@ type (
 	// GetStateFn returns the adapter specific state upon test execution. The return value becomes part of
 	// expected Result.AdapterState.
 	GetStateFn func(ctx interface{}) (interface{}, error)
+	// GetConfigFn returns configuration that is generated
+	GetConfigFn func(ctx interface{}) ([]string, error)
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
@@ -167,7 +172,14 @@ func RunTest(
 	if adapterInfo != nil {
 		adapterInfos = append(adapterInfos, adapterInfo)
 	}
-	if args, err = getServerArgs(scenario.Templates, adapterInfos, scenario.Configs); err != nil {
+	cfgs := scenario.Configs
+	if scenario.GetConfig != nil {
+		cfgs, err = scenario.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("initial setup failed: %v", err)
+		}
+	}
+	if args, err = getServerArgs(scenario.Templates, adapterInfos, cfgs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 
