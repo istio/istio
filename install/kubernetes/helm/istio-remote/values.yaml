@@ -28,16 +28,9 @@ global:
   # Should track latest released version.
   # Currently using nightly build, for testing
   tag: circleci-nightly
-  proxy:
-    image: proxyv2
 
   # imagePullPolicy is applied to istio control plane components.
   imagePullPolicy: IfNotPresent
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    repository: quay.io/coreos/hyperkube
-    tag: v1.7.6_coreos.0
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
