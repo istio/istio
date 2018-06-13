@@ -33,7 +33,7 @@ import (
 
 const (
 	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
-	// policy witht this name in the cluster-scoped will be considered.
+	// policy with this name in the cluster-scoped will be considered.
 	DefaultAuthenticationPolicyName = "default"
 )
 

@@ -1730,7 +1730,7 @@ func validateAuthenticationPolicyImpl(msg proto.Message, clusterScoped bool) err
 		}
 	} else {
 		if len(in.Targets) > 0 {
-			errs = appendErrors(errs, fmt.Errorf("Cluster-scoped authentication policy must not have targets"))
+			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
 		}
 	}
 
