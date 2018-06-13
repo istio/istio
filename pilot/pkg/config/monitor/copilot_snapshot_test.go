@@ -191,7 +191,6 @@ func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSna
 					{
 						Port: &networking.Port{
 							Number:   80,
-							Name:     "http",
 							Protocol: "HTTP",
 						},
 						Hosts: []string{"*.example.com"},
@@ -209,7 +208,6 @@ func bootstrap(routeResponses []*copilotapi.RoutesResponse) (*monitor.CopilotSna
 					{
 						Port: &networking.Port{
 							Number:   80,
-							Name:     "http",
 							Protocol: "HTTP",
 						},
 						Hosts: []string{"*"},

@@ -73,7 +73,6 @@ metadata:
 spec:
   servers:
   - port:
-      name: http
       number: %d  # load balancer will forward traffic here
       protocol: http
     hosts:

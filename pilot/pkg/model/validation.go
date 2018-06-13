@@ -917,17 +917,6 @@ func ValidateGateway(msg proto.Message) (errs error) {
 			errs = appendErrors(errs, validateServer(server))
 		}
 	}
-
-	// Ensure unique port names
-	portNames := make(map[string]bool)
-
-	for _, s := range value.Servers {
-		if portNames[s.Port.Name] {
-			errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
-		}
-		portNames[s.Port.Name] = true
-	}
-
 	return errs
 }
 
@@ -957,10 +946,8 @@ func validateServerPort(port *networking.Port) (errs error) {
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
-	}
-
-	if port.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+	} else if port.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("either port number or name must be set: %v", port))
 	}
 	return
 }

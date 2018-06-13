@@ -1804,7 +1804,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"foo.bar.com"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1812,7 +1812,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.1"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1820,7 +1820,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.0/16"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1829,11 +1829,11 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 18, Protocol: "redis"},
+						Port:  &networking.Port{Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1842,27 +1842,14 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 66000, Protocol: "redis"},
+						Port:  &networking.Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
-		{"duplicate port names",
-			&networking.Gateway{
-				Servers: []*networking.Server{
-					{
-						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "foo", Number: 80, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"scooby.doo.com"},
-						Port:  &networking.Port{Name: "foo", Number: 8080, Protocol: "http"},
-					}},
-			},
-			"port names"},
 		{"invalid domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -1902,25 +1889,25 @@ func TestValidateServer(t *testing.T) {
 		{"happy",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Protocol: "http"},
 			},
 			""},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
-				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Protocol: "http"},
 			},
 			"domain"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 66000, Name: "http", Protocol: "http"},
+				Port:  &networking.Port{Number: 66000, Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
+				Port:  &networking.Port{Number: 1, Protocol: "http"},
 				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
@@ -1946,7 +1933,7 @@ func TestValidateServerPort(t *testing.T) {
 		out  string
 	}{
 		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port name"},
+		{"empty", &networking.Port{}, "port number"},
 		{"happy",
 			&networking.Port{
 				Protocol: "http",
@@ -1961,11 +1948,18 @@ func TestValidateServerPort(t *testing.T) {
 				Name:     "Henry",
 			},
 			"invalid protocol"},
+		{"no port name/number",
+			&networking.Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "",
+			},
+			"either port number or name"},
 		{"invalid number",
 			&networking.Port{
 				Protocol: "http",
 				Number:   uint32(1 << 30),
-				Name:     "http",
+				Name:     "",
 			},
 			"port number"},
 		{"name, no number",
