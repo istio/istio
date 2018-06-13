@@ -137,7 +137,7 @@ var (
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
 		model.AuthenticationPolicy,
-                model.AuthenticationClusterPolicy,
+		model.AuthenticationClusterPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 		model.RbacConfig,
