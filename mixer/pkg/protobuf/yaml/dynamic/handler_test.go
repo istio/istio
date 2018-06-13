@@ -45,7 +45,7 @@ func TestEncodeReportRequest(t *testing.T) {
 		Value:   []byte("abcd"),
 	}
 
-	if inst, err = RemoteAdapterSvc("", res, false, adapterConfig); err != nil {
+	if inst, err = RemoteAdapterSvc("", res, false, adapterConfig, "tmpl"); err != nil {
 		t.Fatalf("failed to get service:%v", err)
 	}
 
@@ -91,7 +91,8 @@ func TestEncodeReportRequest(t *testing.T) {
 
 	svc := &Svc{encoder: me}
 
-	br, err1 := svc.encodeRequest(nil, dedupString, eed0, eed1)
+	br, err1 := svc.encodeRequest(nil, dedupString, &adapter.EncodedInstance{Name: ed0.Name, Data: eed0},
+		&adapter.EncodedInstance{Name: ed1.Name, Data: eed1})
 	if err1 != nil {
 		t.Fatalf("unable to encode request: %v", err1)
 	}
@@ -170,7 +171,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 		Value: "v1",
 	}
 	linstBa, _ := linst.Marshal()
-	le, err := h.HandleRemoteCheck(context.Background(), linstBa, listentryDi.Name)
+	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa})
 	if err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
@@ -188,7 +189,11 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 		},
 	}
 	minstBa, _ := minst.Marshal()
-	if err = h.HandleRemoteReport(context.Background(), [][]byte{minstBa}, metricDi.Name); err != nil {
+	mi := &adapter.EncodedInstance{
+		Name: metricDi.Name,
+		Data: minstBa,
+	}
+	if err = h.HandleRemoteReport(context.Background(), []*adapter.EncodedInstance{mi}); err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
 	expectEqual(minst, s.Requests.HandleMetricRequest[0].Instances[0], t)
@@ -205,7 +210,11 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 		},
 	}
 	qinstBa, _ := qinst.Marshal()
-	qe, err := h.HandleRemoteQuota(context.Background(), qinstBa, &adapter.QuotaArgs{}, quotaDi.Name)
+	qi := &adapter.EncodedInstance{
+		Name: quotaDi.Name,
+		Data: qinstBa,
+	}
+	qe, err := h.HandleRemoteQuota(context.Background(), qi, &adapter.QuotaArgs{})
 	if err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
