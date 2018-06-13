@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-// BuildHTTPRoutes produces a list of listeners and referenced clusters for all proxies
+// BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances, err := env.GetProxyServiceInstances(&node)
@@ -45,8 +45,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, nod
 	switch node.Type {
 	case model.Sidecar:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
-	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, proxyInstances, services, routeName)
+		//case model.Router, model.Ingress:
+		//	return configgen.buildGatewayHTTPRouteConfig(env, node, proxyInstances, services, routeName)
 	}
 	return nil, nil
 }
@@ -133,7 +133,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	// Get list of virtual services bound to the mesh gateway
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := env.VirtualServices(meshGateway)
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
+	virtualHostWrappers := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -142,8 +142,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 			continue
 		}
 
-		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
-		for _, host := range virtualHostWrapper.VirtualServiceHosts {
+		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.Hosts)+len(virtualHostWrapper.Services))
+		for _, host := range virtualHostWrapper.Hosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
 				Domains: []string{host},
