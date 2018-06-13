@@ -17,21 +17,177 @@ package spybackend
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"google.golang.org/grpc"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 )
 
-// This test for now just validates the backend can be started and tested against. This is will be used to verify
-// the OOP adapter work. As various features start lighting up, this test will grow.
+const (
+	h1 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: h1
+  namespace: istio-system
+spec:
+  adapter: spybackend-nosession
+---
+`
+	i1Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i1metric
+  namespace: istio-system
+spec:
+  template: metric
+  param:
+    value: request.size | 123
+    dimensions:
+      destination_service: "\"myservice\""
+      response_code: "200"
+---
+`
+
+	r1H1I1Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1.istio-system
+    instances:
+    - i1metric
+---
+`
+
+	h2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: h2
+  namespace: istio-system
+spec:
+  adapter: spybackend-nosession
+---
+`
+
+	i2Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i2metric
+  namespace: istio-system
+spec:
+  template: metric
+  param:
+    value: request.size | 456
+    dimensions:
+      destination_service: "\"myservice2\""
+      response_code: "400"
+---
+`
+
+	r2H2I2Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h2.istio-system
+    instances:
+    - i2metric
+---
+`
+	i3List = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i3list
+  namespace: istio-system
+spec:
+  template: listentry
+  param:
+    value: source.name | ""
+---
+`
+
+	r3H1I3List = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r3
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1.istio-system
+    instances:
+    - i3list
+---
+`
+
+	i4Quota = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i4quota
+  namespace: istio-system
+spec:
+  template: quota
+  params:
+    dimensions:
+      source: source.labels["app"] | source.service | "unknown"
+      sourceVersion: source.labels["version"] | "unknown"
+      destination: destination.labels["app"] | destination.service | "unknown"
+      destinationVersion: destination.labels["version"] | "unknown"
+---
+`
+
+	r4h1i4Quota = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r4
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1
+    instances:
+    - i4quota
+`
+
+	r6MatchIfReqIdH1i4Metric = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r4
+  namespace: istio-system
+spec:
+  match: request.id | "unknown" != "unknown"
+  actions:
+  - handler: h1
+    instances:
+    - i1metric
+`
+)
 
 func TestNoSessionBackend(t *testing.T) {
+	adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
+	if err != nil {
+		t.Fatalf("cannot open file: %v", err)
+	}
 	adapter_integration.RunTest(
 		t,
 		nil,
@@ -54,14 +210,152 @@ func TestNoSessionBackend(t *testing.T) {
 				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
+				// TODO return the state of data received by the spy adapter; deterministic order.
 				return nil, validateNoSessionBackend(ctx, t)
 			},
-			ParallelCalls: []adapter_integration.Call{},
-			Configs:       []string{},
-			Want: `{
-              "AdapterState": null,
-		      "Returns": []
-            }`,
+			ParallelCalls: []adapter_integration.Call{
+				// 3 report calls; varying request.size attribute and no attributes call too.
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 666},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 888},
+				},
+				{
+					CallKind: adapter_integration.REPORT,
+				},
+
+				// 3 check calls; varying source.name attribute and no attributes call too.,
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "foobar"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{"source.name": "bazbaz"},
+				},
+				{
+					CallKind: adapter_integration.CHECK,
+				},
+
+				// one call with quota args
+				{
+					CallKind: adapter_integration.CHECK,
+					Quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
+						"requestCount": {
+							Amount:     30,
+							BestEffort: true,
+						},
+					},
+				},
+
+				// one report request with request.id to match r4 rule
+				{
+					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.id": "somereqid"},
+				},
+			},
+			Configs: []string{
+				// CRs for built-in templates are automatically added by the integration test framework.
+				string(adptCfgBytes),
+				h1,
+				i1Metric,
+				r1H1I1Metric,
+				h2,
+				i2Metric,
+				r2H2I2Metric,
+				i3List,
+				r3H1I3List,
+				i4Quota,
+				r4h1i4Quota,
+				r6MatchIfReqIdH1i4Metric,
+			},
+			Want: `
+		{
+		 "AdapterState": null,
+		 "Returns": [
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": {
+		    "requestCount": {
+		     "Status": {},
+		     "ValidDuration": 0,
+		     "Amount": 0
+		    }
+		   },
+		   "Error": null
+		  },
+		  {
+		   "Check": {
+		    "Status": {},
+		    "ValidDuration": 0,
+		    "ValidUseCount": 0
+		   },
+		   "Quota": null,
+		   "Error": null
+		  }
+		 ]
+		}`,
 		},
 	)
 }
