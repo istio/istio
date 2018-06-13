@@ -213,9 +213,6 @@ func createGatewayHTTPFilterChainOpts(
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
 				routeConfig: routeCfg,
-				// DO NOT CHANGE THIS FORMAT. ITs set in model/gateway.go merge function
-				// And used during RDS calls to lookup servers for a route config
-				// TODO: find a cleaner way to do this
 				rds:              model.GatewayRDSRouteName(servers[0]),
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal

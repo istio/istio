@@ -145,6 +145,7 @@ func isHTTPServer(server *networking.Server) bool {
 	return false
 }
 
+// GatewayRDSRouteName generates the RDS route config name for gateway's servers.
 // Unlike sidecars where the RDS route name is the listener port number, gateways have a different
 // structure for RDS.
 // HTTP servers have route name set to http.<portNumber>.
