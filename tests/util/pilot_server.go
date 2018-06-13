@@ -130,13 +130,6 @@ func setup() error {
 	}
 	httpAddr := ":" + pilotHTTP
 
-	_, meshConfig, _ := bootstrap.GetMeshConfig(nil, "not used", "not used")
-	meshConfig.AccessLogFile = "/tmp/envoy-access.log" // TODO take value from TestSetup.AccessLogPath, needs refactoring to avoid import cycle
-	//TODO: start mixer first, get its address
-	meshConfig.MixerCheckServer = "istio-mixer.istio-system:9091"
-	meshConfig.MixerReportServer = "istio-mixer.istio-system:9091"
-	meshConfig.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
-
 	// Create a test pilot discovery service configured to watch the tempDir.
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
@@ -147,7 +140,11 @@ func setup() error {
 			EnableCaching:   true,
 			EnableProfiling: true,
 		},
-		MeshConfig: meshConfig,
+		//TODO: start mixer first, get its address
+		Mesh: bootstrap.MeshArgs{
+			MixerAddress:    "istio-mixer.istio-system:9091",
+			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: IstioSrc + "/.circleci/config",
 		},
