@@ -177,7 +177,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 			Port: &networking.Port{
 				Number:   443,
 				Protocol: string(model.ProtocolHTTPS),
-				Name:     "https-ingress-443",
+				Name:     fmt.Sprintf("https-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
 			},
 			Hosts: tls.Hosts,
 			// While we accept multiple certs, we expect them to be mounted in
@@ -198,7 +198,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 		Port: &networking.Port{
 			Number:   80,
 			Protocol: string(model.ProtocolHTTP),
-			Name:     "http-ingress-80",
+			Name:     fmt.Sprintf("http-80-ingress-%s-%s", ingress.Name, ingress.Namespace),
 		},
 		Hosts: []string{"*"},
 	})
@@ -221,7 +221,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 				Authority: createStringMatch(rule.Host),
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend)
+			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule for host %q, no backend defined for path", rule.Host)
 				continue
@@ -232,7 +232,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 	}
 
 	if ingress.Spec.Backend != nil {
-		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend))
+		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend, ingress.Namespace))
 	}
 
 	virtualService.Http = httpRoutes
@@ -265,7 +265,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 
 }
 
-func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend) *networking.HTTPRoute {
+func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}
@@ -279,16 +279,15 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend) *networking.HTTP
 			Number: uint32(backend.ServicePort.IntVal),
 		}
 	} else {
-		port.Port = &networking.PortSelector_Name{
-			Name: backend.ServicePort.StrVal,
-		}
+		// Port names are not allowed in destination rules.
+		return nil
 	}
 
 	return &networking.HTTPRoute{
 		Route: []*networking.DestinationWeight{
 			{
 				Destination: &networking.Destination{
-					Host: backend.ServiceName,
+					Host: fmt.Sprintf("%s.%s.svc.cluster.local", backend.ServiceName, namespace),
 					Port: port,
 				},
 				Weight: 100,
