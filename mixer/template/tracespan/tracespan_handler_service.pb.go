@@ -33,7 +33,7 @@
 	    source.version: source.labels["version"] | ""
 	```
 
-	See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+	See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 	for information on tracing within Istio.
 
 	TraceSpan represents an individual span within a distributed trace.
@@ -141,7 +141,7 @@ type InstanceMsg struct {
 	//
 	// Required.
 	EndTime *istio_policy_v1beta1.TimeStamp `protobuf:"bytes,6,opt,name=end_time,json=endTime" json:"end_time,omitempty"`
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
@@ -160,7 +160,7 @@ func (*InstanceMsg) Descriptor() ([]byte, []int) {
 // Contains inferred type information about specific instance of 'tracespan' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 type Type struct {
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
@@ -205,7 +205,7 @@ type InstanceParam struct {
 	//
 	// Required.
 	EndTime string `protobuf:"bytes,6,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
