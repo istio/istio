@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -33,11 +34,15 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 // SecretType is used for secret discovery service to construct response.
 const SecretType = "type.googleapis.com/envoy.api.v2.Secret"
+
+var (
+	sdsClients      = map[string]*sdsConnection{}
+	sdsClientsMutex sync.RWMutex
+)
 
 type discoveryStream interface {
 	Send(*xdsapi.DiscoveryResponse) error
@@ -45,12 +50,8 @@ type discoveryStream interface {
 	grpc.ServerStream
 }
 
-// SdsEvent represents a config or registry event that results in a push.
-type SdsEvent struct {
-
-	// If not empty, it is used to indicate the event is caused by a change in the clusters.
-	// Only EDS for the listed clusters will be sent.
-	clusters []string
+// sdsEvent represents a secret event that results in a push.
+type sdsEvent struct {
 }
 
 type sdsConnection struct {
@@ -61,25 +62,29 @@ type sdsConnection struct {
 	Connect time.Time
 
 	// The proxy from which the connection comes from.
-	modelNode *model.Proxy
+	proxy *model.Proxy
 
-	pushChannel chan *SdsEvent
+	// Sending on this channel results in  push.
+	pushChannel chan *sdsEvent
 
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
 
 	// SDS streams implement this interface.
 	stream discoveryStream
+
+	// The secret associated with the proxy.
+	secret *SecretItem
 }
 
 type sdsservice struct {
-	st cache.SecretManager
+	st SecretManager
 	//TODO(quanlin), add below properties later:
 	//1. workloadRegistry(store proxies information).
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager) *sdsservice {
+func newSDSService(st SecretManager) *sdsservice {
 	return &sdsservice{
 		st: st,
 	}
@@ -119,21 +124,34 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				log.Warnf("Discovery request %+v missing node id", discReq)
 				continue
 			}
-			nt, err := model.ParseServiceNode(discReq.Node.Id)
+			proxy, err := model.ParseServiceNode(discReq.Node.Id)
 			if err != nil {
 				log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
 				return err
 			}
-			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			con.modelNode = &nt
+			proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			con.proxy = &proxy
 
 			secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
 			}
+			con.secret = secret
 
-			if err := s.pushSDS(secret, *con.modelNode, con); err != nil {
+			addConn(discReq.Node.Id, con)
+			defer removeConn(discReq.Node.Id)
+
+			if err := pushSDS(con); err != nil {
+				log.Errorf("SDS failed to push: %v", err)
+				return err
+			}
+		case <-con.pushChannel:
+			if con.secret == nil {
+				continue
+			}
+
+			if err := pushSDS(con); err != nil {
 				log.Errorf("SDS failed to push: %v", err)
 				return err
 			}
@@ -152,10 +170,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
 		return nil, err
 	}
-
 	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-
-	//TODO(quanlin): add proxy info in workload registry.
 
 	secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
 	if err != nil {
@@ -166,8 +181,33 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(secret, proxy)
 }
 
-func (s *sdsservice) pushSDS(secret *cache.SecretItem, proxy model.Proxy, con *sdsConnection) error {
-	response, err := sdsDiscoveryResponse(secret, proxy)
+// NotifyProxy send notification to proxy about secret update.
+func NotifyProxy(id string, secret *SecretItem) error {
+	cli := sdsClients[id]
+	if cli == nil {
+		log.Infof("No sdsclient with id %q can be found", id)
+		return fmt.Errorf("no sdsclient with id %q can be found", id)
+	}
+	cli.secret = secret
+
+	cli.pushChannel <- &sdsEvent{}
+	return nil
+}
+
+func addConn(proxyID string, conn *sdsConnection) {
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
+	sdsClients[proxyID] = conn
+}
+
+func removeConn(proxyID string) {
+	sdsClientsMutex.Lock()
+	defer sdsClientsMutex.Unlock()
+	delete(sdsClients, proxyID)
+}
+
+func pushSDS(con *sdsConnection) error {
+	response, err := sdsDiscoveryResponse(con.secret, *con.proxy)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
@@ -178,11 +218,11 @@ func (s *sdsservice) pushSDS(secret *cache.SecretItem, proxy model.Proxy, con *s
 		return err
 	}
 
-	log.Infof("SDS: push for proxy:%q addr:%q", proxy.ID, con.PeerAddr)
+	log.Infof("SDS: push for proxy:%q addr:%q", con.proxy.ID, con.PeerAddr)
 	return nil
 }
 
-func sdsDiscoveryResponse(s *cache.SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	//TODO(quanlin): use timestamp for versionInfo and nouce for now, may change later.
 	t := time.Now().String()
 	resp := &xdsapi.DiscoveryResponse{
@@ -228,7 +268,7 @@ func sdsDiscoveryResponse(s *cache.SecretItem, proxy model.Proxy) (*xdsapi.Disco
 func newSDSConnection(peerAddr string, stream discoveryStream) *sdsConnection {
 	return &sdsConnection{
 		doneChannel: make(chan int, 1),
-		pushChannel: make(chan *SdsEvent, 1),
+		pushChannel: make(chan *sdsEvent, 1),
 		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,

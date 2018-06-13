@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 const maxStreams = 100000
@@ -41,7 +40,7 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options Options, st cache.SecretManager) (*Server, error) {
+func NewServer(options Options, st SecretManager) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
 		closing:  make(chan bool, 1),
@@ -61,7 +60,7 @@ func (s *Server) Stop() {
 	s.closing <- true
 }
 
-func (s *Server) initDiscoveryService(options *Options, st cache.SecretManager) error {
+func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 
