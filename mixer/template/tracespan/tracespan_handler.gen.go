@@ -52,7 +52,7 @@ import (
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 
 // Fully qualified name of the template
@@ -107,7 +107,7 @@ type Instance struct {
 	// Required.
 	EndTime time.Time
 
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
