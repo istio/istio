@@ -47,14 +47,14 @@ func TestTLSMultiplexing(t *testing.T) {
 	// Pod a has sidecar, will use DestinationRule `ISTIO_MUTUAL` to send TLS traffic.
 	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
-	dstPods := []string{"b"}
-	ports := []string{"80", "9090"}
+	dstPods := []string{"d"}
+	ports := []string{"80", "7070"}
 	shouldFails := []struct {
 		src  string
 		dest string
 		port string
 	}{
-		{"t", "b", "9090"},
+		{"t", "d", "7070"},
 	}
 
 	// Run all request tests.

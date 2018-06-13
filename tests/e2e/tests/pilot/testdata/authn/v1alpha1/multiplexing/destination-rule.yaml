@@ -1,9 +1,9 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: b-dr-mtls-all-ports
+  name: mtls-all-ports
 spec:
-  host: b
+  host: d
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
