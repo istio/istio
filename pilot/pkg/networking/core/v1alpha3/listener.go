@@ -592,11 +592,7 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 
 	connectionManager := httpOpts.connectionManager
 	connectionManager.CodecType = http_conn.AUTO
-	connectionManager.AccessLog = []*accesslog.AccessLog{
-		{
-			Config: nil,
-		},
-	}
+	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = HTTPStatPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}

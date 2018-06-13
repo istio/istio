@@ -180,7 +180,15 @@ message Instance {
   // to an instance produced by this instance.
   string name = 1;
 
-  // Required. The name of the template this instance creates instances for.
+  // Required. The name of the compiled in template this instance creates instances for. For referencing non compiled-in
+  // templates, use the `template` field instead.
+  //
+  // The value must match the name of the available template Mixer is built with.
+  string compiled_template = 67794676;
+
+  // Required. The name of the template this instance creates instances for. For referencing compiled-in
+  // templates, use the `compiled_template` field instead.
+  //
   // The value must match the name of the available template in scope.
   string template = 2;
 
@@ -244,12 +252,24 @@ message Handler {
   // Required. Must be unique in the entire mixer configuration. Used by [Actions][istio.policy.v1beta1.Action.handler]
   // to refer to this handler.
   string name = 1;
-  // Required. The name of a specific adapter implementation. An adapter's
-  // implementation name is typically a constant in its code.
+
+  // Required. The name of the compiled in adapter this handler instantiates. For referencing non compiled-in
+  // adapters, use the `adapter` field instead.
+  //
+  // The value must match the name of the available adapter Mixer is built with. An adapter's name is typically a
+  // constant in its code.
+  string compiled_adapter = 67794676;
+
+  // Required. The name of a specific adapter implementation. For referencing compiled-in
+  // adapters, use the `compiled_adapter` field instead.
+  //
+  // An adapter's implementation name is typically a constant in its code.
   string adapter = 2;
+
   // Optional. Depends on adapter implementation. Struct representation of a
   // proto defined by the adapter implementation; this varies depending on the value of field `adapter`.
   google.protobuf.Struct params = 3;
+
   // Optional. Information on how to connect to the out-of-process adapter.
   // This is used if the adapter is not compiled into Mixer binary and is running as a separate process.
   Connection connection = 4;

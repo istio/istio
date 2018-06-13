@@ -73,17 +73,15 @@ global:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
-    # List of fully qualified services to exclude from mtls
-    # TODO: add the templating.
-    mtlsExcludedServices:
-    - "kubernetes.default.svc.cluster.local"
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
   # Default is 1 second
   refreshInterval: 10s
@@ -102,6 +100,10 @@ global:
     amd64: 2
     s390x: 2
     ppc64le: 2
+
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
 
 # Any customization for istio testing should be here
 istiotesting:
@@ -238,7 +240,7 @@ sidecarInjectorWebhook:
 # galley configuration
 #
 galley:
-  enabled: false
+  enabled: true
   serviceAccountName: default
   replicaCount: 1
   image: galley
@@ -291,7 +293,6 @@ pilot:
 # security configuration
 #
 security:
-  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel

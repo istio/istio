@@ -28,7 +28,7 @@ IP addresses, or regex patterns.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.provider_url">
+<tr id="Params-provider_url">
 <td><code>providerUrl</code></td>
 <td><code>string</code></td>
 <td>
@@ -36,7 +36,7 @@ IP addresses, or regex patterns.</p>
 
 </td>
 </tr>
-<tr id="Params.refresh_interval">
+<tr id="Params-refresh_interval">
 <td><code>refreshInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -45,7 +45,7 @@ an updated list</p>
 
 </td>
 </tr>
-<tr id="Params.ttl">
+<tr id="Params-ttl">
 <td><code>ttl</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -56,7 +56,7 @@ server outages.</p>
 
 </td>
 </tr>
-<tr id="Params.caching_interval">
+<tr id="Params-caching_interval">
 <td><code>cachingInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -65,7 +65,7 @@ before it should ask the adapter again.</p>
 
 </td>
 </tr>
-<tr id="Params.caching_use_count">
+<tr id="Params-caching_use_count">
 <td><code>cachingUseCount</code></td>
 <td><code>int32</code></td>
 <td>
@@ -74,7 +74,7 @@ before it should ask the adapter again.</p>
 
 </td>
 </tr>
-<tr id="Params.overrides">
+<tr id="Params-overrides">
 <td><code>overrides</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -82,15 +82,15 @@ before it should ask the adapter again.</p>
 
 </td>
 </tr>
-<tr id="Params.entry_type">
+<tr id="Params-entry_type">
 <td><code>entryType</code></td>
-<td><code><a href="#Params.ListEntryType">Params.ListEntryType</a></code></td>
+<td><code><a href="#Params-ListEntryType">Params.ListEntryType</a></code></td>
 <td>
 <p>Determines the kind of list entry and overrides.</p>
 
 </td>
 </tr>
-<tr id="Params.blacklist">
+<tr id="Params-blacklist">
 <td><code>blacklist</code></td>
 <td><code>bool</code></td>
 <td>
@@ -101,7 +101,7 @@ before it should ask the adapter again.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.ListEntryType">Params.ListEntryType</h2>
+<h2 id="Params-ListEntryType">Params.ListEntryType</h2>
 <section>
 <p>Determines the type of list that the adapter is consulting.</p>
 
@@ -113,28 +113,28 @@ before it should ask the adapter again.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.ListEntryType.STRINGS">
+<tr id="Params-ListEntryType-STRINGS">
 <td><code>STRINGS</code></td>
 <td>
 <p>List entries are treated as plain strings.</p>
 
 </td>
 </tr>
-<tr id="Params.ListEntryType.CASE_INSENSITIVE_STRINGS">
+<tr id="Params-ListEntryType-CASE_INSENSITIVE_STRINGS">
 <td><code>CASE_INSENSITIVE_STRINGS</code></td>
 <td>
 <p>List entries are treated as case-insensitive strings.</p>
 
 </td>
 </tr>
-<tr id="Params.ListEntryType.IP_ADDRESSES">
+<tr id="Params-ListEntryType-IP_ADDRESSES">
 <td><code>IP_ADDRESSES</code></td>
 <td>
 <p>List entries are treated as IP addresses and ranges.</p>
 
 </td>
 </tr>
-<tr id="Params.ListEntryType.REGEX">
+<tr id="Params-ListEntryType-REGEX">
 <td><code>REGEX</code></td>
 <td>
 <p>List entries are treated as re2 regexp. See <a href="https://github.com/google/re2/wiki/Syntax">here</a> for the supported syntax.</p>

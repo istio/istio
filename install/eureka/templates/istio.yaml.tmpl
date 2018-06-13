@@ -43,7 +43,7 @@ services:
     ports:
       - "8081:15007"
     command: ["discovery",
-             "--port", "15007",
+             "--httpAddr", ":15007",
              "--registries", "Eureka",
              "--eurekaserverURL", "http://eureka:8080",
              "--kubeconfig", "/etc/istio/config/kubeconfig"]

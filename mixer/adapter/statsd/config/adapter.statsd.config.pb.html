@@ -26,7 +26,7 @@ number_of_entries: 3
 </tr>
 </thead>
 <tbody>
-<tr id="Params.address">
+<tr id="Params-address">
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
@@ -34,7 +34,7 @@ number_of_entries: 3
 
 </td>
 </tr>
-<tr id="Params.prefix">
+<tr id="Params-prefix">
 <td><code>prefix</code></td>
 <td><code>string</code></td>
 <td>
@@ -42,7 +42,7 @@ number_of_entries: 3
 
 </td>
 </tr>
-<tr id="Params.flush_duration">
+<tr id="Params-flush_duration">
 <td><code>flushDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -51,7 +51,7 @@ Metrics are reported when either flush<em>bytes is full or flush</em>duration ti
 
 </td>
 </tr>
-<tr id="Params.flush_bytes">
+<tr id="Params-flush_bytes">
 <td><code>flushBytes</code></td>
 <td><code>int32</code></td>
 <td>
@@ -60,7 +60,7 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 
 </td>
 </tr>
-<tr id="Params.sampling_rate">
+<tr id="Params-sampling_rate">
 <td><code>samplingRate</code></td>
 <td><code>float</code></td>
 <td>
@@ -68,9 +68,9 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 
 </td>
 </tr>
-<tr id="Params.metrics">
+<tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
 <td>
 <p>Map of metric name -&gt; info. If a metric&rsquo;s name is not in the map then the metric will not be exported to statsd.</p>
 
@@ -79,7 +79,7 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
 <section>
 <p>Describes how to represent this metric in statsd</p>
 
@@ -92,13 +92,13 @@ same (private) network 1432 bytes is recommended for better performance.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.type">
+<tr id="Params-MetricInfo-type">
 <td><code>type</code></td>
-<td><code><a href="#Params.MetricInfo.Type">Params.MetricInfo.Type</a></code></td>
+<td><code><a href="#Params-MetricInfo-Type">Params.MetricInfo.Type</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.name_template">
+<tr id="Params-MetricInfo-name_template">
 <td><code>nameTemplate</code></td>
 <td><code>string</code></td>
 <td>
@@ -115,7 +115,7 @@ we use the template:
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.Type">Params.MetricInfo.Type</h2>
+<h2 id="Params-MetricInfo-Type">Params.MetricInfo.Type</h2>
 <section>
 <p>The type of metric.</p>
 
@@ -127,22 +127,22 @@ we use the template:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.Type.UNKNOWN">
+<tr id="Params-MetricInfo-Type-UNKNOWN">
 <td><code>UNKNOWN</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Type.COUNTER">
+<tr id="Params-MetricInfo-Type-COUNTER">
 <td><code>COUNTER</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Type.GAUGE">
+<tr id="Params-MetricInfo-Type-GAUGE">
 <td><code>GAUGE</code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.Type.DISTRIBUTION">
+<tr id="Params-MetricInfo-Type-DISTRIBUTION">
 <td><code>DISTRIBUTION</code></td>
 <td>
 </td>

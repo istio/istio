@@ -14,11 +14,15 @@
 
 syntax = "proto3";
 
-// TraceSpan represents an individual span within a distributed trace.
+// $title: Trace Span
+// $description: A template that represents\ an individual span within a distributed trace.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
+
+// The `tracespan` template represents an individual span within a distributed trace.
 //
 // Example config:
 //
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:

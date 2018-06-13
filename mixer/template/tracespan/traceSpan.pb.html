@@ -1,14 +1,16 @@
 ---
-title: traceSpan
+title: Trace Span
+description: A template that represents\ an individual span within a distributed trace.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 3
 ---
-<p>TraceSpan represents an individual span within a distributed trace.</p>
+<p>The <code>tracespan</code> template represents an individual span within a distributed trace.</p>
 
 <p>Example config:</p>
 
-<pre><code>apiVersion: &quot;config.istio.io/v1alpha2&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: tracespan
 metadata:
   name: default
@@ -52,7 +54,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 </tr>
 </thead>
 <tbody>
-<tr id="Template.trace_id">
+<tr id="Template-trace_id">
 <td><code>traceId</code></td>
 <td><code>string</code></td>
 <td>
@@ -63,7 +65,7 @@ trace share the same Trace ID.</p>
 
 </td>
 </tr>
-<tr id="Template.span_id">
+<tr id="Template-span_id">
 <td><code>spanId</code></td>
 <td><code>string</code></td>
 <td>
@@ -74,7 +76,7 @@ when the span is created.</p>
 
 </td>
 </tr>
-<tr id="Template.parent_span_id">
+<tr id="Template-parent_span_id">
 <td><code>parentSpanId</code></td>
 <td><code>string</code></td>
 <td>
@@ -85,7 +87,7 @@ instance. If this is a root span, then this field MUST be empty.</p>
 
 </td>
 </tr>
-<tr id="Template.span_name">
+<tr id="Template-span_name">
 <td><code>spanName</code></td>
 <td><code>string</code></td>
 <td>
@@ -100,9 +102,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.start_time">
+<tr id="Template-start_time">
 <td><code>startTime</code></td>
-<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The start time of the span.</p>
 
@@ -110,9 +112,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.end_time">
+<tr id="Template-end_time">
 <td><code>endTime</code></td>
-<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>The end time of the span.</p>
 
@@ -120,9 +122,9 @@ This makes it easier to correlate spans in different traces.</p>
 
 </td>
 </tr>
-<tr id="Template.span_tags">
+<tr id="Template-span_tags">
 <td><code>spanTags</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Span tags are a set of <key, value> pairs that provide metadata for the
 entire span. The values can be specified in the form of expressions.</p>
@@ -131,7 +133,7 @@ entire span. The values can be specified in the form of expressions.</p>
 
 </td>
 </tr>
-<tr id="Template.httpStatusCode">
+<tr id="Template-httpStatusCode">
 <td><code>httpStatusCode</code></td>
 <td><code>int64</code></td>
 <td>
@@ -143,7 +145,7 @@ span status will be assumed to be successful.</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
+<h2 id="istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
 <section>
 <p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
 <em>ValueType.TIMESTAMP</em></p>
@@ -160,7 +162,7 @@ type TimeStamp</p>
 </tr>
 </thead>
 <tbody>
-<tr id="istio.policy.v1beta1.TimeStamp.value">
+<tr id="istio-policy-v1beta1-TimeStamp-value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>
@@ -171,7 +173,7 @@ type TimeStamp</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.policy.v1beta1.Value">istio.policy.v1beta1.Value</h2>
+<h2 id="istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</h2>
 <section>
 <p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
 <em>ValueType</em> enum values. For example, when
@@ -192,7 +194,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 </tr>
 </thead>
 <tbody>
-<tr id="istio.policy.v1beta1.Value.string_value" class="oneof oneof-start">
+<tr id="istio-policy-v1beta1-Value-string_value" class="oneof oneof-start">
 <td><code>stringValue</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -200,7 +202,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.int64_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-int64_value" class="oneof">
 <td><code>int64Value</code></td>
 <td><code>int64 (oneof)</code></td>
 <td>
@@ -208,7 +210,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.double_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-double_value" class="oneof">
 <td><code>doubleValue</code></td>
 <td><code>double (oneof)</code></td>
 <td>
@@ -216,7 +218,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.bool_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-bool_value" class="oneof">
 <td><code>boolValue</code></td>
 <td><code>bool (oneof)</code></td>
 <td>
@@ -224,49 +226,49 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.ip_address_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-ip_address_value" class="oneof">
 <td><code>ipAddressValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress (oneof)</a></code></td>
 <td>
 <p>Used for values of type IPAddress</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.timestamp_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-timestamp_value" class="oneof">
 <td><code>timestampValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp (oneof)</a></code></td>
 <td>
 <p>Used for values of type TIMESTAMP</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.duration_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-duration_value" class="oneof">
 <td><code>durationValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-Duration">istio.policy.v1beta1.Duration (oneof)</a></code></td>
 <td>
 <p>Used for values of type DURATION</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.email_address_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-email_address_value" class="oneof">
 <td><code>emailAddressValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.EmailAddress">istio.policy.v1beta1.EmailAddress (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-EmailAddress">istio.policy.v1beta1.EmailAddress (oneof)</a></code></td>
 <td>
 <p>Used for values of type EmailAddress</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.dns_name_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-dns_name_value" class="oneof">
 <td><code>dnsNameValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.DNSName">istio.policy.v1beta1.DNSName (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-DNSName">istio.policy.v1beta1.DNSName (oneof)</a></code></td>
 <td>
 <p>Used for values of type DNSName</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.uri_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-uri_value" class="oneof">
 <td><code>uriValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.Uri">istio.policy.v1beta1.Uri (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-Uri">istio.policy.v1beta1.Uri (oneof)</a></code></td>
 <td>
 <p>Used for values of type Uri</p>
 

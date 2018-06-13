@@ -37,21 +37,21 @@ func TestNoSessionBackend(t *testing.T) {
 		nil,
 		adapter_integration.Scenario{
 			Setup: func() (interface{}, error) {
-				args := defaultArgs()
-				args.behavior.handleMetricResult = &v1beta1.ReportResult{}
-				args.behavior.handleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
-				args.behavior.handleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
+				args := DefaultArgs()
+				args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
+				args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
+				args.Behavior.HandleQuotaResult = &v1beta1.QuotaResult{Quotas: map[string]v1beta1.QuotaResult_Result{"key1": {GrantedAmount: 32}}}
 
-				var s server
+				var s Server
 				var err error
-				if s, err = newNoSessionServer(args); err != nil {
+				if s, err = NewNoSessionServer(args); err != nil {
 					return nil, err
 				}
 				s.Run()
 				return s, nil
 			},
 			Teardown: func(ctx interface{}) {
-				_ = ctx.(server).Close()
+				_ = ctx.(Server).Close()
 			},
 			GetState: func(ctx interface{}) (interface{}, error) {
 				return nil, validateNoSessionBackend(ctx, t)
@@ -67,8 +67,8 @@ func TestNoSessionBackend(t *testing.T) {
 }
 
 func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
-	s := ctx.(*noSessionServer)
-	req := s.requests
+	s := ctx.(*NoSessionServer)
+	req := s.Requests
 	// Connect the client to Mixer
 	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
@@ -84,7 +84,7 @@ func validateNoSessionBackend(ctx interface{}, t *testing.T) error {
 }
 
 func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
-	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *requests) error {
+	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *Requests) error {
 	if _, err := metricClt.HandleMetric(context.Background(), &metric.HandleMetricRequest{}); err != nil {
 		return err
 	}
@@ -99,14 +99,14 @@ func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
 		return fmt.Errorf("got quota.GrantedAmount %v; want %v", qr.Quotas["key1"].GrantedAmount, 31)
 	}
 
-	if len(req.handleQuotaRequest) != 1 {
-		return fmt.Errorf("got quota calls %d; want %d", len(req.handleQuotaRequest), 1)
+	if len(req.HandleQuotaRequest) != 1 {
+		return fmt.Errorf("got quota calls %d; want %d", len(req.HandleQuotaRequest), 1)
 	}
-	if len(req.handleMetricRequest) != 1 {
-		return fmt.Errorf("got metric calls %d; want %d", len(req.handleMetricRequest), 1)
+	if len(req.HandleMetricRequest) != 1 {
+		return fmt.Errorf("got metric calls %d; want %d", len(req.HandleMetricRequest), 1)
 	}
-	if len(req.handleListEntryRequest) != 1 {
-		return fmt.Errorf("got listentry calls %d; want %d", len(req.handleListEntryRequest), 1)
+	if len(req.HandleListEntryRequest) != 1 {
+		return fmt.Errorf("got listentry calls %d; want %d", len(req.HandleListEntryRequest), 1)
 	}
 	return nil
 }

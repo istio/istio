@@ -1807,6 +1807,21 @@ func ValidateServiceRoleBinding(msg proto.Message) error {
 	return errs
 }
 
+// ValidateRbacConfig checks that RbacConfig is well-formed.
+func ValidateRbacConfig(msg proto.Message) error {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
+		return errors.New("cannot cast to RbacConfig")
+	}
+
+	switch in.Mode {
+	case rbac.RbacConfig_ON_WITH_EXCLUSION, rbac.RbacConfig_ON_WITH_INCLUSION:
+		return errors.New("rbac mode not implemented, currently only supports ON/OFF")
+	}
+
+	return nil
+}
+
 func validateJwt(jwt *authn.Jwt) (errs error) {
 	if jwt == nil {
 		return nil

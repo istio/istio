@@ -95,6 +95,9 @@ func getValidatorForTest() (*Validator, error) {
 		NewBuilder: func() adapter.HandlerBuilder {
 			return &dummyHandlerBldr{want: testAdapterConfig}
 		},
+		SupportedTemplates: []string{
+			"listentry",
+		},
 	}
 
 	templateInfo := make(map[string]*template.Info)
@@ -242,13 +245,13 @@ func TestValidator(t *testing.T) {
 			"invalid delete handler",
 			[]*store.Event{deleteEvent("staticversion.listchecker.istio-system")},
 			false,
-			"action='checkwl.rule.istio-system[0]': Handler not found: handler='staticversion.listchecker.istio-system'",
+			"action='checkwl.rule.istio-system[0]': Handler not found: handler='staticversion.listchecker'",
 		},
 		{
 			"invalid delete instance",
 			[]*store.Event{deleteEvent("appversion.listentry.istio-system")},
 			false,
-			"action='checkwl.rule.istio-system[0]': Instance not found: instance='appversion.listentry.istio-system'",
+			"action='checkwl.rule.istio-system[0]': Instance not found: instance='appversion.listentry'",
 		},
 		{
 			"invalid removal of attributemanifest",

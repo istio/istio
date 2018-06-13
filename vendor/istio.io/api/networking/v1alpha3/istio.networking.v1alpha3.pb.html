@@ -4,7 +4,7 @@ description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 39
+number_of_entries: 38
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -1580,49 +1580,6 @@ for the same ratings service using the Cookie header as the hash key.</p>
 </tbody>
 </table>
 </section>
-<h2 id="LoadBalancerSettings.ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
-<section>
-<p>Consistent hashing (ketama hash) based load balancer for even load
-distribution/redistribution when the connection pool changes. This
-load balancing policy is applicable only for HTTP-based
-connections. A user specified HTTP header is used as the key with
-<a href="http://cyan4973.github.io/xxHash">xxHash</a> hashing.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="LoadBalancerSettings.ConsistentHashLB.http_header">
-<td><code>httpHeader</code></td>
-<td><code>string</code></td>
-<td>
-<p>REQUIRED. The name of the HTTP request header that will be used to
-obtain the hash key. If the request header is not present, the load
-balancer will use a random number as the hash, effectively making
-the load balancing policy random.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancerSettings.ConsistentHashLB.minimum_ring_size">
-<td><code>minimumRingSize</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>The minimum number of virtual nodes to use for the hash
-ring. Defaults to 1024. Larger ring sizes result in more granular
-load distributions. If the number of hosts in the load balancing
-pool is larger than the ring size, each host will be assigned a
-single virtual node.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="LoadBalancerSettings.SimpleLB">LoadBalancerSettings.SimpleLB</h2>
 <section>
 <p>Standard load balancing algorithms that require no tuning.</p>
@@ -1677,11 +1634,12 @@ Envoy for further details.</p>
 <h2 id="OutlierDetection">OutlierDetection</h2>
 <section>
 <p>A Circuit breaker implementation that tracks the status of each
-individual host in the upstream service.  While currently applicable to
-only HTTP services, future versions will support opaque TCP services as
-well. For HTTP services, hosts that continually return errors for API
-calls are ejected from the pool for a pre-defined period of time. See
-Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
+individual host in the upstream service.  Applicable to both HTTP and
+TCP services.  For HTTP services, hosts that continually return 5xx
+errors for API calls are ejected from the pool for a pre-defined period
+of time. For TCP services, connection timeouts or connection
+failures to a given host counts as an error when measuring the
+consecutive errors metric. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier">outlier
 detection</a>
 for more details.</p>
 
@@ -1705,10 +1663,9 @@ spec:
         http2MaxRequests: 1000
         maxRequestsPerConnection: 10
     outlierDetection:
-      http:
-        consecutiveErrors: 7
-        interval: 5m
-        baseEjectionTime: 15m
+      consecutiveErrors: 7
+      interval: 5m
+      baseEjectionTime: 15m
 </code></pre>
 
 <table class="message-fields">
@@ -1720,11 +1677,53 @@ spec:
 </tr>
 </thead>
 <tbody>
+<tr id="OutlierDetection.consecutive_errors">
+<td><code>consecutiveErrors</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Number of errors before a host is ejected from the connection
+pool. Defaults to 5. When the upstream host is accessed over HTTP, a
+5xx return code qualifies as an error. When the upstream host is
+accessed over an opaque TCP connection, connect timeouts and
+connection error/failure events qualify as an error.</p>
+
+</td>
+</tr>
+<tr id="OutlierDetection.interval">
+<td><code>interval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Time interval between ejection sweep analysis. format:
+1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 10s.</p>
+
+</td>
+</tr>
+<tr id="OutlierDetection.base_ejection_time">
+<td><code>baseEjectionTime</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Minimum ejection duration. A host will remain ejected for a period
+equal to the product of minimum ejection duration and the number of
+times the host has been ejected. This technique allows the system to
+automatically increase the ejection period for unhealthy upstream
+servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
+
+</td>
+</tr>
+<tr id="OutlierDetection.max_ejection_percent">
+<td><code>maxEjectionPercent</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Maximum % of hosts in the load balancing pool for the upstream
+service that can be ejected. Defaults to 10%.</p>
+
+</td>
+</tr>
 <tr id="OutlierDetection.http">
 <td><code>http</code></td>
 <td><code><a href="#OutlierDetection.HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
 <td>
-<p>Settings for HTTP1.1/HTTP2/GRPC connections.</p>
+<p>DEPRECATED.</p>
 
 </td>
 </tr>
