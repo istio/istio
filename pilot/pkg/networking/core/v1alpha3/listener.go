@@ -597,7 +597,7 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 	connectionManager.StatPrefix = HTTPStatPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
-	if httpOpts.rds != "" && env.UseRDS {
+	if httpOpts.rds != "" && !env.DisableRDS {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
 				ConfigSource: core.ConfigSource{

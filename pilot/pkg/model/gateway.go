@@ -145,6 +145,30 @@ func isHTTPServer(server *networking.Server) bool {
 	return false
 }
 
+// Unlike sidecars where the RDS route name is the listener port number, gateways have a different
+// structure for RDS.
+// HTTP servers have route name set to http.<portNumber>.
+//   Multiple HTTP servers can exist on the same port and the code will combine all of them into
+//   one single RDS payload for http.<portNumber>
+// HTTPS servers with TLS termination (i.e. envoy decoding the content, and making outbound http calls to backends)
+// will use route name https.<portnumber>.<portName>. HTTPS servers using SNI passthrough or
+// non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without terminating
+// the SSL connection. They would inspect the SNI header and forward to the appropriate upstream as opaque TCP.
+//
+// Within HTTPS servers terminating TLS, user could setup multiple servers in the gateway. each server could have
+// one or more hosts but have different TLS certificates. In this case, we end up having separate filter chain
+// for each server, with the filter chain match matching on the server specific TLS certs and SNI headers.
+// We have two options here: either have all filter chains use the same RDS route name (e.g. "443") and expose
+// all virtual hosts on that port to every filter chain uniformly or expose only the set of virtual hosts
+// configured under the server for those certificates. We adopt the latter approach. In other words, each
+// filter chain in the multi-filter-chain listener will have a distinct RDS route name (https.<portnumber>.portname)
+// so that when a RDS request comes in, we serve the virtual hosts and associated routes for that server.
+//
+// Note that the common case is one where multiple servers are exposed under a single multi-SAN cert on a single port.
+// In this case, we have a single https.<portnumber>.portname RDS for the HTTPS server.
+// While we can use the same RDS route name for two servers (say HTTP and HTTPS) exposing the same set of hosts on
+// different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
+// hosts on the two servers start differing -- necessitating the need for two different RDS routes.
 func GatewayRDSRouteName(server *networking.Server) string {
 	protocol := ParseProtocol(server.Port.Protocol)
 	if protocol.IsHTTP() {

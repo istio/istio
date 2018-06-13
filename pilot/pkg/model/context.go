@@ -47,7 +47,7 @@ type Environment struct {
 	MixerSAN []string
 
 	// RDS flag. This is a temporary hack. Will be removed in few days
-	UseRDS bool
+	DisableRDS bool
 }
 
 // Proxy defines the proxy attributes used by xDS identification
