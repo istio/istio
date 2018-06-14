@@ -1146,21 +1146,17 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier == nil {
 		return
 	}
-	if outlier.Http == nil {
-		return fmt.Errorf("outlier detection must have at least one field")
-	}
 
-	http := outlier.Http
-	if http.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.BaseEjectionTime))
+	if outlier.BaseEjectionTime != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if http.ConsecutiveErrors < 0 {
+	if outlier.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
-	if http.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Interval))
+	if outlier.Interval != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
 	}
-	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
+	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent))
 
 	return
 }

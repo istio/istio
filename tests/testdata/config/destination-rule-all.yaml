@@ -37,11 +37,10 @@ spec:
         maxRetries: 4
         http1MaxPendingRequests: 14
     outlierDetection:
-        http:
-          consecutiveErrors: 7
-          interval: 8ms
-          baseEjectionTime: 1m
-          maxEjectionPercent: 11
+        consecutiveErrors: 7
+        interval: 8ms
+        baseEjectionTime: 1m
+        maxEjectionPercent: 11
     tls:
       mode: DISABLE
   subsets:
