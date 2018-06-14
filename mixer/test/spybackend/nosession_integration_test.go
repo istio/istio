@@ -200,9 +200,6 @@ func TestNoSessionBackend(t *testing.T) {
 		{
 		 "AdapterState": [
 		  {
-		   "adapter_config": {
-		    "type_url": "type.googleapis.com/.Params"
-		   },
 		   "dedup_id": "stripped_for_test",
 		   "instances": [
 		    {
@@ -228,9 +225,6 @@ func TestNoSessionBackend(t *testing.T) {
 		   ]
 		  },
 		  {
-		   "adapter_config": {
-		    "type_url": "type.googleapis.com/.Params"
-		   },
 		   "dedup_id": "stripped_for_test",
 		   "instances": [
 		    {
@@ -282,9 +276,6 @@ func TestNoSessionBackend(t *testing.T) {
 		{
 		 "AdapterState": [
 		  {
-		   "adapter_config": {
-		    "type_url": "type.googleapis.com/.Params"
-		   },
 		   "dedup_id": "stripped_for_test",
 		   "instances": [
 		    {
@@ -310,9 +301,6 @@ func TestNoSessionBackend(t *testing.T) {
 		   ]
 		  },
 		  {
-		   "adapter_config": {
-		    "type_url": "type.googleapis.com/.Params"
-		   },
 		   "dedup_id": "stripped_for_test",
 		   "instances": [
 		    {
@@ -364,9 +352,6 @@ func TestNoSessionBackend(t *testing.T) {
    		{
     		 "AdapterState": [
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -400,9 +385,6 @@ func TestNoSessionBackend(t *testing.T) {
     		{
     		 "AdapterState": [
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -440,9 +422,6 @@ func TestNoSessionBackend(t *testing.T) {
     		{
     		 "AdapterState": [
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -450,9 +429,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "dimensions": {
@@ -524,9 +500,6 @@ func TestNoSessionBackend(t *testing.T) {
     		{
     		 "AdapterState": [
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -534,9 +507,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "dimensions": {
@@ -650,9 +620,6 @@ func TestNoSessionBackend(t *testing.T) {
     		{
     		 "AdapterState": [
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -678,9 +645,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -706,9 +670,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -734,9 +695,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -762,9 +720,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -790,9 +745,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -818,9 +770,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -846,9 +795,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instances": [
     		    {
@@ -894,9 +840,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   ]
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -904,9 +847,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -914,9 +854,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -924,9 +861,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "name": "i3list.instance.istio-system",
@@ -934,9 +868,6 @@ func TestNoSessionBackend(t *testing.T) {
     		   }
     		  },
     		  {
-    		   "adapter_config": {
-    		    "type_url": "type.googleapis.com/.Params"
-    		   },
     		   "dedup_id": "stripped_for_test",
     		   "instance": {
     		    "dimensions": {
