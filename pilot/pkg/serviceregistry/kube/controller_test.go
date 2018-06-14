@@ -343,75 +343,22 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 }
 
-func TestProbes(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("0"), "/live", intstr.Parse("0"))
-	endpoint := &model.NetworkEndpoint{
-		Port: 80,
-	}
-	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
-		t.Error("Failure: Expected '/ready' readiness path")
-	}
-	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
-		t.Error("Failure: Expected '/live' liveness path")
-	}
-}
+func TestWorkloadHealthCheckInfo(t *testing.T) {
+	controller := makeFakeKubeAPIController()
 
-func TestProbesMatchPort(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("80"), "/live", intstr.Parse("80"))
-	endpoint := &model.NetworkEndpoint{
-		Port: 80,
+	pods := []*v1.Pod{
+		generatePodWithProbes("pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090")),
 	}
-	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
-		t.Error("Failure: Expected '/ready' readiness path")
-	}
-	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
-		t.Error("Failure: Expected '/live' liveness path")
-	}
-}
+	addPods(t, controller, pods...)
 
-func TestProbesMatchPortName(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("MyPort"), "/live", intstr.Parse("MyPort"))
-	endpoint := &model.NetworkEndpoint{
-		Port: 80,
-		ServicePort: &model.Port{
-			Name: "MyPort",
-		},
-	}
-	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/ready" {
-		t.Error("Failure: Expected '/ready' readiness path")
-	}
-	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 1 || probes[0].Path != "/live" {
-		t.Error("Failure: Expected '/live' liveness path")
-	}
-}
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
 
-func TestProbesMismatchPort(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("8080"))
-	endpoint := &model.NetworkEndpoint{
-		Port: 80,
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+	if len(probes) != 2 {
+		t.Errorf("Expecting 2 probes but got %d\r\n", len(probes))
 	}
-	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 0 {
-		t.Error("Failure: Readiness port did not match so should be no probe")
-	}
-	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 0 {
-		t.Error("Failure: Liveness port did not match so should be no probe")
-	}
-}
 
-func TestProbesMismatchPortName(t *testing.T) {
-	podSpec := generatePodSpecWithProbes("", "node1", "/ready", intstr.Parse("NotMyPort"), "/live", intstr.Parse("NotMyPort"))
-	endpoint := &model.NetworkEndpoint{
-		Port: 80,
-		ServicePort: &model.Port{
-			Name: "MyPort",
-		},
-	}
-	if probes := getReadinessProbes(podSpec, endpoint); len(probes) != 0 {
-		t.Error("Failure: Readiness port did not match so should be no probe")
-	}
-	if probes := getLivenessProbes(podSpec, endpoint); len(probes) != 0 {
-		t.Error("Failure: Livenesss port did not match so should be no probe")
-	}
+	// TODO: GPB Test the probes to make sure the path and port are correct
 }
 
 func makeFakeKubeAPIController() *Controller {
@@ -500,29 +447,35 @@ func generatePod(name, namespace, saName, node string, labels map[string]string)
 	}
 }
 
-func generatePodSpecWithProbes(saName, node string, readinessPath string, readinessPort intstr.IntOrString,
-	livenessPath string, livenessPort intstr.IntOrString) *v1.PodSpec {
-	return &v1.PodSpec{
-		ServiceAccountName: saName,
-		NodeName:           node,
-		Containers: []v1.Container{{
-			ReadinessProbe: &v1.Probe{
-				Handler: v1.Handler{
-					HTTPGet: &v1.HTTPGetAction{
-						Path: readinessPath,
-						Port: readinessPort,
+func generatePodWithProbes(name, namespace, saName, node string, readinessPath string, readinessPort intstr.IntOrString,
+	livenessPath string, livenessPort intstr.IntOrString) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: saName,
+			NodeName:           node,
+			Containers: []v1.Container{{
+				ReadinessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: readinessPath,
+							Port: readinessPort,
+						},
 					},
 				},
-			},
-			LivenessProbe: &v1.Probe{
-				Handler: v1.Handler{
-					HTTPGet: &v1.HTTPGetAction{
-						Path: livenessPath,
-						Port: livenessPort,
+				LivenessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: livenessPath,
+							Port: livenessPort,
+						},
 					},
 				},
-			},
-		}},
+			}},
+		},
 	}
 }
 
