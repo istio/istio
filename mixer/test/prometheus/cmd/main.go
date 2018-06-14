@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/mixer/test/prometheus"
 )
 
+// Args represents args consumed by prometheus OOP adapter.
 type Args struct {
 	// Port to start the grpc adapter on
 	AdapterPort uint16

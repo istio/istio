@@ -164,7 +164,7 @@ func (s *NoSessionServer) Addr() string {
 	return s.listener.Addr().String()
 }
 
-// Addr returns the listening address of the server
+// PromPort returns the listening address of the prometheus server
 func (s *NoSessionServer) PromPort() int {
 	return s.promServer.Port()
 }
