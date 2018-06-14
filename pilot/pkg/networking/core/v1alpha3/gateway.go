@@ -181,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Envi
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, merged.Names, servers)
+	routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, merged.Names, servers, routeName)
 	log.Debugf("Returning route config (%s) %v", routeName, routeCfg)
 	return routeCfg, nil
 }
@@ -204,7 +204,8 @@ func createGatewayHTTPFilterChainOpts(
 	// Are we processing plaintext servers or TLS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if model.ParseProtocol(servers[0].Port.Protocol) == model.ProtocolHTTP {
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, servers)
+		rdsName := model.GatewayRDSRouteName(servers[0])
+		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, servers, rdsName)
 		o := &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
 			// and that no two non-HTTPS servers can be on same port or share port names.
@@ -213,7 +214,7 @@ func createGatewayHTTPFilterChainOpts(
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
 				routeConfig:      routeCfg,
-				rds:              model.GatewayRDSRouteName(servers[0]),
+				rds:              rdsName,
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
 			},
@@ -221,8 +222,9 @@ func createGatewayHTTPFilterChainOpts(
 		httpListeners = append(httpListeners, o)
 	} else {
 		// Build a filter chain for each TLS server
-		for i, server := range servers {
-			routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, []*networking.Server{server})
+		for _, server := range servers {
+			rdsName := model.GatewayRDSRouteName(server)
+			routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
 			if routeCfg == nil {
 				log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 				continue
@@ -300,7 +302,8 @@ func buildGatewayInboundHTTPRouteConfig(
 	env model.Environment,
 	svcs map[model.Hostname]*model.Service,
 	gateways map[string]bool,
-	servers []*networking.Server) *xdsapi.RouteConfiguration {
+	servers []*networking.Server,
+	routeName string) *xdsapi.RouteConfiguration {
 
 	gatewayHosts := make(map[model.Hostname]bool)
 	tlsRedirect := make(map[model.Hostname]bool)
@@ -366,7 +369,7 @@ func buildGatewayInboundHTTPRouteConfig(
 	}
 	util.SortVirtualHosts(virtualHosts)
 	return &xdsapi.RouteConfiguration{
-		Name:             fmt.Sprintf("%d", port),
+		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: boolFalse,
 	}
