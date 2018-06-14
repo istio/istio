@@ -63,7 +63,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	for handler, instances := range instancesByHandler {
 		createEntry(old, t, handler, instances, snapshot.ID,
 			func(handler hndlr, instances interface{}) (h adapter.Handler, env env, err error) {
-				env = newEnv(snapshot.ID, handler.GetName(), gp)
+				env = NewEnv(snapshot.ID, handler.GetName(), gp)
 				h, err = config.BuildHandler(handler.(*config.HandlerStatic), instances.([]*config.InstanceStatic),
 					env, snapshot.Templates)
 				return h, env, err
@@ -73,7 +73,7 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	for handler, instances := range instancesByHandlerDynamic {
 		createEntry(old, t, handler, instances, snapshot.ID,
 			func(_ hndlr, _ interface{}) (h adapter.Handler, env env, err error) {
-				env = newEnv(snapshot.ID, handler.GetName(), gp)
+				env = NewEnv(snapshot.ID, handler.GetName(), gp)
 				tmplCfg := make([]*dynamic.TemplateConfig, 0, len(instances))
 				for _, inst := range instances {
 					tmplCfg = append(tmplCfg, &dynamic.TemplateConfig{
