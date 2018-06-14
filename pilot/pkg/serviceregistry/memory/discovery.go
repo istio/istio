@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	portHTTPName = "http"
+	// PortHTTPName is the HTTP port name
+	PortHTTPName = "http"
 )
 
 // NewDiscovery builds a memory ServiceDiscovery
@@ -40,7 +41,7 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 		Address:  address,
 		Ports: []*model.Port{
 			{
-				Name:     portHTTPName,
+				Name:     PortHTTPName,
 				Port:     80, // target port 80
 				Protocol: model.ProtocolHTTP,
 			}, {
@@ -121,7 +122,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 // memory MakeSericve)
 func GetPortHTTP(service *model.Service) *model.Port {
 	for _, port := range service.Ports {
-		if port.Name == portHTTPName {
+		if port.Name == PortHTTPName {
 			return port
 		}
 	}
