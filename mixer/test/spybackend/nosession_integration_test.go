@@ -32,9 +32,17 @@ metadata:
   name: h1
   namespace: istio-system
 spec:
-  adapter: spybackend-nosession
+  adapter: prometheus-nosession
   connection:
     address: "%s"
+  params:
+    metrics:
+    - name: request_count
+      instance_name: i1metric.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - destination_service
+      - response_code
 ---
 `
 	i1Metric = `
@@ -989,7 +997,8 @@ func TestNoSessionBackend(t *testing.T) {
 		},
 	}
 
-	adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
+	//adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
+	adptCfgBytes, err := ioutil.ReadFile("/Users/mjog/GOHOME/src/istio.io/istio/mixer/test/prometheus/prometheus-nosession.yaml")
 	if err != nil {
 		t.Fatalf("cannot open file: %v", err)
 	}
@@ -1029,7 +1038,8 @@ func TestNoSessionBackend(t *testing.T) {
 						return []string{
 							// CRs for built-in templates are automatically added by the integration test framework.
 							string(adptCfgBytes),
-							fmt.Sprintf(h1, s.Addr().String()),
+							//fmt.Sprintf(h1, s.Addr().String()),
+							fmt.Sprintf(h1, ":9080"),
 							i1Metric,
 							r1H1I1Metric,
 							fmt.Sprintf(h2, s.Addr().String()),
@@ -1046,5 +1056,6 @@ func TestNoSessionBackend(t *testing.T) {
 				},
 			)
 		})
+		break
 	}
 }

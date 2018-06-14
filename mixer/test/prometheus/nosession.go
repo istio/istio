@@ -13,34 +13,41 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false -t metric -o prometheus-nosession.yaml
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false  -c $GOPATH/src/istio.io/istio/mixer/adapter/prometheus/config/config.protodescriptor   -t metric -o prometheus-nosession.yaml
 
 package prometheus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"sync"
+
 	"google.golang.org/grpc"
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/mixer/adapter/prometheus"
-	"istio.io/istio/mixer/pkg/adapter"
-	"bytes"
-	"sync"
-	"istio.io/istio/mixer/adapter/prometheus/config"
-	"istio.io/istio/mixer/pkg/runtime/handler"
-	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/adapter/prometheus"
+	"istio.io/istio/mixer/adapter/prometheus/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type (
 	// Server is basic server interface
 	Server interface {
-		Addr() net.Addr
+		Addr() string
 		Close() error
+		PromPort() int
 		Run()
+	}
+	promServer interface {
+		io.Closer
+		Port() int
 	}
 
 	// NoSessionServer models no session adapter backend.
@@ -49,17 +56,18 @@ type (
 		shutdown chan error
 		server   *grpc.Server
 
-		rawcfg []byte
-		builder adapter.HandlerBuilder
-		env adapter.Env
+		rawcfg      []byte
+		builder     adapter.HandlerBuilder
+		env         adapter.Env
 		builderLock sync.RWMutex
 
 		h metric.Handler
+
+		promServer promServer
 	}
 )
 
 var _ metric.HandleMetricServiceServer = &NoSessionServer{}
-
 
 func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	s.builderLock.RLock()
@@ -71,14 +79,19 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	s.builderLock.RUnlock()
 
 	// establish session
+
 	cfg := &config.Params{}
+
 	if err := cfg.Unmarshal(rawcfg); err != nil {
 		return nil, err
 	}
 
+	s.env.Logger().Infof("Loaded handler with: %v", cfg)
+
 	s.builderLock.Lock()
 	defer s.builderLock.Unlock()
 
+	// check again if someone else beat you to this.
 	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
 		return s.h, nil
 	}
@@ -90,6 +103,7 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 
 	h, err := s.builder.Build(context.Background(), s.env)
 	if err != nil {
+		s.env.Logger().Errorf("could not build: %v", err)
 		return nil, err
 	}
 	s.rawcfg = rawcfg
@@ -101,8 +115,8 @@ func instances(in []*metric.InstanceMsg) []*metric.Instance {
 	out := make([]*metric.Instance, 0, len(in))
 	for _, inst := range in {
 		out = append(out, &metric.Instance{
-			Name: inst.Name,
-			Value: decodeValue(inst.Value.GetValue()),
+			Name:       inst.Name,
+			Value:      decodeValue(inst.Value.GetValue()),
 			Dimensions: decodeDimensions(inst.Dimensions),
 		})
 	}
@@ -112,13 +126,12 @@ func instances(in []*metric.InstanceMsg) []*metric.Instance {
 func decodeDimensions(in map[string]*v1beta1.Value) map[string]interface{} {
 	out := make(map[string]interface{}, len(in))
 	for k, v := range in {
-		out[k] = decodeValue(v)
+		out[k] = decodeValue(v.GetValue())
 	}
 	return out
 }
 
-
-func decodeValue(in interface{} ) interface{} {
+func decodeValue(in interface{}) interface{} {
 	switch t := in.(type) {
 	case *v1beta1.Value_StringValue:
 		return t.StringValue
@@ -139,6 +152,7 @@ func (s *NoSessionServer) HandleMetric(ctx context.Context, r *metric.HandleMetr
 	}
 
 	if err = h.HandleMetric(ctx, instances(r.Instances)); err != nil {
+		s.env.Logger().Errorf("Could not process: %v", err)
 		return nil, err
 	}
 
@@ -146,8 +160,13 @@ func (s *NoSessionServer) HandleMetric(ctx context.Context, r *metric.HandleMetr
 }
 
 // Addr returns the listening address of the server
-func (s *NoSessionServer) Addr() net.Addr {
-	return s.listener.Addr()
+func (s *NoSessionServer) Addr() string {
+	return s.listener.Addr().String()
+}
+
+// Addr returns the listening address of the server
+func (s *NoSessionServer) PromPort() int {
+	return s.promServer.Port()
 }
 
 // Run starts the server run
@@ -183,23 +202,22 @@ func (s *NoSessionServer) Close() error {
 		_ = s.listener.Close()
 	}
 
-	return nil
+	return s.promServer.Close()
 }
 
-
 // NewNoSessionServer creates a new no session server from given args.
-func NewNoSessionServer(addr string) (*NoSessionServer, error) {
+func NewNoSessionServer(addr uint16, promAddr uint16) (*NoSessionServer, error) {
+	saddr := fmt.Sprintf(":%d", addr)
+	pddr := fmt.Sprintf(":%d", promAddr)
+
 	gp := pool.NewGoroutinePool(5, false)
-	inf := prometheus.GetInfo()
+	inf, srv := prometheus.GetInfoWithAddr(pddr)
 	s := &NoSessionServer{builder: inf.NewBuilder(),
-		env: handler.NewEnv(0, "prometheus-nosession", gp),
-		rawcfg: []byte{1,1,1,1,1},
+		env:    handler.NewEnv(0, "prometheus-nosession", gp),
+		rawcfg: []byte{0xff, 0xff},
 	}
 	var err error
-	if addr == "" {
-		addr = "0"
-	}
-	if s.listener, err = net.Listen("tcp", fmt.Sprintf(":%s", addr)); err != nil {
+	if s.listener, err = net.Listen("tcp", saddr); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
@@ -207,5 +225,6 @@ func NewNoSessionServer(addr string) (*NoSessionServer, error) {
 	fmt.Printf("listening on :%v\n", s.listener.Addr())
 	s.server = grpc.NewServer()
 	metric.RegisterHandleMetricServiceServer(s.server, s)
+	s.promServer = srv
 	return s, nil
 }
