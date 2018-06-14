@@ -19,7 +19,7 @@ import (
 )
 
 func TestMemoryServices(t *testing.T) {
-	svcs, err := discovery.Services()
+	svcs, err := Discovery.Services()
 	if err != nil {
 		t.Errorf("Discovery.Services encountered error: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestMemoryServices(t *testing.T) {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
 		}
-		instances, err := discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
+		instances, err := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
 		if err != nil {
 			t.Errorf("Discovery.Instances encountered error: %v", err)
 		}
