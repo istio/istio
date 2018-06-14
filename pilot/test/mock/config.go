@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"go.uber.org/atomic"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -34,8 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
 	pkgtest "istio.io/istio/pkg/test"
-
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
