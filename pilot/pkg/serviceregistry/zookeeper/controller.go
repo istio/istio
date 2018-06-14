@@ -63,16 +63,19 @@ func(c *Controller) Run(stop <-chan struct{}) {
 		case event := <-c.client.Events():
 			switch event.EventType {
 			case ServiceAdded:
+				log.Infof("Service %s added", event.Service)
 				service := toService(event.Service)
 				for _, handler := range c.serviceHandlers {
 					go handler(service, model.EventAdd)
 				}
 			case ServiceDeleted:
+				log.Infof("Service %s deleted", event.Service)
 				service := toService(event.Service)
 				for _, handler := range c.serviceHandlers {
 					go handler(service, model.EventDelete)
 				}
 			case ServiceInstanceAdded:
+				log.Infof("Service instance %v added", event.Instance)
 				instance, err := toInstance(event.Instance)
 				if err != nil {
 					break
@@ -81,6 +84,7 @@ func(c *Controller) Run(stop <-chan struct{}) {
 					go handler(instance, model.EventAdd)
 				}
 			case ServiceInstanceDeleted:
+				log.Infof("Service instance %v deleted", event.Instance)
 				instance, err := toInstance(event.Instance)
 				if err != nil {
 					break
@@ -99,7 +103,7 @@ func(c *Controller) Run(stop <-chan struct{}) {
 // Services list all service within zookeeper registry
 func (c *Controller) Services() ([]*model.Service, error) {
 	services := c.client.Services()
-	result := make([]*model.Service, len(services))
+	result := make([]*model.Service, 0, len(services))
 	for _, service := range services {
 		result = append(result, toService(service.name))
 	}

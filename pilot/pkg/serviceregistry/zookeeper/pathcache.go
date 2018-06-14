@@ -3,6 +3,7 @@ package zookeeper
 import (
 	"github.com/samuel/go-zookeeper/zk"
 	"path"
+	"istio.io/istio/pkg/log"
 )
 
 type pathCacheEventType int
@@ -14,7 +15,7 @@ type pathCache struct {
 	stopCh     chan bool
 	addChildCh chan string
 	path       string
-	children   map[string]bool
+	cached     map[string]bool
 }
 
 type pathCacheEvent struct {
@@ -29,9 +30,9 @@ const (
 
 func newPathCache(conn *zk.Conn, path string) (*pathCache, error) {
 	p := &pathCache{
-		conn:     conn,
-		path:     path,
-		children: make(map[string]bool),
+		conn:   conn,
+		path:   path,
+		cached: make(map[string]bool),
 
 		watchCh:    make(chan zk.Event),
 		notifyCh:   make(chan pathCacheEvent),
@@ -41,6 +42,7 @@ func newPathCache(conn *zk.Conn, path string) (*pathCache, error) {
 
 	err := p.watchChildren()
 	if err != nil {
+		log.Warnf("Failed to watch zk path %s, %s", path, err)
 		return nil, err
 	}
 
@@ -88,7 +90,7 @@ func (p *pathCache) watchChildren() error {
 	go p.forward(ch)
 	for _, child := range children {
 		fp := path.Join(p.path, child)
-		if ok := p.children[fp]; !ok {
+		if ok := p.cached[fp]; !ok {
 			go p.addChild(fp)
 		}
 	}
@@ -98,9 +100,10 @@ func (p *pathCache) watchChildren() error {
 func (p *pathCache) onChildAdd(child string) {
 	err := p.watch(child)
 	if err != nil {
+		log.Warnf("Failed to watch child %s, the err is %s", child, err)
 		return
 	}
-	p.children[child] = true
+	p.cached[child] = true
 	event := pathCacheEvent{
 		eventType: pathCacheEventAdded,
 		path:      child,

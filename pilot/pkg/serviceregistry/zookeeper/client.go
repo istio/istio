@@ -40,7 +40,7 @@ func (c *Client) Service(hostname string) *Service {
 
 // Services list all of the current registered services
 func (c *Client) Services() []*Service {
-	services := make([]*Service, len(c.services))
+	services := make([]*Service, 0, len(c.services))
 	for _, service := range c.services {
 		services = append(services, service)
 	}
