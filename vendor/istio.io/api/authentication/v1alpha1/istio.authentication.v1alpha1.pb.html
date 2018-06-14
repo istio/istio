@@ -112,8 +112,7 @@ query parameter name.</p>
 </section>
 <h2 id="MutualTls">MutualTls</h2>
 <section>
-<p>TLS authentication params.
-TODO: consider to give it a better name, maybe TlsParams?</p>
+<p>TLS authentication params.</p>
 
 <table class="message-fields">
 <thead>
@@ -164,15 +163,6 @@ When the flag is false (default), request must have client certificate.</p>
 <td><code>STRICT</code></td>
 <td>
 <p>Client cert must be presented, connection is in TLS.</p>
-
-</td>
-</tr>
-<tr id="MutualTls.Mode.TLS_PERMISSIVE">
-<td><code>TLS_PERMISSIVE</code></td>
-<td>
-<p>Connection must be in TLS, but client cert can be omitted.
-Request will not be fully authenticate if client cert is missing, but
-still be accepted.</p>
 
 </td>
 </tr>

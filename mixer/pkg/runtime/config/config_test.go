@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint
+//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+
 package config
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -34,6 +42,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var tmpl1Base64Str = getFileDescSetBase64("testdata/tmpl1.descriptor")
+var tmpl2Base64Str = getFileDescSetBase64("testdata/tmpl2.descriptor")
+var adpt1DescBase64 = getFileDescSetBase64("testdata/adptCfg.descriptor")
+var adpt2DescBase64 = getFileDescSetBase64("testdata/adptCfg2.descriptor")
+
 type dummyHandlerBuilder struct{}
 
 func (d *dummyHandlerBuilder) SetAdapterConfig(cfg adapter.Config) {}
@@ -44,6 +57,148 @@ func (d *dummyHandlerBuilder) Validate() *adapter.ConfigErrors {
 
 func (d *dummyHandlerBuilder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	return nil, nil
+}
+
+var tmpl1Instance, _ = yaml.YAMLToJSON([]byte(`
+s1: source.name | "yoursrc"
+`))
+var tmpl1InstanceParam map[string]interface{}
+var _ = json.Unmarshal(tmpl1Instance, &tmpl1InstanceParam)
+
+var adpt1Bytes, _ = yaml.YAMLToJSON([]byte(`
+abc: "abcstring"
+`))
+var adapter1Params map[string]interface{}
+var _ = json.Unmarshal(adpt1Bytes, &adapter1Params)
+
+var adpt2Bytes, _ = yaml.YAMLToJSON([]byte(`
+pqr: "abcstring"
+`))
+var adapter2Params map[string]interface{}
+var _ = json.Unmarshal(adpt2Bytes, &adapter2Params)
+
+var invalidBytes, _ = yaml.YAMLToJSON([]byte(`
+fildNotFound: "abcstring"
+`))
+var invalidHandlerParams map[string]interface{}
+var _ = json.Unmarshal(invalidBytes, &invalidHandlerParams)
+
+var tmpl2Instance, _ = yaml.YAMLToJSON([]byte(`
+s2: source.name | "yoursrc"
+`))
+var tmpl2InstanceParam map[string]interface{}
+var _ = json.Unmarshal(tmpl2Instance, &tmpl2InstanceParam)
+
+var badInstance, _ = yaml.YAMLToJSON([]byte(`
+badFld: "s1stringVal"
+`))
+var badInstanceParamIn map[string]interface{}
+var _ = json.Unmarshal(badInstance, &badInstanceParamIn)
+
+var validCfg = []*store.Event{
+	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+		Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			"source.name": {
+				ValueType: descriptorpb.STRING,
+			},
+		},
+	}),
+	updateEvent("t1.template.default", &adapter_model.Template{
+		Descriptor_: tmpl1Base64Str,
+	}),
+	updateEvent("a1.adapter.default", &adapter_model.Info{
+		Description:  "testAdapter description",
+		SessionBased: true,
+		Config:       adpt1DescBase64,
+		Templates:    []string{"t1.default"},
+	}),
+	updateEvent("h1.handler.default", &descriptorpb.Handler{
+		Adapter: "a1.default",
+		Params:  adapter1Params,
+	}),
+	updateEvent("i1.instance.default", &descriptorpb.Instance{
+		Template: "t1.default",
+		Params:   tmpl1InstanceParam,
+	}),
+	updateEvent("r1.rule.default", &descriptorpb.Rule{
+		Match: "true",
+		Actions: []*descriptorpb.Action{
+			{
+				Handler: "h1.default",
+				Instances: []string{
+					"i1.default",
+				},
+			},
+		},
+	}),
+}
+
+var validCfgMixShortLongName = []*store.Event{
+	updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+		Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+			"source.name": {
+				ValueType: descriptorpb.STRING,
+			},
+		},
+	}),
+	updateEvent("t1.template.default", &adapter_model.Template{
+		Descriptor_: tmpl1Base64Str,
+	}),
+	updateEvent("t2.template.default", &adapter_model.Template{
+		Descriptor_: tmpl2Base64Str,
+	}),
+	updateEvent("a1.adapter.default", &adapter_model.Info{
+		Description:  "testAdapter description",
+		SessionBased: true,
+		Config:       adpt1DescBase64,
+		Templates:    []string{"t1", "t2.default"},
+	}),
+	updateEvent("a2.adapter.default", &adapter_model.Info{
+		Description:  "testAdapter description",
+		SessionBased: true,
+		Config:       adpt2DescBase64,
+		Templates:    []string{"t2.default"},
+	}),
+	updateEvent("h1.handler.default", &descriptorpb.Handler{
+		Adapter: "a1.default",
+		Params:  adapter1Params,
+	}),
+	updateEvent("h2.handler.default", &descriptorpb.Handler{
+		Adapter: "a2",
+		Params:  adapter2Params,
+	}),
+	updateEvent("i1.instance.default", &descriptorpb.Instance{
+		Template: "t1.default",
+		Params:   tmpl1InstanceParam,
+	}),
+	updateEvent("i2.instance.default", &descriptorpb.Instance{
+		Template: "t2",
+		Params:   tmpl2InstanceParam,
+	}),
+
+	updateEvent("r1.rule.default", &descriptorpb.Rule{
+		Match: "true",
+		Actions: []*descriptorpb.Action{
+			{
+				Handler: "h1.default",
+				Instances: []string{
+					"i1.default",
+					"i2",
+				},
+			},
+		},
+	}),
+	updateEvent("r2.rule.default", &descriptorpb.Rule{
+		Match: "true",
+		Actions: []*descriptorpb.Action{
+			{
+				Handler: "h2.default",
+				Instances: []string{
+					"i2",
+				},
+			},
+		},
+	}),
 }
 
 // The tests in this package feeds incremental change events to the Ephemeral state and prints out a stable
@@ -70,6 +225,8 @@ var tests = []struct {
 
 	// adapters to use.
 	A map[string]*adapter.Info
+
+	wantErr string
 }{
 
 	{
@@ -78,10 +235,10 @@ var tests = []struct {
 		A:    noAdapters,
 		E: `
 ID: 0
-Templates:
-Adapters:
-Handlers:
-Instances:
+TemplatesStatic:
+AdaptersStatic:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
 `,
@@ -92,12 +249,12 @@ Attributes:
 		T:    noTemplates,
 		E: `
 ID: 0
-Templates:
-Adapters:
+TemplatesStatic:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
 `,
@@ -108,14 +265,14 @@ Attributes:
 		A:    noAdapters,
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
-Handlers:
-Instances:
+AdaptersStatic:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -126,16 +283,16 @@ Attributes:
 		Name: "templates and adapters only",
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -156,39 +313,29 @@ Attributes:
 					Spec: testParam1,
 				},
 			},
-			{
-				Key: store.Key{
-					Name:      "attributes",
-					Namespace: "ns",
-					Kind:      "attributemanifest",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: &configpb.AttributeManifest{
-						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": {
-								ValueType: descriptorpb.STRING,
-							},
-							"bar": {
-								ValueType: descriptorpb.INT64,
-							},
-						},
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"foo": {
+						ValueType: descriptorpb.STRING,
+					},
+					"bar": {
+						ValueType: descriptorpb.INT64,
 					},
 				},
-			},
+			}),
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   bar: INT64
@@ -200,26 +347,16 @@ Attributes:
 	{
 		Name: "unchanged attributes are preserved",
 		Events1: []*store.Event{
-			{
-				Key: store.Key{
-					Name:      "attributes",
-					Namespace: "ns",
-					Kind:      "attributemanifest",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: &configpb.AttributeManifest{
-						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": {
-								ValueType: descriptorpb.STRING,
-							},
-							"bar": {
-								ValueType: descriptorpb.INT64,
-							},
-						},
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"foo": {
+						ValueType: descriptorpb.STRING,
+					},
+					"bar": {
+						ValueType: descriptorpb.INT64,
 					},
 				},
-			},
+			}),
 		},
 		Events2: []*store.Event{
 			{
@@ -236,16 +373,16 @@ Attributes:
 		},
 		E: `
 ID: 1
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   bar: INT64
@@ -299,16 +436,16 @@ Attributes:
 		},
 		E: `
 ID: 2
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -318,26 +455,16 @@ Attributes:
 	{
 		Name: "attributes coming in from an update event get deleted with a later delete event",
 		Events1: []*store.Event{
-			{
-				Key: store.Key{
-					Name:      "attributes",
-					Namespace: "ns",
-					Kind:      "attributemanifest",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: &configpb.AttributeManifest{
-						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": {
-								ValueType: descriptorpb.STRING,
-							},
-							"bar": {
-								ValueType: descriptorpb.INT64,
-							},
-						},
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"foo": {
+						ValueType: descriptorpb.STRING,
+					},
+					"bar": {
+						ValueType: descriptorpb.INT64,
 					},
 				},
-			},
+			}),
 		},
 		Events2: []*store.Event{
 			{
@@ -351,16 +478,16 @@ Attributes:
 		},
 		E: `
 ID: 1
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -384,19 +511,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    a1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -420,16 +547,16 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -453,16 +580,16 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
   Name:     i1.check.ns
   Template: check
   Params:   value:"param1"
@@ -489,16 +616,16 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -544,19 +671,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    adapt1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -564,10 +691,11 @@ Rules:
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "rule=rule1.rule.ns: No valid actions found in rule",
 	},
 
 	{
-		Name: "rule with no action is omitted",
+		Name: "rule with bad action is omitted",
 		Events1: []*store.Event{
 			{
 				Key: store.Key{
@@ -611,19 +739,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -631,6 +759,7 @@ Rules:
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "action='rule1.rule.ns[0]': Handler not found: handler='handler1'",
 	},
 
 	{
@@ -681,19 +810,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -702,7 +831,7 @@ Rules:
   Namespace: ns
   Match:
   ResourceType: ResourceType:{HTTP / Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
@@ -714,6 +843,13 @@ Attributes:
 	{
 		Name: "multiple rules with multiple actions referencing multiple instances",
 		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"destination.service": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
 			{
 				Key: store.Key{
 					Name:      "handler1",
@@ -841,22 +977,22 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
   Name:    handler2.adapter2.ns
   Adapter: adapter2
   Params:  value:"param2"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param1"
@@ -874,7 +1010,7 @@ Rules:
   Namespace: ns
   Match:
   ResourceType: ResourceType:{HTTP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
@@ -887,7 +1023,7 @@ Rules:
   Namespace: ns
   Match:   destination.service == "foo"
   ResourceType: ResourceType:{HTTP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler2.adapter2.ns
     Instances:
       Name: instance1.check.ns
@@ -898,6 +1034,7 @@ Rules:
     Instances:
       Name: instance1.check.ns
 Attributes:
+  destination.service: STRING
   template.attr: BOOL
 `,
 	},
@@ -954,19 +1091,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -975,7 +1112,7 @@ Rules:
   Namespace: ns
   Match:
   ResourceType: ResourceType:{TCP / Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
@@ -1033,19 +1170,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -1054,12 +1191,13 @@ Rules:
   Namespace: ns
   Match:
   ResourceType: ResourceType:{HTTP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.nsAttributes:
   template.attr: BOOL
 `,
+		wantErr: "action='rule1.rule.ns[0]': Instance not found: instance='some-unknown-instance.check.ns'",
 	},
 
 	{
@@ -1110,19 +1248,19 @@ Rules:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -1130,6 +1268,7 @@ Rules:
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "rule=rule1.rule.ns: No valid actions found in rule",
 	},
 
 	{
@@ -1181,19 +1320,19 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -1202,13 +1341,14 @@ Rules:
   Namespace: ns
   Match:
   ResourceType: ResourceType:{HTTP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "action='rule1.rule.ns[0]': action specified the same instance multiple times: instance='instance1.check.ns'",
 	},
 
 	{
@@ -1261,19 +1401,19 @@ Attributes:
 
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -1282,13 +1422,14 @@ Rules:
   Namespace: ns
   Match:   flurb++
   ResourceType: ResourceType:{HTTP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "rule='rule1.rule.ns'.Match: failed to parse expression 'flurb++': unable to parse expression 'flurb++': 1:6: expected 'EOF', found '++'",
 	},
 
 	// TODO(Issue #2139): Once that issue is resolved, this test can be removed.
@@ -1342,19 +1483,19 @@ Attributes:
 
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    handler1.adapter1.ns
   Adapter: adapter1
   Params:  value:"param1"
-Instances:
+InstancesStatic:
   Name:     instance1.check.ns
   Template: check
   Params:   value:"param2"
@@ -1363,17 +1504,146 @@ Rules:
   Namespace: ns
   Match:   foo == bar && context.protocol == "tcp"
   ResourceType: ResourceType:{TCP /Check Report Preprocess}
-  Actions:
+  ActionsStatic:
     Handler: handler1.adapter1.ns
     Instances:
       Name: instance1.check.ns
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "rule='rule1.rule.ns'.Match: unknown attribute foo",
 	},
 	{
-		Name: "adapter info with templates",
+		Name: "new valid templates",
 		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Template{
+						Descriptor_: fooTmpl,
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name: metrictemplate.template.ns
+    Name: metrictemplate.template.ns
+    InternalPackageDerivedName: foo
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "new templates name collision with compiled in templates",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "report",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Template{
+						Descriptor_: fooTmpl,
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  report.template.ns
+    Name:  report.template.ns
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+
+	{
+		Name: "bad template descriptor is ignored",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Template{
+						Descriptor_: "bad descriptor",
+					},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "template='metrictemplate.template.ns': unable to parse descriptor: illegal base64 data at input byte 3",
+	},
+
+	{
+		Name: "adapter info with valid template reference",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "metrictemplate",
+					Namespace: "ns",
+					Kind:      "template",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Template{
+						Descriptor_: fooTmpl,
+					},
+				},
+			},
 			{
 				Key: store.Key{
 					Name:      "adapterinfo1",
@@ -1384,30 +1654,32 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
 						Name:      "adapter1",
-						Templates: []string{fooTmpl, barTmpl},
+						Templates: []string{"metrictemplate.template"},
 					},
 				},
 			},
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
-AdapterMetadata:
-  Name:      adapter1
-  Templates: [foo bar]
-TemplateMetadata:
-  Name:      bar
-  Name:      foo
+AdaptersDynamic:
+  Name:      adapterinfo1.adapter.ns
+  Templates:
+  -  metrictemplate.template.ns
+TemplatesDynamic:
+  Resource Name:  metrictemplate.template.ns
+    Name: metrictemplate.template.ns
+    InternalPackageDerivedName: foo
 Attributes:
   template.attr: BOOL
 `,
@@ -1431,26 +1703,26 @@ Attributes:
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
-AdapterMetadata:
-  Name:      adapter1
-  Templates: []
+AdaptersDynamic:
+  Name:      adapterinfo1.adapter.ns
+  Templates:
 Attributes:
   template.attr: BOOL
 `,
 	},
 	{
-		Name: "adapter info only templates",
+		Name: "adapter info bad adapter config",
 		Events1: []*store.Event{
 			{
 				Key: store.Key{
@@ -1461,49 +1733,31 @@ Attributes:
 				Type: store.Update,
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
-						Name:      "",
-						Templates: []string{fooTmpl, barTmpl},
-					},
-				},
-			},
-			{
-				Key: store.Key{
-					Name:      "adapterinfo2",
-					Namespace: "ns",
-					Kind:      "adapter",
-				},
-				Type: store.Update,
-				Value: &store.Resource{
-					Spec: &adapter_model.Info{
-						Name:      "",
-						Templates: []string{bazTmpl},
+						Config: "bad adapter config",
 					},
 				},
 			},
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
-TemplateMetadata:
-  Name:      bar
-  Name:      baz
-  Name:      foo
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "adapter='adapterinfo1.adapter.ns': unable to parse adapter configuration: illegal base64 data at input byte 3",
 	},
 	{
-		Name: "adapter info bad templates",
+		Name: "adapter info bad template reference",
 		Events1: []*store.Event{
 			{
 				Key: store.Key{
@@ -1515,27 +1769,2295 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &adapter_model.Info{
 						Name:      "adapter1",
-						Templates: []string{"bad template descriptor"},
+						Templates: []string{"bad template reference"},
 					},
 				},
 			},
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
 `,
+		wantErr: "adapter='adapterinfo1.adapter.ns': unable to find template 'bad template reference'",
+	},
+
+	{
+		Name: "new adapter name collision with compiled in adapters",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "adapter1",
+					Namespace: "ns",
+					Kind:      "adapter",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: &adapter_model.Info{},
+				},
+			},
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      adapter1.adapter.ns
+  Templates:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+
+	{
+		Name: "add template",
+		Events1: []*store.Event{updateEvent("mymetric.template.default", &adapter_model.Template{
+			Descriptor_: tmpl1Base64Str,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  mymetric.template.default
+    Name:  mymetric.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "update template",
+		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"source.name": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "add template - bad descriptor",
+		Events1: []*store.Event{updateEvent("mymetric.template.default", &adapter_model.Template{
+			Descriptor_: "bad base64 string",
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "template='mymetric.template.default': unable to parse descriptor: illegal base64 data at input byte 3",
+	},
+	{
+		Name: "update template - break instance",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl2Base64Str,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  bar
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+			"'t1.default': fieldEncoder 's1' not found in message 'InstanceMsg'",
+	},
+	{
+		Name: "delete template",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.adapter.default", &adapter_model.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"mymetric.default"},
+			}),
+			deleteEvent("testCR1.adapter.default"),
+			deleteEvent("mymetric.template.default"),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+	},
+	{
+		Name: "delete template - break adapter",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.adapter.default", &adapter_model.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"mymetric.default"},
+			}),
+			deleteEvent("mymetric.template.default"),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "adapter='testCR1.adapter.default': unable to find template 'mymetric.default'",
+	},
+	{
+		Name: "delete template - break instance",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.instance.default", &descriptorpb.Instance{
+				Template: "mymetric.default",
+			}),
+			deleteEvent("mymetric.template.default"),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='testCR1.instance.default'.template: template 'mymetric.default' not found",
+	},
+	// Adapters
+	{
+		Name: "add adapter",
+		Events1: []*store.Event{updateEvent("testCR1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       "",
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      testCR1.adapter.default
+  Templates:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add adapter - bad tmpls",
+		Events1: []*store.Event{updateEvent("testCR1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       "",
+			Templates:    []string{"a.b.c"},
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "adapter='testCR1.adapter.default': unable to find template 'a.b.c'",
+	},
+	{
+		Name: "add adapter - bad cfg",
+		Events1: []*store.Event{updateEvent("testCR1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       "bad cfg descriptor",
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "adapter='testCR1.adapter.default': unable to parse adapter configuration: illegal base64 data at input byte 3",
+	},
+	{
+		Name: "add adapter - valid template reference",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.adapter.default", &adapter_model.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"mymetric.default"},
+			})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      testCR1.adapter.default
+  Templates:
+  -  mymetric.template.default
+
+TemplatesDynamic:
+  Resource Name:  mymetric.template.default
+    Name:  mymetric.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add adapter, valid template reference, short tmpl name",
+		Events1: []*store.Event{
+			updateEvent("mymetric.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("testCR1.adapter.default", &adapter_model.Info{
+				Name:         "testAdapter",
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Templates:    []string{"mymetric.default"},
+			})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      testCR1.adapter.default
+  Templates:
+  -  mymetric.template.default
+
+TemplatesDynamic:
+  Resource Name:  mymetric.template.default
+    Name:  mymetric.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add adapter - bad template kind",
+		Events1: []*store.Event{updateEvent("testCR1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Templates:    []string{"notATemplate.rule"},
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "adapter='testCR1.adapter.default': unable to find template 'notATemplate.rule'",
+	},
+	{
+		Name: "add adapter - bad template reference",
+		Events1: []*store.Event{updateEvent("testCR1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Templates:    []string{"notexists.default"},
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "adapter='testCR1.adapter.default': unable to find template 'notexists.default'",
+	},
+	{
+		Name: "update adapter",
+		Events1: append(validCfg,
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "update adapter supported template- break routed instances",
+		Events1: append(validCfg,
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description 22",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				// stop supporting previously supported template "t1.template.default"
+				Templates: []string{},
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': instance 'i1.instance.default' is of template " +
+			"'t1.template.default' which is not supported by handler 'h1.handler.default'",
+	},
+	{
+		Name: "update adapter cfg - break handler",
+		Events1: append(validCfg,
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt2DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "field 'abc' not found in message 'Params'",
+	},
+	{
+		Name: "delete adapter",
+		Events1: []*store.Event{
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			deleteEvent("h1.handler.default"),
+			deleteEvent("a1.adapter.default"),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "delete adapter - break handler",
+		Events1: []*store.Event{
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			deleteEvent("a1.adapter.default"),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.adapter: adapter 'a1.default' not found",
+	},
+
+	// handler
+	{
+		Name: "add handler",
+		Events1: []*store.Event{updateEvent("a1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt1DescBase64,
+		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "a1.default",
+			Params:  adapter1Params,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add handler - bad param type",
+		Events1: []*store.Event{updateEvent("a1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt1DescBase64,
+		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "a1.default",
+			Params:  "string instead of map[string]interface{}",
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.params: invalid params block. It must be of type map[string]interface{}",
+	},
+	{
+		Name: "add handler - bad adapter",
+		Events1: []*store.Event{updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "not.an.adapter",
+			Params:  adapter1Params,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.adapter: adapter 'not.an.adapter' not found",
+	},
+	{
+		Name: "add handler - bad adapter reference",
+		Events1: []*store.Event{updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "broken.default",
+			Params:  adapter1Params,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.adapter: adapter 'broken.default' not found",
+	},
+	{
+		Name: "add handler - broken adapter reference",
+		Events1: []*store.Event{updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "broken.default.extra3.extra4",
+			Params:  adapter1Params,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.adapter: adapter 'broken.default.extra3.extra4' not found",
+	},
+	{
+		Name: "add handler - bad param content",
+		Events1: []*store.Event{updateEvent("a1.adapter.default", &adapter_model.Info{
+			Name:         "testAdapter",
+			Description:  "testAdapter description",
+			SessionBased: true,
+			Config:       adpt1DescBase64,
+		}), updateEvent("h1.handler.default", &descriptorpb.Handler{
+			Adapter: "a1.default",
+			Params:  invalidHandlerParams,
+		})},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "handler='h1.handler.default'.params: field 'fildNotFound' not found in message 'Params'",
+	},
+	{
+		Name: "update handler",
+		Events1: append(validCfg,
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  nil,
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "update handler's adapter - break supported tmpls",
+		Events1: append(validCfg,
+			updateEvent("a2.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				// Does not support any template
+				Templates: []string{},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a2.default",
+				Params:  adapter1Params,
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+  Name:      a2.adapter.default
+  Templates:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a2.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': instance 'i1.instance.default' is of template " +
+			"'t1.template.default' which is not supported by handler 'h1.handler.default'",
+	},
+	{
+		Name: "delete handler",
+		Events1: append(validCfg,
+			deleteEvent("r1.rule.default"),
+			deleteEvent("h1.handler.default"),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+
+	// instances
+	{
+		Name: "add instance",
+		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"source.name": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add instance - bad template",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "not.a.template",
+				Params:   tmpl1InstanceParam,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.template: template 'not.a.template' not found",
+	},
+	{
+		Name: "add instance - bad param type",
+		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"source.name": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   "string instead of a map[string]interface{}",
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.params: invalid params block. It must be of type map[string]interface{}",
+	},
+	{
+		Name: "add instance - bad template reference",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "notExist.default",
+				Params:   tmpl1InstanceParam,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.template: template 'notExist.default' not found",
+	},
+	{
+		Name: "add instance - bad template string",
+		Events1: []*store.Event{
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "oneWordNotValidRef",
+				Params:   tmpl1InstanceParam,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.template: template 'oneWordNotValidRef' not found",
+	},
+	{
+		Name: "add instance - bad content",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   badInstanceParamIn,
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
+	},
+	{
+		Name: "update instance",
+		Events1: append(validCfg,
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "update instance - bad template",
+		Events1: append(validCfg,
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default.extra1.extra2",
+				Params:   tmpl1InstanceParam,
+			})),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "instance='i1.instance.default'.template: template 't1.default.extra1.extra2' not found",
+	},
+	{
+		Name: "update instance ( change template ) - break rule",
+		Events1: append(validCfg,
+			updateEvent("t2.template.default", &adapter_model.Template{
+				Descriptor_: tmpl2Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t2.default",
+				Params:   tmpl2InstanceParam,
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+  Resource Name:  t2.template.default
+    Name:  t2.template.default
+    InternalPackageDerivedName:  bar
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t2.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s2:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': instance 'i1.instance.default' is of template " +
+			"'t2.template.default' which is not supported by handler 'h1.handler.default'",
+	},
+	{
+		Name: "delete handler - break rule",
+		Events1: append(validCfg,
+			deleteEvent("h1.handler.default"),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='h1.default'",
+	},
+	{
+		Name: "delete instance",
+		Events1: append(validCfg,
+			deleteEvent("r1.rule.default"),
+			deleteEvent("i1.instance.default"),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+
+	{
+		Name: "delete instance - break rule",
+		Events1: append(validCfg,
+			deleteEvent("i1.instance.default"),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='i1.default'",
+	},
+
+	// rule
+	{
+		Name:    "add rule",
+		Events1: validCfg,
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name:    "add rule mix short and long reference names",
+		Events1: validCfgMixShortLongName,
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+      Name: i2.instance.default
+  Name:      r2.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h2.handler.default
+    Instances:
+      Name: i2.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+  -  t2.template.default
+
+  Name:      a2.adapter.default
+  Templates:
+  -  t2.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+  Resource Name:  t2.template.default
+    Name:  t2.template.default
+    InternalPackageDerivedName:  bar
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+  Name:    h2.handler.default
+  Adapter: a2.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+  Name:     i2.instance.default
+  Template: t2.template.default
+  Params:
+  - name:"i2.instance.default"
+  - s2:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "",
+	},
+	{
+		Name: "add rule - bad handler reference",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "doesNotExist.default",
+						Instances: []string{
+							"i1.default",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='doesNotExist.default'",
+	},
+	{
+		Name: "add rule - bad handler kind",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "not.handler",
+						Instances: []string{
+							"i1.default",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='not.handler'",
+	},
+	{
+		Name: "add rule - bad handler string",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t1.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "oneWordNotAValidRef",
+						Instances: []string{
+							"i1.default",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='oneWordNotAValidRef'",
+	},
+	{
+		Name: "add rule - bad instance reference",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"doesnotexist.default",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='doesnotexist.default'",
+	},
+	{
+		Name: "add rule - bad instance string",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"onewordNotAValidInstRef",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='onewordNotAValidInstRef'",
+	},
+	{
+		Name: "add rule - bad instance kind",
+		Events1: []*store.Event{
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"not.a.instance",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+Attributes:
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='not.a.instance'",
+	},
+
+	{
+		Name: "add rule - instances template not supported by handler",
+		Events1: []*store.Event{
+			updateEvent("attributes.attributemanifest.ns", &configpb.AttributeManifest{
+				Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
+					"source.name": {
+						ValueType: descriptorpb.STRING,
+					},
+				},
+			}),
+			updateEvent("t1.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("t2.template.default", &adapter_model.Template{
+				Descriptor_: tmpl1Base64Str,
+			}),
+			updateEvent("a1.adapter.default", &adapter_model.Info{
+				Description:  "testAdapter description",
+				SessionBased: true,
+				Config:       adpt1DescBase64,
+				Templates:    []string{"t1.default"},
+			}),
+			updateEvent("h1.handler.default", &descriptorpb.Handler{
+				Adapter: "a1.default",
+				Params:  adapter1Params,
+			}),
+			updateEvent("i1.instance.default", &descriptorpb.Instance{
+				Template: "t2.default",
+				Params:   tmpl1InstanceParam,
+			}),
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							// i1 is instance for template t2; but handler supports template t1.
+							"i1.default",
+						},
+					},
+				},
+			}),
+		},
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+  Resource Name:  t2.template.default
+    Name:  t2.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t2.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': instance 'i1.instance.default' is of template " +
+			"'t2.template.default' which is not supported by handler 'h1.handler.default'",
+	},
+	{
+		Name: "update rule - duplicate instances normalized into one",
+		Events1: append(validCfg,
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"i1.default",
+							"i1",
+						},
+					},
+				},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+  Name:      r1.rule.default
+  Namespace: default
+  Match:   true
+  ResourceType: ResourceType:{HTTP /Check Report Preprocess}
+  ActionsStatic:
+  ActionsDynamic:
+    Handler: h1.handler.default
+    Instances:
+      Name: i1.instance.default
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': action specified the same instance multiple times: instance='i1.instance.default'",
+	},
+	{
+		Name: "update rule - break handler",
+		Events1: append(validCfg,
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "hnotexists.default",
+						Instances: []string{
+							"i1.default",
+						},
+					},
+				},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='hnotexists.default'",
+	},
+	{
+		Name: "update rule - break instance",
+		Events1: append(validCfg,
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"inotexist.default",
+						},
+					},
+				},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='inotexist.default'",
+	},
+	{
+		Name: "update rule - bad instance",
+		Events1: append(validCfg,
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.default",
+						Instances: []string{
+							"i1.default.extra3.extra4",
+						},
+					},
+				},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Instance not found: instance='i1.default.extra3.extra4'",
+	},
+	{
+		Name: "add rule - bad handler",
+		Events1: append(validCfg,
+			updateEvent("r1.rule.default", &descriptorpb.Rule{
+				Match: "true",
+				Actions: []*descriptorpb.Action{
+					{
+						Handler: "h1.h2.h3.h4.h5",
+						Instances: []string{
+							"i1.instance.default",
+						},
+					},
+				},
+			}),
+		),
+		E: `
+ID: 0
+TemplatesStatic:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+AdaptersStatic:
+  Name: adapter1
+  Name: adapter2
+HandlersStatic:
+InstancesStatic:
+Rules:
+AdaptersDynamic:
+  Name:      a1.adapter.default
+  Templates:
+  -  t1.template.default
+
+TemplatesDynamic:
+  Resource Name:  t1.template.default
+    Name:  t1.template.default
+    InternalPackageDerivedName:  foo
+HandlersDynamic:
+  Name:    h1.handler.default
+  Adapter: a1.adapter.default
+InstancesDynamic:
+  Name:     i1.instance.default
+  Template: t1.template.default
+  Params:
+  - name:"i1.instance.default"
+  - s1:source.name | "yoursrc"
+Attributes:
+  source.name: STRING
+  template.attr: BOOL
+`,
+		wantErr: "action='r1.rule.default[0]': Handler not found: handler='h1.h2.h3.h4.h5'",
 	},
 }
 
@@ -1550,12 +4072,22 @@ var stdAdapters = map[string]*adapter.Info{
 		NewBuilder: func() adapter.HandlerBuilder {
 			return &dummyHandlerBuilder{}
 		},
+		SupportedTemplates: []string{
+			"check",
+			"report",
+		},
 	},
 	"adapter2": {
 		Name:          "adapter2",
 		DefaultConfig: &types.Struct{},
 		NewBuilder: func() adapter.HandlerBuilder {
 			return &dummyHandlerBuilder{}
+		},
+		SupportedTemplates: []string{
+			"check",
+			"report",
+			"quota",
+			"apa",
 		},
 	},
 }
@@ -1617,7 +4149,6 @@ func TestConfigs(t *testing.T) {
 
 func runTests(t *testing.T) {
 	for _, test := range tests {
-
 		t.Run(test.Name, func(tt *testing.T) {
 			templates := test.T
 			if templates == nil {
@@ -1632,34 +4163,42 @@ func runTests(t *testing.T) {
 			e := NewEphemeral(templates, adapters)
 
 			var s *Snapshot
+			var err error
 
 			if test.Initial != nil {
 				e.SetState(test.Initial)
-				s, _ = e.BuildSnapshot()
+				s, err = e.BuildSnapshot()
 			}
 
 			if test.Events1 != nil {
 				for _, event := range test.Events1 {
 					e.ApplyEvent([]*store.Event{event})
 				}
-				s, _ = e.BuildSnapshot()
+				s, err = e.BuildSnapshot()
 			}
 
 			if test.Events2 != nil {
 				for _, event := range test.Events2 {
 					e.ApplyEvent([]*store.Event{event})
 				}
-				s, _ = e.BuildSnapshot()
+				s, err = e.BuildSnapshot()
 			}
 
 			if s == nil {
-				s, _ = e.BuildSnapshot()
+				s, err = e.BuildSnapshot()
+			}
+
+			if (test.wantErr == "" && err != nil) ||
+				(test.wantErr != "" && err == nil) ||
+				(test.wantErr != "" && !strings.Contains(err.Error(), test.wantErr)) {
+				tt.Fatalf("**want error '%s' error; got %v", test.wantErr, err)
 			}
 
 			str := s.String()
 			if normalize(str) != normalize(test.E) {
 				tt.Fatalf("config mismatch:\n%s\n != \n%s\n", str, test.E)
 			}
+
 		})
 	}
 }
@@ -1691,7 +4230,7 @@ func TestGetEntry(t *testing.T) {
 	})
 	gotRes, _ := e.GetEntry(&store.Event{Key: key})
 	if !reflect.DeepEqual(res, gotRes) {
-		t.Errorf("got '%v'; want '%v'", gotRes, res)
+		t.Errorf("got :\n%v\n; want: \n%v\n", gotRes, res)
 	}
 }
 
@@ -1701,4 +4240,29 @@ func normalize(s string) string {
 	s = strings.Replace(s, "\n", "", -1)
 	s = strings.Replace(s, " ", "", -1)
 	return s
+}
+
+func TestAsAny(t *testing.T) {
+	strVal := types.StringValue{Value: "foo"}
+	d, _ := strVal.Marshal()
+	anyStrVal := asAny("google.protobuf.StringValue", d)
+	strValRes := types.StringValue{}
+	_ = types.UnmarshalAny(anyStrVal, &strValRes)
+	if strVal.Value != strValRes.Value {
+		t.Fatalf("asAny failed. want %s; got %s", strVal.Value, strValRes.Value)
+	}
+}
+
+func updateEvent(keystr string, spec proto.Message) *store.Event {
+	keySegments := strings.Split(keystr, ".")
+	key := store.Key{Name: keySegments[0], Kind: keySegments[1], Namespace: keySegments[2]}
+	return &store.Event{Type: store.Update, Key: key, Value: &store.Resource{
+		Metadata: store.ResourceMeta{Name: key.Name, Namespace: key.Namespace},
+		Spec:     spec,
+	}}
+}
+
+func deleteEvent(keystr string) *store.Event {
+	keySegments := strings.Split(keystr, ".")
+	return &store.Event{Type: store.Delete, Key: store.Key{Name: keySegments[0], Kind: keySegments[1], Namespace: keySegments[2]}}
 }

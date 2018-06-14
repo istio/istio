@@ -58,6 +58,9 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 		},
 	}
 
+	// Fix the name of the gateway
+	mergedGateway.Name = model.IstioIngressGatewayName
+
 	// Ensure the VirtualServices all point to mergedGateway
 	for _, virtualService := range virtualServices {
 		virtualService.Spec.(*networking.VirtualService).Gateways[0] = mergedGateway.ConfigMeta.Name

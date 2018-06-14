@@ -238,6 +238,11 @@ var (
 		},
 		RoleRef: &rbac.RoleRef{Kind: "ServiceRole", Name: "ServiceRole001"},
 	}
+
+	// ExampleRbacConfig is an example rbac config
+	ExampleRbacConfig = &rbac.RbacConfig{
+		Mode: rbac.RbacConfig_ON,
+	}
 )
 
 // Make creates a mock config indexed by a number
@@ -462,6 +467,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
 		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"RbacConfig", model.RbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {

@@ -77,9 +77,11 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
   # Default is 1 second
   refreshInterval: 10s
@@ -443,7 +445,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.0.Alpha
+    tag: 0.3.1.Alpha
   ingress:
     enabled: false
     ## Used to create an Ingress record.

@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: List Entry
 // $description: A template designed to let you perform list checking operations.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/template/listentry.html
+// $aliases:
+// $  - /docs/reference/config/template/listentry.html
 
 // The `listentry` template is designed to let you perform list check operations
 // with the [list](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list/) adapter.
