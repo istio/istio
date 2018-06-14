@@ -60,12 +60,14 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
                        Runtime::RandomGenerator &random,
                        Grpc::AsyncClientFactory &check_client_factory,
                        Grpc::AsyncClientFactory &report_client_factory,
-                       ::istio::mixerclient::Environment *env,
-                       const Attributes &forward_attributes) {
-  env->check_transport = CheckTransport::GetFunc(
-      check_client_factory, Tracing::NullSpan::instance(), forward_attributes);
+                       const std::string &serialized_forward_attributes,
+                       ::istio::mixerclient::Environment *env) {
+  env->check_transport = CheckTransport::GetFunc(check_client_factory,
+                                                 Tracing::NullSpan::instance(),
+                                                 serialized_forward_attributes);
   env->report_transport = ReportTransport::GetFunc(
-      report_client_factory, Tracing::NullSpan::instance(), forward_attributes);
+      report_client_factory, Tracing::NullSpan::instance(),
+      serialized_forward_attributes);
 
   env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
       -> std::unique_ptr<::istio::mixerclient::Timer> {
@@ -76,6 +78,15 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
   env->uuid_generate_func = [&random]() -> std::string {
     return random.uuid();
   };
+}
+
+void SerializeForwardedAttributes(
+    const ::istio::mixer::v1::config::client::TransportConfig &transport,
+    std::string *serialized_forward_attributes) {
+  if (!transport.attributes_for_mixer_proxy().attributes().empty()) {
+    transport.attributes_for_mixer_proxy().SerializeToString(
+        serialized_forward_attributes);
+  }
 }
 
 Grpc::AsyncClientFactoryPtr GrpcClientFactoryForCluster(

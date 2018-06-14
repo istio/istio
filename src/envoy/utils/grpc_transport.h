@@ -40,11 +40,11 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
 
   static Func GetFunc(Grpc::AsyncClientFactory& factory,
                       Tracing::Span& parent_span,
-                      const ::istio::mixer::v1::Attributes& forward_attributes);
+                      const std::string& serialized_forward_attributes);
 
   GrpcTransport(Grpc::AsyncClientPtr async_client, const RequestType& request,
                 ResponseType* response, Tracing::Span& parent_span,
-                const ::istio::mixer::v1::Attributes& forward_attributes,
+                const std::string& serialized_forward_attributes,
                 istio::mixerclient::DoneFunc on_done);
 
   void onCreateInitialMetadata(Http::HeaderMap& metadata) override;
@@ -62,7 +62,7 @@ class GrpcTransport : public Grpc::TypedAsyncRequestCallbacks<ResponseType>,
 
   Grpc::AsyncClientPtr async_client_;
   ResponseType* response_;
-  const ::istio::mixer::v1::Attributes& forward_attributes_;
+  const std::string& serialized_forward_attributes_;
   ::istio::mixerclient::DoneFunc on_done_;
   Grpc::AsyncRequest* request_{};
 };

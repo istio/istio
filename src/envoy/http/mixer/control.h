@@ -49,6 +49,8 @@ class Control final : public ThreadLocal::ThreadLocalObject {
 
   // The mixer config.
   const Config& config_;
+  // Pre-serialized attributes_for_mixer_proxy.
+  std::string serialized_forward_attributes_;
   // async client factories
   Grpc::AsyncClientFactoryPtr check_client_factory_;
   Grpc::AsyncClientFactoryPtr report_client_factory_;

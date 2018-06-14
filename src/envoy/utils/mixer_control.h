@@ -31,8 +31,12 @@ void CreateEnvironment(Event::Dispatcher &dispatcher,
                        Runtime::RandomGenerator &random,
                        Grpc::AsyncClientFactory &check_client_factory,
                        Grpc::AsyncClientFactory &report_client_factory,
-                       ::istio::mixerclient::Environment *env,
-                       const Attributes &forward_attributes);
+                       const std::string &serialized_forward_attributes,
+                       ::istio::mixerclient::Environment *env);
+
+void SerializeForwardedAttributes(
+    const ::istio::mixer::v1::config::client::TransportConfig &transport,
+    std::string *serialized_forward_attributes);
 
 Grpc::AsyncClientFactoryPtr GrpcClientFactoryForCluster(
     const std::string &cluster_name, Upstream::ClusterManager &cm,
