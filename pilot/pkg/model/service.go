@@ -128,16 +128,18 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
-	ProtocolHTTP2 Protocol = "HTTP2"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	ProtocolHTTP2 Protocol = "HTTP2"
+	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolTLSWithSNI declares that the port carries TLS traffic with SNI
+	ProtocolTLSWithSNI Protocol = "TLS_with_SNI"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
@@ -196,6 +198,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
+	case "tls_with_sni":
+		return ProtocolTLSWithSNI
 	case "mongo":
 		return ProtocolMongo
 	case "redis":
@@ -228,7 +232,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLSWithSNI, ProtocolMongo, ProtocolRedis:
 		return true
 	default:
 		return false
