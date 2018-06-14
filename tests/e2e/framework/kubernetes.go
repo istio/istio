@@ -129,6 +129,8 @@ type KubeInfo struct {
 	Istioctl *Istioctl
 	// App Manager
 	AppManager *AppManager
+	// Local Registry
+	LocalRegistry *LocalRegistry
 
 	// Release directory
 	ReleaseDir string
@@ -233,6 +235,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
+	l := GetLocalRegistry(i, kubeConfig)
 
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
@@ -252,6 +255,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		localCluster:     *localCluster,
 		Istioctl:         i,
 		AppManager:       a,
+		LocalRegistry:    l,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
 		RBACEnabled:      *rbacEnable,

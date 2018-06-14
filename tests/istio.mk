@@ -43,6 +43,13 @@ e2e_docker: push
 
 endif
 
+LOCAL_OS := $(shell uname)
+ifeq ($(LOCAL_OS),Linux)
+REG_LOCAL = localhost:5000
+else ifeq ($(LOCAL_OS),Darwin)
+REG_LOCAL = docker.for.mac.localhost:5000
+endif
+
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
@@ -69,23 +76,45 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-e2e_simple: istioctl out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_run
-e2e_simple_auth: istioctl out_dir  generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_auth_run
-e2e_simple_noauth: istioctl out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_noauth_run
+# Simple e2e test using fortio, approx 2 min
 
-e2e_mixer: istioctl generate_yaml e2e_mixer_run
+e2e_simple: localregistry_setup istioctl out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_run
+e2e_simple_auth: localregistry_setup istioctl out_dir  generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_auth_run
+e2e_simple_noauth: localregistry_setup istioctl out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_noauth_run
 
-e2e_galley: istioctl generate_yaml e2e_galley_run
+e2e_mixer: test_setup e2e_mixer_run
 
-e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
+e2e_galley: test_setup e2e_galley_run
 
-e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
+e2e_dashboard: test_setup e2e_dashboard_run
 
-e2e_upgrade: istioctl generate_yaml e2e_upgrade_run
+e2e_bookinfo: test_setup e2e_bookinfo_run
 
-e2e_version_skew: istioctl generate_yaml e2e_version_skew_run
+e2e_dashboard: test_setup e2e_dashboard_run
 
-e2e_all: istioctl generate_yaml e2e_all_run
+e2e_upgrade: test_setup e2e_upgrade_run
+
+e2e_version_skew: test_setup e2e_version_skew_run
+
+e2e_all: test_setup e2e_all_run
+
+test_setup: localregistry_setup istioctl generate_yaml 
+
+# deploy local registry pod, build and push images
+localregistry_setup:
+ifeq ($(HUB),istio)
+	. ${ISTIO}/istio/tests/e2e/local/setup_localregistry.sh
+	GOOS=linux HUB=${REG_LOCAL} make docker push
+	ps aux | grep "[p]ort-forward.*5000" | awk '{ print $$2 }' | xargs kill
+endif
+localregistry_setup:
+ifeq ($(HUB),istio)
+ifeq ($(LOCALHUB),)
+override HUB=$(shell kubectl get service kube-registry -n kube-system -o jsonpath='{.spec.clusterIP}'):5000
+else
+override HUB=${LOCALHUB}
+endif
+endif
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
 e2e_simple_run: e2e_simple_auth_run

@@ -14,7 +14,6 @@
   * [curl](https://curl.haxx.se/) - Verify `curl --help` prints the help information.
 
 You can run the following script to check/install of all pre-requisites, or use it as a reference to install them manually.
-(This requires installation of [Homebrew](https://brew.sh) on macOS or debian based Linux distributions)
 
 ```bash
 . ./install_prereqs.sh
@@ -22,6 +21,7 @@ You can run the following script to check/install of all pre-requisites, or use 
 
 # Steps
 ## 1. Set up Minikube Environment
+*Noted that an [in-cluster registry](../localregistry) is the default option and is automatically setup in this script.* 
 ```bash
 . ./setup_host.sh
 ```

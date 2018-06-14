@@ -148,7 +148,7 @@ export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELE
 
 GO_VERSION_REQUIRED:=1.9
 
-HUB?=istio
+HUB ?= istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
