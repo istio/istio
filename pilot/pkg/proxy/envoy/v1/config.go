@@ -848,7 +848,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			})
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLSWithSNI,
-                     model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{BuildTCPRoute(cluster, []string{endpoint.Address})},
 			}, endpoint.Address, endpoint.Port, protocol)

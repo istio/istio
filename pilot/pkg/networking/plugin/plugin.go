@@ -40,7 +40,7 @@ func ModelProtocolToListenerType(protocol model.Protocol) ListenerType {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 		return ListenerTypeHTTP
 	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLSWithSNI,
-             model.ProtocolMongo, model.ProtocolRedis:
+		model.ProtocolMongo, model.ProtocolRedis:
 		return ListenerTypeTCP
 	default:
 		return ListenerTypeUnknown

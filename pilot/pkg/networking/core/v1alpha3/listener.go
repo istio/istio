@@ -410,7 +410,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				// Set SNI hosts for External services only. It may or may not work for internal services.
 				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
 				if (servicePort.Protocol == model.ProtocolHTTPS ||
-                                    servicePort.Protocol == model.ProtocolTLSWithSNI) && service.MeshExternal {
+					servicePort.Protocol == model.ProtocolTLSWithSNI) && service.MeshExternal {
 					filterChainOption.sniHosts = []string{service.Hostname.String()}
 				}
 
