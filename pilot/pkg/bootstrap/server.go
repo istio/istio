@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -60,6 +59,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -723,12 +723,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
-	discovery1 := mock.NewDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+	discovery1 := srmemory.NewDiscovery(
+		map[model.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
-	discovery2 := mock.NewDiscovery(
-		map[model.Hostname]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
+	discovery2 := srmemory.NewDiscovery(
+		map[model.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{

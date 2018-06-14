@@ -28,7 +28,7 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	mock_config "istio.io/istio/pilot/test/mock"
 )
 
@@ -323,19 +323,19 @@ func TestMatchSource(t *testing.T) {
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "world"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
+			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
 			want:      false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
+			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
 			want:      true,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
 			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")},
+			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
 			want:      true,
 		},
 	}
@@ -398,7 +398,7 @@ func (errorStore) Delete(typ, name, namespace string) error {
 }
 
 func TestRouteRules(t *testing.T) {
-	instance := mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")
+	instance := srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -423,18 +423,18 @@ func TestRouteRules(t *testing.T) {
 	if _, err := store.Create(config); err != nil {
 		t.Error(err)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname.String()); len(out) != 1 ||
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, srmemory.WorldService.Hostname.String()); len(out) != 1 ||
 		!reflect.DeepEqual(config.Spec, out[0].Spec) {
 		t.Errorf("RouteRules() => expected %#v but got %#v", config.Spec, out)
 	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname.String()); len(out) != 0 {
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, srmemory.HelloService.Hostname.String()); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for destination-matched rules")
 	}
-	if out := store.RouteRules(nil, mock.WorldService.Hostname.String()); len(out) != 0 {
+	if out := store.RouteRules(nil, srmemory.WorldService.Hostname.String()); len(out) != 0 {
 		t.Error("RouteRules() => expected no match for source-matched rules")
 	}
 
-	world := mock.MakeInstance(mock.WorldService, mock.GetPortHTTP(mock.WorldService), 0, "")
+	world := srmemory.MakeInstance(srmemory.WorldService, srmemory.GetPortHTTP(srmemory.WorldService), 0, "")
 	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
 		!reflect.DeepEqual(config.Spec, out[0].Spec) {
 		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, config.Spec)
@@ -445,7 +445,7 @@ func TestRouteRules(t *testing.T) {
 
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		mock.WorldService.Hostname.String()); len(out) != 0 {
+		srmemory.WorldService.Hostname.String()); len(out) != 0 {
 		t.Errorf("RouteRules() => expected nil but got %v", out)
 	}
 	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
@@ -499,7 +499,7 @@ func TestEgressRules(t *testing.T) {
 func TestDestinationPolicy(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	labels := map[string]string{"version": "v1"}
-	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.GetPortHTTP(mock.HelloService), 0, "")}
+	instances := []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")}
 
 	policy1 := &routing.DestinationPolicy{
 		Source: &routing.IstioService{
@@ -525,22 +525,22 @@ func TestDestinationPolicy(t *testing.T) {
 	if _, err := store.Create(config1); err != nil {
 		t.Error(err)
 	}
-	if out := store.Policy(instances, mock.WorldService.Hostname.String(), labels); out == nil ||
+	if out := store.Policy(instances, srmemory.WorldService.Hostname.String(), labels); out == nil ||
 		!reflect.DeepEqual(policy1, out.Spec) {
 		t.Errorf("Policy() => expected %#v but got %#v", policy1, out)
 	}
-	if out := store.Policy(instances, mock.HelloService.Hostname.String(), labels); out != nil {
+	if out := store.Policy(instances, srmemory.HelloService.Hostname.String(), labels); out != nil {
 		t.Error("Policy() => expected no match for destination-matched policy")
 	}
-	if out := store.Policy(instances, mock.WorldService.Hostname.String(), nil); out != nil {
+	if out := store.Policy(instances, srmemory.WorldService.Hostname.String(), nil); out != nil {
 		t.Error("Policy() => expected no match for labels-matched policy")
 	}
-	if out := store.Policy(nil, mock.WorldService.Hostname.String(), labels); out != nil {
+	if out := store.Policy(nil, srmemory.WorldService.Hostname.String(), labels); out != nil {
 		t.Error("Policy() => expected no match for source-matched policy")
 	}
 
 	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname.String(), labels); out != nil {
+	if out := model.MakeIstioStore(errorStore{}).Policy(instances, srmemory.WorldService.Hostname.String(), labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
 	}
 }

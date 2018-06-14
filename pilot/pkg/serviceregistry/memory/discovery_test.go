@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mock
+package memory
 
 import (
 	"testing"
 )
 
-func TestMockServices(t *testing.T) {
-	svcs, err := Discovery.Services()
+func TestMemoryServices(t *testing.T) {
+	svcs, err := MockDiscovery.Services()
 	if err != nil {
 		t.Errorf("Discovery.Services encountered error: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestMockServices(t *testing.T) {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
 		}
-		instances, err := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
+		instances, err := MockDiscovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
 		if err != nil {
 			t.Errorf("Discovery.Instances encountered error: %v", err)
 		}
