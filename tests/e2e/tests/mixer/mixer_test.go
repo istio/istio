@@ -57,6 +57,7 @@ const (
 	productPagePort  = "10000"
 
 	srcLabel          = "source_service"
+	srcWorkloadLabel  = "source_workload"
 	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
@@ -424,7 +425,7 @@ func TestMetric(t *testing.T) {
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, srcLabel, "istio-"+ingressName)
+	checkMetricReport(t, srcWorkloadLabel, "istio-"+ingressName)
 }
 
 // checkMetricReport checks whether report works for the given service
