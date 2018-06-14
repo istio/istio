@@ -4,7 +4,7 @@ testlinter applies different linter rules to test files according to their categ
 It is run as part of the Istio pre-submit linter check. Whitelisting allows rule breaking exceptions, and temporarily
 opt-out.
 
-golinter is baed on [Checker](../README.md), and this package provides the [custom rules](rules) implementation.
+testlinter is baed on [Checker](../README.md), and this package provides the [custom rules](rules) implementation.
 
 
 ## End To End Tests
@@ -83,7 +83,7 @@ var Whitelist = map[string][]string{
 }
 ```
 
-# Running golinter
+# Running testlinter
 There are two ways to run this linter.
 ```bash
 go install 
