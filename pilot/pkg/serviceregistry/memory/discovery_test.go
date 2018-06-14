@@ -16,30 +16,9 @@ package memory
 
 import (
 	"testing"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestMemoryServices(t *testing.T) {
-	helloService := MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	worldService := MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	extHTTPService := MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	extHTTPSService := MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
-
-	discovery := &ServiceDiscovery{
-		services: map[model.Hostname]*model.Service{
-			helloService.Hostname:   helloService,
-			worldService.Hostname:   worldService,
-			extHTTPService.Hostname: extHTTPService,
-			// TODO external https is not currently supported - this service
-			// should NOT be in any of the .golden json files
-			extHTTPSService.Hostname: extHTTPSService,
-		},
-		versions: 2,
-	}
-
 	svcs, err := discovery.Services()
 	if err != nil {
 		t.Errorf("Discovery.Services encountered error: %v", err)
