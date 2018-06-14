@@ -277,7 +277,7 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 		}
 		adapter := adpt.(*Adapter)
 
-		var adapterCfg *types.Any = nil
+		var adapterCfg *types.Any
 		if len(adapter.ConfigDescSet.File) != 0 {
 			// validate if the param is valid
 			bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
