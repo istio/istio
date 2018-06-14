@@ -222,7 +222,7 @@ func createGatewayHTTPFilterChainOpts(
 		httpListeners = append(httpListeners, o)
 	} else {
 		// Build a filter chain for each TLS server
-		for _, server := range servers {
+		for i, server := range servers {
 			rdsName := model.GatewayRDSRouteName(server)
 			routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
 			if routeCfg == nil {
