@@ -238,8 +238,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 					},
 				},
 			},
-			ValidationContext: certValidationContext,
-			AlpnProtocols:     ListenersALPNProtocols,
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			},
+			AlpnProtocols: ListenersALPNProtocols,
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: requireClientCert,

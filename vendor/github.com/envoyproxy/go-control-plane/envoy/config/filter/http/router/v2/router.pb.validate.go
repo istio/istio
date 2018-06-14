@@ -68,6 +68,8 @@ func (m *Router) Validate() error {
 
 	}
 
+	// no validation rules for SuppressEnvoyHeaders
+
 	return nil
 }
 

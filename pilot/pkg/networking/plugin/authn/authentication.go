@@ -254,10 +254,12 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 						},
 					},
 				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.RootCertFilename,
+							},
 						},
 					},
 				},
