@@ -106,6 +106,10 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
+	ret, err := sds.GetServiceNamespace(svc)
+	if ret != ns {
+		t.Errorf("GetServiceNamespace(%v) => %v, but want %v: %v", svc, ret, ns, err)
+	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)
 	if err != nil {

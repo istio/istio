@@ -15,6 +15,7 @@
 package external
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -130,6 +131,12 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 	}
 
 	return nil, nil
+}
+
+// GetServiceNamespace retrieves namespace of a service if it exists. Currently it's not implemented
+// and only returns empty string.
+func (d *ServiceEntryStore) GetServiceNamespace(service *model.Service) (string, error) {
+	return "", fmt.Errorf("NOT IMPLEMENTED")
 }
 
 func (d *ServiceEntryStore) getServices() []*model.Service {

@@ -78,6 +78,12 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return convertService(endpoints), nil
 }
 
+// GetServiceNamespace retrieves namespace of a service if it exists. Currently it's not implemented
+// and only returns empty string.
+func (c *Controller) GetServiceNamespace(service *model.Service) (string, error) {
+	return "", fmt.Errorf("NOT IMPLEMENTED")
+}
+
 func (c *Controller) getServices() (map[string][]string, error) {
 	data, _, err := c.client.Catalog().Services(nil)
 	if err != nil {

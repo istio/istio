@@ -164,6 +164,23 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return nil, errs
 }
 
+// GetServiceNamespace retrieves namespace of a service if it exists.
+func (c *Controller) GetServiceNamespace(service *model.Service) (string, error) {
+	var errs error
+	for _, r := range c.GetRegistries() {
+		svc, err := r.GetService(service.Hostname)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if svc != nil {
+			if errs != nil {
+				log.Warnf("GetServiceNamespace() found match but encountered an error: %v", errs)
+			}
+			return r.GetServiceNamespace(svc)
+		}
+	}
+	return "", errs
+}
+
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {

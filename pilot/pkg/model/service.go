@@ -337,6 +337,9 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
 
+	// GetServiceNamespace retrieves the namespace of a service if it exists
+	GetServiceNamespace(service *Service) (string, error)
+
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//

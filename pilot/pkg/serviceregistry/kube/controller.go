@@ -249,7 +249,13 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
-// serviceByKey retrieves a service by name and namespace
+// GetServiceNamespace retrieves the namespace from the service.
+func (c *Controller) GetServiceNamespace(service *model.Service) (string, error) {
+	_, ns, err := parseHostname(service.Hostname)
+	return ns, err
+}
+
+// GetServiceNamespace retrieves namespace of a service if it exists.
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
 	if err != nil {

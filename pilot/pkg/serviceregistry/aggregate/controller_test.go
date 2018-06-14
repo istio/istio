@@ -225,6 +225,20 @@ func TestGetService(t *testing.T) {
 	}
 }
 
+func TestGetServiceNamespace(t *testing.T) {
+	aggregateCtl := buildMockController()
+	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
+	if err != nil {
+		t.Fatalf("GetService() encountered unexpected error: %v", err)
+	}
+	if svc == nil {
+		t.Fatal("Fail to get service")
+	}
+	if _, err := aggregateCtl.GetServiceNamespace(svc); err.Error() != "NOT IMPLEMENTED" {
+		t.Fatalf("GetServiceNamespace() encountered unexpected error: %v", err)
+	}
+}
+
 func TestGetServiceError(t *testing.T) {
 	aggregateCtl := buildMockController()
 

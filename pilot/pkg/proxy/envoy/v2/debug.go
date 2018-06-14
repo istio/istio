@@ -199,6 +199,12 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
+// GetServiceNamespace retrieves namespace of a service if it exists. Currently it's not implemented
+// and only returns empty string.
+func (sd *MemServiceDiscovery) GetServiceNamespace(service *model.Service) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
