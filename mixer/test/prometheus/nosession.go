@@ -86,8 +86,6 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 		return nil, err
 	}
 
-	s.env.Logger().Infof("Loaded handler with: %v", cfg)
-
 	s.builderLock.Lock()
 	defer s.builderLock.Unlock()
 
@@ -95,6 +93,8 @@ func (s *NoSessionServer) getHandler(rawcfg []byte) (metric.Handler, error) {
 	if 0 == bytes.Compare(rawcfg, s.rawcfg) {
 		return s.h, nil
 	}
+
+	s.env.Logger().Infof("Loaded handler with: %v", cfg)
 
 	s.builder.SetAdapterConfig(cfg)
 	if ce := s.builder.Validate(); ce != nil {
