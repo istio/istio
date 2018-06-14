@@ -110,7 +110,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 7777
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //   - match:
 //       uri:
 //         prefix: /reviews/
@@ -118,10 +118,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 9080 # can be omitted if its the only port for reviews
-//         name: reviews.prod.svc.cluster.local
+//         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
 //
@@ -147,7 +147,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
-//         name: mongo.prod.svc.cluster.local
+//         host: mongo.prod.svc.cluster.local
 // ```
 message Gateway {
   // REQUIRED: A list of server specifications.
