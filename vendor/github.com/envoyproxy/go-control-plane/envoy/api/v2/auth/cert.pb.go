@@ -242,6 +242,8 @@ type CertificateValidationContext struct {
 	// verified. By default, a client certificate is optional, unless one of the additional
 	// options (:ref:`require_client_certificate
 	// <envoy_api_field_auth.DownstreamTlsContext.require_client_certificate>`,
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>`,
 	// :ref:`verify_certificate_hash
 	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>`, or
 	// :ref:`verify_subject_alt_name
@@ -251,6 +253,37 @@ type CertificateValidationContext struct {
 	// See :ref:`the TLS overview <arch_overview_ssl_enabling_verification>` for a list of common
 	// system CA locations.
 	TrustedCa *envoy_api_v2_core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa" json:"trusted_ca,omitempty"`
+	// An optional list of base64-encoded SHA-256 hashes. If specified, Envoy will verify that the
+	// SHA-256 of the DER-encoded Subject Public Key Information (SPKI) of the presented certificate
+	// matches one of the specified values.
+	//
+	// A base64-encoded SHA-256 of the Subject Public Key Information (SPKI) of the certificate
+	// can be generated with the following command:
+	//
+	// .. code-block:: bash
+	//
+	//   $ openssl x509 -in path/to/client.crt -noout -pubkey \
+	//     | openssl pkey -pubin -outform DER \
+	//     | openssl dgst -sha256 -binary \
+	//     | openssl enc -base64
+	//   NvqYIYSbgK2vCJpQhObf77vv+bQWtc5ek5RIOwPiC9A=
+	//
+	// This is the format used in HTTP Public Key Pinning.
+	//
+	// When both:
+	// :ref:`verify_certificate_hash
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>` and
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>` are specified,
+	// a hash matching value from either of the lists will result in the certificate being accepted.
+	//
+	// .. attention::
+	//
+	//   This option is preferred over :ref:`verify_certificate_hash
+	//   <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>`,
+	//   because SPKI is tied to a private key, so it doesn't change when the certificate
+	//   is renewed using the same private key.
+	VerifyCertificateSpki []string `protobuf:"bytes,3,rep,name=verify_certificate_spki,json=verifyCertificateSpki" json:"verify_certificate_spki,omitempty"`
 	// An optional list of hex-encoded SHA-256 hashes. If specified, Envoy will verify that
 	// the SHA-256 of the DER-encoded presented certificate matches one of the specified values.
 	//
@@ -270,14 +303,22 @@ type CertificateValidationContext struct {
 	//   DF:6F:F7:2F:E9:11:65:21:26:8F:6F:2D:D4:96:6F:51:DF:47:98:83:FE:70:37:B3:9F:75:91:6A:C3:04:9D:1A
 	//
 	// Both of those formats are acceptable.
+	//
+	// When both:
+	// :ref:`verify_certificate_hash
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>` and
+	// :ref:`verify_certificate_spki
+	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>` are specified,
+	// a hash matching value from either of the lists will result in the certificate being accepted.
 	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash" json:"verify_certificate_hash,omitempty"`
-	// If specified, Envoy will verify (pin) base64-encoded SHA-256 hash of
-	// the Subject Public Key Information (SPKI) of the presented certificate.
-	// This is the same format as used in HTTP Public Key Pinning.
-	// [#not-implemented-hide:]
-	VerifySpkiSha256 []string `protobuf:"bytes,3,rep,name=verify_spki_sha256,json=verifySpkiSha256" json:"verify_spki_sha256,omitempty"`
 	// An optional list of Subject Alternative Names. If specified, Envoy will verify that the
 	// Subject Alternative Name of the presented certificate matches one of the specified values.
+	//
+	// .. attention::
+	//
+	//   Subject Alternative Names are easily spoofable and verifying only them is insecure,
+	//   therefore this option must be used together with :ref:`trusted_ca
+	//   <envoy_api_field_auth.CertificateValidationContext.trusted_ca>`.
 	VerifySubjectAltName []string `protobuf:"bytes,4,rep,name=verify_subject_alt_name,json=verifySubjectAltName" json:"verify_subject_alt_name,omitempty"`
 	// [#not-implemented-hide:] Must present a signed time-stamped OCSP response.
 	RequireOcspStaple *google_protobuf1.BoolValue `protobuf:"bytes,5,opt,name=require_ocsp_staple,json=requireOcspStaple" json:"require_ocsp_staple,omitempty"`
@@ -289,6 +330,8 @@ type CertificateValidationContext struct {
 	// certificate has not been revoked by this CRL. If this DataSource contains
 	// multiple CRLs, all of them will be used.
 	Crl *envoy_api_v2_core.DataSource `protobuf:"bytes,7,opt,name=crl" json:"crl,omitempty"`
+	// If specified, Envoy will not reject expired certificates.
+	AllowExpiredCertificate bool `protobuf:"varint,8,opt,name=allow_expired_certificate,json=allowExpiredCertificate,proto3" json:"allow_expired_certificate,omitempty"`
 }
 
 func (m *CertificateValidationContext) Reset()                    { *m = CertificateValidationContext{} }
@@ -303,16 +346,16 @@ func (m *CertificateValidationContext) GetTrustedCa() *envoy_api_v2_core.DataSou
 	return nil
 }
 
-func (m *CertificateValidationContext) GetVerifyCertificateHash() []string {
+func (m *CertificateValidationContext) GetVerifyCertificateSpki() []string {
 	if m != nil {
-		return m.VerifyCertificateHash
+		return m.VerifyCertificateSpki
 	}
 	return nil
 }
 
-func (m *CertificateValidationContext) GetVerifySpkiSha256() []string {
+func (m *CertificateValidationContext) GetVerifyCertificateHash() []string {
 	if m != nil {
-		return m.VerifySpkiSha256
+		return m.VerifyCertificateHash
 	}
 	return nil
 }
@@ -345,6 +388,13 @@ func (m *CertificateValidationContext) GetCrl() *envoy_api_v2_core.DataSource {
 	return nil
 }
 
+func (m *CertificateValidationContext) GetAllowExpiredCertificate() bool {
+	if m != nil {
+		return m.AllowExpiredCertificate
+	}
+	return false
+}
+
 // TLS context shared by both client and server TLS contexts.
 type CommonTlsContext struct {
 	// TLS protocol versions, cipher suites etc.
@@ -359,8 +409,10 @@ type CommonTlsContext struct {
 	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates" json:"tls_certificates,omitempty"`
 	// [#not-implemented-hide:]
 	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs" json:"tls_certificate_sds_secret_configs,omitempty"`
-	// How to validate peer certificates.
-	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext" json:"validation_context,omitempty"`
+	// Types that are valid to be assigned to ValidationContextType:
+	//	*CommonTlsContext_ValidationContext
+	//	*CommonTlsContext_ValidationContextSdsSecretConfig
+	ValidationContextType isCommonTlsContext_ValidationContextType `protobuf_oneof:"validation_context_type"`
 	// Supplies the list of ALPN protocols that the listener should expose. In
 	// practice this is likely to be set to one of two values (see the
 	// :ref:`codec_type <config_http_conn_man_codec_type>` parameter in the HTTP connection
@@ -379,6 +431,30 @@ func (m *CommonTlsContext) Reset()                    { *m = CommonTlsContext{} 
 func (m *CommonTlsContext) String() string            { return proto.CompactTextString(m) }
 func (*CommonTlsContext) ProtoMessage()               {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) { return fileDescriptorCert, []int{4} }
+
+type isCommonTlsContext_ValidationContextType interface {
+	isCommonTlsContext_ValidationContextType()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type CommonTlsContext_ValidationContext struct {
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext,oneof"`
+}
+type CommonTlsContext_ValidationContextSdsSecretConfig struct {
+	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,7,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig,oneof"`
+}
+
+func (*CommonTlsContext_ValidationContext) isCommonTlsContext_ValidationContextType()                {}
+func (*CommonTlsContext_ValidationContextSdsSecretConfig) isCommonTlsContext_ValidationContextType() {}
+
+func (m *CommonTlsContext) GetValidationContextType() isCommonTlsContext_ValidationContextType {
+	if m != nil {
+		return m.ValidationContextType
+	}
+	return nil
+}
 
 func (m *CommonTlsContext) GetTlsParams() *TlsParameters {
 	if m != nil {
@@ -402,8 +478,15 @@ func (m *CommonTlsContext) GetTlsCertificateSdsSecretConfigs() []*SdsSecretConfi
 }
 
 func (m *CommonTlsContext) GetValidationContext() *CertificateValidationContext {
-	if m != nil {
-		return m.ValidationContext
+	if x, ok := m.GetValidationContextType().(*CommonTlsContext_ValidationContext); ok {
+		return x.ValidationContext
+	}
+	return nil
+}
+
+func (m *CommonTlsContext) GetValidationContextSdsSecretConfig() *SdsSecretConfig {
+	if x, ok := m.GetValidationContextType().(*CommonTlsContext_ValidationContextSdsSecretConfig); ok {
+		return x.ValidationContextSdsSecretConfig
 	}
 	return nil
 }
@@ -420,6 +503,80 @@ func (m *CommonTlsContext) GetDeprecatedV1() *CommonTlsContext_DeprecatedV1 {
 		return m.DeprecatedV1
 	}
 	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CommonTlsContext) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CommonTlsContext_OneofMarshaler, _CommonTlsContext_OneofUnmarshaler, _CommonTlsContext_OneofSizer, []interface{}{
+		(*CommonTlsContext_ValidationContext)(nil),
+		(*CommonTlsContext_ValidationContextSdsSecretConfig)(nil),
+	}
+}
+
+func _CommonTlsContext_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CommonTlsContext)
+	// validation_context_type
+	switch x := m.ValidationContextType.(type) {
+	case *CommonTlsContext_ValidationContext:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContext); err != nil {
+			return err
+		}
+	case *CommonTlsContext_ValidationContextSdsSecretConfig:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContextSdsSecretConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("CommonTlsContext.ValidationContextType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CommonTlsContext_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CommonTlsContext)
+	switch tag {
+	case 3: // validation_context_type.validation_context
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CertificateValidationContext)
+		err := b.DecodeMessage(msg)
+		m.ValidationContextType = &CommonTlsContext_ValidationContext{msg}
+		return true, err
+	case 7: // validation_context_type.validation_context_sds_secret_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(SdsSecretConfig)
+		err := b.DecodeMessage(msg)
+		m.ValidationContextType = &CommonTlsContext_ValidationContextSdsSecretConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CommonTlsContext_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CommonTlsContext)
+	// validation_context_type
+	switch x := m.ValidationContextType.(type) {
+	case *CommonTlsContext_ValidationContext:
+		s := proto.Size(x.ValidationContext)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *CommonTlsContext_ValidationContextSdsSecretConfig:
+		s := proto.Size(x.ValidationContextSdsSecretConfig)
+		n += proto.SizeVarint(7<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 // These fields are deprecated and only are used during the interim v1 -> v2
@@ -448,6 +605,12 @@ type UpstreamTlsContext struct {
 	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext" json:"common_tls_context,omitempty"`
 	// SNI string to use when creating TLS backend connections.
 	Sni string `protobuf:"bytes,2,opt,name=sni,proto3" json:"sni,omitempty"`
+	// If true, server-initiated TLS renegotiation will be allowed.
+	//
+	// .. attention::
+	//
+	//   TLS renegotiation is considered insecure and shouldn't be used unless absolutely necessary.
+	AllowRenegotiation bool `protobuf:"varint,3,opt,name=allow_renegotiation,json=allowRenegotiation,proto3" json:"allow_renegotiation,omitempty"`
 }
 
 func (m *UpstreamTlsContext) Reset()                    { *m = UpstreamTlsContext{} }
@@ -467,6 +630,13 @@ func (m *UpstreamTlsContext) GetSni() string {
 		return m.Sni
 	}
 	return ""
+}
+
+func (m *UpstreamTlsContext) GetAllowRenegotiation() bool {
+	if m != nil {
+		return m.AllowRenegotiation
+	}
+	return false
 }
 
 type DownstreamTlsContext struct {
@@ -660,6 +830,7 @@ type Secret struct {
 	// Types that are valid to be assigned to Type:
 	//	*Secret_TlsCertificate
 	//	*Secret_SessionTicketKeys
+	//	*Secret_ValidationContext
 	Type isSecret_Type `protobuf_oneof:"type"`
 }
 
@@ -681,9 +852,13 @@ type Secret_TlsCertificate struct {
 type Secret_SessionTicketKeys struct {
 	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,3,opt,name=session_ticket_keys,json=sessionTicketKeys,oneof"`
 }
+type Secret_ValidationContext struct {
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,4,opt,name=validation_context,json=validationContext,oneof"`
+}
 
 func (*Secret_TlsCertificate) isSecret_Type()    {}
 func (*Secret_SessionTicketKeys) isSecret_Type() {}
+func (*Secret_ValidationContext) isSecret_Type() {}
 
 func (m *Secret) GetType() isSecret_Type {
 	if m != nil {
@@ -713,11 +888,19 @@ func (m *Secret) GetSessionTicketKeys() *TlsSessionTicketKeys {
 	return nil
 }
 
+func (m *Secret) GetValidationContext() *CertificateValidationContext {
+	if x, ok := m.GetType().(*Secret_ValidationContext); ok {
+		return x.ValidationContext
+	}
+	return nil
+}
+
 // XXX_OneofFuncs is for the internal use of the proto package.
 func (*Secret) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _Secret_OneofMarshaler, _Secret_OneofUnmarshaler, _Secret_OneofSizer, []interface{}{
 		(*Secret_TlsCertificate)(nil),
 		(*Secret_SessionTicketKeys)(nil),
+		(*Secret_ValidationContext)(nil),
 	}
 }
 
@@ -733,6 +916,11 @@ func _Secret_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *Secret_SessionTicketKeys:
 		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.SessionTicketKeys); err != nil {
+			return err
+		}
+	case *Secret_ValidationContext:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.ValidationContext); err != nil {
 			return err
 		}
 	case nil:
@@ -761,6 +949,14 @@ func _Secret_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer)
 		err := b.DecodeMessage(msg)
 		m.Type = &Secret_SessionTicketKeys{msg}
 		return true, err
+	case 4: // type.validation_context
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(CertificateValidationContext)
+		err := b.DecodeMessage(msg)
+		m.Type = &Secret_ValidationContext{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -778,6 +974,11 @@ func _Secret_OneofSizer(msg proto.Message) (n int) {
 	case *Secret_SessionTicketKeys:
 		s := proto.Size(x.SessionTicketKeys)
 		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Secret_ValidationContext:
+		s := proto.Size(x.ValidationContext)
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -935,19 +1136,19 @@ func (this *CertificateValidationContext) Equal(that interface{}) bool {
 	if !this.TrustedCa.Equal(that1.TrustedCa) {
 		return false
 	}
+	if len(this.VerifyCertificateSpki) != len(that1.VerifyCertificateSpki) {
+		return false
+	}
+	for i := range this.VerifyCertificateSpki {
+		if this.VerifyCertificateSpki[i] != that1.VerifyCertificateSpki[i] {
+			return false
+		}
+	}
 	if len(this.VerifyCertificateHash) != len(that1.VerifyCertificateHash) {
 		return false
 	}
 	for i := range this.VerifyCertificateHash {
 		if this.VerifyCertificateHash[i] != that1.VerifyCertificateHash[i] {
-			return false
-		}
-	}
-	if len(this.VerifySpkiSha256) != len(that1.VerifySpkiSha256) {
-		return false
-	}
-	for i := range this.VerifySpkiSha256 {
-		if this.VerifySpkiSha256[i] != that1.VerifySpkiSha256[i] {
 			return false
 		}
 	}
@@ -966,6 +1167,9 @@ func (this *CertificateValidationContext) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.Crl.Equal(that1.Crl) {
+		return false
+	}
+	if this.AllowExpiredCertificate != that1.AllowExpiredCertificate {
 		return false
 	}
 	return true
@@ -1008,7 +1212,13 @@ func (this *CommonTlsContext) Equal(that interface{}) bool {
 			return false
 		}
 	}
-	if !this.ValidationContext.Equal(that1.ValidationContext) {
+	if that1.ValidationContextType == nil {
+		if this.ValidationContextType != nil {
+			return false
+		}
+	} else if this.ValidationContextType == nil {
+		return false
+	} else if !this.ValidationContextType.Equal(that1.ValidationContextType) {
 		return false
 	}
 	if len(this.AlpnProtocols) != len(that1.AlpnProtocols) {
@@ -1020,6 +1230,54 @@ func (this *CommonTlsContext) Equal(that interface{}) bool {
 		}
 	}
 	if !this.DeprecatedV1.Equal(that1.DeprecatedV1) {
+		return false
+	}
+	return true
+}
+func (this *CommonTlsContext_ValidationContext) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*CommonTlsContext_ValidationContext)
+	if !ok {
+		that2, ok := that.(CommonTlsContext_ValidationContext)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ValidationContext.Equal(that1.ValidationContext) {
+		return false
+	}
+	return true
+}
+func (this *CommonTlsContext_ValidationContextSdsSecretConfig) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*CommonTlsContext_ValidationContextSdsSecretConfig)
+	if !ok {
+		that2, ok := that.(CommonTlsContext_ValidationContextSdsSecretConfig)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ValidationContextSdsSecretConfig.Equal(that1.ValidationContextSdsSecretConfig) {
 		return false
 	}
 	return true
@@ -1071,6 +1329,9 @@ func (this *UpstreamTlsContext) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Sni != that1.Sni {
+		return false
+	}
+	if this.AllowRenegotiation != that1.AllowRenegotiation {
 		return false
 	}
 	return true
@@ -1266,6 +1527,30 @@ func (this *Secret_SessionTicketKeys) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.SessionTicketKeys.Equal(that1.SessionTicketKeys) {
+		return false
+	}
+	return true
+}
+func (this *Secret_ValidationContext) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Secret_ValidationContext)
+	if !ok {
+		that2, ok := that.(Secret_ValidationContext)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ValidationContext.Equal(that1.ValidationContext) {
 		return false
 	}
 	return true
@@ -1468,8 +1753,8 @@ func (m *CertificateValidationContext) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
-	if len(m.VerifySpkiSha256) > 0 {
-		for _, s := range m.VerifySpkiSha256 {
+	if len(m.VerifyCertificateSpki) > 0 {
+		for _, s := range m.VerifyCertificateSpki {
 			dAtA[i] = 0x1a
 			i++
 			l = len(s)
@@ -1528,6 +1813,16 @@ func (m *CertificateValidationContext) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n8
 	}
+	if m.AllowExpiredCertificate {
+		dAtA[i] = 0x40
+		i++
+		if m.AllowExpiredCertificate {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
 	return i, nil
 }
 
@@ -1568,15 +1863,12 @@ func (m *CommonTlsContext) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
-	if m.ValidationContext != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintCert(dAtA, i, uint64(m.ValidationContext.Size()))
-		n10, err := m.ValidationContext.MarshalTo(dAtA[i:])
+	if m.ValidationContextType != nil {
+		nn10, err := m.ValidationContextType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += nn10
 	}
 	if len(m.AlpnProtocols) > 0 {
 		for _, s := range m.AlpnProtocols {
@@ -1618,6 +1910,34 @@ func (m *CommonTlsContext) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *CommonTlsContext_ValidationContext) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ValidationContext != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.ValidationContext.Size()))
+		n12, err := m.ValidationContext.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n12
+	}
+	return i, nil
+}
+func (m *CommonTlsContext_ValidationContextSdsSecretConfig) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ValidationContextSdsSecretConfig != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.ValidationContextSdsSecretConfig.Size()))
+		n13, err := m.ValidationContextSdsSecretConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n13
+	}
+	return i, nil
+}
 func (m *CommonTlsContext_DeprecatedV1) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1661,17 +1981,27 @@ func (m *UpstreamTlsContext) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.CommonTlsContext.Size()))
-		n12, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
+		n14, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n14
 	}
 	if len(m.Sni) > 0 {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(len(m.Sni)))
 		i += copy(dAtA[i:], m.Sni)
+	}
+	if m.AllowRenegotiation {
+		dAtA[i] = 0x18
+		i++
+		if m.AllowRenegotiation {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
@@ -1695,38 +2025,38 @@ func (m *DownstreamTlsContext) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.CommonTlsContext.Size()))
-		n13, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n13
-	}
-	if m.RequireClientCertificate != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintCert(dAtA, i, uint64(m.RequireClientCertificate.Size()))
-		n14, err := m.RequireClientCertificate.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n14
-	}
-	if m.RequireSni != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintCert(dAtA, i, uint64(m.RequireSni.Size()))
-		n15, err := m.RequireSni.MarshalTo(dAtA[i:])
+		n15, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n15
 	}
-	if m.SessionTicketKeysType != nil {
-		nn16, err := m.SessionTicketKeysType.MarshalTo(dAtA[i:])
+	if m.RequireClientCertificate != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.RequireClientCertificate.Size()))
+		n16, err := m.RequireClientCertificate.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn16
+		i += n16
+	}
+	if m.RequireSni != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.RequireSni.Size()))
+		n17, err := m.RequireSni.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
+	if m.SessionTicketKeysType != nil {
+		nn18, err := m.SessionTicketKeysType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn18
 	}
 	return i, nil
 }
@@ -1737,11 +2067,11 @@ func (m *DownstreamTlsContext_SessionTicketKeys) MarshalTo(dAtA []byte) (int, er
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeys.Size()))
-		n17, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
+		n19, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n17
+		i += n19
 	}
 	return i, nil
 }
@@ -1751,11 +2081,11 @@ func (m *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig) MarshalTo(dAtA [
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeysSdsSecretConfig.Size()))
-		n18, err := m.SessionTicketKeysSdsSecretConfig.MarshalTo(dAtA[i:])
+		n20, err := m.SessionTicketKeysSdsSecretConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n18
+		i += n20
 	}
 	return i, nil
 }
@@ -1784,11 +2114,11 @@ func (m *SdsSecretConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SdsConfig.Size()))
-		n19, err := m.SdsConfig.MarshalTo(dAtA[i:])
+		n21, err := m.SdsConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n19
+		i += n21
 	}
 	return i, nil
 }
@@ -1815,11 +2145,11 @@ func (m *Secret) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.Type != nil {
-		nn20, err := m.Type.MarshalTo(dAtA[i:])
+		nn22, err := m.Type.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn20
+		i += nn22
 	}
 	return i, nil
 }
@@ -1830,11 +2160,11 @@ func (m *Secret_TlsCertificate) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.TlsCertificate.Size()))
-		n21, err := m.TlsCertificate.MarshalTo(dAtA[i:])
+		n23, err := m.TlsCertificate.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n23
 	}
 	return i, nil
 }
@@ -1844,11 +2174,25 @@ func (m *Secret_SessionTicketKeys) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeys.Size()))
-		n22, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
+		n24, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n22
+		i += n24
+	}
+	return i, nil
+}
+func (m *Secret_ValidationContext) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.ValidationContext != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.ValidationContext.Size()))
+		n25, err := m.ValidationContext.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n25
 	}
 	return i, nil
 }
@@ -1938,8 +2282,8 @@ func (m *CertificateValidationContext) Size() (n int) {
 			n += 1 + l + sovCert(uint64(l))
 		}
 	}
-	if len(m.VerifySpkiSha256) > 0 {
-		for _, s := range m.VerifySpkiSha256 {
+	if len(m.VerifyCertificateSpki) > 0 {
+		for _, s := range m.VerifyCertificateSpki {
 			l = len(s)
 			n += 1 + l + sovCert(uint64(l))
 		}
@@ -1962,6 +2306,9 @@ func (m *CertificateValidationContext) Size() (n int) {
 		l = m.Crl.Size()
 		n += 1 + l + sovCert(uint64(l))
 	}
+	if m.AllowExpiredCertificate {
+		n += 2
+	}
 	return n
 }
 
@@ -1978,9 +2325,8 @@ func (m *CommonTlsContext) Size() (n int) {
 			n += 1 + l + sovCert(uint64(l))
 		}
 	}
-	if m.ValidationContext != nil {
-		l = m.ValidationContext.Size()
-		n += 1 + l + sovCert(uint64(l))
+	if m.ValidationContextType != nil {
+		n += m.ValidationContextType.Size()
 	}
 	if len(m.AlpnProtocols) > 0 {
 		for _, s := range m.AlpnProtocols {
@@ -2001,6 +2347,24 @@ func (m *CommonTlsContext) Size() (n int) {
 	return n
 }
 
+func (m *CommonTlsContext_ValidationContext) Size() (n int) {
+	var l int
+	_ = l
+	if m.ValidationContext != nil {
+		l = m.ValidationContext.Size()
+		n += 1 + l + sovCert(uint64(l))
+	}
+	return n
+}
+func (m *CommonTlsContext_ValidationContextSdsSecretConfig) Size() (n int) {
+	var l int
+	_ = l
+	if m.ValidationContextSdsSecretConfig != nil {
+		l = m.ValidationContextSdsSecretConfig.Size()
+		n += 1 + l + sovCert(uint64(l))
+	}
+	return n
+}
 func (m *CommonTlsContext_DeprecatedV1) Size() (n int) {
 	var l int
 	_ = l
@@ -2021,6 +2385,9 @@ func (m *UpstreamTlsContext) Size() (n int) {
 	l = len(m.Sni)
 	if l > 0 {
 		n += 1 + l + sovCert(uint64(l))
+	}
+	if m.AllowRenegotiation {
+		n += 2
 	}
 	return n
 }
@@ -2105,6 +2472,15 @@ func (m *Secret_SessionTicketKeys) Size() (n int) {
 	_ = l
 	if m.SessionTicketKeys != nil {
 		l = m.SessionTicketKeys.Size()
+		n += 1 + l + sovCert(uint64(l))
+	}
+	return n
+}
+func (m *Secret_ValidationContext) Size() (n int) {
+	var l int
+	_ = l
+	if m.ValidationContext != nil {
+		l = m.ValidationContext.Size()
 		n += 1 + l + sovCert(uint64(l))
 	}
 	return n
@@ -2656,7 +3032,7 @@ func (m *CertificateValidationContext) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field VerifySpkiSha256", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field VerifyCertificateSpki", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -2681,7 +3057,7 @@ func (m *CertificateValidationContext) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.VerifySpkiSha256 = append(m.VerifySpkiSha256, string(dAtA[iNdEx:postIndex]))
+			m.VerifyCertificateSpki = append(m.VerifyCertificateSpki, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -2811,6 +3187,26 @@ func (m *CertificateValidationContext) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AllowExpiredCertificate", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCert
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.AllowExpiredCertificate = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCert(dAtA[iNdEx:])
@@ -2951,12 +3347,11 @@ func (m *CommonTlsContext) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.ValidationContext == nil {
-				m.ValidationContext = &CertificateValidationContext{}
-			}
-			if err := m.ValidationContext.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &CertificateValidationContext{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.ValidationContextType = &CommonTlsContext_ValidationContext{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -3050,6 +3445,38 @@ func (m *CommonTlsContext) Unmarshal(dAtA []byte) error {
 			if err := m.TlsCertificateSdsSecretConfigs[len(m.TlsCertificateSdsSecretConfigs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ValidationContextSdsSecretConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCert
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCert
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &SdsSecretConfig{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ValidationContextType = &CommonTlsContext_ValidationContextSdsSecretConfig{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3242,6 +3669,26 @@ func (m *UpstreamTlsContext) Unmarshal(dAtA []byte) error {
 			}
 			m.Sni = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AllowRenegotiation", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCert
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.AllowRenegotiation = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCert(dAtA[iNdEx:])
@@ -3710,6 +4157,38 @@ func (m *Secret) Unmarshal(dAtA []byte) error {
 			}
 			m.Type = &Secret_SessionTicketKeys{v}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ValidationContext", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCert
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCert
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &CertificateValidationContext{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Type = &Secret_ValidationContext{v}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCert(dAtA[iNdEx:])
@@ -3839,79 +4318,84 @@ var (
 func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptorCert) }
 
 var fileDescriptorCert = []byte{
-	// 1180 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0xcf, 0x6f, 0x1b, 0xc5,
-	0x17, 0xcf, 0x7a, 0xdd, 0x34, 0x79, 0x4e, 0xd2, 0xcd, 0x34, 0xdf, 0x6f, 0x17, 0x2b, 0xa4, 0xe9,
-	0x96, 0x8a, 0x1c, 0x2a, 0xbb, 0x71, 0x55, 0x24, 0x44, 0x29, 0xd4, 0xee, 0x21, 0xa2, 0x85, 0xc2,
-	0xda, 0x8d, 0x5a, 0x0e, 0x8c, 0x26, 0xeb, 0x49, 0x3c, 0x78, 0xbd, 0xbb, 0xcc, 0x8c, 0x37, 0xf5,
-	0x15, 0x89, 0x7f, 0xa0, 0x67, 0xfe, 0x00, 0xfe, 0x06, 0x24, 0x24, 0x8e, 0x5c, 0x90, 0xf8, 0x13,
-	0x50, 0x6e, 0x5c, 0xb8, 0x21, 0x71, 0x03, 0xcd, 0xec, 0xd8, 0x5e, 0xff, 0x68, 0x62, 0x09, 0xc4,
-	0x6d, 0xe6, 0xfd, 0xf8, 0xbc, 0x99, 0xf7, 0x3e, 0xef, 0x3d, 0xd8, 0xa6, 0x51, 0x1a, 0x0f, 0xaa,
-	0x24, 0x61, 0xd5, 0xb4, 0x56, 0x25, 0x7d, 0xd9, 0xa9, 0x06, 0x94, 0xcb, 0x4a, 0xc2, 0x63, 0x19,
-	0xa3, 0x4d, 0xad, 0xad, 0x90, 0x84, 0x55, 0xd2, 0x5a, 0x45, 0x69, 0xcb, 0x93, 0x0e, 0x41, 0xcc,
-	0x69, 0xf5, 0x88, 0x08, 0x9a, 0x39, 0x94, 0x6f, 0xcd, 0x6a, 0x83, 0x38, 0x3a, 0x66, 0x27, 0x58,
-	0xc4, 0x7d, 0x1e, 0x0c, 0xcd, 0x76, 0x4e, 0xe2, 0xf8, 0x24, 0xa4, 0x55, 0x7d, 0x3b, 0xea, 0x1f,
-	0x57, 0x4f, 0x39, 0x49, 0x12, 0xca, 0x85, 0xd1, 0x5f, 0x4b, 0x49, 0xc8, 0xda, 0x44, 0xd2, 0xea,
-	0xf0, 0x60, 0x14, 0x5b, 0x27, 0xf1, 0x49, 0xac, 0x8f, 0x55, 0x75, 0xca, 0xa4, 0xde, 0xb7, 0x36,
-	0xac, 0xb7, 0x42, 0xf1, 0x29, 0xe1, 0xa4, 0x47, 0x25, 0xe5, 0x02, 0x0d, 0x60, 0x5b, 0x86, 0x02,
-	0xf7, 0x58, 0xc4, 0x7a, 0xfd, 0x1e, 0xd6, 0x66, 0x41, 0x1c, 0xe2, 0x94, 0x72, 0xc1, 0xe2, 0xc8,
-	0xb5, 0x76, 0xad, 0xbd, 0x8d, 0xda, 0xed, 0xca, 0xcc, 0xff, 0x2a, 0x13, 0x38, 0xfa, 0x66, 0x7c,
-	0xeb, 0xf0, 0xfd, 0x6f, 0x3f, 0xda, 0x97, 0xbe, 0xb6, 0x0a, 0x8e, 0xe5, 0xbf, 0x21, 0x43, 0xf1,
-	0x71, 0x06, 0x3e, 0xd4, 0x1f, 0x66, 0xd0, 0xa3, 0xd0, 0xe4, 0xe5, 0xfc, 0xd0, 0x85, 0x7f, 0x23,
-	0x74, 0x06, 0x3e, 0x1d, 0xfa, 0x26, 0xac, 0x07, 0x2c, 0xe9, 0x50, 0x8e, 0x45, 0x9f, 0x49, 0x2a,
-	0x5c, 0x7b, 0xd7, 0xde, 0x5b, 0xf5, 0xd7, 0x32, 0x61, 0x53, 0xcb, 0xd0, 0x75, 0x28, 0xd1, 0xa0,
-	0xdd, 0xc1, 0x41, 0x9f, 0xa7, 0x54, 0xb8, 0x45, 0x6d, 0x02, 0x4a, 0xd4, 0xd0, 0x12, 0xef, 0x29,
-	0x94, 0x72, 0xb1, 0xd1, 0x1a, 0xac, 0xb4, 0x9e, 0x34, 0xf1, 0xc3, 0x67, 0xad, 0xa7, 0xce, 0x12,
-	0x2a, 0xc1, 0xe5, 0xd6, 0x93, 0x66, 0xba, 0x8f, 0xef, 0x38, 0xd6, 0xf8, 0xb2, 0xef, 0x14, 0xc6,
-	0x97, 0x9a, 0x63, 0x8f, 0x2f, 0x77, 0x9d, 0xa2, 0xf7, 0x67, 0x01, 0x36, 0x5a, 0xa1, 0x68, 0x50,
-	0x2e, 0xd9, 0x31, 0x0b, 0x88, 0xa4, 0xe8, 0x23, 0xd8, 0x0c, 0xc6, 0x57, 0x1c, 0x74, 0x08, 0xcb,
-	0x8a, 0x52, 0xaa, 0xbd, 0x39, 0x99, 0x19, 0xc5, 0xa1, 0xca, 0x23, 0x22, 0x49, 0x53, 0x13, 0xc8,
-	0x77, 0x72, 0x7e, 0x0d, 0xe5, 0x86, 0x1e, 0x40, 0x29, 0xe1, 0x2c, 0x55, 0x38, 0x5d, 0x3a, 0xd0,
-	0xf9, 0xbd, 0x10, 0x05, 0x8c, 0xc7, 0x63, 0x3a, 0x40, 0xef, 0xc2, 0x4a, 0x42, 0x84, 0x38, 0x8d,
-	0x79, 0xdb, 0xb5, 0x17, 0x71, 0x1e, 0x99, 0xab, 0xd0, 0x71, 0x20, 0x12, 0x2c, 0x24, 0x49, 0x42,
-	0xea, 0x16, 0x17, 0x0a, 0xad, 0x3c, 0x9a, 0xda, 0x01, 0x61, 0xd8, 0x16, 0xec, 0x24, 0xa2, 0x6d,
-	0x9c, 0xcf, 0x86, 0x64, 0x3d, 0x2a, 0x24, 0xe9, 0x25, 0xee, 0xa5, 0x5d, 0xfb, 0x62, 0xc0, 0x72,
-	0x06, 0x91, 0x4b, 0x6f, 0x6b, 0x08, 0xe0, 0x3d, 0x83, 0xad, 0x56, 0x28, 0x9a, 0x54, 0x28, 0x7e,
-	0xb4, 0x58, 0xd0, 0xa5, 0xf2, 0x31, 0x1d, 0x08, 0xf4, 0x3e, 0x14, 0xbb, 0x74, 0x20, 0x5c, 0x6b,
-	0x81, 0x00, 0x86, 0x7d, 0xaf, 0xac, 0xc2, 0x8a, 0xe5, 0x6b, 0x37, 0xef, 0x0f, 0x1b, 0xb6, 0x73,
-	0xf1, 0x0e, 0xb3, 0x26, 0x65, 0x71, 0xd4, 0x88, 0x23, 0x49, 0x5f, 0x4a, 0x74, 0x1f, 0x40, 0xf2,
-	0xbe, 0x90, 0xea, 0x67, 0x64, 0xb1, 0xc2, 0xae, 0x1a, 0x87, 0x06, 0x41, 0x07, 0x70, 0x2d, 0xa5,
-	0x9c, 0x1d, 0x0f, 0x26, 0xd2, 0xd2, 0x21, 0xa2, 0xe3, 0x16, 0x14, 0x5d, 0xeb, 0x8e, 0x7a, 0x51,
-	0xe9, 0x95, 0xb5, 0xe2, 0x2d, 0xf3, 0xe2, 0xee, 0x87, 0x7b, 0xd8, 0xff, 0x5f, 0xe6, 0x90, 0x7b,
-	0xd4, 0x01, 0x11, 0x1d, 0x74, 0x1b, 0x90, 0x41, 0x12, 0x49, 0x97, 0x61, 0xd1, 0x21, 0xb5, 0x7b,
-	0xef, 0x98, 0xb6, 0x70, 0x32, 0x4d, 0x33, 0xe9, 0xb2, 0xa6, 0x96, 0xa3, 0x7b, 0xa3, 0xb8, 0xa2,
-	0x7f, 0xf4, 0x25, 0x0d, 0x24, 0x26, 0xa1, 0xc4, 0x11, 0xe9, 0x51, 0xd3, 0x26, 0x5b, 0xc6, 0x25,
-	0xd3, 0x3e, 0x0c, 0xe5, 0x27, 0xa4, 0xa7, 0xc8, 0x7c, 0x95, 0xd3, 0xaf, 0xfa, 0x8c, 0x53, 0x9c,
-	0x67, 0xc3, 0x25, 0xfd, 0xeb, 0x72, 0x25, 0x9b, 0x75, 0x95, 0xe1, 0xac, 0xab, 0xd4, 0xe3, 0x38,
-	0x3c, 0x24, 0x61, 0x9f, 0xfa, 0x9b, 0xc6, 0xed, 0xe9, 0x98, 0x11, 0x5d, 0x78, 0x6b, 0x88, 0x75,
-	0x2e, 0x33, 0x96, 0x2f, 0x04, 0xbf, 0x61, 0x70, 0x9a, 0xaf, 0x65, 0x07, 0xaa, 0x82, 0x1d, 0xf0,
-	0xd0, 0xbd, 0xbc, 0x48, 0x79, 0x94, 0xa5, 0xf7, 0x43, 0x11, 0x9c, 0x46, 0xdc, 0xeb, 0xc5, 0x91,
-	0xea, 0x67, 0x53, 0xeb, 0x0f, 0x00, 0xd4, 0xc0, 0x4b, 0xd4, 0xe8, 0x12, 0xa6, 0xd6, 0xbb, 0x17,
-	0x8d, 0x37, 0x7f, 0x55, 0x9a, 0xab, 0x40, 0xcf, 0xc1, 0x51, 0x00, 0xb9, 0x8f, 0x0a, 0x5d, 0xe7,
-	0x52, 0xed, 0xc6, 0x7c, 0x98, 0xdc, 0x67, 0xc6, 0xe4, 0x74, 0x2c, 0xff, 0x8a, 0x9c, 0xd0, 0x09,
-	0xf4, 0x05, 0xa0, 0x74, 0xc4, 0x4d, 0x1c, 0x64, 0x0f, 0x36, 0x4d, 0x5e, 0x9d, 0x83, 0x7d, 0x1e,
-	0xa7, 0xfd, 0xcd, 0x74, 0x86, 0xe6, 0xb7, 0x60, 0x83, 0x84, 0x49, 0x34, 0x1a, 0xf2, 0xc3, 0x71,
-	0xba, 0xae, 0xa4, 0xc3, 0x09, 0x2a, 0xd0, 0x0b, 0x58, 0x6f, 0xd3, 0x84, 0x53, 0x85, 0xdb, 0xc6,
-	0xe9, 0xbe, 0xa1, 0xc6, 0x9d, 0x79, 0x2f, 0x98, 0xca, 0x6e, 0xe5, 0xd1, 0xc8, 0xf1, 0x70, 0xbf,
-	0x5e, 0x70, 0x2d, 0x7f, 0xad, 0x9d, 0x93, 0xa0, 0x08, 0xbc, 0xa9, 0xdc, 0x61, 0xd1, 0x16, 0x58,
-	0xd0, 0x80, 0x53, 0x89, 0xb3, 0xdd, 0x2b, 0xdc, 0x65, 0x9d, 0x4d, 0x6f, 0x4e, 0xbc, 0x66, 0x5b,
-	0x34, 0xb5, 0x6d, 0x43, 0x9b, 0xfa, 0x3b, 0x93, 0x29, 0x9c, 0x52, 0x8b, 0xf2, 0x7d, 0x58, 0xcb,
-	0xbf, 0x48, 0x35, 0x98, 0xea, 0x91, 0xa9, 0x2c, 0x28, 0x12, 0xac, 0xfa, 0x0e, 0x09, 0xe5, 0xc3,
-	0x7c, 0x22, 0xbc, 0x6f, 0x2c, 0x40, 0xcf, 0x12, 0x21, 0x39, 0x25, 0xbd, 0x1c, 0x83, 0x3e, 0x03,
-	0x14, 0xe8, 0x7f, 0x63, 0xfd, 0x17, 0x53, 0xa6, 0x8c, 0x49, 0x37, 0x17, 0x48, 0x92, 0xef, 0x04,
-	0xd3, 0xa4, 0xdc, 0x06, 0x5b, 0x44, 0x4c, 0x2f, 0x83, 0x55, 0xc3, 0x11, 0x6e, 0xef, 0xfd, 0x65,
-	0xf9, 0x4a, 0xec, 0xfd, 0x6e, 0xc3, 0xd6, 0xa3, 0xf8, 0x34, 0xfa, 0x2f, 0x5e, 0xf2, 0x1c, 0xca,
-	0xc3, 0x8e, 0x0e, 0x42, 0x46, 0x23, 0x99, 0x2f, 0x96, 0xd9, 0x56, 0xe7, 0xf5, 0xb1, 0x6b, 0xbc,
-	0x1b, 0xda, 0x39, 0xbf, 0x44, 0xdf, 0x83, 0xd2, 0x68, 0x56, 0x44, 0xcc, 0xd0, 0xfa, 0x3c, 0x28,
-	0x18, 0x8e, 0x84, 0x88, 0xa1, 0x17, 0x70, 0x55, 0x64, 0x6b, 0x01, 0x4b, 0xbd, 0x17, 0xb0, 0x5e,
-	0x08, 0xd9, 0x0a, 0x7b, 0x7b, 0x7e, 0xdf, 0xcd, 0xec, 0x91, 0x83, 0x25, 0x7f, 0x53, 0xcc, 0x2c,
-	0x97, 0x3e, 0xdc, 0x9a, 0x03, 0x3d, 0xcb, 0x4b, 0xd3, 0x06, 0x0b, 0xd0, 0xf2, 0x60, 0xc9, 0xdf,
-	0x9d, 0x89, 0x33, 0x65, 0x53, 0x2f, 0x83, 0x3b, 0x2f, 0xac, 0x1c, 0x24, 0xd4, 0xa3, 0x70, 0x65,
-	0xca, 0x1c, 0x21, 0x28, 0xea, 0xc9, 0x9e, 0x71, 0x55, 0x9f, 0xd1, 0x03, 0x00, 0xf5, 0x4a, 0xf3,
-	0xbc, 0xac, 0x36, 0xd7, 0xe7, 0xcc, 0xc5, 0x0c, 0x62, 0xb8, 0xb8, 0x44, 0x5b, 0x64, 0x02, 0xef,
-	0x67, 0x0b, 0x96, 0xb3, 0x20, 0x73, 0xe1, 0x9f, 0xc0, 0x95, 0xa9, 0x66, 0x35, 0x31, 0x2e, 0x9e,
-	0x73, 0x07, 0x4b, 0xfe, 0xc6, 0x64, 0x6b, 0xbe, 0xae, 0x82, 0xf6, 0x3f, 0xaf, 0x60, 0x7d, 0x19,
-	0x8a, 0x2a, 0x6d, 0xf5, 0xff, 0x7f, 0x77, 0xb6, 0x63, 0xfd, 0x74, 0xb6, 0x63, 0xfd, 0x72, 0xb6,
-	0x63, 0xfd, 0x7a, 0xb6, 0x63, 0x7d, 0x5e, 0x54, 0x48, 0x47, 0xcb, 0x9a, 0x5c, 0x77, 0xff, 0x0e,
-	0x00, 0x00, 0xff, 0xff, 0xc5, 0x8a, 0xdb, 0xe4, 0x3e, 0x0c, 0x00, 0x00,
+	// 1252 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0x31, 0x73, 0x1b, 0x45,
+	0x14, 0xf6, 0x49, 0xb2, 0x23, 0x3f, 0xd9, 0xce, 0x79, 0x63, 0xf0, 0x45, 0x63, 0x1c, 0x45, 0x49,
+	0x06, 0x17, 0x1e, 0x29, 0x76, 0x86, 0x02, 0x08, 0x81, 0x48, 0x61, 0xc6, 0x43, 0x02, 0x81, 0x93,
+	0xe2, 0x49, 0x68, 0x96, 0xf5, 0x69, 0x2d, 0x2d, 0x3e, 0xdd, 0x1d, 0xbb, 0xab, 0x73, 0xd4, 0xf2,
+	0x13, 0x52, 0xf3, 0x03, 0xe8, 0xe8, 0x28, 0xa8, 0x28, 0x69, 0x98, 0xc9, 0x4f, 0x60, 0xdc, 0xd1,
+	0x50, 0xd3, 0xc1, 0xec, 0xee, 0x49, 0x3e, 0x49, 0x97, 0x58, 0xcc, 0x64, 0xe8, 0x6e, 0xf7, 0xbd,
+	0xf7, 0xbd, 0xa7, 0xb7, 0xdf, 0xfb, 0x9e, 0x60, 0x8b, 0x06, 0x71, 0x38, 0xac, 0x93, 0x88, 0xd5,
+	0xe3, 0xfd, 0x3a, 0x19, 0xc8, 0x5e, 0xdd, 0xa3, 0x5c, 0xd6, 0x22, 0x1e, 0xca, 0x10, 0xad, 0x6b,
+	0x6b, 0x8d, 0x44, 0xac, 0x16, 0xef, 0xd7, 0x94, 0xb5, 0x3c, 0x19, 0xe0, 0x85, 0x9c, 0xd6, 0x8f,
+	0x88, 0xa0, 0x26, 0xa0, 0x7c, 0x6b, 0xd6, 0xea, 0x85, 0xc1, 0x31, 0xeb, 0x62, 0x11, 0x0e, 0xb8,
+	0x37, 0x72, 0xdb, 0xee, 0x86, 0x61, 0xd7, 0xa7, 0x75, 0x7d, 0x3a, 0x1a, 0x1c, 0xd7, 0x4f, 0x39,
+	0x89, 0x22, 0xca, 0x45, 0x62, 0xdf, 0x8c, 0x89, 0xcf, 0x3a, 0x44, 0xd2, 0xfa, 0xe8, 0x23, 0x31,
+	0x6c, 0x74, 0xc3, 0x6e, 0xa8, 0x3f, 0xeb, 0xea, 0xcb, 0xdc, 0x56, 0x7f, 0xc8, 0xc3, 0x6a, 0xdb,
+	0x17, 0x5f, 0x12, 0x4e, 0xfa, 0x54, 0x52, 0x2e, 0xd0, 0x10, 0xb6, 0xa4, 0x2f, 0x70, 0x9f, 0x05,
+	0xac, 0x3f, 0xe8, 0x63, 0xed, 0xe6, 0x85, 0x3e, 0x8e, 0x29, 0x17, 0x2c, 0x0c, 0x1c, 0xab, 0x62,
+	0xed, 0xac, 0xed, 0xef, 0xd6, 0x66, 0x7e, 0x5f, 0x6d, 0x02, 0x47, 0x9f, 0x92, 0xd8, 0x06, 0xfc,
+	0xf2, 0xe7, 0xaf, 0xf9, 0xc5, 0xef, 0xad, 0x9c, 0x6d, 0xb9, 0x57, 0xa5, 0x2f, 0x3e, 0x37, 0xe0,
+	0x23, 0xfb, 0xa1, 0x81, 0x1e, 0xa7, 0x26, 0xcf, 0xb3, 0x53, 0xe7, 0xde, 0x44, 0x6a, 0x03, 0x3e,
+	0x9d, 0xfa, 0x06, 0xac, 0x7a, 0x2c, 0xea, 0x51, 0x8e, 0xc5, 0x80, 0x49, 0x2a, 0x9c, 0x7c, 0x25,
+	0xbf, 0xb3, 0xec, 0xae, 0x98, 0xcb, 0x96, 0xbe, 0x43, 0xd7, 0xa0, 0x44, 0xbd, 0x4e, 0x0f, 0x7b,
+	0x03, 0x1e, 0x53, 0xe1, 0x14, 0xb4, 0x0b, 0xa8, 0xab, 0xa6, 0xbe, 0xa9, 0x3e, 0x86, 0x52, 0x2a,
+	0x37, 0x5a, 0x81, 0x62, 0xfb, 0x51, 0x0b, 0xdf, 0x7f, 0xd2, 0x7e, 0x6c, 0x2f, 0xa0, 0x12, 0x5c,
+	0x6a, 0x3f, 0x6a, 0xc5, 0x7b, 0xf8, 0xb6, 0x6d, 0x9d, 0x1f, 0xf6, 0xec, 0xdc, 0xf9, 0x61, 0xdf,
+	0xce, 0x9f, 0x1f, 0xee, 0xd8, 0x85, 0xea, 0xdf, 0x39, 0x58, 0x6b, 0xfb, 0xa2, 0x49, 0xb9, 0x64,
+	0xc7, 0xcc, 0x23, 0x92, 0xa2, 0xcf, 0x60, 0xdd, 0x3b, 0x3f, 0x62, 0xaf, 0x47, 0x98, 0x79, 0x94,
+	0xd2, 0xfe, 0x3b, 0x93, 0x9d, 0x51, 0x1c, 0xaa, 0x3d, 0x20, 0x92, 0xb4, 0x34, 0x81, 0x5c, 0x3b,
+	0x15, 0xd7, 0x54, 0x61, 0xe8, 0x1e, 0x94, 0x22, 0xce, 0x62, 0x85, 0x73, 0x42, 0x87, 0xba, 0xbf,
+	0x17, 0xa2, 0x40, 0x12, 0xf1, 0x90, 0x0e, 0xd1, 0xfb, 0x50, 0x8c, 0x88, 0x10, 0xa7, 0x21, 0xef,
+	0x38, 0xf9, 0x79, 0x82, 0xc7, 0xee, 0x2a, 0x75, 0xe8, 0x89, 0x08, 0x0b, 0x49, 0x22, 0x9f, 0x3a,
+	0x85, 0xb9, 0x52, 0xab, 0x88, 0x96, 0x0e, 0x40, 0x18, 0xb6, 0x04, 0xeb, 0x06, 0xb4, 0x83, 0xd3,
+	0xdd, 0x90, 0xac, 0x4f, 0x85, 0x24, 0xfd, 0xc8, 0x59, 0xac, 0xe4, 0x2f, 0x06, 0x2c, 0x1b, 0x88,
+	0x54, 0x7b, 0xdb, 0x23, 0x80, 0xea, 0x13, 0xd8, 0x68, 0xfb, 0xa2, 0x45, 0x85, 0xe2, 0x47, 0x9b,
+	0x79, 0x27, 0x54, 0x3e, 0xa4, 0x43, 0x81, 0x3e, 0x82, 0xc2, 0x09, 0x1d, 0x0a, 0xc7, 0x9a, 0x23,
+	0x41, 0xc2, 0xbe, 0x17, 0x56, 0xae, 0x68, 0xb9, 0x3a, 0xac, 0xfa, 0x7b, 0x01, 0xb6, 0x52, 0xf9,
+	0x0e, 0xcd, 0x90, 0xb2, 0x30, 0x68, 0x86, 0x81, 0xa4, 0xcf, 0x25, 0xba, 0x0b, 0x20, 0xf9, 0x40,
+	0x48, 0xf5, 0xcb, 0xc8, 0x7c, 0x0f, 0xbb, 0x9c, 0x04, 0x34, 0x09, 0x3a, 0x80, 0xcd, 0x98, 0x72,
+	0x76, 0x3c, 0x9c, 0x68, 0x4b, 0x8f, 0x88, 0x9e, 0x93, 0x53, 0x74, 0x6d, 0xd8, 0xaa, 0xa2, 0xd2,
+	0x0b, 0xab, 0x58, 0x5d, 0xe2, 0x85, 0xca, 0x27, 0x3b, 0xd8, 0x7d, 0xcb, 0x04, 0xa4, 0x8a, 0x3a,
+	0x20, 0xa2, 0xf7, 0x0a, 0x24, 0x11, 0x9d, 0x30, 0x33, 0x1b, 0x53, 0x48, 0xbb, 0x3b, 0xbb, 0x19,
+	0x48, 0xad, 0xe8, 0x84, 0xa1, 0xf7, 0xc6, 0x48, 0x62, 0x70, 0xf4, 0x2d, 0xf5, 0x24, 0x26, 0xbe,
+	0xc4, 0x01, 0xe9, 0xd3, 0x64, 0x84, 0x36, 0x8c, 0xb9, 0x65, 0xac, 0xf7, 0x7d, 0xf9, 0x05, 0xe9,
+	0x2b, 0xa2, 0x5f, 0xe1, 0xf4, 0xbb, 0x01, 0xe3, 0x14, 0xa7, 0x99, 0xb2, 0xa8, 0x3b, 0x52, 0xae,
+	0x19, 0x1d, 0xac, 0x8d, 0x74, 0xb0, 0xd6, 0x08, 0x43, 0xff, 0x90, 0xf8, 0x03, 0xea, 0xae, 0x27,
+	0x61, 0x8f, 0xcf, 0xd9, 0x72, 0x02, 0x37, 0x47, 0x58, 0xaf, 0x65, 0xcd, 0xd2, 0x85, 0xe0, 0xd7,
+	0x13, 0x9c, 0xd6, 0x2b, 0x99, 0x83, 0xea, 0x90, 0xf7, 0xb8, 0xef, 0x5c, 0x9a, 0xe7, 0xe9, 0x94,
+	0x27, 0xfa, 0x00, 0xae, 0x12, 0xdf, 0x0f, 0x4f, 0x31, 0x7d, 0x1e, 0x31, 0x3e, 0x59, 0x9c, 0x53,
+	0xac, 0x58, 0x3b, 0x45, 0x77, 0x53, 0x3b, 0x7c, 0x6a, 0xec, 0xa9, 0xac, 0xd5, 0x97, 0x8b, 0x60,
+	0x37, 0xc3, 0x7e, 0x3f, 0x0c, 0x94, 0x4e, 0x24, 0x1c, 0xfa, 0x18, 0x40, 0x09, 0x69, 0xa4, 0x24,
+	0x51, 0x24, 0x1c, 0xaa, 0x5c, 0x24, 0x9b, 0xee, 0xb2, 0x4c, 0x8e, 0x02, 0x3d, 0x05, 0x5b, 0x01,
+	0xa4, 0xea, 0x10, 0x9a, 0x3f, 0xa5, 0xfd, 0xeb, 0xd9, 0x30, 0xa9, 0x92, 0xce, 0x49, 0x6f, 0x5b,
+	0xee, 0x65, 0x39, 0x61, 0x13, 0xe8, 0x1b, 0x40, 0xf1, 0x98, 0xf3, 0xd8, 0x33, 0x05, 0x27, 0xe2,
+	0x51, 0xcf, 0xc0, 0x7e, 0xdd, 0xac, 0x1c, 0x2c, 0xb8, 0xeb, 0xf1, 0xcc, 0x00, 0xdd, 0x82, 0x35,
+	0xe2, 0x47, 0xc1, 0x78, 0x7d, 0x8c, 0x84, 0x7a, 0x55, 0xdd, 0x8e, 0xb4, 0x59, 0xa0, 0x67, 0xb0,
+	0xda, 0xa1, 0x11, 0xa7, 0x0a, 0xb9, 0x83, 0xe3, 0xbd, 0x84, 0x58, 0xb7, 0xb3, 0x6a, 0x98, 0xea,
+	0x6f, 0xed, 0xc1, 0x38, 0xf0, 0x70, 0xaf, 0x91, 0x73, 0x2c, 0x77, 0xa5, 0x93, 0xba, 0x41, 0x01,
+	0x54, 0xa7, 0xba, 0x87, 0x45, 0x47, 0x60, 0x41, 0x3d, 0x4e, 0x25, 0x36, 0x5b, 0x5d, 0x38, 0x4b,
+	0xba, 0x9f, 0xd5, 0x8c, 0x7c, 0xad, 0x8e, 0x68, 0x69, 0xdf, 0xa6, 0x76, 0x75, 0xb7, 0x27, 0x9b,
+	0x38, 0x65, 0x16, 0x48, 0xc2, 0xcd, 0xd9, 0x9e, 0xce, 0xa6, 0x4c, 0x18, 0x39, 0x47, 0xc6, 0x83,
+	0x05, 0xb7, 0x32, 0xd3, 0xd8, 0x29, 0x9f, 0xf2, 0x5d, 0x58, 0x49, 0xf7, 0x01, 0xed, 0x02, 0x52,
+	0x73, 0x3d, 0xd5, 0x7b, 0x45, 0xbe, 0x65, 0xd7, 0x26, 0xbe, 0xbc, 0x9f, 0x6e, 0x7f, 0xe3, 0x2a,
+	0x6c, 0x66, 0xd4, 0x2c, 0x87, 0x11, 0xad, 0xfe, 0x6c, 0x01, 0x7a, 0x12, 0x09, 0xc9, 0x29, 0xe9,
+	0xa7, 0x48, 0xfd, 0x15, 0x20, 0x4f, 0x3f, 0x04, 0xd6, 0xcd, 0x4d, 0x98, 0x63, 0xc8, 0x7d, 0x63,
+	0x8e, 0x57, 0x73, 0x6d, 0x6f, 0x7a, 0x4e, 0xb6, 0x20, 0x2f, 0x02, 0xa6, 0xf7, 0xde, 0x72, 0x42,
+	0x5b, 0x9e, 0xdf, 0xf9, 0xc7, 0x72, 0xd5, 0x35, 0xaa, 0xc3, 0x15, 0x33, 0x96, 0x9c, 0x06, 0xb4,
+	0x1b, 0x4a, 0xa6, 0x6b, 0xd5, 0x5c, 0x2d, 0xba, 0x48, 0x9b, 0xdc, 0xb4, 0xa5, 0xfa, 0x57, 0x1e,
+	0x36, 0x1e, 0x84, 0xa7, 0xc1, 0xff, 0x51, 0xfa, 0x53, 0x28, 0x8f, 0x14, 0xcd, 0xf3, 0x19, 0x0d,
+	0xe4, 0x84, 0x68, 0xe4, 0x2e, 0xd4, 0x31, 0x27, 0x89, 0x6e, 0xea, 0xe0, 0xf4, 0x1f, 0x8c, 0x0f,
+	0xa1, 0x34, 0xd6, 0xca, 0x80, 0x25, 0xa3, 0xf9, 0x3a, 0x28, 0x18, 0x49, 0x62, 0xc0, 0xd0, 0x33,
+	0xb8, 0x22, 0xcc, 0xca, 0xc4, 0x52, 0xef, 0x4c, 0xac, 0x97, 0xa5, 0x59, 0xef, 0xef, 0x66, 0x6b,
+	0xc7, 0xcc, 0x8e, 0x55, 0x73, 0x2d, 0x66, 0x16, 0xef, 0x00, 0x6e, 0x65, 0x40, 0x67, 0xd0, 0x7c,
+	0xf1, 0xbf, 0xd0, 0x7c, 0x26, 0xcf, 0x94, 0x4f, 0xa3, 0x0c, 0x4e, 0x56, 0x5a, 0xcd, 0x54, 0x0a,
+	0x97, 0xa7, 0xdc, 0x11, 0x82, 0x82, 0xde, 0x6c, 0x86, 0xf7, 0xfa, 0x1b, 0xdd, 0x03, 0x50, 0x55,
+	0x26, 0xe5, 0x99, 0xb7, 0xb9, 0x96, 0xb1, 0x17, 0x0c, 0xc4, 0x68, 0xa9, 0x8b, 0x8e, 0x30, 0x17,
+	0xd5, 0x9f, 0x72, 0xb0, 0x64, 0x92, 0x64, 0xc2, 0x3f, 0x82, 0xcb, 0x53, 0x72, 0x93, 0xe4, 0xb8,
+	0x58, 0xab, 0x0f, 0x16, 0xdc, 0xb5, 0x49, 0x71, 0x79, 0xd5, 0x0b, 0xe6, 0xdf, 0xc0, 0x0b, 0x66,
+	0x6b, 0x7f, 0xe1, 0xcd, 0x69, 0x7f, 0x63, 0x09, 0x0a, 0xea, 0x61, 0x1a, 0x6f, 0xff, 0x78, 0xb6,
+	0x6d, 0xfd, 0x76, 0xb6, 0x6d, 0xbd, 0x3c, 0xdb, 0xb6, 0xfe, 0x38, 0xdb, 0xb6, 0xbe, 0x2e, 0x28,
+	0xc4, 0xa3, 0x25, 0x4d, 0xdf, 0x3b, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0xab, 0x88, 0xc4, 0x71,
+	0xbc, 0x0d, 0x00, 0x00,
 }

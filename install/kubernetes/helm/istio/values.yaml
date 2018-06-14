@@ -18,21 +18,17 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -50,6 +46,14 @@ global:
     includeInboundPorts: "*"
     excludeInboundPorts: ""
     policy: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
 
   proxy_init:
     image: proxy_init
@@ -77,17 +81,14 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
   # Default is 1 second
   refreshInterval: 10s
-
-  # Enable multicluster operation.  Must be set to true if multicluster operation
-  # is desired.
-  multicluster:
-    enabled: false
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -98,6 +99,10 @@ global:
     amd64: 2
     s390x: 2
     ppc64le: 2
+
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
 
 # Any customization for istio testing should be here
 istiotesting:
@@ -439,7 +444,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.0.Alpha
+    tag: 0.3.1.Alpha
   ingress:
     enabled: false
     ## Used to create an Ingress record.

@@ -36,10 +36,10 @@ type FileSink_Format int32
 
 const (
 	// Binary proto format as per :ref:`Trace
-	// <envoy_api_msg_extensions.common.tap.v2alpha.Trace>`.
+	// <envoy_api_msg_data.tap.v2alpha.Trace>`.
 	FileSink_PROTO_BINARY FileSink_Format = 0
 	// Text proto format as per :ref:`Trace
-	// <envoy_api_msg_extensions.common.tap.v2alpha.Trace>`.
+	// <envoy_api_msg_data.tap.v2alpha.Trace>`.
 	FileSink_PROTO_TEXT FileSink_Format = 1
 )
 

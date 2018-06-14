@@ -47,15 +47,15 @@ quotas:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.quotas">
+<tr id="Params-quotas">
 <td><code>quotas</code></td>
-<td><code><a href="#Params.Quota">Params.Quota[]</a></code></td>
+<td><code><a href="#Params-Quota">Params.Quota[]</a></code></td>
 <td>
 <p>The set of known quotas. At least one quota configuration is required</p>
 
 </td>
 </tr>
-<tr id="Params.redis_server_url">
+<tr id="Params-redis_server_url">
 <td><code>redisServerUrl</code></td>
 <td><code>string</code></td>
 <td>
@@ -64,7 +64,7 @@ ex) localhost:6379</p>
 
 </td>
 </tr>
-<tr id="Params.connection_pool_size">
+<tr id="Params-connection_pool_size">
 <td><code>connectionPoolSize</code></td>
 <td><code>int64</code></td>
 <td>
@@ -76,7 +76,7 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Override">Params.Override</h2>
+<h2 id="Params-Override">Params.Override</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -87,7 +87,7 @@ Default is 10 connections per every CPU as reported by runtime.NumCPU.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Override.dimensions">
+<tr id="Params-Override-dimensions">
 <td><code>dimensions</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -97,7 +97,7 @@ dimensions should not be empty</p>
 
 </td>
 </tr>
-<tr id="Params.Override.max_amount">
+<tr id="Params-Override-max_amount">
 <td><code>maxAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -109,7 +109,7 @@ This value should be bigger than 0</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Quota">Params.Quota</h2>
+<h2 id="Params-Quota">Params.Quota</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -120,7 +120,7 @@ This value should be bigger than 0</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Quota.name">
+<tr id="Params-Quota-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -128,7 +128,7 @@ This value should be bigger than 0</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.max_amount">
+<tr id="Params-Quota-max_amount">
 <td><code>maxAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -136,7 +136,7 @@ This value should be bigger than 0</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.valid_duration">
+<tr id="Params-Quota-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -146,7 +146,7 @@ value should be 0 &lt; valid_duration</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.bucket_duration">
+<tr id="Params-Quota-bucket_duration">
 <td><code>bucketDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -155,17 +155,17 @@ value should be 0 &lt; bucket<em>duration &lt; valid</em>duration</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.rate_limit_algorithm">
+<tr id="Params-Quota-rate_limit_algorithm">
 <td><code>rateLimitAlgorithm</code></td>
-<td><code><a href="#Params.QuotaAlgorithm">Params.QuotaAlgorithm</a></code></td>
+<td><code><a href="#Params-QuotaAlgorithm">Params.QuotaAlgorithm</a></code></td>
 <td>
 <p>Quota management algorithm. The default value is FIXED_WINDOW</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.overrides">
+<tr id="Params-Quota-overrides">
 <td><code>overrides</code></td>
-<td><code><a href="#Params.Override">Params.Override[]</a></code></td>
+<td><code><a href="#Params-Override">Params.Override[]</a></code></td>
 <td>
 <p>Overrides associated with this quota.
 The first matching override is applied.</p>
@@ -175,7 +175,7 @@ The first matching override is applied.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.QuotaAlgorithm">Params.QuotaAlgorithm</h2>
+<h2 id="Params-QuotaAlgorithm">Params.QuotaAlgorithm</h2>
 <section>
 <p>Algorithms for rate-limiting:</p>
 
@@ -187,14 +187,14 @@ The first matching override is applied.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.QuotaAlgorithm.FIXED_WINDOW">
+<tr id="Params-QuotaAlgorithm-FIXED_WINDOW">
 <td><code>FIXED_WINDOW</code></td>
 <td>
 <p>FIXED_WINDOW The fixed window approach can allow 2x peak specified rate, whereas the rolling-window doesn&rsquo;t.</p>
 
 </td>
 </tr>
-<tr id="Params.QuotaAlgorithm.ROLLING_WINDOW">
+<tr id="Params-QuotaAlgorithm-ROLLING_WINDOW">
 <td><code>ROLLING_WINDOW</code></td>
 <td>
 <p>ROLLING_WINDOW The rolling window algorithm&rsquo;s additional precision comes at the cost of increased redis resource usage.</p>

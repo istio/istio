@@ -23,6 +23,7 @@ import (
 )
 
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
+	// TODO: Modify interface to take services, and config instead of making library query registry
 	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
 	if err != nil {
 		adsLog.Warnf("ADS: config failure, closing grpc %v", err)

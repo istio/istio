@@ -917,6 +917,17 @@ func ValidateGateway(msg proto.Message) (errs error) {
 			errs = appendErrors(errs, validateServer(server))
 		}
 	}
+
+	// Ensure unique port names
+	portNames := make(map[string]bool)
+
+	for _, s := range value.Servers {
+		if portNames[s.Port.Name] {
+			errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
+		}
+		portNames[s.Port.Name] = true
+	}
+
 	return errs
 }
 
@@ -946,8 +957,10 @@ func validateServerPort(port *networking.Port) (errs error) {
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
-	} else if port.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("either port number or name must be set: %v", port))
+	}
+
+	if port.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
 	}
 	return
 }
@@ -1133,21 +1146,17 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier == nil {
 		return
 	}
-	if outlier.Http == nil {
-		return fmt.Errorf("outlier detection must have at least one field")
-	}
 
-	http := outlier.Http
-	if http.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.BaseEjectionTime))
+	if outlier.BaseEjectionTime != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if http.ConsecutiveErrors < 0 {
+	if outlier.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
-	if http.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Interval))
+	if outlier.Interval != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
 	}
-	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
+	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent))
 
 	return
 }
@@ -1792,6 +1801,21 @@ func ValidateServiceRoleBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// ValidateRbacConfig checks that RbacConfig is well-formed.
+func ValidateRbacConfig(msg proto.Message) error {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
+		return errors.New("cannot cast to RbacConfig")
+	}
+
+	switch in.Mode {
+	case rbac.RbacConfig_ON_WITH_EXCLUSION, rbac.RbacConfig_ON_WITH_INCLUSION:
+		return errors.New("rbac mode not implemented, currently only supports ON/OFF")
+	}
+
+	return nil
 }
 
 func validateJwt(jwt *authn.Jwt) (errs error) {

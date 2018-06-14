@@ -57,6 +57,7 @@ const (
 	productPagePort  = "10000"
 
 	srcLabel          = "source_service"
+	srcWorkloadLabel  = "source_workload"
 	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
@@ -420,27 +421,27 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestMetric(t *testing.T) {
-	checkMetricReport(t, "productpage")
+	checkMetricReport(t, destLabel, fqdn("productpage"))
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio-"+ingressName)
+	checkMetricReport(t, srcWorkloadLabel, "istio-"+ingressName)
 }
 
 // checkMetricReport checks whether report works for the given service
 // by visiting productpage and comparing request_count metric.
-func checkMetricReport(t *testing.T, serviceName string) {
+func checkMetricReport(t *testing.T, label, labelValue string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	t.Logf("Check request count metric for %s", serviceName)
+	t.Logf("Check request count metric for %q=%q", label, labelValue)
 
 	// establish baseline by querying request count metric.
 	t.Log("establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(serviceName))
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", label, labelValue)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -464,7 +465,7 @@ func checkMetricReport(t *testing.T, serviceName string) {
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn(serviceName), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", label, labelValue, responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -933,9 +934,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-policy' as the destination, got %d", len(vec))
 	}
 
 	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
@@ -950,9 +951,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-telemetry' as the destination, got %d", len(vec))
 	}
 
 	mixerPod, err := podID("istio-mixer-type=telemetry")

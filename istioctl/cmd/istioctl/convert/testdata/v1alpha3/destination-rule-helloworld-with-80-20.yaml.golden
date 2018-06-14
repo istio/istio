@@ -18,11 +18,10 @@ spec:
         tcp:
           maxConnections: 1
       outlierDetection:
-        http:
-          baseEjectionTime: 180.000s
-          consecutiveErrors: 1
-          interval: 1.000s
-          maxEjectionPercent: 100
+        baseEjectionTime: 180.000s
+        consecutiveErrors: 1
+        interval: 1.000s
+        maxEjectionPercent: 100
   - labels:
       version: "2.0"
     name: version-2-0

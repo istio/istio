@@ -85,7 +85,7 @@ var (
 
 	loggingOptions = log.DefaultOptions()
 
-	// This defines the output order for "get all".  We show the V3 types first.
+	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
 		model.Gateway.Type:           -10,
 		model.VirtualService.Type:    -5,
@@ -95,6 +95,14 @@ var (
 		model.RouteRule.Type:         5,
 		model.DestinationPolicy.Type: 10,
 		model.EgressRule.Type:        20,
+	}
+
+	// deprecatedTypes tracks if a deprecation warning is needed
+	deprecatedTypes = map[string]bool{
+		model.RouteRule.Type:         true,
+		model.IngressRule.Type:       true,
+		model.DestinationPolicy.Type: true,
+		model.EgressRule.Type:        true,
 	}
 
 	// Headings for short format listing specific to type
@@ -111,6 +119,26 @@ var (
 		"virtual-service":  printShortVirtualService,
 		"destination-rule": printShortDestinationRule,
 		"service-entry":    printShortServiceEntry,
+	}
+
+	// configTypes is the Istio types supported by the client
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
+	configTypes = model.ConfigDescriptor{
+		model.RouteRule,
+		model.VirtualService,
+		model.Gateway,
+		model.EgressRule,
+		model.ServiceEntry,
+		model.DestinationPolicy,
+		model.DestinationRule,
+		model.HTTPAPISpec,
+		model.HTTPAPISpecBinding,
+		model.QuotaSpec,
+		model.QuotaSpecBinding,
+		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
+		model.RbacConfig,
 	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
@@ -171,6 +199,9 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
+				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
+					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
+				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
@@ -389,6 +420,9 @@ istioctl get virtualservice bookinfo
 
 			return nil
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -488,6 +522,9 @@ istioctl delete virtualservice bookinfo
 
 			return errs
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -822,23 +859,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, configContext, model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-	}, "")
+	return crd.NewClient(kubeconfig, configContext, configTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -973,4 +994,20 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
+}
+
+func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
+	}
+	return resourceNames
+}
+
+func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
+	}
+	return resourceNames
 }

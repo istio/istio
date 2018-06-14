@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -35,6 +36,7 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 	var resName string
 	var ns string
 	var configFilePath string
+	var output string
 	var description string
 	var sessionBased bool
 	var templates []string
@@ -44,7 +46,7 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 		Short: "creates kubernetes configuration for an adapter",
 		Run: func(cmd *cobra.Command, args []string) {
 			createAdapterCr("mixgen "+strings.Join(rawArgs, " "), resName, ns, description, configFilePath,
-				sessionBased, templates, printf, fatalf)
+				sessionBased, templates, output, printf, fatalf)
 		},
 	}
 	adapterCmd.PersistentFlags().StringVarP(&resName, "name", "n", "", "name of the resource")
@@ -58,11 +60,13 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 		"whether the adapter is session based or not. TODO link to the documentation")
 	adapterCmd.PersistentFlags().StringArrayVarP(&templates, "templates", "t", nil,
 		"supported template names")
+	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path"+
+		" to save the configuration")
 	return adapterCmd
 }
 
 func createAdapterCr(rawCommand string, name, namespace, description, config string, sessionBased bool, templates []string,
-	printf, fatalf shared.FormatFn) {
+	outPath string, printf, fatalf shared.FormatFn) {
 	type adapterCRVar struct {
 		RawCommand   string
 		Name         string
@@ -84,25 +88,31 @@ spec:
   session_based: {{.SessionBased}}
   templates:
   {{range .Templates -}}
-  - {{- .}}
+  - {{.}}
   {{end -}}
   config: {{.Config}}
 ---
 `
 
-	inPath, _ := filepath.Abs(config)
-	byts, err := ioutil.ReadFile(inPath)
-	if err != nil {
-		fatalf("unable to read file %s. %v", inPath, err)
+	var byts []byte
+	var err error
+
+	if config != "" {
+		// no config means adapter has no config.
+		inPath, _ := filepath.Abs(config)
+		byts, err = ioutil.ReadFile(inPath)
+		if err != nil {
+			fatalf("unable to read file %s. %v", inPath, err)
+		}
+		// validate if the file is a file descriptor set with imports.
+		if err = isFds(byts); err != nil {
+			fatalf("config in invalid: %v", err)
+		}
 	}
 
-	// validate if the file is a file descriptor set with imports.
-	if err := isFds(byts); err != nil {
-		fatalf("config in invalid: %v", err)
-	}
-
+	goPath := os.Getenv("GOPATH")
 	adapterObj := &adapterCRVar{
-		RawCommand:   rawCommand,
+		RawCommand:   strings.Replace(rawCommand, goPath, "$GOPATH", -1),
 		Name:         name,
 		Namespace:    namespace,
 		Description:  description,
@@ -114,10 +124,17 @@ spec:
 	t := gotemplate.New("adaptercr")
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(adapterTmpl)
-	if err := t.Execute(w, adapterObj); err != nil {
+	if err = t.Execute(w, adapterObj); err != nil {
 		fatalf("could not create adapter custom resource" + err.Error())
 	}
-	printf(w.String())
+
+	if outPath != "" {
+		if err = ioutil.WriteFile(outPath, w.Bytes(), 0644); err != nil {
+			fatalf("cannot write to output file '%s': %v", outPath, err)
+		}
+	} else {
+		printf(w.String())
+	}
 }
 
 func isFds(byts []byte) error {

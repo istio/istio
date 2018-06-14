@@ -114,7 +114,7 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+		//{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
 		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
 	}
@@ -127,6 +127,8 @@ func TestAuthNJwt(t *testing.T) {
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}
+
+			t.Logf("resp: %+v", resp)
 
 			return errAgain
 		})

@@ -113,6 +113,16 @@ func (m *Cluster) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetLoadAssignment()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClusterValidationError{
+				Field:  "LoadAssignment",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	for idx, item := range m.GetHealthChecks() {
 		_, _ = idx, item
 

@@ -208,7 +208,7 @@ spec:
     receivedBytes: request.total_size | connection.received.bytes | 0
     sentBytes: response.total_size | connection.sent.bytes | 0
     referer: request.referer | ""
-  monitored_resource_type: '"UNSPECIFIED"'
+  monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -231,6 +231,7 @@ spec:
   value: "1"
   dimensions:
     source_service: source.service | "unknown"
+    source_workload: source.workload.name | "unknown"
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
@@ -332,6 +333,7 @@ spec:
     kind: COUNTER
     label_names:
     - source_service
+    - source_workload
     - source_version
     - destination_service
     - destination_version

@@ -59,7 +59,7 @@ var (
 		Namespace: "mixer",
 		Subsystem: "config",
 		Name:      "rule_config_count",
-		Help:      "The number of known instances in the current config.",
+		Help:      "The number of known rules in the current config.",
 	}, standardConfigLabels)
 
 	ruleConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -81,6 +81,20 @@ var (
 		Subsystem: "config",
 		Name:      "adapter_info_config_error_count",
 		Help:      "The number of errors encountered during processing of the adapter info configuration.",
+	}, standardConfigLabels)
+
+	templateConfigCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "template_config_count",
+		Help:      "The number of known templates in the current config.",
+	}, standardConfigLabels)
+
+	templateConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "template_config_error_count",
+		Help:      "The number of errors encountered during processing of the template configuration.",
 	}, standardConfigLabels)
 
 	matchErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -130,6 +144,8 @@ type Counters struct {
 	ruleConfigError        prometheus.Counter
 	adapterInfoConfig      prometheus.Counter
 	adapterInfoConfigError prometheus.Counter
+	templateConfig         prometheus.Counter
+	templateConfigError    prometheus.Counter
 
 	// Externally visible counters
 	MatchErrors               prometheus.Counter
@@ -150,6 +166,8 @@ func newCounters(id int64) Counters {
 		ruleConfigError:           ruleConfigErrorCount.With(labels),
 		adapterInfoConfig:         adapterInfoConfigCount.With(labels),
 		adapterInfoConfigError:    adapterInfoConfigErrorCount.With(labels),
+		templateConfig:            templateConfigCount.With(labels),
+		templateConfigError:       templateConfigErrorCount.With(labels),
 		MatchErrors:               matchErrorCount.With(labels),
 		UnsatisfiedActionHandlers: unsatisfiedActionHandlerCount.With(labels),
 		HandlerValidationError:    handlerValidationErrorCount.With(labels),
