@@ -249,25 +249,25 @@ func TestGet(t *testing.T) {
 		{ // case 1
 			configs: testRouteRules,
 			args:    strings.Split("get routerules --all-namespaces", " "),
-			expectedOutput: `NAME      KIND                        NAMESPACE
-a         RouteRule.config.v1alpha2   default
-b         RouteRule.config.v1alpha2   default
-c         RouteRule.config.v1alpha2   istio-system
-d         RouteRule.config.v1alpha2   default
+			expectedOutput: `NAME      KIND                        NAMESPACE      AGE
+a         RouteRule.config.v1alpha2   default        <unknown>
+b         RouteRule.config.v1alpha2   default        <unknown>
+c         RouteRule.config.v1alpha2   istio-system   <unknown>
+d         RouteRule.config.v1alpha2   default        <unknown>
 `,
 		},
 		{ // case 2
 			configs: testGateways,
 			args:    strings.Split("get gateways -n default", " "),
-			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE
-bookinfo-gateway   *         default
+			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE   AGE
+bookinfo-gateway   *         default     <unknown>
 `,
 		},
 		{ // case 3
 			configs: testVirtualServices,
 			args:    strings.Split("get virtualservices -n default", " "),
-			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE
-bookinfo               bookinfo-gateway   *             1        0      default
+			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
+bookinfo               bookinfo-gateway   *             1        0      default     <unknown>
 `,
 		},
 		{ // case 4 invalid type
@@ -279,14 +279,14 @@ bookinfo               bookinfo-gateway   *             1        0      default
 		{ // case 5 all
 			configs: append(testRouteRules, testVirtualServices...),
 			args:    strings.Split("get all", " "),
-			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE
-bookinfo               bookinfo-gateway   *             1        0      default
+			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
+bookinfo               bookinfo-gateway   *             1        0      default     <unknown>
 
-NAME      KIND                        NAMESPACE
-a         RouteRule.config.v1alpha2   default
-b         RouteRule.config.v1alpha2   default
-c         RouteRule.config.v1alpha2   istio-system
-d         RouteRule.config.v1alpha2   default
+NAME      KIND                        NAMESPACE      AGE
+a         RouteRule.config.v1alpha2   default        <unknown>
+b         RouteRule.config.v1alpha2   default        <unknown>
+c         RouteRule.config.v1alpha2   istio-system   <unknown>
+d         RouteRule.config.v1alpha2   default        <unknown>
 `,
 		},
 		{ // case 6 all with no data
@@ -297,15 +297,15 @@ d         RouteRule.config.v1alpha2   default
 		{ // case 7
 			configs: testDestinationRules,
 			args:    strings.Split("get destinationrules", " "),
-			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE
-googleapis              *.googleapis.com             default
+			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
+googleapis              *.googleapis.com             default     <unknown>
 `,
 		},
 		{ // case 8
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries", " "),
-			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE
-googleapis           *.googleapis.com   HTTP/443   default
+			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
+googleapis           *.googleapis.com   HTTP/443   default     <unknown>
 `,
 		},
 	}
