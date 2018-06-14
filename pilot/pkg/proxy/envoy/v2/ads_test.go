@@ -130,12 +130,24 @@ func sendEDSReqReconnect(t *testing.T, clusters []string,
 	}
 }
 
-func sendLDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
 		TypeUrl: v2.ListenerType})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
+func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:       v2.RouteType,
+		ResourceNames: routes})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
