@@ -113,3 +113,31 @@ func validateSessionBackend(ctx interface{}, t *testing.T) error {
 		quota.NewHandleQuotaServiceClient(conn),
 		s.Requests)
 }
+
+func validateHandleCalls(metricClt metric.HandleMetricServiceClient,
+	listentryClt listentry.HandleListEntryServiceClient, quotaClt quota.HandleQuotaServiceClient, req *Requests) error {
+	if _, err := metricClt.HandleMetric(context.Background(), &metric.HandleMetricRequest{}); err != nil {
+		return err
+	}
+	if le, err := listentryClt.HandleListEntry(context.Background(), &listentry.HandleListEntryRequest{}); err != nil {
+		return err
+	} else if le.ValidUseCount != 31 {
+		return fmt.Errorf("got listentry.ValidUseCount %v; want %v", le.ValidUseCount, 31)
+	}
+	if qr, err := quotaClt.HandleQuota(context.Background(), &quota.HandleQuotaRequest{}); err != nil {
+		return err
+	} else if qr.Quotas["key1"].GrantedAmount != 32 {
+		return fmt.Errorf("got quota.GrantedAmount %v; want %v", qr.Quotas["key1"].GrantedAmount, 31)
+	}
+
+	if len(req.HandleQuotaRequest) != 1 {
+		return fmt.Errorf("got quota calls %d; want %d", len(req.HandleQuotaRequest), 1)
+	}
+	if len(req.HandleMetricRequest) != 1 {
+		return fmt.Errorf("got metric calls %d; want %d", len(req.HandleMetricRequest), 1)
+	}
+	if len(req.HandleListEntryRequest) != 1 {
+		return fmt.Errorf("got listentry calls %d; want %d", len(req.HandleListEntryRequest), 1)
+	}
+	return nil
+}
