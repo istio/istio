@@ -6,7 +6,7 @@ package v1alpha3
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/golang/protobuf/ptypes/struct"
+import google_protobuf2 "github.com/gogo/protobuf/types"
 
 import io "io"
 
