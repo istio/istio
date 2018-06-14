@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"reflect"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -297,13 +298,16 @@ func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapter
 		},
 	}
 	if !sessionBased {
-		encodedData, err := adapterConfig.Marshal()
-		if err != nil {
-			return nil, err // Any.Marshal() never returns an error.
-		}
-		inputData["adapter_config"] = &staticEncoder{
-			encodedData:   encodedData,
-			includeLength: true,
+		if adapterConfig != nil &&
+			(reflect.ValueOf(adapterConfig).Kind() != reflect.Ptr || !reflect.ValueOf(adapterConfig).IsNil()) {
+			encodedData, err := adapterConfig.Marshal()
+			if err != nil {
+				return nil, err // Any.Marshal() never returns an error.
+			}
+			inputData["adapter_config"] = &staticEncoder{
+				encodedData:   encodedData,
+				includeLength: true,
+			}
 		}
 	}
 
