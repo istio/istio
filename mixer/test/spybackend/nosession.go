@@ -56,19 +56,25 @@ var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
+	s.Requests.metricLock.Lock()
 	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
+	s.Requests.metricLock.Unlock()
 	return s.Behavior.HandleMetricResult, s.Behavior.HandleMetricError
 }
 
 // HandleListEntry records listrequest and responds with the programmed response
 func (s *NoSessionServer) HandleListEntry(c context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
+	s.Requests.listentryLock.Lock()
 	s.Requests.HandleListEntryRequest = append(s.Requests.HandleListEntryRequest, r)
+	s.Requests.listentryLock.Unlock()
 	return s.Behavior.HandleListEntryResult, s.Behavior.HandleListEntryError
 }
 
 // HandleQuota records quotarequest and responds with the programmed response
 func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
+	s.Requests.quotaLock.Lock()
 	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
+	s.Requests.quotaLock.Unlock()
 	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
 }
 
@@ -128,6 +134,9 @@ const stripText = "stripped_for_test"
 func (s *NoSessionServer) printMetrics() []interface{} {
 	result := make([]interface{}, 0)
 
+	s.Requests.metricLock.RLock()
+	defer s.Requests.metricLock.RUnlock()
+
 	if len(s.Requests.HandleMetricRequest) > 0 {
 		// Stable sort order for varieties.
 		for _, mr := range s.Requests.HandleMetricRequest {
@@ -148,6 +157,9 @@ func (s *NoSessionServer) printMetrics() []interface{} {
 func (s *NoSessionServer) printListEntry() []interface{} {
 	result := make([]interface{}, 0)
 
+	s.Requests.listentryLock.RLock()
+	defer s.Requests.listentryLock.RUnlock()
+
 	if len(s.Requests.HandleListEntryRequest) > 0 {
 		// Stable sort order for varieties.
 		for _, mr := range s.Requests.HandleListEntryRequest {
@@ -167,6 +179,9 @@ func (s *NoSessionServer) printListEntry() []interface{} {
 
 func (s *NoSessionServer) printQuota() []interface{} {
 	result := make([]interface{}, 0)
+
+	s.Requests.quotaLock.RLock()
+	defer s.Requests.quotaLock.RUnlock()
 
 	if len(s.Requests.HandleQuotaRequest) > 0 {
 		// Stable sort order for varieties.
