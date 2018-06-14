@@ -55,6 +55,7 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
   if (!filter_config_.policy().peer_is_optional() &&
       !createPeerAuthenticator(filter_context_.get())->run(&payload)) {
     rejectRequest("Peer authentication failed.");
+    removeJwtPayloadFromHeaders();
     return FilterHeadersStatus::StopIteration;
   }
 
@@ -64,9 +65,7 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
 
   // After Istio authn, the JWT headers consumed by Istio authn should be
   // removed.
-  for (auto const iter : filter_config_.jwt_output_payload_locations()) {
-    filter_context_->headers()->remove(LowerCaseString(iter.second));
-  }
+  removeJwtPayloadFromHeaders();
 
   if (!success) {
     rejectRequest("Origin authentication failed.");
@@ -80,6 +79,12 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
   }
   state_ = State::COMPLETE;
   return FilterHeadersStatus::Continue;
+}
+
+void AuthenticationFilter::removeJwtPayloadFromHeaders() {
+  for (auto const iter : filter_config_.jwt_output_payload_locations()) {
+    filter_context_->headers()->remove(LowerCaseString(iter.second));
+  }
 }
 
 FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {
