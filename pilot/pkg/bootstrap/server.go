@@ -152,7 +152,6 @@ type PilotArgs struct {
 	Mesh             MeshArgs
 	Config           ConfigArgs
 	Service          ServiceArgs
-	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 }
