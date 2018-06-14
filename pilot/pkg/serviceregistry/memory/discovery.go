@@ -22,44 +22,28 @@ import (
 )
 
 var (
-	portHTTPName   = "http"
-	helloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	worldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	extHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	extHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	discovery = &ServiceDiscovery{
-		services: map[model.Hostname]*model.Service{
-			helloService.Hostname:   helloService,
-			worldService.Hostname:   worldService,
-			extHTTPService.Hostname: extHTTPService,
-			// TODO external https is not currently supported - this service
-			// should NOT be in any of the .golden json files
-			extHTTPSService.Hostname: extHTTPSService,
-		},
-		versions: 2,
-	}
-	helloInstanceV0 = MakeIP(helloService, 0)
-	helloInstanceV1 = MakeIP(helloService, 1)
-	helloProxyV0    = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: helloInstanceV0,
-		ID:        "v0.default",
-		Domain:    "default.svc.cluster.local",
-	}
-	helloProxyV1 = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: helloInstanceV1,
-		ID:        "v1.default",
-		Domain:    "default.svc.cluster.local",
-	}
-	ingress = model.Proxy{
-		Type:      model.Ingress,
-		IPAddress: "10.3.3.3",
-		ID:        "ingress.default",
-		Domain:    "default.svc.cluster.local",
-	}
+	portHTTPName = "http"
+
+	// helloInstanceV0 = MakeIP(helloService, 0)
+	// helloInstanceV1 = MakeIP(helloService, 1)
+	// helloProxyV0    = model.Proxy{
+	// 	Type:      model.Sidecar,
+	// 	IPAddress: helloInstanceV0,
+	// 	ID:        "v0.default",
+	// 	Domain:    "default.svc.cluster.local",
+	// }
+	// helloProxyV1 = model.Proxy{
+	// 	Type:      model.Sidecar,
+	// 	IPAddress: helloInstanceV1,
+	// 	ID:        "v1.default",
+	// 	Domain:    "default.svc.cluster.local",
+	// }
+	// ingress = model.Proxy{
+	// 	Type:      model.Ingress,
+	// 	IPAddress: "10.3.3.3",
+	// 	ID:        "ingress.default",
+	// 	Domain:    "default.svc.cluster.local",
+	// }
 )
 
 // NewDiscovery builds a memory ServiceDiscovery
