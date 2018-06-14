@@ -277,16 +277,18 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 		}
 		adapter := adpt.(*Adapter)
 
-		// validate if the param is valid
-		bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
-		if err != nil {
-			appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
-				counters.HandlerValidationError, err.Error())
-			continue
+		var adapterCfg *types.Any
+		if len(adapter.ConfigDescSet.File) != 0 {
+			// validate if the param is valid
+			bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
+			if err != nil {
+				appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
+					counters.HandlerValidationError, err.Error())
+				continue
+			}
+			typeFQN := adapter.PackageName + ".Params"
+			adapterCfg = asAny(typeFQN, bytes)
 		}
-
-		typeFQN := adapter.PackageName + ".Params"
-		adapterCfg := asAny(typeFQN, bytes)
 
 		cfg := &HandlerDynamic{
 			Name:          handlerName,
