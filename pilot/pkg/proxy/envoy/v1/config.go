@@ -847,7 +847,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 				authnPolicy:      authenticationPolicy,
 			})
 
-		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLSWithSNI,
+                     model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{BuildTCPRoute(cluster, []string{endpoint.Address})},
 			}, endpoint.Address, endpoint.Port, protocol)
@@ -914,7 +915,7 @@ func buildEgressVirtualHost(serviceName string, destination model.Hostname,
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.Hostname = destination.String()
 	externalTrafficCluster.Port = port
-	if protocolToHandle == model.ProtocolHTTPS {
+	if protocolToHandle == model.ProtocolHTTPS || protocolToHandle == model.ProtocolTLSWithSNI {
 		externalTrafficCluster.SSLContext = &SSLContextExternal{}
 	}
 
@@ -1093,7 +1094,7 @@ func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.P
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTLSWithSNI, model.ProtocolMongo, model.ProtocolRedis:
 			cluster := BuildInboundCluster(mPort.Port, model.ProtocolTCP, mesh.ConnectTimeout)
 			listener := buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{BuildTCPRoute(cluster, []string{managementIP})},
