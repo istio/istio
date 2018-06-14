@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
 func TestServiceNode(t *testing.T) {
@@ -29,7 +29,7 @@ func TestServiceNode(t *testing.T) {
 		out string
 	}{
 		{
-			in:  mock.HelloProxyV0,
+			in:  memory.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{

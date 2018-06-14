@@ -50,9 +50,13 @@ spec:
       valueType: TIMESTAMP
     source.uid:
       valueType: STRING
-    source.user:
+    source.user: # DEPRECATED
+      valueType: STRING
+    source.principal:
       valueType: STRING
     destination.uid:
+      valueType: STRING
+    destination.principal:
       valueType: STRING
     connection.id:
       valueType: STRING
@@ -74,6 +78,10 @@ spec:
       valueType: TIMESTAMP
     context.time:
       valueType: TIMESTAMP
+    context.reporter.local:
+      valueType: BOOL
+    context.reporter.uid:
+      valueType: STRING
     api.service:
       valueType: STRING
     api.version:
@@ -107,25 +115,55 @@ spec:
       valueType: IP_ADDRESS
     source.labels:
       valueType: STRING_MAP
+    source.metadata:
+      valueType: STRING_MAP
     source.name:
       valueType: STRING
     source.namespace:
       valueType: STRING
-    source.service:
+    source.owner:
+      valueType: STRING      
+    source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
+      valueType: STRING
+    source.services:
+      valueType: STRING
+    source.workload.uid:
+      valueType: STRING
+    source.workload.name:
+      valueType: STRING
+    source.workload.namespace:
       valueType: STRING
     destination.ip:
       valueType: IP_ADDRESS
     destination.labels:
       valueType: STRING_MAP
+    destination.metadata:
+      valueType: STRING_MAP
+    destination.owner:
+      valueType: STRING
     destination.name:
       valueType: STRING
     destination.namespace:
       valueType: STRING
-    destination.service:
+    destination.service: # DEPRECATED
+      valueType: STRING
+    destination.service.uid:
+      valueType: STRING
+    destination.service.name:
+      valueType: STRING
+    destination.service.namespace:
+      valueType: STRING
+    destination.service.host:
       valueType: STRING
     destination.serviceAccount:
+      valueType: STRING
+    destination.workload.uid:
+      valueType: STRING
+    destination.workload.name:
+      valueType: STRING
+    destination.workload.namespace:
       valueType: STRING
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -147,7 +185,6 @@ spec:
   variables:
     originIp: origin.ip | ip("0.0.0.0")
     sourceIp: source.ip | ip("0.0.0.0")
-    sourceService: source.service | ""
     sourceUser: source.user | source.uid | ""
     sourceNamespace: source.namespace | ""
     destinationIp: destination.ip | ip("0.0.0.0")
@@ -171,7 +208,7 @@ spec:
     receivedBytes: request.total_size | connection.received.bytes | 0
     sentBytes: response.total_size | connection.sent.bytes | 0
     referer: request.referer | ""
-  monitored_resource_type: '"UNSPECIFIED"'
+  monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -194,6 +231,7 @@ spec:
   value: "1"
   dimensions:
     source_service: source.service | "unknown"
+    source_workload: source.workload.name | "unknown"
     source_version: source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
     destination_version: destination.labels["version"] | "unknown"
@@ -295,6 +333,7 @@ spec:
     kind: COUNTER
     label_names:
     - source_service
+    - source_workload
     - source_version
     - destination_service
     - destination_version
@@ -440,20 +479,70 @@ spec:
   source_uid: source.uid | ""
   source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
   destination_uid: destination.uid | ""
-  origin_uid: '""'
-  origin_ip: ip("0.0.0.0") # default to unspecified ip addr
   attribute_bindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
     source.ip: $out.source_pod_ip | ip("0.0.0.0")
     source.labels: $out.source_labels | emptyStringMap()
+    source.name: $out.source_pod_name | "unknown"
     source.namespace: $out.source_namespace | "default"
-    source.service: $out.source_service | "unknown"
+    source.owner: $out.source_owner | "unknown"
     source.serviceAccount: $out.source_service_account_name | "unknown"
+    source.workload.uid: $out.source_workload_uid | "unknown"
+    source.workload.name: $out.source_workload_name | "unknown"
+    source.workload.namespace: $out.source_workload_namespace | "unknown"
     destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
     destination.labels: $out.destination_labels | emptyStringMap()
+    destination.name: $out.destination_pod_name | "unknown"
     destination.namespace: $out.destination_namespace | "default"
-    destination.service: $out.destination_service | "unknown"
+    destination.owner: $out.destination_owner | "unknown"
     destination.serviceAccount: $out.destination_service_account_name | "unknown"
+    destination.workload.uid: $out.destination_workload_uid | "unknown"
+    destination.workload.name: $out.destination_workload_name | "unknown"
+    destination.workload.namespace: $out.destination_workload_namespace | "unknown"
+
+---
+# Configuration needed by Mixer.
+# Mixer cluster is delivered via CDS
+# Specify mixer cluster settings
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  trafficPolicy:
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    portLevelSettings:
+    - port:
+        name: grpc-mixer-mtls
+      tls:
+        mode: ISTIO_MUTUAL
+    {{- end}}
+    connectionPool:
+      http:
+        http2MaxRequests: 10000
+        maxRequestsPerConnection: 10000
 ---
 {{ end }}

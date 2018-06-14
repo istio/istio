@@ -25,7 +25,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/networking/core"
 )
 
 var (
@@ -63,7 +63,7 @@ type DiscoveryServer struct {
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
-	ConfigGenerator *v1alpha3.ConfigGeneratorImpl
+	ConfigGenerator core.ConfigGenerator
 
 	// The next fields are updated by v2 discovery, based on config change events (currently
 	// the global invalidation). They are computed once - will not change. The new alpha3
@@ -77,7 +77,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env model.Environment, generator *v1alpha3.ConfigGeneratorImpl) *DiscoveryServer {
+func NewDiscoveryServer(env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		env:             env,
 		ConfigGenerator: generator,

@@ -44,6 +44,14 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Upstream host identifier.
 type Endpoint struct {
 	// The upstream host address.
+	//
+	// .. attention::
+	//
+	//   The form of host address depends on the given cluster type. For STATIC,
+	//   it is expected to be a direct IP address (or something resolvable by the
+	//   specified :ref:`resolver <envoy_api_field_core.SocketAddress.resolver_name>`
+	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
+	//   and will be resolved via DNS.
 	Address *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	// [#not-implemented-hide:] The optional health check configuration is used as
 	// configuration for the health checker to contact the health checked host.
@@ -241,10 +249,7 @@ func init() {
 }
 func (this *Endpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint)
@@ -257,10 +262,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -274,10 +276,7 @@ func (this *Endpoint) Equal(that interface{}) bool {
 }
 func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Endpoint_HealthCheckConfig)
@@ -290,10 +289,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -304,10 +300,7 @@ func (this *Endpoint_HealthCheckConfig) Equal(that interface{}) bool {
 }
 func (this *LbEndpoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LbEndpoint)
@@ -320,10 +313,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -343,10 +333,7 @@ func (this *LbEndpoint) Equal(that interface{}) bool {
 }
 func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*LocalityLbEndpoints)
@@ -359,10 +346,7 @@ func (this *LocalityLbEndpoints) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

@@ -17,8 +17,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"strings"
 	"text/template"
@@ -68,9 +70,10 @@ var (
 	loggingOptions = log.DefaultOptions()
 
 	rootCmd = &cobra.Command{
-		Use:   "pilot-agent",
-		Short: "Istio Pilot agent",
-		Long:  "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
+		Use:          "pilot-agent",
+		Short:        "Istio Pilot agent",
+		Long:         "Istio Pilot agent runs in the side car or gateway container and bootstraps envoy.",
+		SilenceUsage: true,
 	}
 
 	proxyCmd = &cobra.Command{
@@ -205,6 +208,10 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+
+				// protobuf encoding of IP_ADDRESS type
+				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+
 				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 					opts["ControlPlaneAuth"] = "enable"
 				}
@@ -262,9 +269,9 @@ func timeDuration(dur *duration.Duration) time.Duration {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s}",
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s, %s}",
 			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry,
-			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry))
+			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",

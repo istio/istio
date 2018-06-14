@@ -94,7 +94,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Request 30 when 50 is available": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key1": {
+				"requestCount": {
 					Amount:     30,
 					BestEffort: true,
 				},
@@ -105,7 +105,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			  "Returns": [
 			   {
 			    "Quota": {
-			 	"key1": {
+			 	"requestCount": {
 			 	 "ValidDuration": 30000000000,
 			 	 "Amount": 30
 			 	}
@@ -118,7 +118,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Exceed allocation request with bestEffort": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key2": {
+				"requestCount": {
 					Amount:     60,
 					BestEffort: true,
 				},
@@ -128,7 +128,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-				"key2": {
+				"requestCount": {
 				 "ValidDuration": 30000000000,
 				 "Amount": 50
 				}
@@ -141,7 +141,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Exceed allocation request without bestEffort": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key3": {
+				"requestCount": {
 					Amount:     60,
 					BestEffort: false,
 				},
@@ -151,7 +151,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-			    "key3": {
+			    "requestCount": {
 			     "ValidDuration": 0,
 			     "Amount": 0
 			    }
@@ -167,7 +167,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 				"destination.service": "ratings",
 			},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"overridden": {
+				"requestCount": {
 					Amount:     15,
 					BestEffort: true,
 				},
@@ -178,7 +178,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-			    "overridden": {
+			    "requestCount": {
 				 "ValidDuration": 30000000000,
 				 "Amount": 12
 			    }

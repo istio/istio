@@ -24,9 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
 
@@ -52,7 +52,7 @@ It is also able to retrieve the state of the entire mesh by using mesh instead o
 Available configuration types:
 
 	Endpoint:
-	[clusters listeners routes static]
+	[clusters listeners routes bootstrap]
 
 	Pilot:
 	[ads eds]
@@ -67,8 +67,8 @@ istioctl proxy-config pilot productpage-v1-bb8d5cbc7-k7qbm eds
 # Retrieve ads config for the mesh from Pilot
 istioctl proxy-config pilot mesh ads
 
-# Retrieve static config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace from the endpoint proxy
-istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm static`,
+# Retrieve bootstrap config for productpage-v1-bb8d5cbc7-k7qbm pod in the application namespace from the endpoint proxy
+istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm bootstrap`,
 		Aliases: []string{"pc"},
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -135,7 +135,7 @@ func createCoreV1Client() (*rest.RESTClient, error) {
 }
 
 func defaultRestConfig() (*rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := kube.BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}

@@ -26,9 +26,7 @@ import (
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
-	"istio.io/istio/mixer/pkg/runtime/validator"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -41,7 +39,7 @@ import (
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
 // config validation to remove galley dependency on mixer internal
 // packages.
-func createMixerValidator(kubeconfig string) (store.BackendValidator, error) {
+func createMixerValidator() (store.BackendValidator, error) {
 	info := generatedTmplRepo.SupportedTmplInfo
 	templates := make(map[string]*template.Info, len(info))
 	for k := range info {
@@ -49,18 +47,7 @@ func createMixerValidator(kubeconfig string) (store.BackendValidator, error) {
 		templates[k] = &t
 	}
 	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-
-	storeURL := fmt.Sprintf("k8s://%s?retry-timeout=%v", kubeconfig, 2*time.Second)
-
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore(storeURL)
-	if err != nil {
-		return nil, err
-	}
-	rv, err := validator.New(checker.NewTypeChecker(), "", s, adapters, templates)
-	if err != nil {
-		return nil, err
-	}
-	return store.NewValidator(rv, runtimeConfig.KindMap(adapters, templates)), nil
+	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
 }
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
@@ -117,7 +104,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		Long: "Runs an https server for Istio configuration validation. " +
 			"Uses k8s validating webhooks to validate Pilot and Mixer configuration.",
 		Run: func(_ *cobra.Command, args []string) {
-			mixerValidator, err := createMixerValidator(flags.kubeConfig)
+			mixerValidator, err := createMixerValidator()
 			if err != nil {
 				fatalf("cannot create mixer backend validator for %q: %v", flags.kubeConfig, err)
 			}

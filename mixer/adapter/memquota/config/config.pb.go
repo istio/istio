@@ -12,7 +12,7 @@
 	and if that single instance crashes, all outstanding quota values will
 	be lost.
 
-	This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota.html).
+	This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 
 	It is generated from these files:
 		mixer/adapter/memquota/config/config.proto

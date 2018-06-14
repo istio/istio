@@ -4,6 +4,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: istio
   name: simple-ingress
+  namespace: default
 spec:
   rules:
     - http:

@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
-	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -33,7 +32,6 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -49,7 +47,7 @@ const (
 	HTTPStatPrefix = "http"
 
 	// RDSName is the name of route-discovery-service (RDS) cluster
-	RDSName = "rds"
+	//RDSName = "rds"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
@@ -76,10 +74,15 @@ var (
 		Name: "pilot_conf_out_listeners",
 		Help: "Number of conflicting listeners.",
 	})
+	invalidOutboundListeners = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_invalid_out_listeners",
+		Help: "Number of invalid outbound listeners.",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(conflictingOutbound)
+	prometheus.MustRegister(invalidOutboundListeners)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -92,7 +95,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment, node
 	case model.Sidecar:
 		return configgen.buildSidecarListeners(env, node)
 	case model.Router, model.Ingress:
-		// TODO: add listeners for other protocols too
 		return configgen.buildGatewayListeners(env, node)
 	}
 	return nil, nil
@@ -126,7 +128,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		mgmtListeners := buildMgmtPortListeners(managementPorts, node.IPAddress)
+		mgmtListeners := buildSidecarInboundMgmtListeners(managementPorts, node.IPAddress)
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
@@ -193,9 +195,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 			protocol:       model.ProtocolHTTP,
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
-					routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
+					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
 						services, RDSHttpProxy),
-					//rds:              RDSHttpProxy,
+					rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
@@ -263,7 +265,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
-					rds:              "",
+					rds:              "", // no RDS for inbound traffic
 					useRemoteAddress: false,
 					direction:        http_conn.INGRESS,
 				}},
@@ -326,6 +328,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
+	listenerTypeMap := make(map[string]model.Protocol)
 	listenerMap := make(map[string]*xdsapi.Listener)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
@@ -344,13 +347,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				protocol:       servicePort.Protocol,
 			}
 
+			currentListener = nil
+
 			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
 			case plugin.ListenerTypeHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
-					if !strings.HasPrefix(l.Name, "http") {
+					if !listenerTypeMap[listenerMapKey].IsHTTP() {
 						conflictingOutbound.Add(1)
-						log.Warnf("Conflicting outbound listeners on %s: previous listener %s (%s %v)", listenerMapKey, clusterName, l.Name, l)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -365,11 +371,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					operation = http_conn.INGRESS
 				}
 
-				listenerOpts.protocol = model.ProtocolHTTP
+				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
-						//rds:              fmt.Sprintf("%d", servicePort.Port),
-						routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(
+						rds: fmt.Sprintf("%d", servicePort.Port),
+						routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(
 							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
@@ -384,9 +390,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				if currentListener, exists = listenerMap[listenerMapKey]; exists {
-					// Check if this is HTTPS port collision. If so, we can use SNI to differentiate
-					if servicePort.Protocol != model.ProtocolHTTPS {
-						log.Warnf("Multiple TCP listener definitions for %s %v %s", listenerMapKey, currentListener, service.Hostname)
+					// Check if this is HTTPS port collision for external service. If so, we can use SNI to differentiate
+					// Internal TCP services will never hit this issue because they are bound by specific IP_port, while
+					// external service listeners are typically bound to 0.0.0.0
+					if !listenerTypeMap[listenerMapKey].IsTCP() || servicePort.Protocol != model.ProtocolHTTPS || !service.MeshExternal {
+						conflictingOutbound.Add(1)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
 						continue
 					}
 				}
@@ -395,7 +405,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				// TODO (@rshriram): This is not sufficient. There are other TCP protocols that use SNI, that need to be tackled.
-				if servicePort.Protocol == model.ProtocolHTTPS {
+				// Set SNI hosts for External services only. It may or may not work for internal services.
+				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
+				if servicePort.Protocol == model.ProtocolHTTPS && service.MeshExternal {
 					filterChainOption.sniHosts = []string{service.Hostname.String()}
 				}
 
@@ -436,16 +448,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				continue
 			}
 
-			// By default we require SNI; if there's only one filter chain then we know there's either 0 or 1 cert,
-			// therefore SNI is not required.
-			// This won't be true for HTTPS outbound listeners that are simply getting forwarded
-			if len(mutable.Listener.FilterChains) == 1 && mutable.Listener.FilterChains[0].TlsContext != nil {
-				mutable.Listener.FilterChains[0].TlsContext.RequireSni = boolFalse
-			}
-
 			if currentListener != nil {
 				// merge the newly built listener with the existing listener
-				currentListener.FilterChains = append(currentListener.FilterChains, mutable.Listener.FilterChains...)
+				newFilterChains := make([]listener.FilterChain, 0, len(currentListener.FilterChains)+len(mutable.Listener.FilterChains))
+				newFilterChains = append(newFilterChains, currentListener.FilterChains...)
+				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
+				currentListener.FilterChains = newFilterChains
+			} else {
+				listenerMap[listenerMapKey] = mutable.Listener
+				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
 
 			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
@@ -457,13 +468,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 			}
-
-			listenerMap[listenerMapKey] = mutable.Listener
 		}
 	}
 
 	for name, l := range listenerMap {
-		if strings.HasPrefix(name, "tcp") {
+		ltype := listenerTypeMap[name]
+		if err := l.Validate(); err != nil {
+			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, ltype, err)
+			invalidOutboundListeners.Add(1)
+			continue
+		}
+		if ltype.IsTCP() {
 			tcpListeners = append(tcpListeners, l)
 		} else {
 			httpListeners = append(httpListeners, l)
@@ -473,7 +488,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	return append(tcpListeners, httpListeners...)
 }
 
-// buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
+// buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
 // server (inbound). Management port listeners are slightly different from standard Inbound listeners
 // in that, they do not have mixer filters nor do they have inbound auth.
 // N.B. If a given management port is same as the service instance's endpoint port
@@ -486,7 +501,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildMgmtPortListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
+func buildSidecarInboundMgmtListeners(managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
 
 	if managementIP == "" {
@@ -520,7 +535,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 			l := buildListener(listenerOpts)
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we contruct listeners.
 			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
-				log.Warna("buildMgmtPortListeners ", err.Error())
+				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {
 				listeners = append(listeners, l)
 			}
@@ -565,18 +580,12 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 }
 
-func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
 		&http_conn.HttpFilter{Name: xdsutil.Router},
 	)
-
-	refresh := time.Duration(mesh.RdsRefreshDelay.Seconds) * time.Second
-	if refresh == 0 {
-		// envoy crashes if 0. Will go away once we move to v2
-		refresh = 5 * time.Second
-	}
 
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &http_conn.HttpConnectionManager{}
@@ -584,29 +593,20 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 
 	connectionManager := httpOpts.connectionManager
 	connectionManager.CodecType = http_conn.AUTO
-	connectionManager.AccessLog = []*accesslog.AccessLog{
-		{
-			Config: nil,
-		},
-	}
+	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = HTTPStatPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
-	// not enabled yet
-	if httpOpts.rds != "" {
+	if httpOpts.rds != "" && !env.DisableRDS {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
-				RouteConfigName: httpOpts.rds,
 				ConfigSource: core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-						ApiConfigSource: &core.ApiConfigSource{
-							ApiType:      core.ApiConfigSource_REST_LEGACY,
-							ClusterNames: []string{RDSName},
-							RefreshDelay: &refresh,
-						},
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
 					},
 				},
+				RouteConfigName: httpOpts.rds,
 			},
 		}
 		connectionManager.RouteSpecifier = rds
@@ -620,9 +620,9 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		}
 	}
 
-	if mesh.AccessLogFile != "" {
-		fl := &accesslog.FileAccessLog{
-			Path: mesh.AccessLogFile,
+	if env.Mesh.AccessLogFile != "" {
+		fl := &fileaccesslog.FileAccessLog{
+			Path: env.Mesh.AccessLogFile,
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -633,7 +633,7 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 		}
 	}
 
-	if mesh.EnableTracing {
+	if env.Mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: httpOpts.direction,
 		}
@@ -651,9 +651,21 @@ func buildHTTPConnectionManager(mesh *meshconfig.MeshConfig, httpOpts *httpListe
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 	for _, chain := range opts.filterChainOpts {
-		match := &listener.FilterChainMatch{}
+		var match *listener.FilterChainMatch
+
 		if len(chain.sniHosts) > 0 {
-			match.SniDomains = chain.sniHosts
+			fullWildcardFound := false
+			for _, h := range chain.sniHosts {
+				if h == "*" {
+					fullWildcardFound = true
+					// If we have a host with *, it effectively means match anything, i.e.
+					// no SNI based matching for this host.
+					break
+				}
+			}
+			if !fullWildcardFound {
+				match = &listener.FilterChainMatch{SniDomains: chain.sniHosts}
+			}
 		}
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
@@ -669,8 +681,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		// protocol is either TCP or HTTP
-		Name:         fmt.Sprintf("%s_%s_%d", protocolToListenerPrefix(opts.protocol), opts.ip, opts.port),
+		Name:         fmt.Sprintf("%s_%d", opts.ip, opts.port),
 		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
 		FilterChains: filterChains,
 		DeprecatedV1: deprecatedV1,
@@ -704,7 +715,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 
 		if opt.httpOpts != nil {
-			connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),
@@ -713,11 +724,4 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 	}
 	return nil
-}
-
-func protocolToListenerPrefix(p model.Protocol) string {
-	if p.IsHTTP() {
-		return "http"
-	}
-	return "tcp"
 }

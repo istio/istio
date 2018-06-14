@@ -21,13 +21,13 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -150,8 +150,8 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 
 			// Put empty string in config even if above ResolveJwtPubKey fails.
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-				LocalJwks: &core.DataSource{
-					Specifier: &core.DataSource_InlineString{
+				LocalJwks: &jwtfilter.DataSource{
+					Specifier: &jwtfilter.DataSource_InlineString{
 						InlineString: jwtPubKey,
 					},
 				},
@@ -164,9 +164,9 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
 				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &core.HttpUri{
+					HttpUri: &jwtfilter.HttpUri{
 						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &core.HttpUri_Cluster{
+						HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 							Cluster: JwksURIClusterName(hostname, port),
 						},
 					},
@@ -235,15 +235,6 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-func isDestinationExcludedForMTLS(destService string, mtlsExcludedServices []string) bool {
-	for _, serviceName := range mtlsExcludedServices {
-		if destService == serviceName {
-			return true
-		}
-	}
-	return false
-}
-
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.DownstreamTlsContext {
 	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
@@ -263,10 +254,12 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy) *auth.Do
 						},
 					},
 				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.RootCertFilename,
+							},
 						},
 					},
 				},
@@ -334,50 +327,4 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
-	mesh := env.Mesh
-	config := env.IstioConfigStore
-
-	// Original DST cluster are used to route to services outside the mesh
-	// where Istio auth does not apply.
-	if cluster.Type == xdsapi.Cluster_ORIGINAL_DST {
-		return
-	}
-
-	required, _ := RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, service.Hostname, servicePort))
-	if isDestinationExcludedForMTLS(service.Hostname.String(), mesh.MtlsExcludedServices) || !required {
-		return
-	}
-
-	// apply auth policies
-	serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{servicePort.Name})
-
-	cluster.TlsContext = &auth.UpstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: model.AuthCertsPath + model.RootCertFilename,
-					},
-				},
-			},
-		},
-	}
-	// TODO: what happens if it's an empty list ?
-	if serviceAccounts != nil {
-		cluster.TlsContext.CommonTlsContext.ValidationContext.VerifySubjectAltName = serviceAccounts
-	}
 }

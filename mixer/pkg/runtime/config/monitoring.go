@@ -48,25 +48,32 @@ var (
 		Help:      "The number of known instances in the current config.",
 	}, standardConfigLabels)
 
+	instanceConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "instance_config_error_count",
+		Help:      "The number of errors encountered during processing of the instance configuration.",
+	}, standardConfigLabels)
+
 	ruleConfigCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "mixer",
 		Subsystem: "config",
 		Name:      "rule_config_count",
-		Help:      "The number of known instances in the current config.",
+		Help:      "The number of known rules in the current config.",
 	}, standardConfigLabels)
 
 	ruleConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "mixer",
 		Subsystem: "config",
 		Name:      "rule_config_error_count",
-		Help:      "The number of errors encountered during processing of the adapter info configuration.",
+		Help:      "The number of errors encountered during processing of the rules configuration.",
 	}, standardConfigLabels)
 
 	adapterInfoConfigCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "mixer",
 		Subsystem: "config",
 		Name:      "adapter_info_config_count",
-		Help:      "The number of known instances in the current config.",
+		Help:      "The number of known adapters in the current config.",
 	}, standardConfigLabels)
 
 	adapterInfoConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -74,6 +81,20 @@ var (
 		Subsystem: "config",
 		Name:      "adapter_info_config_error_count",
 		Help:      "The number of errors encountered during processing of the adapter info configuration.",
+	}, standardConfigLabels)
+
+	templateConfigCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "template_config_count",
+		Help:      "The number of known templates in the current config.",
+	}, standardConfigLabels)
+
+	templateConfigErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "template_config_error_count",
+		Help:      "The number of errors encountered during processing of the template configuration.",
 	}, standardConfigLabels)
 
 	matchErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -89,18 +110,27 @@ var (
 		Name:      "unsatisfied_action_handler_count",
 		Help:      "The number of actions that were put into action due to handlers being unavailable.",
 	}, standardConfigLabels)
+
+	handlerValidationErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "mixer",
+		Subsystem: "config",
+		Name:      "handler_validation_error_count",
+		Help:      "The number of errors encountered because handler validation returned error.",
+	}, standardConfigLabels)
 )
 
 func init() {
 	prometheus.MustRegister(attributeCount)
 	prometheus.MustRegister(handlerConfigCount)
 	prometheus.MustRegister(instanceConfigCount)
+	prometheus.MustRegister(instanceConfigErrorCount)
 	prometheus.MustRegister(ruleConfigCount)
 	prometheus.MustRegister(ruleConfigErrorCount)
 	prometheus.MustRegister(adapterInfoConfigCount)
 	prometheus.MustRegister(adapterInfoConfigErrorCount)
 	prometheus.MustRegister(matchErrorCount)
 	prometheus.MustRegister(unsatisfiedActionHandlerCount)
+	prometheus.MustRegister(handlerValidationErrorCount)
 }
 
 // Counters is the configuration related performance Counters. Other parts of the code can depend
@@ -109,14 +139,18 @@ type Counters struct {
 	attributes             prometheus.Counter
 	handlerConfig          prometheus.Counter
 	instanceConfig         prometheus.Counter
+	instanceConfigError    prometheus.Counter
 	ruleConfig             prometheus.Counter
 	ruleConfigError        prometheus.Counter
 	adapterInfoConfig      prometheus.Counter
 	adapterInfoConfigError prometheus.Counter
+	templateConfig         prometheus.Counter
+	templateConfigError    prometheus.Counter
 
 	// Externally visible counters
 	MatchErrors               prometheus.Counter
 	UnsatisfiedActionHandlers prometheus.Counter
+	HandlerValidationError    prometheus.Counter
 }
 
 func newCounters(id int64) Counters {
@@ -127,11 +161,15 @@ func newCounters(id int64) Counters {
 		attributes:                attributeCount.With(labels),
 		handlerConfig:             handlerConfigCount.With(labels),
 		instanceConfig:            instanceConfigCount.With(labels),
+		instanceConfigError:       instanceConfigErrorCount.With(labels),
 		ruleConfig:                ruleConfigCount.With(labels),
 		ruleConfigError:           ruleConfigErrorCount.With(labels),
 		adapterInfoConfig:         adapterInfoConfigCount.With(labels),
 		adapterInfoConfigError:    adapterInfoConfigErrorCount.With(labels),
+		templateConfig:            templateConfigCount.With(labels),
+		templateConfigError:       templateConfigErrorCount.With(labels),
 		MatchErrors:               matchErrorCount.With(labels),
 		UnsatisfiedActionHandlers: unsatisfiedActionHandlerCount.With(labels),
+		HandlerValidationError:    handlerValidationErrorCount.With(labels),
 	}
 }

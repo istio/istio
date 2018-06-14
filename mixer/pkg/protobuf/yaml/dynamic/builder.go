@@ -23,7 +23,11 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
+)
+
+var (
+	builderLog = istiolog.RegisterScope("grpcAdapter", "dynamic proto encoder debugging", 0)
 )
 
 type (
@@ -39,7 +43,12 @@ type (
 		resolver    yaml.Resolver
 		compiler    Compiler
 		skipUnknown bool
+		namedTypes  map[string]NamedEncoderBuilderFunc
 	}
+
+	// NamedEncoderBuilderFunc funcs have a special way to process input for encoding specific types
+	// for example istio...Value field accepts user input in a specific way
+	NamedEncoderBuilderFunc func(m *descriptor.DescriptorProto, fd *descriptor.FieldDescriptorProto, v interface{}, compiler Compiler) (Encoder, error)
 )
 
 // NewEncoderBuilder creates an EncoderBuilder.
@@ -47,7 +56,21 @@ func NewEncoderBuilder(resolver yaml.Resolver, compiler Compiler, skipUnknown bo
 	return &Builder{
 		resolver:    resolver,
 		compiler:    compiler,
-		skipUnknown: skipUnknown}
+		skipUnknown: skipUnknown,
+		namedTypes: map[string]NamedEncoderBuilderFunc{
+			valueTypeName: valueTypeEncoderBuilder,
+		},
+	}
+}
+
+// BuildWithLength builds an Encoder that also encodes length of the top level message.
+func (c Builder) BuildWithLength(msgName string, data map[string]interface{}) (Encoder, error) {
+	m := c.resolver.ResolveMessage(msgName)
+	if m == nil {
+		return nil, fmt.Errorf("cannot resolve message '%s'", msgName)
+	}
+
+	return c.buildMessage(m, data, false)
 }
 
 // Build builds an Encoder
@@ -61,8 +84,6 @@ func (c Builder) Build(msgName string, data map[string]interface{}) (Encoder, er
 }
 
 func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]interface{}, skipEncodeLength bool) (Encoder, error) {
-	var ok bool
-
 	me := messageEncoder{
 		skipEncodeLength: skipEncodeLength,
 	}
@@ -83,10 +104,19 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 		fd := yaml.FindFieldByName(md, k)
 		if fd == nil {
 			if c.skipUnknown {
-				log.Debugf("skipping key=%s from message %s", k, md.GetName())
+				builderLog.Debugf("skipping key=%s from message %s", k, md.GetName())
 				continue
 			}
 			return nil, fmt.Errorf("fieldEncoder '%s' not found in message '%s'", k, md.GetName())
+		}
+
+		// If the input already has an encoder
+		// just use it
+		if de, ok := v.(Encoder); ok {
+			fld := makeField(fd)
+			fld.encoder = []Encoder{de}
+			me.fields = append(me.fields, fld)
+			continue
 		}
 
 		// if the message is a map, key is never
@@ -96,6 +126,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 		switch fd.GetType() {
 		case descriptor.FieldDescriptorProto_TYPE_STRING:
 			var ma []interface{}
+			var ok bool
 			if fd.IsRepeated() {
 				if ma, ok = v.([]interface{}); !ok {
 					return nil, fmt.Errorf("unable to process %s:  %v, got %T, want: []interface{}", fd.GetName(), v, v)
@@ -145,6 +176,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 			}
 
 			var ma []interface{}
+			var ok bool
 			if m.GetOptions().GetMapEntry() { // this is a Map
 				ma, err = convertMapToMapentry(v)
 				if err != nil {
@@ -170,7 +202,7 @@ func (c Builder) buildMessage(md *descriptor.DescriptorProto, data map[string]in
 	}
 
 	// sorting fields is recommended
-	sort.Slice(me.fields, func(i, j int) bool {
+	sort.SliceStable(me.fields, func(i, j int) bool {
 		return me.fields[i].number < me.fields[j].number
 	})
 
@@ -262,24 +294,32 @@ func (c Builder) buildPrimitiveField(v interface{}, fd *descriptor.FieldDescript
 func (c Builder) buildMessageField(ma []interface{}, m *descriptor.DescriptorProto,
 	fd *descriptor.FieldDescriptorProto, me *messageEncoder) error {
 
+	namedBuilder := c.namedTypes[fd.GetTypeName()]
+
 	for _, vv := range ma {
-		var ok bool
-
-		var vq map[string]interface{}
-		if vq, ok = vv.(map[string]interface{}); !ok {
-			return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
-		}
-
 		var de Encoder
 		var err error
-		if de, err = c.buildMessage(m, vq, false); err != nil {
+
+		if namedBuilder != nil {
+			de, err = namedBuilder(m, fd, vv, c.compiler)
+		} else {
+			var ok bool
+			var vq map[string]interface{}
+			if vq, ok = vv.(map[string]interface{}); !ok {
+				return fmt.Errorf("unable to process: %v, got %T, want: map[string]interface{}", fd, vv)
+			}
+
+			de, err = c.buildMessage(m, vq, false)
+		}
+
+		if err != nil {
 			return fmt.Errorf("unable to build message field: %v, %v", fd.GetName(), err)
 		}
+
 		fld := makeField(fd)
 		fld.encoder = []Encoder{de}
 		me.fields = append(me.fields, fld)
 	}
-
 	return nil
 }
 

@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func TestBuildVirtualHostDomains(t *testing.T) {
+func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
 		name    string
 		service *model.Service
@@ -71,7 +71,7 @@ func TestBuildVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out := buildVirtualHostDomains(c.service, c.port, c.node)
+		out := generateVirtualHostDomains(c.service, c.port, c.node)
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {

@@ -7,7 +7,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf5 "github.com/gogo/protobuf/types"
+import google_protobuf6 "github.com/gogo/protobuf/types"
 import google_rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -106,7 +106,7 @@ type DiscoveryResponse struct {
 	// The version of the response data.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The response resources. These resources are typed and depend on the API being called.
-	Resources []google_protobuf5.Any `protobuf:"bytes,2,rep,name=resources" json:"resources"`
+	Resources []google_protobuf6.Any `protobuf:"bytes,2,rep,name=resources" json:"resources"`
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
@@ -149,7 +149,7 @@ func (m *DiscoveryResponse) GetVersionInfo() string {
 	return ""
 }
 
-func (m *DiscoveryResponse) GetResources() []google_protobuf5.Any {
+func (m *DiscoveryResponse) GetResources() []google_protobuf6.Any {
 	if m != nil {
 		return m.Resources
 	}
@@ -183,10 +183,7 @@ func init() {
 }
 func (this *DiscoveryRequest) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DiscoveryRequest)
@@ -199,10 +196,7 @@ func (this *DiscoveryRequest) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -233,10 +227,7 @@ func (this *DiscoveryRequest) Equal(that interface{}) bool {
 }
 func (this *DiscoveryResponse) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DiscoveryResponse)
@@ -249,10 +240,7 @@ func (this *DiscoveryResponse) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -804,7 +792,7 @@ func (m *DiscoveryResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Resources = append(m.Resources, google_protobuf5.Any{})
+			m.Resources = append(m.Resources, google_protobuf6.Any{})
 			if err := m.Resources[len(m.Resources)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

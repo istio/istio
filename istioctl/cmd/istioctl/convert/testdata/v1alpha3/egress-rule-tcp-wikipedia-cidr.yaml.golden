@@ -8,7 +8,7 @@ spec:
   addresses:
   - 91.198.174.192/27
   hosts:
-  - wikipedia-range1
+  - wikipedia-range1.default.svc.cluster.local
   ports:
   - name: tcp-443
     number: 443
@@ -24,7 +24,7 @@ spec:
   addresses:
   - 103.102.166.224/27
   hosts:
-  - wikipedia-range2
+  - wikipedia-range2.default.svc.cluster.local
   ports:
   - name: tcp-443
     number: 443
@@ -40,7 +40,7 @@ spec:
   addresses:
   - 198.35.26.96/27
   hosts:
-  - wikipedia-range3
+  - wikipedia-range3.default.svc.cluster.local
   ports:
   - name: tcp-443
     number: 443
@@ -56,7 +56,7 @@ spec:
   addresses:
   - 208.80.153.224/27
   hosts:
-  - wikipedia-range4
+  - wikipedia-range4.default.svc.cluster.local
   ports:
   - name: tcp-443
     number: 443
@@ -72,7 +72,7 @@ spec:
   addresses:
   - 208.80.154.224/27
   hosts:
-  - wikipedia-range5
+  - wikipedia-range5.default.svc.cluster.local
   ports:
   - name: tcp-443
     number: 443

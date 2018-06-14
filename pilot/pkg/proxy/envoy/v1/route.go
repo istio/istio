@@ -60,13 +60,13 @@ func buildClusterSSLContext(certsDir string, serviceAccounts []string) *SSLConte
 }
 
 // BuildDefaultRoute builds a default route.
-func BuildDefaultRoute(cluster *Cluster) *HTTPRoute {
+func BuildDefaultRoute(cluster *Cluster, operation string) *HTTPRoute {
 	return &HTTPRoute{
 		Prefix:   "/",
 		Cluster:  cluster.Name,
 		Clusters: []*Cluster{cluster},
 		Decorator: &Decorator{
-			Operation: "default-route",
+			Operation: operation,
 		},
 	}
 }
@@ -85,7 +85,7 @@ func BuildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	}
 
 	if !rule.WebsocketUpgrade {
-		route.Decorator = buildDecorator(config)
+		route.Decorator = buildInboundDecorator(config)
 	}
 
 	return route
@@ -266,7 +266,7 @@ func BuildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 		route.WebsocketUpgrade = true
 	}
 
-	route.Decorator = buildDecorator(config)
+	route.Decorator = buildDecorator(config, destination, port, route)
 
 	return route
 }
@@ -286,7 +286,31 @@ func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
 }
 
 // TODO: With multiple rules per VirtualService, this is no longer useful.
-func buildDecorator(config model.Config) *Decorator {
+func buildDecorator(config model.Config, host model.Hostname, port *model.Port, route *HTTPRoute) *Decorator {
+	uri := "/*"
+	switch {
+	case route.Path != "":
+		uri = route.Path
+	case route.Prefix != "":
+		uri = fmt.Sprintf("%s*", route.Prefix)
+	case route.Regex != "":
+		uri = route.Regex
+	}
+
+	if route != nil && len(route.Clusters) == 1 {
+		return &Decorator{
+			Operation: fmt.Sprintf("%s:%d%s", host, port.Port, uri),
+		}
+	}
+	if config.ConfigMeta.Name != "" {
+		return &Decorator{
+			Operation: fmt.Sprintf("%s:%d", config.ConfigMeta.Name, port.Port),
+		}
+	}
+	return nil
+}
+
+func buildInboundDecorator(config model.Config) *Decorator {
 	if config.ConfigMeta.Name != "" {
 		return &Decorator{
 			Operation: config.ConfigMeta.Name,

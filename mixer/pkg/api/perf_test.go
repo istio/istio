@@ -110,21 +110,32 @@ func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, 
 	return nil
 }
 
-func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
-	result := &adapter.CheckResult{
+func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
+	result := adapter.CheckResult{
 		Status: status.OK,
 	}
 	return result, nil
 }
 
-func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
+func (bs *benchState) GetReporter(ctx context.Context) dispatcher.Reporter {
+	return bs
+}
+
+func (bs *benchState) Report(bag attribute.Bag) error {
 	return nil
 }
 
-func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *dispatcher.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+func (bs *benchState) Flush() error {
+	return nil
+}
 
-	qr := &adapter.QuotaResult{
+func (bs *benchState) Done() {
+}
+
+func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
+	qma dispatcher.QuotaMethodArgs) (adapter.QuotaResult, error) {
+
+	qr := adapter.QuotaResult{
 		Status: status.OK,
 		Amount: 42,
 	}
