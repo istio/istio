@@ -43,7 +43,8 @@ void AuthenticationFilter::onDestroy() {
 
 FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
                                                         bool) {
-  ENVOY_LOG(debug, "Called AuthenticationFilter : {}", __func__);
+  ENVOY_LOG(debug, "AuthenticationFilter::decodeHeaders with config\n{}",
+            filter_config_.DebugString());
   state_ = State::PROCESSING;
 
   filter_context_.reset(new Istio::AuthN::FilterContext(
@@ -63,8 +64,6 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
 
   // After Istio authn, the JWT headers consumed by Istio authn should be
   // removed.
-  // TODO: remove internal headers used to pass data between filters
-  // https://github.com/istio/istio/issues/4689
   for (auto const iter : filter_config_.jwt_output_payload_locations()) {
     filter_context_->headers()->remove(LowerCaseString(iter.second));
   }
@@ -84,10 +83,6 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
 }
 
 FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {
-  ENVOY_LOG(debug, "Called AuthenticationFilter : {}", __func__);
-  ENVOY_LOG(debug,
-            "Called AuthenticationFilter : {} FilterDataStatus::Continue;",
-            __FUNCTION__);
   if (state_ == State::PROCESSING) {
     return FilterDataStatus::StopIterationAndWatermark;
   }
@@ -95,7 +90,6 @@ FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {
 }
 
 FilterTrailersStatus AuthenticationFilter::decodeTrailers(HeaderMap&) {
-  ENVOY_LOG(debug, "Called AuthenticationFilter : {}", __func__);
   if (state_ == State::PROCESSING) {
     return FilterTrailersStatus::StopIteration;
   }
@@ -104,13 +98,11 @@ FilterTrailersStatus AuthenticationFilter::decodeTrailers(HeaderMap&) {
 
 void AuthenticationFilter::setDecoderFilterCallbacks(
     StreamDecoderFilterCallbacks& callbacks) {
-  ENVOY_LOG(debug, "Called AuthenticationFilter : {}", __func__);
   decoder_callbacks_ = &callbacks;
 }
 
 void AuthenticationFilter::rejectRequest(const std::string& message) {
   if (state_ != State::PROCESSING) {
-    ENVOY_LOG(error, "State {} is not PROCESSING.", state_);
     return;
   }
   state_ = State::REJECTED;

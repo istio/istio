@@ -45,6 +45,9 @@ bool AuthenticatorBase::validateX509(const iaapi::MutualTls& mtls,
       connection->ssl()->peerCertificatePresented() &&
       Utils::GetSourceUser(connection, payload->mutable_x509()->mutable_user());
 
+  ENVOY_LOG(debug, "validateX509 mode {}: ssl={}, has_user={}",
+            iaapi::MutualTls::Mode_Name(mtls.mode()),
+            connection->ssl() != nullptr, has_user);
   // Return value depend on mode:
   // - PERMISSIVE: plaintext connection is acceptable, thus return true
   // regardless.
