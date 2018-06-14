@@ -381,7 +381,7 @@ func (cl *Client) Create(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 
@@ -414,7 +414,7 @@ func (cl *Client) Update(config model.Config) (string, error) {
 		return "", fmt.Errorf("unrecognized type %q", config.Type)
 	}
 
-	if err := schema.Validate(config.Spec); err != nil {
+	if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", multierror.Prefix(err, "validation error:")
 	}
 
