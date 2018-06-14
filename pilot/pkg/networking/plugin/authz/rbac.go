@@ -186,8 +186,18 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 	}
 
 	for _, role := range roles {
-		log.Debugf("checking role %v for service %v", role.Name, service)
+		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
+		principals := make([]*policyproto.Principal, 0)
+		principals = append(principals, enforcedPrincipals...)
+		principals = append(principals, permissivePrincipals...)
+		if len(principals) == 0 {
+			// Skip to next role if found no bindings for current role. This means nobody could
+			// access the current role, so we don't need to check the remaining rules anymore.
+			log.Debugf("role %v skipped for no bindings found", role.Name)
+			continue
+		}
 
+		log.Debugf("checking role %v for service %v", role.Name, service)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			//TODO(yangminzhu): Also check the destination related properties.
@@ -199,18 +209,6 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		}
 		if len(permissions) == 0 {
 			log.Debugf("role %v skipped for no permissions found", role.Name)
-			continue
-		}
-
-		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
-		principals := make([]*policyproto.Principal, 0)
-		principals = append(principals, enforcedPrincipals...)
-		principals = append(principals, permissivePrincipals...)
-
-		if len(principals) == 0 {
-			// Skip to next role if found no bindings for current role. This means nobody could
-			// access the current role, so we don't need to check the remaining rules anymore.
-			log.Debugf("role %v skipped for no bindings found", role.Name)
 			continue
 		}
 
