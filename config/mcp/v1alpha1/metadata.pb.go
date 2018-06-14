@@ -21,7 +21,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // Metadata information that all resources within the Mesh Configuration Protocol must have.
 type Metadata struct {
 	// The name of the resource. It is unique within the context of a resource type and the origin server of
-	// the resource. The resource type is identified by the TypeUrl of the contents field of the Resource
+	// the resource. The resource type is identified by the TypeUrl of the resource field of the Envelope
 	// message.
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -33,7 +33,7 @@ func (m *Metadata) Reset()         { *m = Metadata{} }
 func (m *Metadata) String() string { return proto.CompactTextString(m) }
 func (*Metadata) ProtoMessage()    {}
 func (*Metadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metadata_3be7e79d406be2b1, []int{0}
+	return fileDescriptor_metadata_a8a46deddbb2f3bb, []int{0}
 }
 func (m *Metadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Metadata.Unmarshal(m, b)
@@ -65,10 +65,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("config/mcp/v1alpha1/metadata.proto", fileDescriptor_metadata_3be7e79d406be2b1)
+	proto.RegisterFile("config/mcp/v1alpha1/metadata.proto", fileDescriptor_metadata_a8a46deddbb2f3bb)
 }
 
-var fileDescriptor_metadata_3be7e79d406be2b1 = []byte{
+var fileDescriptor_metadata_a8a46deddbb2f3bb = []byte{
 	// 121 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4a, 0xce, 0xcf, 0x4b,
 	0xcb, 0x4c, 0xd7, 0xcf, 0x4d, 0x2e, 0xd0, 0x2f, 0x33, 0x4c, 0xcc, 0x29, 0xc8, 0x48, 0x34, 0xd4,

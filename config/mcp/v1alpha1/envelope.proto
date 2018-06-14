@@ -22,13 +22,13 @@ import "config/mcp/v1alpha1/metadata.proto";
 
 option go_package="istio.io/api/config/mcp/v1alpha1";
 
-// A configuration resource as transferred via the Mesh Configuration Protocol.
-// Each resource is made up of common metadata, and a type-specific payload.
-message Resource {
+// Envelope for a configuration resource as transferred via the Mesh Configuration Protocol.
+// Each envelope is made up of common metadata, and a type-specific resource payload.
+message Envelope {
 
-    // Common metadata describing this resource.
+    // Common metadata describing the resource.
     istio.config.mcp.v1alpha1.Metadata metadata = 1;
 
-    // The type-specific payload for this resource.
-    google.protobuf.Any contents = 2;
+    // The resource itself.
+    google.protobuf.Any resource = 2;
 }
