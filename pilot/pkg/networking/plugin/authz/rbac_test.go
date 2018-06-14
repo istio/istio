@@ -534,86 +534,29 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	roles := []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-1"},
-			Spec: &rbacproto.ServiceRole{
-				Rules: []*rbacproto.AccessRule{
-					{
-						Services: []string{"service"},
-						Methods:  []string{"GET"},
-					},
-				},
-			},
+			Spec:       generateServiceRole([]string{"service"}, []string{"GET"}, rbacproto.EnforcementMode_ENFORCED),
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
-			Spec: &rbacproto.ServiceRole{
-				Mode: rbacproto.EnforcementMode_PERMISSIVE,
-				Rules: []*rbacproto.AccessRule{
-					{
-						Services: []string{"service"},
-						Methods:  []string{"POST"},
-					},
-				},
-			},
+			Spec:       generateServiceRole([]string{"service"}, []string{"POST"}, rbacproto.EnforcementMode_PERMISSIVE),
 		},
 	}
 	bindings := []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-1"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Subjects: []*rbacproto.Subject{
-					{
-						User: "user1",
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-1",
-				},
-			},
+			Spec:       generateServiceBinding("user1", "service-role-1", rbacproto.EnforcementMode_ENFORCED),
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-2"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Mode: rbacproto.EnforcementMode_PERMISSIVE,
-				Subjects: []*rbacproto.Subject{
-					{
-						User: "user2",
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-1",
-				},
-			},
+			Spec:       generateServiceBinding("user2", "service-role-1", rbacproto.EnforcementMode_PERMISSIVE),
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-3"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Subjects: []*rbacproto.Subject{
-					{
-						User: "user3",
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-2",
-				},
-			},
+			Spec:       generateServiceBinding("user3", "service-role-2", rbacproto.EnforcementMode_ENFORCED),
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-4"},
-			Spec: &rbacproto.ServiceRoleBinding{
-				Mode: rbacproto.EnforcementMode_PERMISSIVE,
-				Subjects: []*rbacproto.Subject{
-					{
-						User: "user4",
-					},
-				},
-				RoleRef: &rbacproto.RoleRef{
-					Kind: "ServiceRole",
-					Name: "service-role-2",
-				},
-			},
+			Spec:       generateServiceBinding("user4", "service-role-2", rbacproto.EnforcementMode_PERMISSIVE),
 		},
 	}
 
@@ -638,7 +581,7 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			"service-role-1": enforcePolicy1,
 		},
 	}
-	permissiveRbac := &policy.RBAC{
+	shadowRbac := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-1": permissivePolicy1,
@@ -646,27 +589,76 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name           string
-		service        string
-		rbac           *policy.RBAC
-		permissiveRbac *policy.RBAC
+		name       string
+		service    string
+		roles      []model.Config
+		bindings   []model.Config
+		rbac       *policy.RBAC
+		shadowRbac *policy.RBAC
 	}{
 		{
-			name:           "exact matched service",
-			service:        "service",
-			rbac:           enforcedRbac,
-			permissiveRbac: permissiveRbac,
+			name:       "exact matched service",
+			service:    "service",
+			roles:      roles,
+			bindings:   bindings,
+			rbac:       enforcedRbac,
+			shadowRbac: shadowRbac,
+		},
+		{
+			name:     "empty roles",
+			service:  "service",
+			roles:    []model.Config{},
+			bindings: bindings,
+		},
+		{
+			name:     "empty bindings",
+			service:  "service",
+			roles:    roles,
+			bindings: []model.Config{},
 		},
 	}
 
 	for _, tc := range testCases {
-		rbac := convertRbacRulesToFilterConfig(tc.service, roles, bindings)
-		if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
-			t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
+		if len(tc.roles) == 0 || len(tc.bindings) == 0 {
+			if got, want := len(rbac.Rules.Policies), 0; got != want {
+				t.Errorf("len(rbac.Rules.Policies), got: %d, want: %d", got, want)
+			}
+		} else {
+			if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
+				t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
+			}
+			if !reflect.DeepEqual(*tc.shadowRbac, *rbac.ShadowRules) {
+				t.Errorf("%s shadow want:\n%v\nbut got:\n%v", tc.name, *tc.shadowRbac, *rbac.ShadowRules)
+			}
 		}
-		if !reflect.DeepEqual(*tc.permissiveRbac, *rbac.ShadowRules) {
-			t.Errorf("%s permissive want:\n%v\nbut got:\n%v", tc.name, *tc.permissiveRbac, *rbac.ShadowRules)
-		}
+	}
+}
+
+func generateServiceRole(services, methods []string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRole {
+	return &rbacproto.ServiceRole{
+		Mode: mode,
+		Rules: []*rbacproto.AccessRule{
+			{
+				Services: services,
+				Methods:  methods,
+			},
+		},
+	}
+}
+
+func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRoleBinding {
+	return &rbacproto.ServiceRoleBinding{
+		Mode: mode,
+		Subjects: []*rbacproto.Subject{
+			{
+				User: subject,
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: serviceRoleRef,
+		},
 	}
 }
 
