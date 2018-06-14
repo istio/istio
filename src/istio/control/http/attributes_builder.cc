@@ -25,6 +25,11 @@ using ::istio::mixer::v1::Attributes_StringMap;
 namespace istio {
 namespace control {
 namespace http {
+namespace {
+// The gRPC content types.
+const std::set<std::string> kGrpcContentTypes{
+    "application/grpc", "application/grpc+proto", "application/grpc+json"};
+}  // namespace
 
 void AttributesBuilder::ExtractRequestHeaderAttributes(CheckData *check_data) {
   utils::AttributesBuilder builder(&request_->attributes);
@@ -146,7 +151,16 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
 
   builder.AddTimestamp(AttributeName::kRequestTime,
                        std::chrono::system_clock::now());
-  builder.AddString(AttributeName::kContextProtocol, "http");
+
+  std::string protocol = "http";
+  std::string content_type;
+  if (check_data->FindHeaderByType(CheckData::HEADER_CONTENT_TYPE,
+                                   &content_type)) {
+    if (kGrpcContentTypes.count(content_type) != 0) {
+      protocol = "grpc";
+    }
+  }
+  builder.AddString(AttributeName::kContextProtocol, protocol);
 }
 
 void AttributesBuilder::ForwardAttributes(const Attributes &forward_attributes,
@@ -200,6 +214,12 @@ void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
                       request_->check_status.ToString());
   } else {
     builder.AddInt64(AttributeName::kResponseCode, info.response_code);
+  }
+
+  ReportData::GrpcStatus grpc_status;
+  if (report_data->GetGrpcStatus(&grpc_status)) {
+    builder.AddString(AttributeName::kResponseGrpcStatus, grpc_status.status);
+    builder.AddString(AttributeName::kResponseGrpcMessage, grpc_status.message);
   }
 }
 

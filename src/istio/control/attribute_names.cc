@@ -81,5 +81,8 @@ const char AttributeName::kRequestAuthPresenter[] = "request.auth.presenter";
 const char AttributeName::kRequestAuthClaims[] = "request.auth.claims";
 const char AttributeName::kRequestAuthRawClaims[] = "request.auth.raw_claims";
 
+const char AttributeName::kResponseGrpcStatus[] = "response.grpc_status";
+const char AttributeName::kResponseGrpcMessage[] = "response.grpc_message";
+
 }  // namespace control
 }  // namespace istio

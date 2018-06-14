@@ -35,10 +35,9 @@ const std::string kMetadataDestinationUID("uid");
 
 }  // namespace
 
-std::map<std::string, std::string> ExtractHeaders(
-    const Http::HeaderMap& header_map,
-    const std::set<std::string>& exclusives) {
-  std::map<std::string, std::string> headers;
+void ExtractHeaders(const Http::HeaderMap& header_map,
+                    const std::set<std::string>& exclusives,
+                    std::map<std::string, std::string>& headers) {
   struct Context {
     Context(const std::set<std::string>& exclusives,
             std::map<std::string, std::string>& headers)
@@ -57,7 +56,6 @@ std::map<std::string, std::string> ExtractHeaders(
         return Http::HeaderMap::Iterate::Continue;
       },
       &ctx);
-  return headers;
 }
 
 bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port) {

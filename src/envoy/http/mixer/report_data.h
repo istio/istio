@@ -27,10 +27,25 @@ namespace {
 // Set of headers excluded from response.headers attribute.
 const std::set<std::string> ResponseHeaderExclusives = {};
 
+bool ExtractGrpcStatus(const HeaderMap *headers,
+                       ::istio::control::http::ReportData::GrpcStatus *status) {
+  if (headers != nullptr && headers->GrpcStatus()) {
+    status->status = std::string(headers->GrpcStatus()->value().c_str(),
+                                 headers->GrpcStatus()->value().size());
+    if (headers->GrpcMessage()) {
+      status->message = std::string(headers->GrpcMessage()->value().c_str(),
+                                    headers->GrpcMessage()->value().size());
+    }
+    return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 class ReportData : public ::istio::control::http::ReportData {
   const HeaderMap *headers_;
+  const HeaderMap *trailers_;
   const RequestInfo::RequestInfo &info_;
   uint64_t response_total_size_;
   uint64_t request_total_size_;
@@ -39,6 +54,7 @@ class ReportData : public ::istio::control::http::ReportData {
   ReportData(const HeaderMap *headers, const HeaderMap *response_trailers,
              const RequestInfo::RequestInfo &info, uint64_t request_total_size)
       : headers_(headers),
+        trailers_(response_trailers),
         info_(info),
         response_total_size_(info.bytesSent()),
         request_total_size_(request_total_size) {
@@ -51,10 +67,14 @@ class ReportData : public ::istio::control::http::ReportData {
   }
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
+    std::map<std::string, std::string> header_map;
     if (headers_) {
-      return Utils::ExtractHeaders(*headers_, ResponseHeaderExclusives);
+      Utils::ExtractHeaders(*headers_, ResponseHeaderExclusives, header_map);
     }
-    return std::map<std::string, std::string>();
+    if (trailers_) {
+      Utils::ExtractHeaders(*trailers_, ResponseHeaderExclusives, header_map);
+    }
+    return header_map;
   }
 
   void GetReportInfo(
@@ -83,6 +103,13 @@ class ReportData : public ::istio::control::http::ReportData {
       return Utils::GetDestinationUID(info_.upstreamHost()->metadata(), uid);
     }
     return false;
+  }
+
+  bool GetGrpcStatus(GrpcStatus *status) const override {
+    // Check trailer first.
+    // If not response body, grpc-status is in response headers.
+    return ExtractGrpcStatus(trailers_, status) ||
+           ExtractGrpcStatus(headers_, status);
   }
 };
 

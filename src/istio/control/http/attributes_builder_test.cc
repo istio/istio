@@ -432,6 +432,12 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
         info->duration = std::chrono::nanoseconds(1);
         info->response_code = 404;
       }));
+  EXPECT_CALL(mock_data, GetGrpcStatus(_))
+      .WillOnce(Invoke([](ReportData::GrpcStatus *status) -> bool {
+        status->status = "grpc-status";
+        status->message = "grpc-message";
+        return true;
+      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -448,6 +454,12 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
       TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
   (*expected_attributes.mutable_attributes())[AttributeName::kDestinationUID]
       .set_string_value("pod1.ns2");
+  (*expected_attributes
+        .mutable_attributes())[AttributeName::kResponseGrpcStatus]
+      .set_string_value("grpc-status");
+  (*expected_attributes
+        .mutable_attributes())[AttributeName::kResponseGrpcMessage]
+      .set_string_value("grpc-message");
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));
 }

@@ -70,7 +70,9 @@ bool CheckData::GetSourceUser(std::string* user) const {
 }
 
 std::map<std::string, std::string> CheckData::GetRequestHeaders() const {
-  return Utils::ExtractHeaders(headers_, RequestHeaderExclusives);
+  std::map<std::string, std::string> header_map;
+  Utils::ExtractHeaders(headers_, RequestHeaderExclusives, header_map);
+  return header_map;
 }
 
 bool CheckData::IsMutualTLS() const { return Utils::IsMutualTLS(connection_); }
@@ -110,6 +112,13 @@ bool CheckData::FindHeaderByType(HttpCheckData::HeaderType header_type,
       if (headers_.Method()) {
         *value = std::string(headers_.Method()->value().c_str(),
                              headers_.Method()->value().size());
+        return true;
+      }
+      break;
+    case HttpCheckData::HEADER_CONTENT_TYPE:
+      if (headers_.ContentType()) {
+        *value = std::string(headers_.ContentType()->value().c_str(),
+                             headers_.ContentType()->value().size());
         return true;
       }
       break;

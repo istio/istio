@@ -59,6 +59,7 @@ class CheckData {
     HEADER_USER_AGENT,
     HEADER_METHOD,
     HEADER_REFERER,
+    HEADER_CONTENT_TYPE,
   };
   virtual bool FindHeaderByType(HeaderType header_type,
                                 std::string *value) const = 0;
