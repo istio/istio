@@ -540,7 +540,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 
 func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
-	adsLog.SetOutputLevel(istiolog.DebugLevel)
 	// TODO: Follow this logic for other xDS resources as well
 	// And cache/retrieve this info on-demand, not for every request from every proxy
 	//var services []*model.Service

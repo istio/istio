@@ -25,7 +25,7 @@ import (
 const (
 	// DefaultScopeName defines the name of the default scope.
 	DefaultScopeName          = "default"
-	defaultOutputLevel        = DebugLevel
+	defaultOutputLevel        = InfoLevel
 	defaultStackTraceLevel    = NoneLevel
 	defaultOutputPath         = "stdout"
 	defaultErrorOutputPath    = "stderr"
