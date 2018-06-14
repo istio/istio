@@ -3280,7 +3280,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 	}
 }
 
-func TestValidateAuthenticationClusterPolicy(t *testing.T) {
+func TestValidateAuthenticationMeshPolicy(t *testing.T) {
 	cases := []struct {
 		name       string
 		configName string

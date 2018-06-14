@@ -494,11 +494,11 @@ var (
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
-	// AuthenticationClusterPolicy describes an authentication policy at cluster level.
-	AuthenticationClusterPolicy = ProtoSchema{
+	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
+	AuthenticationMeshPolicy = ProtoSchema{
 		ClusterScoped: true,
-		Type:          "cluster-policy",
-		Plural:        "cluster-policies",
+		Type:          "mesh-policy",
+		Plural:        "mesh-policies",
 		Group:         "authentication",
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
@@ -551,7 +551,7 @@ var (
 		QuotaSpec,
 		QuotaSpecBinding,
 		AuthenticationPolicy,
-		AuthenticationClusterPolicy,
+		AuthenticationMeshPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
 		RbacConfig,
@@ -1082,7 +1082,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 	// cluster-scoped (global) policy.
 	// Note: to avoid multiple global policy, we restrict that only the one with name equals to
 	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
-	if specs, err := store.List(AuthenticationClusterPolicy.Type, ""); err == nil {
+	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
 		for _, spec := range specs {
 			if spec.Name == DefaultAuthenticationPolicyName {
 				return &spec

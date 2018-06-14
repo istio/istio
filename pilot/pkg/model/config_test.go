@@ -696,7 +696,6 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 	for _, in := range authNPolicies {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				// Type:    model.AuthenticationClusterPolicy.Type,
 				Name:    in.name,
 				Group:   "authentication",
 				Version: "v1alpha2",
@@ -706,7 +705,7 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 		}
 		if in.namespace == "" {
 			// Cluster-scoped policy
-			config.ConfigMeta.Type = model.AuthenticationClusterPolicy.Type
+			config.ConfigMeta.Type = model.AuthenticationMeshPolicy.Type
 		} else {
 			config.ConfigMeta.Type = model.AuthenticationPolicy.Type
 			config.ConfigMeta.Namespace = in.namespace

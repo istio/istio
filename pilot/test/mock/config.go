@@ -211,8 +211,8 @@ var (
 		}},
 	}
 
-	// ExampleAuthenticationClusterPolicy is an example cluster-scoped authentication Policy
-	ExampleAuthenticationClusterPolicy = &authn.Policy{
+	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
+	ExampleAuthenticationMeshPolicy = &authn.Policy{
 		Peers: []*authn.PeerAuthenticationMethod{{
 			Params: &authn.PeerAuthenticationMethod_Mtls{},
 		}},
@@ -476,7 +476,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"ClusterPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationClusterPolicy, ExampleAuthenticationClusterPolicy},
+		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", configName, model.RbacConfig, ExampleRbacConfig},
