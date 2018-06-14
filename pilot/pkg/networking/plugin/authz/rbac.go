@@ -284,7 +284,8 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	return &policyproto.Permission{Rule: rules}
 }
 
-// convertToPrincipals converts lists of subjects to principals(enforced/permissive mode).
+// convertToPrincipals converts subjects to two lists of principals, one from enforced mode ServiceBindings,
+// and the other from permissive mode ServiceBindings.
 func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) ([]*policyproto.Principal, []*policyproto.Principal) {
 	enforcedPrincipals := make([]*policyproto.Principal, 0)
 	permissivePrincipals := make([]*policyproto.Principal, 0)

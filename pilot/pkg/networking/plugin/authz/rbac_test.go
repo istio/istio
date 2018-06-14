@@ -618,153 +618,18 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	}
 
 	enforcePolicy1 := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "GET",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Authenticated_{
-								Authenticated: &policy.Principal_Authenticated{
-									Name: "user1",
-								},
-							},
-						},
-					},
-				},
-			},
-		}},
+		Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+		Principals:  []*policy.Principal{generatePrincipal("user1")},
 	}
 
 	permissivePolicy1 := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "GET",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Authenticated_{
-								Authenticated: &policy.Principal_Authenticated{
-									Name: "user2",
-								},
-							},
-						},
-					},
-				},
-			},
-		}},
+		Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+		Principals:  []*policy.Principal{generatePrincipal("user2")},
 	}
 
 	permissivePolicy2 := &policy.Policy{
-		Permissions: []*policy.Permission{{
-			Rule: &policy.Permission_AndRules{
-				AndRules: &policy.Permission_Set{
-					Rules: []*policy.Permission{
-						{
-							Rule: &policy.Permission_OrRules{
-								OrRules: &policy.Permission_Set{
-									Rules: []*policy.Permission{
-										{
-											Rule: &policy.Permission_Header{
-												Header: &route.HeaderMatcher{
-													Name: ":method",
-													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-														ExactMatch: "POST",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		},
-		Principals: []*policy.Principal{{
-			Identifier: &policy.Principal_AndIds{
-				AndIds: &policy.Principal_Set{
-					Ids: []*policy.Principal{
-						{
-							Identifier: &policy.Principal_Authenticated_{
-								Authenticated: &policy.Principal_Authenticated{
-									Name: "user3",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-			{
-				Identifier: &policy.Principal_AndIds{
-					AndIds: &policy.Principal_Set{
-						Ids: []*policy.Principal{
-							{
-								Identifier: &policy.Principal_Authenticated_{
-									Authenticated: &policy.Principal_Authenticated{
-										Name: "user4",
-									},
-								},
-							},
-						},
-					},
-				},
-			}},
+		Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+		Principals:  []*policy.Principal{generatePrincipal("user3"), generatePrincipal("user4")},
 	}
 
 	enforcedRbac := &policy.RBAC{
@@ -802,5 +667,52 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		if !reflect.DeepEqual(*tc.permissiveRbac, *rbac.ShadowRules) {
 			t.Errorf("%s permissive want:\n%v\nbut got:\n%v", tc.name, *tc.permissiveRbac, *rbac.ShadowRules)
 		}
+	}
+}
+
+func generatePermission(headerName, matchSpecifier string) *policy.Permission {
+	return &policy.Permission{
+		Rule: &policy.Permission_AndRules{
+			AndRules: &policy.Permission_Set{
+				Rules: []*policy.Permission{
+					{
+						Rule: &policy.Permission_OrRules{
+							OrRules: &policy.Permission_Set{
+								Rules: []*policy.Permission{
+									{
+										Rule: &policy.Permission_Header{
+											Header: &route.HeaderMatcher{
+												Name: headerName,
+												HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+													ExactMatch: matchSpecifier,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func generatePrincipal(principalName string) *policy.Principal {
+	return &policy.Principal{
+		Identifier: &policy.Principal_AndIds{
+			AndIds: &policy.Principal_Set{
+				Ids: []*policy.Principal{
+					{
+						Identifier: &policy.Principal_Authenticated_{
+							Authenticated: &policy.Principal_Authenticated{
+								Name: principalName,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
