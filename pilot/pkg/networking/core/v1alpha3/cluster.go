@@ -350,23 +350,24 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetection) {
-	if outlier == nil || outlier.Http == nil {
+	if outlier == nil {
 		return
 	}
 
 	out := &v2_cluster.OutlierDetection{}
-	if outlier.Http.BaseEjectionTime != nil {
-		out.BaseEjectionTime = outlier.Http.BaseEjectionTime
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
-	if outlier.Http.ConsecutiveErrors > 0 {
-		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.Http.ConsecutiveErrors)}
+	if outlier.ConsecutiveErrors > 0 {
+		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
 	}
-	if outlier.Http.Interval != nil {
-		out.Interval = outlier.Http.Interval
+	if outlier.Interval != nil {
+		out.Interval = outlier.Interval
 	}
-	if outlier.Http.MaxEjectionPercent > 0 {
-		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
+	if outlier.MaxEjectionPercent > 0 {
+		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
 	}
+
 	cluster.OutlierDetection = out
 }
 
