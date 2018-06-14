@@ -128,6 +128,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
+	// Test push new secret to proxy.
 	if err = NotifyProxy(proxyID, &SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
@@ -140,6 +141,14 @@ func TestStreamSecretsPush(t *testing.T) {
 	}
 
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
+
+	// Test push nil secret(indicates close the streaming connection) to proxy.
+	if err = NotifyProxy(proxyID, nil); err != nil {
+		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
+	}
+	if _, err = stream.Recv(); err == nil {
+		t.Errorf("stream.Recv failed, expected error")
+	}
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {

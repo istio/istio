@@ -28,9 +28,13 @@ var (
 )
 
 func TestGetSecret(t *testing.T) {
+	skipTokenExpireCheck = false
 	fakeCACli := newMockCAClient()
 	sc := NewSecretCache(fakeCACli, time.Minute /*secret TTL*/, 300*time.Microsecond /*rotation Interval*/, 2*time.Second /*evictionDuration*/)
-	defer sc.Close()
+	defer func() {
+		sc.Close()
+		skipTokenExpireCheck = true
+	}()
 
 	proxyID := "proxy1-id"
 	jwtToken := "jwtToken1"
@@ -80,8 +84,12 @@ func TestGetSecret(t *testing.T) {
 
 func TestRefreshSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
+	skipTokenExpireCheck = false
 	sc := NewSecretCache(fakeCACli, 300*time.Microsecond /*secret TTL*/, 300*time.Microsecond /*rotation Interval*/, 10*time.Second /*evictionDuration*/)
-	defer sc.Close()
+	defer func() {
+		sc.Close()
+		skipTokenExpireCheck = true
+	}()
 
 	proxyID := "proxy1-id"
 	jwtToken := "jwtToken1"

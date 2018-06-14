@@ -52,6 +52,7 @@ type discoveryStream interface {
 
 // sdsEvent represents a secret event that results in a push.
 type sdsEvent struct {
+	endStream bool
 }
 
 type sdsConnection struct {
@@ -148,7 +149,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 		case <-con.pushChannel:
 			if con.secret == nil {
-				continue
+				// Secret is nil indicates close streaming connection to proxy, so that proxy
+				// could connect again with updated token.
+				return fmt.Errorf("streaming connection closed")
 			}
 
 			if err := pushSDS(con); err != nil {

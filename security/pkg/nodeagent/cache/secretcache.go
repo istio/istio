@@ -28,6 +28,13 @@ import (
 // The size of a private key for a leaf certificate.
 const keySize = 2048
 
+// Right now always skip the check, since key rotation job
+// checks token expire only when cert has expired;
+// since token's TTL is much shorter than the cert, we could
+// skip the check in normal cases.
+// The flag is used in unit test.
+var skipTokenExpireCheck = true
+
 // CAClient interface defines the clients need to implement to talk to CA for CSR.
 // TODO(quanlin): CAClient here is a placeholder, will move it to separated pkg.
 type CAClient interface {
@@ -118,8 +125,21 @@ func (sc *SecretCache) rotate(t time.Time) {
 		}
 
 		// Re-generate secret if it's expired.
-		if sc.checkExpired(&e) {
+		if sc.isCertExpired(&e) {
 			go func() {
+				if sc.isTokenExpired(&e) {
+					// Send the notification to close the stream connection if both cert and token have expired.
+					if err := sds.NotifyProxy(proxyID, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+						log.Errorf("Failed to notify for proxy %q: %v", proxyID, err)
+					}
+
+					return
+
+				}
+
+				// If token is still valid, re-generated the secret and push change to proxy.
+				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
+				// When cert has expired, we could make it simple by assuming token has already expired.
 				ns, err := sc.generateSecret(e.Token, now)
 				if err != nil {
 					log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
@@ -133,6 +153,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 				if err := sds.NotifyProxy(proxyID, ns); err != nil {
 					log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
 				}
+
 			}()
 		}
 
@@ -166,13 +187,21 @@ func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretIte
 	}, nil
 }
 
-func (sc *SecretCache) checkExpired(s *sds.SecretItem) bool {
+func (sc *SecretCache) isCertExpired(s *sds.SecretItem) bool {
 	now := time.Now()
 	if now.After(s.CreatedTime.Add(sc.secretTTL)) {
 		return true
 	}
 
-	// TODO(quanlin), check if token has expired.
+	// TODO(quanlin), check if cert has expired.
 
+	return false
+}
+
+func (sc *SecretCache) isTokenExpired(s *sds.SecretItem) bool {
+	if skipTokenExpireCheck {
+		return true
+	}
+	// TODO(quanlin), check if token has expired.
 	return false
 }
