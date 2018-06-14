@@ -431,7 +431,9 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContext: certValidationContext,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
 			},
 			Sni: tls.Sni,
 		}
@@ -456,7 +458,9 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 						},
 					},
 				},
-				ValidationContext: certValidationContext,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
 			},
 			Sni: tls.Sni,
 		}

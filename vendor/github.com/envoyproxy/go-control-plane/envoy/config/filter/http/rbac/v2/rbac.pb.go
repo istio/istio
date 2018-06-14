@@ -33,9 +33,15 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// RBAC filter config.
 type RBAC struct {
-	// Specify the RBAC rules to be applied globally
+	// Specify the RBAC rules to be applied globally.
+	// If absent, no enforcing RBAC policy will be applied.
 	Rules *envoy_config_rbac_v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules" json:"rules,omitempty"`
+	// Shadow rules are not enforced by the filter (i.e., returning a 403)
+	// but will emit stats and logs and can be used for rule testing.
+	// If absent, no shadow RBAC policy with be applied.
+	ShadowRules *envoy_config_rbac_v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules" json:"shadow_rules,omitempty"`
 }
 
 func (m *RBAC) Reset()                    { *m = RBAC{} }
@@ -50,11 +56,17 @@ func (m *RBAC) GetRules() *envoy_config_rbac_v2alpha.RBAC {
 	return nil
 }
 
+func (m *RBAC) GetShadowRules() *envoy_config_rbac_v2alpha.RBAC {
+	if m != nil {
+		return m.ShadowRules
+	}
+	return nil
+}
+
 type RBACPerRoute struct {
-	// Types that are valid to be assigned to Override:
-	//	*RBACPerRoute_Disabled
-	//	*RBACPerRoute_Rbac
-	Override isRBACPerRoute_Override `protobuf_oneof:"override"`
+	// Override the global configuration of the filter with this new config.
+	// If absent, the global RBAC policy will be disabled for this route.
+	Rbac *RBAC `protobuf:"bytes,2,opt,name=rbac" json:"rbac,omitempty"`
 }
 
 func (m *RBACPerRoute) Reset()                    { *m = RBACPerRoute{} }
@@ -62,114 +74,11 @@ func (m *RBACPerRoute) String() string            { return proto.CompactTextStri
 func (*RBACPerRoute) ProtoMessage()               {}
 func (*RBACPerRoute) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{1} }
 
-type isRBACPerRoute_Override interface {
-	isRBACPerRoute_Override()
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type RBACPerRoute_Disabled struct {
-	Disabled bool `protobuf:"varint,1,opt,name=disabled,proto3,oneof"`
-}
-type RBACPerRoute_Rbac struct {
-	Rbac *RBAC `protobuf:"bytes,2,opt,name=rbac,oneof"`
-}
-
-func (*RBACPerRoute_Disabled) isRBACPerRoute_Override() {}
-func (*RBACPerRoute_Rbac) isRBACPerRoute_Override()     {}
-
-func (m *RBACPerRoute) GetOverride() isRBACPerRoute_Override {
-	if m != nil {
-		return m.Override
-	}
-	return nil
-}
-
-func (m *RBACPerRoute) GetDisabled() bool {
-	if x, ok := m.GetOverride().(*RBACPerRoute_Disabled); ok {
-		return x.Disabled
-	}
-	return false
-}
-
 func (m *RBACPerRoute) GetRbac() *RBAC {
-	if x, ok := m.GetOverride().(*RBACPerRoute_Rbac); ok {
-		return x.Rbac
+	if m != nil {
+		return m.Rbac
 	}
 	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RBACPerRoute) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RBACPerRoute_OneofMarshaler, _RBACPerRoute_OneofUnmarshaler, _RBACPerRoute_OneofSizer, []interface{}{
-		(*RBACPerRoute_Disabled)(nil),
-		(*RBACPerRoute_Rbac)(nil),
-	}
-}
-
-func _RBACPerRoute_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RBACPerRoute)
-	// override
-	switch x := m.Override.(type) {
-	case *RBACPerRoute_Disabled:
-		t := uint64(0)
-		if x.Disabled {
-			t = 1
-		}
-		_ = b.EncodeVarint(1<<3 | proto.WireVarint)
-		_ = b.EncodeVarint(t)
-	case *RBACPerRoute_Rbac:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Rbac); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RBACPerRoute.Override has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RBACPerRoute_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RBACPerRoute)
-	switch tag {
-	case 1: // override.disabled
-		if wire != proto.WireVarint {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeVarint()
-		m.Override = &RBACPerRoute_Disabled{x != 0}
-		return true, err
-	case 2: // override.rbac
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RBAC)
-		err := b.DecodeMessage(msg)
-		m.Override = &RBACPerRoute_Rbac{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RBACPerRoute_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RBACPerRoute)
-	// override
-	switch x := m.Override.(type) {
-	case *RBACPerRoute_Disabled:
-		n += proto.SizeVarint(1<<3 | proto.WireVarint)
-		n += 1
-	case *RBACPerRoute_Rbac:
-		s := proto.Size(x.Rbac)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -201,6 +110,16 @@ func (m *RBAC) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if m.ShadowRules != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRbac(dAtA, i, uint64(m.ShadowRules.Size()))
+		n2, err := m.ShadowRules.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
 	return i, nil
 }
 
@@ -219,30 +138,6 @@ func (m *RBACPerRoute) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Override != nil {
-		nn2, err := m.Override.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn2
-	}
-	return i, nil
-}
-
-func (m *RBACPerRoute_Disabled) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0x8
-	i++
-	if m.Disabled {
-		dAtA[i] = 1
-	} else {
-		dAtA[i] = 0
-	}
-	i++
-	return i, nil
-}
-func (m *RBACPerRoute_Rbac) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
 	if m.Rbac != nil {
 		dAtA[i] = 0x12
 		i++
@@ -255,6 +150,7 @@ func (m *RBACPerRoute_Rbac) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
+
 func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -271,25 +167,14 @@ func (m *RBAC) Size() (n int) {
 		l = m.Rules.Size()
 		n += 1 + l + sovRbac(uint64(l))
 	}
-	return n
-}
-
-func (m *RBACPerRoute) Size() (n int) {
-	var l int
-	_ = l
-	if m.Override != nil {
-		n += m.Override.Size()
+	if m.ShadowRules != nil {
+		l = m.ShadowRules.Size()
+		n += 1 + l + sovRbac(uint64(l))
 	}
 	return n
 }
 
-func (m *RBACPerRoute_Disabled) Size() (n int) {
-	var l int
-	_ = l
-	n += 2
-	return n
-}
-func (m *RBACPerRoute_Rbac) Size() (n int) {
+func (m *RBACPerRoute) Size() (n int) {
 	var l int
 	_ = l
 	if m.Rbac != nil {
@@ -374,6 +259,39 @@ func (m *RBAC) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ShadowRules", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ShadowRules == nil {
+				m.ShadowRules = &envoy_config_rbac_v2alpha.RBAC{}
+			}
+			if err := m.ShadowRules.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRbac(dAtA[iNdEx:])
@@ -424,27 +342,6 @@ func (m *RBACPerRoute) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: RBACPerRoute: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Disabled", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRbac
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			b := bool(v != 0)
-			m.Override = &RBACPerRoute_Disabled{b}
 		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Rbac", wireType)
@@ -471,11 +368,12 @@ func (m *RBACPerRoute) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &RBAC{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if m.Rbac == nil {
+				m.Rbac = &RBAC{}
+			}
+			if err := m.Rbac.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.Override = &RBACPerRoute_Rbac{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -606,23 +504,21 @@ var (
 func init() { proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptorRbac) }
 
 var fileDescriptorRbac = []byte{
-	// 284 bytes of a gzipped FileDescriptorProto
+	// 256 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4e, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,
 	0xcf, 0x28, 0x29, 0x29, 0xd0, 0x2f, 0x4a, 0x4a, 0x4c, 0xd6, 0x2f, 0x33, 0x02, 0xd3, 0x7a, 0x05,
 	0x45, 0xf9, 0x25, 0xf9, 0x42, 0x0a, 0x60, 0xc5, 0x7a, 0x10, 0xc5, 0x7a, 0x10, 0xc5, 0x7a, 0x20,
 	0xc5, 0x7a, 0x60, 0x45, 0x65, 0x46, 0x52, 0x2a, 0x28, 0xc6, 0x41, 0x8d, 0x48, 0xcc, 0x29, 0xc8,
 	0x48, 0x44, 0x32, 0x47, 0x4a, 0xbc, 0x2c, 0x31, 0x27, 0x33, 0x25, 0xb1, 0x24, 0x55, 0x1f, 0xc6,
-	0x80, 0x4a, 0x88, 0xa4, 0xe7, 0xa7, 0xe7, 0x83, 0x99, 0xfa, 0x20, 0x16, 0x44, 0x54, 0xc9, 0x93,
-	0x8b, 0x25, 0xc8, 0xc9, 0xd1, 0x59, 0xc8, 0x91, 0x8b, 0xb5, 0xa8, 0x34, 0x27, 0xb5, 0x58, 0x82,
-	0x51, 0x81, 0x51, 0x83, 0xdb, 0x48, 0x5e, 0x0f, 0xc5, 0x39, 0x50, 0x27, 0x80, 0x2d, 0xd3, 0x03,
-	0xa9, 0x77, 0xe2, 0xda, 0xf5, 0xf2, 0x00, 0x33, 0x6b, 0x17, 0x23, 0x93, 0x00, 0x63, 0x10, 0x44,
-	0xa7, 0xd2, 0x14, 0x46, 0x2e, 0x1e, 0x90, 0x5c, 0x40, 0x6a, 0x51, 0x50, 0x7e, 0x69, 0x49, 0xaa,
-	0x90, 0x3a, 0x17, 0x47, 0x4a, 0x66, 0x71, 0x62, 0x52, 0x4e, 0x6a, 0x0a, 0xd8, 0x58, 0x0e, 0x27,
-	0x4e, 0x90, 0x2e, 0x96, 0x2c, 0x26, 0x0e, 0x46, 0x0f, 0x86, 0x20, 0xb8, 0xa4, 0x90, 0x07, 0x17,
-	0x0b, 0xc8, 0x06, 0x09, 0x26, 0xb0, 0xdd, 0x6a, 0x7a, 0x84, 0x82, 0x02, 0xc3, 0x09, 0x1e, 0x0c,
-	0x41, 0x60, 0x13, 0x9c, 0x04, 0xb9, 0x38, 0xf2, 0xcb, 0x52, 0x8b, 0x8a, 0x32, 0x53, 0x52, 0x85,
-	0x58, 0x77, 0xbc, 0x3c, 0xc0, 0xcc, 0xe8, 0x24, 0x70, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72,
-	0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0x46, 0x31, 0x95, 0x19, 0x25, 0xb1, 0x81, 0xbd, 0x6e, 0x0c, 0x08,
-	0x00, 0x00, 0xff, 0xff, 0xe8, 0xee, 0xca, 0xd5, 0xa0, 0x01, 0x00, 0x00,
+	0x80, 0x4a, 0x88, 0xa4, 0xe7, 0xa7, 0xe7, 0x83, 0x99, 0xfa, 0x20, 0x16, 0x44, 0x54, 0xa9, 0x91,
+	0x91, 0x8b, 0x25, 0xc8, 0xc9, 0xd1, 0x59, 0xc8, 0x94, 0x8b, 0xb5, 0xa8, 0x34, 0x27, 0xb5, 0x58,
+	0x82, 0x51, 0x81, 0x51, 0x83, 0xdb, 0x48, 0x5e, 0x0f, 0xc5, 0x3d, 0x50, 0x37, 0x80, 0x6d, 0xd3,
+	0x03, 0xa9, 0x0f, 0x82, 0xa8, 0x16, 0x72, 0xe2, 0xe2, 0x29, 0xce, 0x48, 0x4c, 0xc9, 0x2f, 0x8f,
+	0x87, 0xe8, 0x66, 0x22, 0x4e, 0x37, 0x37, 0x44, 0x53, 0x10, 0x48, 0x8f, 0x52, 0x14, 0x17, 0x0f,
+	0x48, 0x30, 0x20, 0xb5, 0x28, 0x28, 0xbf, 0xb4, 0x24, 0x55, 0xc8, 0x8a, 0x8b, 0x05, 0xa4, 0x03,
+	0x6a, 0x96, 0x9a, 0x1e, 0xa1, 0x90, 0x81, 0x18, 0x09, 0xd6, 0xe3, 0xc5, 0xc2, 0xc1, 0x28, 0xc0,
+	0x14, 0xc4, 0x91, 0x92, 0x59, 0x9c, 0x98, 0x94, 0x93, 0x9a, 0xe2, 0x24, 0x70, 0xe2, 0x91, 0x1c,
+	0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0x46, 0x31, 0x95, 0x19, 0x25, 0xb1, 0x81,
+	0x3d, 0x6e, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x88, 0x0d, 0x12, 0x94, 0x9e, 0x01, 0x00, 0x00,
 }
