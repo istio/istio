@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
 	pkgtest "istio.io/istio/pkg/test"
+
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -275,8 +277,8 @@ func Make(namespace string, i int) model.Config {
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
-	a.CreationTimestamp = 0
-	b.CreationTimestamp = 0
+	a.CreationTimestamp = meta_v1.NewTime(time.Time{})
+	b.CreationTimestamp = meta_v1.NewTime(time.Time{})
 	return reflect.DeepEqual(a, b)
 }
 
