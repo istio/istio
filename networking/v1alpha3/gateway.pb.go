@@ -180,7 +180,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// One or more labels that indicate a specific set of pods/VMs
+	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
 	// The scope of label search is platform dependent.
 	// On Kubernetes, for example, the scope includes pods running in
