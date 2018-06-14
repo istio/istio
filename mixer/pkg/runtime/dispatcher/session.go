@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
@@ -147,7 +148,7 @@ func (s *session) dispatch() error {
 				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
 					// only dispatch instances with a matching name
 
-					if input.InstanceShortName != s.quotaArgs.Quota {
+					if !strings.EqualFold(input.InstanceShortName, s.quotaArgs.Quota) {
 						continue
 					}
 
