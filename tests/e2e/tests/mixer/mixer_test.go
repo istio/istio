@@ -420,16 +420,16 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestMetric(t *testing.T) {
-	checkMetricReport(t, "productpage")
+	checkMetricReport(t, destLabel, "productpage")
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio-"+ingressName)
+	checkMetricReport(t, srcLabel, "istio-"+ingressName)
 }
 
 // checkMetricReport checks whether report works for the given service
 // by visiting productpage and comparing request_count metric.
-func checkMetricReport(t *testing.T, serviceName string) {
+func checkMetricReport(t *testing.T, label, serviceName string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
@@ -440,7 +440,7 @@ func checkMetricReport(t *testing.T, serviceName string) {
 
 	// establish baseline by querying request count metric.
 	t.Log("establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(serviceName))
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", label, fqdn(serviceName))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -464,7 +464,7 @@ func checkMetricReport(t *testing.T, serviceName string) {
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn(serviceName), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", label, fqdn(serviceName), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
