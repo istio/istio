@@ -73,7 +73,7 @@ const (
 )
 
 // getInfo returns the Info associated with this adapter.
-func getInfo(addr string) (adapter.Info, server) {
+func GetInfoWithAddr(addr string) (adapter.Info, server) {
 	singletonBuilder := &builder{
 		srv: newServer(addr),
 	}
@@ -95,7 +95,7 @@ func GetInfo() adapter.Info {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
-	ii, _ := getInfo(defaultAddr)
+	ii, _ := GetInfoWithAddr(defaultAddr)
 	return ii
 }
 
