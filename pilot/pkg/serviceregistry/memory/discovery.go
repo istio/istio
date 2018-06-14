@@ -22,39 +22,39 @@ import (
 )
 
 var (
-	PortHTTPName   = "http"
-	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
+	portHTTPName   = "http"
+	helloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	worldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	extHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
-	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
+	extHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
 		"httpbin.org", "")
-	Discovery = &ServiceDiscovery{
+	discovery = &ServiceDiscovery{
 		services: map[model.Hostname]*model.Service{
-			HelloService.Hostname:   HelloService,
-			WorldService.Hostname:   WorldService,
-			ExtHTTPService.Hostname: ExtHTTPService,
+			helloService.Hostname:   helloService,
+			worldService.Hostname:   worldService,
+			extHTTPService.Hostname: extHTTPService,
 			// TODO external https is not currently supported - this service
 			// should NOT be in any of the .golden json files
-			ExtHTTPSService.Hostname: ExtHTTPSService,
+			extHTTPSService.Hostname: extHTTPSService,
 		},
 		versions: 2,
 	}
-	HelloInstanceV0 = MakeIP(HelloService, 0)
-	HelloInstanceV1 = MakeIP(HelloService, 1)
-	HelloProxyV0    = model.Proxy{
+	helloInstanceV0 = MakeIP(helloService, 0)
+	helloInstanceV1 = MakeIP(helloService, 1)
+	helloProxyV0    = model.Proxy{
 		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV0,
+		IPAddress: helloInstanceV0,
 		ID:        "v0.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	HelloProxyV1 = model.Proxy{
+	helloProxyV1 = model.Proxy{
 		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV1,
+		IPAddress: helloInstanceV1,
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Ingress = model.Proxy{
+	ingress = model.Proxy{
 		Type:      model.Ingress,
 		IPAddress: "10.3.3.3",
 		ID:        "ingress.default",
@@ -77,7 +77,7 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 		Address:  address,
 		Ports: []*model.Port{
 			{
-				Name:     PortHTTPName,
+				Name:     portHTTPName,
 				Port:     80, // target port 80
 				Protocol: model.ProtocolHTTP,
 			}, {
@@ -158,7 +158,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 // memory MakeSericve)
 func GetPortHTTP(service *model.Service) *model.Port {
 	for _, port := range service.Ports {
-		if port.Name == PortHTTPName {
+		if port.Name == portHTTPName {
 			return port
 		}
 	}
@@ -196,6 +196,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
+// AddService will add the provided service to the in-memory registry and map it to the hostname
 func (sd *ServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
 	sd.services[name] = svc
 }
