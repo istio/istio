@@ -222,23 +222,25 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				Principals:  principals,
 			}
 			log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
+		} else {
+			// If ServiceRole is in ENFORCED mode, ServiceRoleBindings that
+			// refers to it will decide their own enforcement modes.
+			if len(enforcedPrincipals) != 0 {
+				rbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  enforcedPrincipals,
+				}
+				log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
+			}
 
-			continue
+			if len(permissivePrincipals) != 0 {
+				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+					Permissions: permissions,
+					Principals:  permissivePrincipals,
+				}
+				log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
+			}
 		}
-
-		// If ServiceRole is in ENFORCED mode, ServiceRoleBindings that
-		// refers to it will decide their own enforcement modes.
-		rbac.Policies[role.Name] = &policyproto.Policy{
-			Permissions: permissions,
-			Principals:  enforcedPrincipals,
-		}
-		log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
-
-		permissiveRbac.Policies[role.Name] = &policyproto.Policy{
-			Permissions: permissions,
-			Principals:  permissivePrincipals,
-		}
-		log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
 	}
 
 	return &rbacconfig.RBAC{
@@ -282,24 +284,24 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	return &policyproto.Permission{Rule: rules}
 }
 
-// convertToPrincipals converts a list of subjects to principals.
+// convertToPrincipals converts lists of subjects to principals(enforced/permissive mode).
 func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) ([]*policyproto.Principal, []*policyproto.Principal) {
-	principals := make([]*policyproto.Principal, 0)
+	enforcedPrincipals := make([]*policyproto.Principal, 0)
 	permissivePrincipals := make([]*policyproto.Principal, 0)
+
 	for _, binding := range bindings {
 		if binding.Mode == rbacproto.EnforcementMode_ENFORCED {
 			for _, subject := range binding.Subjects {
-				principals = append(principals, convertToPrincipal(subject))
+				enforcedPrincipals = append(enforcedPrincipals, convertToPrincipal(subject))
 			}
-			continue
+		} else {
+			for _, subject := range binding.Subjects {
+				permissivePrincipals = append(permissivePrincipals, convertToPrincipal(subject))
+			}
 		}
-		for _, subject := range binding.Subjects {
-			permissivePrincipals = append(permissivePrincipals, convertToPrincipal(subject))
-		}
-
 	}
 
-	return principals, permissivePrincipals
+	return enforcedPrincipals, permissivePrincipals
 }
 
 // convertToPrincipal converts a single subject to principal.
