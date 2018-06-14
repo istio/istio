@@ -271,10 +271,12 @@ func Make(namespace string, i int) model.Config {
 	}
 }
 
-// Compare checks two configs ignoring revisions
+// Compare checks two configs ignoring revisions and creation time
 func Compare(a, b model.Config) bool {
 	a.ResourceVersion = ""
 	b.ResourceVersion = ""
+	a.CreationTimestamp = 0
+	b.CreationTimestamp = 0
 	return reflect.DeepEqual(a, b)
 }
 
