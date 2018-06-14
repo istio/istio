@@ -1692,7 +1692,10 @@ func ValidateQuotaSpecBinding(name, namespace string, msg proto.Message) error {
 	return errs
 }
 
-func validateAuthenticationPolicyImpl(name, namespace string, msg proto.Message, clusterScoped bool) error {
+// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
+func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) error {
+	// Empty namespace indicate policy is from cluster-scoped CRD.
+	clusterScoped := namespace == ""
 	in, ok := msg.(*authn.Policy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy")
@@ -1734,16 +1737,6 @@ func validateAuthenticationPolicyImpl(name, namespace string, msg proto.Message,
 	}
 
 	return errs
-}
-
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) error {
-	return validateAuthenticationPolicyImpl(name, namespace, msg, false)
-}
-
-// ValidateAuthenticationClusterPolicy checks that AuthenticationPolicy is well-formed.
-func ValidateAuthenticationClusterPolicy(name, namespace string, msg proto.Message) error {
-	return validateAuthenticationPolicyImpl(name, namespace, msg, true)
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.

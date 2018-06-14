@@ -502,7 +502,7 @@ var (
 		Group:         "authentication",
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
-		Validate:      ValidateAuthenticationClusterPolicy,
+		Validate:      ValidateAuthenticationPolicy,
 	}
 
 	// ServiceRole describes an RBAC service role.

@@ -3321,7 +3321,7 @@ func TestValidateAuthenticationClusterPolicy(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateAuthenticationClusterPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
