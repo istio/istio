@@ -202,7 +202,11 @@ func (s *NoSessionServer) Close() error {
 		_ = s.listener.Close()
 	}
 
-	return s.promServer.Close()
+	if s.promServer != nil {
+		return s.promServer.Close()
+	}
+
+	return nil
 }
 
 // NewNoSessionServer creates a new no session server from given args.
