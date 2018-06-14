@@ -1091,7 +1091,7 @@ func TestNoSessionBackend(t *testing.T) {
 						s := ctx.(*NoSessionServer)
 						return s.GetState(), nil
 					},
-					SingleThreaded: true,
+					SingleThreaded: false,
 					ParallelCalls:  td.calls,
 					GetConfig: func(ctx interface{}) ([]string, error) {
 						s := ctx.(Server)
