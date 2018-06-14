@@ -16,9 +16,6 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
-  multicluster:
-    enabled: true
-
 prometheus:
   enabled: true
 

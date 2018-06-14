@@ -31,15 +31,15 @@ be lost.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.quotas">
+<tr id="Params-quotas">
 <td><code>quotas</code></td>
-<td><code><a href="#Params.Quota">Params.Quota[]</a></code></td>
+<td><code><a href="#Params-Quota">Params.Quota[]</a></code></td>
 <td>
 <p>The set of known quotas.</p>
 
 </td>
 </tr>
-<tr id="Params.min_deduplication_duration">
+<tr id="Params-min_deduplication_duration">
 <td><code>minDeduplicationDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -50,7 +50,7 @@ be lost.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Override">Params.Override</h2>
+<h2 id="Params-Override">Params.Override</h2>
 <section>
 <p>Defines an override value for a quota. If no override matches
 a particular quota request, the default for the quota is used.</p>
@@ -64,7 +64,7 @@ a particular quota request, the default for the quota is used.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Override.dimensions">
+<tr id="Params-Override-dimensions">
 <td><code>dimensions</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -73,7 +73,7 @@ String representation of instance dimensions is used to check against configured
 
 </td>
 </tr>
-<tr id="Params.Override.max_amount">
+<tr id="Params-Override-max_amount">
 <td><code>maxAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -81,7 +81,7 @@ String representation of instance dimensions is used to check against configured
 
 </td>
 </tr>
-<tr id="Params.Override.valid_duration">
+<tr id="Params-Override-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -94,7 +94,7 @@ quotas, otherwise the value must be zero.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Quota">Params.Quota</h2>
+<h2 id="Params-Quota">Params.Quota</h2>
 <section>
 <p>Defines a quota&rsquo;s limit and duration.</p>
 
@@ -107,7 +107,7 @@ quotas, otherwise the value must be zero.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Quota.name">
+<tr id="Params-Quota-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -115,7 +115,7 @@ quotas, otherwise the value must be zero.</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.max_amount">
+<tr id="Params-Quota-max_amount">
 <td><code>maxAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -123,7 +123,7 @@ quotas, otherwise the value must be zero.</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.valid_duration">
+<tr id="Params-Quota-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -133,9 +133,9 @@ quotas, otherwise the value must be zero.</p>
 
 </td>
 </tr>
-<tr id="Params.Quota.overrides">
+<tr id="Params-Quota-overrides">
 <td><code>overrides</code></td>
-<td><code><a href="#Params.Override">Params.Override[]</a></code></td>
+<td><code><a href="#Params-Override">Params.Override[]</a></code></td>
 <td>
 <p>Overrides associated with this quota.
 The first matching override is applied.</p>

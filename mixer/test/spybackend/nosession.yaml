@@ -1,0 +1,16 @@
+# this config is created through command
+# mixgen adapter -n spybackend-nosession -s=false -t metric -t quota -t listentry -o nosession.yaml
+apiVersion: "config.istio.io/v1alpha2"
+kind: adapter
+metadata:
+  name: spybackend-nosession
+  namespace: istio-system
+spec:
+  description: 
+  session_based: false
+  templates:
+  - metric
+  - quota
+  - listentry
+  config: 
+---

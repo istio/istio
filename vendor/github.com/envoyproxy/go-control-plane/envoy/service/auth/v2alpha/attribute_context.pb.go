@@ -53,8 +53,8 @@ type AttributeContext struct {
 	Request *AttributeContext_Request `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
 	// This is analogous to http_request.headers, however these contents will not be sent to the
 	// upstream server. Context_extensions provide an extension mechanism for sending additional
-	// information to the auth server without modifying the proto definition. It maps to the internal
-	// opaque context in the filter chain.
+	// information to the auth server without modifying the proto definition. It maps to the
+	// internal opaque context in the filter chain.
 	ContextExtensions map[string]string `protobuf:"bytes,10,rep,name=context_extensions,json=contextExtensions" json:"context_extensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

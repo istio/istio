@@ -44,6 +44,7 @@ func TestEgressGateway(t *testing.T) {
 			"testdata/v1alpha3/egressgateway.yaml",
 			"testdata/v1alpha3/service-entry.yaml",
 			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

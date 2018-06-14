@@ -15,9 +15,6 @@
 package v1alpha3
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
@@ -31,9 +28,4 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 	return &ConfigGeneratorImpl{
 		Plugins: plugins,
 	}
-}
-
-// TODO
-func (_ *ConfigGeneratorImpl) BuildRoutes(env model.Environment, node model.Proxy, routeName string) ([]*xdsapi.RouteConfiguration, error) {
-	return nil, nil
 }

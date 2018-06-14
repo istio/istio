@@ -130,6 +130,7 @@ func CreateFileDescriptorSetParser(fds *descriptor.FileDescriptorSet, importMap 
 	parser := &FileDescriptorSetParser{ImportMap: importMap, PackageImportPath: packageImportPath}
 	parser.WrapTypes(fds)
 	parser.BuildTypeNameMap()
+
 	return parser
 }
 

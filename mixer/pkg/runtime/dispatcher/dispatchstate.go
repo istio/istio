@@ -93,7 +93,7 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 
 		r := recover()
 		ds.err = fmt.Errorf("panic during handler dispatch: %v", r)
-		log.Errorf("%v", ds.err)
+		log.Errorf("%v\n%s", ds.err, debug.Stack())
 
 		if log.DebugEnabled() {
 			log.Debugf("stack dump for handler dispatch panic:\n%s", debug.Stack())

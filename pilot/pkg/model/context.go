@@ -45,6 +45,9 @@ type Environment struct {
 
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
+
+	// RDS flag. This is a temporary hack. Will be removed in few days
+	DisableRDS bool
 }
 
 // Proxy defines the proxy attributes used by xDS identification

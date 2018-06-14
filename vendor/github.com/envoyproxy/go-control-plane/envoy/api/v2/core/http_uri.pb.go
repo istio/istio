@@ -23,7 +23,6 @@ var _ = math.Inf
 var _ = time.Kitchen
 
 // Envoy external URI descriptor
-// [#not-implemented-hide:]
 type HttpUri struct {
 	// The HTTP server URI. It should be a full FQDN with protocol, host and path.
 	//
