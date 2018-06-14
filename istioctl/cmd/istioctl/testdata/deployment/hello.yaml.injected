@@ -1,0 +1,34 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/status: '{"version":"8e3c3eaa594b3ca11f720242d214f15fc4b9af1a1c8425a1310adfd675e32743","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":null,"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - image: docker.io/istio/proxy_debug:unittest
+        name: istio-proxy
+        resources: {}
+      initContainers:
+      - image: docker.io/istio/proxy_init:unittest
+        name: istio-init
+        resources: {}
+status: {}
+---
