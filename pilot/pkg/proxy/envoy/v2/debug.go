@@ -526,6 +526,14 @@ func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 			}
 			fmt.Fprintln(w)
 		}
+		for _, rt := range conn.RouteConfigs {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(rt)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
 		for _, cs := range conn.HTTPClusters {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
 			dbgString, _ := jsonm.MarshalToString(cs)
@@ -554,6 +562,9 @@ func writeAllADS(w io.Writer) {
 		}
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
+		fmt.Fprint(w, "],\n")
+		fmt.Fprintf(w, "\"RDSRoutes\":[\n")
+		printRoutes(w, c)
 		fmt.Fprint(w, "],\n")
 		fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
@@ -654,6 +665,26 @@ func printClusters(w io.Writer, c *XdsConnection) {
 		}
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(cl)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+}
+
+func printRoutes(w io.Writer, c *XdsConnection) {
+	comma := false
+	for _, rt := range c.RouteConfigs {
+		if rt == nil {
+			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
+			continue
+		}
+		if comma {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(rt)
 		if _, err := w.Write([]byte(dbgString)); err != nil {
 			return
 		}
