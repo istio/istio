@@ -3,10 +3,6 @@ package zookeeper
 import (
 	"time"
 	"strings"
-	"fmt"
-	"strconv"
-
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"github.com/samuel/go-zookeeper/zk"
@@ -26,7 +22,7 @@ type Controller struct {
 // NewController create a Controller instance
 func NewController(address string, root string) (*Controller, error) {
 	servers := strings.Split(address, ",")
-	conn, _, err := zk.Connect(servers, 15 * time.Second)
+	conn, _, err := zk.Connect(servers, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +47,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // Run until a signal is received
-func(c *Controller) Run(stop <-chan struct{}) {
+func (c *Controller) Run(stop <-chan struct{}) {
 	if err := c.client.Start(); err != nil {
 		log.Warnf("Can not connect to zk %s", c.client)
 		return
@@ -105,7 +101,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	services := c.client.Services()
 	result := make([]*model.Service, 0, len(services))
 	for _, service := range services {
-		result = append(result, toService(service.name))
+		result = append(result, toService(service))
 	}
 	return result, nil
 }
@@ -116,13 +112,26 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	if s == nil {
 		return nil, errors.Errorf("service %s not exist", hostname)
 	}
-	return toService(s.name), nil
+	return toService(s), nil
 }
 
 // Instances list all instance for a specific host name
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
+	instances := c.client.Instances(string(hostname))
+	result := make([]*model.ServiceInstance, 0)
+	for _, instance := range instances {
+		i, err := toInstance(instance)
+		if err != nil {
+			continue
+		}
+		for _, name := range ports {
+			if name == instance.Port.Protocol && labels.HasSubsetOf(i.Labels) {
+				result = append(result, i)
+			}
+		}
+	}
+	return result, nil
 }
 
 // Instances list all instance for a specific host name
@@ -143,7 +152,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 }
 
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	instances :=  c.client.InstancesByHost(proxy.IPAddress)
+	instances := c.client.InstancesByHost(proxy.IPAddress)
 	result := make([]*model.ServiceInstance, len(instances))
 	for _, instance := range instances {
 		i, err := toInstance(instance)
@@ -170,37 +179,40 @@ func portMatch(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
 
-func toService(name string) *model.Service {
+func toService(s *Service) *model.Service {
+	ports := make([]*model.Port, 0, len(s.Ports()))
+	for _, p := range s.Ports() {
+		port := toPort(p)
+		ports = append(ports, port)
+	}
 	service := &model.Service{
-		Hostname:   model.Hostname(name),
+		Hostname:   model.Hostname(s.Hostname()),
 		Resolution: model.ClientSideLB,
+		Ports:      ports,
 	}
 	return service
 }
 
 // The endpoint in sofa rpc registry looks like bolt://192.168.1.100:22000?xxx=yyy
 func toInstance(instance *Instance) (*model.ServiceInstance, error) {
-	port, err := strconv.Atoi(instance.Port)
-	if err != nil {
-		return nil, err
-	}
 	networkEndpoint := model.NetworkEndpoint{
-		Family: model.AddressFamilyTCP,
-		Address: instance.Host,
-		Port: port,
-		ServicePort: &model.Port {
-			Name: "ServicePort",
-			Port: port,
-			Protocol: model.ProtocolBOLT,
-		},
+		Family:      model.AddressFamilyTCP,
+		Address:     instance.Host,
+		Port:        instance.Port.Portoi(),
+		ServicePort: toPort(instance.Port),
 	}
 
 	return &model.ServiceInstance{
 		Endpoint: networkEndpoint,
-		Service: toService(instance.Service),
-		Labels: instance.Labels,
+		Service:  toService(instance.Service),
+		Labels:   instance.Labels,
 	}, nil
 }
 
-
-
+func toPort(port *Port) *model.Port {
+	return &model.Port{
+		Name:     port.Protocol,
+		Protocol: model.Protocol(port.Protocol),
+		Port:     port.Portoi(),
+	}
+}

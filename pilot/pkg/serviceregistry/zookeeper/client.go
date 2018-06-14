@@ -138,11 +138,9 @@ func (c *Client) makeInstance(hostname string, rawUrl string) (*Instance, error)
 	}
 
 	instance := &Instance{
-		Service:  hostname,
-		Protocol: ep.Scheme,
-		Host:     ep.Hostname(),
-		Port:     ep.Port(),
-		Labels:   make(map[string]string),
+		Port:   &Port{Protocol: ep.Scheme, Port: ep.Port()},
+		Host:   ep.Hostname(),
+		Labels: make(map[string]string),
 	}
 
 	for key, values := range ep.Query() {
@@ -159,7 +157,7 @@ func (c *Client) deleteInstance(hostname string, rawUrl string) {
 		return
 	}
 
-	if s, ok := c.services[i.Service]; ok {
+	if s, ok := c.services[hostname]; ok {
 		delete(s.instances, rawUrl)
 		go c.notify(ServiceEvent{
 			EventType: ServiceInstanceDeleted,
@@ -179,7 +177,8 @@ func (c *Client) addInstance(hostname string, rawUrl string) {
 		return
 	}
 
-	s := c.addService(i.Service)
+	s := c.addService(hostname, i)
+	i.Service = s
 	s.instances[rawUrl] = i
 	go c.notify(ServiceEvent{
 		EventType: ServiceInstanceAdded,
@@ -187,23 +186,29 @@ func (c *Client) addInstance(hostname string, rawUrl string) {
 	})
 }
 
-func (c *Client) addService(hostname string) *Service {
+func (c *Client) addService(hostname string, instance *Instance) *Service {
 	s, ok := c.services[hostname]
 	if !ok {
 		s = &Service{
 			name:      hostname,
+			ports:     make([]*Port, 0),
 			instances: make(map[string]*Instance),
 		}
 		c.services[hostname] = s
+		s.AddPort(instance.Port)
 		go c.notify(ServiceEvent{
 			EventType: ServiceAdded,
-			Service:   hostname,
+			Service:   s,
 		})
 	}
 	return s
 }
 
 func (c *Client) deleteService(hostname string) {
+	s, exist := c.services[hostname]
+	if !exist {
+		return
+	}
 	delete(c.services, hostname)
 	cache, ok := c.pcaches[hostname]
 	if ok {
@@ -211,7 +216,7 @@ func (c *Client) deleteService(hostname string) {
 	}
 	go c.notify(ServiceEvent{
 		EventType: ServiceDeleted,
-		Service:   hostname,
+		Service:   s,
 	})
 }
 
