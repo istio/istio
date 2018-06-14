@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mock
+package memory
 
 import (
 	"fmt"
@@ -22,48 +22,11 @@ import (
 )
 
 var (
+	// PortHTTPName is the HTTP port name
 	PortHTTPName = "http"
-	// Mock values
-	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
-	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	Discovery = &ServiceDiscovery{
-		services: map[model.Hostname]*model.Service{
-			HelloService.Hostname:   HelloService,
-			WorldService.Hostname:   WorldService,
-			ExtHTTPService.Hostname: ExtHTTPService,
-			// TODO external https is not currently supported - this service
-			// should NOT be in any of the .golden json files
-			ExtHTTPSService.Hostname: ExtHTTPSService,
-		},
-		versions: 2,
-	}
-	HelloInstanceV0 = MakeIP(HelloService, 0)
-	HelloInstanceV1 = MakeIP(HelloService, 1)
-	HelloProxyV0    = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV0,
-		ID:        "v0.default",
-		Domain:    "default.svc.cluster.local",
-	}
-	HelloProxyV1 = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: HelloInstanceV1,
-		ID:        "v1.default",
-		Domain:    "default.svc.cluster.local",
-	}
-	Ingress = model.Proxy{
-		Type:      model.Ingress,
-		IPAddress: "10.3.3.3",
-		ID:        "ingress.default",
-		Domain:    "default.svc.cluster.local",
-	}
 )
 
-// NewDiscovery builds a mock ServiceDiscovery
+// NewDiscovery builds a memory ServiceDiscovery
 func NewDiscovery(services map[model.Hostname]*model.Service, versions int) *ServiceDiscovery {
 	return &ServiceDiscovery{
 		services: services,
@@ -71,7 +34,7 @@ func NewDiscovery(services map[model.Hostname]*model.Service, versions int) *Ser
 	}
 }
 
-// MakeService creates a mock service
+// MakeService creates a memory service
 func MakeService(hostname model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname: hostname,
@@ -102,7 +65,7 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 	}
 }
 
-// MakeExternalHTTPService creates mock external service
+// MakeExternalHTTPService creates memory external service
 func MakeExternalHTTPService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,
@@ -116,7 +79,7 @@ func MakeExternalHTTPService(hostname, external model.Hostname, address string) 
 	}
 }
 
-// MakeExternalHTTPSService creates mock external service
+// MakeExternalHTTPSService creates memory external service
 func MakeExternalHTTPSService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname:     hostname,
@@ -130,7 +93,7 @@ func MakeExternalHTTPSService(hostname, external model.Hostname, address string)
 	}
 }
 
-// MakeInstance creates a mock instance, version enumerates endpoints
+// MakeInstance creates a memory instance, version enumerates endpoints
 func MakeInstance(service *model.Service, port *model.Port, version int, az string) *model.ServiceInstance {
 	if service.External() {
 		return nil
@@ -156,7 +119,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 
 // GetPortHTTP returns the port which name is PortHTTPName. Returns nil if such
 // a port does not exist (should not happenen if service is create via
-// mock MakeSericve)
+// memory MakeSericve)
 func GetPortHTTP(service *model.Service) *model.Port {
 	for _, port := range service.Ports {
 		if port.Name == PortHTTPName {
@@ -178,7 +141,7 @@ func MakeIP(service *model.Service, version int) string {
 	return ip.String()
 }
 
-// ServiceDiscovery is a mock discovery interface
+// ServiceDiscovery is a memory discovery interface
 type ServiceDiscovery struct {
 	services                      map[model.Hostname]*model.Service
 	versions                      int
@@ -189,7 +152,7 @@ type ServiceDiscovery struct {
 	GetProxyServiceInstancesError error
 }
 
-// ClearErrors clear errors used for mocking failures during model.ServiceDiscovery interface methods
+// ClearErrors clear errors used for failures during model.ServiceDiscovery interface methods
 func (sd *ServiceDiscovery) ClearErrors() {
 	sd.ServicesError = nil
 	sd.GetServiceError = nil
@@ -197,6 +160,7 @@ func (sd *ServiceDiscovery) ClearErrors() {
 	sd.GetProxyServiceInstancesError = nil
 }
 
+// AddService will add to the registry the provided service
 func (sd *ServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
 	sd.services[name] = svc
 }
