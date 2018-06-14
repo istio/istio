@@ -1,13 +1,6 @@
 - name: Deploy Istio from kubernetes file
-  shell: "{{ cmd_path }} create -f {{ istio_dir }}/install/kubernetes/istio-demo.yaml"
-  when: not istio.auth
-  ignore_errors: true
-
-- name: Deploy Istio Auth from kubernetes file
-  shell: "{{ cmd_path }} create -f {{ istio_dir }}/install/kubernetes/istio-demo-auth.yaml"
-  when: istio.auth
+  shell: "{{ cmd_path }} create -f {{ istio_definition_full_path }}"
   ignore_errors: true
 
 - name: Deploy Addons defined such as Grafana, ...
   import_tasks: install_addons.yml
-
