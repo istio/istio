@@ -19,14 +19,12 @@ spec:
 ---
 # Configuration for a fluentd handler
 apiVersion: "config.istio.io/v1alpha2"
-kind: contextgraph
+kind: stackdriver
 metadata:
   name: handler
   namespace: istio-system
 spec:
   projectId: context-istio-test
-  zone: us-central1-f
-  cluster: istio-080
   serviceAccountPath: /tmp/context-istio-test.json
 ---
 # Rule to send logentry instances to the fluentd handler
@@ -38,7 +36,7 @@ metadata:
 spec:
   match: "true" # match for all requests
   actions:
-   - handler: handler.contextgraph
+   - handler: handler.stackdriver
      instances:
      - default.edge
 ---

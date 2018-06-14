@@ -26,11 +26,13 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/contextgraph"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/adapter/stackdriver/log"
 	sdmetric "istio.io/istio/mixer/adapter/stackdriver/metric"
 	"istio.io/istio/mixer/adapter/stackdriver/trace"
 	"istio.io/istio/mixer/pkg/adapter"
+	edgepb "istio.io/istio/mixer/template/edge"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/tracespan"
@@ -41,12 +43,14 @@ type (
 		m metric.HandlerBuilder
 		l logentry.HandlerBuilder
 		t tracespan.HandlerBuilder
+		c edgepb.HandlerBuilder
 	}
 
 	handler struct {
 		m metric.Handler
 		l logentry.Handler
 		t tracespan.Handler
+		c edgepb.Handler
 	}
 )
 
@@ -59,6 +63,9 @@ var (
 
 	_ tracespan.HandlerBuilder = &builder{}
 	_ tracespan.Handler        = &handler{}
+
+	_ edgepb.HandlerBuilder = &builder{}
+	_ edgepb.Handler        = &handler{}
 )
 
 // GetInfo returns the Info associated with this adapter implementation.
@@ -76,8 +83,9 @@ func GetInfo() adapter.Info {
 		Impl:        "istio.io/istio/mixer/adapter/stackdriver",
 		Description: "Publishes StackDriver metrics, logs and traces.",
 		SupportedTemplates: []string{
-			metric.TemplateName,
+			edgepb.TemplateName,
 			logentry.TemplateName,
+			metric.TemplateName,
 			tracespan.TemplateName,
 		},
 		DefaultConfig: &config.Params{},
@@ -86,6 +94,7 @@ func GetInfo() adapter.Info {
 				m: sdmetric.NewBuilder(mg),
 				l: log.NewBuilder(mg),
 				t: trace.NewBuilder(mg),
+				c: contextgraph.NewBuilder(mg),
 			}
 		}}
 }
@@ -102,14 +111,22 @@ func (b *builder) SetTraceSpanTypes(types map[string]*tracespan.Type) {
 	b.t.SetTraceSpanTypes(types)
 }
 
+func (b *builder) SetEdgeTypes(types map[string]*edgepb.Type) {
+	b.c.SetEdgeTypes(types)
+}
+
 func (b *builder) SetAdapterConfig(c adapter.Config) {
 	b.m.SetAdapterConfig(c)
 	b.l.SetAdapterConfig(c)
 	b.t.SetAdapterConfig(c)
+	b.c.SetAdapterConfig(c)
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	return ce.Extend(b.m.Validate()).Extend(b.l.Validate()).Extend(b.t.Validate())
+	return ce.Extend(b.m.Validate()).
+		Extend(b.l.Validate()).
+		Extend(b.t.Validate()).
+		Extend(b.c.Validate())
 }
 
 // Build creates a stack driver handler object.
@@ -126,17 +143,23 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 	lh := l.(logentry.Handler)
 
-	t, err := b.t.Build(ctx, env)
+	// t, err := b.t.Build(ctx, env)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// th := t.(tracespan.Handler)
+
+	c, err := b.c.Build(ctx, env)
 	if err != nil {
 		return nil, err
 	}
-	th := t.(tracespan.Handler)
+	ch := c.(edgepb.Handler)
 
-	return &handler{m: mh, l: lh, t: th}, nil
+	return &handler{m: mh, l: lh, t: nil, c: ch}, nil
 }
 
 func (h *handler) Close() error {
-	return multierror.Append(h.m.Close(), h.l.Close(), h.t.Close()).ErrorOrNil()
+	return multierror.Append(h.m.Close(), h.l.Close(), h.c.Close()).ErrorOrNil()
 }
 
 func (h *handler) HandleMetric(ctx context.Context, values []*metric.Instance) error {
@@ -148,5 +171,9 @@ func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instanc
 }
 
 func (h *handler) HandleTraceSpan(ctx context.Context, values []*tracespan.Instance) error {
-	return h.t.HandleTraceSpan(ctx, values)
+	return nil
+}
+
+func (h *handler) HandleEdge(ctx context.Context, values []*edgepb.Instance) error {
+	return h.c.HandleEdge(ctx, values)
 }

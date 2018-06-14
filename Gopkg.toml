@@ -34,7 +34,7 @@ required = [
 
 ignored = [
   # Context Graph depends on a locally vendored library that isn't (yet) available upstream.
-  "istio.io/istio/mixer/adapter/contextgraph",
+  "istio.io/istio/mixer/adapter/stackdriver/contextgraph",
 ]
 
 # To use reference package:

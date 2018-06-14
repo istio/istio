@@ -71,48 +71,60 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	}
 	workloadFullName := fmt.Sprintf(
 		"%s/meshes/%s/workloads/%s/%s",
-		istioContainer, meshUID, workloadName, workloadNamespace,
+		istioContainer, meshUID, workloadNamespace, workloadName,
 	)
 	workload := entity{
 		gcpContainer,
 		"io.istio.Workload",
 		workloadFullName,
 		"global",
-		[4]string{meshUID, workloadName, workloadNamespace, ""},
+		[4]string{meshUID, workloadNamespace, workloadName, ""},
 	}
 	// TODO: Figure out what the container is for non-GCE clusters.
 	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/zones/%s/clusters/%s", wi.clusterProject, wi.clusterLocation, wi.clusterName)
 
 	var ownerK8sFullName string
 	t := strings.Split(wi.owner, "/")
-	if len(t) >= 3 && t[0] == "k8s:" {
+	if len(t) >= 3 && t[0] == "kubernetes:" {
 		var name, namespace, typeName string
 		t = t[2:len(t)]
 		switch {
-		case len(t) >= 6 && t[0] == "api" && t[1] == "v1": // pods, replicationcontrollers
+		case len(t) >= 6 && t[0] == "apis" && t[1] == "v1": // pods, replicationcontrollers
 			namespace = t[3]
 			name = t[5]
 			typeName = t[4]
-		case len(t) >= 7 && t[0] == "api" && (t[1] == "extensions" || t[1] == "apps" || t[1] == "batch"): // cronjobs, jobs, daemonsets, deployments, replicasets, statefulsets
+		case len(t) >= 7 && t[0] == "apis" && (t[1] == "extensions" || t[1] == "apps" || t[1] == "batch"): // cronjobs, jobs, daemonsets, deployments, replicasets, statefulsets
 			namespace = t[4]
 			name = t[6]
 			typeName = t[1] + "/" + t[5]
 		}
 		if name != "" {
 			ownerK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/%s", clusterContainer, namespace, typeName, name)
+		} else {
+			logger.Warningf("Couldn't parse owner into k8s obj: %s", wi.owner)
 		}
 	} else {
-		logger.Warningf("Unknown owner type: %s", wi.owner)
+		if wi.owner != "unknown" {
+			logger.Warningf("Unknown owner type: %s", wi.owner)
+		}
 	}
 	// TODO: Non-k8s owners.
 
+	// "kubernetes://istio-pilot-65d79b966c-xnbx8.istio-system"
 	var wiK8sFullName string
 	t = strings.Split(wi.uid, "/")
-	if len(t) >= 4 && t[0] == "k8s:" {
-		namespace, name := t[2], t[3]
-		wiK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/pods/%s", clusterContainer, namespace, name)
+	if len(t) == 3 && t[0] == "kubernetes:" {
+		name_ns := strings.Split(t[2], ".")
+		if len(name_ns) == 2 {
+			namespace, name := name_ns[1], name_ns[0]
+			wiK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/pods/%s", clusterContainer, namespace, name)
+		} else {
+			logger.Warningf("Unknown workload instance type: %s", wi.uid)
+		}
 	} else {
-		logger.Warningf("Unknown workload instance type: %s", wi.uid)
+		if wi.uid != "Unknown" {
+			logger.Warningf("Unknown workload instance type: %s", wi.uid)
+		}
 	}
 	// TODO: Non-k8s workload instances
 

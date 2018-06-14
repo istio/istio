@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/contextgraph/config/config.proto
-
 // Package contextgraph adapter for Stackdriver Context API.
 package contextgraph
 
@@ -23,9 +21,10 @@ import (
 	"time"
 
 	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
-	"google.golang.org/api/option"
 
-	"istio.io/istio/mixer/adapter/contextgraph/config"
+	gapiopts "google.golang.org/api/option"
+	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
 	edgepb "istio.io/istio/mixer/template/edge"
 )
@@ -33,11 +32,13 @@ import (
 type (
 	builder struct {
 		projectID string
-		endpoint  string
-		apiKey    string
-		saPath    string
-		zone      string
-		cluster   string
+		//endpoint  string
+		//apiKey    string
+		//saPath    string
+		zone    string
+		cluster string
+		mg      *helper.MetadataGenerator
+		opts    []gapiopts.ClientOption
 	}
 	handler struct {
 		client         *contextgraph.Client
@@ -65,6 +66,8 @@ var _ edgepb.Handler = &handler{}
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
+	env.Logger().Debugf("Proj, zone, cluster, opts: %s,%s,%s,%s", b.projectID, b.zone, b.cluster, b.opts)
+
 	// TODO: meshUID should come from an attribute when
 	// multi-cluster Istio is supported. Currently we assume each
 	// cluster is its own mesh.
@@ -84,17 +87,17 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		ctx:            ctx,
 	}
 
-	var opts []option.ClientOption
-	if b.saPath != "" {
-		opts = append(opts, option.WithCredentialsFile(b.saPath))
-	} else if b.apiKey != "" {
-		opts = append(opts, option.WithAPIKey(b.apiKey))
-	}
-	if b.endpoint != "" {
-		opts = append(opts, option.WithEndpoint(b.endpoint))
-	}
+	// var opts []option.ClientOption
+	// if b.saPath != "" {
+	// 	opts = append(opts, option.WithCredentialsFile(b.saPath))
+	// } else if b.apiKey != "" {
+	// 	opts = append(opts, option.WithAPIKey(b.apiKey))
+	// }
+	// if b.endpoint != "" {
+	// 	opts = append(opts, option.WithEndpoint(b.endpoint))
+	// }
 	var err error
-	h.client, err = contextgraph.NewClient(ctx, opts...)
+	h.client, err = contextgraph.NewClient(ctx, b.opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +111,23 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	c := cfg.(*config.Params)
 	b.projectID = c.ProjectId
-	b.zone = c.Zone
-	b.cluster = c.Cluster
-	b.endpoint = c.Endpoint
-	switch x := c.Creds.(type) {
-	case *config.Params_AppCredentials:
-	case *config.Params_ApiKey:
-		b.apiKey = x.ApiKey
-	case *config.Params_ServiceAccountPath:
-		b.saPath = x.ServiceAccountPath
+	md := b.mg.GenerateMetadata()
+	if b.projectID == "" {
+		b.projectID = md.ProjectID
 	}
+	b.zone = md.Location
+	b.cluster = md.ClusterName
+
+	b.opts = helper.ToOpts(c)
+
+	// b.endpoint = c.Endpoint
+	// switch x := c.Creds.(type) {
+	// case *config.Params_AppCredentials:
+	// case *config.Params_ApiKey:
+	// 	b.apiKey = x.ApiKey
+	// case *config.Params_ServiceAccountPath:
+	// 	b.saPath = x.ServiceAccountPath
+	// }
 }
 
 // adapter.HandlerBuilder#Validate
@@ -153,17 +163,21 @@ func (h *handler) Close() error {
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetInfo returns the adapter.Info specific to this adapter.
-func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "contextgraph",
-		Description: "Sends graph to Stackdriver Context API",
-		SupportedTemplates: []string{
-			edgepb.TemplateName,
-		},
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{
-			ProjectId: "",
-		},
-	}
+// // GetInfo returns the adapter.Info specific to this adapter.
+// func GetInfo() adapter.Info {
+// 	return adapter.Info{
+// 		Name:        "contextgraph",
+// 		Description: "Sends graph to Stackdriver Context API",
+// 		SupportedTemplates: []string{
+// 			edgepb.TemplateName,
+// 		},
+// 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
+// 		DefaultConfig: &config.Params{
+// 			ProjectId: "",
+// 		},
+// 	}
+// }
+
+func NewBuilder(mg *helper.MetadataGenerator) edgepb.HandlerBuilder {
+	return &builder{mg: mg}
 }
