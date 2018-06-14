@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
