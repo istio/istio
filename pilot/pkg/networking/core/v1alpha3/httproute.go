@@ -133,7 +133,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	// Get list of virtual services bound to the mesh gateway
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := env.VirtualServices(meshGateway)
-	virtualHostWrappers := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -142,8 +142,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 			continue
 		}
 
-		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.Hosts)+len(virtualHostWrapper.Services))
-		for _, host := range virtualHostWrapper.Hosts {
+		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
 				Domains: []string{host},
