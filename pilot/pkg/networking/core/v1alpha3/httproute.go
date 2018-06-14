@@ -171,7 +171,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 
 	util.SortVirtualHosts(virtualHosts)
 	out := &xdsapi.RouteConfiguration{
-		Name:             fmt.Sprintf("%d", listenerPort),
+		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: &types.BoolValue{Value: false},
 	}
