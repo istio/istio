@@ -15,6 +15,8 @@
 package spybackend
 
 import (
+	"sync"
+
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
@@ -63,9 +65,14 @@ type (
 
 		CloseSessionRequest []*adptModel.CloseSessionRequest
 
-		HandleMetricRequest    []*metric.HandleMetricRequest
+		metricLock          sync.RWMutex
+		HandleMetricRequest []*metric.HandleMetricRequest
+
+		listentryLock          sync.RWMutex
 		HandleListEntryRequest []*listentry.HandleListEntryRequest
-		HandleQuotaRequest     []*quota.HandleQuotaRequest
+
+		quotaLock          sync.RWMutex
+		HandleQuotaRequest []*quota.HandleQuotaRequest
 	}
 )
 
