@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package envoy
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -153,9 +152,6 @@ type DiscoveryService struct {
 	// entire cache will no longer be periodically flushed and stale
 	// entries can linger in the cache indefinitely.
 	sdsCache *discoveryCache
-	cdsCache *discoveryCache
-	rdsCache *discoveryCache
-	ldsCache *discoveryCache
 
 	RestContainer *restful.Container
 }
@@ -295,10 +291,6 @@ type tags struct {
 	Weight int `json:"load_balancing_weight,omitempty"`
 }
 
-type ldsResponse struct {
-	Listeners Listeners `json:"listeners"`
-}
-
 type keyAndService struct {
 	Key   string  `json:"service-key"`
 	Hosts []*host `json:"hosts"`
@@ -306,13 +298,8 @@ type keyAndService struct {
 
 // Request parameters for discovery services
 const (
-	ServiceKey      = "service-key"
-	ServiceCluster  = "service-cluster"
-	ServiceNode     = "service-node"
-	RouteConfigName = "route-config-name"
-
-	// Some tests still use v1 - will gradually remove them. Waiting for mixer/simple
-	v1Enable = true
+	ServiceCluster = "service-cluster"
+	ServiceNode    = "service-node"
 )
 
 // DiscoveryServiceOptions contains options for create a new discovery
@@ -345,9 +332,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
-		cdsCache:    newDiscoveryCache("cds", o.EnableCaching),
-		rdsCache:    newDiscoveryCache("rds", o.EnableCaching),
-		ldsCache:    newDiscoveryCache("lds", o.EnableCaching),
 	}
 
 	container := restful.NewContainer()
@@ -398,44 +382,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListAllEndpoints).
 		Doc("Services in SDS"))
 
-	if v1Enable {
-		// This route makes discovery act as an Envoy Service discovery service (SDS).
-		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/sds
-		ws.Route(ws.
-			GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
-			To(ds.ListEndpoints).
-			Doc("SDS registration").
-			Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
-
-		// This route makes discovery act as an Envoy Cluster discovery service (CDS).
-		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cds
-		ws.Route(ws.
-			GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
-			To(ds.ListClusters).
-			Doc("CDS registration").
-			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
-
-		// This route makes discovery act as an Envoy Route discovery service (RDS).
-		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/route_config/rds
-		ws.Route(ws.
-			GET(fmt.Sprintf("/v1/routes/{%s}/{%s}/{%s}", RouteConfigName, ServiceCluster, ServiceNode)).
-			To(ds.ListRoutes).
-			Doc("RDS registration").
-			Param(ws.PathParameter(RouteConfigName, "route configuration name").DataType("string")).
-			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
-
-		// This route responds to LDS requests
-		// See https://www.envoyproxy.io/docs/envoy/latest/api-v1/listeners/lds
-		ws.Route(ws.
-			GET(fmt.Sprintf("/v1/listeners/{%s}/{%s}", ServiceCluster, ServiceNode)).
-			To(ds.ListListeners).
-			Doc("LDS registration").
-			Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-			Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
-	}
-
 	// This route retrieves the Availability Zone of the service node requested
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/az/{%s}/{%s}", ServiceCluster, ServiceNode)).
@@ -464,15 +410,6 @@ func (ds *DiscoveryService) GetCacheStats(_ *restful.Request, response *restful.
 	for k, v := range ds.sdsCache.stats() {
 		stats[k] = v
 	}
-	for k, v := range ds.cdsCache.stats() {
-		stats[k] = v
-	}
-	for k, v := range ds.rdsCache.stats() {
-		stats[k] = v
-	}
-	for k, v := range ds.ldsCache.stats() {
-		stats[k] = v
-	}
 	if err := response.WriteEntity(discoveryCacheStats{stats}); err != nil {
 		log.Warna(err)
 	}
@@ -481,9 +418,6 @@ func (ds *DiscoveryService) GetCacheStats(_ *restful.Request, response *restful.
 // ClearCacheStats clear the statistics for cached discovery responses.
 func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Response) {
 	ds.sdsCache.resetStats()
-	ds.cdsCache.resetStats()
-	ds.rdsCache.resetStats()
-	ds.ldsCache.resetStats()
 }
 
 // ClearCache is wrapper for clearCache method, used when new controller gets
@@ -514,12 +448,7 @@ func (ds *DiscoveryService) clearCache() {
 	lastClearCache = time.Now()
 	log.Infof("Cleared discovery service cache")
 	ds.sdsCache.clear()
-	ds.cdsCache.clear()
-	ds.rdsCache.clear()
-	ds.ldsCache.clear()
-	if V2ClearCache != nil {
-		V2ClearCache()
-	}
+	V2ClearCache()
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
@@ -580,49 +509,6 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 	}
 }
 
-// ListEndpoints responds to EDS requests
-func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
-	methodName := "ListEndpoints"
-	incCalls(methodName)
-
-	key := request.Request.URL.String()
-	out, resourceCount, cached := ds.sdsCache.cachedDiscoveryResponse(key)
-	if !cached {
-		hostname, ports, labels := model.ParseServiceKey(request.PathParameter(ServiceKey))
-		// envoy expects an empty array if no hosts are available
-		hostArray := make([]*host, 0)
-		endpoints, err := ds.Instances(hostname, ports.GetNames(), labels)
-		if err != nil {
-			// If client experiences an error, 503 error will tell envoy to keep its current
-			// cache and try again later
-			errorResponse(methodName, response, http.StatusServiceUnavailable, "EDS "+err.Error())
-			return
-		}
-		for _, ep := range endpoints {
-			// Only set tags if theres an AZ to set, ensures nil tags when there isnt
-			var t *tags
-			if ep.AvailabilityZone != "" {
-				t = &tags{AZ: ep.AvailabilityZone}
-			}
-			hostArray = append(hostArray, &host{
-				Address: ep.Endpoint.Address,
-				Port:    ep.Endpoint.Port,
-				Tags:    t,
-			})
-		}
-		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {
-			errorResponse(methodName, response, http.StatusInternalServerError, "EDS "+err.Error())
-			return
-		}
-		resourceCount = uint32(len(endpoints))
-		if resourceCount > 0 {
-			ds.sdsCache.updateCachedDiscoveryResponse(key, resourceCount, out)
-		}
-	}
-	observeResources(methodName, resourceCount)
-	writeResponse(response, out)
-}
-
 func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (model.Proxy, error) {
 	nodeInfo := request.PathParameter(ServiceNode)
 	svcNode, err := model.ParseServiceNode(nodeInfo)
@@ -653,149 +539,6 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
 	writeResponse(response, []byte(proxyInstances[0].GetAZ()))
-}
-
-// ListClusters responds to CDS requests for all outbound clusters
-func (ds *DiscoveryService) ListClusters(request *restful.Request, response *restful.Response) {
-	methodName := "ListClusters"
-	incCalls(methodName)
-
-	key := request.Request.URL.String()
-	out, resourceCount, cached := ds.cdsCache.cachedDiscoveryResponse(key)
-	transformedOutput := out
-	if !cached {
-		svcNode, err := ds.parseDiscoveryRequest(request)
-		if err != nil {
-			errorResponse(methodName, response, http.StatusNotFound, "CDS "+err.Error())
-			return
-		}
-
-		clusters, err := buildClusters(ds.Environment, svcNode)
-		if err != nil {
-			// If client experiences an error, 503 error will tell envoy to keep its current
-			// cache and try again later
-			errorResponse(methodName, response, http.StatusServiceUnavailable, "CDS "+err.Error())
-			return
-		}
-		if out, err = json.MarshalIndent(ClusterManager{Clusters: clusters}, " ", " "); err != nil {
-			errorResponse(methodName, response, http.StatusInternalServerError, "CDS "+err.Error())
-			return
-		}
-
-		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
-		if err != nil {
-			// Use whatever we generated.
-			transformedOutput = out
-		}
-
-		// TODO: this is wrong as it doesn't take into account clusters added by webhook
-		resourceCount = uint32(len(clusters))
-		// TODO: BUG. if resourceCount is 0, but transformedOutput has added resources, the cache wont update
-		if resourceCount > 0 {
-			ds.cdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
-		}
-	}
-
-	observeResources(methodName, resourceCount)
-	writeResponse(response, transformedOutput)
-}
-
-// ListListeners responds to LDS requests
-func (ds *DiscoveryService) ListListeners(request *restful.Request, response *restful.Response) {
-	methodName := "ListListeners"
-	incCalls(methodName)
-
-	key := request.Request.URL.String()
-	out, resourceCount, cached := ds.ldsCache.cachedDiscoveryResponse(key)
-	transformedOutput := out
-	if !cached {
-		svcNode, err := ds.parseDiscoveryRequest(request)
-		if err != nil {
-			errorResponse(methodName, response, http.StatusNotFound, "LDS "+err.Error())
-			return
-		}
-
-		listeners, err := buildListeners(ds.Environment, svcNode)
-		if err != nil {
-			// If client experiences an error, 503 error will tell envoy to keep its current
-			// cache and try again later
-			errorResponse(methodName, response, http.StatusServiceUnavailable, "LDS "+err.Error())
-			return
-		}
-		out, err = json.MarshalIndent(ldsResponse{Listeners: listeners}, " ", " ")
-		if err != nil {
-			errorResponse(methodName, response, http.StatusInternalServerError, "LDS "+err.Error())
-			return
-		}
-
-		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
-		if err != nil {
-			// Use whatever we generated.
-			log.Errorf("error invoking webhook: %v", err)
-			transformedOutput = out
-		}
-
-		// TODO: This does not take into account listeners added by webhook
-		resourceCount = uint32(len(listeners))
-		// TODO: Bug. If resourceCount is 0 but transformedOutput adds listeners, cache wont update
-		if resourceCount > 0 {
-			ds.ldsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
-		}
-	}
-	observeResources(methodName, resourceCount)
-	writeResponse(response, transformedOutput)
-}
-
-// ListRoutes responds to RDS requests, used by HTTP routes
-// Routes correspond to HTTP routes and use the listener port as the route name
-// to identify HTTP filters in the config. Service node value holds the local proxy identity.
-func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restful.Response) {
-	methodName := "ListRoutes"
-	incCalls(methodName)
-
-	key := request.Request.URL.String()
-	out, resourceCount, cached := ds.rdsCache.cachedDiscoveryResponse(key)
-	transformedOutput := out
-	if !cached {
-		svcNode, err := ds.parseDiscoveryRequest(request)
-		if err != nil {
-			errorResponse(methodName, response, http.StatusNotFound, "RDS "+err.Error())
-			return
-		}
-
-		routeConfigName := request.PathParameter(RouteConfigName)
-		envoyV2 := false
-		if routeConfigName[0] == ':' {
-			routeConfigName = routeConfigName[1:]
-			envoyV2 = true
-		}
-		routeConfig, err := BuildRDSRoute(ds.Mesh, svcNode, routeConfigName,
-			ds.ServiceDiscovery, ds.IstioConfigStore, envoyV2)
-		if err != nil {
-			// If client experiences an error, 503 error will tell envoy to keep its current
-			// cache and try again later
-			errorResponse(methodName, response, http.StatusServiceUnavailable, "RDS "+err.Error())
-			return
-		}
-		if out, err = json.MarshalIndent(routeConfig, " ", " "); err != nil {
-			errorResponse(methodName, response, http.StatusInternalServerError, "RDS "+err.Error())
-			return
-		}
-		transformedOutput, err = ds.invokeWebhook(request.Request.URL.Path, out, "webhook"+methodName)
-		if err != nil {
-			// Use whatever we generated.
-			transformedOutput = out
-		}
-
-		if routeConfig != nil && routeConfig.VirtualHosts != nil { //TODO: fix same bug as above.
-			resourceCount = uint32(len(routeConfig.VirtualHosts))
-			if resourceCount > 0 {
-				ds.rdsCache.updateCachedDiscoveryResponse(key, resourceCount, transformedOutput)
-			}
-		}
-	}
-	observeResources(methodName, resourceCount)
-	writeResponse(response, transformedOutput)
 }
 
 func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {

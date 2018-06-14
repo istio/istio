@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -124,7 +123,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfigura
 				if nr.PerFilterConfig == nil {
 					nr.PerFilterConfig = make(map[string]*types.Struct)
 				}
-				nr.PerFilterConfig[v1.MixerFilter] = util.MessageToStruct(
+				nr.PerFilterConfig[MixerFilter] = util.MessageToStruct(
 					buildMixerPerRouteConfig(in, false, forward, in.ServiceInstance.Service.Hostname.String()))
 				nrs = append(nrs, nr)
 			}
@@ -153,7 +152,7 @@ func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*di
 	if destinationService != "" {
 		out.MixerAttributes = &mpb.Attributes{}
 		out.MixerAttributes.Attributes = map[string]*mpb.Attributes_AttributeValue{
-			v1.AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
+			AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: destinationService}},
 		}
 		addDestinationServiceAttributes(out.MixerAttributes.Attributes, destinationService, role.Domain)
 	}
@@ -168,7 +167,7 @@ func buildMixerPerRouteConfig(in *plugin.InputParams, outboundRoute bool, _ /*di
 	if !outboundRoute || role.Type == model.Router {
 		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
-		v1.AddStandardNodeAttributes(out.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(out.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 	}
 
 	return out
@@ -185,7 +184,7 @@ func buildMixerHTTPFilter(env *model.Environment, node *model.Proxy,
 
 	c := buildHTTPMixerFilterConfig(mesh, *node, proxyInstances, outbound, config)
 	return &http_conn.HttpFilter{
-		Name:   v1.MixerFilter,
+		Name:   MixerFilter,
 		Config: util.MessageToStruct(c),
 	}
 }
@@ -199,7 +198,7 @@ func buildMixerInboundTCPFilter(env *model.Environment, node *model.Proxy, insta
 
 	c := buildTCPMixerFilterConfig(mesh, *node, instance)
 	return &listener.Filter{
-		Name:   v1.MixerFilter,
+		Name:   MixerFilter,
 		Config: util.MessageToStruct(c),
 	}
 }
@@ -252,7 +251,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 	if !outboundRoute || role.Type == model.Router {
 		// for outboundRoutes there are no default MixerAttributes except for gateway.
 		// specific MixerAttributes are in per route configuration.
-		v1.AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, v1.AttrDestinationPrefix, role.IPAddress, role.ID, labels)
+		AddStandardNodeAttributes(mxConfig.MixerAttributes.Attributes, AttrDestinationPrefix, role.IPAddress, role.ID, labels)
 		mxConfig.MixerAttributes.Attributes["context.reporter.local"] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: true},
 		}
@@ -264,7 +263,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 		mxConfig.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{},
 		}
-		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, v1.AttrSourcePrefix, role.IPAddress, role.ID, labels)
+		addStandardNodeAttributes(mxConfig.ForwardAttributes.Attributes, AttrSourcePrefix, role.IPAddress, role.ID, labels)
 	}
 
 	// gateway case is special because upstream listeners are considered outbound, however we don't want to
@@ -282,7 +281,7 @@ func buildHTTPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, n
 
 // buildTCPMixerFilterConfig builds a TCP filter config for inbound requests.
 func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, instance *model.ServiceInstance) *mccpb.TcpClientConfig {
-	attrs := v1.StandardNodeAttributes(v1.AttrDestinationPrefix, role.IPAddress, role.ID, nil)
+	attrs := StandardNodeAttributes(AttrDestinationPrefix, role.IPAddress, role.ID, nil)
 	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), role.Domain)
 	attrs["context.reporter.uid"] = attrStringValue("kubernetes://" + role.ID)
 	attrs["context.reporter.local"] = &mpb.Attributes_AttributeValue{
@@ -316,17 +315,17 @@ func buildTCPMixerFilterConfig(mesh *meshconfig.MeshConfig, role model.Proxy, in
 // addStandardNodeAttributes add standard node attributes with the given prefix
 func addStandardNodeAttributes(attr map[string]*mpb.Attributes_AttributeValue, prefix string, IPAddress string, ID string, labels map[string]string) {
 	if len(IPAddress) > 0 {
-		attr[prefix+"."+v1.AttrIPSuffix] = &mpb.Attributes_AttributeValue{
+		attr[prefix+"."+AttrIPSuffix] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(IPAddress)},
 		}
 	}
 
-	attr[prefix+"."+v1.AttrUIDSuffix] = &mpb.Attributes_AttributeValue{
+	attr[prefix+"."+AttrUIDSuffix] = &mpb.Attributes_AttributeValue{
 		Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + ID},
 	}
 
 	if len(labels) > 0 {
-		attr[prefix+"."+v1.AttrLabelsSuffix] = &mpb.Attributes_AttributeValue{
+		attr[prefix+"."+AttrLabelsSuffix] = &mpb.Attributes_AttributeValue{
 			Value: &mpb.Attributes_AttributeValue_StringMapValue{
 				StringMapValue: &mpb.Attributes_StringMap{Entries: labels},
 			},

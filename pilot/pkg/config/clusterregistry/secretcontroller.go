@@ -32,7 +32,7 @@ import (
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
