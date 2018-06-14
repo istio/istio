@@ -192,6 +192,10 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
+	disableCheckCalls := true /* TODO: enable client-side checks */
+	if node.Type == model.Router {
+		disableCheckCalls = false
+	}
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
@@ -202,7 +206,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 			DefaultDestinationService: UnknownDestination,
 			ServiceConfigs: map[string]*mccpb.ServiceConfig{
 				UnknownDestination: {
-					DisableCheckCalls: true, /* TODO: enable client-side checks */
+					DisableCheckCalls: disableCheckCalls,
 					MixerAttributes: &mpb.Attributes{Attributes: attributes{ // TODO: fall through destination service, should be set in routes
 						"destination.service": attrStringValue(UnknownDestination),
 					}},
@@ -259,13 +263,17 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 }
 
 func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy) listener.Filter {
+	disableCheckCalls := true /* TODO: enable client-side checks */
+	if node.Type == model.Router {
+		disableCheckCalls = false
+	}
 	// TODO(rshriram): set destination service for TCP outbound requires parsing the struct config
 	attrs := attrsCopy(attrsIn)
 	addDestinationServiceAttributes(attrs, UnknownDestination, node.Domain)
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
-			DisableCheckCalls: true, /* TODO: enable client-side checks */
+			DisableCheckCalls: disableCheckCalls,
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 			Transport:         buildTransport(mesh, attrUID(node)),
 		}),
