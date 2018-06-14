@@ -262,7 +262,6 @@
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
-    "envoy/config/filter/http/health_check/v2",
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
