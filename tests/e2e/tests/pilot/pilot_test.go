@@ -270,9 +270,6 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
-		// This service was used to test mtlsExcludedServices in the mesh config. This flag is removed in
-		// PR #. This service and the involved tests can also be removed in the following up PRs.
-		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false),
 	}
 }
 

@@ -933,9 +933,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-policy' as the destination, got %d", len(vec))
 	}
 
 	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
@@ -950,9 +950,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-telemetry' as the destination, got %d", len(vec))
 	}
 
 	mixerPod, err := podID("istio-mixer-type=telemetry")
