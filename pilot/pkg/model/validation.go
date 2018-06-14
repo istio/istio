@@ -1147,10 +1147,6 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 		return
 	}
 
-	if outlier.Http != nil {
-		return fmt.Errorf("DestinationRule.HTTP outlier detection has been deprecated")
-	}
-
 	if outlier.BaseEjectionTime != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}

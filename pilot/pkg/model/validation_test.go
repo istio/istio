@@ -2679,20 +2679,6 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
-
-		{name: "invalid traffic policy, bad outlier detection", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
-				},
-			},
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
-			},
-			OutlierDetection: &networking.OutlierDetection{},
-		},
-			valid: false},
 	}
 	for _, c := range cases {
 		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
