@@ -17,6 +17,7 @@ package spybackend
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
@@ -164,6 +165,7 @@ spec:
   - handler: h1
     instances:
     - requestQuota
+---
 `
 
 	r6MatchIfReqIDH1i4Metric = `
@@ -178,6 +180,7 @@ spec:
   - handler: h1
     instances:
     - i1metric
+---
 `
 )
 
@@ -570,11 +573,11 @@ func TestNoSessionBackend(t *testing.T) {
 				// 3 report calls; varying request.size attribute and no attributes call too.
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 666},
+					Attrs:    map[string]interface{}{"request.size": int64(666)},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
-					Attrs:    map[string]interface{}{"request.size": 888},
+					Attrs:    map[string]interface{}{"request.size": int64(888)},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
@@ -610,382 +613,12 @@ func TestNoSessionBackend(t *testing.T) {
 				},
 			},
 
-			// want:
+			// want: --> multiple-mix-calls.golden.json
 			// * 4 i2metric.instance.istio-system for 4 report calls
 			// * 5 i1metric.instance.istio-system for 4 report calls (3 report calls without request.id attribute and 1 report calls
 			//     with request.id attribute, which result into 2 dispatch report rules to resolve successfully).
 			// * 4 i3list.instance.istio-system for 4 check calls
 			// * 1 requestQuota.instance.istio-system for 1 quota call
-			want: `
-    		{
-    		 "AdapterState": [
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice2"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 400
-    		       }
-    		      }
-    		     },
-    		     "name": "i2metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 456
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice2"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 400
-    		       }
-    		      }
-    		     },
-    		     "name": "i2metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 456
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice2"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 400
-    		       }
-    		      }
-    		     },
-    		     "name": "i2metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 456
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice2"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 400
-    		       }
-    		      }
-    		     },
-    		     "name": "i2metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 456
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 200
-    		       }
-    		      }
-    		     },
-    		     "name": "i1metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 123
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 200
-    		       }
-    		      }
-    		     },
-    		     "name": "i1metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 123
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 200
-    		       }
-    		      }
-    		     },
-    		     "name": "i1metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 123
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instances": [
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 200
-    		       }
-    		      }
-    		     },
-    		     "name": "i1metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 123
-    		      }
-    		     }
-    		    },
-    		    {
-    		     "dimensions": {
-    		      "destination_service": {
-    		       "Value": {
-    		        "StringValue": "myservice"
-    		       }
-    		      },
-    		      "response_code": {
-    		       "Value": {
-    		        "Int64Value": 200
-    		       }
-    		      }
-    		     },
-    		     "name": "i1metric.instance.istio-system",
-    		     "value": {
-    		      "Value": {
-    		       "Int64Value": 123
-    		      }
-    		     }
-    		    }
-    		   ]
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instance": {
-    		    "name": "i3list.instance.istio-system",
-    		    "value": "foobar"
-    		   }
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instance": {
-    		    "name": "i3list.instance.istio-system",
-    		    "value": "defaultstr"
-    		   }
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instance": {
-    		    "name": "i3list.instance.istio-system",
-    		    "value": "defaultstr"
-    		   }
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instance": {
-    		    "name": "i3list.instance.istio-system",
-    		    "value": "bazbaz"
-    		   }
-    		  },
-    		  {
-    		   "dedup_id": "stripped_for_test",
-    		   "instance": {
-    		    "dimensions": {
-    		     "destination": {
-    		      "Value": {
-    		       "StringValue": "svc.cluster.local"
-    		      }
-    		     },
-    		     "destinationVersion": {
-    		      "Value": {
-    		       "StringValue": "unknown"
-    		      }
-    		     },
-    		     "source": {
-    		      "Value": {
-    		       "StringValue": "unknown"
-    		      }
-    		     },
-    		     "sourceVersion": {
-    		      "Value": {
-    		       "StringValue": "unknown"
-    		      }
-    		     }
-    		    },
-    		    "name": "requestQuota.instance.istio-system"
-    		   },
-    		   "quota_request": {
-    		    "quotas": {
-    		     "requestQuota.instance.istio-system": {
-    		      "amount": 35,
-    		      "best_effort": true
-    		     }
-    		    }
-    		   }
-    		  }
-    		 ],
-    		 "Returns": [
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 0
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 0
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 0
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 31
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 31
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 31
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 0
-    		   },
-    		   "Quota": {
-    		    "requestQuota": {
-    		     "Status": {},
-    		     "ValidDuration": 0,
-    		     "Amount": 32
-    		    }
-    		   },
-    		   "Error": null
-    		  },
-    		  {
-    		   "Check": {
-    		    "Status": {},
-    		    "ValidDuration": 0,
-    		    "ValidUseCount": 0
-    		   },
-    		   "Quota": null,
-    		   "Error": null
-    		  }
-    		 ]
-    		}
-`,
 		},
 	}
 
@@ -996,6 +629,10 @@ func TestNoSessionBackend(t *testing.T) {
 
 	for _, td := range testdata {
 		t.Run(td.name, func(tt *testing.T) {
+			want := td.want
+			if want == "" {
+				want = readGoldenFile(tt, td.name)
+			}
 			adapter_integration.RunTest(
 				tt,
 				nil,
@@ -1042,9 +679,21 @@ func TestNoSessionBackend(t *testing.T) {
 							r6MatchIfReqIDH1i4Metric,
 						}, nil
 					},
-					Want: td.want,
+					Want: want,
 				},
 			)
 		})
 	}
+}
+
+// readGoldenFile reads contents based on the testname
+// "this is a test" --> "this-is-a-test.golden.json"
+func readGoldenFile(t *testing.T, testname string) string {
+	t.Helper()
+	filename := strings.Replace(testname, " ", "-", -1) + ".golden.json"
+	ba, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("unable to load verification file: %v", err)
+	}
+	return string(ba)
 }
