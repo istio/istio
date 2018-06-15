@@ -24,11 +24,11 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // and subject to change along with business requirements.
 type ServicePlan struct {
 	// Required. Public plan information.
-	Plan *CatalogPlan `protobuf:"bytes,1,opt,name=plan" json:"plan,omitempty"`
+	Plan *CatalogPlan `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
 	// Required. List of the Keys of serviceclass config instance
 	// that are included in the plan.
 	// ServiceClass is a type of CRD resource.
-	Services             []string `protobuf:"bytes,2,rep,name=services" json:"services,omitempty"`
+	Services             []string `protobuf:"bytes,2,rep,name=services,proto3" json:"services,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -78,11 +78,11 @@ func (m *ServicePlan) GetServices() []string {
 // https://github.com/openservicebrokerapi
 type CatalogPlan struct {
 	// Required. Public service plan name.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. Public unique service plan guid.
-	Id string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	// Required. Public short service plan description.
-	Description          string   `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
+	Description          string   `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

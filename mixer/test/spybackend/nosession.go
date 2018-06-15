@@ -142,7 +142,7 @@ func (s *NoSessionServer) printMetrics() []interface{} {
 		for _, mr := range s.Requests.HandleMetricRequest {
 			mr.DedupId = stripText
 		}
-		sort.Slice(s.Requests.HandleMetricRequest, func(i, j int) bool {
+		sort.SliceStable(s.Requests.HandleMetricRequest, func(i, j int) bool {
 			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleMetricRequest[i].Instances),
 				fmt.Sprintf("%v", s.Requests.HandleMetricRequest[j].Instances)) > 0
 		})

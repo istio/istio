@@ -56,10 +56,18 @@ const (
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
-	srcLabel          = "source_service"
-	srcWorkloadLabel  = "source_workload"
-	destLabel         = "destination_service"
-	responseCodeLabel = "response_code"
+	srcLabel           = "source_service"
+	srcPodLabel        = "source_pod"
+	srcWorkloadLabel   = "source_workload"
+	srcOwnerLabel      = "source_owner"
+	srcUIDLabel        = "source_workload_uid"
+	destLabel          = "destination_service"
+	destPodLabel       = "destination_pod"
+	destWorkloadLabel  = "destination_workload"
+	destOwnerLabel     = "destination_owner"
+	destUIDLabel       = "destination_workload_uid"
+	destContainerLabel = "destination_container"
+	responseCodeLabel  = "response_code"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -79,8 +87,8 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
+		V1alpha1: false, //implies envoyv1
+		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -93,6 +101,7 @@ var (
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
+	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
 	routeAllRule             = "route-rule-all-v1"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = "route-rule-reviews-v3"
@@ -125,7 +134,7 @@ func (t *testConfig) Setup() (err error) {
 	}
 	drs := []*string{&routeAllRule, &bookinfoGateway}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
 	for _, dr := range drs {
 		*dr = filepath.Join(rulesDir, *dr)
 		defaultRules = append(defaultRules, *dr)
@@ -290,6 +299,24 @@ func podID(labelSelector string) (pod string, err error) {
 	}
 	pod = strings.Trim(pod, "'")
 	log.Infof("%s pod name: %s", labelSelector, pod)
+	return
+}
+
+func deployment(labelSelector string) (name, owner, uid string, err error) {
+	name, err = util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		log.Warnf("could not get %s deployment: %v", labelSelector, err)
+		return
+	}
+	log.Infof("%s deployment name: %s", labelSelector, name)
+	uid = fmt.Sprintf("istio://%s/workloads/%s", tc.Kube.Namespace, name)
+	selfLink, err := util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.selfLink}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		log.Warnf("could not get deployment %s self link: %v", name, err)
+		return
+	}
+	log.Infof("deployment %s self link: %s", labelSelector, selfLink)
+	owner = fmt.Sprintf("kubernetes:/%s", selfLink)
 	return
 }
 
@@ -596,6 +623,68 @@ func TestNewMetrics(t *testing.T) {
 	}
 }
 
+func TestKubeenvMetrics(t *testing.T) {
+	if err := applyMixerRule(kubeenvTelemetryRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+
+	defer func() {
+		if err := deleteMixerRule(kubeenvTelemetryRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	allowRuleSync()
+
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		fatalf(t, "Test app setup failure: %v", err)
+	}
+
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	allowPrometheusSync()
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+	productPagePod, err := podID("app=productpage")
+	if err != nil {
+		fatalf(t, "Could not get productpage pod ID: %v", err)
+	}
+	productPageWorkloadName, productPageOwner, productPageUID, err := deployment("app=productpage")
+	if err != nil {
+		fatalf(t, "Could not get productpage deployment metadata: %v", err)
+	}
+	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName))
+	if err != nil {
+		fatalf(t, "Could not get ingress pod ID: %v", err)
+	}
+	ingressWorkloadName, ingressOwner, ingressUID, err := deployment(fmt.Sprintf("istio=%s", ingressName))
+	if err != nil {
+		fatalf(t, "Could not get ingress deployment metadata: %v", err)
+	}
+
+	query := fmt.Sprintf("istio_kube_request_count{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"200\"}",
+		srcPodLabel, ingressPod, srcWorkloadLabel, ingressWorkloadName, srcOwnerLabel, ingressOwner, srcUIDLabel, ingressUID,
+		destPodLabel, productPagePod, destWorkloadLabel, productPageWorkloadName, destOwnerLabel, productPageOwner, destUIDLabel, productPageUID,
+		destContainerLabel, "productpage", responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+	log.Infof("promvalue := %s", value.String())
+
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Logf("prometheus values for istio_kube_request_count:\n%s", promDump(promAPI, "istio_kube_request_count"))
+		fatalf(t, "Error get metric value: %v", err)
+	}
+	want := float64(1)
+	if got < want {
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	}
+}
+
 func TestDenials(t *testing.T) {
 	testDenials(t, denialRule)
 }
@@ -640,6 +729,8 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
 	t.Logf("block request through ingress if x-user header is missing")
@@ -790,6 +881,8 @@ func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
