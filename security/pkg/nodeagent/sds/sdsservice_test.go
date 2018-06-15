@@ -27,6 +27,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
@@ -36,6 +37,8 @@ var (
 
 	fakePushCertificateChain = []byte{03}
 	fakePushPrivateKey       = []byte{04}
+
+	fakeCredentialToken = "faketoken"
 )
 
 func TestStreamSecrets(t *testing.T) {
@@ -115,7 +118,9 @@ func TestStreamSecretsPush(t *testing.T) {
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	stream, err := sdsClient.StreamSecrets(context.Background())
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
+	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
 		t.Errorf("StreamSecrets failed: %v", err)
 	}
@@ -186,7 +191,9 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	stream, err := sdsClient.StreamSecrets(context.Background())
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
+	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +216,9 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	resp, err := sdsClient.FetchSecrets(context.Background(), req)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
+	resp, err := sdsClient.FetchSecrets(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -237,8 +246,12 @@ type mockSecretStore struct {
 }
 
 func (*mockSecretStore) GetSecret(proxyID, token string) (*SecretItem, error) {
-	return &SecretItem{
-		CertificateChain: fakeCertificateChain,
-		PrivateKey:       fakePrivateKey,
-	}, nil
+	if token == fakeCredentialToken {
+		return &SecretItem{
+			CertificateChain: fakeCertificateChain,
+			PrivateKey:       fakePrivateKey,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unexpected token %q", token)
 }
