@@ -82,8 +82,8 @@ type Server struct {
 
 // watch maintains local state of the most recent watch per-type.
 type watch struct {
-	cancel   func()
-	nonce    string
+	cancel func()
+	nonce  string
 }
 
 // connection maintains per-stream connection state for a
