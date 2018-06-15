@@ -37,8 +37,15 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// SecretType is used for secret discovery service to construct response.
-const SecretType = "type.googleapis.com/envoy.api.v2.Secret"
+const (
+	// SecretType is used for secret discovery service to construct response.
+	SecretType = "type.googleapis.com/envoy.api.v2.Secret"
+
+	// credentialTokenHeaderKey is the header key in gPRC header which is used to
+	// pass credential token from envoy to SDS.
+	// TODO(quanlin): update value after confirming what headerKey that client side uses.
+	credentialTokenHeaderKey = "access_token"
+)
 
 var (
 	sdsClients      = map[string]*sdsConnection{}
@@ -98,11 +105,10 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	md, ok := metadata.FromIncomingContext(stream.Context()) // get context from stream
-	if !ok {
-		return fmt.Errorf("Failed to parse metadata from discovery request")
+	token, err := getCredentialToken(stream.Context())
+	if err != nil {
+		return err
 	}
-	credToken := md["test"]
 
 	peerAddr := "Unknown peer address"
 	peerInfo, ok := peer.FromContext(stream.Context())
@@ -140,7 +146,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.proxy = &proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, credToken)
+			secret, err := s.st.GetSecret(discReq.Node.Id, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -170,6 +176,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 }
 
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+	token, err := getCredentialToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if discReq.Node.Id == "" {
 		log.Warnf("SDS discovery request %+v missing node id", discReq)
 		return nil, fmt.Errorf("SDS discovery request %+v missing node id", discReq)
@@ -182,7 +193,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	}
 	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 
-	secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
+	secret, err := s.st.GetSecret(discReq.Node.Id, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
@@ -203,6 +214,22 @@ func NotifyProxy(proxyID string, secret *SecretItem) error {
 
 	cli.pushChannel <- &sdsEvent{}
 	return nil
+}
+
+func getCredentialToken(ctx context.Context) (string, error) {
+	metadata, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("unable to get metadata from incoming context")
+	}
+
+	if h, ok := metadata[credentialTokenHeaderKey]; ok {
+		if len(h) != 1 {
+			return "", fmt.Errorf("credential token must have 1 value in gRPC metadata but got %d", len(h))
+		}
+		return h[0], nil
+	}
+
+	return "", fmt.Errorf("no credential token is found")
 }
 
 func addConn(proxyID string, conn *sdsConnection) {
