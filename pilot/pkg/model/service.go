@@ -139,7 +139,7 @@ const (
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
 	// ProtocolTCPTLS declares that the port carries TLS traffic on top of TCP
-        // TLS traffic assumes to contain SNI as part of the handshake
+	// TLS traffic assumes to contain SNI as part of the handshake
 	ProtocolTCPTLS Protocol = "TCP_TLS"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
@@ -234,6 +234,16 @@ func (p Protocol) IsHTTP() bool {
 func (p Protocol) IsTCP() bool {
 	switch p {
 	case ProtocolTCP, ProtocolHTTPS, ProtocolTCPTLS, ProtocolMongo, ProtocolRedis:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
+func (p Protocol) IsTLS() bool {
+	switch p {
+	case ProtocolHTTPS, ProtocolTCPTLS:
 		return true
 	default:
 		return false

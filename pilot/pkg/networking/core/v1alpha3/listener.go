@@ -396,10 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					// Check if this is HTTPS port collision for external service. If so, we can use SNI to differentiate
 					// Internal TCP services will never hit this issue because they are bound by specific IP_port, while
 					// external service listeners are typically bound to 0.0.0.0
-					if !listenerTypeMap[listenerMapKey].IsTCP() ||
-						(servicePort.Protocol != model.ProtocolHTTPS &&
-							servicePort.Protocol != model.ProtocolTCPTLS) ||
-						!service.MeshExternal {
+					if !listenerTypeMap[listenerMapKey].IsTCP() || !servicePort.Protocol.IsTLS() || !service.MeshExternal {
 						conflictingOutbound.Add(1)
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
@@ -412,8 +409,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 				// Set SNI hosts for External services only. It may or may not work for internal services.
 				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
-				if (servicePort.Protocol == model.ProtocolHTTPS ||
-					servicePort.Protocol == model.ProtocolTCPTLS) && service.MeshExternal {
+				if servicePort.Protocol.IsTLS() && service.MeshExternal {
 					filterChainOption.sniHosts = []string{service.Hostname.String()}
 				}
 
