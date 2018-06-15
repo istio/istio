@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/kubernetes"
 	proxy "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
@@ -48,15 +49,19 @@ istioclt authn tls_check foo.bar.svc.cluster.local
 			if len(args) > 0 {
 				service = args[0]
 			}
+			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			if err != nil {
+				return err
+			}
 
-			pilots, err := getPilotPods()
+			pilots, err := kubeClient.GetPilotPods(istioNamespace)
 			if err != nil {
 				return err
 			}
 			if len(pilots) == 0 {
 				return errors.New("unable to find any Pilot instances")
 			}
-			if debug, pilotErr := callPilotDiscoveryDebug(pilots, service, "authn"); pilotErr == nil {
+			if debug, pilotErr := kubeClient.CallPilotDiscoveryDebug(pilots, service, "authn"); pilotErr == nil {
 				var dat []proxy.AuthenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {
 					panic(err)

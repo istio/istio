@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	mesh = "all"
 
 	// TODO - Add diff option to get the difference between pilot's xDS API response and the proxy config
 	// TODO - Add support for non-default proxy config locations
@@ -67,7 +68,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 			if len(args) > 2 {
 				configType = args[2]
 			} else {
-				configType = "all"
+				configType = mesh
 			}
 			log.Infof("Retrieving %v proxy config for %q", configType, podName)
 
@@ -83,7 +84,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 			case "pilot":
 				var proxyID string
 				if podName == "mesh" {
-					proxyID = "all"
+					proxyID = mesh
 				} else {
 					proxyID = fmt.Sprintf("%v.%v", podName, ns)
 				}

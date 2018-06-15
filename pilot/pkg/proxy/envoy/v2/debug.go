@@ -83,6 +83,7 @@ type SyncStatus struct {
 	Acked   string `json:"acked,omitempty"`
 }
 
+// Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
 	for _, con := range adsClients {
