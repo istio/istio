@@ -588,6 +588,16 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			},
 		},
 	}
+	emptyConfig := &rbacconfig.RBAC{
+		Rules: &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		},
+		ShadowRules: &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		},
+	}
 
 	testCases := []struct {
 		name     string
@@ -608,25 +618,21 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 			service:  "service",
 			roles:    []model.Config{},
 			bindings: bindings,
+			config:   emptyConfig,
 		},
 		{
 			name:     "empty bindings",
 			service:  "service",
 			roles:    roles,
 			bindings: []model.Config{},
+			config:   emptyConfig,
 		},
 	}
 
 	for _, tc := range testCases {
 		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
-		if len(tc.roles) == 0 || len(tc.bindings) == 0 {
-			if got, want := len(rbac.Rules.Policies), 0; got != want {
-				t.Errorf("len(rbac.Rules.Policies), got: %d, want: %d", got, want)
-			}
-		} else {
-			if !reflect.DeepEqual(*tc.config, *rbac) {
-				t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.config, *rbac)
-			}
+		if !reflect.DeepEqual(*tc.config, *rbac) {
+			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.config, *rbac)
 		}
 	}
 }
