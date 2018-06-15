@@ -23,8 +23,7 @@ import "routing/v1alpha1/l4_fault.proto";
 // $title: Route Rules v1alpha1 (deprecated)
 // $description: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
-// $aliases:
-// $  - /docs/reference/config/traffic-rules/routing-rules.html
+// $front_matter: redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
 
 // **Note: This version of the traffic management API has been deprecated and will
 // not be supported after Istio 0.8.**
@@ -246,7 +245,7 @@ message MatchRequest {
   // to URI, protocol scheme (e.g., HTTP, HTTPS), HTTP method
   // (e.g., GET, POST), and the HTTP Host header respectively.
   //
-  // *Note 2:* _uri_ can be used to perform URL matches.
+  // *Note 2:* _uri_ can be used to perform URL matches. 
   // For all HTTP headers including _uri_, exact, prefix and ECMA style
   // regular expression matches are supported.
   map<string, StringMatch> headers = 1;
@@ -329,12 +328,12 @@ message HTTPRedirect {
   // value. Note that the entire path will be replaced, irrespective of the
   // request URI being matched as an exact path or prefix.
   string uri = 1;
-
+   
   // On a redirect, overwrite the Authority/Host portion of the URL with
   // this value
   string authority = 2;
 }
-
+ 
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
 // be used only with the DestinationWeights. The following example
@@ -403,7 +402,7 @@ message HTTPTimeout {
     // timeout per request by supplying the timeout value via
     // x-envoy-upstream-rq-timeout-ms HTTP header.
     google.protobuf.Duration timeout = 1;
-    // (-- Downstream service could specify timeout via Http header to
+    // (-- Downstream service could specify timeout via Http header to 
     // Envoy, if Envoy supports such a feature. --)
     string override_header_name = 2 ;
   }

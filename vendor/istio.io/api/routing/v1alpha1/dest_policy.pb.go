@@ -102,16 +102,16 @@ func (LoadBalancing_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
 type DestinationPolicy struct {
 	// Optional: Destination uniquely identifies the destination service associated
 	// with this policy.
-	Destination *IstioService `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
+	Destination *IstioService `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
 	// Optional: Source uniquely identifies the source service associated
 	// with this policy.
-	Source *IstioService `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	Source *IstioService `protobuf:"bytes,2,opt,name=source" json:"source,omitempty"`
 	// Load balancing policy.
-	LoadBalancing *LoadBalancing `protobuf:"bytes,3,opt,name=load_balancing,json=loadBalancing,proto3" json:"load_balancing,omitempty"`
+	LoadBalancing *LoadBalancing `protobuf:"bytes,3,opt,name=load_balancing,json=loadBalancing" json:"load_balancing,omitempty"`
 	// Circuit breaker policy.
-	CircuitBreaker *CircuitBreaker `protobuf:"bytes,4,opt,name=circuit_breaker,json=circuitBreaker,proto3" json:"circuit_breaker,omitempty"`
+	CircuitBreaker *CircuitBreaker `protobuf:"bytes,4,opt,name=circuit_breaker,json=circuitBreaker" json:"circuit_breaker,omitempty"`
 	// (-- Other custom policy implementations --)
-	Custom               *any.Any `protobuf:"bytes,100,opt,name=custom,proto3" json:"custom,omitempty"`
+	Custom               *any.Any `protobuf:"bytes,100,opt,name=custom" json:"custom,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -229,10 +229,10 @@ type isLoadBalancing_LbPolicy interface {
 }
 
 type LoadBalancing_Name struct {
-	Name LoadBalancing_SimpleLBPolicy `protobuf:"varint,1,opt,name=name,proto3,enum=istio.routing.v1alpha1.LoadBalancing_SimpleLBPolicy,oneof"`
+	Name LoadBalancing_SimpleLBPolicy `protobuf:"varint,1,opt,name=name,enum=istio.routing.v1alpha1.LoadBalancing_SimpleLBPolicy,oneof"`
 }
 type LoadBalancing_Custom struct {
-	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,proto3,oneof"`
+	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
 func (*LoadBalancing_Name) isLoadBalancing_LbPolicy()   {}
@@ -376,10 +376,10 @@ type isCircuitBreaker_CbPolicy interface {
 }
 
 type CircuitBreaker_SimpleCb struct {
-	SimpleCb *CircuitBreaker_SimpleCircuitBreakerPolicy `protobuf:"bytes,1,opt,name=simple_cb,json=simpleCb,proto3,oneof"`
+	SimpleCb *CircuitBreaker_SimpleCircuitBreakerPolicy `protobuf:"bytes,1,opt,name=simple_cb,json=simpleCb,oneof"`
 }
 type CircuitBreaker_Custom struct {
-	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,proto3,oneof"`
+	Custom *any.Any `protobuf:"bytes,2,opt,name=custom,oneof"`
 }
 
 func (*CircuitBreaker_SimpleCb) isCircuitBreaker_CbPolicy() {}
@@ -522,29 +522,29 @@ func _CircuitBreaker_OneofSizer(msg proto.Message) (n int) {
 //
 type CircuitBreaker_SimpleCircuitBreakerPolicy struct {
 	// Maximum number of connections to a backend.
-	MaxConnections int32 `protobuf:"varint,1,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
+	MaxConnections int32 `protobuf:"varint,1,opt,name=max_connections,json=maxConnections" json:"max_connections,omitempty"`
 	// Maximum number of pending requests to a backend. Default 1024
-	HttpMaxPendingRequests int32 `protobuf:"varint,2,opt,name=http_max_pending_requests,json=httpMaxPendingRequests,proto3" json:"http_max_pending_requests,omitempty"`
+	HttpMaxPendingRequests int32 `protobuf:"varint,2,opt,name=http_max_pending_requests,json=httpMaxPendingRequests" json:"http_max_pending_requests,omitempty"`
 	// Maximum number of requests to a backend. Default 1024
-	HttpMaxRequests int32 `protobuf:"varint,3,opt,name=http_max_requests,json=httpMaxRequests,proto3" json:"http_max_requests,omitempty"`
+	HttpMaxRequests int32 `protobuf:"varint,3,opt,name=http_max_requests,json=httpMaxRequests" json:"http_max_requests,omitempty"`
 	// Minimum time the circuit will be open. format: 1h/1m/1s/1ms. MUST
 	// BE >=1ms. Default is 30s.
-	SleepWindow *duration.Duration `protobuf:"bytes,4,opt,name=sleep_window,json=sleepWindow,proto3" json:"sleep_window,omitempty"`
+	SleepWindow *duration.Duration `protobuf:"bytes,4,opt,name=sleep_window,json=sleepWindow" json:"sleep_window,omitempty"`
 	// Number of 5XX errors before circuit is opened. Defaults to 5.
-	HttpConsecutiveErrors int32 `protobuf:"varint,5,opt,name=http_consecutive_errors,json=httpConsecutiveErrors,proto3" json:"http_consecutive_errors,omitempty"`
+	HttpConsecutiveErrors int32 `protobuf:"varint,5,opt,name=http_consecutive_errors,json=httpConsecutiveErrors" json:"http_consecutive_errors,omitempty"`
 	// Time interval between ejection sweep analysis. format:
 	// 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
-	HttpDetectionInterval *duration.Duration `protobuf:"bytes,6,opt,name=http_detection_interval,json=httpDetectionInterval,proto3" json:"http_detection_interval,omitempty"`
+	HttpDetectionInterval *duration.Duration `protobuf:"bytes,6,opt,name=http_detection_interval,json=httpDetectionInterval" json:"http_detection_interval,omitempty"`
 	// Maximum number of requests per connection to a backend. Setting this
 	// parameter to 1 disables keep alive.
-	HttpMaxRequestsPerConnection int32 `protobuf:"varint,7,opt,name=http_max_requests_per_connection,json=httpMaxRequestsPerConnection,proto3" json:"http_max_requests_per_connection,omitempty"`
+	HttpMaxRequestsPerConnection int32 `protobuf:"varint,7,opt,name=http_max_requests_per_connection,json=httpMaxRequestsPerConnection" json:"http_max_requests_per_connection,omitempty"`
 	// Maximum % of hosts in the load balancing pool for the destination
 	// service that can be ejected by the circuit breaker. Defaults to
 	// 10%.
-	HttpMaxEjectionPercent int32 `protobuf:"varint,8,opt,name=http_max_ejection_percent,json=httpMaxEjectionPercent,proto3" json:"http_max_ejection_percent,omitempty"`
+	HttpMaxEjectionPercent int32 `protobuf:"varint,8,opt,name=http_max_ejection_percent,json=httpMaxEjectionPercent" json:"http_max_ejection_percent,omitempty"`
 	// Maximum number of retries that can be outstanding to all hosts in a
 	// cluster at a given time. Defaults to 3.
-	HttpMaxRetries       int32    `protobuf:"varint,9,opt,name=http_max_retries,json=httpMaxRetries,proto3" json:"http_max_retries,omitempty"`
+	HttpMaxRetries       int32    `protobuf:"varint,9,opt,name=http_max_retries,json=httpMaxRetries" json:"http_max_retries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

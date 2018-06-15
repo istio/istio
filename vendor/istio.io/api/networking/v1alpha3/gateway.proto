@@ -110,7 +110,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 7777
-//         host: reviews.qa.svc.cluster.local
+//         name: reviews.qa.svc.cluster.local
 //   - match:
 //       uri:
 //         prefix: /reviews/
@@ -118,10 +118,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 9080 # can be omitted if its the only port for reviews
-//         host: reviews.prod.svc.cluster.local
+//         name: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
-//         host: reviews.qa.svc.cluster.local
+//         name: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
 //
@@ -147,13 +147,13 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
-//         host: mongo.prod.svc.cluster.local
+//         name: mongo.prod.svc.cluster.local
 // ```
 message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
 
-  // REQUIRED: One or more labels that indicate a specific set of pods/VMs
+  // One or more labels that indicate a specific set of pods/VMs
   // on which this gateway configuration should be applied.
   // The scope of label search is platform dependent.
   // On Kubernetes, for example, the scope includes pods running in

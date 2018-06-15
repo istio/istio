@@ -33,8 +33,8 @@ type L4FaultInjection struct {
 	// the connection) and/or abruptly reset (terminate) the Tcp connection
 	// after it has been established.
 	// We first throttle (if set) and then terminate the connection.
-	Throttle             *L4FaultInjection_Throttle  `protobuf:"bytes,1,opt,name=throttle,proto3" json:"throttle,omitempty"`
-	Terminate            *L4FaultInjection_Terminate `protobuf:"bytes,2,opt,name=terminate,proto3" json:"terminate,omitempty"`
+	Throttle             *L4FaultInjection_Throttle  `protobuf:"bytes,1,opt,name=throttle" json:"throttle,omitempty"`
+	Terminate            *L4FaultInjection_Terminate `protobuf:"bytes,2,opt,name=terminate" json:"terminate,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
 	XXX_unrecognized     []byte                      `json:"-"`
 	XXX_sizecache        int32                       `json:"-"`
@@ -81,18 +81,18 @@ func (m *L4FaultInjection) GetTerminate() *L4FaultInjection_Terminate {
 // Bandwidth throttling for Tcp and Udp connections
 type L4FaultInjection_Throttle struct {
 	// percentage of connections to throttle.
-	Percent float32 `protobuf:"fixed32,1,opt,name=percent,proto3" json:"percent,omitempty"`
+	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// bandwidth limit in "bits" per second between downstream and Envoy
-	DownstreamLimitBps int64 `protobuf:"varint,2,opt,name=downstream_limit_bps,json=downstreamLimitBps,proto3" json:"downstream_limit_bps,omitempty"`
+	DownstreamLimitBps int64 `protobuf:"varint,2,opt,name=downstream_limit_bps,json=downstreamLimitBps" json:"downstream_limit_bps,omitempty"`
 	// bandwidth limits in "bits" per second between Envoy and upstream
-	UpstreamLimitBps int64 `protobuf:"varint,3,opt,name=upstream_limit_bps,json=upstreamLimitBps,proto3" json:"upstream_limit_bps,omitempty"`
+	UpstreamLimitBps int64 `protobuf:"varint,3,opt,name=upstream_limit_bps,json=upstreamLimitBps" json:"upstream_limit_bps,omitempty"`
 	// Types that are valid to be assigned to ThrottleAfter:
 	//	*L4FaultInjection_Throttle_ThrottleAfterPeriod
 	//	*L4FaultInjection_Throttle_ThrottleAfterBytes
 	ThrottleAfter isL4FaultInjection_Throttle_ThrottleAfter `protobuf_oneof:"throttle_after"`
 	// Stop throttling after the given duration. If not set, the connection
 	// will be throttled for its lifetime.
-	ThrottleForPeriod    *duration.Duration `protobuf:"bytes,6,opt,name=throttle_for_period,json=throttleForPeriod,proto3" json:"throttle_for_period,omitempty"`
+	ThrottleForPeriod    *duration.Duration `protobuf:"bytes,6,opt,name=throttle_for_period,json=throttleForPeriod" json:"throttle_for_period,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -127,10 +127,10 @@ type isL4FaultInjection_Throttle_ThrottleAfter interface {
 }
 
 type L4FaultInjection_Throttle_ThrottleAfterPeriod struct {
-	ThrottleAfterPeriod *duration.Duration `protobuf:"bytes,4,opt,name=throttle_after_period,json=throttleAfterPeriod,proto3,oneof"`
+	ThrottleAfterPeriod *duration.Duration `protobuf:"bytes,4,opt,name=throttle_after_period,json=throttleAfterPeriod,oneof"`
 }
 type L4FaultInjection_Throttle_ThrottleAfterBytes struct {
-	ThrottleAfterBytes float64 `protobuf:"fixed64,5,opt,name=throttle_after_bytes,json=throttleAfterBytes,proto3,oneof"`
+	ThrottleAfterBytes float64 `protobuf:"fixed64,5,opt,name=throttle_after_bytes,json=throttleAfterBytes,oneof"`
 }
 
 func (*L4FaultInjection_Throttle_ThrottleAfterPeriod) isL4FaultInjection_Throttle_ThrottleAfter() {}
@@ -258,10 +258,10 @@ func _L4FaultInjection_Throttle_OneofSizer(msg proto.Message) (n int) {
 // established, emulating remote server crash or link failure.
 type L4FaultInjection_Terminate struct {
 	// percentage of established Tcp connections to be terminated/reset
-	Percent float32 `protobuf:"fixed32,1,opt,name=percent,proto3" json:"percent,omitempty"`
+	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// TODO: see if it makes sense to create a generic Duration type to
 	// express time interval related configs.
-	TerminateAfterPeriod *duration.Duration `protobuf:"bytes,2,opt,name=terminate_after_period,json=terminateAfterPeriod,proto3" json:"terminate_after_period,omitempty"`
+	TerminateAfterPeriod *duration.Duration `protobuf:"bytes,2,opt,name=terminate_after_period,json=terminateAfterPeriod" json:"terminate_after_period,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`

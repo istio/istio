@@ -27,9 +27,9 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // The service is linked into one or more ServicePlan.
 type ServiceClass struct {
 	// Required. Istio deployment spec for the service class.
-	Deployment *Deployment `protobuf:"bytes,1,opt,name=deployment,proto3" json:"deployment,omitempty"`
+	Deployment *Deployment `protobuf:"bytes,1,opt,name=deployment" json:"deployment,omitempty"`
 	// Required. Listing information for the public catalog.
-	Entry                *CatalogEntry `protobuf:"bytes,2,opt,name=entry,proto3" json:"entry,omitempty"`
+	Entry                *CatalogEntry `protobuf:"bytes,2,opt,name=entry" json:"entry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -77,7 +77,7 @@ func (m *ServiceClass) GetEntry() *CatalogEntry {
 // Deployment defines how the service instances are deployed.
 type Deployment struct {
 	// For truely multi-tenant service, the deployed service instance name.
-	Instance             string   `protobuf:"bytes,1,opt,name=instance,proto3" json:"instance,omitempty"`
+	Instance             string   `protobuf:"bytes,1,opt,name=instance" json:"instance,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -120,11 +120,11 @@ func (m *Deployment) GetInstance() string {
 // https://github.com/openservicebrokerapi
 type CatalogEntry struct {
 	// Required. Public service name.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	// Required. Public unique service guid.
-	Id string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 	// Required. Public short service description.
-	Description          string   `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Description          string   `protobuf:"bytes,3,opt,name=description" json:"description,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

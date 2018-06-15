@@ -138,7 +138,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //     - destination:
 //         port:
 //           number: 7777
-//         host: reviews.qa.svc.cluster.local
+//         name: reviews.qa.svc.cluster.local
 //   - match:
 //       uri:
 //         prefix: /reviews/
@@ -146,10 +146,10 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //     - destination:
 //         port:
 //           number: 9080 # can be omitted if its the only port for reviews
-//         host: reviews.prod.svc.cluster.local
+//         name: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
-//         host: reviews.qa.svc.cluster.local
+//         name: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
 //
@@ -175,12 +175,12 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
-//         host: mongo.prod.svc.cluster.local
+//         name: mongo.prod.svc.cluster.local
 // ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
+	// One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
 	// The scope of label search is platform dependent.
 	// On Kubernetes, for example, the scope includes pods running in

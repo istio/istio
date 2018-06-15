@@ -30,10 +30,10 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type HTTPFaultInjection struct {
 	// Delay requests before forwarding, emulating various failures such as
 	// network issues, overloaded upstream service, etc.
-	Delay *HTTPFaultInjection_Delay `protobuf:"bytes,1,opt,name=delay,proto3" json:"delay,omitempty"`
+	Delay *HTTPFaultInjection_Delay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
 	// Abort Http request attempts and return error codes back to downstream
 	// service, giving the impression that the upstream service is faulty.
-	Abort                *HTTPFaultInjection_Abort `protobuf:"bytes,2,opt,name=abort,proto3" json:"abort,omitempty"`
+	Abort                *HTTPFaultInjection_Abort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -101,14 +101,14 @@ func (m *HTTPFaultInjection) GetAbort() *HTTPFaultInjection_Abort {
 // unspecified, all request will be delayed.
 type HTTPFaultInjection_Delay struct {
 	// percentage of requests on which the delay will be injected (0-100)
-	Percent float32 `protobuf:"fixed32,1,opt,name=percent,proto3" json:"percent,omitempty"`
+	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// Types that are valid to be assigned to HttpDelayType:
 	//	*HTTPFaultInjection_Delay_FixedDelay
 	//	*HTTPFaultInjection_Delay_ExponentialDelay
 	HttpDelayType isHTTPFaultInjection_Delay_HttpDelayType `protobuf_oneof:"http_delay_type"`
 	// (-- Specify delay duration as part of Http request.
 	// TODO: The semantics and syntax of the headers is undefined. --)
-	OverrideHeaderName   string   `protobuf:"bytes,4,opt,name=override_header_name,json=overrideHeaderName,proto3" json:"override_header_name,omitempty"`
+	OverrideHeaderName   string   `protobuf:"bytes,4,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -143,10 +143,10 @@ type isHTTPFaultInjection_Delay_HttpDelayType interface {
 }
 
 type HTTPFaultInjection_Delay_FixedDelay struct {
-	FixedDelay *duration.Duration `protobuf:"bytes,2,opt,name=fixed_delay,json=fixedDelay,proto3,oneof"`
+	FixedDelay *duration.Duration `protobuf:"bytes,2,opt,name=fixed_delay,json=fixedDelay,oneof"`
 }
 type HTTPFaultInjection_Delay_ExponentialDelay struct {
-	ExponentialDelay *duration.Duration `protobuf:"bytes,3,opt,name=exponential_delay,json=exponentialDelay,proto3,oneof"`
+	ExponentialDelay *duration.Duration `protobuf:"bytes,3,opt,name=exponential_delay,json=exponentialDelay,oneof"`
 }
 
 func (*HTTPFaultInjection_Delay_FixedDelay) isHTTPFaultInjection_Delay_HttpDelayType()       {}
@@ -284,7 +284,7 @@ func _HTTPFaultInjection_Delay_OneofSizer(msg proto.Message) (n int) {
 // not specified, all requests are aborted.
 type HTTPFaultInjection_Abort struct {
 	// percentage of requests to be aborted with the error code provided (0-100).
-	Percent float32 `protobuf:"fixed32,1,opt,name=percent,proto3" json:"percent,omitempty"`
+	Percent float32 `protobuf:"fixed32,1,opt,name=percent" json:"percent,omitempty"`
 	// Types that are valid to be assigned to ErrorType:
 	//	*HTTPFaultInjection_Abort_GrpcStatus
 	//	*HTTPFaultInjection_Abort_Http2Error
@@ -292,7 +292,7 @@ type HTTPFaultInjection_Abort struct {
 	ErrorType isHTTPFaultInjection_Abort_ErrorType `protobuf_oneof:"error_type"`
 	// (-- Specify abort code as part of Http request.
 	// TODO: The semantics and syntax of the headers is undefined. --)
-	OverrideHeaderName   string   `protobuf:"bytes,5,opt,name=override_header_name,json=overrideHeaderName,proto3" json:"override_header_name,omitempty"`
+	OverrideHeaderName   string   `protobuf:"bytes,5,opt,name=override_header_name,json=overrideHeaderName" json:"override_header_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -327,13 +327,13 @@ type isHTTPFaultInjection_Abort_ErrorType interface {
 }
 
 type HTTPFaultInjection_Abort_GrpcStatus struct {
-	GrpcStatus string `protobuf:"bytes,2,opt,name=grpc_status,json=grpcStatus,proto3,oneof"`
+	GrpcStatus string `protobuf:"bytes,2,opt,name=grpc_status,json=grpcStatus,oneof"`
 }
 type HTTPFaultInjection_Abort_Http2Error struct {
-	Http2Error string `protobuf:"bytes,3,opt,name=http2_error,json=http2Error,proto3,oneof"`
+	Http2Error string `protobuf:"bytes,3,opt,name=http2_error,json=http2Error,oneof"`
 }
 type HTTPFaultInjection_Abort_HttpStatus struct {
-	HttpStatus int32 `protobuf:"varint,4,opt,name=http_status,json=httpStatus,proto3,oneof"`
+	HttpStatus int32 `protobuf:"varint,4,opt,name=http_status,json=httpStatus,oneof"`
 }
 
 func (*HTTPFaultInjection_Abort_GrpcStatus) isHTTPFaultInjection_Abort_ErrorType() {}
