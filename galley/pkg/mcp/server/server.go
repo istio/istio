@@ -73,7 +73,7 @@ type Watcher interface {
 
 var _ discovery.AggregatedDiscoveryServiceServer = &Server{}
 
-// Service implements the Mesh Configuration Protocol (MCP) gRPC server.
+// Server implements the Mesh Configuration Protocol (MCP) gRPC server.
 type Server struct {
 	watcher        Watcher
 	supportedTypes []string
@@ -82,7 +82,6 @@ type Server struct {
 
 // watch maintains local state of the most recent watch per-type.
 type watch struct {
-	response chan WatchResponse
 	cancel   func()
 	nonce    string
 }
@@ -124,7 +123,7 @@ func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_Strea
 		stream:    stream,
 		peerAddr:  peerAddr,
 		requestC:  make(chan *xdsapi.DiscoveryRequest),
-		responseC: make(chan *WatchResponse, 0),
+		responseC: make(chan *WatchResponse),
 		watches:   make(map[string]*watch),
 		watcher:   s.watcher,
 		id:        atomic.AddInt64(&s.nextStreamID, 1),

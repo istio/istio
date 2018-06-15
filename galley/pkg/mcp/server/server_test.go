@@ -51,7 +51,7 @@ func (config *mockConfigWatcher) Watch(req *v2.DiscoveryRequest, out chan<- *Wat
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	config.counts[req.TypeUrl] += 1
+	config.counts[req.TypeUrl]++
 
 	if rsp, ok := config.responses[req.TypeUrl]; ok {
 		rsp.TypeURL = req.TypeUrl
@@ -106,7 +106,7 @@ type mockStream struct {
 
 func (stream *mockStream) Send(resp *v2.DiscoveryResponse) error {
 	// check that nonce is monotonically incrementing
-	stream.nonce = stream.nonce + 1
+	stream.nonce++
 	if resp.Nonce != fmt.Sprintf("%d", stream.nonce) {
 		stream.t.Errorf("Nonce => got %q, want %d", resp.Nonce, stream.nonce)
 	}
@@ -183,9 +183,9 @@ const (
 	fakeType1Prefix = "istio.io.galley.pkg.mcp.server.fakeType1"
 	fakeType2Prefix = "istio.io.galley.pkg.mcp.server.fakeType2"
 
-	fakeType0TypeUrl = typePrefix + fakeType0Prefix
-	fakeType1TypeUrl = typePrefix + fakeType1Prefix
-	fakeType2TypeUrl = typePrefix + fakeType2Prefix
+	fakeType0TypeURL = typePrefix + fakeType0Prefix
+	fakeType1TypeURL = typePrefix + fakeType1Prefix
+	fakeType2TypeURL = typePrefix + fakeType2Prefix
 )
 
 func mustMarshalAny(pb proto.Message) *types.Any {
@@ -226,16 +226,16 @@ var (
 	fakeResource2 *mcp.Envelope
 
 	WatchResponseTypes = []string{
-		fakeType0TypeUrl,
-		fakeType1TypeUrl,
-		fakeType2TypeUrl,
+		fakeType0TypeURL,
+		fakeType1TypeURL,
+		fakeType2TypeURL,
 	}
 )
 
 func TestMultipleRequests(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
@@ -244,7 +244,7 @@ func TestMultipleRequests(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -259,7 +259,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case rsp = <-stream.sent:
-		if want := map[string]int{fakeType0TypeUrl: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -268,7 +268,7 @@ func TestMultipleRequests(t *testing.T) {
 
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:          node,
-		TypeUrl:       fakeType0TypeUrl,
+		TypeUrl:       fakeType0TypeURL,
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
@@ -276,7 +276,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case <-stream.sent:
-		if want := map[string]int{fakeType0TypeUrl: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -286,13 +286,13 @@ func TestMultipleRequests(t *testing.T) {
 
 func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.watchesCreated[fakeType0TypeUrl] = make(chan struct{})
+	config.watchesCreated[fakeType0TypeURL] = make(chan struct{})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -302,9 +302,9 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 		}
 	}()
 
-	<-config.watchesCreated[fakeType0TypeUrl]
+	<-config.watchesCreated[fakeType0TypeURL]
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
@@ -313,7 +313,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	select {
 	case <-stream.sent:
 		close(stream.recv)
-		if want := map[string]int{fakeType0TypeUrl: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -329,7 +329,7 @@ func TestWatchClosed(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 
 	// check that response fails since watch gets closed
@@ -344,7 +344,7 @@ func TestWatchClosed(t *testing.T) {
 func TestSendError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
@@ -354,7 +354,7 @@ func TestSendError(t *testing.T) {
 	stream.sendError = true
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -369,7 +369,7 @@ func TestSendError(t *testing.T) {
 func TestReceiveError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
@@ -379,7 +379,7 @@ func TestReceiveError(t *testing.T) {
 	stream.recvError = status.Error(codes.Internal, "internal receive error")
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 
 	// check that response fails since watch gets closed
@@ -418,7 +418,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 func TestStaleNonce(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
@@ -426,7 +426,7 @@ func TestStaleNonce(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 	stop := make(chan struct{})
 	s := New(config, WatchResponseTypes)
@@ -435,7 +435,7 @@ func TestStaleNonce(t *testing.T) {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		// should be two watches called
-		if want := map[string]int{fakeType0TypeUrl: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 		close(stop)
@@ -445,14 +445,14 @@ func TestStaleNonce(t *testing.T) {
 		// stale request
 		stream.recv <- &v2.DiscoveryRequest{
 			Node:          node,
-			TypeUrl:       fakeType0TypeUrl,
+			TypeUrl:       fakeType0TypeURL,
 			ResponseNonce: "xyz",
 		}
 		// fresh request
 		stream.recv <- &v2.DiscoveryRequest{
 			VersionInfo:   "1",
 			Node:          node,
-			TypeUrl:       fakeType0TypeUrl,
+			TypeUrl:       fakeType0TypeURL,
 			ResponseNonce: "1",
 		}
 		close(stream.recv)
@@ -465,17 +465,17 @@ func TestStaleNonce(t *testing.T) {
 func TestAggregatedHandlers(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeUrl,
+		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
 		Resources: []*mcp.Envelope{fakeResource0},
 	})
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType1TypeUrl,
+		TypeURL:   fakeType1TypeURL,
 		Version:   "2",
 		Resources: []*mcp.Envelope{fakeResource1},
 	})
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType2TypeUrl,
+		TypeURL:   fakeType2TypeURL,
 		Version:   "3",
 		Resources: []*mcp.Envelope{fakeResource2},
 	})
@@ -483,15 +483,15 @@ func TestAggregatedHandlers(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType0TypeUrl,
+		TypeUrl: fakeType0TypeURL,
 	}
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType1TypeUrl,
+		TypeUrl: fakeType1TypeURL,
 	}
 	stream.recv <- &v2.DiscoveryRequest{
 		Node:    node,
-		TypeUrl: fakeType2TypeUrl,
+		TypeUrl: fakeType2TypeURL,
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -502,9 +502,9 @@ func TestAggregatedHandlers(t *testing.T) {
 	}()
 
 	want := map[string]int{
-		fakeType0TypeUrl: 1,
-		fakeType1TypeUrl: 1,
-		fakeType2TypeUrl: 1,
+		fakeType0TypeURL: 1,
+		fakeType1TypeURL: 1,
+		fakeType2TypeURL: 1,
 	}
 
 	count := 0
@@ -524,7 +524,6 @@ func TestAggregatedHandlers(t *testing.T) {
 			t.Fatalf("got %d mesages on the stream, not %v", count, len(want))
 		}
 	}
-	close(stream.recv)
 }
 
 func TestAggregateRequestType(t *testing.T) {
