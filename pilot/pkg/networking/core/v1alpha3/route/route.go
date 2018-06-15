@@ -535,14 +535,16 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 		}
 	}
 
-	operation := fmt.Sprintf("%s:%d%s", vsName, port, path)
-	// use host:port + match uri if there is only one destination cluster.
-	wc := in.GetRoute().GetWeightedClusters()
-	if c := wc.GetClusters(); len(c) == 1 {
-		_, _, h, p := model.ParseSubsetKey(c[0].Name)
-		operation = fmt.Sprintf("%s:%d%s", h, p, path)
+	// If there is only one destination cluster in route, return host:port/uri as description of route.
+	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
+	// return virtual serivce name:port/uri as substitute.
+	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
+		log.Infof("cluster name %s", c)
+		// Parse host and port from cluster name.
+		_, _, h, p := model.ParseSubsetKey(c)
+		return fmt.Sprintf("%s:%d%s", h, p, path)
 	}
-	return operation
+	return fmt.Sprintf("%s:%d%s", vsName, port, path)
 }
 
 // BuildDefaultHTTPRoute builds a default route.
