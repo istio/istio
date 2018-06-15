@@ -426,7 +426,7 @@ func TestLogEntry(t *testing.T) {
 var defaultConfig = GetInfo().DefaultConfig.(*config.Params)
 
 func WithSampling(cfg *config.Params, tick time.Duration, unsampledLimit, samplingRate int64) *config.Params {
-	cfg.LogsSampling = &config.Params_LogsSampling{
+	cfg.LogSampling = &config.Params_LogSampling{
 		SamplingDuration:    tick,
 		MaxUnsampledEntries: unsampledLimit,
 		SamplingRate:        samplingRate,
@@ -476,22 +476,24 @@ func TestLogSampling(t *testing.T) {
 	}
 
 	cases := []struct {
+		name               string
 		duration           time.Duration
 		limit              int64
 		rate               int64
 		numEntriesToSend   int
 		numExpectedEntries int
 	}{
-		{5 * time.Second, 1, 10, 9, 1},
-		{5 * time.Second, 1, 5, 6, 2},
-		{5 * time.Second, 1, 1, 6, 6},
-		{5 * time.Second, 5, 10, 10, 5},
-		{5 * time.Second, 9, 1, 10, 10},
-		{5 * time.Second, 9, 0, 15, 9},
+		{"1 per 5s with sampling rate of 10, send 9", 5 * time.Second, 1, 10, 9, 1},
+		{"1 per 5s with sampling rate of 5, send 6", 5 * time.Second, 1, 5, 6, 2},
+		{"1 per 5s with sampling rate of 1, send 6", 5 * time.Second, 1, 1, 6, 6},
+		{"5 per 5s with sampling rate of 10, send 5", 5 * time.Second, 5, 10, 10, 5},
+		{"9 per 5s with sampling rate of 1, send 10", 5 * time.Second, 9, 1, 10, 10},
+		{"9 per 5s with sampling rate of 0, send 15", 5 * time.Second, 9, 0, 15, 15},
+		{"1 per 10m with sampling rate of 2, send 6", 10 * time.Minute, 1, 2, 6, 3},
 	}
 
-	for i, c := range cases {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
 
 			lines, _ := captureStdout(func() {
 

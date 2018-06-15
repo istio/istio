@@ -132,11 +132,11 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 
 </td>
 </tr>
-<tr id="Params.logs_sampling">
-<td><code>logsSampling</code></td>
-<td><code><a href="#Params.LogsSampling">Params.LogsSampling</a></code></td>
+<tr id="Params.log_sampling">
+<td><code>logSampling</code></td>
+<td><code><a href="#Params.LogSampling">Params.LogSampling</a></code></td>
 <td>
-<p>Controls the rate of logs sampling for the configured handler.</p>
+<p>Controls the rate of log sampling for the configured handler.</p>
 
 </td>
 </tr>
@@ -179,9 +179,9 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.LogsSampling">Params.LogsSampling</h2>
+<h2 id="Params.LogSampling">Params.LogSampling</h2>
 <section>
-<p>Controls the level of sampling that will be used by a stdio handler for logs entries.
+<p>Controls the level of sampling that will be used by a stdio handler for log entries.
 Sampling is configured based on a duration, with the following logic:
  - over the course of the duration, <code>max_unsampled_entries</code> are allowed unmodified
  - after <code>max_unsampled_entries</code>, for the remainder of the duration a single log entry will
@@ -196,7 +196,7 @@ Sampling is configured based on a duration, with the following logic:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.LogsSampling.sampling_duration">
+<tr id="Params.LogSampling.sampling_duration">
 <td><code>samplingDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -205,7 +205,7 @@ support for moving backwards in time (window moves forward from initial instant)
 
 </td>
 </tr>
-<tr id="Params.LogsSampling.max_unsampled_entries">
+<tr id="Params.LogSampling.max_unsampled_entries">
 <td><code>maxUnsampledEntries</code></td>
 <td><code>int64</code></td>
 <td>
@@ -213,7 +213,7 @@ support for moving backwards in time (window moves forward from initial instant)
 
 </td>
 </tr>
-<tr id="Params.LogsSampling.sampling_rate">
+<tr id="Params.LogSampling.sampling_rate">
 <td><code>samplingRate</code></td>
 <td><code>int64</code></td>
 <td>

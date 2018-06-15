@@ -225,8 +225,8 @@ func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBu
 		sl[k] = levelToZap[v]
 	}
 
-	if b.adapterConfig.LogsSampling != nil {
-		ls := b.adapterConfig.LogsSampling
+	if b.adapterConfig.LogSampling != nil {
+		ls := b.adapterConfig.LogSampling
 		if ls.SamplingRate > 0 {
 			core = zapcore.NewSampler(core, ls.SamplingDuration, int(ls.MaxUnsampledEntries), int(ls.SamplingRate))
 		}
