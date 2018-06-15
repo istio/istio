@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/internal"
 	"istio.io/istio/pkg/test/local/pilot"
+	"istio.io/istio/pkg/test/tmpl"
 )
 
 const (
@@ -54,12 +55,18 @@ func (e *Environment) Initialize(ctx *internal.TestContext) error {
 // InitializeDependency is called when a new dependency is encountered during test run.
 func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
 	switch d {
+	case dependency.Kube:
+		return nil, fmt.Errorf("local environment does not support running with a cluster")
+
 	case dependency.Mixer:
 		return newMixer(ctx)
+
 	case dependency.PolicyBackend:
 		return newPolicyBackend(policy.DefaultPort)
+
 	case dependency.Pilot:
 		return newPilot()
+
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
 	}
@@ -75,6 +82,29 @@ func (e *Environment) Configure(t testing.TB, config string) {
 			}
 		}
 	}
+	// TODO: Implement a mechanism for reliably waiting for the configuration to disseminate in the system.
+	// We can use CtrlZ to expose the config state of Mixer and Pilot.
+	// See https://github.com/istio/istio/issues/6169 and https://github.com/istio/istio/issues/6170.
+}
+
+// Evaluate the template against standard set of parameters
+func (e *Environment) Evaluate(tb testing.TB, template string) string {
+	p := tmpl.Parameters{
+		TestNamespace:       "test",
+		DependencyNamespace: "dependencies",
+	}
+
+	s, err := tmpl.Evaluate(template, p)
+	if err != nil {
+		tb.Fatalf("Error evaluating template: %v", err)
+	}
+
+	return s
+}
+
+// Reset implementation.
+func (e *Environment) Reset() error {
+	return nil
 }
 
 // GetMixer returns a deployed Mixer instance in the environment.
@@ -121,21 +151,32 @@ func (e *Environment) GetPilotOrFail(t testing.TB) environment.DeployedPilot {
 
 // GetApp returns a fake testing app object for the given name.
 func (e *Environment) GetApp(name string) (environment.DeployedApp, error) {
-	// TODO
-	panic("Not yet implemented")
+	s, err := e.get(dependency.Apps)
+	if err != nil {
+		return nil, err
+	}
+	return s.(environment.DeployedApp), nil
 }
 
 // GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
 func (e *Environment) GetAppOrFail(name string, t testing.TB) environment.DeployedApp {
 	t.Helper()
-	// TODO
-	panic("Not yet implemented")
+
+	m, err := e.GetApp(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return m
 }
 
 // GetFortioApp returns a Fortio App object for the given name.
 func (e *Environment) GetFortioApp(name string) (environment.DeployedFortioApp, error) {
-	// TODO
-	panic("Not yet implemented")
+	s, err := e.get(dependency.FortioApps)
+	if err != nil {
+		return nil, err
+	}
+	return s.(environment.DeployedFortioApp), nil
 }
 
 // GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
@@ -151,7 +192,8 @@ func (e *Environment) GetFortioAppOrFail(name string, t testing.TB) environment.
 // GetFortioApps returns a set of Fortio Apps based on the given selector.
 func (e *Environment) GetFortioApps(selector string, t testing.TB) []environment.DeployedFortioApp {
 	t.Helper()
-	// TODO
+	// TODO: Implement or remove the method
+	// See https://github.com/istio/istio/issues/6171
 	panic("Not yet implemented")
 }
 

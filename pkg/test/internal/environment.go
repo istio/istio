@@ -29,4 +29,7 @@ type Environment interface {
 
 	// InitializeDependency is called when a new dependency is encountered during test run.
 	InitializeDependency(ctx *TestContext, d dependency.Instance) (interface{}, error)
+
+	// Reset the environment as part of AcquireEnvironment call.
+	Reset() error
 }
