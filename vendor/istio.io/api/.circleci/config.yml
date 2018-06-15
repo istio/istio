@@ -2,7 +2,7 @@ version: 2
 defaults: &defaults
   working_directory: /src/istio.io/api
   docker:
-    - image: gcr.io/istio-testing/protoc:2018-03-03
+    - image: gcr.io/istio-testing/protoc:2018-06-12
   environment:
     GOPATH: /go
     OUT_PATH: /src

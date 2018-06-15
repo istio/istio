@@ -11,7 +11,7 @@
 		mixer/adapter/model/v1beta1/infrastructure_backend.proto
 		mixer/adapter/model/v1beta1/quota.proto
 		mixer/adapter/model/v1beta1/report.proto
-		mixer/adapter/model/v1beta1/type.proto
+		mixer/adapter/model/v1beta1/template.proto
 
 	It has these top-level messages:
 		CheckResult
@@ -25,13 +25,7 @@
 		QuotaRequest
 		QuotaResult
 		ReportResult
-		Value
-		IPAddress
-		Duration
-		TimeStamp
-		DNSName
-		EmailAddress
-		Uri
+		Template
 */
 package v1beta1
 

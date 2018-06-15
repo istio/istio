@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // TODO: Finish support for YAML output
-// TODO: consider using protoc-gen-validate annotations to improve doc generation
+// TODO: consider using protoc-gen-validate frontMatter to improve doc generation
 
 package main
 
@@ -60,6 +60,9 @@ func main() {
 	mode := htmlPage
 	genWarnings := true
 	emitYAML := false
+	camelCaseFields := true
+	customStyleSheet := ""
+	perFile := false
 
 	p := extractParams(request.GetParameter())
 	for k, v := range p {
@@ -70,7 +73,9 @@ func main() {
 			case "html_fragment":
 				mode = htmlFragment
 			case "jekyll_html":
-				mode = jekyllHTML
+				mode = htmlFragmentWithFrontMatter
+			case "html_fragment_with_front_matter":
+				mode = htmlFragmentWithFrontMatter
 			default:
 				croak("Unsupported output mode of '%s' specified\n", v)
 			}
@@ -92,12 +97,32 @@ func main() {
 			default:
 				croak("Unknown value '%s' for emit_yaml\n", v)
 			}
+		} else if k == "camel_case_fields" {
+			switch strings.ToLower(v) {
+			case "true":
+				camelCaseFields = true
+			case "false":
+				camelCaseFields = false
+			default:
+				croak("Unknown value '%s' for camel_case_fields\n", v)
+			}
+		} else if k == "custom_style_sheet" {
+			customStyleSheet = v
+		} else if k == "per_file" {
+			switch strings.ToLower(v) {
+			case "true":
+				perFile = true
+			case "false":
+				perFile = false
+			default:
+				croak("Unknown value '%s' for per_file", v)
+			}
 		} else {
 			croak("Unknown argument '%s' specified\n", k)
 		}
 	}
 
-	m, err := newModel(&request)
+	m, err := newModel(&request, perFile)
 	if err != nil {
 		croak("Unable to create model: %v\n", err)
 	}
@@ -111,7 +136,7 @@ func main() {
 		filesToGen[fd] = true
 	}
 
-	g := newHTMLGenerator(m, mode, genWarnings, emitYAML)
+	g := newHTMLGenerator(m, mode, genWarnings, emitYAML, camelCaseFields, customStyleSheet, perFile)
 	response := g.generateOutput(filesToGen)
 
 	data, err = proto.Marshal(response)

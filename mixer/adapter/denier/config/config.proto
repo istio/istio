@@ -15,11 +15,17 @@
 syntax = "proto3";
 
 // $title: Denier
-// $overview: Adapter that always returns a precondition denial.
-// $location: https://istio.io/docs/reference/config/adapters/denier.html
+// $description: Adapter that always returns a precondition denial.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/denier.html
+// $aliases:
+// $  - /docs/reference/config/adapters/denier.html
 
 // The `denier` adapter is designed to always return a denial to precondition
 // checks. You can specify the exact error to return for these denials.
+//
+// This adapter supports the [checknothing template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing/),
+// the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/),
+// and the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 package adapter.denier.config;
 
 import "gogoproto/gogo.proto";

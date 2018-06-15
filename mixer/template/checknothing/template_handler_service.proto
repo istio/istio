@@ -19,12 +19,9 @@ syntax = "proto3";
 
 // The `checknothing` template represents an empty block of data, which can useful
 // in different testing scenarios.
-//
-// CheckNothing represents an empty block of data that is used for Check-capable
-// adapters which don't require any parameters. This is primarily intended for testing
-// scenarios.
 // 
 // Example config:
+// 
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: checknothing
@@ -33,6 +30,10 @@ syntax = "proto3";
 //   namespace: istio-system
 // spec:
 // ```
+//
+// CheckNothing represents an empty block of data that is used for Check-capable
+// adapters which don't require any parameters. This is primarily intended for testing
+// scenarios.
 package checknothing;
 
 

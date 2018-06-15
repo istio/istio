@@ -266,6 +266,10 @@ func (f fakeres) ResolveEnum(name string) *descriptor.EnumDescriptorProto {
 	return nil
 }
 
+func (f fakeres) ResolveService(namePrefix string) (svc *descriptor.ServiceDescriptorProto, pkg string) {
+	return nil, ""
+}
+
 func TestBuilder_Build(t *testing.T) {
 	b := NewEncoderBuilder(&fakeres{}, nil, false)
 	_, err := b.Build("", nil)
@@ -284,7 +288,7 @@ func TestBuilderErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := yaml.NewResolver(fds)
-	compiler := compiled.NewBuilder(statdardVocabulary())
+	compiler := compiled.NewBuilder(StatdardVocabulary())
 
 	for _, td := range []struct {
 		desc        string

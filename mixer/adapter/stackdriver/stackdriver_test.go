@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/tracespan"
 )
 
 type (
@@ -52,6 +53,11 @@ func (f *fakeBuilder) SetMetricTypes(metrics map[string]*metric.Type) {
 func (f *fakeBuilder) SetLogEntryTypes(entries map[string]*logentry.Type) {
 	f.calledConfigure = true
 }
+
+func (f *fakeBuilder) SetTraceSpanTypes(entries map[string]*tracespan.Type) {
+	f.calledConfigure = true
+}
+
 func (f *fakeBuilder) Validate() *adapter.ConfigErrors {
 	f.calledValidate = true
 	return nil
@@ -76,18 +82,30 @@ func (f *fakeAspect) HandleLogEntry(context.Context, []*logentry.Instance) error
 	return nil
 }
 
+func (f *fakeAspect) HandleTraceSpan(context.Context, []*tracespan.Instance) error {
+	f.calledHandle = true
+	return nil
+}
+
 func TestDispatchConfigureAndBuild(t *testing.T) {
 	m := &fakeBuilder{}
 	l := &fakeBuilder{}
-	b := &builder{m, l}
-	b.SetMetricTypes(make(map[string]*metric.Type))
+	tb := &fakeBuilder{}
+	b := &builder{m, l, tb}
 
+	b.SetMetricTypes(make(map[string]*metric.Type))
 	if !m.calledConfigure {
 		t.Error("Expected m.SetMetricTypes to be called, wasn't.")
 	}
+
 	b.SetLogEntryTypes(make(map[string]*logentry.Type))
 	if !l.calledConfigure {
 		t.Error("Expected l.SetLogEntryTypes to be called, wasn't.")
+	}
+
+	b.SetTraceSpanTypes(make(map[string]*tracespan.Type))
+	if !tb.calledConfigure {
+		t.Error("Expected tb.SetTraceSpanTypes to be called, wasn't.")
 	}
 
 	b.SetAdapterConfig(&config.Params{})
@@ -97,6 +115,9 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	if !m.calledAdptCfg {
 		t.Error("Expected m.calledAdptCfg to be called, wasn't.")
 	}
+	if !tb.calledAdptCfg {
+		t.Error("Expected tb.calledAdptCfg to be called, wasn't.")
+	}
 
 	_ = b.Validate()
 	if !l.calledValidate {
@@ -105,8 +126,11 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	if !m.calledValidate {
 		t.Error("Expected m.calledValidate to be called, wasn't.")
 	}
+	if !tb.calledValidate {
+		t.Error("Expected tb.calledValidate to be called, wasn't.")
+	}
 
-	if l.calledBuild || m.calledBuild {
+	if l.calledBuild || m.calledBuild || tb.calledBuild {
 		t.Fatalf("Build called on builders before calling b.Build")
 	}
 	if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
@@ -118,6 +142,9 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	if !l.calledBuild {
 		t.Errorf("b.Build but l.Build not called")
 	}
+	if !tb.calledBuild {
+		t.Errorf("b.Build but tb.Build not called")
+	}
 }
 
 func TestDispatchHandleAndClose(t *testing.T) {
@@ -125,7 +152,9 @@ func TestDispatchHandleAndClose(t *testing.T) {
 	lb := &fakeBuilder{instance: la}
 	ma := &fakeAspect{}
 	mb := &fakeBuilder{instance: ma}
-	b := &builder{mb, lb}
+	ta := &fakeAspect{}
+	tb := &fakeBuilder{instance: ta}
+	b := &builder{mb, lb, tb}
 
 	superHandler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
@@ -148,6 +177,14 @@ func TestDispatchHandleAndClose(t *testing.T) {
 		t.Error("Called handler.HandleLogEntry, but call not forwarded to log aspect")
 	}
 
+	ts, _ := superHandler.(tracespan.Handler)
+	if err := ts.HandleTraceSpan(context.Background(), []*tracespan.Instance{}); err != nil {
+		t.Errorf("HandleTraceSpan returned unexpected err: %v", err)
+	}
+	if !ta.calledHandle {
+		t.Error("Called handler.HandleTraceSpan, but call not forwarded to trace aspect")
+	}
+
 	if err := ms.Close(); err != nil {
 		t.Errorf("Unexpected error when calling close: %v", err)
 	}
@@ -157,5 +194,7 @@ func TestDispatchHandleAndClose(t *testing.T) {
 	if !la.calledClose {
 		t.Error("Called handler.Close, but call not forwarded to log aspect")
 	}
-
+	if !ta.calledClose {
+		t.Error("Called handler.Close, but call not forwarded to trace aspect")
+	}
 }

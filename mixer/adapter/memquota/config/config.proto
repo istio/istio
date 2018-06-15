@@ -15,8 +15,10 @@
 syntax = "proto3";
 
 // $title: Memory quota
-// $overview: Adapter for a simple in-memory quota management system.
-// $location: https://istio.io/docs/reference/config/adapters/memquota.html
+// $description: Adapter for a simple in-memory quota management system.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/memquota.html
+// $aliases:
+// $  - /docs/reference/config/adapters/memquota.html
 
 // The `memquota` adapter can be used to support Istio's quota management
 // system. Although functional, this adapter is not intended for production
@@ -25,6 +27,8 @@ syntax = "proto3";
 // instance of Mixer running for the whole mesh (i.e. non-HA configuration)
 // and if that single instance crashes, all outstanding quota values will
 // be lost.
+//
+// This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
 package adapter.memquota.config;
 
 import "google/protobuf/duration.proto";

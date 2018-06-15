@@ -1,12 +1,19 @@
 ---
 title: Stackdriver
-overview: Adapter to deliver logs and metrics to Stackdriver
-location: https://istio.io/docs/reference/config/adapters/stackdriver.html
+description: Adapter to deliver logs, metrics, and traces to Stackdriver
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stackdriver.html
 layout: protoc-gen-docs
-number_of_entries: 11
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/stackdriver.html
+number_of_entries: 12
 ---
-<p>The <code>stackdriver</code> adapter enables Istio to deliver log and metric data to the
-<a href="https://cloud.google.com/stackdriver/">Stackdriver</a> logging and monitoring backend.</p>
+<p>The <code>stackdriver</code> adapter enables Istio to deliver log, metric and traces to the
+<a href="https://cloud.google.com/stackdriver/">Stackdriver</a> backend.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>,
+the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>,
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/">tracespan template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -21,7 +28,7 @@ number_of_entries: 11
 </tr>
 </thead>
 <tbody>
-<tr id="Params.endpoint">
+<tr id="Params-endpoint">
 <td><code>endpoint</code></td>
 <td><code>string</code></td>
 <td>
@@ -30,7 +37,7 @@ StackDriver SDK&rsquo;s default value (monitoring.googleapis.com).</p>
 
 </td>
 </tr>
-<tr id="Params.project_id">
+<tr id="Params-project_id">
 <td><code>projectId</code></td>
 <td><code>string</code></td>
 <td>
@@ -38,7 +45,7 @@ StackDriver SDK&rsquo;s default value (monitoring.googleapis.com).</p>
 
 </td>
 </tr>
-<tr id="Params.push_interval">
+<tr id="Params-push_interval">
 <td><code>pushInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -47,7 +54,7 @@ If no value is provided we default to once per minute.</p>
 
 </td>
 </tr>
-<tr id="Params.app_credentials" class="oneof oneof-start">
+<tr id="Params-app_credentials" class="oneof oneof-start">
 <td><code>appCredentials</code></td>
 <td><code>bool (oneof)</code></td>
 <td>
@@ -58,7 +65,7 @@ by the StackDriver SDK.</p>
 
 </td>
 </tr>
-<tr id="Params.api_key" class="oneof">
+<tr id="Params-api_key" class="oneof">
 <td><code>apiKey</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -66,7 +73,7 @@ by the StackDriver SDK.</p>
 
 </td>
 </tr>
-<tr id="Params.service_account_path" class="oneof">
+<tr id="Params-service_account_path" class="oneof">
 <td><code>serviceAccountPath</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -76,26 +83,34 @@ or <code>./testdata/my-test-account-creds.json</code>.</p>
 
 </td>
 </tr>
-<tr id="Params.metric_info">
+<tr id="Params-metric_info">
 <td><code>metricInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.MetricInfo">Params.MetricInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricInfo">Params.MetricInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio metric name to Stackdriver metric info.</p>
 
 </td>
 </tr>
-<tr id="Params.log_info">
+<tr id="Params-log_info">
 <td><code>logInfo</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.LogInfo">Params.LogInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-LogInfo">Params.LogInfo</a>&gt;</code></td>
 <td>
 <p>A map of Istio LogEntry name to Stackdriver log info.</p>
+
+</td>
+</tr>
+<tr id="Params-trace">
+<td><code>trace</code></td>
+<td><code><a href="#Params-Trace">Params.Trace</a></code></td>
+<td>
+<p>Stackdriver Trace configuration.</p>
 
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="Params.LogInfo">Params.LogInfo</h2>
+<h2 id="Params-LogInfo">Params.LogInfo</h2>
 <section>
 <p>Describes how to represent an Istio Log in Stackdriver.</p>
 
@@ -108,7 +123,7 @@ or <code>./testdata/my-test-account-creds.json</code>.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.LogInfo.label_names">
+<tr id="Params-LogInfo-label_names">
 <td><code>labelNames</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -117,7 +132,7 @@ form Stackdriver labels for the log entry.</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.payload_template">
+<tr id="Params-LogInfo-payload_template">
 <td><code>payloadTemplate</code></td>
 <td><code>string</code></td>
 <td>
@@ -126,18 +141,18 @@ It will be given the full set of variables for the log to use to construct its r
 
 </td>
 </tr>
-<tr id="Params.LogInfo.http_mapping">
+<tr id="Params-LogInfo-http_mapping">
 <td><code>httpMapping</code></td>
-<td><code><a href="#Params.LogInfo.HttpRequestMapping">Params.LogInfo.HttpRequestMapping</a></code></td>
+<td><code><a href="#Params-LogInfo-HttpRequestMapping">Params.LogInfo.HttpRequestMapping</a></code></td>
 <td>
 <p>If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
 variables named in the mapping to populate the fields of the request struct from the instance&rsquo;s variables.</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.sink_info">
+<tr id="Params-LogInfo-sink_info">
 <td><code>sinkInfo</code></td>
-<td><code><a href="#Params.LogInfo.SinkInfo">Params.LogInfo.SinkInfo</a></code></td>
+<td><code><a href="#Params-LogInfo-SinkInfo">Params.LogInfo.SinkInfo</a></code></td>
 <td>
 <p>If SinkInfo is provided, Stackriver logs would be exported to that sink.</p>
 
@@ -146,7 +161,7 @@ variables named in the mapping to populate the fields of the request struct from
 </tbody>
 </table>
 </section>
-<h2 id="Params.LogInfo.HttpRequestMapping">Params.LogInfo.HttpRequestMapping</h2>
+<h2 id="Params-LogInfo-HttpRequestMapping">Params.LogInfo.HttpRequestMapping</h2>
 <section>
 <p>Maps from template variable names to the various fields of Stackdriver&rsquo;s HTTP request struct.
 See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
@@ -160,7 +175,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.LogInfo.HttpRequestMapping.status">
+<tr id="Params-LogInfo-HttpRequestMapping-status">
 <td><code>status</code></td>
 <td><code>string</code></td>
 <td>
@@ -168,7 +183,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.request_size">
+<tr id="Params-LogInfo-HttpRequestMapping-request_size">
 <td><code>requestSize</code></td>
 <td><code>string</code></td>
 <td>
@@ -176,7 +191,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.response_size">
+<tr id="Params-LogInfo-HttpRequestMapping-response_size">
 <td><code>responseSize</code></td>
 <td><code>string</code></td>
 <td>
@@ -184,7 +199,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.latency">
+<tr id="Params-LogInfo-HttpRequestMapping-latency">
 <td><code>latency</code></td>
 <td><code>string</code></td>
 <td>
@@ -192,7 +207,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.local_ip">
+<tr id="Params-LogInfo-HttpRequestMapping-local_ip">
 <td><code>localIp</code></td>
 <td><code>string</code></td>
 <td>
@@ -200,7 +215,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.remote_ip">
+<tr id="Params-LogInfo-HttpRequestMapping-remote_ip">
 <td><code>remoteIp</code></td>
 <td><code>string</code></td>
 <td>
@@ -208,7 +223,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.url">
+<tr id="Params-LogInfo-HttpRequestMapping-url">
 <td><code>url</code></td>
 <td><code>string</code></td>
 <td>
@@ -216,7 +231,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.method">
+<tr id="Params-LogInfo-HttpRequestMapping-method">
 <td><code>method</code></td>
 <td><code>string</code></td>
 <td>
@@ -224,7 +239,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.user_agent">
+<tr id="Params-LogInfo-HttpRequestMapping-user_agent">
 <td><code>userAgent</code></td>
 <td><code>string</code></td>
 <td>
@@ -232,7 +247,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 
 </td>
 </tr>
-<tr id="Params.LogInfo.HttpRequestMapping.referer">
+<tr id="Params-LogInfo-HttpRequestMapping-referer">
 <td><code>referer</code></td>
 <td><code>string</code></td>
 <td>
@@ -243,7 +258,7 @@ See https://godoc.org/cloud.google.com/go/logging#HTTPRequest</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.LogInfo.SinkInfo">Params.LogInfo.SinkInfo</h2>
+<h2 id="Params-LogInfo-SinkInfo">Params.LogInfo.SinkInfo</h2>
 <section>
 <p>Contains information about sink to export Stackdriver logs to.
 See https://godoc.org/cloud.google.com/go/logging/logadmin#Sink.
@@ -263,7 +278,7 @@ filtering logs. See below for a sample config:
 </tr>
 </thead>
 <tbody>
-<tr id="Params.LogInfo.SinkInfo.id">
+<tr id="Params-LogInfo-SinkInfo-id">
 <td><code>id</code></td>
 <td><code>string</code></td>
 <td>
@@ -271,7 +286,7 @@ filtering logs. See below for a sample config:
 
 </td>
 </tr>
-<tr id="Params.LogInfo.SinkInfo.destination">
+<tr id="Params-LogInfo-SinkInfo-destination">
 <td><code>destination</code></td>
 <td><code>string</code></td>
 <td>
@@ -279,7 +294,7 @@ filtering logs. See below for a sample config:
 
 </td>
 </tr>
-<tr id="Params.LogInfo.SinkInfo.filter">
+<tr id="Params-LogInfo-SinkInfo-filter">
 <td><code>filter</code></td>
 <td><code>string</code></td>
 <td>
@@ -290,7 +305,7 @@ filtering logs. See below for a sample config:
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo">Params.MetricInfo</h2>
+<h2 id="Params-MetricInfo">Params.MetricInfo</h2>
 <section>
 <p>Describes how to represent an Istio metric in Stackdriver.
 See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto</p>
@@ -304,21 +319,21 @@ See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.kind">
+<tr id="Params-MetricInfo-kind">
 <td><code>kind</code></td>
-<td><code><a href="#google.api.MetricDescriptor.MetricKind">google.api.MetricDescriptor.MetricKind</a></code></td>
+<td><code><a href="#google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.value">
+<tr id="Params-MetricInfo-value">
 <td><code>value</code></td>
-<td><code><a href="#google.api.MetricDescriptor.ValueType">google.api.MetricDescriptor.ValueType</a></code></td>
+<td><code><a href="#google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="Params.MetricInfo.buckets">
+<tr id="Params-MetricInfo-buckets">
 <td><code>buckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</a></code></td>
 <td>
 <p>For metrics with a metric value of DISTRIBUTION, this provides a mechanism
 for configuring the buckets that will be used to store the aggregated values.
@@ -327,7 +342,7 @@ This field will be ignored for non-distribution metric kinds.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.metric_type">
+<tr id="Params-MetricInfo-metric_type">
 <td><code>metricType</code></td>
 <td><code>string</code></td>
 <td>
@@ -341,7 +356,7 @@ Istio metric name will be used.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition">Params.MetricInfo.BucketsDefinition</h2>
 <section>
 <p>Describes buckets for DISTRIBUTION valued metrics.
 TODO: look into using google.api.distribution.proto instead - we would pull it in but it has a ton of
@@ -356,25 +371,25 @@ dependencies it doesn&rsquo;t actually use.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.linear_buckets" class="oneof oneof-start">
+<tr id="Params-MetricInfo-BucketsDefinition-linear_buckets" class="oneof oneof-start">
 <td><code>linearBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear (oneof)</a></code></td>
 <td>
 <p>The linear buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.exponential_buckets" class="oneof">
+<tr id="Params-MetricInfo-BucketsDefinition-exponential_buckets" class="oneof">
 <td><code>exponentialBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential (oneof)</a></code></td>
 <td>
 <p>The exponential buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.explicit_buckets" class="oneof">
+<tr id="Params-MetricInfo-BucketsDefinition-explicit_buckets" class="oneof">
 <td><code>explicitBuckets</code></td>
-<td><code><a href="#Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
+<td><code><a href="#Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit (oneof)</a></code></td>
 <td>
 <p>The explicit buckets.</p>
 
@@ -383,7 +398,7 @@ dependencies it doesn&rsquo;t actually use.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Explicit">Params.MetricInfo.BucketsDefinition.Explicit</h2>
 <section>
 <p>Specifies a set of buckets with arbitrary widths.</p>
 
@@ -408,7 +423,7 @@ element is the common boundary of the overflow and underflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Explicit.bounds">
+<tr id="Params-MetricInfo-BucketsDefinition-Explicit-bounds">
 <td><code>bounds</code></td>
 <td><code>double[]</code></td>
 <td>
@@ -419,7 +434,7 @@ element is the common boundary of the overflow and underflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Exponential">Params.MetricInfo.BucketsDefinition.Exponential</h2>
 <section>
 <p>Specifies an exponential sequence of buckets that have a width that is
 proportional to the value of the lower bound. Each bucket represents a
@@ -444,7 +459,7 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.num_finite_buckets">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-num_finite_buckets">
 <td><code>numFiniteBuckets</code></td>
 <td><code>int32</code></td>
 <td>
@@ -452,7 +467,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.growth_factor">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-growth_factor">
 <td><code>growthFactor</code></td>
 <td><code>double</code></td>
 <td>
@@ -460,7 +475,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Exponential.scale">
+<tr id="Params-MetricInfo-BucketsDefinition-Exponential-scale">
 <td><code>scale</code></td>
 <td><code>double</code></td>
 <td>
@@ -471,7 +486,7 @@ buckets are the underflow and overflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricInfo.BucketsDefinition.Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
+<h2 id="Params-MetricInfo-BucketsDefinition-Linear">Params.MetricInfo.BucketsDefinition.Linear</h2>
 <section>
 <p>Specifies a linear sequence of buckets that all have the same width
 (except overflow and underflow). Each bucket represents a constant
@@ -496,7 +511,7 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.num_finite_buckets">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-num_finite_buckets">
 <td><code>numFiniteBuckets</code></td>
 <td><code>int32</code></td>
 <td>
@@ -504,7 +519,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.width">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-width">
 <td><code>width</code></td>
 <td><code>double</code></td>
 <td>
@@ -512,7 +527,7 @@ buckets are the underflow and overflow buckets.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricInfo.BucketsDefinition.Linear.offset">
+<tr id="Params-MetricInfo-BucketsDefinition-Linear-offset">
 <td><code>offset</code></td>
 <td><code>double</code></td>
 <td>
@@ -523,7 +538,31 @@ buckets are the underflow and overflow buckets.</p>
 </tbody>
 </table>
 </section>
-<h2 id="google.api.MetricDescriptor.MetricKind">google.api.MetricDescriptor.MetricKind</h2>
+<h2 id="Params-Trace">Params.Trace</h2>
+<section>
+<p>Details of Stackdriver Trace configuration for tracespan template.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-Trace-sample_probability">
+<td><code>sampleProbability</code></td>
+<td><code>double</code></td>
+<td>
+<p>Proability that a particular trace ID will be sampled.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="google-api-MetricDescriptor-MetricKind">google.api.MetricDescriptor.MetricKind</h2>
 <section>
 <p>The kind of measurement. It describes how the data is reported.</p>
 
@@ -535,28 +574,28 @@ buckets are the underflow and overflow buckets.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="google.api.MetricDescriptor.MetricKind.METRIC_KIND_UNSPECIFIED">
+<tr id="google-api-MetricDescriptor-MetricKind-METRIC_KIND_UNSPECIFIED">
 <td><code>METRIC_KIND_UNSPECIFIED</code></td>
 <td>
 <p>Do not use this default value.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.MetricKind.GAUGE">
+<tr id="google-api-MetricDescriptor-MetricKind-GAUGE">
 <td><code>GAUGE</code></td>
 <td>
 <p>An instantaneous measurement of a value.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.MetricKind.DELTA">
+<tr id="google-api-MetricDescriptor-MetricKind-DELTA">
 <td><code>DELTA</code></td>
 <td>
 <p>The change in a value during a time interval.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.MetricKind.CUMULATIVE">
+<tr id="google-api-MetricDescriptor-MetricKind-CUMULATIVE">
 <td><code>CUMULATIVE</code></td>
 <td>
 <p>A value accumulated over a time interval.  Cumulative
@@ -570,7 +609,7 @@ points.</p>
 </tbody>
 </table>
 </section>
-<h2 id="google.api.MetricDescriptor.ValueType">google.api.MetricDescriptor.ValueType</h2>
+<h2 id="google-api-MetricDescriptor-ValueType">google.api.MetricDescriptor.ValueType</h2>
 <section>
 <p>The value type of a metric.</p>
 
@@ -582,14 +621,14 @@ points.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="google.api.MetricDescriptor.ValueType.VALUE_TYPE_UNSPECIFIED">
+<tr id="google-api-MetricDescriptor-ValueType-VALUE_TYPE_UNSPECIFIED">
 <td><code>VALUE_TYPE_UNSPECIFIED</code></td>
 <td>
 <p>Do not use this default value.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.BOOL">
+<tr id="google-api-MetricDescriptor-ValueType-BOOL">
 <td><code>BOOL</code></td>
 <td>
 <p>The value is a boolean.
@@ -597,21 +636,21 @@ This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.INT64">
+<tr id="google-api-MetricDescriptor-ValueType-INT64">
 <td><code>INT64</code></td>
 <td>
 <p>The value is a signed 64-bit integer.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.DOUBLE">
+<tr id="google-api-MetricDescriptor-ValueType-DOUBLE">
 <td><code>DOUBLE</code></td>
 <td>
 <p>The value is a double precision floating point number.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.STRING">
+<tr id="google-api-MetricDescriptor-ValueType-STRING">
 <td><code>STRING</code></td>
 <td>
 <p>The value is a text string.
@@ -619,14 +658,14 @@ This value type can be used only if the metric kind is <code>GAUGE</code>.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.DISTRIBUTION">
+<tr id="google-api-MetricDescriptor-ValueType-DISTRIBUTION">
 <td><code>DISTRIBUTION</code></td>
 <td>
 <p>The value is a <em><code>Distribution</code></em>.</p>
 
 </td>
 </tr>
-<tr id="google.api.MetricDescriptor.ValueType.MONEY">
+<tr id="google-api-MetricDescriptor-ValueType-MONEY">
 <td><code>MONEY</code></td>
 <td>
 <p>The value is money.</p>

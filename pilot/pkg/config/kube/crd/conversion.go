@@ -46,15 +46,16 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            schema.Type,
-			Group:           ResourceGroup(&schema),
-			Version:         schema.Version,
-			Name:            meta.Name,
-			Namespace:       meta.Namespace,
-			Domain:          domain,
-			Labels:          meta.Labels,
-			Annotations:     meta.Annotations,
-			ResourceVersion: meta.ResourceVersion,
+			Type:              schema.Type,
+			Group:             ResourceGroup(&schema),
+			Version:           schema.Version,
+			Name:              meta.Name,
+			Namespace:         meta.Namespace,
+			Domain:            domain,
+			Labels:            meta.Labels,
+			Annotations:       meta.Annotations,
+			ResourceVersion:   meta.ResourceVersion,
+			CreationTimestamp: meta.CreationTimestamp,
 		},
 		Spec: data,
 	}, nil

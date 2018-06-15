@@ -38,27 +38,29 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
-		for _, src := range srcPods {
-			for _, dst := range dstPods {
-				for _, port := range ports {
-					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
-						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, 15, func() error {
-							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
-							resp := ClientRequest(src, reqURL, 1, "")
-							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
-								if len(resp.ID) == 0 {
-									// t cannot talk to b nor d:8080
+		for cluster := range tc.Kube.Clusters {
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
+							runRetriableTest(t, cluster, testName, 15, func() error {
+								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
+									if len(resp.ID) == 0 {
+										// t cannot talk to b nor d:80
+										return nil
+									}
+									return errAgain
+								}
+								// Request should return successfully (status 200)
+								if resp.IsHTTPOk() {
 									return nil
 								}
 								return errAgain
-							}
-							// Request should return successfully (status 200)
-							if resp.IsHTTPOk() {
-								return nil
-							}
-							return errAgain
-						})
+							})
+						}
 					}
 				}
 			}
@@ -84,7 +86,8 @@ func TestAuthNJwt(t *testing.T) {
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if tc.Kube.AuthEnabled {
-		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl")
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl",
+			"testdata/authn/service-d-mtls-policy.yaml.tmpl")
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
@@ -111,19 +114,21 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+		//{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
 		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
 	}
 
 	for _, c := range cases {
 		testName := fmt.Sprintf("%s->%s[%s]", c.src, c.dst, c.expect)
-		runRetriableTest(t, testName, defaultRetryBudget, func() error {
+		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
 			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
-			resp := ClientRequest(c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
+			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s", c.dst, c.port), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
 				return nil
 			}
+
+			t.Logf("resp: %+v", resp)
 
 			return errAgain
 		})

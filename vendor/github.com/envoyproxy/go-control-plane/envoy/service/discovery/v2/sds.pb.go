@@ -9,10 +9,8 @@ import math "math"
 import envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import _ "github.com/gogo/googleapis/google/api"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 

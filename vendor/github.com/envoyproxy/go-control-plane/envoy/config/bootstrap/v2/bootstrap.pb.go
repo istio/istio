@@ -23,8 +23,8 @@ import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/co
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 import envoy_api_v2_core3 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v21 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import envoy_api_v22 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+import envoy_api_v23 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import envoy_config_trace_v2 "github.com/envoyproxy/go-control-plane/envoy/config/trace/v2"
 import envoy_config_metrics_v2 "github.com/envoyproxy/go-control-plane/envoy/config/metrics/v2"
 import envoy_config_ratelimit_v2 "github.com/envoyproxy/go-control-plane/envoy/config/ratelimit/v2"
@@ -34,7 +34,7 @@ import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -188,14 +188,14 @@ func (m *Bootstrap) GetAdmin() Admin {
 type Bootstrap_StaticResources struct {
 	// Static :ref:`Listeners <envoy_api_msg_Listener>`. These listeners are
 	// available regardless of LDS configuration.
-	Listeners []envoy_api_v22.Listener `protobuf:"bytes,1,rep,name=listeners" json:"listeners"`
+	Listeners []envoy_api_v23.Listener `protobuf:"bytes,1,rep,name=listeners" json:"listeners"`
 	// If a network based configuration source is specified for :ref:`cds_config
 	// <envoy_api_field_config.bootstrap.v2.Bootstrap.DynamicResources.cds_config>`, it's necessary
 	// to have some initial cluster definitions available to allow Envoy to know
 	// how to speak to the management server. These cluster definitions may not
 	// use :ref:`EDS <arch_overview_dynamic_config_sds>` (i.e. they should be static
 	// IP or DNS-based).
-	Clusters []envoy_api_v21.Cluster `protobuf:"bytes,2,rep,name=clusters" json:"clusters"`
+	Clusters []envoy_api_v22.Cluster `protobuf:"bytes,2,rep,name=clusters" json:"clusters"`
 	// [#not-implemented-hide:]
 	Secrets []envoy_api_v2_auth.Secret `protobuf:"bytes,3,rep,name=secrets" json:"secrets"`
 }
@@ -207,14 +207,14 @@ func (*Bootstrap_StaticResources) Descriptor() ([]byte, []int) {
 	return fileDescriptorBootstrap, []int{0, 0}
 }
 
-func (m *Bootstrap_StaticResources) GetListeners() []envoy_api_v22.Listener {
+func (m *Bootstrap_StaticResources) GetListeners() []envoy_api_v23.Listener {
 	if m != nil {
 		return m.Listeners
 	}
 	return nil
 }
 
-func (m *Bootstrap_StaticResources) GetClusters() []envoy_api_v21.Cluster {
+func (m *Bootstrap_StaticResources) GetClusters() []envoy_api_v22.Cluster {
 	if m != nil {
 		return m.Clusters
 	}
@@ -610,8 +610,8 @@ func (m *Bootstrap) MarshalTo(dAtA []byte) (int, error) {
 	if m.StatsFlushInterval != nil {
 		dAtA[i] = 0x3a
 		i++
-		i = encodeVarintBootstrap(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.StatsFlushInterval)))
-		n5, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.StatsFlushInterval, dAtA[i:])
+		i = encodeVarintBootstrap(dAtA, i, uint64(types.SizeOfStdDuration(*m.StatsFlushInterval)))
+		n5, err := types.StdDurationMarshalTo(*m.StatsFlushInterval, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1067,7 +1067,7 @@ func (m *Bootstrap) Size() (n int) {
 		}
 	}
 	if m.StatsFlushInterval != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.StatsFlushInterval)
+		l = types.SizeOfStdDuration(*m.StatsFlushInterval)
 		n += 1 + l + sovBootstrap(uint64(l))
 	}
 	if m.Watchdog != nil {
@@ -1502,7 +1502,7 @@ func (m *Bootstrap) Unmarshal(dAtA []byte) error {
 			if m.StatsFlushInterval == nil {
 				m.StatsFlushInterval = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.StatsFlushInterval, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.StatsFlushInterval, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1777,7 +1777,7 @@ func (m *Bootstrap_StaticResources) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Listeners = append(m.Listeners, envoy_api_v22.Listener{})
+			m.Listeners = append(m.Listeners, envoy_api_v23.Listener{})
 			if err := m.Listeners[len(m.Listeners)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1808,7 +1808,7 @@ func (m *Bootstrap_StaticResources) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Clusters = append(m.Clusters, envoy_api_v21.Cluster{})
+			m.Clusters = append(m.Clusters, envoy_api_v22.Cluster{})
 			if err := m.Clusters[len(m.Clusters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

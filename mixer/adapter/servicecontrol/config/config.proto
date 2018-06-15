@@ -15,11 +15,17 @@
 syntax = "proto3";
 
 // $title: Service Control
-// $overview: Adapter that delivers logs and metrics to Google Service Control
-// $location: https://istio.io/docs/reference/config/adapters/servicecontrol.html
+// $description: Adapter that delivers logs and metrics to Google Service Control
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol.html
+// $aliases:
+// $  - /docs/reference/config/adapters/servicecontrol.html
 
 // The `servicecontrol` adapter delivers logs and metrics to
 // [Google Service Control](https://cloud.google.com/service-control).
+//
+// This adapter supports the [servicecontrolreport template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/servicecontrolreport/),
+// the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/),
+// and the [apikey template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey/).
 package adapter.servicecontrol.config;
 
 import "gogoproto/gogo.proto";

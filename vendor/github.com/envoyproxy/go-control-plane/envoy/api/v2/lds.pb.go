@@ -14,10 +14,8 @@ import google_protobuf "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
@@ -69,15 +67,8 @@ type Listener struct {
 	// :ref:`FilterChainMatch <envoy_api_msg_listener.FilterChainMatch>` criteria is used on a
 	// connection.
 	//
-	// .. attention::
-	//
-	//   In the current version, multiple filter chains are supported **only** so that SNI can be
-	//   configured. See the :ref:`FAQ entry <faq_how_to_setup_sni>` on how to configure SNI for more
-	//   information. When multiple filter chains are configured, each filter chain must have an
-	//   **identical** set of :ref:`filters <envoy_api_field_listener.FilterChain.filters>`. If the
-	//   filters differ, the configuration will fail to load. In the future, this limitation will be
-	//   relaxed such that different filters can be used depending on which filter chain matches
-	//   (based on SNI or some other parameter).
+	// Example using SNI for filter chain selection can be found in the
+	// :ref:`FAQ entry <faq_how_to_setup_sni>`.
 	FilterChains []envoy_api_v2_listener.FilterChain `protobuf:"bytes,3,rep,name=filter_chains,json=filterChains" json:"filter_chains"`
 	// If a connection is redirected using *iptables*, the port on which the proxy
 	// receives it might be different from the original destination address. When this flag is set to
@@ -270,10 +261,7 @@ func init() {
 }
 func (this *Listener) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Listener)
@@ -286,10 +274,7 @@ func (this *Listener) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -343,10 +328,7 @@ func (this *Listener) Equal(that interface{}) bool {
 }
 func (this *Listener_DeprecatedV1) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Listener_DeprecatedV1)
@@ -359,10 +341,7 @@ func (this *Listener_DeprecatedV1) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

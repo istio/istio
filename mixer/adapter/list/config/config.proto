@@ -15,13 +15,17 @@
 syntax = "proto3";
 
 // $title: List
-// $overview: Adapter that performs whitelist or blacklist checks
-// $location: https://istio.io/docs/reference/config/adapters/list.html
+// $description: Adapter that performs whitelist or blacklist checks
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list.html
+// $aliases:
+// $  - /docs/reference/config/adapters/list.html
 
 // The `list` adapter makes it possible to perform simple whitelist or blacklist
 // checks. You can configure the adapter with the list to check, or you can point
 // it to a URL from where the list should be fetched. Lists can be simple strings,
 // IP addresses, or regex patterns.
+//
+//  This adapter supports the [listentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/).
 package adapter.list.config;
 
 import "google/protobuf/duration.proto";

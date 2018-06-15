@@ -30,7 +30,6 @@ import (
 	"strings"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -53,9 +52,9 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
-	// Addresses specifies the service address of the load balancer
+	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	Addresses map[string]string `json:"addresses,omitempty"`
+	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
@@ -118,11 +117,6 @@ type Port struct {
 
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
-
-	// In combine with the mesh's AuthPolicy, controls authentication for
-	// Envoy-to-Envoy communication.
-	// This value is extracted from service annotation.
-	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
 }
 
 // PortList is a set of ports
@@ -134,16 +128,19 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
-	ProtocolHTTP2 Protocol = "HTTP2"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	ProtocolHTTP2 Protocol = "HTTP2"
+	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolTCPTLS declares that the port carries TLS traffic on top of TCP
+	// TLS traffic is assumed to contain SNI as part of the handshake
+	ProtocolTCPTLS Protocol = "TCP_TLS"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
@@ -202,6 +199,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
+	case "tcp_tls":
+		return ProtocolTCPTLS
 	case "mongo":
 		return ProtocolMongo
 	case "redis":
@@ -234,7 +233,17 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTCPTLS, ProtocolMongo, ProtocolRedis:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
+func (p Protocol) IsTLS() bool {
+	switch p {
+	case ProtocolHTTPS, ProtocolTCPTLS:
 		return true
 	default:
 		return false
@@ -742,8 +751,8 @@ func ParseLabelsString(s string) Labels {
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s Service) GetServiceAddressForProxy(node *Proxy) string {
-	if node.ClusterID != "" && s.Addresses[node.ClusterID] != "" {
-		return s.Addresses[node.ClusterID]
+	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
+		return s.ClusterVIPs[node.ClusterID]
 	}
 	return s.Address
 }

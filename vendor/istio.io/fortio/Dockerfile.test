@@ -2,3 +2,4 @@
 FROM istio/fortio.build:v7
 WORKDIR /go/src/istio.io
 COPY . fortio
+RUN make -C fortio dependencies

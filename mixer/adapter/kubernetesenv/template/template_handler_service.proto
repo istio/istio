@@ -19,13 +19,9 @@ syntax = "proto3";
 
 // The `kubernetes` template holds data that controls the production of Kubernetes-specific
 // attributes.
-//
-// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
-// 
-// The values provided controls the manner in which the kubernetesenv adapter discovers and
-// generates values related to pod information.
 // 
 // Example config:
+// 
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: kubernetes
@@ -52,6 +48,12 @@ syntax = "proto3";
 //     destination.service: $out.destination_service
 //     destination.serviceAccount: $out.destination_service_account_name
 // ```
+//
+// The `kubernetes` template represents data used to generate kubernetes-derived attributes.
+// 
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
+// Next ID: 8
 package adapter.template.kubernetes;
 
 
@@ -83,11 +85,8 @@ message InstanceParam {
     // Destination pod's ip.
     string destination_ip = 4;
     
-    // Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
-    string origin_uid = 5;
-    
-    // Origin pod's ip.
-    string origin_ip = 6;
+    // Destination container's port number.
+    string destination_port = 7;
     // Attribute names to expression mapping. These expressions can use the fields from the output object
     // returned by the attribute producing adapters using $out.<fieldName> notation. For example:
     // source.ip : $out.source_pod_ip

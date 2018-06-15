@@ -160,6 +160,10 @@ func (m *HttpConnectionManager) Validate() error {
 
 	// no validation rules for XffNumTrustedHops
 
+	// no validation rules for SkipXffAppend
+
+	// no validation rules for Via
+
 	if v, ok := interface{}(m.GetGenerateRequestId()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{

@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -76,6 +77,9 @@ type ConfigMeta struct {
 	// An empty revision carries a special meaning that the associated object has
 	// not been stored and assigned a revision.
 	ResourceVersion string `json:"resourceVersion,omitempty"`
+
+	// CreationTimestamp records the creation time
+	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -292,6 +296,15 @@ type IstioConfigStore interface {
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
 	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
+
+	// ServiceRoles selects ServiceRoles in the specified namespace.
+	ServiceRoles(namespace string) []Config
+
+	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
+	ServiceRoleBindings(namespace string) []Config
+
+	// RbacConfig selects the RbacConfig with the specified name in the specified namespace.
+	RbacConfig(name, namespace string) *Config
 }
 
 const (
@@ -502,6 +515,16 @@ var (
 		Validate:    ValidateServiceRoleBinding,
 	}
 
+	// RbacConfig describes an global RBAC config.
+	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
+		Group:       "config",
+		Version:     istioAPIVersion,
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -519,6 +542,7 @@ var (
 		AuthenticationPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		RbacConfig,
 	}
 )
 
@@ -917,7 +941,11 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.ApiSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
@@ -957,7 +985,11 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.QuotaSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
@@ -1036,6 +1068,40 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		return nil
 	}
 	return &out
+}
+
+func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
+	roles, err := store.List(ServiceRole.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return roles
+}
+
+func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
+	bindings, err := store.List(ServiceRoleBinding.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return bindings
+}
+
+func (store *istioConfigStore) RbacConfig(name, namespace string) *Config {
+	rbacConfigs, err := store.List(RbacConfig.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get rbacConfig: %v", err)
+		return nil
+	}
+	for _, rc := range rbacConfigs {
+		if rc.Name == name {
+			return &rc
+		}
+	}
+	return nil
 }
 
 // SortHTTPAPISpec sorts a slice in a stable manner.

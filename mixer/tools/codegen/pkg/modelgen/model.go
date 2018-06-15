@@ -27,8 +27,8 @@ import (
 	protoDesc "istio.io/istio/mixer/pkg/protobuf/descriptor"
 )
 
-const fullProtoNameOfValueMsg = "istio.mixer.adapter.model.v1beta1.Value"
-const customTypeImport = "mixer/adapter/model/v1beta1/type.proto"
+const fullProtoNameOfValueMsg = "istio.policy.v1beta1.Value"
+const customTypeImport = "policy/v1beta1/type.proto"
 
 type typeMetadata struct {
 	goName      string
@@ -39,33 +39,33 @@ type typeMetadata struct {
 // Hardcoded proto->go type mapping along with imports for the
 // generated code.
 var customMessageTypeMetadata = map[string]typeMetadata{
-	".istio.mixer.adapter.model.v1beta1.Duration": {
+	".istio.policy.v1beta1.Duration": {
 		goName:      "time.Duration",
 		goImport:    "time",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.TimeStamp": {
+	".istio.policy.v1beta1.TimeStamp": {
 		goName:      "time.Time",
 		goImport:    "time",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.IPAddress": {
+	".istio.policy.v1beta1.IPAddress": {
 		goName:      "net.IP",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.DNSName": {
+	".istio.policy.v1beta1.DNSName": {
 		goName:      "adapter.DNSName",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.EmailAddress": {
+	".istio.policy.v1beta1.EmailAddress": {
 		goName:      "adapter.EmailAddress",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.Uri": {
+	".istio.policy.v1beta1.Uri": {
 		goName:      "adapter.URI",
 		protoImport: customTypeImport,
 	},
-	".istio.mixer.adapter.model.v1beta1.Value": {
+	".istio.policy.v1beta1.Value": {
 		goName:      "interface{}",
 		protoImport: customTypeImport,
 	},

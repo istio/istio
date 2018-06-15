@@ -1,10 +1,8 @@
 ---
-title: Mixer
-overview: API definitions to interact with Mixer
-location: https://istio.io/docs/reference/api/istio.mixer.v1.html
+title: istio.mixer.v1
 layout: protoc-gen-docs
-redirect_from: /docs/reference/api/mixer/mixer.html
-number_of_entries: 17
+generator: protoc-gen-docs
+number_of_entries: 20
 ---
 <p>This package defines the Mixer API that the sidecar proxy uses to perform
 precondition checks, manage quotas, and report telemetry.</p>
@@ -30,13 +28,13 @@ In the future, it will also enable tracing and billing streams intended for
 both the service operator as well as for service consumers.</p></li>
 </ul>
 
-<pre id="Mixer.Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
+<pre id="Mixer-Check"><code class="language-proto">rpc Check(CheckRequest) returns (CheckResponse)
 </code></pre>
 <p>Checks preconditions and allocate quota before performing an operation.
 The preconditions enforced depend on the set of supplied attributes and
 the active configuration.</p>
 
-<pre id="Mixer.Report"><code class="language-proto">rpc Report(ReportRequest) returns (ReportResponse)
+<pre id="Mixer-Report"><code class="language-proto">rpc Report(ReportRequest) returns (ReportResponse)
 </code></pre>
 <p>Reports telemetry, such as logs and metrics.
 The reported information depends on the set of supplied attributes and the
@@ -90,9 +88,9 @@ Following places may use this message:
 </tr>
 </thead>
 <tbody>
-<tr id="Attributes.attributes">
+<tr id="Attributes-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Attributes.AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Attributes-AttributeValue">Attributes.AttributeValue</a>&gt;</code></td>
 <td>
 <p>A map of attribute name to its value.</p>
 
@@ -101,7 +99,7 @@ Following places may use this message:
 </tbody>
 </table>
 </section>
-<h3 id="Attributes.AttributeValue">Attributes.AttributeValue</h3>
+<h3 id="Attributes-AttributeValue">Attributes.AttributeValue</h3>
 <section>
 <p>Specifies one attribute value with different type.</p>
 
@@ -114,7 +112,7 @@ Following places may use this message:
 </tr>
 </thead>
 <tbody>
-<tr id="Attributes.AttributeValue.string_value" class="oneof oneof-start">
+<tr id="Attributes-AttributeValue-string_value" class="oneof oneof-start">
 <td><code>stringValue</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -122,7 +120,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.int64_value" class="oneof">
+<tr id="Attributes-AttributeValue-int64_value" class="oneof">
 <td><code>int64Value</code></td>
 <td><code>int64 (oneof)</code></td>
 <td>
@@ -130,7 +128,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.double_value" class="oneof">
+<tr id="Attributes-AttributeValue-double_value" class="oneof">
 <td><code>doubleValue</code></td>
 <td><code>double (oneof)</code></td>
 <td>
@@ -138,7 +136,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.bool_value" class="oneof">
+<tr id="Attributes-AttributeValue-bool_value" class="oneof">
 <td><code>boolValue</code></td>
 <td><code>bool (oneof)</code></td>
 <td>
@@ -146,7 +144,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.bytes_value" class="oneof">
+<tr id="Attributes-AttributeValue-bytes_value" class="oneof">
 <td><code>bytesValue</code></td>
 <td><code>bytes (oneof)</code></td>
 <td>
@@ -154,7 +152,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.timestamp_value" class="oneof">
+<tr id="Attributes-AttributeValue-timestamp_value" class="oneof">
 <td><code>timestampValue</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp (oneof)</a></code></td>
 <td>
@@ -162,7 +160,7 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.duration_value" class="oneof">
+<tr id="Attributes-AttributeValue-duration_value" class="oneof">
 <td><code>durationValue</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
@@ -170,9 +168,9 @@ Following places may use this message:
 
 </td>
 </tr>
-<tr id="Attributes.AttributeValue.string_map_value" class="oneof">
+<tr id="Attributes-AttributeValue-string_map_value" class="oneof">
 <td><code>stringMapValue</code></td>
-<td><code><a href="#Attributes.StringMap">Attributes.StringMap (oneof)</a></code></td>
+<td><code><a href="#Attributes-StringMap">Attributes.StringMap (oneof)</a></code></td>
 <td>
 <p>Used for values of type STRING_MAP</p>
 
@@ -181,7 +179,7 @@ Following places may use this message:
 </tbody>
 </table>
 </section>
-<h3 id="Attributes.StringMap">Attributes.StringMap</h3>
+<h3 id="Attributes-StringMap">Attributes.StringMap</h3>
 <section>
 <p>Defines a string map.</p>
 
@@ -194,7 +192,7 @@ Following places may use this message:
 </tr>
 </thead>
 <tbody>
-<tr id="Attributes.StringMap.entries">
+<tr id="Attributes-StringMap-entries">
 <td><code>entries</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -218,7 +216,7 @@ Following places may use this message:
 </tr>
 </thead>
 <tbody>
-<tr id="CheckRequest.attributes">
+<tr id="CheckRequest-attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#CompressedAttributes">CompressedAttributes</a></code></td>
 <td>
@@ -229,7 +227,7 @@ establish the result returned in the response.</p>
 
 </td>
 </tr>
-<tr id="CheckRequest.global_word_count">
+<tr id="CheckRequest-global_word_count">
 <td><code>globalWordCount</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -239,7 +237,7 @@ the server understands.</p>
 
 </td>
 </tr>
-<tr id="CheckRequest.deduplication_id">
+<tr id="CheckRequest-deduplication_id">
 <td><code>deduplicationId</code></td>
 <td><code>string</code></td>
 <td>
@@ -248,9 +246,9 @@ per call, where the same UUID is used for retries of the same call.</p>
 
 </td>
 </tr>
-<tr id="CheckRequest.quotas">
+<tr id="CheckRequest-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#CheckRequest.QuotaParams">CheckRequest.QuotaParams</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckRequest-QuotaParams">CheckRequest.QuotaParams</a>&gt;</code></td>
 <td>
 <p>The individual quotas to allocate</p>
 
@@ -259,7 +257,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tbody>
 </table>
 </section>
-<h3 id="CheckRequest.QuotaParams">CheckRequest.QuotaParams</h3>
+<h3 id="CheckRequest-QuotaParams">CheckRequest.QuotaParams</h3>
 <section>
 <p>parameters for a quota allocation</p>
 
@@ -272,7 +270,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CheckRequest.QuotaParams.amount">
+<tr id="CheckRequest-QuotaParams-amount">
 <td><code>amount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -280,7 +278,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 
 </td>
 </tr>
-<tr id="CheckRequest.QuotaParams.best_effort">
+<tr id="CheckRequest-QuotaParams-best_effort">
 <td><code>bestEffort</code></td>
 <td><code>bool</code></td>
 <td>
@@ -304,17 +302,17 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResponse.precondition">
+<tr id="CheckResponse-precondition">
 <td><code>precondition</code></td>
-<td><code><a href="#CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
+<td><code><a href="#CheckResponse-PreconditionResult">CheckResponse.PreconditionResult</a></code></td>
 <td>
 <p>The precondition check results.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.quotas">
+<tr id="CheckResponse-quotas">
 <td><code>quotas</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#CheckResponse.QuotaResult">CheckResponse.QuotaResult</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#CheckResponse-QuotaResult">CheckResponse.QuotaResult</a>&gt;</code></td>
 <td>
 <p>The resulting quota, one entry per requested quota.</p>
 
@@ -323,7 +321,7 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tbody>
 </table>
 </section>
-<h3 id="CheckResponse.PreconditionResult">CheckResponse.PreconditionResult</h3>
+<h3 id="CheckResponse-PreconditionResult">CheckResponse.PreconditionResult</h3>
 <section>
 <p>Expresses the result of a precondition check.</p>
 
@@ -336,16 +334,16 @@ per call, where the same UUID is used for retries of the same call.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResponse.PreconditionResult.status">
+<tr id="CheckResponse-PreconditionResult-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>A status code of OK indicates all preconditions were satisfied. Any other code indicates not
 all preconditions were satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.PreconditionResult.valid_duration">
+<tr id="CheckResponse-PreconditionResult-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -353,7 +351,7 @@ all preconditions were satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.PreconditionResult.valid_use_count">
+<tr id="CheckResponse-PreconditionResult-valid_use_count">
 <td><code>validUseCount</code></td>
 <td><code>int32</code></td>
 <td>
@@ -361,20 +359,7 @@ all preconditions were satisfied and details describe why.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.PreconditionResult.attributes">
-<td><code>attributes</code></td>
-<td><code><a href="#CompressedAttributes">CompressedAttributes</a></code></td>
-<td>
-<p>The attributes returned by Mixer.</p>
-
-<p>The exact set of attributes returned is determined by the set of
-adapters Mixer is configured with. These attributes are used to
-ferry new attributes that Mixer derived based on the input set of
-attributes and its configuration.</p>
-
-</td>
-</tr>
-<tr id="CheckResponse.PreconditionResult.referenced_attributes">
+<tr id="CheckResponse-PreconditionResult-referenced_attributes">
 <td><code>referencedAttributes</code></td>
 <td><code><a href="#ReferencedAttributes">ReferencedAttributes</a></code></td>
 <td>
@@ -383,10 +368,19 @@ along with matching conditions.</p>
 
 </td>
 </tr>
+<tr id="CheckResponse-PreconditionResult-route_directive">
+<td><code>routeDirective</code></td>
+<td><code><a href="#RouteDirective">RouteDirective</a></code></td>
+<td>
+<p>An optional routing directive, used to manipulate the traffic metadata
+whenever all preconditions are satisfied.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
-<h3 id="CheckResponse.QuotaResult">CheckResponse.QuotaResult</h3>
+<h3 id="CheckResponse-QuotaResult">CheckResponse.QuotaResult</h3>
 <section>
 <p>Expresses the result of a quota allocation.</p>
 
@@ -399,7 +393,7 @@ along with matching conditions.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CheckResponse.QuotaResult.valid_duration">
+<tr id="CheckResponse-QuotaResult-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -407,7 +401,7 @@ along with matching conditions.</p>
 
 </td>
 </tr>
-<tr id="CheckResponse.QuotaResult.granted_amount">
+<tr id="CheckResponse-QuotaResult-granted_amount">
 <td><code>grantedAmount</code></td>
 <td><code>int64</code></td>
 <td>
@@ -416,7 +410,7 @@ If <code>QuotaParams.best_effort</code> is false, this will be either 0 or &gt;=
 
 </td>
 </tr>
-<tr id="CheckResponse.QuotaResult.referenced_attributes">
+<tr id="CheckResponse-QuotaResult-referenced_attributes">
 <td><code>referencedAttributes</code></td>
 <td><code><a href="#ReferencedAttributes">ReferencedAttributes</a></code></td>
 <td>
@@ -447,7 +441,7 @@ configuration.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CompressedAttributes.words">
+<tr id="CompressedAttributes-words">
 <td><code>words</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -455,7 +449,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.strings">
+<tr id="CompressedAttributes-strings">
 <td><code>strings</code></td>
 <td><code>map&lt;int32,&nbsp;int32&gt;</code></td>
 <td>
@@ -463,7 +457,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.int64s">
+<tr id="CompressedAttributes-int64s">
 <td><code>int64s</code></td>
 <td><code>map&lt;int32,&nbsp;int64&gt;</code></td>
 <td>
@@ -471,7 +465,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.doubles">
+<tr id="CompressedAttributes-doubles">
 <td><code>doubles</code></td>
 <td><code>map&lt;int32,&nbsp;double&gt;</code></td>
 <td>
@@ -479,7 +473,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.bools">
+<tr id="CompressedAttributes-bools">
 <td><code>bools</code></td>
 <td><code>map&lt;int32,&nbsp;bool&gt;</code></td>
 <td>
@@ -487,7 +481,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.timestamps">
+<tr id="CompressedAttributes-timestamps">
 <td><code>timestamps</code></td>
 <td><code>map&lt;int32,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a>&gt;</code></td>
 <td>
@@ -495,7 +489,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.durations">
+<tr id="CompressedAttributes-durations">
 <td><code>durations</code></td>
 <td><code>map&lt;int32,&nbsp;<a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a>&gt;</code></td>
 <td>
@@ -503,7 +497,7 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.bytes">
+<tr id="CompressedAttributes-bytes">
 <td><code>bytes</code></td>
 <td><code>map&lt;int32,&nbsp;bytes&gt;</code></td>
 <td>
@@ -511,11 +505,90 @@ configuration.</p>
 
 </td>
 </tr>
-<tr id="CompressedAttributes.string_maps">
+<tr id="CompressedAttributes-string_maps">
 <td><code>stringMaps</code></td>
 <td><code>map&lt;int32,&nbsp;<a href="#StringMap">StringMap</a>&gt;</code></td>
 <td>
 <p>Holds attributes of type STRING_MAP</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation">HeaderOperation</h3>
+<section>
+<p>Operation on HTTP headers to replace, append, or remove a header. Header
+names are normalized to lower-case with dashes, e.g.  &ldquo;x-request-id&rdquo;.
+Pseudo-headers &ldquo;:path&rdquo;, &ldquo;:authority&rdquo;, and &ldquo;:method&rdquo; are supported to modify
+the request headers.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header name.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-value">
+<td><code>value</code></td>
+<td><code>string</code></td>
+<td>
+<p>Header value.</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-operation">
+<td><code>operation</code></td>
+<td><code><a href="#HeaderOperation-Operation">HeaderOperation.Operation</a></code></td>
+<td>
+<p>Header operation.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="HeaderOperation-Operation">HeaderOperation.Operation</h3>
+<section>
+<p>Operation type.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HeaderOperation-Operation-REPLACE">
+<td><code>REPLACE</code></td>
+<td>
+<p>replaces the header with the given name</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-Operation-REMOVE">
+<td><code>REMOVE</code></td>
+<td>
+<p>removes the header with the given name (the value is ignored)</p>
+
+</td>
+</tr>
+<tr id="HeaderOperation-Operation-APPEND">
+<td><code>APPEND</code></td>
+<td>
+<p>appends the value to the header value, or sets it if not present</p>
 
 </td>
 </tr>
@@ -536,7 +609,7 @@ This can be used to construct a response cache.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ReferencedAttributes.words">
+<tr id="ReferencedAttributes-words">
 <td><code>words</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -545,9 +618,9 @@ on using dictionaries.</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.attribute_matches">
+<tr id="ReferencedAttributes-attribute_matches">
 <td><code>attributeMatches</code></td>
-<td><code><a href="#ReferencedAttributes.AttributeMatch">ReferencedAttributes.AttributeMatch[]</a></code></td>
+<td><code><a href="#ReferencedAttributes-AttributeMatch">ReferencedAttributes.AttributeMatch[]</a></code></td>
 <td>
 <p>Describes a set of attributes.</p>
 
@@ -556,7 +629,7 @@ on using dictionaries.</p>
 </tbody>
 </table>
 </section>
-<h3 id="ReferencedAttributes.AttributeMatch">ReferencedAttributes.AttributeMatch</h3>
+<h3 id="ReferencedAttributes-AttributeMatch">ReferencedAttributes.AttributeMatch</h3>
 <section>
 <p>Describes a single attribute match.</p>
 
@@ -569,7 +642,7 @@ on using dictionaries.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ReferencedAttributes.AttributeMatch.name">
+<tr id="ReferencedAttributes-AttributeMatch-name">
 <td><code>name</code></td>
 <td><code>int32</code></td>
 <td>
@@ -578,15 +651,15 @@ to all strings in the <a href="#CompressedAttributes">CompressedAttributes</a> m
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.AttributeMatch.condition">
+<tr id="ReferencedAttributes-AttributeMatch-condition">
 <td><code>condition</code></td>
-<td><code><a href="#ReferencedAttributes.Condition">ReferencedAttributes.Condition</a></code></td>
+<td><code><a href="#ReferencedAttributes-Condition">ReferencedAttributes.Condition</a></code></td>
 <td>
 <p>The kind of match against the attribute value.</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.AttributeMatch.regex">
+<tr id="ReferencedAttributes-AttributeMatch-regex">
 <td><code>regex</code></td>
 <td><code>string</code></td>
 <td>
@@ -595,7 +668,7 @@ clients should use the regex value to match against map keys.</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.AttributeMatch.map_key">
+<tr id="ReferencedAttributes-AttributeMatch-map_key">
 <td><code>mapKey</code></td>
 <td><code>int32</code></td>
 <td>
@@ -615,7 +688,7 @@ entire STRING_MAP will be used.</p>
 </tbody>
 </table>
 </section>
-<h3 id="ReferencedAttributes.Condition">ReferencedAttributes.Condition</h3>
+<h3 id="ReferencedAttributes-Condition">ReferencedAttributes.Condition</h3>
 <section>
 <p>How an attribute&rsquo;s value was matched</p>
 
@@ -627,28 +700,28 @@ entire STRING_MAP will be used.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ReferencedAttributes.Condition.CONDITION_UNSPECIFIED">
+<tr id="ReferencedAttributes-Condition-CONDITION_UNSPECIFIED">
 <td><code>CONDITION_UNSPECIFIED</code></td>
 <td>
 <p>should not occur</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.Condition.ABSENCE">
+<tr id="ReferencedAttributes-Condition-ABSENCE">
 <td><code>ABSENCE</code></td>
 <td>
 <p>match when attribute doesn&rsquo;t exist</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.Condition.EXACT">
+<tr id="ReferencedAttributes-Condition-EXACT">
 <td><code>EXACT</code></td>
 <td>
 <p>match when attribute value is an exact byte-for-byte match</p>
 
 </td>
 </tr>
-<tr id="ReferencedAttributes.Condition.REGEX">
+<tr id="ReferencedAttributes-Condition-REGEX">
 <td><code>REGEX</code></td>
 <td>
 <p>match when attribute value matches the included regex</p>
@@ -671,7 +744,7 @@ entire STRING_MAP will be used.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ReportRequest.attributes">
+<tr id="ReportRequest-attributes">
 <td><code>attributes</code></td>
 <td><code><a href="#CompressedAttributes">CompressedAttributes[]</a></code></td>
 <td>
@@ -694,7 +767,7 @@ a degenerate case is to include all attributes in every individual message.</p>
 
 </td>
 </tr>
-<tr id="ReportRequest.default_words">
+<tr id="ReportRequest-default_words">
 <td><code>defaultWords</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -707,7 +780,7 @@ request, which can substantially reduce the overall request size.</p>
 
 </td>
 </tr>
-<tr id="ReportRequest.global_word_count">
+<tr id="ReportRequest-global_word_count">
 <td><code>globalWordCount</code></td>
 <td><code>uint32</code></td>
 <td>
@@ -724,6 +797,57 @@ To detect global dictionary out of sync between client and server.</p>
 <p>Used to carry responses to telemetry reports</p>
 
 </section>
+<h3 id="RouteDirective">RouteDirective</h3>
+<section>
+<p>Expresses the routing manipulation actions to be performed on behalf of
+Mixer in response to a successful precondition check.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RouteDirective-request_header_operations">
+<td><code>requestHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the request headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-response_header_operations">
+<td><code>responseHeaderOperations</code></td>
+<td><code><a href="#HeaderOperation">HeaderOperation[]</a></code></td>
+<td>
+<p>Operations on the response headers.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-direct_response_code">
+<td><code>directResponseCode</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>If set, enables a direct response without proxying the request to the routing
+destination. Required to be a value in the 2xx or 3xx range.</p>
+
+</td>
+</tr>
+<tr id="RouteDirective-direct_response_body">
+<td><code>directResponseBody</code></td>
+<td><code>string</code></td>
+<td>
+<p>Supplies the response body for the direct response.
+If this setting is omitted, no body is included in the generated response.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h3 id="StringMap">StringMap</h3>
 <section>
 <p>A map of string to string. The keys and values in this map are dictionary
@@ -738,7 +862,7 @@ indices (see the <a href="#CompressedAttributes">Attributes</a> message for an e
 </tr>
 </thead>
 <tbody>
-<tr id="StringMap.entries">
+<tr id="StringMap-entries">
 <td><code>entries</code></td>
 <td><code>map&lt;int32,&nbsp;int32&gt;</code></td>
 <td>
@@ -749,7 +873,7 @@ indices (see the <a href="#CompressedAttributes">Attributes</a> message for an e
 </tbody>
 </table>
 </section>
-<h3 id="google.rpc.Status">google.rpc.Status</h3>
+<h3 id="google-rpc-Status">google.rpc.Status</h3>
 <section>
 <p>The <code>Status</code> type defines a logical error model that is suitable for different
 programming environments, including REST APIs and RPC APIs. It is used by
@@ -817,7 +941,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
-<tr id="google.rpc.Status.code">
+<tr id="google-rpc-Status-code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
@@ -825,17 +949,17 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 
 </td>
 </tr>
-<tr id="google.rpc.Status.message">
+<tr id="google-rpc-Status-message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>
-<tr id="google.rpc.Status.details">
+<tr id="google-rpc-Status-details">
 <td><code>details</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
 <td>

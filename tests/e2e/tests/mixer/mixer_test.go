@@ -56,9 +56,18 @@ const (
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
-	srcLabel          = "source_service"
-	destLabel         = "destination_service"
-	responseCodeLabel = "response_code"
+	srcLabel           = "source_service"
+	srcPodLabel        = "source_pod"
+	srcWorkloadLabel   = "source_workload"
+	srcOwnerLabel      = "source_owner"
+	srcUIDLabel        = "source_workload_uid"
+	destLabel          = "destination_service"
+	destPodLabel       = "destination_pod"
+	destWorkloadLabel  = "destination_workload"
+	destOwnerLabel     = "destination_owner"
+	destUIDLabel       = "destination_workload_uid"
+	destContainerLabel = "destination_container"
+	responseCodeLabel  = "response_code"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -78,8 +87,8 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
+		V1alpha1: false, //implies envoyv1
+		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -92,6 +101,7 @@ var (
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
+	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
 	routeAllRule             = "route-rule-all-v1"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = "route-rule-reviews-v3"
@@ -124,7 +134,7 @@ func (t *testConfig) Setup() (err error) {
 	}
 	drs := []*string{&routeAllRule, &bookinfoGateway}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
 	for _, dr := range drs {
 		*dr = filepath.Join(rulesDir, *dr)
 		defaultRules = append(defaultRules, *dr)
@@ -292,6 +302,24 @@ func podID(labelSelector string) (pod string, err error) {
 	return
 }
 
+func deployment(labelSelector string) (name, owner, uid string, err error) {
+	name, err = util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		log.Warnf("could not get %s deployment: %v", labelSelector, err)
+		return
+	}
+	log.Infof("%s deployment name: %s", labelSelector, name)
+	uid = fmt.Sprintf("istio://%s/workloads/%s", tc.Kube.Namespace, name)
+	selfLink, err := util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.selfLink}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		log.Warnf("could not get deployment %s self link: %v", name, err)
+		return
+	}
+	log.Infof("deployment %s self link: %s", labelSelector, selfLink)
+	owner = fmt.Sprintf("kubernetes:/%s", selfLink)
+	return
+}
+
 func podLogs(labelSelector string, container string) {
 	pod, err := podID(labelSelector)
 	if err != nil {
@@ -420,27 +448,27 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestMetric(t *testing.T) {
-	checkMetricReport(t, "productpage")
+	checkMetricReport(t, destLabel, fqdn("productpage"))
 }
 
 func TestIngressMetric(t *testing.T) {
-	checkMetricReport(t, "istio-"+ingressName)
+	checkMetricReport(t, srcWorkloadLabel, "istio-"+ingressName)
 }
 
 // checkMetricReport checks whether report works for the given service
 // by visiting productpage and comparing request_count metric.
-func checkMetricReport(t *testing.T, serviceName string) {
+func checkMetricReport(t *testing.T, label, labelValue string) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
-	t.Logf("Check request count metric for %s", serviceName)
+	t.Logf("Check request count metric for %q=%q", label, labelValue)
 
 	// establish baseline by querying request count metric.
 	t.Log("establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn(serviceName))
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", label, labelValue)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -464,7 +492,7 @@ func checkMetricReport(t *testing.T, serviceName string) {
 
 	t.Log("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn(serviceName), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", label, labelValue, responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -591,6 +619,68 @@ func TestNewMetrics(t *testing.T) {
 	if got < want {
 		t.Logf("prometheus values for istio_response_size_count:\n%s", promDump(promAPI, "istio_response_size_count"))
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	}
+}
+
+func TestKubeenvMetrics(t *testing.T) {
+	if err := applyMixerRule(kubeenvTelemetryRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+
+	defer func() {
+		if err := deleteMixerRule(kubeenvTelemetryRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	allowRuleSync()
+
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		fatalf(t, "Test app setup failure: %v", err)
+	}
+
+	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	allowPrometheusSync()
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+	productPagePod, err := podID("app=productpage")
+	if err != nil {
+		fatalf(t, "Could not get productpage pod ID: %v", err)
+	}
+	productPageWorkloadName, productPageOwner, productPageUID, err := deployment("app=productpage")
+	if err != nil {
+		fatalf(t, "Could not get productpage deployment metadata: %v", err)
+	}
+	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName))
+	if err != nil {
+		fatalf(t, "Could not get ingress pod ID: %v", err)
+	}
+	ingressWorkloadName, ingressOwner, ingressUID, err := deployment(fmt.Sprintf("istio=%s", ingressName))
+	if err != nil {
+		fatalf(t, "Could not get ingress deployment metadata: %v", err)
+	}
+
+	query := fmt.Sprintf("istio_kube_request_count{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"200\"}",
+		srcPodLabel, ingressPod, srcWorkloadLabel, ingressWorkloadName, srcOwnerLabel, ingressOwner, srcUIDLabel, ingressUID,
+		destPodLabel, productPagePod, destWorkloadLabel, productPageWorkloadName, destOwnerLabel, productPageOwner, destUIDLabel, productPageUID,
+		destContainerLabel, "productpage", responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+	log.Infof("promvalue := %s", value.String())
+
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Logf("prometheus values for istio_kube_request_count:\n%s", promDump(promAPI, "istio_kube_request_count"))
+		fatalf(t, "Error get metric value: %v", err)
+	}
+	want := float64(1)
+	if got < want {
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -933,9 +1023,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-policy' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-policy' as the destination, got %d", len(vec))
 	}
 
 	t.Logf("Validating metrics with 'istio-telemetry' have been generated... ")
@@ -950,9 +1040,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Fatalf("Expected ValVector from prometheus, got %T", value)
 	}
 
-	if vec := value.(model.Vector); len(vec) < 2 {
+	if vec := value.(model.Vector); len(vec) < 1 {
 		t.Logf("Values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
-		t.Errorf("Expected at least two metrics with 'istio-telemetry' as the destination (srcs: istio-ingress, productpage), got %d", len(vec))
+		t.Errorf("Expected at least one metric with 'istio-telemetry' as the destination, got %d", len(vec))
 	}
 
 	mixerPod, err := podID("istio-mixer-type=telemetry")

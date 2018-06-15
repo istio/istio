@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Datadog
-// $overview: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
-// $location: https://istio.io/docs/reference/config/adapters/datadog.html
+// $description: Adapter to deliver metrics to a dogstatsd agent for delivery to DataDog
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/datadog.html
+// $aliases:
+// $  - /docs/reference/config/adapters/datadog.html
 
 // The `dogstatsd` adapter is designed to deliver Istio metric instances to a
 // listening [DataDog](https://www.datadoghq.com/) agent.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 package adapter.dogstatsd.config;
 
 import "gogoproto/gogo.proto";
@@ -35,8 +39,8 @@ message Params {
     // Default: localhost:8125
     string address = 1;
 
-    // Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog.
-    // Default: ""
+    // Prefix to prepend to all metrics handled by the adapter. Metric "bar" with prefix "foo." becomes "foo.bar" in DataDog. In order to make sure the metrics get populated into Datadog properly and avoid any billing issues, it's important to leave the metric prefix to its default value of 'istio.'
+    // Default: "istio."
     string prefix = 2;
 
     // Number of individual metrics to buffer before flushing metrics to the network. When buffered, metrics are flushed every 100ms or when the buffer is filled.

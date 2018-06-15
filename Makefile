@@ -38,6 +38,7 @@ export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+export GO_TOP
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
 # to be handled in bin/gobuild.sh
@@ -183,7 +184,7 @@ where-is-docker-tar:
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend depend.diff depend.update depend.cleanlock depend.update.full init
+.PHONY: depend depend.diff init
 
 # Parse out the x.y or x.y.z version and output a single value x*10000+y*100+z (e.g., 1.9 is 10900)
 # that allows the three components to be checked in a single comparison.
@@ -210,8 +211,15 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: init
+sync: init git.pullmaster
 	mkdir -p ${OUT_DIR}/logs
+
+# Merge master. To be used in CI or by developers, assumes the
+# remote is called 'origin' (git default). Will fail on conflicts
+# Note: in a branch, this will get the latest from master. In master it has no effect.
+# This should be run after a 'git fetch' (typically done in the checkout step in CI)
+git.pullmaster:
+	git merge master
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -226,25 +234,17 @@ ${ISTIO_ENVOY_DEBUG_PATH}: init
 ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
-# Developers must manually call make depend.update if adding new deps
+# Developers must manually run `dep ensure` if adding new deps
 depend: init | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
-# Updates the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: depend.update | $(ISTIO_OUT)
+# Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
+depend.diff: $(ISTIO_OUT)
+	go get -u github.com/golang/dep/cmd/dep
+	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
-
-depend.update.full: depend.cleanlock depend.update
-
-depend.cleanlock:
-	-rm Gopkg.lock
-
-depend.update:
-	@echo "Running dep ensure with DEPARGS=$(DEPARGS)"
-	dep version
-	time dep ensure $(DEPARGS)
 
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
@@ -417,10 +417,15 @@ PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client $
 $(PILOT_TEST_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
+MIXER_TEST_BINS:=${ISTIO_OUT}/mixer-test-policybackend
+
+$(MIXER_TEST_BINS):
+	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
+
 hyperistio:
 	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
-test-bins: $(PILOT_TEST_BINS)
+test-bins: $(PILOT_TEST_BINS) $(MIXER_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure

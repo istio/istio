@@ -7,11 +7,8 @@ Package reportnothing is a generated protocol buffer package.
 The `reportnothing` template represents an empty block of data, which can useful
 in different testing scenarios.
 
-ReportNothing represents an empty block of data that is used for Report-capable
-adapters which don't require any parameters. This is primarily intended for testing
-scenarios.
-
 Example config:
+
 ```yaml
 apiVersion: "config.istio.io/v1alpha2"
 kind: reportnothing
@@ -19,7 +16,11 @@ metadata:
   name: reportrequest
   namespace: istio-system
 spec:
-```
+```\
+
+ReportNothing represents an empty block of data that is used for Report-capable
+adapters which don't require any parameters. This is primarily intended for testing
+scenarios.
 
 It is generated from these files:
 	mixer/template/reportnothing/template_handler_service.proto
@@ -40,10 +41,8 @@ import _ "istio.io/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
 import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import strings "strings"
 import reflect "reflect"

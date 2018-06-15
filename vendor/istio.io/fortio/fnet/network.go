@@ -145,7 +145,8 @@ func Proxy(port string, dest *net.TCPAddr) *net.TCPAddr {
 				log.Critf("Proxy: error accepting: %v", err) // will this loop with error?
 			} else {
 				tcpConn := conn.(*net.TCPConn)
-				log.LogVf("Proxy: Accepted proxy connection from %v for %v", conn.RemoteAddr(), dest)
+				log.LogVf("Proxy: Accepted proxy connection from %v -> %v (for listener %v)",
+					conn.RemoteAddr(), conn.LocalAddr(), dest)
 				// TODO limit number of go request, use worker pool, etc...
 				go handleProxyRequest(tcpConn, dest)
 			}

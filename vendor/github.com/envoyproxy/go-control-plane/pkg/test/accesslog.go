@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	alf "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	alf "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 	als "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 )
 

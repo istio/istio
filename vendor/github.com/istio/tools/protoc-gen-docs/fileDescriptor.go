@@ -28,6 +28,7 @@ type fileDescriptor struct {
 	services     []*serviceDescriptor                               // All services defined in this file
 	dependencies []*fileDescriptor                                  // Files imported by this file
 	locations    map[pathVector]*descriptor.SourceCodeInfo_Location // Provenance
+	matter       frontMatter                                        // Title, overview, homeLocation, front_matter
 }
 
 func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDescriptor) *fileDescriptor {
@@ -61,6 +62,12 @@ func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDesc
 	path = newPathVector(servicePath)
 	for i, s := range desc.Service {
 		f.services = append(f.services, newServiceDescriptor(s, f, path.append(i)))
+	}
+
+	// Find title/overview/etc content in comments and store it explicitly.
+	loc := f.find(newPathVector(packagePath))
+	if loc != nil && loc.LeadingDetachedComments != nil {
+		f.matter = extractFrontMatter(f.GetName(), loc)
 	}
 
 	// get the transitive close of all messages and enums

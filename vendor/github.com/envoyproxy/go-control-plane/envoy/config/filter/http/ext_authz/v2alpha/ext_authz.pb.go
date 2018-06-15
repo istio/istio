@@ -32,7 +32,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// The external authorization HTTP service configuration.
+// [#not-implemented-hide:]
+// [#comment: The HttpService is under development and will be supported soon.]
 type HttpService struct {
 	// Sets the HTTP server URI which the authorization requests must be sent to.
 	ServerUri *envoy_api_v2_core2.HttpUri `protobuf:"bytes,1,opt,name=server_uri,json=serverUri" json:"server_uri,omitempty"`
@@ -59,15 +60,18 @@ func (m *HttpService) GetPathPrefix() string {
 	return ""
 }
 
+// External Authorization filter calls out to an external service over the
+// gRPC Authorization API defined by
+// :ref:`CheckRequest <envoy_api_msg_service.auth.v2alpha.CheckRequest>`.
+// A failed check will cause this filter to close the HTTP request with 403(Forbidden).
 type ExtAuthz struct {
 	// Types that are valid to be assigned to Services:
 	//	*ExtAuthz_GrpcService
 	//	*ExtAuthz_HttpService
 	Services isExtAuthz_Services `protobuf_oneof:"services"`
 	// The filter's behaviour in case the external authorization service does
-	// not respond back. If set to true then in case of failure to get a
-	// response back from the authorization service or getting a response that
-	// is NOT denied then traffic will be permitted.
+	// not respond back. When it is set to true, Envoy will also allow traffic in case of
+	// communication failure between authorization service and the proxy.
 	// Defaults to false.
 	FailureModeAllow bool `protobuf:"varint,2,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
 }

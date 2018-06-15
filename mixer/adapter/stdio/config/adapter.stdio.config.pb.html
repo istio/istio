@@ -1,8 +1,11 @@
 ---
 title: Stdio
-overview: Adapter for outputting logs and metrics locally.
-location: https://istio.io/docs/reference/config/adapters/stdio.html
+description: Adapter for outputting logs and metrics locally.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stdio.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/stdio.html
 number_of_entries: 3
 ---
 <p>The <code>stdio</code> adapter enables Istio to output logs and metrics to
@@ -11,6 +14,9 @@ standard output stream, standard error stream, or to any locally
 reachable file. When outputting to files, you can enable file rotation
 such that the adapter will automatically manage a set of file backups
 as data is generated.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>.
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -25,18 +31,18 @@ as data is generated.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.log_stream">
+<tr id="Params-log_stream">
 <td><code>logStream</code></td>
-<td><code><a href="#Params.Stream">Params.Stream</a></code></td>
+<td><code><a href="#Params-Stream">Params.Stream</a></code></td>
 <td>
 <p>Selects which standard stream to write to for log entries.
 STDERR is the default Stream.</p>
 
 </td>
 </tr>
-<tr id="Params.severity_levels">
+<tr id="Params-severity_levels">
 <td><code>severityLevels</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#Params.Level">Params.Level</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-Level">Params.Level</a>&gt;</code></td>
 <td>
 <p>Maps from severity strings as specified in LogEntry instances to
 the set of levels supported by this adapter. This defaults to a map of</p>
@@ -59,15 +65,15 @@ the set of levels supported by this adapter. This defaults to a map of</p>
 
 </td>
 </tr>
-<tr id="Params.metric_level">
+<tr id="Params-metric_level">
 <td><code>metricLevel</code></td>
-<td><code><a href="#Params.Level">Params.Level</a></code></td>
+<td><code><a href="#Params-Level">Params.Level</a></code></td>
 <td>
 <p>The level to assign to metrics being output. Defaults to INFO.</p>
 
 </td>
 </tr>
-<tr id="Params.output_as_json">
+<tr id="Params-output_as_json">
 <td><code>outputAsJson</code></td>
 <td><code>bool</code></td>
 <td>
@@ -75,15 +81,15 @@ the set of levels supported by this adapter. This defaults to a map of</p>
 
 </td>
 </tr>
-<tr id="Params.output_level">
+<tr id="Params-output_level">
 <td><code>outputLevel</code></td>
-<td><code><a href="#Params.Level">Params.Level</a></code></td>
+<td><code><a href="#Params-Level">Params.Level</a></code></td>
 <td>
 <p>The minimum level to output, anything less than this level is ignored. Defaults to INFO (everything).</p>
 
 </td>
 </tr>
-<tr id="Params.output_path">
+<tr id="Params-output_path">
 <td><code>outputPath</code></td>
 <td><code>string</code></td>
 <td>
@@ -96,7 +102,7 @@ files are called backups. Once a backup has been created, output resumes to this
 
 </td>
 </tr>
-<tr id="Params.max_megabytes_before_rotation">
+<tr id="Params-max_megabytes_before_rotation">
 <td><code>maxMegabytesBeforeRotation</code></td>
 <td><code>int32</code></td>
 <td>
@@ -105,7 +111,7 @@ rotated. It defaults to 100 megabytes.</p>
 
 </td>
 </tr>
-<tr id="Params.max_days_before_rotation">
+<tr id="Params-max_days_before_rotation">
 <td><code>maxDaysBeforeRotation</code></td>
 <td><code>int32</code></td>
 <td>
@@ -117,7 +123,7 @@ older than 30 days. 0 indicates no limit.</p>
 
 </td>
 </tr>
-<tr id="Params.max_rotated_files">
+<tr id="Params-max_rotated_files">
 <td><code>maxRotatedFiles</code></td>
 <td><code>int32</code></td>
 <td>
@@ -129,7 +135,7 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Level">Params.Level</h2>
+<h2 id="Params-Level">Params.Level</h2>
 <section>
 <p>Importance level for individual items output by this adapter.</p>
 
@@ -141,21 +147,21 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Level.INFO">
+<tr id="Params-Level-INFO">
 <td><code>INFO</code></td>
 <td>
 <p>informational, warning, and error log messages are included</p>
 
 </td>
 </tr>
-<tr id="Params.Level.WARNING">
+<tr id="Params-Level-WARNING">
 <td><code>WARNING</code></td>
 <td>
 <p>warning and error log messges are included</p>
 
 </td>
 </tr>
-<tr id="Params.Level.ERROR">
+<tr id="Params-Level-ERROR">
 <td><code>ERROR</code></td>
 <td>
 <p>only error log messages are included</p>
@@ -165,7 +171,7 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.Stream">Params.Stream</h2>
+<h2 id="Params-Stream">Params.Stream</h2>
 <section>
 <p>Stream is used to select between different log output sinks.</p>
 
@@ -177,28 +183,28 @@ is to retain at most 1000 logs. 0 indicates no limit.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.Stream.STDOUT">
+<tr id="Params-Stream-STDOUT">
 <td><code>STDOUT</code></td>
 <td>
 <p>Output to the Mixer process&rsquo; standard output stream. This is the default value.</p>
 
 </td>
 </tr>
-<tr id="Params.Stream.STDERR">
+<tr id="Params-Stream-STDERR">
 <td><code>STDERR</code></td>
 <td>
 <p>Output to the Mixer process&rsquo; standard error stream.</p>
 
 </td>
 </tr>
-<tr id="Params.Stream.FILE">
+<tr id="Params-Stream-FILE">
 <td><code>FILE</code></td>
 <td>
 <p>Output to a specific file.</p>
 
 </td>
 </tr>
-<tr id="Params.Stream.ROTATED_FILE">
+<tr id="Params-Stream-ROTATED_FILE">
 <td><code>ROTATED_FILE</code></td>
 <td>
 <p>Output to a specific rotating file, controlled by the various file rotation options.</p>
