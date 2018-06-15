@@ -27,7 +27,7 @@ import (
 // These methods will only work if you already have an environment deployed with apps.
 func TestHttp(t *testing.T) {
 	e := Environment{
-		AppNamespace: "istio-system",
+		TestNamespace: "istio-system",
 	}
 
 	a := e.GetAppOrFail("a", t)

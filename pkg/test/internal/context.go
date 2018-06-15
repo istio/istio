@@ -21,16 +21,20 @@ type TestContext struct {
 	testID  string
 	runID   string
 	workDir string
+	hub     string
+	tag     string
 	env     Environment
 	deps    Tracker
 }
 
 // NewTestContext initializes and returns a new instance of TestContext.
-func NewTestContext(testID, runID, workDir string, env Environment) *TestContext {
+func NewTestContext(testID, runID, workDir, hub, tag string, env Environment) *TestContext {
 	return &TestContext{
 		testID:  testID,
 		runID:   runID,
 		workDir: workDir,
+		hub:     hub,
+		tag:     tag,
 		env:     env,
 		deps:    make(map[dependency.Instance]interface{}),
 	}
@@ -38,23 +42,27 @@ func NewTestContext(testID, runID, workDir string, env Environment) *TestContext
 
 // TestID of the current test.
 func (t *TestContext) TestID() string {
-	scope.Debugf("Enter: TestContext.TestID (%s)", t.testID)
-
 	return t.testID
 }
 
 // RunID of the current run.
 func (t *TestContext) RunID() string {
-	scope.Debugf("Enter: TestContext.RunID (%s)", t.runID)
-
 	return t.runID
 }
 
 // Environment interface for internal use.
 func (t *TestContext) Environment() Environment {
-	scope.Debugf("Enter: TestContext.Environment (%s)", t.testID)
-
 	return t.env
+}
+
+// Hub environment variable.
+func (t *TestContext) Hub() string {
+	return t.hub
+}
+
+// Tag environment variable.
+func (t *TestContext) Tag() string {
+	return t.tag
 }
 
 // CreateTmpDirectory allows creation of temporary directories.

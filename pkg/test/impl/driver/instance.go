@@ -41,11 +41,9 @@ var scope = log.RegisterScope("testframework", "General scope for the test frame
 type driver struct {
 	lock sync.Mutex
 
-	suiteDependencies []dependency.Instance
-	allowedLabels     map[label.Label]struct{}
-	m                 *testing.M
-
-	ctx *internal.TestContext
+	args          *Args
+	allowedLabels map[label.Label]struct{}
+	ctx           *internal.TestContext
 
 	// The names of the tests that we've encountered so far.
 	testNames map[string]struct{}
@@ -84,7 +82,7 @@ func (d *driver) Initialize(a *Args) error {
 	switch a.Environment {
 	case EnvLocal:
 		env, err = local.NewEnvironment()
-	case EnvKubernetes:
+	case EnvKube:
 		env, err = cluster.NewEnvironment(a.KubeConfig)
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
@@ -99,6 +97,8 @@ func (d *driver) Initialize(a *Args) error {
 		args.TestID,
 		generateRunID(args.TestID),
 		a.WorkDir,
+		a.Hub,
+		a.Tag,
 		env)
 
 	if err = env.Initialize(ctx); err != nil {
@@ -106,8 +106,7 @@ func (d *driver) Initialize(a *Args) error {
 	}
 
 	d.ctx = ctx
-	d.suiteDependencies = args.SuiteDependencies
-	d.m = args.M
+	d.args = args
 
 	if args.Labels != "" {
 		d.allowedLabels = make(map[label.Label]struct{})
@@ -140,7 +139,7 @@ func (d *driver) Run() int {
 		return -2
 	}
 
-	for _, dep := range d.suiteDependencies {
+	for _, dep := range d.args.SuiteDependencies {
 		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
 			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			return -3
@@ -149,7 +148,7 @@ func (d *driver) Run() int {
 
 	d.running = true
 
-	m := d.m
+	m := d.args.M
 	d.lock.Unlock()
 
 	// Call m.Run() while not holding the lock.
@@ -161,11 +160,14 @@ func (d *driver) Run() int {
 
 	d.running = false
 
-	d.ctx.Tracker().Cleanup()
+	if !d.args.NoCleanup {
+		d.ctx.Tracker().Cleanup()
+	}
 
 	return rt
 }
 
+// AcquireEnvironment implementation
 func (d *driver) AcquireEnvironment(t testing.TB) environment.Interface {
 	t.Helper()
 	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.ctx.TestID())
@@ -181,6 +183,10 @@ func (d *driver) AcquireEnvironment(t testing.TB) environment.Interface {
 		t.Fatalf("AcquireEnvironment should be called only once during a test session. (test='%s')", t.Name())
 	}
 	d.testNames[t.Name()] = struct{}{}
+
+	if err := d.ctx.Environment().Reset(); err != nil {
+		t.Fatalf("AcquireEnvironment failed to reset the environment state: %v", err)
+	}
 
 	// Reset all resettables, as we're going to be executing within the context of a new test.
 	if err := d.ctx.Tracker().Reset(d.ctx); err != nil {

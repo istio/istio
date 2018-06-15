@@ -15,16 +15,16 @@
 package showcase
 
 import (
+	"net"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/label"
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	test.Tag(t, label.Label("QQQ"))
-	test.Requires(t, dependency.PolicyBackend, dependency.Mixer)
+	test.Requires(t, dependency.PolicyBackend, dependency.Mixer, dependency.Kube)
 
 	env := test.AcquireEnvironment(t)
 
@@ -35,19 +35,24 @@ func TestMixer_Report_Direct(t *testing.T) {
 	env.Configure(t,
 		test.JoinConfigs(
 			testConfig,
-			attrConfig,
+			//			attrConfig,
 			be.CreateConfigSnippet("handler1"),
 		))
 
+	dstService := env.Evaluate(t, `svc.{{.TestNamespace}}`)
+
 	m.Report(t, map[string]interface{}{
-		"target.name":         "somesrvcname",
-		"destination.service": "svc.cluster.local",
+		"context.protocol":    "http",
+		"destination.name":    "somesrvcname",
+		"response.time":       time.Now(),
+		"request.time":        time.Now(),
+		"destination.service": dstService,
+		"origin.ip":           net.IPv4(1, 2, 3, 4),
 	})
 
-	be.ExpectReportJSON(t,
-		`
+	expected := env.Evaluate(t, `
 {
-  "name":"metric1.metric.istio-system",
+  "name":"metric1.metric.{{.TestNamespace}}",
   "value":{"int64Value":"2"},
   "dimensions":{
     "source":{"stringValue":"mysrc"},
@@ -55,6 +60,7 @@ func TestMixer_Report_Direct(t *testing.T) {
    }
 }`)
 
+	be.ExpectReportJSON(t, expected)
 }
 
 //
@@ -91,50 +97,47 @@ func TestMixer_Report_Direct(t *testing.T) {
 //	//be.ExpectReport(t).With("request_id: ,....")
 //}
 
-var attrConfig = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: attributemanifest
-metadata:
-  name: istio-proxy
-  namespace: default
-spec:
-    attributes:
-      source.name:
-        value_type: STRING
-      target.name:
-        value_type: STRING
-      response.count:
-        value_type: INT64
-      attr.bool:
-        value_type: BOOL
-      attr.string:
-        value_type: STRING
-      attr.double:
-        value_type: DOUBLE
-      attr.int64:
-        value_type: INT64
-`
+//var attrConfig = `
+//apiVersion: "config.istio.io/v1alpha2"
+//kind: attributemanifest
+//metadata:
+//  name: istio-proxy
+//  namespace: istio-system
+//spec:
+//    attributes:
+//      source.name:
+//        value_type: STRING
+//      destination.name:
+//        value_type: STRING
+//      response.count:
+//        value_type: INT64
+//      attr.bool:
+//        value_type: BOOL
+//      attr.string:
+//        value_type: STRING
+//      attr.double:
+//        value_type: DOUBLE
+//      attr.int64:
+//        value_type: INT64
+//`
 
 var testConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
  name: metric1
- namespace: istio-system
 spec:
  value: "2"
  dimensions:
    source: source.name | "mysrc"
-   target_ip: target.name | "mytarget"
+   target_ip: destination.name | "mytarget"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
  name: rule1
- namespace: istio-system
 spec:
- match: match(target.name, "*")
  actions:
  - handler: handler1.bypass
    instances:
