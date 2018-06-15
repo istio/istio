@@ -560,55 +560,48 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		},
 	}
 
-	enforcePolicy1 := &policy.Policy{
-		Permissions: []*policy.Permission{generatePermission(":method", "GET")},
-		Principals:  []*policy.Principal{generatePrincipal("user1")},
-	}
-
-	enforcePolicy2 := &policy.Policy{
-		Permissions: []*policy.Permission{generatePermission(":method", "POST")},
-		Principals:  []*policy.Principal{generatePrincipal("user3")},
-	}
-
-	permissivePolicy1 := &policy.Policy{
-		Permissions: []*policy.Permission{generatePermission(":method", "GET")},
-		Principals:  []*policy.Principal{generatePrincipal("user2")},
-	}
-
-	permissivePolicy2 := &policy.Policy{
-		Permissions: []*policy.Permission{generatePermission(":method", "POST")},
-		Principals:  []*policy.Principal{generatePrincipal("user4")},
-	}
-
-	enforcedRbac := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-1": enforcePolicy1,
-			"service-role-2": enforcePolicy2,
+	rbacConfig := &rbacconfig.RBAC{
+		Rules: &policy.RBAC{
+			Action: policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{
+				"service-role-1": {
+					Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+					Principals:  []*policy.Principal{generatePrincipal("user1")},
+				},
+				"service-role-2": {
+					Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+					Principals:  []*policy.Principal{generatePrincipal("user3")},
+				},
+			},
+		},
+		ShadowRules: &policy.RBAC{
+			Action: policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{
+				"service-role-1": {
+					Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+					Principals:  []*policy.Principal{generatePrincipal("user2")},
+				},
+				"service-role-2": {
+					Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+					Principals:  []*policy.Principal{generatePrincipal("user4")},
+				},
+			},
 		},
 	}
-	shadowRbac := &policy.RBAC{
-		Action: policy.RBAC_ALLOW,
-		Policies: map[string]*policy.Policy{
-			"service-role-1": permissivePolicy1,
-			"service-role-2": permissivePolicy2,
-		},
-	}
+
 	testCases := []struct {
-		name       string
-		service    string
-		roles      []model.Config
-		bindings   []model.Config
-		rbac       *policy.RBAC
-		shadowRbac *policy.RBAC
+		name     string
+		service  string
+		roles    []model.Config
+		bindings []model.Config
+		config   *rbacconfig.RBAC
 	}{
 		{
-			name:       "exact matched service",
-			service:    "service",
-			roles:      roles,
-			bindings:   bindings,
-			rbac:       enforcedRbac,
-			shadowRbac: shadowRbac,
+			name:     "exact matched service",
+			service:  "service",
+			roles:    roles,
+			bindings: bindings,
+			config:   rbacConfig,
 		},
 		{
 			name:     "empty roles",
@@ -631,11 +624,8 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 				t.Errorf("len(rbac.Rules.Policies), got: %d, want: %d", got, want)
 			}
 		} else {
-			if !reflect.DeepEqual(*tc.rbac, *rbac.Rules) {
-				t.Errorf("%s want:\n%v\nbut got:\n%v", tc.name, *tc.rbac, *rbac.Rules)
-			}
-			if !reflect.DeepEqual(*tc.shadowRbac, *rbac.ShadowRules) {
-				t.Errorf("%s shadow want:\n%v\nbut got:\n%v", tc.name, *tc.shadowRbac, *rbac.ShadowRules)
+			if !reflect.DeepEqual(*tc.config, *rbac) {
+				t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.config, *rbac)
 			}
 		}
 	}
