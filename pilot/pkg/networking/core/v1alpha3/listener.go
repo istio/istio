@@ -398,7 +398,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					// external service listeners are typically bound to 0.0.0.0
 					if !listenerTypeMap[listenerMapKey].IsTCP() ||
 						(servicePort.Protocol != model.ProtocolHTTPS &&
-							servicePort.Protocol != model.ProtocolTLSWithSNI) ||
+							servicePort.Protocol != model.ProtocolTCPTLS) ||
 						!service.MeshExternal {
 						conflictingOutbound.Add(1)
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
@@ -413,7 +413,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				// Set SNI hosts for External services only. It may or may not work for internal services.
 				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
 				if (servicePort.Protocol == model.ProtocolHTTPS ||
-					servicePort.Protocol == model.ProtocolTLSWithSNI) && service.MeshExternal {
+					servicePort.Protocol == model.ProtocolTCPTLS) && service.MeshExternal {
 					filterChainOption.sniHosts = []string{service.Hostname.String()}
 				}
 
@@ -518,7 +518,7 @@ func buildMgmtPortListeners(managementPorts model.PortList, managementIP string)
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTLSWithSNI, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTCPTLS, model.ProtocolMongo, model.ProtocolRedis:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{

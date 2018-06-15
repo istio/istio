@@ -176,8 +176,8 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 		gateway.Servers = append(gateway.Servers, &networking.Server{
 			Port: &networking.Port{
 				Number:   443,
-				Protocol: string(model.ProtocolTLSWithSNI),
-				Name:     fmt.Sprintf("tls-with-sni-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
+				Protocol: string(model.ProtocolTCPTLS),
+				Name:     fmt.Sprintf("tcp-tls-443-ingress-%s-%s", ingress.Name, ingress.Namespace),
 			},
 			Hosts: tls.Hosts,
 			// While we accept multiple certs, we expect them to be mounted in
