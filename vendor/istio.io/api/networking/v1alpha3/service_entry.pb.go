@@ -192,6 +192,27 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       endpoints:
 //       - address: unix:///var/run/example/socket
 //
+//
+// The following example demonstrates a service that is available via a
+// Unix Domain Socket on the host of the client. The resolution must be
+// set to STATIC to use unix address endpoints.
+//
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: ServiceEntry
+//     metadata:
+//       name: unix-domain-socket-example
+//     spec:
+//       hosts:
+//       - "example.unix.local"
+//       location: MESH_EXTERNAL
+//       ports:
+//       - number: 80
+//         name: http
+//         protocol: HTTP
+//       resolution: STATIC
+//       endpoints:
+//       - address: unix:///var/run/example/socket
+//
 // For HTTP based services, it is possible to create a VirtualService
 // backed by multiple DNS addressable endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
