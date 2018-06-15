@@ -182,7 +182,9 @@ ingressgateway:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
       mountPath: /etc/istio/ingressgateway-certs
-
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
 #
 # egressgateway configuration
 #
