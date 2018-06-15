@@ -25,7 +25,10 @@ type SecretManager interface {
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte
-	Token            string
-	LastUsedTime     time.Time
-	CreatedTime      time.Time
+
+	// Credential token passed from envoy, caClient uses this token to send
+	// CSR to CA to sign certificate.
+	Token string
+
+	CreatedTime time.Time
 }

@@ -50,7 +50,7 @@ type SecretCache struct {
 	caClient       CAClient
 	closing        chan bool
 
-	// Cached secret will be removed from cache if (time.now - secretItem.lastUsedTime >= evictionDuration), this prevents cache growing indefinitely.
+	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
 	evictionDuration time.Duration
 
 	// Key rotation job running interval.
@@ -118,14 +118,14 @@ func (sc *SecretCache) rotate(t time.Time) {
 
 		e := value.(sds.SecretItem)
 
-		// Remove from cache if the secret hasn't been used for a while, this prevent the cache growing indefinitely.
-		if now.After(e.LastUsedTime.Add(sc.evictionDuration)) {
+		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
+		if now.After(e.CreatedTime.Add(sc.evictionDuration)) {
 			sc.secrets.Delete(proxyID)
 			return true
 		}
 
 		// Re-generate secret if it's expired.
-		if sc.isCertExpired(&e) {
+		if sc.shouldRefresh(&e) {
 			go func() {
 				if sc.isTokenExpired(&e) {
 					// Send the notification to close the stream connection if both cert and token have expired.
@@ -182,18 +182,18 @@ func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretIte
 		CertificateChain: certChainPER,
 		PrivateKey:       keyPEM,
 		Token:            token,
-		LastUsedTime:     t,
 		CreatedTime:      t,
 	}, nil
 }
 
-func (sc *SecretCache) isCertExpired(s *sds.SecretItem) bool {
+func (sc *SecretCache) shouldRefresh(s *sds.SecretItem) bool {
+	// TODO(quanlin), check if cert has expired.
+	// May need to be more accurate - reserve some grace period to
+	// make sure now() <= TTL - envoy_reconnect_delay - CSR_round_trip delay
 	now := time.Now()
 	if now.After(s.CreatedTime.Add(sc.secretTTL)) {
 		return true
 	}
-
-	// TODO(quanlin), check if cert has expired.
 
 	return false
 }

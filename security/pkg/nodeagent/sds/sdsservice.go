@@ -184,12 +184,13 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	return sdsDiscoveryResponse(secret, proxy)
 }
 
-// NotifyProxy send notification to proxy about secret update.
-func NotifyProxy(id string, secret *SecretItem) error {
-	cli := sdsClients[id]
+// NotifyProxy send notification to proxy about secret update,
+// SDS will close streaming connection is secret is nil.
+func NotifyProxy(proxyID string, secret *SecretItem) error {
+	cli := sdsClients[proxyID]
 	if cli == nil {
-		log.Infof("No sdsclient with id %q can be found", id)
-		return fmt.Errorf("no sdsclient with id %q can be found", id)
+		log.Infof("No sdsclient with id %q can be found", proxyID)
+		return fmt.Errorf("no sdsclient with id %q can be found", proxyID)
 	}
 	cli.secret = secret
 
