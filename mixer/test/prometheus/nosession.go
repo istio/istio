@@ -229,6 +229,9 @@ func NewNoSessionServer(addr uint16, promAddr uint16) (*NoSessionServer, error) 
 	fmt.Printf("listening on :%v\n", s.listener.Addr())
 	s.server = grpc.NewServer()
 	metric.RegisterHandleMetricServiceServer(s.server, s)
+	if _, err = s.getHandler(nil); err != nil {
+		return nil, err
+	}
 	s.promServer = srv
 	return s, nil
 }
