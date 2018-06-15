@@ -181,7 +181,7 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
-		if err := schema.Validate(config.Spec); err != nil {
+		if err := schema.Validate(config.Name, config.Namespace, config.Spec); err != nil {
 			return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 		}
 
