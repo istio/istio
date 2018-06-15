@@ -39,6 +39,7 @@ func Run(testID string, m *testing.M) {
 
 	args := *arguments
 	args.TestID = testID
+	args.NoCleanup = noCleanup
 	args.M = m
 
 	scope.Debugf("test.Run: command-line flags are parsed, and logging is initialized.")
@@ -91,8 +92,10 @@ func SuiteTag(m *testing.M, labels ...label.Label) {
 }
 
 // Tag the test with the given labels. The user can filter using the labels.
-// TODO: The polarity of this is a bit borked. If the test doesn't call Tag, then it won't get filtered out.
 func Tag(t testing.TB, labels ...label.Label) {
+	// TODO: We should add a linter rule to ensure that this method is always called, to ensure that
+	// the label based skipping/checking always works.
+	// See https://github.com/istio/istio/issues/6176
 	t.Helper()
 	d.CheckLabels(t, labels)
 }
