@@ -8,8 +8,10 @@ set -euo pipefail
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
 
-export TOP=${TOP:-${GOPATH}}
-export ISTIO_GO=${TOP}/src/istio.io/istio
+# If GOPATH is made up of several paths, use the first one for our targets in this file
+export GO_TOP=${GO_TOP:-$(echo ${GOPATH} | cut -d ':' -f1)}
+
+export ISTIO_GO=${GO_TOP}/src/istio.io/istio
 
 if [[ "$OSTYPE" == "darwin"* ]]; then 
    export GOOS_LOCAL=darwin
@@ -17,10 +19,9 @@ else
   export GOOS_LOCAL=${GOOS_LOCAL:-linux}
 fi
 
-export GOPATH=${TOP}
-export PATH=${GOPATH}/bin:${PATH}
-export OUT=${TOP}/out
-export ISTIO_OUT=${ISTIO_OUT:-${TOP}/out/${GOOS_LOCAL}_amd64/release}
+export PATH=${GO_TOP}/bin:${PATH}
+export OUT=${GO_TOP}/out
+export ISTIO_OUT=${ISTIO_OUT:-${GO_TOP}/out/${GOOS_LOCAL}_amd64/release}
 
 # components used in the test (starting with circleci for consistency, eventually ci will use this)
 export K8S_VER=${K8S_VER:-v1.9.2}
@@ -30,7 +31,7 @@ export MASTER_IP=127.0.0.1
 export MASTER_CLUSTER_IP=10.99.0.1
 
 # TODO: customize the ports and generate a local config
-export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
+export KUBECONFIG=${GO_TOP}/src/istio.io/istio/.circleci/config
 
 ${ISTIO_GO}/bin/init.sh
 
@@ -69,41 +70,41 @@ function ensureK8SCerts() {
 # Get dependencies needed for tests. Only needed once.
 # The docker builder image should include them.
 function getDeps() {
-   mkdir -p $TOP/bin
-   if [ ! -f $TOP/bin/kubectl ] ; then
+   mkdir -p $GO_TOP/bin
+   if [ ! -f $GO_TOP/bin/kubectl ] ; then
      if [ -f /usr/local/bin/kubectl ] ; then
-       ln -s /usr/local/bin/kubectl $TOP/bin/kubectl
+       ln -s /usr/local/bin/kubectl $GO_TOP/bin/kubectl
      else
-       curl -Lo $TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kubectl && chmod +x $TOP/bin/kubectl
+       curl -Lo $GO_TOP/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kubectl && chmod +x $GO_TOP/bin/kubectl
      fi
    fi
-   if [ ! -f $TOP/bin/kube-apiserver ] ; then
+   if [ ! -f $GO_TOP/bin/kube-apiserver ] ; then
      if [ -f /usr/local/bin/kube-apiserver ] ; then
-       ln -s /usr/local/bin/kube-apiserver $TOP/bin/
+       ln -s /usr/local/bin/kube-apiserver $GO_TOP/bin/
      elif [ -f /tmp/apiserver/kube-apiserver ] ; then
-       ln -s /tmp/apiserver/kube-apiserver $TOP/bin/
+       ln -s /tmp/apiserver/kube-apiserver $GO_TOP/bin/
      else
        # bucket doesn't contain a kube-apiserver for darwin
-       curl -Lo ${TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kube-apiserver && chmod +x ${TOP}/bin/kube-apiserver
+       curl -Lo ${GO_TOP}/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/${GOOS_LOCAL}/amd64/kube-apiserver && chmod +x ${GO_TOP}/bin/kube-apiserver
      fi
    fi
-   if [ ! -f $TOP/bin/etcd ] ; then
+   if [ ! -f $GO_TOP/bin/etcd ] ; then
      if [ -f /usr/local/bin/etcd ] ; then
-        ln -s /usr/local/bin/etcd $TOP/bin/
+        ln -s /usr/local/bin/etcd $GO_TOP/bin/
      else
        if [ "${GOOS_LOCAL}" == "darwin" ]; then
 	   # I tried using unzip -p <(curl) but curl is launched async and unzip doesn't wait
            ETC_TEMP=$(mktemp)
            curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-darwin-amd64.zip > ${ETC_TEMP}
-           unzip -p ${ETC_TEMP} etcd-${ETCD_VER}-darwin-amd64/etcd > ${TOP}/bin/etcd
-           chmod +x ${TOP}/bin/etcd
+           unzip -p ${ETC_TEMP} etcd-${ETCD_VER}-darwin-amd64/etcd > ${GO_TOP}/bin/etcd
+           chmod +x ${GO_TOP}/bin/etcd
            rm ${ETC_TEMP}
        else
-	   curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${TOP}/bin/etcd && chmod +x ${TOP}/bin/etcd
+	   curl -L https://github.com/coreos/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz | tar xz -O etcd-${ETCD_VER}-linux-amd64/etcd > ${GO_TOP}/bin/etcd && chmod +x ${GO_TOP}/bin/etcd
        fi
      fi
    fi
-   if [ ! -f $TOP/bin/envoy ] ; then
+   if [ ! -f $GO_TOP/bin/envoy ] ; then
      # Init should be run after cloning the workspace
      ${ISTIO_GO}/bin/init.sh
    fi
@@ -116,12 +117,12 @@ function startLocalApiserver() {
 
     mkdir -p ${LOG_DIR}
     mkdir -p ${ETCD_DATADIR}
-    ${TOP}/bin/etcd --data-dir ${ETCD_DATADIR} > ${LOG_DIR}/etcd.log 2>&1 &
+    ${GO_TOP}/bin/etcd --data-dir ${ETCD_DATADIR} > ${LOG_DIR}/etcd.log 2>&1 &
     echo $! > $LOG_DIR/etcd.pid
     # make sure etcd is actually alive
     kill -0 $(cat $LOG_DIR/etcd.pid)
 
-    ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
+    ${GO_TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
         --client-ca-file ${CERTDIR}/k8sca.crt \
         --requestheader-client-ca-file ${CERTDIR}/k8sca.crt \
         --tls-cert-file ${CERTDIR}/apiserver.crt \
@@ -181,8 +182,8 @@ function stopIstio() {
 function startPilot() {
   printf "Pilot starting...\n"
   POD_NAME=pilot POD_NAMESPACE=istio-system \
-  ${ISTIO_OUT}/pilot-discovery discovery --port 18080 \
-                                         --monitoringPort 19093 \
+  ${ISTIO_OUT}/pilot-discovery discovery --httpAddr ":18080" \
+                                         --monitoringAddr ":19093" \
                                          --log_target ${LOG_DIR}/pilot.log \
                                          --kubeconfig ${ISTIO_GO}/.circleci/config &
   echo $! > $LOG_DIR/pilot.pid
@@ -246,7 +247,7 @@ function startETCDsAndAPIs() {
     for (( i=0; i<$1; i++))
 	  do
 		  mkdir -p ${ETCD_DATADIR}$i
-      ${TOP}/bin/etcd --listen-client-urls "http://localhost:237$i" \
+      ${GO_TOP}/bin/etcd --listen-client-urls "http://localhost:237$i" \
                       --advertise-client-urls "http://localhost:237$i" \
                       --listen-peer-urls "http://localhost:238$i" \
                       --data-dir ${ETCD_DATADIR}$i > ${LOG_DIR}/etcd$i.log 2>&1 &
@@ -254,7 +255,7 @@ function startETCDsAndAPIs() {
       # make sure etcd is actually alive
       kill -0 $(cat $LOG_DIR/etcd$i.pid)
     
-      ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:237$i \
+      ${GO_TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:237$i \
           --client-ca-file ${CERTDIR}/k8sca.crt \
           --requestheader-client-ca-file ${CERTDIR}/k8sca.crt \
           --tls-cert-file ${CERTDIR}/apiserver.crt \

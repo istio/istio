@@ -17,6 +17,8 @@
 		CheckRequest
 		CheckResponse
 		ReferencedAttributes
+		HeaderOperation
+		RouteDirective
 		ReportRequest
 		ReportResponse
 */

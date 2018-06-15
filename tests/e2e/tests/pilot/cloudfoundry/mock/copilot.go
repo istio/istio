@@ -16,7 +16,11 @@ package mock
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
+	"io"
 	"sync"
+	"time"
 
 	"code.cloudfoundry.org/copilot/api"
 )
@@ -47,6 +51,8 @@ func (h *CopilotHandler) PopulateInternalRoute(port int, hostname, vip, ip strin
 func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int, path string) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
+	hasher := md5.New()
+	io.WriteString(hasher, time.Now().String())
 	h.RoutesResponseData = append(h.RoutesResponseData, &api.RouteWithBackends{
 		Hostname: host,
 		Path:     path,
@@ -58,6 +64,7 @@ func (h *CopilotHandler) PopulateRoute(host string, ipAddr string, port int, pat
 				},
 			},
 		},
+		CapiProcessGuid: fmt.Sprintf("%x", hasher.Sum(nil)),
 	})
 }
 

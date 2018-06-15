@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
+	"istio.io/istio/pilot/test/util"
 )
 
 // Utility to help write Mixer-adapter integration tests.
@@ -47,9 +48,15 @@ type (
 		// Configs is a list of CRDs that Mixer will read.
 		Configs []string
 
+		// GetConfig specifies a way fetch configuration after the initial  setup
+		GetConfig GetConfigFn
+
 		// ParallelCalls is a list of test calls to be made to Mixer
 		// in parallel.
 		ParallelCalls []Call
+
+		// SingleThreaded makes only one call at a time.
+		SingleThreaded bool
 
 		// Setup is a callback function that will be called at the beginning of the test. It is
 		// meant to be used for things like starting a local backend server. Setup function returns a
@@ -92,6 +99,9 @@ type (
 	// CallKind represents the call to make; check or report.
 	CallKind int32
 
+	// VerifyResultFn if specified is used to do verification.
+	VerifyResultFn func(ctx interface{}, result *Result) error
+
 	// Result represents the test baseline
 	Result struct {
 		// AdapterState represents adapter specific baseline data. AdapterState is what the callback function
@@ -126,6 +136,8 @@ type (
 	// GetStateFn returns the adapter specific state upon test execution. The return value becomes part of
 	// expected Result.AdapterState.
 	GetStateFn func(ctx interface{}) (interface{}, error)
+	// GetConfigFn returns configuration that is generated
+	GetConfigFn func(ctx interface{}) ([]string, error)
 )
 
 // RunTest performs a Mixer adapter integration test using in-memory Mixer and config store.
@@ -163,7 +175,23 @@ func RunTest(
 	// Start Mixer
 	var args *server.Args
 	var env *server.Server
-	if args, err = getServerArgs(scenario.Templates, []adapter.InfoFn{adapterInfo}, scenario.Configs); err != nil {
+	adapterInfos := []adapter.InfoFn{}
+	if adapterInfo != nil {
+		adapterInfos = append(adapterInfos, adapterInfo)
+	}
+
+	if scenario.Configs != nil && scenario.GetConfig != nil {
+		t.Fatalf("only one of Configs or GetConfig() is allowed")
+	}
+
+	cfgs := scenario.Configs
+	if scenario.GetConfig != nil {
+		cfgs, err = scenario.GetConfig(ctx)
+		if err != nil {
+			t.Fatalf("initial setup failed: %v", err)
+		}
+	}
+	if args, err = getServerArgs(scenario.Templates, adapterInfos, cfgs); err != nil {
 		t.Fatalf("fail to create mixer args: %v", err)
 	}
 
@@ -187,11 +215,16 @@ func RunTest(
 
 	// Invoke calls async
 	var wg sync.WaitGroup
+
 	wg.Add(len(scenario.ParallelCalls))
 
 	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
 	for i, call := range scenario.ParallelCalls {
-		go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		if scenario.SingleThreaded {
+			execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		} else {
+			go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+		}
 	}
 	// wait for calls to finish
 	wg.Wait()
@@ -201,7 +234,11 @@ func RunTest(
 	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
 	// from the rich object returned by getState function.
 	if scenario.GetState != nil {
-		adptState, _ := scenario.GetState(ctx)
+		var adptState interface{}
+		adptState, err = scenario.GetState(ctx)
+		if err != nil {
+			t.Fatalf("getting state from adapter failed; %v", err)
+		}
 		var adptStateBytes []byte
 		if adptStateBytes, err = json.Marshal(adptState); err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", adptState, err)
@@ -226,6 +263,8 @@ func RunTest(
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
+
+		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
 		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
 	}
 }
@@ -242,7 +281,7 @@ func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.M
 		}
 
 		result, resultErr := client.Check(context.Background(), &req)
-		result.Precondition.ReferencedAttributes = istio_mixer_v1.ReferencedAttributes{}
+		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
 		ret.Error = resultErr
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
@@ -292,16 +331,29 @@ func getServerArgs(
 
 	// always include the attribute vocabulary
 	_, filename, _, _ := runtime.Caller(0)
-	if f, err := filepath.Abs(path.Join(path.Dir(filename), "../../../testdata/config/attributes.yaml")); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else if f, err := ioutil.ReadFile(f); err != nil {
-		return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
-	} else {
-		data = append(data, string(f))
+	additionalCrs := []string{
+		"../../../testdata/config/attributes.yaml",
+		"../../../template/metric/template.yaml",
+		"../../../template/quota/template.yaml",
+		"../../../template/listentry/template.yaml",
+	}
+
+	for _, fileRelativePath := range additionalCrs {
+		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else if f, err := ioutil.ReadFile(f); err != nil {
+			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+		} else {
+			data = append(data, string(f))
+		}
 	}
 
 	var err error
 	args.ConfigStore, err = storetest.SetupStoreForTest(data...)
+	if err != nil {
+		return args, fmt.Errorf("%v config has error %v", data, err)
+	}
+	args.LoggingOptions.LogGrpc = false // prevent race in grpclog.SetLogger
 	return args, err
 }
 

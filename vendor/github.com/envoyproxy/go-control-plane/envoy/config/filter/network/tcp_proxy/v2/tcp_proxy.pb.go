@@ -16,16 +16,16 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import envoy_config_filter_accesslog_v2 "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf2 "github.com/gogo/protobuf/types"
-import google_protobuf "github.com/gogo/protobuf/types"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf3 "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -61,7 +61,7 @@ type TcpProxy struct {
 	// Optional endpoint metadata match criteria. Only endpoints in the upstream
 	// cluster with metadata matching that set in metadata_match will be
 	// considered. The filter name should be specified as *envoy.lb*.
-	MetadataMatch *envoy_api_v2_core1.Metadata `protobuf:"bytes,9,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch *envoy_api_v2_core.Metadata `protobuf:"bytes,9,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
 	// The idle timeout for connections managed by the TCP proxy filter. The idle timeout
 	// is defined as the period in which there are no bytes sent or received on either
 	// the upstream or downstream connection. If not set, connections will never be closed
@@ -73,9 +73,9 @@ type TcpProxy struct {
 	// is reached the connection will be closed. The distinction between
 	// downstream_idle_timeout/upstream_idle_timeout provides a means to set
 	// timeout based on the last byte sent on the downstream/upstream connection.
-	DownstreamIdleTimeout *google_protobuf2.Duration `protobuf:"bytes,3,opt,name=downstream_idle_timeout,json=downstreamIdleTimeout" json:"downstream_idle_timeout,omitempty"`
+	DownstreamIdleTimeout *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=downstream_idle_timeout,json=downstreamIdleTimeout" json:"downstream_idle_timeout,omitempty"`
 	// [#not-implemented-hide:]
-	UpstreamIdleTimeout *google_protobuf2.Duration `protobuf:"bytes,4,opt,name=upstream_idle_timeout,json=upstreamIdleTimeout" json:"upstream_idle_timeout,omitempty"`
+	UpstreamIdleTimeout *google_protobuf3.Duration `protobuf:"bytes,4,opt,name=upstream_idle_timeout,json=upstreamIdleTimeout" json:"upstream_idle_timeout,omitempty"`
 	// Configuration for :ref:`access logs <arch_overview_access_logs>`
 	// emitted by the this tcp_proxy.
 	AccessLog []*envoy_config_filter_accesslog_v2.AccessLog `protobuf:"bytes,5,rep,name=access_log,json=accessLog" json:"access_log,omitempty"`
@@ -91,7 +91,7 @@ type TcpProxy struct {
 	DeprecatedV1 *TcpProxy_DeprecatedV1 `protobuf:"bytes,6,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
 	// The maximum number of unsuccessful connection attempts that will be made before
 	// giving up. If the parameter is not specified, 1 connection attempt will be made.
-	MaxConnectAttempts *google_protobuf.UInt32Value `protobuf:"bytes,7,opt,name=max_connect_attempts,json=maxConnectAttempts" json:"max_connect_attempts,omitempty"`
+	MaxConnectAttempts *google_protobuf1.UInt32Value `protobuf:"bytes,7,opt,name=max_connect_attempts,json=maxConnectAttempts" json:"max_connect_attempts,omitempty"`
 }
 
 func (m *TcpProxy) Reset()                    { *m = TcpProxy{} }
@@ -113,7 +113,7 @@ func (m *TcpProxy) GetCluster() string {
 	return ""
 }
 
-func (m *TcpProxy) GetMetadataMatch() *envoy_api_v2_core1.Metadata {
+func (m *TcpProxy) GetMetadataMatch() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.MetadataMatch
 	}
@@ -127,14 +127,14 @@ func (m *TcpProxy) GetIdleTimeout() *time.Duration {
 	return nil
 }
 
-func (m *TcpProxy) GetDownstreamIdleTimeout() *google_protobuf2.Duration {
+func (m *TcpProxy) GetDownstreamIdleTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.DownstreamIdleTimeout
 	}
 	return nil
 }
 
-func (m *TcpProxy) GetUpstreamIdleTimeout() *google_protobuf2.Duration {
+func (m *TcpProxy) GetUpstreamIdleTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.UpstreamIdleTimeout
 	}
@@ -155,7 +155,7 @@ func (m *TcpProxy) GetDeprecatedV1() *TcpProxy_DeprecatedV1 {
 	return nil
 }
 
-func (m *TcpProxy) GetMaxConnectAttempts() *google_protobuf.UInt32Value {
+func (m *TcpProxy) GetMaxConnectAttempts() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxConnectAttempts
 	}
@@ -202,7 +202,7 @@ type TcpProxy_DeprecatedV1_TCPRoute struct {
 	// address of the downstream connection might be different from the
 	// addresses on which the proxy is listening if the connection has been
 	// redirected.
-	DestinationIpList []*envoy_api_v2_core.CidrRange `protobuf:"bytes,2,rep,name=destination_ip_list,json=destinationIpList" json:"destination_ip_list,omitempty"`
+	DestinationIpList []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,2,rep,name=destination_ip_list,json=destinationIpList" json:"destination_ip_list,omitempty"`
 	// An optional string containing a comma-separated list of port numbers
 	// or ranges. The criteria is satisfied if the destination port of the
 	// downstream connection is contained in at least one of the specified
@@ -216,7 +216,7 @@ type TcpProxy_DeprecatedV1_TCPRoute struct {
 	// of the downstream connection is contained in at least one of the
 	// specified subnets. If the parameter is not specified or the list is
 	// empty, the source IP address is ignored.
-	SourceIpList []*envoy_api_v2_core.CidrRange `protobuf:"bytes,4,rep,name=source_ip_list,json=sourceIpList" json:"source_ip_list,omitempty"`
+	SourceIpList []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,4,rep,name=source_ip_list,json=sourceIpList" json:"source_ip_list,omitempty"`
 	// An optional string containing a comma-separated list of port numbers
 	// or ranges. The criteria is satisfied if the source port of the
 	// downstream connection is contained in at least one of the specified
@@ -239,7 +239,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) GetCluster() string {
 	return ""
 }
 
-func (m *TcpProxy_DeprecatedV1_TCPRoute) GetDestinationIpList() []*envoy_api_v2_core.CidrRange {
+func (m *TcpProxy_DeprecatedV1_TCPRoute) GetDestinationIpList() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.DestinationIpList
 	}
@@ -253,7 +253,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) GetDestinationPorts() string {
 	return ""
 }
 
-func (m *TcpProxy_DeprecatedV1_TCPRoute) GetSourceIpList() []*envoy_api_v2_core.CidrRange {
+func (m *TcpProxy_DeprecatedV1_TCPRoute) GetSourceIpList() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.SourceIpList
 	}
@@ -354,8 +354,8 @@ func (m *TcpProxy) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0x42
 		i++
-		i = encodeVarintTcpProxy(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n5, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintTcpProxy(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n5, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -507,7 +507,7 @@ func (m *TcpProxy) Size() (n int) {
 		n += 1 + l + sovTcpProxy(uint64(l))
 	}
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovTcpProxy(uint64(l))
 	}
 	if m.MetadataMatch != nil {
@@ -686,7 +686,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DownstreamIdleTimeout == nil {
-				m.DownstreamIdleTimeout = &google_protobuf2.Duration{}
+				m.DownstreamIdleTimeout = &google_protobuf3.Duration{}
 			}
 			if err := m.DownstreamIdleTimeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -719,7 +719,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UpstreamIdleTimeout == nil {
-				m.UpstreamIdleTimeout = &google_protobuf2.Duration{}
+				m.UpstreamIdleTimeout = &google_protobuf3.Duration{}
 			}
 			if err := m.UpstreamIdleTimeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -816,7 +816,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxConnectAttempts == nil {
-				m.MaxConnectAttempts = &google_protobuf.UInt32Value{}
+				m.MaxConnectAttempts = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.MaxConnectAttempts.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -851,7 +851,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -882,7 +882,7 @@ func (m *TcpProxy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MetadataMatch == nil {
-				m.MetadataMatch = &envoy_api_v2_core1.Metadata{}
+				m.MetadataMatch = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.MetadataMatch.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1074,7 +1074,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DestinationIpList = append(m.DestinationIpList, &envoy_api_v2_core.CidrRange{})
+			m.DestinationIpList = append(m.DestinationIpList, &envoy_api_v2_core1.CidrRange{})
 			if err := m.DestinationIpList[len(m.DestinationIpList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1134,7 +1134,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SourceIpList = append(m.SourceIpList, &envoy_api_v2_core.CidrRange{})
+			m.SourceIpList = append(m.SourceIpList, &envoy_api_v2_core1.CidrRange{})
 			if err := m.SourceIpList[len(m.SourceIpList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

@@ -110,21 +110,23 @@ func TestEgressRouteFaultInjection(t *testing.T) {
 			// Push all of the configs
 			applyRuleFunc(t, []string{c.egressConfig, routingYaml})
 
-			runRetriableTest(t, c.testName, 3, func() error {
-				resp := ClientRequest("a", c.url, 1, "")
+			for cluster := range tc.Kube.Clusters {
+				runRetriableTest(t, cluster, c.testName, 3, func() error {
+					resp := ClientRequest(cluster, "a", c.url, 1, "")
 
-				statusCode := ""
-				if len(resp.Code) > 0 {
-					statusCode = resp.Code[0]
-				}
+					statusCode := ""
+					if len(resp.Code) > 0 {
+						statusCode = resp.Code[0]
+					}
 
-				expectedRespCode := 418
-				if strconv.Itoa(expectedRespCode) != statusCode {
-					return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
-						statusCode, expectedRespCode)
-				}
-				return nil
-			})
+					expectedRespCode := 418
+					if strconv.Itoa(expectedRespCode) != statusCode {
+						return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
+							statusCode, expectedRespCode)
+					}
+					return nil
+				})
+			}
 		}()
 	}
 }
@@ -151,27 +153,29 @@ func TestEgressRouteHeaders(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, "httpbin", 3,
-		func() error {
-			resp := ClientRequest("a", "http://httpbin.org/headers", 1, "")
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "httpbin", 3,
+			func() error {
+				resp := ClientRequest(cluster, "a", "http://httpbin.org/headers", 1, "")
 
-			containsAllExpectedHeaders := true
+				containsAllExpectedHeaders := true
 
-			expectedHeadersRegex := []string{
-				`(?i)"istio-custom-header1":\s*"user-defined-value1"`,
-				`(?i)"istio-custom-header2":\s*"user-defined-value2"`}
-			for _, header := range expectedHeadersRegex {
-				if !regexp.MustCompile(header).MatchString(resp.Body) {
-					containsAllExpectedHeaders = false
+				expectedHeadersRegex := []string{
+					`(?i)"istio-custom-header1":\s*"user-defined-value1"`,
+					`(?i)"istio-custom-header2":\s*"user-defined-value2"`}
+				for _, header := range expectedHeadersRegex {
+					if !regexp.MustCompile(header).MatchString(resp.Body) {
+						containsAllExpectedHeaders = false
+					}
 				}
-			}
 
-			if !containsAllExpectedHeaders {
-				return fmt.Errorf("headers verification failed: headers: %s, expected headersRegexp: %s",
-					resp.Body, expectedHeadersRegex)
-			}
-			return nil
-		})
+				if !containsAllExpectedHeaders {
+					return fmt.Errorf("headers verification failed: headers: %s, expected headersRegexp: %s",
+						resp.Body, expectedHeadersRegex)
+				}
+				return nil
+			})
+	}
 }
 
 func TestEgressRouteRedirectRewrite(t *testing.T) {
@@ -348,35 +352,38 @@ func TestEgressRouteRedirectRewrite(t *testing.T) {
 			// Push all of the configs
 			applyRuleFunc(t, append(c.egressConfig, routingYaml))
 
-			runRetriableTest(t, c.testName, 3, func() error {
-				resp := ClientRequest("a", c.url, 1, "")
-				if !resp.IsHTTPOk() {
-					return fmt.Errorf("redirect verification failed: response status code: %v, expected 200",
-						resp.Code)
-				}
+			for cluster := range tc.Kube.Clusters {
+				testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+				runRetriableTest(t, cluster, testName, 3, func() error {
+					resp := ClientRequest(cluster, "a", c.url, 1, "")
+					if !resp.IsHTTPOk() {
+						return fmt.Errorf("redirect verification failed: response status code: %v, expected 200",
+							resp.Code)
+					}
 
-				var actualRedirection string
-				if matches := regexp.MustCompile(`(?i)"url":\s*"(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
-					actualRedirection = matches[1]
-				}
+					var actualRedirection string
+					if matches := regexp.MustCompile(`(?i)"url":\s*"(.*)"`).FindStringSubmatch(resp.Body); len(matches) >= 2 {
+						actualRedirection = matches[1]
+					}
 
-				u, err := url.Parse(actualRedirection)
-				if err != nil {
-					return fmt.Errorf("url.Parse failed: %v", err)
-				}
+					u, err := url.Parse(actualRedirection)
+					if err != nil {
+						return fmt.Errorf("url.Parse failed: %v", err)
+					}
 
-				if u.Host != c.targetHost {
-					return fmt.Errorf("location header contains Host=%v, expected Host=%v",
-						u.Host, c.targetHost)
-				}
+					if u.Host != c.targetHost {
+						return fmt.Errorf("location header contains Host=%v, expected Host=%v",
+							u.Host, c.targetHost)
+					}
 
-				if u.Path != c.targetPath {
-					return fmt.Errorf("location header contains Path=%v, expected Path=%v",
-						u.Path, c.targetPath)
-				}
+					if u.Path != c.targetPath {
+						return fmt.Errorf("location header contains Path=%v, expected Path=%v",
+							u.Path, c.targetPath)
+					}
 
-				return nil
-			})
+					return nil
+				})
+			}
 		}()
 	}
 }

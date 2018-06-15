@@ -343,13 +343,23 @@ var (
 		file: "testdata/authn-namespace-mtls-on.yaml.golden",
 	}
 
+	authnPolicyHelloMTlsOn = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-on"},
+		file: "testdata/authn-hello-mtls-on.yaml.golden",
+	}
+
 	authnPolicyHelloMTlsOff = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-hello-mtls-off"},
 		file: "testdata/authn-hello-mtls-off.yaml.golden",
 	}
 
-	authnPolicyWorldMTlsOff = fileConfig{
+	authnPolicyWorldMTlsOn = fileConfig{
 		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-on"},
+		file: "testdata/authn-world-mtls-on.yaml.golden",
+	}
+
+	authnPolicyWorldMTlsOff = fileConfig{
+		meta: model.ConfigMeta{Type: model.AuthenticationPolicy.Type, Name: "authn-world-mtls-off"},
 		file: "testdata/authn-world-mtls-off.yaml.golden",
 	}
 

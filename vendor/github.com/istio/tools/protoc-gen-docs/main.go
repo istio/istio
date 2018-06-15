@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // TODO: Finish support for YAML output
-// TODO: consider using protoc-gen-validate annotations to improve doc generation
+// TODO: consider using protoc-gen-validate frontMatter to improve doc generation
 
 package main
 
@@ -73,7 +73,9 @@ func main() {
 			case "html_fragment":
 				mode = htmlFragment
 			case "jekyll_html":
-				mode = jekyllHTML
+				mode = htmlFragmentWithFrontMatter
+			case "html_fragment_with_front_matter":
+				mode = htmlFragmentWithFrontMatter
 			default:
 				croak("Unsupported output mode of '%s' specified\n", v)
 			}

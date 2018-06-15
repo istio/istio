@@ -40,19 +40,20 @@ var (
 
 // Istioctl gathers istioctl information.
 type Istioctl struct {
-	localPath  string
-	remotePath string
-	binaryPath string
-	namespace  string
-	proxyHub   string
-	proxyTag   string
-	yamlDir    string
+	localPath       string
+	remotePath      string
+	binaryPath      string
+	namespace       string
+	proxyHub        string
+	proxyTag        string
+	imagePullPolicy string
+	yamlDir         string
 	// If true, will ignore proxyHub and proxyTag but use the default one.
 	defaultProxy bool
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string, imagePullPolicy string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
@@ -66,14 +67,15 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	}
 
 	return &Istioctl{
-		localPath:    *localPath,
-		remotePath:   *remotePath,
-		binaryPath:   filepath.Join(tmpDir, "istioctl"),
-		namespace:    namespace,
-		proxyHub:     proxyHub,
-		proxyTag:     proxyTag,
-		yamlDir:      filepath.Join(yamlDir, "istioctl"),
-		defaultProxy: *defaultProxy,
+		localPath:       *localPath,
+		remotePath:      *remotePath,
+		binaryPath:      filepath.Join(tmpDir, "istioctl"),
+		namespace:       namespace,
+		proxyHub:        proxyHub,
+		proxyTag:        proxyTag,
+		imagePullPolicy: imagePullPolicy,
+		yamlDir:         filepath.Join(yamlDir, "istioctl"),
+		defaultProxy:    *defaultProxy,
 	}, nil
 }
 
@@ -140,13 +142,21 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 }
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
+// TODO The commands below could be generalized so that istioctl doesn't default to
+// using the in cluster kubeconfig this is useful in multicluster cases to perform
+// injection on remote clusters.
 func (i *Istioctl) KubeInject(src, dest string) error {
 	if i.defaultProxy {
 		return i.run(`kube-inject -f %s -o %s -n %s -i %s --meshConfigMapName=istio`,
 			src, dest, i.namespace, i.namespace)
 	}
-	return i.run(`kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s --meshConfigMapName=istio`,
-		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
+
+	imagePullPolicyStr := ""
+	if i.imagePullPolicy != "" {
+		imagePullPolicyStr = fmt.Sprintf("--imagePullPolicy %s", i.imagePullPolicy)
+	}
+	return i.run(`kube-inject -f %s -o %s --hub %s --tag %s %s -n %s -i %s --meshConfigMapName=istio`,
+		src, dest, i.proxyHub, i.proxyTag, imagePullPolicyStr, i.namespace, i.namespace)
 }
 
 // CreateRule create new rule(s)

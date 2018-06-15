@@ -25,7 +25,6 @@ spec:
  metricInfo:
    requestcount.metric.istio-system:
      unit: Count
-     storageResolution: 1 #high resolution metric
 ---
 # rule to dispatch to your handler
 apiVersion: "config.istio.io/v1alpha2"

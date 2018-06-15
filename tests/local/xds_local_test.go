@@ -161,7 +161,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			Port:            18080, // An unused port will be chosen
+			HTTPAddr:        ":18080", // An unused port will be chosen
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
 			EnableProfiling: true,

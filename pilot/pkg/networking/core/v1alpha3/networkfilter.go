@@ -47,12 +47,15 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 	}
 }
 
-func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *DeprecatedTCPRouteConfig {
+func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string, port *model.Port) (*listener.Filter, error) {
 	route := &DeprecatedTCPRoute{
 		Cluster: clusterName,
 	}
 	sort.Sort(sort.StringSlice(addresses))
 	for _, addr := range addresses {
+		if addr == model.UnspecifiedIP {
+			continue
+		}
 		tcpRouteAddr := addr
 		if !strings.Contains(addr, "/") {
 			tcpRouteAddr = addr + "/32"
@@ -60,32 +63,12 @@ func buildDeprecatedTCPRouteConfig(clusterName string, addresses []string) *Depr
 		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
 	}
 
-	routeConfig := &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}}
-
-	return routeConfig
-}
-
-// buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
-// protocol specific filters (e.g., Mongo filter)
-// this function constructs deprecated_v1 routes, until the filter chain match is ready
-func buildOutboundNetworkFilters(clusterName string, addresses []string, port *model.Port) []listener.Filter {
-
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
 	filterConfig := &DeprecatedTCPProxyFilterConfig{
 		StatPrefix:  fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
-		RouteConfig: buildDeprecatedTCPRouteConfig(clusterName, addresses),
+		RouteConfig: &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}},
 	}
-
-	//deprecatedConfig := &DeprecatedFilterConfigInV2{
-	//	DeprecatedV1: true,
-	//	Value:filterConfig,
-	//}
-
-	//if len(addresses) > 0 {
-	//	sort.Sort(sort.StringSlice(addresses))
-	//	route.DestinationIpList = append(route.DestinationIpList, convertAddressListToCidrList(addresses)...)
-	//}
 
 	trueValue := types.Value{
 		Kind: &types.Value_BoolValue{
@@ -95,12 +78,12 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	data, err := json.Marshal(filterConfig)
 	if err != nil {
 		log.Errorf("filter config could not be marshalled: %v", err)
-		return nil
+		return nil, err
 	}
 	pbs := &types.Struct{}
 	if err := jsonpb.Unmarshal(bytes.NewReader(data), pbs); err != nil {
 		log.Errorf("filter config could not be unmarshalled: %v", err)
-		return nil
+		return nil, err
 	}
 
 	structValue := types.Value{
@@ -110,15 +93,40 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	}
 
 	// FIXME
-	tcpFilter := listener.Filter{
+	tcpFilter := &listener.Filter{
 		Name: xdsutil.TCPProxy,
 		Config: &types.Struct{Fields: map[string]*types.Value{
 			"deprecated_v1": &trueValue,
 			"value":         &structValue,
 		}},
-		//DeprecatedV1: &listener.Filter_DeprecatedV1{
-		//	Type: "",
-		//},
+	}
+
+	return tcpFilter, nil
+}
+
+// buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
+// protocol specific filters (e.g., Mongo filter)
+// this function constructs deprecated_v1 routes, until the filter chain match is ready
+func buildOutboundNetworkFilters(clusterName string, addresses []string, port *model.Port) []listener.Filter {
+
+	var tcpFilter *listener.Filter
+	var err error
+	if len(addresses) > 0 {
+		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, addresses, port); err != nil {
+			return nil
+		}
+	} else {
+		// construct TCP proxy using v2 config
+		config := &tcp_proxy.TcpProxy{
+			StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
+			Cluster:    clusterName,
+			// TODO: Need to set other fields such as Idle timeouts
+		}
+
+		tcpFilter = &listener.Filter{
+			Name:   xdsutil.TCPProxy,
+			Config: util.MessageToStruct(config),
+		}
 	}
 
 	filterstack := make([]listener.Filter, 0)
@@ -126,7 +134,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildOutboundMongoFilter())
 	}
-	filterstack = append(filterstack, tcpFilter)
+	filterstack = append(filterstack, *tcpFilter)
 
 	return filterstack
 }

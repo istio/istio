@@ -30,7 +30,6 @@ import (
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"google.golang.org/grpc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -155,10 +154,9 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 			Address: "127.0.0.2",
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
-				Name:                 "http",
-				Port:                 80,
-				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "http",
+				Port:     80,
+				Protocol: model.ProtocolHTTP,
 			},
 		},
 		Labels:           map[string]string{"version": "v1"},
@@ -311,10 +309,9 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
-				Name:                 "grpc",
-				Port:                 0,
-				Protocol:             model.ProtocolGRPC,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "grpc",
+				Port:     0,
+				Protocol: model.ProtocolGRPC,
 			},
 		},
 		MeshExternal: true,
@@ -326,10 +323,9 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 			Address: udsPath,
 			Port:    0,
 			ServicePort: &model.Port{
-				Name:                 "grpc",
-				Port:                 0,
-				Protocol:             model.ProtocolGRPC,
-				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
+				Name:     "grpc",
+				Port:     0,
+				Protocol: model.ProtocolGRPC,
 			},
 		},
 		Labels:           map[string]string{"socket": "unix"},

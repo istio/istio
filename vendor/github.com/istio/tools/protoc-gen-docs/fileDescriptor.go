@@ -28,7 +28,7 @@ type fileDescriptor struct {
 	services     []*serviceDescriptor                               // All services defined in this file
 	dependencies []*fileDescriptor                                  // Files imported by this file
 	locations    map[pathVector]*descriptor.SourceCodeInfo_Location // Provenance
-	topMatter    *annotations                                       // Title, overview, homeLocation, front_matter
+	matter       frontMatter                                        // Title, overview, homeLocation, front_matter
 }
 
 func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDescriptor) *fileDescriptor {
@@ -67,7 +67,7 @@ func newFileDescriptor(desc *descriptor.FileDescriptorProto, parent *packageDesc
 	// Find title/overview/etc content in comments and store it explicitly.
 	loc := f.find(newPathVector(packagePath))
 	if loc != nil && loc.LeadingDetachedComments != nil {
-		f.topMatter = extractAnnotations(f.GetName(), loc)
+		f.matter = extractFrontMatter(f.GetName(), loc)
 	}
 
 	// get the transitive close of all messages and enums
@@ -92,39 +92,4 @@ func (f *fileDescriptor) aggregateMessages(messages []*messageDescriptor) {
 
 func (f *fileDescriptor) aggregateEnums(enums []*enumDescriptor) {
 	f.allEnums = append(f.allEnums, enums...)
-}
-
-func (f *fileDescriptor) title() string {
-	if f.topMatter != nil {
-		return f.topMatter.title
-	}
-	return ""
-}
-
-func (f *fileDescriptor) overview() string {
-	if f.topMatter != nil {
-		return f.topMatter.overview
-	}
-	return ""
-}
-
-func (f *fileDescriptor) description() string {
-	if f.topMatter != nil {
-		return f.topMatter.description
-	}
-	return ""
-}
-
-func (f *fileDescriptor) homeLocation() string {
-	if f.topMatter != nil {
-		return f.topMatter.homeLocation
-	}
-	return ""
-}
-
-func (f *fileDescriptor) frontMatter() []string {
-	if f.topMatter != nil {
-		return f.topMatter.frontMatter
-	}
-	return nil
 }

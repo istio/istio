@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: simple-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: echosrv
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - simple-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /fortio/
+    route:
+    - destination:
+        host: echosrv
+        port:
+          number: 8080
+    rewrite:
+      uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
+---
+# 2 deployments so we can change routing rules
+# 1st deployment, 1 pod for service inside the cluster, will get istio injected
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment-1
+spec:
+  replicas: 1 # tells deployment to run 1 pod matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+        version: v1
+        test: a
+        extrap: non # can't use "no" as that's a boolean...
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+#          - -loglevel=debug  # to see all incoming connections
+#          - -echo-debug-path=/fortio/debug # can be changed
+---
+# 2nd deployment, 1 pod for service inside the cluster, will get istio injected
+# same as above except for the version and extra port
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment-2
+spec:
+  replicas: 1 # tells deployment to run 1 pod matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+        version: v2
+        test: b
+        extrap: oui # can't seem to be able to use "yes" here and in selector...
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+         - containerPort: 8088 # Port that doesn't exist on deployment 1
+        args:
+          - server
+          - -P=8088 localhost:8080 # Proxy to self, aka have another http echo on 8088, includes the space in arg
+#          - -loglevel=debug  # to see all incoming connections
+#          - -echo-debug-path=/fortio/debug # can be changed
+---
+# Second service, selecting the pod that does have the extra port
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv-extrap
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  - port: 8088
+    name: http-echo2
+  selector:
+    app: echosrv
+    extrap: oui
+---
+# We can't use a third service for the security open proxy issue as the issue
+# is only triggered using pod ip (service cluster ip + non existant port is not
+# routed)

@@ -23,11 +23,11 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// TraceSpan represents an individual span within a distributed trace.
+// The `tracespan` template represents an individual span within a distributed trace.
 //
 // Example config:
 //
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:
@@ -52,7 +52,7 @@ import (
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 
 // Fully qualified name of the template
@@ -63,8 +63,8 @@ const TemplateName = "tracespan"
 // TraceSpan represents an individual span within a distributed trace.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-// then the expression's [inferred type](https://istio.io/docs//reference/config/policy-and-telemetry/expression-language.html#type-checking) must match the datatype of the field.
+// literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+// then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
@@ -107,11 +107,15 @@ type Instance struct {
 	// Required.
 	EndTime time.Time
 
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
 	SpanTags map[string]interface{}
+
+	// HTTP status code used to set the span status. If unset or set to 0, the
+	// span status will be assumed to be successful.
+	HttpStatusCode int64
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

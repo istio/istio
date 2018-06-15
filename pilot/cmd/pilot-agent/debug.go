@@ -16,37 +16,29 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"path/filepath"
+	"os"
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/pkg/proxy/envoy/configdump"
 )
 
 type debug struct {
-	envoyAdminAddress    string
-	staticConfigLocation string
+	JSONPrinter *configdump.JSONPrinter
 }
 
 var (
-	configTypes = map[string]struct{}{
-		"all":       {},
-		"clusters":  {},
-		"listeners": {},
-		"routes":    {},
-		"static":    {},
-	}
-
 	debugCmd = &cobra.Command{
 		Use:   "debug <configuration-type>",
 		Short: "Debug local envoy",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			d := &debug{
-				envoyAdminAddress:    "127.0.0.1:15000",
-				staticConfigLocation: "/etc/istio/proxy",
+				JSONPrinter: &configdump.JSONPrinter{
+					URL:    "http://127.0.0.1:15000",
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
+				},
 			}
 			return d.run(args)
 		},
@@ -55,72 +47,22 @@ var (
 
 func (d *debug) run(args []string) error {
 	configType := args[0]
-	if err := validateConfigType(configType); err != nil {
-		return err
-	}
-
-	if configType == "static" {
-		return d.printStaticConfig()
-	} else if configType == "all" {
-		for ct := range configTypes {
-			switch ct {
-			case "clusters", "listeners", "routes":
-				if err := d.printDynamicConfig(ct); err != nil {
-					return err
-				}
-			case "static":
-				if err := d.printStaticConfig(); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	return d.printDynamicConfig(configType)
-}
-
-func (d *debug) printStaticConfig() error {
-	files, err := ioutil.ReadDir(d.staticConfigLocation)
-	if err != nil {
-		return fmt.Errorf("error reading default config directory: %v", err)
-	}
-	for _, f := range files {
-		filePath := filepath.Join(d.staticConfigLocation, f.Name())
-		contents, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("error reading config file %q: %v", filePath, err)
-		}
-		fmt.Println(string(contents))
-	}
-	return nil
-}
-
-func (d *debug) printDynamicConfig(typ string) error {
-	if typ == "routes" {
-		typ = "config_dump"
-	}
-	resp, err := http.Get(fmt.Sprintf("http://%v/%s", d.envoyAdminAddress, typ))
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Errorf("Error closing response body: %v", err)
-		}
-	}()
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode == 200 {
-		fmt.Println(string(bytes))
-	} else {
-		return fmt.Errorf("received %v status from Envoy: %v", resp.StatusCode, string(bytes))
-	}
-	return nil
-}
-
-func validateConfigType(typ string) error {
-	if _, ok := configTypes[typ]; !ok {
-		return fmt.Errorf("%q is not a supported debugging config type", typ)
+	switch configType {
+	case "clusters", "cluster":
+		d.JSONPrinter.PrintClusterDump()
+	case "listeners", "listener":
+		d.JSONPrinter.PrintListenerDump()
+	case "bootstrap":
+		d.JSONPrinter.PrintBootstrapDump()
+	case "routes", "route":
+		d.JSONPrinter.PrintRoutesDump()
+	case "all":
+		d.JSONPrinter.PrintClusterDump()
+		d.JSONPrinter.PrintListenerDump()
+		d.JSONPrinter.PrintBootstrapDump()
+		d.JSONPrinter.PrintRoutesDump()
+	default:
+		return fmt.Errorf("%q is not a supported debugging config type", configType)
 	}
 	return nil
 }

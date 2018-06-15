@@ -15,25 +15,32 @@
 package dispatcher
 
 import (
-	"sync"
+	"context"
+	"fmt"
+	"runtime/debug"
+	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
+
+	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // dispatchState keeps the input/output state during the dispatch to a handler. It is used as temporary
 // memory location to keep ephemeral state, thus avoiding garbage creation.
 type dispatchState struct {
 	session *session
+	ctx     context.Context
 
 	destination *routing.Destination
 	mapper      template.OutputMapperFn
 
 	inputBag  attribute.Bag
 	quotaArgs adapter.QuotaArgs
-	instance  interface{}
 	instances []interface{}
 
 	// output state that was collected from the handler.
@@ -43,47 +50,87 @@ type dispatchState struct {
 	quotaResult adapter.QuotaResult
 }
 
-func (s *dispatchState) clear() {
-	s.session = nil
-	s.destination = nil
-	s.mapper = nil
-	s.inputBag = nil
-	s.quotaArgs = adapter.QuotaArgs{}
-	s.instance = nil
-	s.err = nil
-	s.outputBag = nil
-	s.checkResult = adapter.CheckResult{}
-	s.quotaResult = adapter.QuotaResult{}
+func (ds *dispatchState) clear() {
+	ds.session = nil
+	ds.ctx = nil
+	ds.destination = nil
+	ds.mapper = nil
+	ds.inputBag = nil
+	ds.quotaArgs = adapter.QuotaArgs{}
+	ds.err = nil
+	ds.outputBag = nil
+	ds.checkResult = adapter.CheckResult{}
+	ds.quotaResult = adapter.QuotaResult{}
 
-	if s.instances != nil {
-		// re-slice to change the length to 0 without changing capacity.
-		s.instances = s.instances[:0]
+	// re-slice to change the length to 0 without changing capacity.
+	ds.instances = ds.instances[:0]
+}
+
+func (ds *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, context.Context, time.Time) {
+	var span opentracing.Span
+	if ds.session.impl.enableTracing {
+		span, ctx = opentracing.StartSpanFromContext(ctx, ds.destination.FriendlyName)
 	}
+
+	return span, ctx, time.Now()
 }
 
-// pool of dispatchStates
-type dispatchStatePool struct {
-	pool sync.Pool
-}
-
-func newDispatchStatePool() *dispatchStatePool {
-	return &dispatchStatePool{
-		pool: sync.Pool{
-			New: func() interface{} {
-				return &dispatchState{}
-			},
-		},
+func (ds *dispatchState) completeSpan(span opentracing.Span, duration time.Duration, err error) {
+	if ds.session.impl.enableTracing {
+		logToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, err)
+		span.Finish()
 	}
+	ds.destination.Counters.Update(duration, err != nil)
 }
 
-func (p *dispatchStatePool) get(session *session, destination *routing.Destination) *dispatchState {
-	s := p.pool.Get().(*dispatchState)
-	s.session = session
-	s.destination = destination
-	return s
-}
+func (ds *dispatchState) invokeHandler(interface{}) {
+	reachedEnd := false
 
-func (p *dispatchStatePool) put(s *dispatchState) {
-	s.clear()
-	p.pool.Put(s)
+	defer func() {
+		if reachedEnd {
+			return
+		}
+
+		r := recover()
+		ds.err = fmt.Errorf("panic during handler dispatch: %v", r)
+		log.Errorf("%v\n%s", ds.err, debug.Stack())
+
+		if log.DebugEnabled() {
+			log.Debugf("stack dump for handler dispatch panic:\n%s", debug.Stack())
+		}
+
+		ds.session.completed <- ds
+	}()
+
+	span, ctx, start := ds.beginSpan(ds.ctx)
+
+	log.Debugf("begin dispatch: destination='%s'", ds.destination.FriendlyName)
+
+	switch ds.destination.Template.Variety {
+	case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
+		ds.outputBag, ds.err = ds.destination.Template.DispatchGenAttrs(
+			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
+
+	case tpb.TEMPLATE_VARIETY_CHECK:
+		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
+			ctx, ds.destination.Handler, ds.instances[0])
+
+	case tpb.TEMPLATE_VARIETY_REPORT:
+		ds.err = ds.destination.Template.DispatchReport(
+			ctx, ds.destination.Handler, ds.instances)
+
+	case tpb.TEMPLATE_VARIETY_QUOTA:
+		ds.quotaResult, ds.err = ds.destination.Template.DispatchQuota(
+			ctx, ds.destination.Handler, ds.instances[0], ds.quotaArgs)
+
+	default:
+		panic(fmt.Sprintf("unknown variety type: '%v'", ds.destination.Template.Variety))
+	}
+
+	log.Debugf("complete dispatch: destination='%s' {err:%v}", ds.destination.FriendlyName, ds.err)
+
+	ds.completeSpan(span, time.Since(start), ds.err)
+	ds.session.completed <- ds
+
+	reachedEnd = true
 }

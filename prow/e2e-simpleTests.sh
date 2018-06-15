@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running Simple test with rbac, auth Tests'
-./prow/e2e-suite.sh --auth_enable --single_test e2e_simple "$@"
+./prow/e2e-suite.sh --auth_enable --single_test e2e_simple --installer helm "$@"

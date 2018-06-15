@@ -179,7 +179,7 @@ func getKubeMasterCIDROrFail(t *testing.T) string {
 func (t *testConfig) SendClientRequest(app, url string, count int, extra string) ClientResponse {
 	out := ClientResponse{}
 
-	pods := t.Kube.GetAppPods()[app]
+	pods := t.Kube.GetAppPods(framework.PrimaryCluster)[app]
 	if len(pods) == 0 {
 		log.Errorf("Missing pod names for app %q", app)
 		return out

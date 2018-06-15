@@ -34,9 +34,10 @@ type debug struct {
 
 var (
 	configTypes = map[string]string{
-		"all": "",
-		"ads": "adsz",
-		"eds": "edsz",
+		"all":   "",
+		"ads":   "adsz",
+		"eds":   "edsz",
+		"authn": "authenticationz",
 	}
 
 	debugCmd = &cobra.Command{

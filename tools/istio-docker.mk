@@ -151,6 +151,13 @@ endif
 	time (cd $(ISTIO_DOCKER)/pilotapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
+# Test policy backend for mixer integration
+docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend \
+			mixer/docker/Dockerfile.test_policybackend
+	mkdir -p $(ISTIO_DOCKER)/test_policybackend
+	cp $^ $(ISTIO_DOCKER)/test_policybackend
+	time (cd $(ISTIO_DOCKER)/test_policybackend && \
+		docker build -t $(HUB)/test_policybackend:$(TAG) -f Dockerfile.test_policybackend .)
 
 PILOT_DOCKER:=docker.eurekamirror \
               docker.proxy_init docker.sidecar_injector
@@ -199,7 +206,7 @@ $(foreach FILE,$(GRAFANA_FILES),$(eval docker.grafana: $(ISTIO_DOCKER)/$(notdir 
 docker.grafana: addons/grafana/Dockerfile$$(suffix $$@) $(GRAFANA_FILES) $(ISTIO_DOCKER)/dashboards
 	$(DOCKER_RULE)
 
-DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
+DOCKER_TARGETS:=docker.pilot docker.proxy docker.proxy_debug docker.proxyv2 docker.app docker.test_policybackend $(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER) docker.grafana $(GALLEY_DOCKER)
 
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) .)

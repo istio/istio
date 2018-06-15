@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -72,6 +73,7 @@ metadata:
 spec:
   servers:
   - port:
+      name: http
       number: %d  # load balancer will forward traffic here
       protocol: http
     hosts:
@@ -368,7 +370,7 @@ func runPilot(copilotConfigFile, istioConfigDir string, grpcPort, debugPort int)
 		"--port", fmt.Sprintf("%d", debugPort),
 	)
 
-	return gexec.Start(pilotCmd, nil, nil) // change these to os.Stdout when debugging
+	return gexec.Start(pilotCmd, os.Stdout, os.Stderr) // change these to os.Stdout when debugging
 }
 
 func curlPilot(apiEndpoint string) (string, error) {

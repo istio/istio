@@ -21,11 +21,10 @@ A view allows recorded measurements to be filtered and aggregated over a time wi
 
 All recorded measurements can be filtered by a list of tags.
 
-OpenCensus provides several aggregation methods: count, distribution, sum and mean.
+OpenCensus provides several aggregation methods: count, distribution and sum.
 Count aggregation only counts the number of measurement points. Distribution
 aggregation provides statistical summary of the aggregated data. Sum distribution
-sums up the measurement points. Mean provides the mean of the recorded measurements.
-Aggregations can either happen cumulatively or over an interval.
+sums up the measurement points. Aggregations are cumulative.
 
 Users can dynamically create and delete views.
 

@@ -41,20 +41,38 @@ function fortio_load(url) {
     }).catch(err => { throw err })
   } else {
     var urldiv = document.getElementById('url')
-    urldiv.innerHTML = "Multiple runs..."
-    makeMultiChart()
-    var promises = []
-    for (var i = 0, len = list.length; i < len; i++) {
-      var v = list[len-i-1].value;
-      (function (idx, u) {
-        promises.push(fetch("data/"+u).then(doc => doc.json()).then((out) => {
-          fortioAddToMultiResult(idx, out)
-        }))
-      })(i, v)
+    urldiv.innerHTML = "Multiple runs (URL is a permalink)..."
+    if (list.length == 2) {
+      var urlA = list[0].value
+      var dataPromiseA = fetch("data/"+urlA)
+          .then(response => response.json())
+          .then(fortioResult => fortioResultToJsChartData(fortioResult))
+
+      var urlB = list[1].value
+      var dataPromiseB = fetch("data/"+urlB)
+          .then(response => response.json())
+          .then(fortioResult => fortioResultToJsChartData(fortioResult))
+
+      Promise.all([dataPromiseA, dataPromiseB]).then(dataArray => {
+        var dataA = dataArray[0]
+        var dataB = dataArray[1]
+        makeOverlayChart(dataA, dataB)
+      })
+    } else {
+      makeMultiChart()
+      var promises = []
+      for (var i = 0, len = list.length; i < len; i++) {
+        var v = list[len-i-1].value;
+        (function (idx, u) {
+          promises.push(fetch("data/"+u).then(doc => doc.json()).then((out) => {
+            fortioAddToMultiResult(idx, out)
+          }))
+        })(i, v)
+      }
+      Promise.all(promises).then( () => {
+        endMultiChart(list.length)
+      }).catch(err => { throw err })
     }
-    Promise.all(promises).then( () => {
-      endMultiChart(list.length)
-    }).catch(err => { throw err })
   }
 }
 </script>
@@ -74,8 +92,8 @@ List of saved results:<br />
 Filter:<form><input id="searchinp" name="s" type="text" size=20 value="{{.Search}}" /></form>
 </td><td>
 <select id="files" size=7 onchange="fortio_load(value);" multiple>
-{{range $f := .DataList}}
-  <option value="{{$f}}.json">{{$f}}</option>
+{{range .PreselectedDataList}}
+  <option value="{{.Value}}.json" {{if .Selected}} selected {{end}}>{{.Value}}</option>
 {{end}}
 </select>
 </td><td valign="top">
@@ -113,10 +131,10 @@ Select or multi select to graph...
 <div id="update">
 <form id="updtForm" action="javascript:updateChart()">
 <input type="submit" value="Update:" />
-Time axis min <input type="text" name="xmin" size="5" /> ms,
-max <input type="text" name="xmax" size="5" /> ms,
-logarithmic: <input name="xlog" type="checkbox" onclick="updateChart()" /> -
-Count axis logarithmic: <input name="ylog" type="checkbox" onclick="updateChart()" />
+Time axis min <input type="text" name="xmin" value="{{.ChartOptions.XMin}}" size="5" /> ms,
+max <input type="text" name="xmax" value="{{.ChartOptions.XMax}}" size="5" /> ms,
+logarithmic: <input name="xlog" type="checkbox" onclick="updateChart()" {{if .ChartOptions.XIsLog}} checked {{end}} /> -
+Count axis logarithmic: <input name="ylog" type="checkbox" onclick="updateChart()" {{if .ChartOptions.YIsLog}} checked {{end}} />
 </form>
 </div>
 {{if .DoSearch}}
@@ -125,6 +143,10 @@ filterFiles.call(search)
 for (var i = 0; i < files.options.length; i++) {
   files.options[i].selected = true;
 }
+</script>
+{{end}}
+{{if .DoLoadSelected}}
+<script>
 fortio_load(files.value)
 </script>
 {{end}}

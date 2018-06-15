@@ -99,7 +99,7 @@ function istioClusterEnv() {
   CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
-  echo "CONTROL_PLANE_AUTH_POLICY=$CP_AUTH_POLICY" >> cluster.env
+  echo "ISTIO_CP_AUTH=$CP_AUTH_POLICY" >> cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
