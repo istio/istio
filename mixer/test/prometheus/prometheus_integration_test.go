@@ -16,32 +16,53 @@ package prometheus
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/prom2json"
 
-	"istio.io/istio/mixer/pkg/adapter"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 const (
-	prometheusMetricsURLTemplate = "http://localhost:%d/metrics"
-	requestCountToPromCfg        = `
+	hconfig = `
 apiVersion: "config.istio.io/v1alpha2"
-kind: prometheus
+kind: handler
 metadata:
-  name: handler
+  name: h1
   namespace: istio-system
 spec:
-  metrics:
-  - name: request_count
-    instance_name: requestcount.metric.istio-system
-    kind: COUNTER
-    label_names:
-    - destination_service
-    - response_code
+  adapter: prometheus-nosession
+  connection:
+    address: "%s"
+  params:
+    metrics:
+    - name: request_count
+      instance_name: i1metric.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - destination_service
+      - response_code
 ---
+`
+	iconfig = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: i1metric
+  namespace: istio-system
+spec:
+  template: metric
+  params:
+    value: request.size
+    dimensions:
+      destination_service: "\"myservice\""
+      response_code: "200"
+---
+`
+
+	rconfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -49,55 +70,67 @@ metadata:
   namespace: istio-system
 spec:
   actions:
-  - handler: handler.prometheus
+  - handler: h1.istio-system
     instances:
-    - requestcount.metric
+    - i1metric
 ---
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-  name: requestcount
-  namespace: istio-system
-spec:
-  value: "1"
-  dimensions:
-    destination_service: "\"myservice\""
-    response_code: "200"
 `
+
+	prometheusMetricsURLTemplate = "http://localhost:%d/metrics"
 )
 
 func TestReport(t *testing.T) {
-	info, pServer := GetInfoWithAddr(":0")
-	defer pServer.Close()
+	adptCfgBytes, err := ioutil.ReadFile("prometheus-nosession.yaml")
+	if err != nil {
+		t.Fatalf("could not read file: %v", err)
+	}
 	adapter_integration.RunTest(
 		t,
-		func() adapter.Info {
-			return info
-		},
+		nil,
 		adapter_integration.Scenario{
+			Setup: func() (ctx interface{}, err error) {
+				pServer, err := NewNoSessionServer(0, 0)
+				if err != nil {
+					return nil, err
+				}
+				pServer.Run()
+				return pServer, nil
+			},
+			Teardown: func(ctx interface{}) {
+				s := ctx.(Server)
+				s.Close()
+			},
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 555},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
+					Attrs:    map[string]interface{}{"request.size": 445},
 				},
 			},
 
 			GetState: func(ctx interface{}) (interface{}, error) {
+				s := ctx.(Server)
 				mfChan := make(chan *dto.MetricFamily, 1)
-				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, pServer.Port()), mfChan, "", "", true)
+				go prom2json.FetchMetricFamilies(fmt.Sprintf(prometheusMetricsURLTemplate, s.PromPort()), mfChan, "", "", true)
 				result := []prom2json.Family{}
 				for mf := range mfChan {
 					result = append(result, *prom2json.NewFamily(mf))
 				}
 				return result, nil
 			},
-
-			Configs: []string{
-				requestCountToPromCfg,
+			GetConfig: func(ctx interface{}) ([]string, error) {
+				s := ctx.(Server)
+				return []string{
+					// CRs for built-in templates are automatically added by the integration test framework.
+					string(adptCfgBytes),
+					fmt.Sprintf(hconfig, s.Addr()),
+					iconfig,
+					rconfig,
+				}, nil
 			},
-
 			Want: `
             {
              "AdapterState": [
@@ -109,7 +142,7 @@ func TestReport(t *testing.T) {
                   "destination_service": "myservice",
                   "response_code": "200"
                  },
-                 "value": "2"
+                 "value": "1000"
                 }
                ],
                "name": "istio_request_count",

@@ -222,6 +222,12 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 			}
 			output.Int64S[index] = t
 
+		case int:
+			if output.Int64S == nil {
+				output.Int64S = make(map[int32]int64)
+			}
+			output.Int64S[index] = int64(t)
+
 		case float64:
 			if output.Doubles == nil {
 				output.Doubles = make(map[int32]float64)
@@ -262,6 +268,8 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 				output.StringMaps = make(map[int32]mixerpb.StringMap)
 			}
 			output.StringMaps[index] = mixerpb.StringMap{Entries: sm}
+		default:
+			scope.Errorf("Cannot convert value:%v of type:%T", v, v)
 		}
 	}
 
