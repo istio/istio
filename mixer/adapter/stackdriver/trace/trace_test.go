@@ -24,8 +24,14 @@ import (
 	"go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/tracespan"
 )
+
+var dummyShouldFill = func() bool { return true }
+var dummyMetadataFn = func() (string, error) { return "", nil }
 
 func TestHandleTraceSpan(t *testing.T) {
 	now := time.Now()
@@ -333,6 +339,48 @@ func TestValidate(t *testing.T) {
 			}
 			if tt.wantErr && err == nil {
 				t.Errorf("wantErr, got nil")
+			}
+		})
+	}
+}
+
+func TestProjectID(t *testing.T) {
+	getExporterFunc = func(_ context.Context, _ adapter.Env, params *config.Params) (trace.Exporter, error) {
+		if params.ProjectId != "pid" {
+			return nil, fmt.Errorf("wanted pid got %v", params.ProjectId)
+		}
+		return nil, nil
+	}
+
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		pid  func() (string, error)
+	}{
+		{
+			"empty project id",
+			&config.Params{
+				ProjectId: "",
+			},
+			func() (string, error) { return "pid", nil },
+		},
+		{
+			"filled project id",
+			&config.Params{
+				ProjectId: "pid",
+			},
+			func() (string, error) { return "meta-pid", nil },
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
+			b := &builder{mg: mg}
+			b.SetAdapterConfig(tt.cfg)
+			_, err := b.Build(context.Background(), test.NewEnv(t))
+			if err != nil {
+				t.Errorf("Project id is not expected: %v", err)
 			}
 		})
 	}

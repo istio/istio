@@ -14,6 +14,11 @@
 
 syntax = "proto3";
 
+// $title: Rules
+// $description: Describes the rules used to configure Mixer's policy and telemetry features.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
+
+// Describes the rules used to configure Mixer's policy and telemetry features.
 package istio.policy.v1beta1;
 
 option go_package="istio.io/api/policy/v1beta1";

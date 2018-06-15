@@ -594,7 +594,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 		err = clusterregistry.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
-			s.discoveryService,
+			s.EnvoyXdsServer,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.ResyncPeriod,
 			args.Config.ControllerOptions.WatchedNamespace,
