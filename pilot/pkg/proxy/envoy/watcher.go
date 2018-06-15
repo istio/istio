@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"hash"
 	"io/ioutil"
@@ -25,7 +24,8 @@ import (
 	"path"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -34,6 +34,23 @@ import (
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/log"
 )
+
+const (
+	// MaxClusterNameLength is the maximum cluster name length
+	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+)
+
+// convertDuration converts to golang duration and logs errors
+func convertDuration(d *duration.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	dur, err := ptypes.Duration(d)
+	if err != nil {
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
+	}
+	return dur
+}
 
 // Watcher triggers reloads on changes to the proxy config
 type Watcher interface {
@@ -100,16 +117,7 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	config := BuildConfig(w.config, w.pilotSAN)
-
-	// compute hash of dependent certificates
-	h := sha256.New()
-	for _, cert := range w.certs {
-		generateCertHash(h, cert.Directory, cert.Files)
-	}
-	config.Hash = h.Sum(nil)
-
-	w.agent.ScheduleConfigUpdate(config)
+	w.agent.ScheduleConfigUpdate(nil)
 }
 
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
@@ -229,14 +237,13 @@ type envoy struct {
 	config    meshconfig.ProxyConfig
 	node      string
 	extraArgs []string
-	v2        bool
 	pilotSAN  []string
 	opts      map[string]interface{}
 	errChan   chan error
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
@@ -247,29 +254,8 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy
 		config:    config,
 		node:      node,
 		extraArgs: args,
+		pilotSAN:  pilotSAN,
 	}
-}
-
-// NewV2Proxy creates an instance of the proxy using v2 bootstrap
-func NewV2Proxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
-	p := NewProxy(config, node, logLevel)
-	e := p.(envoy)
-	e.v2 = true
-	e.pilotSAN = pilotSAN
-	return e
-}
-
-// NewV2ProxyCustom creates a proxy runner with custom options that can be injected in
-// template
-func NewV2ProxyCustom(config meshconfig.ProxyConfig, node string, logLevel string,
-	pilotSAN []string, opts map[string]interface{}, errChan chan error) proxy.Proxy {
-	proxy := NewProxy(config, node, logLevel)
-	e := proxy.(envoy)
-	e.v2 = true
-	e.pilotSAN = pilotSAN
-	e.errChan = errChan
-	e.opts = opts
-	return e
 }
 
 func (proxy envoy) args(fname string, epoch int) []string {
@@ -296,10 +282,6 @@ func (proxy envoy) args(fname string, epoch int) []string {
 }
 
 func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error {
-	envoyConfig, ok := config.(*Config)
-	if !ok {
-		return fmt.Errorf("unexpected config type: %#v", config)
-	}
 
 	var fname string
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
@@ -308,7 +290,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	if len(proxy.config.CustomConfigFile) > 0 {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = proxy.config.CustomConfigFile
-	} else if proxy.v2 {
+	} else {
 		out, err := bootstrap.WriteBootstrap(&proxy.config, proxy.node, epoch, proxy.pilotSAN, proxy.opts)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
@@ -316,22 +298,11 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 			return err
 		}
 		fname = out
-	} else {
-		// create parent directories if necessary
-		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
-			return multierror.Prefix(err, "failed to create directory for proxy configuration")
-		}
-
-		// attempt to write file
-		fname = configFile(proxy.config.ConfigPath, epoch)
-		if err := envoyConfig.WriteFile(fname); err != nil {
-			return err
-		}
 	}
 
 	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
-	if proxy.v2 && len(proxy.config.CustomConfigFile) == 0 {
+	if len(proxy.config.CustomConfigFile) == 0 {
 		args = append(args, "--v2-config-only")
 	}
 	log.Infof("Envoy command: %v", args)

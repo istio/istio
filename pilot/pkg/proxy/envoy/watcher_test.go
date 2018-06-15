@@ -343,7 +343,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config.Concurrency = 8
 
 	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
-	testProxy := NewProxy(config, "my-node", "trace")
+	testProxy := NewProxy(config, "my-node", "trace", nil)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
