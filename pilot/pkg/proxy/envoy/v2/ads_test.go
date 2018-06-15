@@ -101,6 +101,7 @@ func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_Stream
 
 func sendEDSReq(t *testing.T, clusters []string, ip string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(ip, "app3"),
 		},
