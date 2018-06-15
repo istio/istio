@@ -28,10 +28,13 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 type mockConfigWatcher struct {
@@ -120,8 +123,14 @@ func (stream *mockStream) Send(resp *v2.DiscoveryResponse) error {
 		stream.t.Error("TypeUrl => got none, want non-empty")
 	}
 	for _, res := range resp.Resources {
-		if res.TypeUrl != resp.TypeUrl {
-			stream.t.Errorf("TypeUrl => got %q, want %q", res.TypeUrl, resp.TypeUrl)
+		var envelope mcp.Envelope
+		if err := types.UnmarshalAny(&res, &envelope); err != nil {
+			stream.t.Errorf("Failed to unmarshal envelope: %v", err)
+		}
+
+		got := envelope.Resource.TypeUrl
+		if got != resp.TypeUrl {
+			stream.t.Errorf("TypeUrl => got %q, want %q", got, resp.TypeUrl)
 		}
 	}
 	stream.sent <- resp
@@ -155,25 +164,18 @@ func makeMockStream(t *testing.T) *mockStream {
 	}
 }
 
-// fake protobuf types that implements required resource interface
+// fake protobuf types
 
-type fakeTypeBase struct{ Name string }
+type fakeTypeBase struct{ Info string }
 
-func (f fakeTypeBase) GetMetadata() *Corev1Metadata { return &Corev1Metadata{Name: f.Name} }
-func (f fakeTypeBase) Reset()                       {}
-func (f fakeTypeBase) String() string               { return f.Name }
-func (f fakeTypeBase) ProtoMessage()                {}
-func (f fakeTypeBase) Marshal() ([]byte, error)     { return []byte(f.Name), nil }
+func (f fakeTypeBase) Reset()                   {}
+func (f fakeTypeBase) String() string           { return f.Info }
+func (f fakeTypeBase) ProtoMessage()            {}
+func (f fakeTypeBase) Marshal() ([]byte, error) { return []byte(f.Info), nil }
 
 type fakeType0 struct{ fakeTypeBase }
 type fakeType1 struct{ fakeTypeBase }
 type fakeType2 struct{ fakeTypeBase }
-
-type badType struct{ fakeTypeBase }
-
-func (badType) Marshal() ([]byte, error) {
-	return nil, errors.New("badType can't unmarshal")
-}
 
 const (
 	typePrefix      = "type.googleapis.com/"
@@ -184,16 +186,33 @@ const (
 	fakeType0TypeUrl = typePrefix + fakeType0Prefix
 	fakeType1TypeUrl = typePrefix + fakeType1Prefix
 	fakeType2TypeUrl = typePrefix + fakeType2Prefix
-
-	badTypePrefix = "istio.io.galley.pkg.mcp.server.badType"
-	badTypeUrl    = typePrefix + badTypePrefix
 )
+
+func mustMarshalAny(pb proto.Message) *types.Any {
+	a, err := types.MarshalAny(pb)
+	if err != nil {
+		panic(err.Error())
+	}
+	return a
+}
 
 func init() {
 	proto.RegisterType((*fakeType0)(nil), fakeType0Prefix)
 	proto.RegisterType((*fakeType1)(nil), fakeType1Prefix)
 	proto.RegisterType((*fakeType2)(nil), fakeType2Prefix)
-	proto.RegisterType((*badType)(nil), badTypePrefix)
+
+	fakeResource0 = &mcp.Envelope{
+		Metadata: &mcp.Metadata{Name: "f0"},
+		Resource: mustMarshalAny(&fakeType0{fakeTypeBase{"f0"}}),
+	}
+	fakeResource1 = &mcp.Envelope{
+		Metadata: &mcp.Metadata{Name: "f1"},
+		Resource: mustMarshalAny(&fakeType1{fakeTypeBase{"f1"}}),
+	}
+	fakeResource2 = &mcp.Envelope{
+		Metadata: &mcp.Metadata{Name: "f2"},
+		Resource: mustMarshalAny(&fakeType2{fakeTypeBase{"f2"}}),
+	}
 }
 
 var (
@@ -202,11 +221,9 @@ var (
 		Cluster: "test-cluster",
 	}
 
-	fakeResource0 Resource = &fakeType0{fakeTypeBase: fakeTypeBase{"f0"}}
-	fakeResource1 Resource = &fakeType1{fakeTypeBase: fakeTypeBase{"f1"}}
-	fakeResource2 Resource = &fakeType2{fakeTypeBase: fakeTypeBase{"f2"}}
-
-	badResource Resource = &badType{fakeTypeBase{"badResource"}}
+	fakeResource0 *mcp.Envelope
+	fakeResource1 *mcp.Envelope
+	fakeResource2 *mcp.Envelope
 
 	WatchResponseTypes = []string{
 		fakeType0TypeUrl,
@@ -220,7 +237,7 @@ func TestMultipleRequests(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	// make a request
@@ -289,7 +306,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	// check a response
@@ -301,40 +318,6 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatalf("got no response")
-	}
-}
-
-func TestUnmarshalError(t *testing.T) {
-	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   badTypeUrl,
-		Version:   "1",
-		Resources: []Resource{badResource},
-	})
-
-	// make a request
-	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
-		TypeUrl: badTypeUrl,
-	}
-
-	s := New(config, append(WatchResponseTypes, badTypeUrl))
-	go func() {
-		if err := s.StreamAggregatedResources(stream); err == nil {
-			t.Error("StreamAggregatedResources() expected error: got none")
-		}
-	}()
-
-	// check a response
-	select {
-	case <-stream.sent:
-		close(stream.recv)
-		if want := map[string]int{}; !reflect.DeepEqual(want, config.counts) {
-			t.Errorf("watch counts => got %v, want %v", config.counts, want)
-		}
-	case <-time.After(time.Second):
-		// success
 	}
 }
 
@@ -363,7 +346,7 @@ func TestSendError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	// make a request
@@ -388,7 +371,7 @@ func TestReceiveError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	// make a request
@@ -413,7 +396,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   "unsupportedType",
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	// make a request
@@ -437,7 +420,7 @@ func TestStaleNonce(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 
 	stream := makeMockStream(t)
@@ -484,17 +467,17 @@ func TestAggregatedHandlers(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeUrl,
 		Version:   "1",
-		Resources: []Resource{fakeResource0},
+		Resources: []*mcp.Envelope{fakeResource0},
 	})
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType1TypeUrl,
 		Version:   "2",
-		Resources: []Resource{fakeResource1},
+		Resources: []*mcp.Envelope{fakeResource1},
 	})
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType2TypeUrl,
 		Version:   "3",
-		Resources: []Resource{fakeResource2},
+		Resources: []*mcp.Envelope{fakeResource2},
 	})
 
 	stream := makeMockStream(t)

@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -45,7 +46,7 @@ type WatchResponse struct {
 	Version string
 
 	// Responses to be included in the response.
-	Resources []Resource
+	Resources []*mcp.Envelope
 }
 
 // CancelWatchFunc allows the consumer to cancel a previous watch,
