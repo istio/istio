@@ -191,27 +191,6 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 	return entities, edges
 }
 
-type edge struct {
-	sourceFullName, destinationFullName string
-	typeName                            string
-}
-
-// entityCache tracks the entities we've already seen.
-// It is not thread-safe.
-type entityCache struct {
-	// cache maps an entity to the epoch it was last seen in.
-	cache     map[entity]int
-	lastFlush int
-	logger    adapter.Logger
-}
-
-func newEntityCache(logger adapter.Logger) *entityCache {
-	return &entityCache{
-		cache:  make(map[entity]int),
-		logger: logger,
-	}
-}
-
 type entity struct {
 	containerFullName string
 	typeName          string
@@ -222,87 +201,7 @@ type entity struct {
 	shortNames [4]string
 }
 
-// AssertAndCheck reports the existence of e at epoch, and returns true if the entity needs to be sent immediately.
-func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
-	cEpoch, ok := ec.cache[e]
-	ec.cache[e] = epoch
-	if !ok || cEpoch < ec.lastFlush {
-		ec.logger.Debugf("%q needs to be sent anew, old epoch: %d, now seen: %d", e.fullName, cEpoch, epoch)
-		return true
-	}
-	return false
-}
-
-// Flush returns the list of entities that have been asserted in the most recent epoch, to be reasserted.
-// It also cleans up stale entries from the cache.
-func (ec *entityCache) Flush(epoch int) []entity {
-	var result []entity
-	for k, e := range ec.cache {
-		if e < ec.lastFlush {
-			delete(ec.cache, k)
-			continue
-		}
-		if e == epoch {
-			// Don't republish entities that are already in this batch.
-			continue
-		}
-		result = append(result, k)
-	}
-	ec.lastFlush = epoch
-	return result
-}
-
-// edgeCache tracks the edges we've already seen.
-// It is not thread-safe.
-type edgeCache struct {
-	// cache maps an edge to the epoch it was last seen in.
-	cache     map[edge]int
-	lastFlush int
-	logger    adapter.Logger
-}
-
-func newEdgeCache(logger adapter.Logger) *edgeCache {
-	return &edgeCache{
-		cache:  make(map[edge]int),
-		logger: logger,
-	}
-}
-
-// AssertAndCheck reports the existence of e at epoch, and returns true if the edge needs to be sent immediately.
-func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
-	cEpoch, ok := ec.cache[e]
-	ec.cache[e] = epoch
-	if !ok || cEpoch < ec.lastFlush {
-		ec.logger.Debugf("%v needs to be sent anew, old epoch: %d, now seen: %d", e, cEpoch, epoch)
-		return true
-	}
-	return false
-}
-
-// Flush returns the list of entities that have been asserted since the last flush, to be reasserted.
-// It also cleans up stale entries from the cache.
-func (ec *edgeCache) Flush(epoch int) []edge {
-	var result []edge
-	for k, e := range ec.cache {
-		if e < ec.lastFlush {
-			delete(ec.cache, k)
-			continue
-		}
-		if e == epoch {
-			// Don't republish edges that are already in this batch.
-			continue
-		}
-		result = append(result, k)
-	}
-	ec.lastFlush = epoch
-	return result
-}
-
-// Invalidate removes all edges with a source of fullName from the cache, so the next assertion will trigger a report.
-func (ec *edgeCache) Invalidate(fullName string) {
-	for e := range ec.cache {
-		if e.sourceFullName == fullName {
-			delete(ec.cache, e)
-		}
-	}
+type edge struct {
+	sourceFullName, destinationFullName string
+	typeName                            string
 }
