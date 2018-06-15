@@ -17,8 +17,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"hash"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -204,24 +202,6 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 		}
 	}
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
-}
-
-func generateCertHash(h hash.Hash, certsDir string, files []string) {
-	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
-		return
-	}
-
-	for _, file := range files {
-		filename := path.Join(certsDir, file)
-		bs, err := ioutil.ReadFile(filename)
-		if err != nil {
-			// log.Warnf("failed to read file %q", filename)
-			continue
-		}
-		if _, err := h.Write(bs); err != nil {
-			log.Warna(err)
-		}
-	}
 }
 
 const (

@@ -15,16 +15,13 @@
 package envoy
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path"
 	"reflect"
 	"sync"
 	"testing"
@@ -296,44 +293,6 @@ func TestWatchCerts(t *testing.T) {
 
 	// should terminate immediately
 	go watchCerts(ctx, nil, watchFileEvents, 50*time.Millisecond, callbackFunc)
-}
-
-func TestGenerateCertHash(t *testing.T) {
-	name, err := ioutil.TempDir(os.TempDir(), "certs")
-	if err != nil {
-		t.Errorf("failed to create a temp dir: %v", err)
-	}
-	defer func() {
-		if err := os.RemoveAll(name); err != nil {
-			t.Errorf("failed to remove temp dir: %v", err)
-		}
-	}()
-
-	h := sha256.New()
-	authFiles := []string{model.CertChainFilename, model.KeyFilename, model.RootCertFilename}
-	for _, file := range authFiles {
-		content := []byte(file)
-		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {
-			t.Errorf("failed to write file %s (error %v)", file, err)
-		}
-		if _, err := h.Write(content); err != nil {
-			t.Errorf("failed to write hash (error %v)", err)
-		}
-	}
-	expectedHash := h.Sum(nil)
-
-	h2 := sha256.New()
-	generateCertHash(h2, name, append(authFiles, "missing-file"))
-	actualHash := h2.Sum(nil)
-	if !bytes.Equal(actualHash, expectedHash) {
-		t.Errorf("Actual hash value (%v) is different than the expected hash value (%v)", actualHash, expectedHash)
-	}
-
-	generateCertHash(h2, "", nil)
-	emptyHash := h2.Sum(nil)
-	if !bytes.Equal(emptyHash, expectedHash) {
-		t.Error("hash should not be affected by empty directory")
-	}
 }
 
 func TestEnvoyArgs(t *testing.T) {

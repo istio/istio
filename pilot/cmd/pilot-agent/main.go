@@ -235,7 +235,7 @@ var (
 					return err
 				}
 			}
-			
+
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
