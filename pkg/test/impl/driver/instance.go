@@ -82,7 +82,7 @@ func (d *driver) Initialize(a *Args) error {
 	switch a.Environment {
 	case EnvLocal:
 		env, err = local.NewEnvironment()
-	case EnvKubernetes:
+	case EnvKube:
 		env, err = cluster.NewEnvironment(a.KubeConfig)
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)

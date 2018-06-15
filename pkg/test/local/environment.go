@@ -55,7 +55,7 @@ func (e *Environment) Initialize(ctx *internal.TestContext) error {
 // InitializeDependency is called when a new dependency is encountered during test run.
 func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
 	switch d {
-	case dependency.Cluster:
+	case dependency.Kube:
 		return nil, fmt.Errorf("local environment does not support running with a cluster")
 
 	case dependency.Mixer:

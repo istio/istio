@@ -32,7 +32,8 @@ const (
 // Interface is a common interface for all testing environments.
 type Interface interface {
 
-	// Configure applies the given configuration to the mesh.
+	// Configure applies the given configuration to the mesh. The configuration is in Kubernetes style
+	// serialized YAML format.
 	Configure(tb testing.TB, config string)
 
 	// Evaluate the given template using the current set of template parameters from environment.

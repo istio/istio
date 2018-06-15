@@ -17,7 +17,6 @@ package kube
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,30 +73,30 @@ func (a *Accessor) FindPodBySelectors(ns string, selectors ...string) (pod v12.P
 
 // WaitForPodBySelectors waits for the pod to appear that match the given namespace and selectors.
 func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod v12.Pod, err error) {
-	s := strings.Join(selectors, ",")
+	p, err := retry(defaultTimeout, defaultRetryWait, func() (interface{}, bool, error) {
 
-	timeout := time.After(time.Second * 20)
-	for {
-		select {
-		case <-timeout:
-			return v12.Pod{}, fmt.Errorf("timeout while waiting for pod: ns:%q, selectors: %s", ns, s)
-		default:
-		}
+		s := strings.Join(selectors, ",")
 
 		var list *v12.PodList
 		if list, err = a.set.CoreV1().Pods(ns).List(v1.ListOptions{LabelSelector: s}); err != nil {
-			return v12.Pod{}, err
+			return nil, false, err
 		}
 
 		if len(list.Items) > 0 {
 			if len(list.Items) > 1 {
 				scope.Warnf("More than one pod found matching selectors: %s", s)
 			}
-			return list.Items[0], nil
+			return &list.Items[0], true, nil
 		}
 
-		<-time.After(time.Millisecond)
+		return nil, false, err
+	})
+
+	if p != nil {
+		pod = *(p.(*v12.Pod))
 	}
+
+	return
 }
 
 // WaitUntilPodIsRunning waits until the pod with the name/namespace is in succeeded or in running state.
@@ -175,4 +174,22 @@ func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string) err
 func (a *Accessor) DeleteNamespace(ns string) error {
 	scope.Infof("Deleting namespace: %s", ns)
 	return a.set.CoreV1().Namespaces().Delete(ns, &v1.DeleteOptions{})
+}
+
+// WaitForNamespaceDeletion waits until a namespace is deleted.
+func (a *Accessor) WaitForNamespaceDeletion(ns string) error {
+	_, err := retry(defaultTimeout, defaultRetryWait, func() (interface{}, bool, error) {
+		_, err2 := a.set.CoreV1().Namespaces().Get(ns, v1.GetOptions{})
+		if err2 == nil {
+			return nil, false, nil
+		}
+
+		if errors.IsNotFound(err2) {
+			return nil, true, nil
+		}
+
+		return nil, true, err2
+	})
+
+	return err
 }

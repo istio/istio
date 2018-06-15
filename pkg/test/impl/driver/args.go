@@ -16,6 +16,7 @@ package driver
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
@@ -23,8 +24,8 @@ import (
 )
 
 const (
-	// EnvKubernetes is the kubernetes environment
-	EnvKubernetes = "kubernetes"
+	// EnvKube is the kubernetes environment
+	EnvKube = "kube"
 
 	// EnvLocal is the local environment
 	EnvLocal = "local"
@@ -78,14 +79,24 @@ func DefaultArgs() *Args {
 // Validate the arguments.
 func (a *Args) Validate() error {
 	switch a.Environment {
-	case EnvLocal, EnvKubernetes:
+	case EnvLocal, EnvKube:
 
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
 	}
 
-	if a.Environment == EnvKubernetes && a.KubeConfig == "" {
-		return fmt.Errorf("kube configuration must be specified for the %s environment", EnvKubernetes)
+	if a.Environment == EnvKube && a.KubeConfig == "" {
+		// Try the config home folder
+		path := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("kube configuration must be specified for the %s environment", EnvKube)
+			}
+
+			return fmt.Errorf("error reading config from home: %s", path)
+		}
+
+		a.KubeConfig = path
 	}
 
 	if a.TestID == "" || len(a.TestID) > maxTestIDLength {

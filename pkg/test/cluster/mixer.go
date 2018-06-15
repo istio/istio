@@ -19,7 +19,6 @@ import (
 	"io"
 	"testing"
 
-	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
@@ -95,13 +94,11 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 // Close implementation.
 func (d *deployedMixer) Close() (err error) {
 	if d.conn != nil {
-		e := d.conn.Close()
-		err = multierr.Append(err, e)
+		err = d.conn.Close()
 	}
 
 	if d.forwarder != nil {
-		e := d.forwarder.Close()
-		err = multierr.Append(err, e)
+		d.forwarder.Close()
 	}
 
 	return

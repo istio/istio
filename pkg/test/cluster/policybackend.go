@@ -25,7 +25,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"go.uber.org/multierr"
 
 	"istio.io/istio/pkg/test/cluster/kube"
 	"istio.io/istio/pkg/test/environment"
@@ -133,7 +132,7 @@ func newPolicyBackend(e *Environment) (*policyBackend, error) {
 
 	controller, err := policy.NewController(forwarder.Address())
 	if err != nil {
-		_ = forwarder.Close()
+		forwarder.Close()
 		return nil, err
 	}
 
@@ -244,11 +243,10 @@ spec:
 }
 
 // Close implementation.
-func (d *policyBackend) Close() (err error) {
-	if d.forwarder != nil {
-		e := d.forwarder.Close()
-		err = multierr.Append(err, e)
+func (p *policyBackend) Close() error {
+	if p.forwarder != nil {
+		p.forwarder.Close()
 	}
 
-	return
+	return nil
 }

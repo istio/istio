@@ -15,36 +15,33 @@
 package kube
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"strings"
-
-	"istio.io/istio/pkg/log"
 )
 
-func sh(ctx context.Context, format string, logCommand, logOutput, logError bool, args ...interface{}) (string, error) {
-	command := fmt.Sprintf(format, args...)
-	if logCommand {
-		log.Infof("Running command %s", command)
-	}
-	c := exec.CommandContext(ctx, "sh", "-c", command) // #nosec
-	bytes, err := c.CombinedOutput()
-	if logOutput {
-		if output := strings.TrimSuffix(string(bytes), "\n"); len(output) > 0 {
-			log.Infof("Command output: \n%s", output)
-		}
-	}
+func execute(format string, args ...interface{}) (string, error) {
+	s := fmt.Sprintf(format, args...)
+	// TODO: escape handling
+	parts := strings.Split(s, " ")
 
-	if err != nil {
-		if logError {
-			log.Infof("Command error: %v", err)
-		}
-		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
-	}
-	return string(bytes), nil
+	return executeArgs(parts[0], parts[1:]...)
 }
 
-func shNoStdout(format string, args ...interface{}) (string, error) {
-	return sh(context.Background(), format, true, false, true, args...)
+func executeArgs(name string, args ...string) (string, error) {
+
+	if scope.DebugEnabled() {
+		cmd := strings.Join(args, " ")
+		cmd = name + " " + cmd
+		scope.Debugf("Executing command: %s", cmd)
+	}
+
+	c := exec.Command(name, args...)
+	b, err := c.CombinedOutput()
+
+	if scope.DebugEnabled() {
+		scope.Debugf("Command[%s] => %s", name, string(b))
+	}
+
+	return string(b), err
 }

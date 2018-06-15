@@ -94,7 +94,7 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 
 	stringVar(&arguments.Environment, "environment", arguments.Environment,
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
-			driver.EnvLocal, driver.EnvKubernetes))
+			driver.EnvLocal, driver.EnvKube))
 
 	stringVar(&arguments.KubeConfig, "config", arguments.KubeConfig,
 		"The path to the kube config file for cluster environments")

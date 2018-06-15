@@ -77,10 +77,10 @@ func (p *PortForwarder) Start() error {
 	_, err = retry(defaultTimeout, defaultRetryWait, func() (interface{}, bool, error) {
 
 		ptr := buffer[pos:]
-		n, err := pipe.Read(ptr)
-		if err != nil {
+		n, err2 := pipe.Read(ptr)
+		if err2 != nil {
 			_ = p.cmd.Process.Kill()
-			return nil, true, err
+			return nil, true, err2
 		}
 		pos += n
 		s := string(buffer[0:pos])
@@ -99,11 +99,9 @@ func (p *PortForwarder) Start() error {
 }
 
 // Close the port forwarder.
-func (p *PortForwarder) Close() error {
+func (p *PortForwarder) Close() {
 	p.cancel()
 	if p.cmd != nil {
-		return p.cmd.Wait()
+		_ = p.cmd.Wait()
 	}
-
-	return nil
 }

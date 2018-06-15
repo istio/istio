@@ -33,6 +33,6 @@ func ApplyContents(kubeconfig string, ns string, contents string) error {
 
 // Apply the config in the given filename using kubectl.
 func Apply(kubeconfig string, ns string, filename string) error {
-	_, err := shNoStdout("kubectl apply --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
+	_, err := execute("kubectl apply --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
 	return err
 }

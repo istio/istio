@@ -45,15 +45,18 @@ type Environment struct {
 	config         *rest.Config
 	kubeConfigPath string
 
-	// The namespace where the Istio components reside. This is typically "istio-system".
+	// The namespace where the Istio components reside in a typical deployment. This is typically
+	// "istio-system" in a standard deployment.
 	IstioSystemNamespace string
 
-	// The namespace in which dependency components are deployed. This namespace is created once per test
-	// suite ran, and do not get deleted until the completion of the suite.
+	// The namespace in which dependency components are deployed. This namespace is created once per run,
+	// and does not get destroyed until all the tests run. Test framework dependencies can deploy
+	// components here when they get initialized. They will get deployed only once.
 	DependencyNamespace string
 
-	// Per-test namespace. This namespace is where the configuration and other test-specific items are
-	// stored in. A new one gets created for each test.
+	// The namespace for each individual test. These namespaces are created when an environment is acquired
+	// in a test, and the previous one gets deleted. This ensures that during a single test run, there is only
+	// one test namespace in the system.
 	TestNamespace string
 }
 
@@ -91,7 +94,7 @@ func (e *Environment) Initialize(ctx *internal.TestContext) error {
 func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependency.Instance) (interface{}, error) {
 	switch d {
 	// Register ourselves as a resource to perform close-time cleanup.
-	case dependency.Cluster:
+	case dependency.Kube:
 		return e, nil
 
 	case dependency.PolicyBackend:
@@ -259,10 +262,14 @@ func (e *Environment) deleteTestNamespace() error {
 		return nil
 	}
 
-	err := e.accessor.DeleteNamespace(e.TestNamespace)
+	ns := e.TestNamespace
+	err := e.accessor.DeleteNamespace(ns)
 	if err == nil {
 		e.TestNamespace = ""
+
+		err = e.accessor.WaitForNamespaceDeletion(ns)
 	}
+
 	return err
 }
 
@@ -291,18 +298,23 @@ func (e *Environment) allocateDependencyNamespace() error {
 }
 
 // Close implementation.
-func (e *Environment) Close() (err error) {
+func (e *Environment) Close() error {
+
+	var err1 error
+	var err2 error
 	if e.TestNamespace != "" {
-		er := e.accessor.DeleteNamespace(e.TestNamespace)
-		err = multierror.Append(err, er)
+		err1 = e.accessor.DeleteNamespace(e.TestNamespace)
 		e.TestNamespace = ""
 	}
 
 	if e.DependencyNamespace != "" {
-		er := e.accessor.DeleteNamespace(e.DependencyNamespace)
-		err = multierror.Append(err, er)
+		err2 = e.accessor.DeleteNamespace(e.DependencyNamespace)
 		e.DependencyNamespace = ""
 	}
 
-	return
+	if err1 != nil || err2 != nil {
+		return multierror.Append(err1, err2)
+	}
+
+	return nil
 }

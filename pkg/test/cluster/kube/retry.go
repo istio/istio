@@ -20,7 +20,7 @@ import (
 )
 
 const defaultTimeout = time.Second * 20
-const defaultRetryWait = time.Millisecond
+const defaultRetryWait = time.Millisecond * 10
 
 // retry the given function, until there is a timeout, or until the function indicates that it has completed.
 func retry(
