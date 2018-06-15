@@ -535,12 +535,15 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 		}
 	}
 
-	// use host:port + match uri if there is only one destination cluster.
-	if c := in.GetRoute().GetCluster(); c != "" {
+	// If there is only one destination cluster in route, return host:port/uri as description of route.
+	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
+	// return virtual serivce name:port/uri as substitute.
+	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
+		log.Infof("cluster name %s", c)
+		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
 		return fmt.Sprintf("%s:%d%s", h, p, path)
 	}
-
 	return fmt.Sprintf("%s:%d%s", vsName, port, path)
 }
 

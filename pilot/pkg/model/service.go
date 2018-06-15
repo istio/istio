@@ -684,6 +684,11 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
+// IsValidSubsetKey checks if a string is valid for subset key parsing.
+func IsValidSubsetKey(s string) bool {
+	return strings.Count(s, "|") == 3
+}
+
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
