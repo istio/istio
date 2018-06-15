@@ -51,7 +51,7 @@ func (e Error) ErrorType() string {
 	case CertGenError:
 		return "CERT_GEN_ERROR"
 	}
-	return ""
+	return "UNKNOWN"
 }
 
 // NewError creates a new Error instance.

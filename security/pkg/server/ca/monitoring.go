@@ -18,8 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// TODO: Add gRPC server monitoring.
-
 const (
 	errorlabel = "error"
 )

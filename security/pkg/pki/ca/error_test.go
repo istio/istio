@@ -45,6 +45,11 @@ func TestError(t *testing.T) {
 			err:     fmt.Errorf("test error4"),
 			message: "CERT_GEN_ERROR",
 		},
+		"UNKNOWN": {
+			eType:   -1,
+			err:     fmt.Errorf("test error5"),
+			message: "UNKNOWN",
+		},
 	}
 
 	for k, tc := range testCases {
