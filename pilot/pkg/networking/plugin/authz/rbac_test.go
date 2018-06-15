@@ -600,39 +600,39 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		service  string
-		roles    []model.Config
-		bindings []model.Config
-		config   *rbacconfig.RBAC
+		name         string
+		service      string
+		roles        []model.Config
+		bindings     []model.Config
+		expectConfig *rbacconfig.RBAC
 	}{
 		{
-			name:     "exact matched service",
-			service:  "service",
-			roles:    roles,
-			bindings: bindings,
-			config:   rbacConfig,
+			name:         "exact matched service",
+			service:      "service",
+			roles:        roles,
+			bindings:     bindings,
+			expectConfig: rbacConfig,
 		},
 		{
-			name:     "empty roles",
-			service:  "service",
-			roles:    []model.Config{},
-			bindings: bindings,
-			config:   emptyConfig,
+			name:         "empty roles",
+			service:      "service",
+			roles:        []model.Config{},
+			bindings:     bindings,
+			expectConfig: emptyConfig,
 		},
 		{
-			name:     "empty bindings",
-			service:  "service",
-			roles:    roles,
-			bindings: []model.Config{},
-			config:   emptyConfig,
+			name:         "empty bindings",
+			service:      "service",
+			roles:        roles,
+			bindings:     []model.Config{},
+			expectConfig: emptyConfig,
 		},
 	}
 
 	for _, tc := range testCases {
 		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
-		if !reflect.DeepEqual(*tc.config, *rbac) {
-			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.config, *rbac)
+		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
+			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
 		}
 	}
 }
