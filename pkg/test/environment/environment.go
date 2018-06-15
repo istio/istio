@@ -32,10 +32,12 @@ const (
 // Interface is a common interface for all testing environments.
 type Interface interface {
 
-	// Configure applies the given configuration to the mesh.
+	// Configure applies the given configuration to the mesh. The configuration is in Kubernetes style
+	// serialized YAML format.
 	Configure(tb testing.TB, config string)
 
-	// TODO: Implement Configure overload that can consume config from a directory
+	// Evaluate the given template using the current set of template parameters from environment.
+	Evaluate(tb testing.TB, template string) string
 
 	// GetMixer returns a deployed Mixer instance in the environment.
 	GetMixer() (DeployedMixer, error)
@@ -57,7 +59,8 @@ type Interface interface {
 	// GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
 	GetFortioAppOrFail(name string, t testing.TB) DeployedFortioApp
 
-	// TODO: We should remove this overload in favor of the previous two.
+	// TODO: We should rationalize and come up with a single set of GetFortioApp(s) method.
+	// See https://github.com/istio/istio/issues/6171.
 
 	// GetFortioApps returns a set of Fortio Apps based on the given selector.
 	GetFortioApps(selector string, t testing.TB) []DeployedFortioApp

@@ -15,9 +15,57 @@
 package internal
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+
+	"istio.io/istio/pkg/log"
 )
+
+// TempFile represents a temporary file that was created.
+type TempFile string
+
+// NewTempFile creates and returns the name of a new temp file.
+func NewTempFile(tmpDir, prefix, suffix string) (TempFile, error) {
+	f, err := ioutil.TempFile(tmpDir, prefix)
+	if err != nil {
+		return "", err
+	}
+	var tmpName string
+	if tmpName, err = filepath.Abs(f.Name()); err != nil {
+		return "", err
+	}
+	if err = f.Close(); err != nil {
+		return "", err
+	}
+	if err = os.Remove(tmpName); err != nil {
+		log.Errorf("CreateTempfile unable to remove %s", tmpName)
+		return "", err
+	}
+	return TempFile(tmpName + suffix), nil
+}
+
+// WriteTempFile creates a temporary file with the specified contents.
+func WriteTempFile(tmpDir, prefix, suffix, contents string) (TempFile, error) {
+	fname, err := NewTempFile(tmpDir, prefix, suffix)
+	if err != nil {
+		return "", err
+	}
+
+	if err = ioutil.WriteFile(string(fname), []byte(contents), 0644); err != nil {
+		return "", err
+	}
+	return fname, nil
+}
+
+// Delete the temporary file.
+func (t TempFile) Delete() {
+	err := os.Remove(string(t))
+	if err != nil {
+		log.Errorf("Unable to remove %s: %v", t, err)
+	}
+}
 
 // createTmpDirectory creates a temporary directory for running local programs, or storing logs.
 // By default, the root of the tmp dir will be established by os.TempDir(). If workdir flag is specified,
