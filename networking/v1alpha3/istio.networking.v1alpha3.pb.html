@@ -1352,8 +1352,8 @@ spec:
     - headers:
         cookie:
           regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
-        uri:
-          prefix: &quot;/ratings/v2/&quot;
+      uri:
+        prefix: &quot;/ratings/v2/&quot;
     route:
     - destination:
         host: ratings.prod.svc.cluster.local
