@@ -55,6 +55,8 @@ install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
 install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml
+install/kubernetes/istio-galley.yaml
+install/kubernetes/istio-auth-galley.yaml
 samples/bookinfo/consul/bookinfo.sidecars.yaml
 samples/bookinfo/eureka/bookinfo.sidecars.yaml
 *.orig

@@ -14,11 +14,15 @@
 
 syntax = "proto3";
 
-// TraceSpan represents an individual span within a distributed trace.
+// $title: Trace Span
+// $description: A template that represents\ an individual span within a distributed trace.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html
+
+// The `tracespan` template represents an individual span within a distributed trace.
 //
 // Example config:
 //
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:
@@ -43,7 +47,7 @@ syntax = "proto3";
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 package traceSpan;
 
@@ -96,9 +100,13 @@ message Template {
     // Required.
     istio.policy.v1beta1.TimeStamp end_time = 6;
 
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
     // entire span. The values can be specified in the form of expressions.
     //
     // Optional.
     map<string, istio.policy.v1beta1.Value> span_tags = 7;
+
+    // HTTP status code used to set the span status. If unset or set to 0, the
+    // span status will be assumed to be successful.
+    int64 httpStatusCode = 8;
 }

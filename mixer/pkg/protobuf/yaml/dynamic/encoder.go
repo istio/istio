@@ -78,6 +78,7 @@ func (m messageEncoder) encodeWithoutLength(bag attribute.Bag, ba []byte) ([]byt
 
 // expected length of the varint encoded word
 // 2 byte words represent 2 ** 14 = 16K bytes
+// 1 byte words represent 2 ** 7 = 128 bytes
 // If message length is more, it involves an array copy
 const defaultMsgLengthSize = 2
 
@@ -113,6 +114,10 @@ func (m messageEncoder) Encode(bag attribute.Bag, ba []byte) ([]byte, error) {
 	_ = EncodeVarintZeroExtend(ba[prefixIdx:prefixIdx], uint64(length), msgLengthSize)
 
 	return ba, nil
+}
+
+func (m messageEncoder) EncodesLength() bool {
+	return !m.skipEncodeLength
 }
 
 // expected length of the varint encoded word

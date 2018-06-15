@@ -19,9 +19,9 @@ package envoy_admin_v2alpha
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v21 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import envoy_api_v22 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import envoy_api_v23 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+import envoy_api_v24 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import envoy_config_bootstrap_v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 import google_protobuf6 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
@@ -96,7 +96,7 @@ type ListenersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded listener configs.
-	StaticListeners []envoy_api_v22.Listener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners"`
+	StaticListeners []envoy_api_v23.Listener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners"`
 	// The dynamically loaded active listeners. These are listeners that are available to service
 	// data plane traffic.
 	DynamicActiveListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners" json:"dynamic_active_listeners"`
@@ -124,7 +124,7 @@ func (m *ListenersConfigDump) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ListenersConfigDump) GetStaticListeners() []envoy_api_v22.Listener {
+func (m *ListenersConfigDump) GetStaticListeners() []envoy_api_v23.Listener {
 	if m != nil {
 		return m.StaticListeners
 	}
@@ -160,7 +160,7 @@ type ListenersConfigDump_DynamicListener struct {
 	// by the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The listener config.
-	Listener *envoy_api_v22.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
+	Listener *envoy_api_v23.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
 }
 
 func (m *ListenersConfigDump_DynamicListener) Reset()         { *m = ListenersConfigDump_DynamicListener{} }
@@ -177,7 +177,7 @@ func (m *ListenersConfigDump_DynamicListener) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ListenersConfigDump_DynamicListener) GetListener() *envoy_api_v22.Listener {
+func (m *ListenersConfigDump_DynamicListener) GetListener() *envoy_api_v23.Listener {
 	if m != nil {
 		return m.Listener
 	}
@@ -193,7 +193,7 @@ type ClustersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded cluster configs.
-	StaticClusters []envoy_api_v21.Cluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters"`
+	StaticClusters []envoy_api_v22.Cluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters"`
 	// The dynamically loaded active clusters. These are clusters that are available to service
 	// data plane traffic.
 	DynamicActiveClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters" json:"dynamic_active_clusters"`
@@ -216,7 +216,7 @@ func (m *ClustersConfigDump) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ClustersConfigDump) GetStaticClusters() []envoy_api_v21.Cluster {
+func (m *ClustersConfigDump) GetStaticClusters() []envoy_api_v22.Cluster {
 	if m != nil {
 		return m.StaticClusters
 	}
@@ -245,7 +245,7 @@ type ClustersConfigDump_DynamicCluster struct {
 	// the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The cluster config.
-	Cluster *envoy_api_v21.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster *envoy_api_v22.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
 }
 
 func (m *ClustersConfigDump_DynamicCluster) Reset()         { *m = ClustersConfigDump_DynamicCluster{} }
@@ -262,7 +262,7 @@ func (m *ClustersConfigDump_DynamicCluster) GetVersionInfo() string {
 	return ""
 }
 
-func (m *ClustersConfigDump_DynamicCluster) GetCluster() *envoy_api_v21.Cluster {
+func (m *ClustersConfigDump_DynamicCluster) GetCluster() *envoy_api_v22.Cluster {
 	if m != nil {
 		return m.Cluster
 	}
@@ -276,7 +276,7 @@ func (m *ClustersConfigDump_DynamicCluster) GetCluster() *envoy_api_v21.Cluster 
 // in RDS responses.
 type RoutesConfigDump struct {
 	// The statically loaded route configs.
-	StaticRouteConfigs []envoy_api_v23.RouteConfiguration `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs"`
+	StaticRouteConfigs []envoy_api_v24.RouteConfiguration `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs"`
 	// The dynamically loaded route configs.
 	DynamicRouteConfigs []RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs" json:"dynamic_route_configs"`
 }
@@ -286,7 +286,7 @@ func (m *RoutesConfigDump) String() string            { return proto.CompactText
 func (*RoutesConfigDump) ProtoMessage()               {}
 func (*RoutesConfigDump) Descriptor() ([]byte, []int) { return fileDescriptorConfigDump, []int{4} }
 
-func (m *RoutesConfigDump) GetStaticRouteConfigs() []envoy_api_v23.RouteConfiguration {
+func (m *RoutesConfigDump) GetStaticRouteConfigs() []envoy_api_v24.RouteConfiguration {
 	if m != nil {
 		return m.StaticRouteConfigs
 	}
@@ -306,7 +306,7 @@ type RoutesConfigDump_DynamicRouteConfig struct {
 	// the route configuration was loaded.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The route config.
-	RouteConfig *envoy_api_v23.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *envoy_api_v24.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
 }
 
 func (m *RoutesConfigDump_DynamicRouteConfig) Reset()         { *m = RoutesConfigDump_DynamicRouteConfig{} }
@@ -323,7 +323,7 @@ func (m *RoutesConfigDump_DynamicRouteConfig) GetVersionInfo() string {
 	return ""
 }
 
-func (m *RoutesConfigDump_DynamicRouteConfig) GetRouteConfig() *envoy_api_v23.RouteConfiguration {
+func (m *RoutesConfigDump_DynamicRouteConfig) GetRouteConfig() *envoy_api_v24.RouteConfiguration {
 	if m != nil {
 		return m.RouteConfig
 	}
@@ -1190,7 +1190,7 @@ func (m *ListenersConfigDump) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.StaticListeners = append(m.StaticListeners, envoy_api_v22.Listener{})
+			m.StaticListeners = append(m.StaticListeners, envoy_api_v23.Listener{})
 			if err := m.StaticListeners[len(m.StaticListeners)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1394,7 +1394,7 @@ func (m *ListenersConfigDump_DynamicListener) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Listener == nil {
-				m.Listener = &envoy_api_v22.Listener{}
+				m.Listener = &envoy_api_v23.Listener{}
 			}
 			if err := m.Listener.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1505,7 +1505,7 @@ func (m *ClustersConfigDump) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.StaticClusters = append(m.StaticClusters, envoy_api_v21.Cluster{})
+			m.StaticClusters = append(m.StaticClusters, envoy_api_v22.Cluster{})
 			if err := m.StaticClusters[len(m.StaticClusters)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1678,7 +1678,7 @@ func (m *ClustersConfigDump_DynamicCluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Cluster == nil {
-				m.Cluster = &envoy_api_v21.Cluster{}
+				m.Cluster = &envoy_api_v22.Cluster{}
 			}
 			if err := m.Cluster.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1760,7 +1760,7 @@ func (m *RoutesConfigDump) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.StaticRouteConfigs = append(m.StaticRouteConfigs, envoy_api_v23.RouteConfiguration{})
+			m.StaticRouteConfigs = append(m.StaticRouteConfigs, envoy_api_v24.RouteConfiguration{})
 			if err := m.StaticRouteConfigs[len(m.StaticRouteConfigs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1902,7 +1902,7 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RouteConfig == nil {
-				m.RouteConfig = &envoy_api_v23.RouteConfiguration{}
+				m.RouteConfig = &envoy_api_v24.RouteConfiguration{}
 			}
 			if err := m.RouteConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

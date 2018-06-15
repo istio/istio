@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -131,12 +130,24 @@ func sendEDSReqReconnect(t *testing.T, clusters []string,
 	}
 }
 
-func sendLDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
 		TypeUrl: v2.ListenerType})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
+func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:       v2.RouteType,
+		ResourceNames: routes})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -239,9 +250,6 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 }
 
 func TestAdsUpdate(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test fails in race testing. Fixing in #5258")
-	}
 	server := initLocalPilotTestEnv(t)
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
 	// Old style cluster.

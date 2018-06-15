@@ -27,12 +27,12 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
@@ -43,7 +43,8 @@ const (
 )
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
+
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +186,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 # injected configuration from kubernetes configmap 'istio-inject'
 istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
-		RunE: func(_ *cobra.Command, _ []string) (err error) {
+		RunE: func(c *cobra.Command, _ []string) (err error) {
 			if err = validateFlags(); err != nil {
 				return err
 			}
@@ -215,7 +216,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 
 			var writer io.Writer
 			if outFilename == "" {
-				writer = os.Stdout
+				writer = c.OutOrStdout()
 			} else {
 				var out *os.File
 				if out, err = os.Create(outFilename); err != nil {
@@ -342,7 +343,7 @@ func init() {
 		"injection configuration filename. Cannot be used with --injectConfigMapName")
 
 	injectCmd.PersistentFlags().BoolVar(&emitTemplate, "emitTemplate", false, "Emit sidecar template based on parameterized flags")
-	injectCmd.PersistentFlags().MarkHidden("emitTemplate")
+	_ = injectCmd.PersistentFlags().MarkHidden("emitTemplate")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
 		"", "Input Kubernetes resource filename")
@@ -384,7 +385,7 @@ func init() {
 	deprecatedFlags := []string{"coreDump", "imagePullPolicy", "includeIPRanges", "excludeIPRanges", "hub", "tag",
 		"includeInboundPorts", "excludeInboundPorts", "debug", "verbosity", "sidecarProxyUID", "setVersionString"}
 	for _, opt := range deprecatedFlags {
-		injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
+		_ = injectCmd.PersistentFlags().MarkDeprecated(opt, "Use --injectConfigMapName or --injectConfigFile instead")
 	}
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,

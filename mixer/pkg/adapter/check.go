@@ -33,6 +33,11 @@ type CheckResult struct {
 	ValidUseCount int32
 }
 
+// IsDefault returns true if the CheckResult is in its zero state
+func (r *CheckResult) IsDefault() bool {
+	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.ValidUseCount == 0
+}
+
 func (r *CheckResult) String() string {
 	return fmt.Sprintf("CheckResult: status:%s, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidDuration)
 }

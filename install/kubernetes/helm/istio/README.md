@@ -73,7 +73,6 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.imagePullPolicy` | Specifies the image pull policy | valid image pull policy | `IfNotPresent` |
 | `global.controlPlaneSecurityEnabled` | Specifies whether control plane mTLS is enabled | true/false | `false` |
 | `global.mtls.enabled` | Specifies whether mTLS is enabled by default between services | true/false | `false` |
-| `global.mtls.mtlsExcludedServices` | List of FQDNs to exclude from mTLS | a list of FQDNs | `- kubernetes.default.svc.cluster.local` |
 | `global.rbacEnabled` | Specifies whether to create Istio RBAC rules or not | true/false | `true` |
 | `global.refreshInterval` | Specifies the mesh discovery refresh interval | integer followed by s | `10s` |
 | `global.arch.amd64` | Specifies the scheduling policy for `amd64` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
@@ -83,10 +82,9 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `ingressgateway.enabled` | Specifies whether Ingress gateway should be installed | true/false | `true` |
 | `egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
 | `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
-| `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `false` |
+| `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
 | `mixer.enabled` | Specifies whether Mixer should be installed | true/false | `true` |
 | `pilot.enabled` | Specifies whether Pilot should be installed | true/false | `true` |
-| `security.enabled` | Specifies whether Citadel should be installed | true/false | `true` |
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
 | `prometheus.enabled` | Specifies whether Prometheus addon should be installed | true/false | `true` |
 | `servicegraph.enabled` | Specifies whether Servicegraph addon should be installed | true/false | `false` |

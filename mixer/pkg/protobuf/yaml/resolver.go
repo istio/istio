@@ -15,6 +15,8 @@
 package yaml
 
 import (
+	"strings"
+
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
 	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
@@ -24,23 +26,43 @@ import (
 type Resolver interface {
 	ResolveMessage(name string) *descriptor.DescriptorProto
 	ResolveEnum(name string) *descriptor.EnumDescriptorProto
+
+	// Resolve service contained in the proto
+	ResolveService(namePrefix string) (svc *descriptor.ServiceDescriptorProto, pkg string)
 }
 
 type resolver struct {
 	messages map[string]*descriptor.DescriptorProto
 	enums    map[string]*descriptor.EnumDescriptorProto
+
+	parser *descriptor2.FileDescriptorSetParser
 }
 
 // NewResolver creates a new resolver
 func NewResolver(fds *descriptor.FileDescriptorSet) Resolver {
 	parser := descriptor2.CreateFileDescriptorSetParser(fds, nil, "")
-	return &resolver{enums: parser.Enums(), messages: parser.Messages()}
+	return &resolver{enums: parser.Enums(), messages: parser.Messages(), parser: parser}
 }
 
 // ResolveMessage finds a given fully-qualified message name. The name starts with
 // a dot followed by package name and the name of the element. Example: `.foo.mymessage.mysubmessage`
 func (r *resolver) ResolveMessage(name string) *descriptor.DescriptorProto {
 	return r.messages[name]
+}
+
+// ResolveService finds a service that starts with a prefix
+// Example: `.metric.HandleMetricService`
+func (r *resolver) ResolveService(namePrefix string) (svc *descriptor.ServiceDescriptorProto, pkg string) {
+	for _, fd := range r.parser.AllFiles {
+		for idx := range fd.Service {
+			svc = fd.Service[idx]
+			pkg = fd.GetPackage()
+			if strings.HasPrefix(svc.GetName(), namePrefix) {
+				return svc, pkg
+			}
+		}
+	}
+	return nil, ""
 }
 
 // ResolveEnum finds a given fully-qualified enum name. The name starts with

@@ -121,8 +121,8 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 }
 
 // GetReferencedAttributes returns the set of attributes that have been referenced through this bag.
-func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalWordCount int) mixerpb.ReferencedAttributes {
-	output := mixerpb.ReferencedAttributes{}
+func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalWordCount int) *mixerpb.ReferencedAttributes {
+	output := &mixerpb.ReferencedAttributes{}
 
 	ds := newDictState(globalDict, globalWordCount)
 

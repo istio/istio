@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: Service Control
 // $description: Adapter that delivers logs and metrics to Google Service Control
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/servicecontrol.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/adapters/servicecontrol.html
+// $aliases:
+// $  - /docs/reference/config/adapters/servicecontrol.html
 
 // The `servicecontrol` adapter delivers logs and metrics to
 // [Google Service Control](https://cloud.google.com/service-control).

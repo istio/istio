@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
@@ -39,5 +38,4 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "update", "delete"]
-{{- end }}
 {{- end }}

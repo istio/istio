@@ -28,15 +28,12 @@ webhooks:
         - destinationpolicies
         - egressrules
         - routerules
-        - ingressrules
         - httpapispecs
         - httpapispecbindings
         - quotaspecs
         - quotaspecbindings
-        - enduserauthenticationpolicyspecs
-        - enduserauthenticationpolicyspecbindings
         - serviceroles
-        - servicerolebindings        -
+        - servicerolebindings
       - operations:
         - CREATE
         - UPDATE
@@ -59,7 +56,6 @@ webhooks:
       - operations:
         - CREATE
         - UPDATE
-        - DELETE
         apiGroups:
         - config.istio.io
         apiVersions:
@@ -85,7 +81,7 @@ webhooks:
         - apikeys
         - authorizations
         - checknothings
-        - kuberneteses
+        # - kuberneteses
         - listentries
         - logentries
         - metrics

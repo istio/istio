@@ -18,21 +18,17 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
     serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -50,6 +46,14 @@ global:
     includeInboundPorts: "*"
     excludeInboundPorts: ""
     policy: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
 
   proxy_init:
     image: proxy_init
@@ -73,25 +77,18 @@ global:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
-    # List of fully qualified services to exclude from mtls
-    # TODO: add the templating.
-    mtlsExcludedServices:
-    - "kubernetes.default.svc.cluster.local"
 
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
   # Default is 1 second
   refreshInterval: 10s
-
-  # Enable multicluster operation.  Must be set to true if multicluster operation
-  # is desired.
-  multicluster:
-    enabled: false
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -103,6 +100,10 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -113,6 +114,7 @@ istiotesting:
 ingress:
   enabled: true
   serviceAccountName: default
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -125,6 +127,7 @@ ingress:
   service:
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    annotations: {}
     ports:
     - port: 80
       name: http
@@ -139,6 +142,7 @@ ingress:
 ingressgateway:
   enabled: true
   serviceAccountName: istio-ingressgateway-service-account
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -152,6 +156,7 @@ ingressgateway:
     name: istio-ingressgateway #DNS addressible
     labels:
       istio: ingressgateway
+    annotations: {}
     #namespace: istio-system
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -184,6 +189,7 @@ ingressgateway:
 egressgateway:
   enabled: true
   serviceAccountName: istio-egressgateway-service-account
+  replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
   resources: {}
@@ -235,7 +241,7 @@ sidecarInjectorWebhook:
 # galley configuration
 #
 galley:
-  enabled: false
+  enabled: true
   serviceAccountName: default
   replicaCount: 1
   image: galley
@@ -288,11 +294,11 @@ pilot:
 # security configuration
 #
 security:
-  enabled: true
   serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
   resources: {}
+  selfSigned: true # indicate if self-signed CA is used.
   # limits:
   #  cpu: 100m
   #  memory: 128Mi
@@ -440,7 +446,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.0.Alpha
+    tag: 0.3.1.Alpha
   ingress:
     enabled: false
     ## Used to create an Ingress record.

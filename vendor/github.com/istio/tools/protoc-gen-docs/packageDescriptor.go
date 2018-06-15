@@ -26,7 +26,7 @@ type packageDescriptor struct {
 	baseDesc
 	files     []*fileDescriptor
 	name      string
-	topMatter *annotations
+	topMatter *frontMatter
 }
 
 func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, perFile bool) *packageDescriptor {
@@ -45,7 +45,7 @@ func newPackageDescriptor(name string, desc []*descriptor.FileDescriptorProto, p
 				if loc.GetLeadingComments() != "" || loc.GetTrailingComments() != "" {
 					p.loc = loc
 					p.file = f
-					// Inherit only f's topMatter, don't get title from one file
+					// Inherit only f's frontMatter, don't get title from one file
 				}
 			} else if !perFile {
 				leading := loc.GetLeadingComments()

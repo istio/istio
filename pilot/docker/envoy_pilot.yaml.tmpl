@@ -90,9 +90,17 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15003
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
+                attributes_for_mixer_proxy:
+                  attributes:
+                    source.uid:
+                      string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
             name: mixer
           - name: envoy.router
           route_config:
@@ -160,9 +168,17 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15011
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
+                attributes_for_mixer_proxy:
+                  attributes:
+                    source.uid:
+                      string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
             name: mixer
           - name: envoy.router
           route_config:
@@ -225,9 +241,17 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15005
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
+                attributes_for_mixer_proxy:
+                  attributes:
+                    source.uid:
+                      string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
             name: mixer
           - name: envoy.router
           route_config:
@@ -290,9 +314,17 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15007
+                      context.reporter.local:
+                        bool_value: true
+                      context.reporter.uid:
+                        string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
                 check_cluster: mixer_check_server
                 report_cluster: mixer_report_server
+                attributes_for_mixer_proxy:
+                  attributes:
+                    source.uid:
+                      string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
             name: mixer
           - name: envoy.router
           route_config:

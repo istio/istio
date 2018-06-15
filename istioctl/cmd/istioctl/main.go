@@ -21,9 +21,10 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
+	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
@@ -41,8 +42,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -50,18 +51,23 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
 )
 
 const (
 	kubePlatform = "kube"
+
+	// Headings for short format listing of unknown types
+	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE\tAGE"
 )
 
 var (
 	platform string
 
 	kubeconfig       string
+	configContext    string
 	namespace        string
 	istioNamespace   string
 	istioContext     string
@@ -79,6 +85,62 @@ var (
 	clientFactory = newClient
 
 	loggingOptions = log.DefaultOptions()
+
+	// sortWeight defines the output order for "get all".  We show the V3 types first.
+	sortWeight = map[string]int{
+		model.Gateway.Type:           -10,
+		model.VirtualService.Type:    -5,
+		model.DestinationRule.Type:   -3,
+		model.ServiceEntry.Type:      -1,
+		model.IngressRule.Type:       1,
+		model.RouteRule.Type:         5,
+		model.DestinationPolicy.Type: 10,
+		model.EgressRule.Type:        20,
+	}
+
+	// deprecatedTypes tracks if a deprecation warning is needed
+	deprecatedTypes = map[string]bool{
+		model.RouteRule.Type:         true,
+		model.IngressRule.Type:       true,
+		model.DestinationPolicy.Type: true,
+		model.EgressRule.Type:        true,
+	}
+
+	// Headings for short format listing specific to type
+	shortOutputHeadings = map[string]string{
+		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
+		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
+		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
+		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
+	}
+
+	// Formatters for short format listing specific to type
+	shortOutputters = map[string]func(model.Config, io.Writer){
+		"gateway":          printShortGateway,
+		"virtual-service":  printShortVirtualService,
+		"destination-rule": printShortDestinationRule,
+		"service-entry":    printShortServiceEntry,
+	}
+
+	// configTypes is the Istio types supported by the client
+	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
+	configTypes = model.ConfigDescriptor{
+		model.RouteRule,
+		model.VirtualService,
+		model.Gateway,
+		model.EgressRule,
+		model.ServiceEntry,
+		model.DestinationPolicy,
+		model.DestinationRule,
+		model.HTTPAPISpec,
+		model.HTTPAPISpecBinding,
+		model.QuotaSpec,
+		model.QuotaSpecBinding,
+		model.AuthenticationPolicy,
+		model.ServiceRole,
+		model.ServiceRoleBinding,
+		model.RbacConfig,
+	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
@@ -138,6 +200,9 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
+				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
+					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
+				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
@@ -298,15 +363,21 @@ istioctl get virtualservice bookinfo
 					strings.Join(supportedTypes(configClient), ", "))
 			}
 
-			typ, err := protoSchema(configClient, strings.ToLower(args[0]))
-			if err != nil {
-				c.Println(c.UsageString())
-				return err
-			}
-
 			getByName := len(args) > 1
 			if getAllNamespaces && getByName {
 				return errors.New("a resource cannot be retrieved by name across all namespaces")
+			}
+
+			var typs []model.ProtoSchema
+			if !getByName && strings.ToLower(args[0]) == "all" {
+				typs = configClient.ConfigDescriptor()
+			} else {
+				typ, err := protoSchema(configClient, args[0])
+				if err != nil {
+					c.Println(c.UsageString())
+					return err
+				}
+				typs = []model.ProtoSchema{typ}
 			}
 
 			var ns string
@@ -318,14 +389,17 @@ istioctl get virtualservice bookinfo
 
 			var configs []model.Config
 			if getByName {
-				config, exists := configClient.Get(typ.Type, args[1], ns)
+				config, exists := configClient.Get(typs[0].Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, ns)
-				if err != nil {
-					return err
+				for _, typ := range typs {
+					typeConfigs, err := configClient.List(typ.Type, ns)
+					if err != nil {
+						return multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type))
+					}
+					configs = append(configs, typeConfigs...)
 				}
 			}
 
@@ -347,6 +421,9 @@ istioctl get virtualservice bookinfo
 
 			return nil
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -369,7 +446,7 @@ istioctl delete virtualservice bookinfo
 					c.Println(c.UsageString())
 					return fmt.Errorf("provide configuration type and name or -f option")
 				}
-				typ, err := protoSchema(configClient, strings.ToLower(args[0]))
+				typ, err := protoSchema(configClient, args[0])
 				if err != nil {
 					return err
 				}
@@ -446,6 +523,9 @@ istioctl delete virtualservice bookinfo
 
 			return errs
 		},
+
+		ValidArgs:  configTypeResourceNames(configTypes),
+		ArgAliases: configTypePluralResourceNames(configTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -513,33 +593,23 @@ istioctl context-create --api-server http://127.0.0.1:8080
 	}
 )
 
-const defaultKubeConfigText = "$KUBECONFIG else $HOME/.kube/config"
-
 func istioPersistentPreRunE(c *cobra.Command, args []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
-	getRealKubeConfig()
 	return nil
-}
-
-func getRealKubeConfig() {
-	// if the user didn't supply a specific value for kubeconfig, derive it from the environment
-	if kubeconfig == defaultKubeConfigText {
-		kubeconfig = path.Join(homedir.HomeDir(), ".kube/config")
-		if v := os.Getenv("KUBECONFIG"); v != "" {
-			kubeconfig = v
-		}
-	}
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", defaultKubeConfigText,
+	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
+
+	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
+		"The name of the kubeconfig context to use")
 
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
 		"Istio system namespace")
@@ -601,7 +671,7 @@ func main() {
 // The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
-		switch typ {
+		switch strings.ToLower(typ) {
 		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
 			return desc, nil
 		case desc.Type, desc.Plural: // legacy hyphenated resources names
@@ -643,18 +713,131 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 
 // Print a simple list of names
 func printShortOutput(writer io.Writer, _ model.ConfigStore, configList []model.Config) {
+	// Sort configList by Type
+	sort.Slice(configList, func(i, j int) bool { return sortWeight[configList[i].Type] < sortWeight[configList[j].Type] })
+
 	var w tabwriter.Writer
 	w.Init(writer, 10, 4, 3, ' ', 0)
-	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
+	prevType := ""
+	var outputter func(model.Config, io.Writer)
 	for _, c := range configList {
-		kind := fmt.Sprintf("%s.%s.%s",
-			crd.KabobCaseToCamelCase(c.Type),
-			c.Group,
-			c.Version,
-		)
-		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
+		if prevType != c.Type {
+			if prevType != "" {
+				// Place a newline between types when doing 'get all'
+				fmt.Fprintf(&w, "\n")
+			}
+			heading, ok := shortOutputHeadings[c.Type]
+			if !ok {
+				heading = unknownShortOutputHeading
+			}
+			fmt.Fprintf(&w, "%s\n", heading)
+			prevType = c.Type
+
+			if outputter, ok = shortOutputters[c.Type]; !ok {
+				outputter = printShortConfig
+			}
+		}
+
+		outputter(c, &w)
 	}
 	w.Flush() // nolint: errcheck
+}
+
+func kindAsString(config model.Config) string {
+	return fmt.Sprintf("%s.%s.%s",
+		crd.KabobCaseToCamelCase(config.Type),
+		config.Group,
+		config.Version,
+	)
+}
+
+func printShortConfig(config model.Config, w io.Writer) {
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name,
+		kindAsString(config),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortVirtualService(config model.Config, w io.Writer) {
+	virtualService, ok := config.Spec.(*v1alpha3.VirtualService)
+	if !ok {
+		fmt.Fprintf(w, "Not a virtualservice: %v", config)
+		return
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
+		config.Name,
+		strings.Join(virtualService.Gateways, ","),
+		strings.Join(virtualService.Hosts, ","),
+		len(virtualService.Http),
+		len(virtualService.Tcp),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortDestinationRule(config model.Config, w io.Writer) {
+	destinationRule, ok := config.Spec.(*v1alpha3.DestinationRule)
+	if !ok {
+		fmt.Fprintf(w, "Not a destinationrule: %v", config)
+		return
+	}
+
+	subsets := make([]string, 0)
+	for _, subset := range destinationRule.Subsets {
+		subsets = append(subsets, subset.Name)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		config.Name,
+		destinationRule.Host,
+		strings.Join(subsets, ","),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortServiceEntry(config model.Config, w io.Writer) {
+	serviceEntry, ok := config.Spec.(*v1alpha3.ServiceEntry)
+	if !ok {
+		fmt.Fprintf(w, "Not a serviceentry: %v", config)
+		return
+	}
+
+	ports := make([]string, 0)
+	for _, port := range serviceEntry.Ports {
+		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		config.Name,
+		strings.Join(serviceEntry.Hosts, ","),
+		strings.Join(ports, ","),
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
+}
+
+func printShortGateway(config model.Config, w io.Writer) {
+	gateway, ok := config.Spec.(*v1alpha3.Gateway)
+	if !ok {
+		fmt.Fprintf(w, "Not a gateway: %v", config)
+		return
+	}
+
+	// Determine the servers
+	servers := make(map[string]bool)
+	for _, server := range gateway.Servers {
+		for _, host := range server.Hosts {
+			servers[host] = true
+		}
+	}
+	hosts := make([]string, 0)
+	for host := range servers {
+		hosts = append(hosts, host)
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name, strings.Join(hosts, ","), config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 // Print as YAML
@@ -682,23 +865,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-	}, "")
+	return crd.NewClient(kubeconfig, configContext, configTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
@@ -724,7 +891,7 @@ func preprocMixerConfig(configs []crd.IstioKind) error {
 }
 
 func restConfig() (config *rest.Config, err error) {
-	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err = kubecfg.BuildClientConfig(kubeconfig, configContext)
 
 	if err != nil {
 		return
@@ -796,7 +963,7 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 func getDefaultNamespace(kubeconfig string) string {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
-	if kubeconfig != defaultKubeConfigText {
+	if kubeconfig != "" {
 		// use specified kubeconfig file for the location of the
 		// config to read
 		configAccess.GlobalFile = kubeconfig
@@ -833,4 +1000,49 @@ func handleNamespaces(objectNamespace string) (string, error) {
 		return objectNamespace, nil
 	}
 	return defaultNamespace, nil
+}
+
+func configTypeResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Type))
+	}
+	return resourceNames
+}
+
+func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string {
+	resourceNames := make([]string, len(configTypes))
+	for _, typ := range configTypes {
+		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
+	}
+	return resourceNames
+}
+
+// renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
+func renderTimestamp(ts metav1.Time) string {
+	if ts.IsZero() {
+		return "<unknown>"
+	}
+
+	seconds := int(time.Since(ts.Time).Seconds())
+	if seconds < -2 {
+		return fmt.Sprintf("<invalid>")
+	} else if seconds < 0 {
+		return fmt.Sprintf("0s")
+	} else if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+
+	minutes := int(time.Since(ts.Time).Minutes())
+	if minutes < 60 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+
+	hours := int(time.Since(ts.Time).Hours())
+	if hours < 24 {
+		return fmt.Sprintf("%dh", hours)
+	} else if hours < 365*24 {
+		return fmt.Sprintf("%dd", hours/24)
+	}
+	return fmt.Sprintf("%dy", int((hours/24)/365))
 }

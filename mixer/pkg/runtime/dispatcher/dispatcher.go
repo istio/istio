@@ -23,6 +23,7 @@ package dispatcher
 import (
 	"context"
 	"sync"
+	"time"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -38,14 +39,14 @@ type Dispatcher interface {
 	Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
 
 	// Check dispatches to the set of adapters associated with the Check API method
-	Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+	Check(ctx context.Context, requestBag attribute.Bag) (adapter.CheckResult, error)
 
 	// GetReporter get an interface where reports are buffered.
 	GetReporter(ctx context.Context) Reporter
 
 	// Quota dispatches to the set of adapters associated with the Quota API method
 	Quota(ctx context.Context, requestBag attribute.Bag,
-		qma *QuotaMethodArgs) (*adapter.QuotaResult, error)
+		qma QuotaMethodArgs) (adapter.QuotaResult, error)
 }
 
 // QuotaMethodArgs is supplied by invocations of the Quota method.
@@ -112,15 +113,33 @@ func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing 
 	return d
 }
 
+const (
+	defaultValidDuration = 1 * time.Minute
+	defaultValidUseCount = 10000
+)
+
 // Check implementation of runtime.Impl.
-func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
 
-	var r *adapter.CheckResult
+	var r adapter.CheckResult
 	err := s.dispatch()
 	if err == nil {
 		r = s.checkResult
 		err = s.err
+
+		if err == nil {
+			// No adapters chimed in on this request, so we return a "good to go" value which can be cached
+			// for up to a minute.
+			//
+			// TODO: make these fallback values configurable
+			if r.IsDefault() {
+				r = adapter.CheckResult{
+					ValidUseCount: defaultValidUseCount,
+					ValidDuration: defaultValidDuration,
+				}
+			}
+		}
 	}
 
 	d.putSession(s)
@@ -133,11 +152,9 @@ func (d *Impl) GetReporter(ctx context.Context) Reporter {
 }
 
 // Quota implementation of runtime.Impl.
-func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma *QuotaMethodArgs) (*adapter.QuotaResult, error) {
+func (d *Impl) Quota(ctx context.Context, bag attribute.Bag, qma QuotaMethodArgs) (adapter.QuotaResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_QUOTA, bag)
-	s.quotaArgs.QuotaAmount = qma.Amount
-	s.quotaArgs.DeduplicationID = qma.DeduplicationID
-	s.quotaArgs.BestEffort = qma.BestEffort
+	s.quotaArgs = qma
 
 	err := s.dispatch()
 	if err == nil {

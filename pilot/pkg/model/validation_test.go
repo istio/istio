@@ -1804,7 +1804,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"foo.bar.com"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1812,7 +1812,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.1"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1820,7 +1820,7 @@ func TestValidateGateway(t *testing.T) {
 			&networking.Gateway{
 				Servers: []*networking.Server{{
 					Hosts: []string{"192.168.0.0/16"},
-					Port:  &networking.Port{Number: 7, Protocol: "http"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1829,11 +1829,11 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Number: 18, Protocol: "redis"},
+						Port:  &networking.Port{Name: "name2", Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1842,14 +1842,27 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
 					},
 					{
 						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Number: 66000, Protocol: "redis"},
+						Port:  &networking.Port{Name: "name2", Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
+		{"duplicate port names",
+			&networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Hosts: []string{"foo.bar.com"},
+						Port:  &networking.Port{Name: "foo", Number: 80, Protocol: "http"},
+					},
+					{
+						Hosts: []string{"scooby.doo.com"},
+						Port:  &networking.Port{Name: "foo", Number: 8080, Protocol: "http"},
+					}},
+			},
+			"port names"},
 		{"invalid domain",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -1889,25 +1902,25 @@ func TestValidateServer(t *testing.T) {
 		{"happy",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 7, Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
-				Port:  &networking.Port{Number: 7, Protocol: "http"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 66000, Protocol: "http"},
+				Port:  &networking.Port{Number: 66000, Name: "http", Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 1, Protocol: "http"},
+				Port:  &networking.Port{Number: 1, Name: "http", Protocol: "http"},
 				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
@@ -1933,7 +1946,7 @@ func TestValidateServerPort(t *testing.T) {
 		out  string
 	}{
 		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port number"},
+		{"empty", &networking.Port{}, "port name"},
 		{"happy",
 			&networking.Port{
 				Protocol: "http",
@@ -1948,18 +1961,11 @@ func TestValidateServerPort(t *testing.T) {
 				Name:     "Henry",
 			},
 			"invalid protocol"},
-		{"no port name/number",
-			&networking.Port{
-				Protocol: "http",
-				Number:   0,
-				Name:     "",
-			},
-			"either port number or name"},
 		{"invalid number",
 			&networking.Port{
 				Protocol: "http",
 				Number:   uint32(1 << 30),
-				Name:     "",
+				Name:     "http",
 			},
 			"port number"},
 		{"name, no number",
@@ -2523,7 +2529,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2542,7 +2548,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2566,7 +2572,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2586,7 +2592,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2607,7 +2613,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2623,7 +2629,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2656,7 +2662,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
 			OutlierDetection: &networking.OutlierDetection{
-				Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				ConsecutiveErrors: 5,
 			},
 		},
 			valid: true},
@@ -2669,22 +2675,8 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
-				Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				ConsecutiveErrors: 5,
 			},
-		},
-			valid: false},
-
-		{name: "invalid traffic policy, bad outlier detection", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
-				},
-			},
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
-			},
-			OutlierDetection: &networking.OutlierDetection{},
 		},
 			valid: false},
 	}
@@ -2777,28 +2769,26 @@ func TestValidateOutlierDetection(t *testing.T) {
 		valid bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{
-				ConsecutiveErrors:  5,
-				Interval:           &types.Duration{Seconds: 2},
-				BaseEjectionTime:   &types.Duration{Seconds: 2},
-				MaxEjectionPercent: 50,
-			},
+			ConsecutiveErrors:  5,
+			Interval:           &types.Duration{Seconds: 2},
+			BaseEjectionTime:   &types.Duration{Seconds: 2},
+			MaxEjectionPercent: 50,
 		}, valid: true},
 
 		{name: "invalid outlier detection, bad consecutive errors", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: -1}},
+			ConsecutiveErrors: -1},
 			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{Interval: &types.Duration{Seconds: 2, Nanos: 5}}},
+			Interval: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}}},
+			BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{MaxEjectionPercent: 105}},
+			MaxEjectionPercent: 105},
 			valid: false},
 	}
 
@@ -3516,5 +3506,42 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 				t.Fatalf("ValidateAddress() => want error got nil")
 			}
 		})
+	}
+}
+
+func TestValidateRbacConfig(t *testing.T) {
+	cases := []struct {
+		name         string
+		in           proto.Message
+		expectErrMsg string
+	}{
+		{
+			name:         "invalid proto",
+			expectErrMsg: "cannot cast to RbacConfig",
+		},
+		{
+			name:         "unsupported mode ON_WITH_INCLUSION",
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
+		},
+		{
+			name:         "unsupported mode ON_WITH_EXCLUSION",
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
+		},
+		{
+			name: "success proto",
+			in:   &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+		},
+	}
+	for _, c := range cases {
+		err := ValidateRbacConfig(c.in)
+		if err == nil {
+			if len(c.expectErrMsg) != 0 {
+				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+			}
+		} else if err.Error() != c.expectErrMsg {
+			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+		}
 	}
 }

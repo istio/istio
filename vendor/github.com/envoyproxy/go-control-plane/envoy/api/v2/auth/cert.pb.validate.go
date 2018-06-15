@@ -269,6 +269,18 @@ func (m *CertificateValidationContext) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetVerifyCertificateSpki() {
+		_, _ = idx, item
+
+		if len(item) != 44 {
+			return CertificateValidationContextValidationError{
+				Field:  fmt.Sprintf("VerifyCertificateSpki[%v]", idx),
+				Reason: "value length must be 44 bytes",
+			}
+		}
+
+	}
+
 	for idx, item := range m.GetVerifyCertificateHash() {
 		_, _ = idx, item
 
@@ -310,6 +322,8 @@ func (m *CertificateValidationContext) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for AllowExpiredCertificate
 
 	return nil
 }
@@ -401,16 +415,6 @@ func (m *CommonTlsContext) Validate() error {
 
 	}
 
-	if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommonTlsContextValidationError{
-				Field:  "ValidationContext",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return CommonTlsContextValidationError{
@@ -419,6 +423,34 @@ func (m *CommonTlsContext) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	switch m.ValidationContextType.(type) {
+
+	case *CommonTlsContext_ValidationContext:
+
+		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CommonTlsContextValidationError{
+					Field:  "ValidationContext",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *CommonTlsContext_ValidationContextSdsSecretConfig:
+
+		if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CommonTlsContextValidationError{
+					Field:  "ValidationContextSdsSecretConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -479,6 +511,8 @@ func (m *UpstreamTlsContext) Validate() error {
 			Reason: "value length must be at most 255 bytes",
 		}
 	}
+
+	// no validation rules for AllowRenegotiation
 
 	return nil
 }
@@ -697,6 +731,18 @@ func (m *Secret) Validate() error {
 			if err := v.Validate(); err != nil {
 				return SecretValidationError{
 					Field:  "SessionTicketKeys",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *Secret_ValidationContext:
+
+		if v, ok := interface{}(m.GetValidationContext()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SecretValidationError{
+					Field:  "ValidationContext",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
