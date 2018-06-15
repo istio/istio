@@ -27,6 +27,7 @@ MACHINE_TYPE=n1-standard-4
 NUM_NODES=${NUM_NODES:-1}
 CLUSTER_NAME=
 USE_GKE=${USE_GKE:-True}
+SETUP_CLUSTERREG=${SETUP_CLUSTERREG:-False}
 
 if [[ "$USE_GKE" == "True" ]]; then
   IFS=';'
@@ -40,10 +41,45 @@ fi
 KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
 CLUSTER_CREATED=false
 
+function gen_kubeconf_from_sa () {
+    local service_account=$1
+    local filename=$2
+
+    SERVER=$(kubectl config view --minify=true -o "jsonpath={.clusters[].cluster.server}")
+    SECRET_NAME=$(kubectl get sa ${service_account} -n ${NAMESPACE} -o jsonpath='{.secrets[].name}')
+    CA_DATA=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['ca\.crt']}")
+    TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['token']}" | base64 --decode)
+
+    cat <<EOF > ${filename}
+      apiVersion: v1
+      clusters:
+         - cluster:
+             certificate-authority-data: ${CA_DATA}
+             server: ${SERVER}
+           name: ${CLUSTER_NAME}
+      contexts:
+         - context:
+             cluster: ${CLUSTER_NAME}
+             user: ${CLUSTER_NAME}
+           name: ${CLUSTER_NAME}
+      current-context: ${CLUSTER_NAME}
+      kind: Config
+      preferences: {}
+      users:
+         - name: ${CLUSTER_NAME}
+           user:
+             token: ${TOKEN}
+EOF
+
+}
+
 function setup_clusterreg () {
     # setup cluster-registries dir setup by mason
     CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
 
+    SERVICE_ACCOUNT=istio-multi
+    NAMESPACE=istio-system
+    
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
     #  -- if PILOT_CLUSTER not set, assume pilot install to be in the first cluster
@@ -53,7 +89,17 @@ function setup_clusterreg () {
     for context in $k_contexts; do
         if [[ "$PILOT_CLUSTER" != "$context" ]]; then
             kubectl config use-context ${context}
-            kubectl config view --raw=true --minify=true > ${CLUSTERREG_DIR}/${context}.kconf
+             
+            kubectl create ns ${NAMESPACE}
+            kubectl create sa ${SERVICE_ACCOUNT} -n ${NAMESPACE}
+            kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${NAMESPACE}:${SERVICE_ACCOUNT}
+            CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
+            if [[ "$CLUSTER_NAME" =~ .*"_".* ]]; then
+                # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
+                CLUSTER_NAME=${CLUSTER_NAME##*_}
+            fi
+            KUBECFG_FILE=${CLUSTERREG_DIR}/${CLUSTER_NAME}
+            gen_kubeconf_from_sa $SERVICE_ACCOUNT $KUBECFG_FILE
         fi
     done
     kubectl config use-context $PILOT_CLUSTER
@@ -120,7 +166,11 @@ function unsetup_clusters() {
   for context in $k_contexts; do
      kubectl config use-context ${context}
 
-     kubectl delete clusterrolebinding prow-cluster-admin-binding
+     kubectl delete clusterrolebinding prow-cluster-admin-binding 2>/dev/null
+     if [[ "$SETUP_CLUSTERREG" == "True" && "$PILOT_CLUSTER" != "$context" ]]; then
+        kubectl delete clusterrolebinding istio-multi 2>/dev/null
+        kubectl delete ns istio-system 2>/dev/null
+     fi
   done
   kubectl config use-context $PILOT_CLUSTER
   if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
