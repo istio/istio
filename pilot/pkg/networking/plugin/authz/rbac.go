@@ -187,13 +187,7 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 
 	for _, role := range roles {
 		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
-		principals := make([]*policyproto.Principal, 0)
-		principals = append(principals, enforcedPrincipals...)
-		principals = append(principals, permissivePrincipals...)
-		if len(principals) == 0 {
-			// Skip to next role if found no bindings for current role. This means nobody could
-			// access the current role, so we don't need to check the remaining rules anymore.
-			log.Debugf("role %v skipped for no bindings found", role.Name)
+		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
 			continue
 		}
 
@@ -212,32 +206,20 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 			continue
 		}
 
-		// If ServiceRole is in PERMISSIVE mode, all ServiceRoleBindings that refers to it will be treated as PERMISSIVE mode.
-		if role.Spec.(*rbacproto.ServiceRole).Mode == rbacproto.EnforcementMode_PERMISSIVE {
-			// Constructs the policy for a role with both permissions and bindings.
+		if len(enforcedPrincipals) != 0 {
+			rbac.Policies[role.Name] = &policyproto.Policy{
+				Permissions: permissions,
+				Principals:  enforcedPrincipals,
+			}
+			log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
+		}
+
+		if len(permissivePrincipals) != 0 {
 			permissiveRbac.Policies[role.Name] = &policyproto.Policy{
 				Permissions: permissions,
-				Principals:  principals,
+				Principals:  permissivePrincipals,
 			}
 			log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
-		} else {
-			// If ServiceRole is in ENFORCED mode, ServiceRoleBindings that
-			// refers to it will decide their own enforcement modes.
-			if len(enforcedPrincipals) != 0 {
-				rbac.Policies[role.Name] = &policyproto.Policy{
-					Permissions: permissions,
-					Principals:  enforcedPrincipals,
-				}
-				log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
-			}
-
-			if len(permissivePrincipals) != 0 {
-				permissiveRbac.Policies[role.Name] = &policyproto.Policy{
-					Permissions: permissions,
-					Principals:  permissivePrincipals,
-				}
-				log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
-			}
 		}
 	}
 

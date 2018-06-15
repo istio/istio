@@ -534,11 +534,11 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	roles := []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-1"},
-			Spec:       generateServiceRole([]string{"service"}, []string{"GET"}, rbacproto.EnforcementMode_ENFORCED),
+			Spec:       generateServiceRole([]string{"service"}, []string{"GET"}),
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
-			Spec:       generateServiceRole([]string{"service"}, []string{"POST"}, rbacproto.EnforcementMode_PERMISSIVE),
+			Spec:       generateServiceRole([]string{"service"}, []string{"POST"}),
 		},
 	}
 	bindings := []model.Config{
@@ -565,6 +565,11 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		Principals:  []*policy.Principal{generatePrincipal("user1")},
 	}
 
+	enforcePolicy2 := &policy.Policy{
+		Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+		Principals:  []*policy.Principal{generatePrincipal("user3")},
+	}
+
 	permissivePolicy1 := &policy.Policy{
 		Permissions: []*policy.Permission{generatePermission(":method", "GET")},
 		Principals:  []*policy.Principal{generatePrincipal("user2")},
@@ -572,13 +577,14 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 
 	permissivePolicy2 := &policy.Policy{
 		Permissions: []*policy.Permission{generatePermission(":method", "POST")},
-		Principals:  []*policy.Principal{generatePrincipal("user3"), generatePrincipal("user4")},
+		Principals:  []*policy.Principal{generatePrincipal("user4")},
 	}
 
 	enforcedRbac := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-1": enforcePolicy1,
+			"service-role-2": enforcePolicy2,
 		},
 	}
 	shadowRbac := &policy.RBAC{
@@ -635,9 +641,8 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	}
 }
 
-func generateServiceRole(services, methods []string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRole {
+func generateServiceRole(services, methods []string) *rbacproto.ServiceRole {
 	return &rbacproto.ServiceRole{
-		Mode: mode,
 		Rules: []*rbacproto.AccessRule{
 			{
 				Services: services,
