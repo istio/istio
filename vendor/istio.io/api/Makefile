@@ -135,7 +135,7 @@ generate-config-mcp-go: $(config_mcp_pb_gos) $(config_mcp_pb_doc)
 
 $(config_mcp_pb_gos) $(config_mcp_pb_doc): $(config_mcp_protos)
 	## Generate config/mcp/v1alpha1/*.pb.go + $(config_mcp_pb_doc)
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(config_mcp_path) $^
+	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(config_mcp_path) $^
 
 generate-config-mcp-python: $(config_mcp_pb_pythons)
 
