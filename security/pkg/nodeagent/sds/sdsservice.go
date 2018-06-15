@@ -29,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -97,6 +98,12 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	md, ok := metadata.FromIncomingContext(stream.Context()) // get context from stream
+	if !ok {
+		return fmt.Errorf("Failed to parse metadata from discovery request")
+	}
+	credToken := md["test"]
+
 	peerAddr := "Unknown peer address"
 	peerInfo, ok := peer.FromContext(stream.Context())
 	if ok {
@@ -133,7 +140,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.proxy = &proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, "" /*TODO(quanlin) credential token*/)
+			secret, err := s.st.GetSecret(discReq.Node.Id, credToken)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
