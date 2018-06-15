@@ -44,7 +44,7 @@ type mockConfigWatcher struct {
 	closeWatch     bool
 }
 
-func (config *mockConfigWatcher) CreateWatch(req *v2.DiscoveryRequest, out chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc) {
+func (config *mockConfigWatcher) Watch(req *v2.DiscoveryRequest, out chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc) {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 

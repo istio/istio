@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	mcpLog = log.RegisterScope("mcp", "mcp debugging", 0)
+	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
@@ -56,7 +56,7 @@ type CancelWatchFunc func()
 // applied version, and type. The watch should send the responses when
 // they are ready. The watch can be canceled by the consumer.
 type Watcher interface {
-	// CreateWatch returns a new open watch for a non-empty request.
+	// Watch returns a new open watch for a non-empty request.
 	//
 	// Immediate responses should be returned to the caller along
 	// with an optional cancel function. Asynchronous responses should
@@ -65,10 +65,9 @@ type Watcher interface {
 	// unrecoverable error has occurred in the producer, and the consumer
 	// should close the corresponding stream.
 	//
-	// Cancel is an optional function to release resources into the
-	// producer. If provided, the consume may call this function
-	// multiple times.
-	CreateWatch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
+	// Cancel is an optional function to release resources in the
+	// producer. It can be called idempotently to cancel and release resources.
+	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
 }
 
 var _ discovery.AggregatedDiscoveryServiceServer = &Server{}
@@ -115,9 +114,8 @@ func New(watcher Watcher, supportedTypes []string) *Server {
 }
 
 func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) *connection {
-	peerInfo, ok := peer.FromContext(stream.Context())
 	peerAddr := "0.0.0.0"
-	if ok {
+	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		peerAddr = peerInfo.Addr.String()
 	}
 
@@ -131,18 +129,17 @@ func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_Strea
 		id:        atomic.AddInt64(&s.nextStreamID, 1),
 	}
 
-	var prettyTypes []string
-	for _, typ := range s.supportedTypes {
-		con.watches[typ] = &watch{}
+	var messageNames []string
+	for _, typeURL := range s.supportedTypes {
+		con.watches[typeURL] = &watch{}
 
-		// strip the common type.googleapis.com prefix
-		segs := strings.Split(typ, "/")
-		if len(segs) == 2 {
-			prettyTypes = append(prettyTypes, segs[1])
+		// extract the message name from the fully qualified type_url.
+		if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
+			messageNames = append(messageNames, typeURL[slash+1:])
 		}
 	}
 
-	mcpLog.Infof("MCP: connection %v: NEW, supported types: %v", con, prettyTypes)
+	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, messageNames)
 	return con
 }
 
@@ -169,7 +166,7 @@ func (s *Server) StreamAggregatedResources(stream discovery.AggregatedDiscoveryS
 				return err
 			}
 		case <-stream.Context().Done():
-			mcpLog.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
+			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
 			return stream.Context().Err()
 		}
 	}
@@ -184,7 +181,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 	for _, resource := range resp.Resources {
 		data, err := types.MarshalAny(resource)
 		if err != nil {
-			mcpLog.Errorf("MCP: connection %v: internal error: %v", con, err)
+			scope.Errorf("MCP: connection %v: internal error: %v", con, err)
 			return "", err
 		}
 		resources = append(resources, *data)
@@ -201,7 +198,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 	if err := con.stream.Send(msg); err != nil {
 		return "", err
 	}
-	mcpLog.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
+	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
 	return msg.Nonce, nil
 }
 
@@ -211,10 +208,13 @@ func (con *connection) receive() {
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				mcpLog.Infof("MCP: connection %v: TERMINATED %q", con, err)
+				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
 				return
 			}
-			mcpLog.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+
+			// Save the stream error prior to closing the stream. The caller
+			// should access the error after the channel closure.
 			con.reqError = err
 			return
 		}
@@ -223,7 +223,7 @@ func (con *connection) receive() {
 }
 
 func (con *connection) close() {
-	mcpLog.Infof("MCP: connection %v: CLOSED", con)
+	scope.Infof("MCP: connection %v: CLOSED", con)
 
 	for _, watch := range con.watches {
 		if watch.cancel != nil {
@@ -241,9 +241,9 @@ func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error 
 	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
 	if watch.nonce == "" || watch.nonce == req.ResponseNonce {
 		if watch.nonce == "" {
-			mcpLog.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
+			scope.Debugf("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
 		} else {
-			mcpLog.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
+			scope.Debugf("MCP: connection %v ACK version=%q with nonce=%q",
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 		}
 
@@ -251,7 +251,7 @@ func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error 
 			watch.cancel()
 		}
 		var resp *WatchResponse
-		resp, watch.cancel = con.watcher.CreateWatch(req, con.responseC)
+		resp, watch.cancel = con.watcher.Watch(req, con.responseC)
 		if resp != nil {
 			nonce, err := con.send(resp)
 			if err != nil {
@@ -260,7 +260,7 @@ func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error 
 			watch.nonce = nonce
 		}
 	} else {
-		mcpLog.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q)",
+		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q)",
 			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce)
 	}
 	return nil
@@ -274,7 +274,7 @@ func (con *connection) pushServerResponse(resp *WatchResponse) error {
 
 	watch, ok := con.watches[resp.TypeURL]
 	if !ok {
-		mcpLog.Errorf("MCP: connection %v: internal error: received push response for unsupported type: %v",
+		scope.Errorf("MCP: connection %v: internal error: received push response for unsupported type: %v",
 			con, resp.TypeURL)
 		return status.Errorf(codes.Internal,
 			"failed to update internal stream nonce for %v",

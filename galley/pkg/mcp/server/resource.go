@@ -18,7 +18,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// TODO - this will be replace by the common envelope and metadata API from istoi/api
+// TODO - this will be replaced by the common envelope and metadata API from istoi/api
 type Corev1Metadata struct {
 	Name string
 }
