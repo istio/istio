@@ -264,4 +264,7 @@ message MeshConfig {
   OutboundTrafficPolicy outbound_traffic_policy = 17;
 
   reserved 18;
+
+  // Enables clide side policy checks.
+  bool enable_client_side_policy_check = 19;
 }
