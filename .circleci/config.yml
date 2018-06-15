@@ -453,8 +453,13 @@ jobs:
       - run:
           name: Creating vendor diff
           command: make depend.diff ISTIO_OUT=/go/out
+      - run:
+          name: Creating go generate diff
+          command: make go.generate.diff ISTIO_OUT=/go/out
       - store_artifacts:
           path: /go/out/dep.diff
+          path: /go/out/before_go_generate.diff
+          path: /go/out/after_go_generate.diff
 
   nightly:
     <<: *defaults
