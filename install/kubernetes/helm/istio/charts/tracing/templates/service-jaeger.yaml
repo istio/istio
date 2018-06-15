@@ -21,7 +21,7 @@ items:
   spec:
     ports:
       - name: query-http
-        port: {{ .Values.jaeger.ui.port }}
+        port: 16686
         protocol: TCP
         targetPort: 16686
     selector:

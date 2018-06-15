@@ -1,5 +1,4 @@
 {{ if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" }}
-{{- $servicePort := .Values.jaeger.ui.port -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -23,7 +22,7 @@ spec:
           - path: /
             backend:
               serviceName: jaeger-query
-              servicePort: {{ $servicePort }}
+              servicePort: 16686
     {{- end -}}
   {{- if .Values.jaeger.ingress.tls }}
   tls:
