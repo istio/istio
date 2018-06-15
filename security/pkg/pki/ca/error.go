@@ -14,7 +14,7 @@
 
 package ca
 
-// ErrType defines the enum for CA error types.
+// ErrType is the type for CA errors.
 type ErrType int
 
 const (
