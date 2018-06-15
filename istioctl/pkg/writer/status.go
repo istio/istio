@@ -33,7 +33,7 @@ type StatusWriter struct {
 	Writer io.Writer
 }
 
-// PrintAll takes a slice of byte slices and outputs them using a tabwriter
+// PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
 func (s *StatusWriter) PrintAll(statuses [][]byte) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *StatusWriter) PrintAll(statuses [][]byte) error {
 	return w.Flush()
 }
 
-// PrintSingle takes a slice of byte slices and outputs them using a tabwriter
+// PrintSingle takes a slice of Pilot syncz responses and outputs them using a tabwriter filtering for a specific pod
 func (s *StatusWriter) PrintSingle(statuses [][]byte, podName string) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
