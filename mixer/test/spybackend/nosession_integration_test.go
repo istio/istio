@@ -997,8 +997,7 @@ func TestNoSessionBackend(t *testing.T) {
 		},
 	}
 
-	//adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
-	adptCfgBytes, err := ioutil.ReadFile("/Users/mjog/GOHOME/src/istio.io/istio/mixer/test/prometheus/prometheus-nosession.yaml")
+	adptCfgBytes, err := ioutil.ReadFile("nosession.yaml")
 	if err != nil {
 		t.Fatalf("cannot open file: %v", err)
 	}
@@ -1056,6 +1055,5 @@ func TestNoSessionBackend(t *testing.T) {
 				},
 			)
 		})
-		break
 	}
 }
