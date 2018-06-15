@@ -92,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		listenerType := plugin.ModelProtocolToListenerType(protocol)
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
-			opts.filterChainOpts = createGatewayHTTPFilterChainOpts(env, servers, merged.Names)
+			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(env, node, servers, merged.Names)
 		case plugin.ListenerTypeTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
@@ -181,13 +181,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Envi
 		nameToServiceMap[svc.Hostname] = svc
 	}
 
-	routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, merged.Names, servers, routeName)
+	routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, merged.Names, servers, routeName)
 	log.Debugf("Returning route config (%s) %v", routeName, routeCfg)
 	return routeCfg, nil
 }
 
-func createGatewayHTTPFilterChainOpts(
-	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
+	env model.Environment, node model.Proxy, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
 	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
 	if err != nil {
@@ -205,7 +205,7 @@ func createGatewayHTTPFilterChainOpts(
 	// If plain text, we have to combine all servers into a single listener
 	if model.ParseProtocol(servers[0].Port.Protocol) == model.ProtocolHTTP {
 		rdsName := model.GatewayRDSRouteName(servers[0])
-		routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, servers, rdsName)
+		routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, gatewayNames, servers, rdsName)
 		o := &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
 			// and that no two non-HTTPS servers can be on same port or share port names.
@@ -224,7 +224,7 @@ func createGatewayHTTPFilterChainOpts(
 		// Build a filter chain for each TLS server
 		for i, server := range servers {
 			rdsName := model.GatewayRDSRouteName(server)
-			routeCfg := buildGatewayInboundHTTPRouteConfig(env, nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
+			routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
 			if routeCfg == nil {
 				log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 				continue
@@ -300,8 +300,9 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 }
 
 // TODO: Once RDS is permanent, merge this function with buildGatewayHTTPRouteConfig
-func buildGatewayInboundHTTPRouteConfig(
+func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	env model.Environment,
+	node model.Proxy,
 	svcs map[model.Hostname]*model.Service,
 	gateways map[string]bool,
 	servers []*networking.Server,
@@ -370,11 +371,23 @@ func buildGatewayInboundHTTPRouteConfig(
 		})
 	}
 	util.SortVirtualHosts(virtualHosts)
-	return &xdsapi.RouteConfiguration{
+
+	out := &xdsapi.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: boolFalse,
 	}
+	// call plugins
+	for _, p := range configgen.Plugins {
+		in := &plugin.InputParams{
+			ListenerType: plugin.ListenerTypeHTTP,
+			Env:          &env,
+			Node:         &node,
+		}
+		p.OnOutboundRouteConfiguration(in, out)
+	}
+
+	return out
 }
 
 func createGatewayTCPFilterChainOpts(
