@@ -58,6 +58,8 @@ spec:
       valueType: STRING
     destination.principal:
       valueType: STRING
+    destination.port:
+      valueType: INT64
     connection.id:
       valueType: STRING
     connection.received.bytes:
@@ -144,6 +146,8 @@ spec:
     destination.owner:
       valueType: STRING
     destination.name:
+      valueType: STRING
+    destination.container.name:
       valueType: STRING
     destination.namespace:
       valueType: STRING
@@ -479,6 +483,7 @@ spec:
   source_uid: source.uid | ""
   source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
   destination_uid: destination.uid | ""
+  destination_port: destination.port | 0
   attribute_bindings:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
@@ -494,6 +499,7 @@ spec:
     destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
     destination.labels: $out.destination_labels | emptyStringMap()
     destination.name: $out.destination_pod_name | "unknown"
+    destination.container.name: $out.destination_container_name | "unknown"
     destination.namespace: $out.destination_namespace | "default"
     destination.owner: $out.destination_owner | "unknown"
     destination.serviceAccount: $out.destination_service_account_name | "unknown"

@@ -179,6 +179,15 @@ var (
 						}
 					}
 
+					if param.DestinationPort != "" {
+						if t, e := tEvalFn(param.DestinationPort); e != nil || t != istio_policy_v1beta1.INT64 {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationPort", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationPort", t, istio_policy_v1beta1.INT64)
+						}
+					}
+
 					return nil, err
 
 				}
@@ -255,6 +264,10 @@ var (
 						},
 
 						"adapter_template_kubernetes.output.destination_pod_name": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
+						"adapter_template_kubernetes.output.destination_container_name": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
@@ -362,6 +375,10 @@ var (
 							case "destination_pod_name":
 
 								return out.DestinationPodName, true
+
+							case "destination_container_name":
+
+								return out.DestinationContainerName, true
 
 							case "destination_labels":
 
@@ -2002,6 +2019,10 @@ type builder_adapter_template_kubernetes_Template struct {
 	// builder for field destination_ip: net.IP.
 
 	bldDestinationIp compiled.Expression
+
+	// builder for field destination_port: int64.
+
+	bldDestinationPort compiled.Expression
 } // builder_adapter_template_kubernetes_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -2075,6 +2096,21 @@ func newBuilder_adapter_template_kubernetes_Template(
 
 	}
 
+	if param.DestinationPort == "" {
+		b.bldDestinationPort = nil
+	} else {
+		b.bldDestinationPort, expType, err = expb.Compile(param.DestinationPort)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationPort", err)
+		}
+
+		if expType != istio_policy_v1beta1.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.INT64, expType, param.DestinationPort)
+			return nil, template.NewErrorPath("DestinationPort", err)
+		}
+
+	}
+
 	return b, template.ErrorPath{}
 }
 
@@ -2140,6 +2176,16 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 		}
 
 		r.DestinationIp = vIface.(net.IP)
+
+	}
+
+	if b.bldDestinationPort != nil {
+
+		vInt, err = b.bldDestinationPort.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DestinationPort", err)
+		}
+		r.DestinationPort = vInt
 
 	}
 
