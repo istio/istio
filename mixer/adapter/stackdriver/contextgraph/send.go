@@ -112,7 +112,7 @@ func (h *handler) send(t time.Time) {
 	// TODO: Batch requests if there are too many entities and edges in one request.
 
 	h.env.Logger().Debugf("Context api request: %s", req)
-	if _, err := h.client.AssertBatch(h.ctx, req); err != nil {
+	if _, err := h.assertBatch(h.ctx, req); err != nil {
 		h.env.Logger().Errorf("Request failed: %s\n", err)
 		s, _ := status.FromError(err)
 		h.env.Logger().Errorf("STATUS: %s\n", s.Proto().Details[0].Value)

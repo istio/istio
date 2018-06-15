@@ -81,7 +81,8 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		[4]string{meshUID, workloadNamespace, workloadName, ""},
 	}
 	// TODO: Figure out what the container is for non-GCE clusters.
-	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/zones/%s/clusters/%s", wi.clusterProject, wi.clusterLocation, wi.clusterName)
+	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/zones/%s/clusters/%s",
+		wi.clusterProject, wi.clusterLocation, wi.clusterName)
 
 	var ownerK8sFullName string
 	t := strings.Split(wi.owner, "/")
@@ -89,17 +90,20 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		var name, namespace, typeName string
 		t = t[2:len(t)]
 		switch {
-		case len(t) >= 6 && t[0] == "apis" && t[1] == "v1": // pods, replicationcontrollers
+		case len(t) >= 6 && t[0] == "apis" && t[1] == "v1":
+			// pods, RC
 			namespace = t[3]
 			name = t[5]
 			typeName = t[4]
-		case len(t) >= 7 && t[0] == "apis" && (t[1] == "extensions" || t[1] == "apps" || t[1] == "batch"): // cronjobs, jobs, daemonsets, deployments, replicasets, statefulsets
+		case len(t) >= 7 && t[0] == "apis" && (t[1] == "extensions" || t[1] == "apps" || t[1] == "batch"):
+			// cronjobs, jobs, daemonsets, deployments, replicasets, statefulsets
 			namespace = t[4]
 			name = t[6]
 			typeName = t[1] + "/" + t[5]
 		}
 		if name != "" {
-			ownerK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/%s", clusterContainer, namespace, typeName, name)
+			ownerK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/%s/%s",
+				clusterContainer, namespace, typeName, name)
 		} else {
 			logger.Warningf("Couldn't parse owner into k8s obj: %s", wi.owner)
 		}

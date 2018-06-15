@@ -143,11 +143,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 	lh := l.(logentry.Handler)
 
-	// t, err := b.t.Build(ctx, env)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// th := t.(tracespan.Handler)
+	t, err := b.t.Build(ctx, env)
+	if err != nil {
+		return nil, err
+	}
+	th := t.(tracespan.Handler)
 
 	c, err := b.c.Build(ctx, env)
 	if err != nil {
@@ -155,11 +155,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 	ch := c.(edgepb.Handler)
 
-	return &handler{m: mh, l: lh, t: nil, c: ch}, nil
+	return &handler{m: mh, l: lh, t: th, c: ch}, nil
 }
 
 func (h *handler) Close() error {
-	return multierror.Append(h.m.Close(), h.l.Close(), h.c.Close()).ErrorOrNil()
+	return multierror.Append(h.m.Close(), h.l.Close(), h.t.Close(), h.c.Close()).ErrorOrNil()
 }
 
 func (h *handler) HandleMetric(ctx context.Context, values []*metric.Instance) error {
@@ -171,7 +171,7 @@ func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instanc
 }
 
 func (h *handler) HandleTraceSpan(ctx context.Context, values []*tracespan.Instance) error {
-	return nil
+	return h.t.HandleTraceSpan(ctx, values)
 }
 
 func (h *handler) HandleEdge(ctx context.Context, values []*edgepb.Instance) error {

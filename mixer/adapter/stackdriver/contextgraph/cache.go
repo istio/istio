@@ -37,7 +37,8 @@ func newEntityCache(logger adapter.Logger) *entityCache {
 	}
 }
 
-// AssertAndCheck reports the existence of e at epoch, and returns true if the entity needs to be sent immediately.
+// AssertAndCheck reports the existence of e at epoch, and returns
+// true if the entity needs to be sent immediately.
 func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
 	cEpoch, ok := ec.cache[e]
 	defer func() { ec.cache[e] = cEpoch }()
@@ -45,15 +46,17 @@ func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
 		cEpoch.lastSeen = epoch
 	}
 	if !ok || cEpoch.lastSent < ec.lastFlush {
-		ec.logger.Debugf("%q needs to be sent anew, old epoch: %d, now seen: %d", e.fullName, cEpoch.lastSent, epoch)
+		ec.logger.Debugf("%q needs to be sent anew, old epoch: %d, now seen: %d",
+			e.fullName, cEpoch.lastSent, epoch)
 		cEpoch.lastSent = epoch
 		return true
 	}
 	return false
 }
 
-// Flush returns the list of entities that have been asserted in the most recent epoch, to be reasserted.
-// It also cleans up stale entries from the cache.
+// Flush returns the list of entities that have been asserted in the
+// most recent epoch, to be reasserted.  It also cleans up stale
+// entries from the cache.
 func (ec *entityCache) Flush(epoch int) []entity {
 	var result []entity
 	for k, e := range ec.cache {
@@ -89,7 +92,8 @@ func newEdgeCache(logger adapter.Logger) *edgeCache {
 	}
 }
 
-// AssertAndCheck reports the existence of e at epoch, and returns true if the edge needs to be sent immediately.
+// AssertAndCheck reports the existence of e at epoch, and returns
+// true if the edge needs to be sent immediately.
 func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
 	cEpoch, ok := ec.cache[e]
 	defer func() { ec.cache[e] = cEpoch }()
@@ -97,15 +101,17 @@ func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
 		cEpoch.lastSeen = epoch
 	}
 	if !ok || cEpoch.lastSent < ec.lastFlush {
-		ec.logger.Debugf("%v needs to be sent anew, old epoch: %d, now seen: %d", e, cEpoch.lastSent, epoch)
+		ec.logger.Debugf("%v needs to be sent anew, old epoch: %d, now seen: %d",
+			e, cEpoch.lastSent, epoch)
 		cEpoch.lastSent = epoch
 		return true
 	}
 	return false
 }
 
-// Flush returns the list of entities that have been asserted in the most recent epoch, to be reasserted.
-// It also cleans up stale entries from the cache.
+// Flush returns the list of entities that have been asserted in the
+// most recent epoch, to be reasserted.  It also cleans up stale
+// entries from the cache.
 func (ec *edgeCache) Flush(epoch int) []edge {
 	var result []edge
 	for k, e := range ec.cache {
@@ -125,7 +131,8 @@ func (ec *edgeCache) Flush(epoch int) []edge {
 	return result
 }
 
-// Invalidate removes all edges with a source of fullName from the cache, so the next assertion will trigger a report.
+// Invalidate removes all edges with a source of fullName from the
+// cache, so the next assertion will trigger a report.
 func (ec *edgeCache) Invalidate(fullName string) {
 	for e := range ec.cache {
 		if e.sourceFullName == fullName {
