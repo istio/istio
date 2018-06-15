@@ -542,27 +542,28 @@ Attributes:
 				Type: store.Update,
 				Value: &store.Resource{
 					Spec: &configpb.Handler{
-						Name:    "a1",
-						Adapter: "adapter1",
+						Name:            "a1",
+						CompiledAdapter: "adapter1",
+						Adapter:         "adapter1",
 					},
 				},
 			},
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    a1
   Adapter: adapter1
   Params:  <nil>
-Instances:
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL
@@ -581,30 +582,29 @@ Attributes:
 				Type: store.Update,
 				Value: &store.Resource{
 					Spec: &configpb.Handler{
-						Name:    "a1",
-						Adapter: "adapter1",
-						Params: &configpb.EmailAddress{
-							Value: "test",
-						},
+						Name:            "a1",
+						CompiledAdapter: "adapter1",
+						Adapter:         "adapter1",
+						Params:          adapter2Params,
 					},
 				},
 			},
 		},
 		E: `
 ID: 0
-Templates:
+TemplatesStatic:
   Name: apa
   Name: check
   Name: quota
   Name: report
-Adapters:
+AdaptersStatic:
   Name: adapter1
   Name: adapter2
-Handlers:
+HandlersStatic:
   Name:    a1
   Adapter: adapter1
-  Params:  &EmailAddress{Value:test,}
-Instances:
+  Params:  &Struct{Fields:map[string]*Value{pqr: &Value{Kind:&Value_StringValue{StringValue:abcstring,},},},}
+InstancesStatic:
 Rules:
 Attributes:
   template.attr: BOOL

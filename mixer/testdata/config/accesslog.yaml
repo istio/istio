@@ -4,9 +4,10 @@ metadata:
   name: stdio
   namespace: istio-system
 spec:
+  compiledAdapter: stdio
   adapter: stdio
   params:
-    outputAsJson: false
+    outputAsJson: true
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry

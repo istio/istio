@@ -26,14 +26,10 @@ import (
 	"fmt"
 	"sync"
 
-<<<<<<< HEAD
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/gogo/protobuf/types"
-=======
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
->>>>>>> use jsonpb based conversion
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -242,9 +238,15 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *
 
 		if key.Kind == constant.HandlerKind {
 			handlerProto := resource.Spec.(*config.Handler)
+
+			a, ok := e.adapters[handlerProto.CompiledAdapter]
+			if !ok {
+				continue
+			}
+
 			staticConfig := &HandlerStatic{
 				Name:    key.Name,
-				Adapter: e.adapters[handlerProto.Adapter],
+				Adapter: a,
 			}
 
 			if handlerProto.Params != nil {
@@ -307,6 +309,9 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
 		hdl := resource.Spec.(*config.Handler)
+		if len(hdl.CompiledAdapter) > 0 {
+			continue // this will have already been added in staticHandlerConfigs
+		}
 		adpt, _ := getCanonicalRef(hdl.Adapter, constant.AdapterKind, key.Namespace, func(n string) interface{} {
 			if a, ok := adapters[n]; ok {
 				return a
