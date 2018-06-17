@@ -98,7 +98,7 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 )
 
 func pilotConfig(kubeClient *kubernetes.Client, podName, podNamespace, configType string) error {
-	path := ""
+	var path string
 	ctEndpoint, ok := debugConfigTypes[configType]
 	if !ok {
 		return fmt.Errorf("%q is not a supported debugging config type", configType)

@@ -180,8 +180,8 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 	return proxyContainer, nil
 }
 
-// TODO: delete this when authn command has migrated to use kubeclient.PilotDiscoveryDo
 // CallPilotDiscoveryDebug calls the pilot-discover debug command for all pilots passed in with the provided information
+// TODO: delete this when authn command has migrated to use kubeclient.PilotDiscoveryDo
 func (client *Client) CallPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType string) (string, error) {
 	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
 	var err error

@@ -133,6 +133,7 @@ func sendEDSReqReconnect(t *testing.T, clusters []string,
 
 func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
@@ -144,6 +145,7 @@ func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService
 
 func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
@@ -156,6 +158,7 @@ func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.Aggregate
 
 func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
