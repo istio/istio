@@ -27,13 +27,13 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
-	// This policy will enable mTLS globally. Policy should be in 'istio-global-config' namespace
+	// This policy will enable mTLS globally (mesh policy)
 	globalCfg := &deployableConfig{
 		Namespace:  "", // Use blank for cluster CRD.
 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
-	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
+	// This policy disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl", "testdata/authn/destination-rule.yaml.tmpl"},
