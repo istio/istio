@@ -141,50 +141,51 @@ ingress:
 #
 ingressgateway:
   enabled: true
-  serviceAccountName: istio-ingressgateway-service-account
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
-  service:
-    name: istio-ingressgateway #DNS addressible
-    labels:
-      istio: ingressgateway
-    annotations: {}
-    #namespace: istio-system
-    loadBalancerIP: ""
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    ports:
-      ## You can add custom gateway ports
-    - port: 80
-      name: http
-      nodePort: 31380
-    - port: 443
-      name: https
-      nodePort: 31390
-    - port: 31400
-      name: tcp
-      nodePort: 31400
-  deployment:
-    labels:
-      istio: ingressgateway #will be added to pods and service
-    ports:
-    - containerPort: 80
-    - containerPort: 443
-    - containerPort: 31400
-    secretVolumes:
-    - name: ingressgateway-certs
-      secretName: istio-ingressgateway-certs
-      mountPath: /etc/istio/ingressgateway-certs
-    - name: ingressgateway-ca-certs
-      secretName: istio-ingressgateway-ca-certs
-      mountPath: /etc/istio/ingressgateway-ca-certs
+  gateways:
+  - serviceAccountName: istio-ingressgateway-service-account
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi
+    service:
+      name: istio-ingressgateway #DNS addressible
+      labels:
+        istio: ingressgateway
+      annotations: {}
+      #namespace: istio-system
+      loadBalancerIP: ""
+      type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+      ports:
+        ## You can add custom gateway ports
+      - port: 80
+        name: http
+        nodePort: 31380
+      - port: 443
+        name: https
+        nodePort: 31390
+      - port: 31400
+        name: tcp
+        nodePort: 31400
+    deployment:
+      labels:
+        istio: ingressgateway #will be added to pods and service
+      ports:
+      - containerPort: 80
+      - containerPort: 443
+      - containerPort: 31400
+      secretVolumes:
+      - name: ingressgateway-certs
+        secretName: istio-ingressgateway-certs
+        mountPath: /etc/istio/ingressgateway-certs
+      - name: ingressgateway-ca-certs
+        secretName: istio-ingressgateway-ca-certs
+        mountPath: /etc/istio/ingressgateway-ca-certs
 #
 # egressgateway configuration
 #
