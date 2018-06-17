@@ -46,9 +46,9 @@ func TestTLSCheckWriter_PrintAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := TLSCheckWriter{Writer: got}
+			tcw := TLSCheckWriter{Writer: got}
 			input, _ := json.Marshal(tt.input)
-			err := sw.PrintAll(input)
+			err := tcw.PrintAll(input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -84,9 +84,9 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := TLSCheckWriter{Writer: got}
+			tcw := TLSCheckWriter{Writer: got}
 			input, _ := json.Marshal(tt.input)
-			err := sw.PrintSingle(input, tt.filterService)
+			err := tcw.PrintSingle(input, tt.filterService)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
