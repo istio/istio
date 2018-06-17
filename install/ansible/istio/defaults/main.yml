@@ -21,9 +21,6 @@ istio:
   # Install istio with or without istio-auth module
   auth: false
 
-  # OpenShift project / Kubernetes namespace to be created
-  namespace: istio-system
-
   addon: "{{ istio_all_addons }}"
 
   # The names of the samples that should be installed as well.
