@@ -97,7 +97,8 @@ func (fv *FileVisitor) GetWhitelist(comment string) {
 	whitelistPattern := regexp.MustCompile(`whitelist\(https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+\):([^}]*)\.`)
 	matched := whitelistPattern.FindStringSubmatch(comment)
 	if len(matched) > 1 {
-		rules := strings.Split(matched[1], ",")
+		splitByPeriod := strings.Split(matched[1], ".")
+		rules := strings.Split(splitByPeriod[0], ",")
 		for i, rule := range rules {
 			rules[i] = strings.TrimSpace(rule)
 		}
