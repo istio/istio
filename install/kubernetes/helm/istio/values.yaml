@@ -136,8 +136,12 @@ ingress:
       name: https
     selector:
       istio: ingress
+
 #
-# ingressgateway configuration
+# Ingress Gateway Configuration
+# By default (if enabled) a single Ingress Gateway will be created for the mesh.
+# Add additional configuration(s) to the `gateways` array to add more gateway(s). Make
+# sure those are uniquely named and that NodePorts are not duplicated.
 #
 ingressgateway:
   enabled: true
@@ -186,8 +190,11 @@ ingressgateway:
       - name: ingressgateway-ca-certs
         secretName: istio-ingressgateway-ca-certs
         mountPath: /etc/istio/ingressgateway-ca-certs
+
 #
-# egressgateway configuration
+# Egress Gateway Configuration
+# By default (if enabled) a single Egress Gateway will be created for the mesh.
+# Add additional configuration(s) to the `gateways` array to add more gateway(s).
 #
 egressgateway:
   enabled: true
