@@ -18,9 +18,6 @@ istio:
   # Install istio with or without istio-auth module
   auth: false
 
-  # OpenShift project / Kubernetes namespace to be created
-  namespace: istio-system
-
   # A set of add-ons to install, for example kiali
   addon: []
 
