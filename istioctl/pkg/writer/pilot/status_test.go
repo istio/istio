@@ -37,7 +37,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"}]`),
 				"pilot2": []byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
-			want: "testdata/multiplestatus.txt",
+			want: "testdata/multiStatusMultiPilot.txt",
 		},
 		{
 			name: "prints single pilot input to buffer in alphabetical order by pod name",
@@ -45,7 +45,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"},
 						{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
-			want: "testdata/multiplestatus.txt",
+			want: "testdata/multiStatusSinglePilot.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",

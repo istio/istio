@@ -33,6 +33,11 @@ type StatusWriter struct {
 	Writer io.Writer
 }
 
+type writerStatus struct {
+	pilot string
+	v2.SyncStatus
+}
+
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
 func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
@@ -63,16 +68,19 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) e
 	return w.Flush()
 }
 
-func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []v2.SyncStatus, error) {
+func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer)
 	w.Init(s.Writer, 0, 8, 5, '\t', 0)
-	fmt.Fprintln(w, "PROXY\tSTATUS\tSENT\tACKNOWLEDGED")
-	fullStatus := []v2.SyncStatus{}
-	for _, status := range statuses {
-		ss := []v2.SyncStatus{}
+	fmt.Fprintln(w, "PROXY\tSTATUS\tSENT\tACKNOWLEDGED\tPILOT")
+	fullStatus := []*writerStatus{}
+	for pilot, status := range statuses {
+		ss := []*writerStatus{}
 		err := json.Unmarshal(status, &ss)
 		if err != nil {
 			return nil, nil, err
+		}
+		for _, s := range ss {
+			s.pilot = pilot
 		}
 		fullStatus = append(fullStatus, ss...)
 	}
@@ -87,7 +95,7 @@ func parseMonotonicTime(t string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", split[0])
 }
 
-func statusPrintln(w io.Writer, status v2.SyncStatus) error {
+func statusPrintln(w io.Writer, status *writerStatus) error {
 	sent, err := parseMonotonicTime(status.Sent)
 	if err != nil {
 		return err
@@ -100,6 +108,6 @@ func statusPrintln(w io.Writer, status v2.SyncStatus) error {
 	if sent == acked {
 		synced = "SYNCED"
 	}
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", status.ProxyID, synced, sent.Format(statusTimeFormat), acked.Format(statusTimeFormat))
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", status.ProxyID, synced, sent.Format(statusTimeFormat), acked.Format(statusTimeFormat), status.pilot)
 	return nil
 }
