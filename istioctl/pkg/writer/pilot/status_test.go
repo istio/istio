@@ -117,10 +117,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, err := ioutil.ReadFile(tt.want)
-			if err != nil {
-				t.Error(err)
-			}
+			want, _ := ioutil.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
 			}
