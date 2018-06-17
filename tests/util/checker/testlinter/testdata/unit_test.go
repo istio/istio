@@ -65,3 +65,54 @@ func TestInvalidGoroutine(t *testing.T) {
 		t.Error("expected 9")
 	}
 }
+
+// whitelist(https://github.com/istio/istio/issues/6041):*.
+func TestWhitelistAll(t *testing.T) {
+	t.Skip("invalid skip without url to GitHub issue.")
+	go SetCount()
+	if Count(1) != 1 {
+		t.Error("expected 1")
+	}
+	if testing.Short() {
+		t.Skip("skipping uint test in short mode.")
+	}
+	if Count(3) != 3 {
+		t.Error("expected 3")
+	}
+	time.Sleep(100 * time.Millisecond)
+	t.Skip("https://github.com/istio/istio/issues/6041")
+}
+
+// whitelist(https://github.com/istio/istio/issues/6041):no_goroutine.
+func TestWhitelistNoGoroutine(t *testing.T) {
+	t.Skip("invalid skip without url to GitHub issue.")
+	go SetCount()
+	if Count(1) != 1 {
+		t.Error("expected 1")
+	}
+	if testing.Short() {
+		t.Skip("skipping uint test in short mode.")
+	}
+	if Count(3) != 3 {
+		t.Error("expected 3")
+	}
+	time.Sleep(100 * time.Millisecond)
+	t.Skip("https://github.com/istio/istio/issues/6041")
+}
+
+// whitelist(https://github.com/istio/istio/issues/6041):no_goroutine,short_skip.
+func TestWhitelistShortSkip(t *testing.T) {
+	t.Skip("invalid skip without url to GitHub issue.")
+	go SetCount()
+	if Count(1) != 1 {
+		t.Error("expected 1")
+	}
+	if testing.Short() {
+		t.Skip("skipping uint test in short mode.")
+	}
+	if Count(3) != 3 {
+		t.Error("expected 3")
+	}
+	time.Sleep(100 * time.Millisecond)
+	t.Skip("https://github.com/istio/istio/issues/6041")
+}

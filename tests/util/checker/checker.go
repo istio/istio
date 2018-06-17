@@ -21,10 +21,12 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 // Check checks the list of files, and write to the given Report.
-func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *Report) error {
+func Check(paths []string, factory RulesFactory, report *Report) error {
 	// Empty paths means current dir.
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -40,7 +42,7 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 			}
 			rules := factory.GetRules(fpath, info)
 			if len(rules) > 0 {
-				fileCheck(fpath, rules, whitelist, report)
+				fileCheck(fpath, rules, report)
 			}
 			return nil
 		})
@@ -52,22 +54,28 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 }
 
 // fileCheck checks a file using the given rules, and write to the given Report.
-func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) {
+func fileCheck(path string, rules []Rule, report *Report) {
 	fs := token.NewFileSet()
-	astFile, err := parser.ParseFile(fs, path, nil, parser.Mode(0))
+	astFile, err := parser.ParseFile(fs, path, nil, parser.ParseComments)
 	if err != nil {
 		report.AddString(fmt.Sprintf("%v", err))
 		return
 	}
 	v := FileVisitor{
-		path:      path,
-		rules:     rules,
-		whitelist: whitelist,
-		fileset:   fs,
-		report:    report,
+		path:    path,
+		rules:   rules,
+		fileset: fs,
+		report:  report,
 	}
 	// Walk through the files
-	ast.Walk(&v, astFile)
+	// ast.Walk(&v, astFile)
+	for _, d := range astFile.Decls {
+		if fn, isFn := d.(*ast.FuncDecl); isFn && strings.HasPrefix(fn.Name.String(), "Test") {
+			v.GetWhitelist(fn.Doc.Text())
+			ast.Walk(&v, fn)
+		}
+	}
+	v.report.Sort()
 }
 
 // FileVisitor visits the go file syntax tree and applies the given rules.
@@ -79,6 +87,26 @@ type FileVisitor struct {
 	report    *Report // report for linting process
 }
 
+// GetWhitelist extracts whitelist rule IDs from comment and fills into FileVistor.
+// comment should match this pattern, and ends with a period.
+// whitelist(url-to-GitHub-issue):[rule ID 1],[rule ID 2]...
+// For example:
+// whitelist(https://github.com/istio/istio/issues/6346):no_sleep,skip_issue,short_skip.
+// whitelist(https://github.com/istio/istio/issues/6346):skip_allrules.
+func (fv *FileVisitor) GetWhitelist(comment string) {
+	whitelistPattern := regexp.MustCompile(`whitelist\(https:\/\/github\.com\/istio\/istio\/issues\/[0-9]+\):([^}]*)\.`)
+	matched := whitelistPattern.FindStringSubmatch(comment)
+	if len(matched) > 1 {
+		rules := strings.Split(matched[1], ",")
+		for i, rule := range rules {
+			rules[i] = strings.TrimSpace(rule)
+		}
+		fv.whitelist = NewWhitelist(rules)
+	} else {
+		fv.whitelist = NewWhitelist([]string{})
+	}
+}
+
 // Visit checks each node and runs the applicable checks.
 func (fv *FileVisitor) Visit(node ast.Node) ast.Visitor {
 	if node == nil {
@@ -87,7 +115,7 @@ func (fv *FileVisitor) Visit(node ast.Node) ast.Visitor {
 
 	// ApplyRules applies rules to node and generate lint report.
 	for _, rule := range fv.rules {
-		if !fv.whitelist.Apply(fv.path, rule) {
+		if !fv.whitelist.Apply(rule) {
 			rule.Check(node, fv.fileset, fv.report)
 		}
 	}

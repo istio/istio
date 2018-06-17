@@ -57,16 +57,14 @@ type RulesFactory interface {
 
 ### Whitelist
 
-In addition to [RulesFactory](rule.go), application can provide a [Whitelist](whitelist.go) to opt out selected files
-from certain rules. This allows temporary rule disablement until the file is updated to comply with the rules, or an
-exception mechanism to allow approved files break some rules.
+In addition to [RulesFactory](rule.go), application can provide a [Whitelist](whitelist.go) to opt out tests from certain rules. This allows temporary rule disablement until the tests are updated to comply with the rules, or an
+exception mechanism to allow approved tests break some rules.
 
-A [Whitelist](whitelist.go) object is backed by a map from string to a string slice, where the keys are file paths, and
-the values are slices of rule IDs, as identified by return value of the GetID() method, in the [Rule](rule.go)
+A [Whitelist](whitelist.go) object is backed by a string slice of rule IDs, as identified by return value of the GetID() method, in the [Rule](rule.go)
 interface.
 
 ```bash
-func NewWhitelist(ruleWhitelist map[string][]string) *Whitelist {
+func NewWhitelist(ruleWhitelist []string) *Whitelist {
 	return Whitelist{ruleWhitelist: ruleWhitelist}
 }
 ```

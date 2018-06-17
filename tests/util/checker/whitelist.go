@@ -14,44 +14,23 @@
 
 package checker
 
-import (
-	"log"
-	"path/filepath"
-)
-
 // Whitelist determines if rules are whitelisted for the given paths.
 type Whitelist struct {
 	// Map from path to whitelisted rules.
-	ruleWhitelist map[string][]string
+	ruleWhitelist []string
 }
 
 // NewWhitelist creates and returns a Whitelist object.
-func NewWhitelist(ruleWhitelist map[string][]string) *Whitelist {
+func NewWhitelist(ruleWhitelist []string) *Whitelist {
 	return &Whitelist{ruleWhitelist: ruleWhitelist}
 }
 
-// Apply returns true if the given rule is whitelisted for the given path.
-func (wl *Whitelist) Apply(path string, rule Rule) bool {
-	for _, skipRule := range wl.getWhitelistedRules(path) {
-		if skipRule == rule.GetID() {
+// Apply returns true if the given rule is whitelisted.
+func (wl *Whitelist) Apply(rule Rule) bool {
+	for _, skipRule := range wl.ruleWhitelist {
+		if skipRule == rule.GetID() || skipRule == "*" {
 			return true
 		}
 	}
 	return false
-}
-
-// getWhitelistedRules returns the whitelisted rule given the path
-func (wl *Whitelist) getWhitelistedRules(path string) []string {
-	// Check whether path is whitelisted
-	for wp, whitelistedRules := range wl.ruleWhitelist {
-		// filepath.Match is needed for canonical matching
-		matched, err := filepath.Match(wp, path)
-		if err != nil {
-			log.Printf("file match returns error: %v", err)
-		}
-		if matched {
-			return whitelistedRules
-		}
-	}
-	return []string{}
 }
