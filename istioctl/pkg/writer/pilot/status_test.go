@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package writer
+package pilot
 
 import (
 	"bytes"
@@ -27,30 +27,30 @@ import (
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   [][]byte
+		input   map[string][]byte
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "prints multiple pilot inputs to buffer in alphabetical order by pod name",
-			input: [][]byte{
-				[]byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"}]`),
-				[]byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
+			input: map[string][]byte{
+				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"}]`),
+				"pilot2": []byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			want: "testdata/multiplestatus.txt",
 		},
 		{
 			name: "prints single pilot input to buffer in alphabetical order by pod name",
-			input: [][]byte{
-				[]byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"},
+			input: map[string][]byte{
+				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"},
 						{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			want: "testdata/multiplestatus.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",
-			input: [][]byte{
-				[]byte(`gobbledygook`),
+			input: map[string][]byte{
+				"pilot1": []byte(`gobbledygook`),
 			},
 			wantErr: true,
 		},
@@ -76,24 +76,24 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 func TestStatusWriter_PrintSingle(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     [][]byte
+		input     map[string][]byte
 		filterPod string
 		want      string
 		wantErr   bool
 	}{
 		{
 			name: "prints multiple pilot inputs to buffer filtering for pod",
-			input: [][]byte{
-				[]byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"}]`),
-				[]byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
+			input: map[string][]byte{
+				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"}]`),
+				"pilot2": []byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singlestatus.txt",
 		},
 		{
 			name: "single pilot input to buffer filtering for pod",
-			input: [][]byte{
-				[]byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"},
+			input: map[string][]byte{
+				"pilot1": []byte(`[{"proxy":"proxy2","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001"},
 						{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			filterPod: "proxy2",
@@ -101,8 +101,8 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 		},
 		{
 			name: "error if given non-syncstatus info",
-			input: [][]byte{
-				[]byte(`gobbledygook`),
+			input: map[string][]byte{
+				"pilot1": []byte(`gobbledygook`),
 			},
 			wantErr: true,
 		},
@@ -121,7 +121,6 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
 			}
-
 		})
 	}
 }

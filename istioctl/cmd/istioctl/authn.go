@@ -61,6 +61,8 @@ istioclt authn tls_check foo.bar.svc.cluster.local
 			if len(pilots) == 0 {
 				return errors.New("unable to find any Pilot instances")
 			}
+
+			// TODO: migrate this to use kubeclient.PilotDiscoveryDo
 			if debug, pilotErr := kubeClient.CallPilotDiscoveryDebug(pilots, service, "authn"); pilotErr == nil {
 				var dat []proxy.AuthenticationDebug
 				if err := json.Unmarshal([]byte(debug), &dat); err != nil {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package writer
+package pilot
 
 import (
 	"encoding/json"
@@ -34,7 +34,7 @@ type StatusWriter struct {
 }
 
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
-func (s *StatusWriter) PrintAll(statuses [][]byte) error {
+func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func (s *StatusWriter) PrintAll(statuses [][]byte) error {
 }
 
 // PrintSingle takes a slice of Pilot syncz responses and outputs them using a tabwriter filtering for a specific pod
-func (s *StatusWriter) PrintSingle(statuses [][]byte, podName string) error {
+func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func (s *StatusWriter) PrintSingle(statuses [][]byte, podName string) error {
 	return w.Flush()
 }
 
-func (s *StatusWriter) setupStatusPrint(statuses [][]byte) (*tabwriter.Writer, []v2.SyncStatus, error) {
+func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []v2.SyncStatus, error) {
 	w := new(tabwriter.Writer)
 	w.Init(s.Writer, 0, 8, 5, '\t', 0)
 	fmt.Fprintln(w, "PROXY\tSTATUS\tSENT\tACKNOWLEDGED")

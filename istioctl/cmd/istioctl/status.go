@@ -15,18 +15,17 @@
 package main
 
 import (
-	"errors"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
-	"istio.io/istio/istioctl/pkg/writer"
+	"istio.io/istio/istioctl/pkg/writer/pilot"
 )
 
 var (
 	statusCmd = &cobra.Command{
-		Use:   "proxy-status [pod-name]",
+		Use:   "proxy-status [<pod-name>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh
@@ -44,18 +43,11 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 			if err != nil {
 				return err
 			}
-			pilots, err := kubeClient.GetPilotPods(istioNamespace)
-			if err != nil {
-				return err
-			}
-			if len(pilots) == 0 {
-				return errors.New("unable to find any Pilot instances")
-			}
-			statuses, pilotErr := kubeClient.CallPilotDiscoveryStatus(pilots)
+			statuses, pilotErr := kubeClient.PilotDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
 			if pilotErr != nil {
 				return err
 			}
-			sw := writer.StatusWriter{Writer: os.Stdout}
+			sw := pilot.StatusWriter{Writer: os.Stdout}
 			if len(args) > 0 {
 				return sw.PrintSingle(statuses, args[0])
 			}

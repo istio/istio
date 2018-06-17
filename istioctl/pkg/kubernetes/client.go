@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"k8s.io/api/core/v1"
@@ -25,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 	mesh               = "all"
 )
 
-// Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot related things
+// Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type Client struct {
 	Config *rest.Config
 	*rest.RESTClient
@@ -62,24 +62,6 @@ func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
 	config.GroupVersion = &v1.SchemeGroupVersion
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	return config, nil
-}
-
-// GetPilotPods retrives the pod objects for all known pilots
-func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
-	req := client.Get().
-		Resource("pods").
-		Namespace(namespace).
-		Param("labelSelector", "istio=pilot")
-
-	res := req.Do()
-	if res.Error() != nil {
-		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
-	}
-	list := &v1.PodList{}
-	if err := res.Into(list); err != nil {
-		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
-	}
-	return list.Items, nil
 }
 
 // PodExec takes a command and the pod data to run the command in the specified pod
@@ -115,6 +97,65 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 	return &stdout, &stderr, err
 }
 
+// PilotDiscoveryDo makes an http request to each Pilot discover instance
+func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+	pilots, err := client.GetPilotPods(pilotNamespace)
+	if err != nil {
+		return nil, err
+	}
+	if len(pilots) == 0 {
+		return nil, errors.New("unable to find any Pilot instances")
+	}
+	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
+	var stdout, stderr *bytes.Buffer
+	result := map[string][]byte{}
+	for _, pilot := range pilots {
+		stdout, stderr, err = client.PodExec(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
+		if err != nil {
+			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, err)
+		} else if stdout.String() != "" {
+			result[pilot.Name] = stdout.Bytes()
+		} else if stderr.String() != "" {
+			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, stderr.String())
+		}
+	}
+	return result, err
+}
+
+// EnvoyDo makes an http request to the Envoy in the specified pod
+func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
+	container, err := client.GetPilotAgentContainer(podName, podNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
+	}
+	cmd := []string{"/usr/local/bin/pilot-agent", "request", method, path, string(body)}
+	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
+	if err != nil {
+		return stdout.Bytes(), err
+	} else if stderr.String() != "" {
+		return nil, fmt.Errorf("error execing into %v: %v", podName, stderr.String())
+	}
+	return stdout.Bytes(), nil
+}
+
+// GetPilotPods retrieves the pod objects for all known pilots
+func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
+	req := client.Get().
+		Resource("pods").
+		Namespace(namespace).
+		Param("labelSelector", "istio=pilot")
+
+	res := req.Do()
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
+	}
+	list := &v1.PodList{}
+	if err := res.Into(list); err != nil {
+		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
+	}
+	return list.Items, nil
+}
+
 // GetPilotAgentContainer retrieves the pilot-agent container name for the specified pod
 func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (string, error) {
 	req := client.Get().
@@ -139,6 +180,7 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 	return proxyContainer, nil
 }
 
+// TODO: delete this when authn command has migrated to use kubeclient.PilotDiscoveryDo
 // CallPilotDiscoveryDebug calls the pilot-discover debug command for all pilots passed in with the provided information
 func (client *Client) CallPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType string) (string, error) {
 	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
@@ -157,39 +199,4 @@ func (client *Client) CallPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType
 		return "", fmt.Errorf("unable to call pilot-discover debug: %v", stderr.String())
 	}
 	return stdout.String(), err
-}
-
-// CallPilotAgentDebug calls the pilot-agent debug command on the specified Pilot with the provided information
-func (client *Client) CallPilotAgentDebug(podName, podNamespace, configType string) (string, error) {
-	cmd := []string{"/usr/local/bin/pilot-agent", "debug", configType}
-	container, err := client.GetPilotAgentContainer(podName, podNamespace)
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve proxy container name: %v", err)
-	}
-	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		return stdout.String(), err
-	} else if stderr.String() != "" {
-		return "", fmt.Errorf("unable to call pilot-agent debug: %v", stderr.String())
-	}
-	return stdout.String(), nil
-}
-
-// CallPilotDiscoveryStatus calls the pilot-discover status command for all pilots passed in with the provided information
-func (client *Client) CallPilotDiscoveryStatus(pods []v1.Pod) ([][]byte, error) {
-	cmd := []string{"/usr/local/bin/pilot-discovery", "status"}
-	var err error
-	var stdout, stderr *bytes.Buffer
-	out := [][]byte{}
-	for _, pod := range pods {
-		log.Debugf("calling Pilot instance %v.%v", pod.Name, pod.Namespace)
-		stdout, stderr, err = client.PodExec(pod.Name, pod.Namespace, discoveryContainer, cmd)
-		if stdout.String() != "" {
-			out = append(out, stdout.Bytes())
-		}
-		if stderr.String() != "" {
-			return nil, fmt.Errorf("error calling %v.%v: %v", pod.Name, pod.Namespace, stderr.String())
-		}
-	}
-	return out, err
 }

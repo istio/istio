@@ -15,18 +15,23 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pkg/log"
 )
 
 var (
-	mesh = "all"
+	mesh             = "all"
+	debugConfigTypes = map[string]string{
+		"ads": "adsz",
+		"eds": "edsz",
+	}
 
 	// TODO - Add diff option to get the difference between pilot's xDS API response and the proxy config
 	// TODO - Add support for non-default proxy config locations
@@ -70,7 +75,6 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 			} else {
 				configType = mesh
 			}
-			log.Infof("Retrieving %v proxy config for %q", configType, podName)
 
 			ns := namespace
 			if ns == v1.NamespaceAll {
@@ -82,32 +86,9 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 			}
 			switch location {
 			case "pilot":
-				var proxyID string
-				if podName == "mesh" {
-					proxyID = mesh
-				} else {
-					proxyID = fmt.Sprintf("%v.%v", podName, ns)
-				}
-				pilots, err := kubeClient.GetPilotPods(istioNamespace)
-				if err != nil {
-					return err
-				}
-				if len(pilots) == 0 {
-					return errors.New("unable to find any Pilot instances")
-				}
-				debug, pilotErr := kubeClient.CallPilotDiscoveryDebug(pilots, proxyID, configType)
-				if pilotErr != nil {
-					fmt.Println(debug)
-					return err
-				}
-				fmt.Println(debug)
+				return pilotConfig(kubeClient, podName, ns, configType)
 			case "endpoint":
-				debug, err := kubeClient.CallPilotAgentDebug(podName, ns, configType)
-				if err != nil {
-					fmt.Println(debug)
-					return err
-				}
-				fmt.Println(debug)
+				return endpointConfig(kubeClient, podName, ns, configType)
 			default:
 				log.Errorf("%q debug not supported", location)
 			}
@@ -115,6 +96,66 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 		},
 	}
 )
+
+func pilotConfig(kubeClient *kubernetes.Client, podName, podNamespace, configType string) error {
+	path := ""
+	ctEndpoint, ok := debugConfigTypes[configType]
+	if !ok {
+		return fmt.Errorf("%q is not a supported debugging config type", configType)
+	}
+	path = fmt.Sprintf("/debug/%v", ctEndpoint)
+
+	if podName != "mesh" {
+		path += fmt.Sprintf("?proxyID=%v.%v", podName, podNamespace)
+	}
+	configs, err := kubeClient.PilotDiscoveryDo(istioNamespace, "GET", path, nil)
+	if err != nil {
+		return err
+	}
+	for _, config := range configs {
+		fmt.Println(string(config))
+	}
+	return nil
+}
+
+func endpointConfig(kubeClient *kubernetes.Client, podName, podNamespace, configType string) error {
+	path := "config_dump"
+	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	if err != nil {
+		return err
+	}
+	cw := configdump.ConfigWriter{Stdout: os.Stdout}
+	err = cw.Prime(debug)
+	if err != nil {
+		return err
+	}
+	switch configType {
+	case "cluster", "clusters":
+		return cw.PrintClusterDump()
+	case "listener", "listeners":
+		return cw.PrintListenerDump()
+	case "route", "routes":
+		return cw.PrintRoutesDump()
+	case "bootstrap":
+		return cw.PrintBootstrapDump()
+	case "all":
+		if err := cw.PrintClusterDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintListenerDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintRoutesDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintBootstrapDump(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%q is not a supported debugging config type", configType)
+	}
+	return nil
+}
 
 func init() {
 	rootCmd.AddCommand(configCmd)
