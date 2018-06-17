@@ -88,7 +88,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 				"pilot2": []byte(`[{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			filterPod: "proxy2",
-			want:      "testdata/singlestatus.txt",
+			want:      "testdata/singleStatus.txt",
 		},
 		{
 			name: "single pilot input to buffer filtering for pod",
@@ -97,7 +97,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 						{"proxy":"proxy1","sent":"2009-11-10 23:00:00 +0000 UTC m=+0.000000001","acked":"2009-11-10 22:00:00 +0000 UTC m=+0.000000001"}]`),
 			},
 			filterPod: "proxy2",
-			want:      "testdata/singlestatus.txt",
+			want:      "testdata/singleStatus.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",

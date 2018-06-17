@@ -31,7 +31,6 @@ import (
 var (
 	proxyContainer     = "istio-proxy"
 	discoveryContainer = "discovery"
-	mesh               = "all"
 )
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -97,8 +96,8 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 	return &stdout, &stderr, err
 }
 
-// PilotDiscoveryDo makes an http request to each Pilot discover instance
-func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
+// AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
+func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
 	pilots, err := client.GetPilotPods(pilotNamespace)
 	if err != nil {
 		return nil, err
@@ -120,6 +119,26 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 		}
 	}
 	return result, err
+}
+
+// PilotDiscoveryDo makes an http request to a single Pilot discovery instance
+func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
+	pilots, err := client.GetPilotPods(pilotNamespace)
+	if err != nil {
+		return nil, err
+	}
+	if len(pilots) == 0 {
+		return nil, errors.New("unable to find any Pilot instances")
+	}
+	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
+	var stdout, stderr *bytes.Buffer
+	stdout, stderr, err = client.PodExec(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, err)
+	} else if stderr.String() != "" {
+		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, stderr.String())
+	}
+	return stdout.Bytes(), err
 }
 
 // EnvoyDo makes an http request to the Envoy in the specified pod
@@ -178,25 +197,4 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 		}
 	}
 	return proxyContainer, nil
-}
-
-// CallPilotDiscoveryDebug calls the pilot-discover debug command for all pilots passed in with the provided information
-// TODO: delete this when authn command has migrated to use kubeclient.PilotDiscoveryDo
-func (client *Client) CallPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType string) (string, error) {
-	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
-	var err error
-	var stdout, stderr *bytes.Buffer
-	for _, pod := range pods {
-		stdout, stderr, err = client.PodExec(pod.Name, pod.Namespace, discoveryContainer, cmd)
-		if stdout.String() != "" {
-			if proxyID != mesh {
-				return stdout.String(), nil
-			}
-			fmt.Println(stdout.String())
-		}
-	}
-	if stderr.String() != "" {
-		return "", fmt.Errorf("unable to call pilot-discover debug: %v", stderr.String())
-	}
-	return stdout.String(), err
 }

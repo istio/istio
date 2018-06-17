@@ -43,7 +43,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 			if err != nil {
 				return err
 			}
-			statuses, pilotErr := kubeClient.PilotDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+			statuses, pilotErr := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
 			if pilotErr != nil {
 				return err
 			}
