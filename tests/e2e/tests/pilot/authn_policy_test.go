@@ -45,6 +45,7 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
+	defer globalCfg.Teardown()
 	defer cfgs.Teardown()
 
 	srcPods := []string{"a", "t"}
