@@ -1,19 +1,22 @@
-{{- if .Values.autoscaleMin }}
+{{- range .Values.gateways }}
+{{- if .autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: {{ .Values.service.name }}
-    namespace: {{ .Values.service.namespace | default .Release.Namespace }}
+    name: {{ .service.name }}
+    namespace: {{ .service.namespace | default $.Release.Namespace }}
 spec:
-    maxReplicas: {{ .Values.autoscaleMax }}
-    minReplicas: {{ .Values.autoscaleMin }}
+    maxReplicas: {{ .autoscaleMax }}
+    minReplicas: {{ .autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
-      name: {{ .Values.service.name }}
+      name: {{ .service.name }}
     metrics:
       - type: Resource
         resource:
           name: cpu
           targetAverageUtilization: 80
 {{ end }}
+---
+{{- end }}

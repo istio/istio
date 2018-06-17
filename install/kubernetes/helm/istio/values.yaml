@@ -191,42 +191,43 @@ ingressgateway:
 #
 egressgateway:
   enabled: true
-  serviceAccountName: istio-egressgateway-service-account
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
-  service:
-    name: istio-egressgateway #DNS addressible
-    labels:
-      istio: egressgateway
-    #namespace: istio-system
-    type: ClusterIP #change to NodePort or LoadBalancer if need be
-    ports:
-      ## You can add custom gateway ports
-    - port: 80
-      name: http
-    - port: 443
-      name: https
-  deployment:
-    labels:
-      istio: egressgateway #will be added to pods and service
-    ports:
-    - containerPort: 80
-    - containerPort: 443
-    secretVolumes:
-    - name: egressgateway-certs
-      secretName: istio-egressgateway-certs
-      mountPath: /etc/istio/egressgateway-certs
-    - name: egressgateway-ca-certs
-      secretName: istio-egressgateway-ca-certs
-      mountPath: /etc/istio/egressgateway-ca-certs
+  gateways:
+  - serviceAccountName: istio-egressgateway-service-account
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    resources: {}
+      # limits:
+      # cpu: 100m
+      # memory: 128Mi
+      # requests:
+      # cpu: 100m
+      # memory: 128Mi
+    service:
+      name: istio-egressgateway #DNS addressible
+      labels:
+        istio: egressgateway
+      #namespace: istio-system
+      type: ClusterIP #change to NodePort or LoadBalancer if need be
+      ports:
+        ## You can add custom gateway ports
+      - port: 80
+        name: http
+      - port: 443
+        name: https
+    deployment:
+      labels:
+        istio: egressgateway #will be added to pods and service
+      ports:
+      - containerPort: 80
+      - containerPort: 443
+      secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
 
 #
 # sidecar-injector webhook configuration

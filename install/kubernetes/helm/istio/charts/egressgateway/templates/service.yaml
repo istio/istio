@@ -1,25 +1,28 @@
+{{- range .Values.gateways -}}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.service.name }}
-  namespace: {{ .Values.service.namespace | default .Release.Namespace }}    
+  name: {{ .service.name }}
+  namespace: {{ .service.namespace | default $.Release.Namespace }}    
   labels:
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
-    {{- range $key, $val := .Values.service.labels }}
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- range $key, $val := .service.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .service.type }}
   selector:
-    {{- range $key, $val := .Values.deployment.labels }}
+    {{- range $key, $val := .deployment.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
   ports:
-    {{- range $key, $val := .Values.service.ports }}
+    {{- range $key, $val := .service.ports }}
     -
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
       {{- end }}
     {{- end }}
+---
+{{ end }}
