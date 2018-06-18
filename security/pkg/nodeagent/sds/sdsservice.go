@@ -45,6 +45,9 @@ const (
 	// pass credential token from envoy to SDS.
 	// TODO(quanlin): update value after confirming what headerKey that client side uses.
 	credentialTokenHeaderKey = "access_token"
+
+	// secretName is the name of secret that deliver from SDS service to envoy.
+	secretName = "SPKI"
 )
 
 var (
@@ -146,7 +149,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.proxy = &proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, token)
+			secret, err := s.st.GetSecret(proxy, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -193,7 +196,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 	}
 	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 
-	secret, err := s.st.GetSecret(discReq.Node.Id, token)
+	secret, err := s.st.GetSecret(proxy, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
@@ -275,8 +278,7 @@ func sdsDiscoveryResponse(s *SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryRe
 	}
 
 	secret := &authapi.Secret{
-		//TODO(quanlin): better naming.
-		Name: "self-signed",
+		Name: secretName,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{

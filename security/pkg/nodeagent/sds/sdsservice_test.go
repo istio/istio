@@ -29,6 +29,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -245,7 +247,7 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GetSecret(proxyID, token string) (*SecretItem, error) {
+func (*mockSecretStore) GetSecret(_ model.Proxy, token string) (*SecretItem, error) {
 	if token == fakeCredentialToken {
 		return &SecretItem{
 			CertificateChain: fakeCertificateChain,

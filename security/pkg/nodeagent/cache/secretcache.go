@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/pki/util"
@@ -81,14 +82,14 @@ func NewSecretCache(cl CAClient, secretTTL, rotationInterval, evictionDuration t
 // GetSecret gets secret from cache, this function is called by SDS.FetchSecret,
 // Since credential passing from client may change, regenerate secret every time
 // instread of reading from cache.
-func (sc *SecretCache) GetSecret(proxyID, token string) (*sds.SecretItem, error) {
-	ns, err := sc.generateSecret(token, time.Now())
+func (sc *SecretCache) GetSecret(proxy model.Proxy, token string) (*sds.SecretItem, error) {
+	ns, err := sc.generateSecret(proxy, token, time.Now())
 	if err != nil {
-		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
+		log.Errorf("Failed to generate secret for proxy %q: %v", proxy.ID, err)
 		return nil, err
 	}
 
-	sc.secrets.Store(proxyID, *ns)
+	sc.secrets.Store(proxy.ID, *ns)
 	return ns, nil
 }
 
@@ -140,7 +141,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(e.Token, now)
+				ns, err := sc.generateSecret(e.Proxy, e.Token, now)
 				if err != nil {
 					log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 					return
@@ -161,9 +162,9 @@ func (sc *SecretCache) rotate(t time.Time) {
 	})
 }
 
-func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretItem, error) {
+func (sc *SecretCache) generateSecret(proxy model.Proxy, token string, t time.Time) (*sds.SecretItem, error) {
 	options := util.CertOptions{
-		Host:       "", //TODO(quanlin): figure out what to use here.
+		Host:       proxy.IPAddress,
 		RSAKeySize: keySize,
 	}
 
@@ -182,6 +183,7 @@ func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretIte
 		CertificateChain: certChainPER,
 		PrivateKey:       keyPEM,
 		Token:            token,
+		Proxy:            proxy,
 		CreatedTime:      t,
 	}, nil
 }

@@ -14,11 +14,15 @@
 
 package sds
 
-import "time"
+import (
+	"time"
+
+	"istio.io/istio/pilot/pkg/model"
+)
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
-	GetSecret(proxyID, token string) (*SecretItem, error)
+	GetSecret(proxy model.Proxy, token string) (*SecretItem, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -29,6 +33,8 @@ type SecretItem struct {
 	// Credential token passed from envoy, caClient uses this token to send
 	// CSR to CA to sign certificate.
 	Token string
+
+	Proxy model.Proxy
 
 	CreatedTime time.Time
 }
