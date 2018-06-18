@@ -140,6 +140,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 }
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
+// nolint deadcode
 func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar:
@@ -178,6 +179,7 @@ func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) 
 	return nil, nil
 }
 
+// nolint deadcode
 func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 	var clusters Clusters
 	var proxyInstances []*model.ServiceInstance

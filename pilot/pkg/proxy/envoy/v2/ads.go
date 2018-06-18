@@ -175,6 +175,9 @@ type XdsConnection struct {
 	RouteConfigs  map[string]*xdsapi.RouteConfiguration `json:"-"`
 	HTTPClusters  []*xdsapi.Cluster
 
+	// Last nonce sent and ack'd (timestamps) used for debugging
+	NonceSent, NonceAcked string
+
 	// current list of clusters monitored by the client
 	Clusters []string
 
@@ -292,6 +295,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
+			}
+			if discReq.ResponseNonce != "" {
+				con.NonceAcked = discReq.ResponseNonce
 			}
 
 			switch discReq.TypeUrl {
@@ -608,6 +614,9 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	go func() {
 		err := con.stream.Send(res)
 		done <- err
+		if res.Nonce != "" {
+			con.NonceSent = res.Nonce
+		}
 	}()
 	select {
 	case <-t.C:

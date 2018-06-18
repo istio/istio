@@ -18,43 +18,47 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	errorlabel = "error"
+)
+
 var (
-	csrCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	csrCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_count",
 		Help:      "The number of CSRs recerived by Citadel server.",
 	}, []string{})
 
-	authenticationErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	authnErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "authentication_failure_count",
 		Help:      "The number of authentication failures.",
 	}, []string{})
 
-	csrParsingErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	csrParsingErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_parsing_err_count",
 		Help:      "The number of erorrs occurred when parsing the CSR.",
 	}, []string{})
 
-	idExtractionErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	idExtractionErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "id_extraction_err_count",
-		Help:      "The number of erorrs occurred when extracting the ID from CSR.",
+		Help:      "The number of errors occurred when extracting the ID from CSR.",
 	}, []string{})
 
-	csrSignErrorCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	certSignErrorCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "csr_sign_err_count",
 		Help:      "The number of erorrs occurred when signing the CSR.",
-	}, []string{})
+	}, []string{errorlabel})
 
-	successCertIssuanceCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	successCounts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "citadel",
 		Subsystem: "server",
 		Name:      "success_cert_issuance_count",
@@ -63,33 +67,36 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(csrCount)
-	prometheus.MustRegister(authenticationErrorCount)
-	prometheus.MustRegister(csrParsingErrorCount)
-	prometheus.MustRegister(idExtractionErrorCount)
-	prometheus.MustRegister(csrSignErrorCount)
-	prometheus.MustRegister(successCertIssuanceCount)
+	prometheus.MustRegister(csrCounts)
+	prometheus.MustRegister(authnErrorCounts)
+	prometheus.MustRegister(csrParsingErrorCounts)
+	prometheus.MustRegister(idExtractionErrorCounts)
+	prometheus.MustRegister(certSignErrorCounts)
+	prometheus.MustRegister(successCounts)
 }
 
 // monitoringMetrics are counters for certificate signing related operations.
 type monitoringMetrics struct {
-	SuccessCertIssuance prometheus.Counter
-	CSR                 prometheus.Counter
-	AuthenticationError prometheus.Counter
-	CSRParsingError     prometheus.Counter
-	IDExtractionError   prometheus.Counter
-	CSRSignError        prometheus.Counter
+	CSR               prometheus.Counter
+	AuthnError        prometheus.Counter
+	Success           prometheus.Counter
+	CSRError          prometheus.Counter
+	IDExtractionError prometheus.Counter
+	certSignErrors    *prometheus.CounterVec
 }
 
 // newMonitoringMetrics creates a new monitoringMetrics.
 func newMonitoringMetrics() monitoringMetrics {
-	labels := prometheus.Labels{}
 	return monitoringMetrics{
-		SuccessCertIssuance: successCertIssuanceCount.With(labels),
-		CSR:                 csrCount.With(labels),
-		AuthenticationError: authenticationErrorCount.With(labels),
-		CSRParsingError:     csrParsingErrorCount.With(labels),
-		IDExtractionError:   idExtractionErrorCount.With(labels),
-		CSRSignError:        csrSignErrorCount.With(labels),
+		CSR:               csrCounts.With(prometheus.Labels{}),
+		AuthnError:        authnErrorCounts.With(prometheus.Labels{}),
+		Success:           successCounts.With(prometheus.Labels{}),
+		CSRError:          csrParsingErrorCounts.With(prometheus.Labels{}),
+		IDExtractionError: idExtractionErrorCounts.With(prometheus.Labels{}),
+		certSignErrors:    certSignErrorCounts,
 	}
+}
+
+func (m *monitoringMetrics) GetCertSignError(err string) prometheus.Counter {
+	return m.certSignErrors.With(prometheus.Labels{errorlabel: err})
 }

@@ -55,6 +55,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/edsz", edsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
+	mux.HandleFunc("/debug/syncz", Syncz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
@@ -73,6 +74,32 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 	}
+}
+
+// SyncStatus -- Not sure of the correct place to put this? Needed in istioctl and here.
+type SyncStatus struct {
+	ProxyID string `json:"proxy,omitempty"`
+	Sent    string `json:"sent,omitempty"`
+	Acked   string `json:"acked,omitempty"`
+}
+
+// Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
+func Syncz(w http.ResponseWriter, req *http.Request) {
+	syncz := []SyncStatus{}
+	for _, con := range adsClients {
+		if con.modelNode != nil {
+			syncz = append(syncz, SyncStatus{ProxyID: con.modelNode.ID, Sent: con.NonceSent, Acked: con.NonceAcked})
+		}
+	}
+	out, err := json.MarshalIndent(&syncz, "", "    ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(out)
+	w.WriteHeader(http.StatusOK)
 }
 
 // TODO: the mock was used for test setup, has no mutex. This will also be used for
