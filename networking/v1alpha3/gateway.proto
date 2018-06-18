@@ -48,7 +48,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - uk.bookinfo.com
 //     - eu.bookinfo.com
 //     tls:
-//       httpsRedirect: true # sends 302 redirect for http requests
+//       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
 //       name: https
@@ -244,7 +244,7 @@ message Server {
   repeated string hosts = 2;
 
   message TLSOptions {
-    // If set to true, the load balancer will send a 302 redirect for all
+    // If set to true, the load balancer will send a 301 redirect for all
     // http connections, asking the clients to use HTTPS.
     bool https_redirect = 1;
 
