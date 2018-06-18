@@ -100,10 +100,8 @@ TEST_P(ValidateX509Test, SslConnectionWithNoPeerCert) {
       .Times(1)
       .WillOnce(Return(false));
 
-  // Should return false except mode is PERMISSIVE (accept plaintext) or
-  // TLS_PERMISSIVE
-  if (GetParam() == iaapi::MutualTls::PERMISSIVE ||
-      GetParam() == iaapi::MutualTls::TLS_PERMISSIVE) {
+  // Should return false except mode is PERMISSIVE (accept plaintext).
+  if (GetParam() == iaapi::MutualTls::PERMISSIVE) {
     EXPECT_TRUE(authenticator_.validateX509(mtls_params_, payload_));
   } else {
     EXPECT_FALSE(authenticator_.validateX509(mtls_params_, payload_));
@@ -157,7 +155,6 @@ TEST_P(ValidateX509Test, SslConnectionWithPeerMalformedSpiffeCert) {
 
 INSTANTIATE_TEST_CASE_P(ValidateX509Tests, ValidateX509Test,
                         testing::Values(iaapi::MutualTls::STRICT,
-                                        iaapi::MutualTls::TLS_PERMISSIVE,
                                         iaapi::MutualTls::PERMISSIVE));
 
 class ValidateJwtTest : public testing::Test,
