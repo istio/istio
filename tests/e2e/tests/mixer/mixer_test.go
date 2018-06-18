@@ -729,7 +729,7 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
-	//t.Skip("https://github.com/istio/istio/issues/6309")
+	t.Skip("https://github.com/istio/istio/issues/6309")
 
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
