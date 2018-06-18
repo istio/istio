@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"reflect"
 	"testing"
 )
@@ -31,7 +32,79 @@ var (
 	pipeOut *os.File
 	// The channel for sending stdout back to test code.
 	outC chan string
+	// environment vars to attach to exec command
+	envExec []string
 )
+
+// Mock for the various OS commands used by the driver.
+func testGetExecCmd(command string, args ...string) *exec.Cmd {
+	cs := []string{"-test.run=TestHelperExecProcess", "--", command}
+	cs = append(cs, args...)
+	cmd := exec.Command(os.Args[0], cs...)
+	cmd.Env = append([]string{"GO_WANT_HELPER_PROCESS=1"}, envExec...)
+	return cmd
+}
+
+// TestHelperExecProcess is used to simulate calls to os.ExecCmd()
+// inspired by: https://github.com/golang/go/blob/master/src/os/exec/exec_test.go
+func TestHelperExecProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+
+	if os.Getenv("RETURN_ERROR") == "1" {
+		os.Exit(2)
+	}
+
+	args := os.Args
+	for len(args) > 0 {
+		if args[0] == "--" {
+			args = args[1:]
+			break
+		}
+		args = args[1:]
+	}
+	// We now have the original args.
+	if len(args) == 0 {
+		os.Exit(2)
+	}
+
+	cmd, args := args[0], args[1:]
+	switch cmd {
+	case "/bin/mount":
+		if args[0] == "-t" {
+			if len(args) < 6 {
+				os.Exit(2)
+			}
+
+			tmpmount := os.Getenv("mountDir")
+			if len(tmpmount) > 0 && tmpmount != args[5] {
+				os.Exit(2)
+			}
+			os.Exit(0)
+		}
+		//bind mount
+		if args[0] == "--bind" {
+			if len(args) < 3 {
+				os.Exit(2)
+			}
+
+			fromBindDir := os.Getenv("BIND_FROM_DIR")
+			if len(fromBindDir) > 0 && fromBindDir != args[1] {
+				os.Exit(2)
+			}
+			toBindDir := os.Getenv("BIND_TO_DIR")
+			if len(toBindDir) > 0 && toBindDir != args[2] {
+				os.Exit(2)
+			}
+		}
+	case "/bin/unmount":
+		if len(args) < 1 {
+			os.Exit(2)
+		}
+	}
+	os.Exit(0)
+}
 
 // Will block waiting for data on the channel.
 func readStdOut() string {
@@ -101,6 +174,7 @@ func TestInitDefault(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
+	getExecCmd = testGetExecCmd
 	err := Mount("device", "opts")
 	if err != nil {
 		t.Errorf("Mount function failed.")
@@ -114,6 +188,7 @@ func TestMount(t *testing.T) {
 }
 
 func TestUnmount(t *testing.T) {
+	getExecCmd = testGetExecCmd
 	err := Unmount("/tmp")
 	if err != nil {
 		t.Errorf("Unmount function failed.")
