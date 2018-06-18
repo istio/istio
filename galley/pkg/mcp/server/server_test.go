@@ -57,7 +57,7 @@ func (config *mockConfigWatcher) Watch(req *v2.DiscoveryRequest, out chan<- *Wat
 		rsp.TypeURL = req.TypeUrl
 		return rsp, nil
 	} else if config.closeWatch {
-		close(out)
+		go func() { out <- nil }()
 	} else {
 		// save open watch channel for later
 		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], out)
@@ -337,7 +337,6 @@ func TestWatchClosed(t *testing.T) {
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
-
 	close(stream.recv)
 }
 
