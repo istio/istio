@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 
@@ -81,14 +80,6 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			// Must be set here to work in CircleCI minikube.
-			var rLimit syscall.Rlimit
-			rLimit.Max = 2*1024*1024*1024
-			rLimit.Cur = rLimit.Max
-			if err := syscall.Setrlimit(syscall.RLIMIT_CORE, &rLimit); err != nil {
-				return err
-			}
-
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}

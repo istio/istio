@@ -41,6 +41,8 @@ function usage() {
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
+ulimit -c unlimited
+
 # Use a comma as the separator for multi-value arguments.
 IFS=,
 

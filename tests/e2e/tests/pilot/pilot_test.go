@@ -99,10 +99,6 @@ kill -SIGSEGV $$
 		t.Fatalf("could not copy file to pod %s: %v", ingressGatewayPod, err)
 	}
 
-	if _, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "/bin/bash -c ulimit -c unlimited", false, ""); err != nil {
-		t.Fatal(err)
-	}
-
 	out, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, crashProgPath, false, "")
 	if !strings.HasPrefix(out, "command terminated with exit code 139") {
 		t.Fatalf("did not get expected crash error for %s in pod %s, got: %v", crashProgPath, ingressGatewayPod, err)
