@@ -142,7 +142,7 @@ var (
 
 // TODO - refactor tests to not rely on sleeps
 var (
-	deferredResponseTimeout = 200 * time.Millisecond
+	asyncResponseTimeout = 200 * time.Millisecond
 )
 
 func nextStrVersion(version *int64) string {
@@ -181,12 +181,15 @@ func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.W
 	return got, cancel, nil
 }
 
-func getAsyncResponse(responseC chan *server.WatchResponse) *server.WatchResponse {
+func getAsyncResponse(responseC chan *server.WatchResponse) (*server.WatchResponse, bool) {
 	select {
-	case got := <-responseC:
-		return got
-	case <-time.After(deferredResponseTimeout):
-		return nil
+	case got, more := <-responseC:
+		if !more {
+			return nil, false
+		}
+		return got, false
+	case <-time.After(asyncResponseTimeout):
+		return nil, true
 	}
 }
 
@@ -213,7 +216,7 @@ func TestCreateWatch(t *testing.T) {
 			if _, _, err := createTestWatch(c, typeURL, typeVersion, responseC, false, true); err != nil {
 				t.Fatalf("CreateWatch() failed: %v", err)
 			}
-			if gotResponse := getAsyncResponse(responseC); gotResponse != nil {
+			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				t.Fatalf("open watch failed: received premature response: %v", gotResponse)
 			}
 
@@ -223,7 +226,7 @@ func TestCreateWatch(t *testing.T) {
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
-			if gotResponse := getAsyncResponse(responseC); gotResponse != nil {
+			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				wantResponse := &server.WatchResponse{
 					TypeURL:   typeURL,
 					Version:   typeVersion,
@@ -233,7 +236,7 @@ func TestCreateWatch(t *testing.T) {
 					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
 				}
 			} else {
-				t.Fatalf("watch response channel did not produce response after %v", deferredResponseTimeout)
+				t.Fatalf("watch response channel did not produce response after %v", asyncResponseTimeout)
 			}
 
 			// verify lack of immediate response after async response.
@@ -241,8 +244,8 @@ func TestCreateWatch(t *testing.T) {
 				t.Fatalf("CreateWatch() failed after receiving prior response: %v", err)
 			}
 
-			if gotResponse := getAsyncResponse(responseC); gotResponse != nil {
-				t.Fatalf("open watch failed after receiving prior resposne: premature response: %v", gotResponse)
+			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
+				t.Fatalf("open watch failed after receiving prior response: premature response: %v", gotResponse)
 			}
 		})
 	}
@@ -279,14 +282,14 @@ func TestWatchCancel(t *testing.T) {
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
-			if gotResponse := getAsyncResponse(responseC); gotResponse != nil {
+			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				t.Fatalf("open watch failed: received premature response: %v", gotResponse)
 			}
 		})
 	}
 }
 
-func TestSnapshotClear(t *testing.T) {
+func TestClearSnapshot(t *testing.T) {
 	var versionInt int64 // atomic
 	initVersion := nextStrVersion(&versionInt)
 	snapshot := makeSnapshot(initVersion)
@@ -298,7 +301,7 @@ func TestSnapshotClear(t *testing.T) {
 		t.Run(typeURL, func(t *testing.T) {
 			responseC := make(chan *server.WatchResponse, 1)
 
-			// verify no immediate response if snapshot is cleared
+			// verify no immediate response if snapshot is cleared.
 			c.ClearSnapshot(key)
 			if _, _, err := createTestWatch(c, typeURL, "", responseC, false, true); err != nil {
 				t.Fatalf("CreateWatch() failed: %v", err)
@@ -310,7 +313,7 @@ func TestSnapshotClear(t *testing.T) {
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
-			if gotResponse := getAsyncResponse(responseC); gotResponse != nil {
+			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
 				wantResponse := &server.WatchResponse{
 					TypeURL:   typeURL,
 					Version:   typeVersion,
@@ -320,7 +323,40 @@ func TestSnapshotClear(t *testing.T) {
 					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
 				}
 			} else {
-				t.Fatalf("watch response channel did not produce response after %v", deferredResponseTimeout)
+				t.Fatalf("watch response channel did not produce response after %v", asyncResponseTimeout)
+			}
+		})
+	}
+}
+
+func TestClearStatus(t *testing.T) {
+	var versionInt int64 // atomic
+	initVersion := nextStrVersion(&versionInt)
+	snapshot := makeSnapshot(initVersion)
+
+	c := New()
+
+	for _, typeURL := range WatchResponseTypes {
+		t.Run(typeURL, func(t *testing.T) {
+			responseC := make(chan *server.WatchResponse, 1)
+
+			if _, _, err := createTestWatch(c, typeURL, "", responseC, false, true); err != nil {
+				t.Fatalf("CreateWatch() failed: %v", err)
+			}
+
+			c.ClearStatus(key)
+
+			// verify that ClearStatus() cancels the open watch and
+			// that any subsequent snapshot is not delivered.
+			snapshot = snapshot.copy()
+			typeVersion := nextStrVersion(&versionInt)
+			snapshot.versions[typeURL] = typeVersion
+			c.SetSnapshot(key, snapshot)
+
+			if gotResponse, timeout := getAsyncResponse(responseC); gotResponse != nil {
+				t.Fatalf("open watch failed: received unexpected response: %v", gotResponse)
+			} else if timeout {
+				t.Fatal("open watch was not canceled on ClearStatus()")
 			}
 		})
 	}

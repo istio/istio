@@ -60,13 +60,19 @@ type responseWatch struct {
 type statusInfo struct {
 	mu                   sync.Mutex
 	node                 *core.Node
-	lastWatchRequestTime time.Time
+	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
 }
 
 // Watch returns a watch for an MCP request.
 func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
+	// TODO(ayj) - use hash of node's ID and locality to index map.
 	nodeID := request.Node.GetId()
+
+	if len(request.ResourceNames) > 0 {
+		log.Warnf("Watch(): resource hints not supported: resource_names=%v",
+			request.ResourceNames)
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -98,11 +104,11 @@ func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server
 		}
 	}
 
-	// Otherwise, open a watch if no snapshot was available or the requested version1 is up-to-date.
+	// Otherwise, open a watch if no snapshot was available or the requested version is up-to-date.
 	c.watchCount++
 	watchID := c.watchCount
 
-	log.Infof("CreateWatch(): create watch %d for %s from nodeID %q, version1 %q",
+	log.Infof("Watch(): created watch %d for %s from nodeID %q, version1 %q",
 		watchID, request.TypeUrl, nodeID, request.VersionInfo)
 
 	info.mu.Lock()
@@ -152,11 +158,28 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	}
 }
 
-// ClearSnapshot clears snapshot and info for a node.
+// ClearSnapshot clears snapshot for a node. This does not cancel any open
+// watches already created (see ClearStatus).
 func (c *Cache) ClearSnapshot(node string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	delete(c.snapshots, node)
+}
+
+// ClearStatus clears status for a node. This has the effect of canceling
+// any open watches opened against this node info.
+func (c *Cache) ClearStatus(node string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if info, ok := c.status[node]; ok {
+		info.mu.Lock()
+		for _, watch := range info.watches {
+			// response channel may be shared
+			watch.responseC <- nil
+		}
+		info.mu.Unlock()
+	}
 	delete(c.status, node)
 }

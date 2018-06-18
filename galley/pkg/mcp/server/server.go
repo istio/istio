@@ -68,7 +68,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
+ 	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
 }
 
 var _ discovery.AggregatedDiscoveryServiceServer = &Server{}
@@ -152,8 +152,9 @@ func (s *Server) StreamAggregatedResources(stream discovery.AggregatedDiscoveryS
 	for {
 		select {
 		case resp, more := <-con.responseC:
-			if !more {
-				return status.Errorf(codes.Unavailable, "watch failed")
+			if !more || resp == nil {
+				return status.Errorf(codes.Unavailable, "server caneled watch: more=%v resp=%v",
+					more, resp)
 			}
 			if err := con.pushServerResponse(resp); err != nil {
 				return err
@@ -260,8 +261,8 @@ func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error 
 			watch.nonce = nonce
 		}
 	} else {
-		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q)",
-			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce)
+		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) errror=%#v",
+			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce, req.ErrorDetail)
 	}
 	return nil
 }
