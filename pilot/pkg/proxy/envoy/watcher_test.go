@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1
+package envoy
 
 import (
 	"bytes"
@@ -258,7 +258,7 @@ func TestWatchCerts_Multiple(t *testing.T) {
 }
 
 func TestWatchCerts(t *testing.T) {
-	name, err := ioutil.TempDir("testdata", "certs")
+	name, err := ioutil.TempDir(os.TempDir(), "certs")
 	if err != nil {
 		t.Errorf("failed to create a temp dir: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestWatchCerts(t *testing.T) {
 }
 
 func TestGenerateCertHash(t *testing.T) {
-	name, err := ioutil.TempDir("testdata", "certs")
+	name, err := ioutil.TempDir(os.TempDir(), "certs")
 	if err != nil {
 		t.Errorf("failed to create a temp dir: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config.Concurrency = 8
 
 	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
-	testProxy := NewProxy(config, "my-node", "trace")
+	testProxy := NewProxy(config, "my-node", "trace", nil)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
