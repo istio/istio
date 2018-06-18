@@ -792,14 +792,8 @@ func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface
 				ServerEndpoints: nil,
 				CABundle:        nil,
 			},
-			AuthInfo: v1alpha1.AuthInfo{
-				Providers: nil,
-			},
-			CloudProvider: &v1alpha1.CloudProvider{
-				Name: "",
-			},
+			AuthInfo: v1alpha1.AuthInfo{},
 		},
-		Status: &v1alpha1.ClusterStatus{},
 	}
 
 	dataBytes, err1 := yaml.Marshal(remoteClusterData)
