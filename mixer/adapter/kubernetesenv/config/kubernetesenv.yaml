@@ -1,9 +1,9 @@
 # this config is created through command
-# mixgen adapter -c $GOPATH/src/istio.io/istio/mixer/adapter/kubernetesenv/config/config.proto_descriptor -o $GOPATH/src/istio.io/istio/mixer/adapter/kubernetesenv/config/config.yaml
+# mixgen adapter -c $GOPATH/src/istio.io/istio/mixer/adapter/kubernetesenv/config/config.proto_descriptor -o $GOPATH/src/istio.io/istio/mixer/adapter/kubernetesenv/config -n kubernetesenv
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
-  name: 
+  name: kubernetesenv
   namespace: istio-system
 spec:
   description: 

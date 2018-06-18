@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint: lll
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/servicecontrol/config/config.proto -x "-n servicecontrol -t apikey -t servicecontrolreport -t quota"
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/adapter/servicecontrol/template/servicecontrolreport/template.proto
 

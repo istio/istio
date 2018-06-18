@@ -1,5 +1,5 @@
 # this config is created through command
-# mixgen adapter -c $GOPATH/src/istio.io/istio/mixer/adapter/rbac/config/config.proto_descriptor -o $GOPATH/src/istio.io/istio/mixer/adapter/rbac/config/config.yaml -n rbac -t authorization
+# mixgen adapter -c $GOPATH/src/istio.io/istio/mixer/adapter/rbac/config/config.proto_descriptor -o $GOPATH/src/istio.io/istio/mixer/adapter/rbac/config -n rbac -t authorization
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:

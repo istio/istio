@@ -229,8 +229,7 @@ if [ "$optadapter" = true ]; then
   die "config generation failure: $err";
   fi
 
-  adapterYaml=${file/.proto/.yaml}
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o $adapterYaml ${extraflags}
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o $(dirname "${file}") ${extraflags}
 
   exit 0
 fi

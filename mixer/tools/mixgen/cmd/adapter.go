@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"path"
 )
 
 func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -61,7 +62,7 @@ func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comm
 	adapterCmd.PersistentFlags().StringArrayVarP(&templates, "templates", "t", nil,
 		"supported template names")
 	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path"+
-		" to save the configuration")
+		" to save the configuration; if it a directory the generate file name is <dir name>/<adapter name>.yaml")
 	return adapterCmd
 }
 
@@ -129,6 +130,15 @@ spec:
 	}
 
 	if outPath != "" {
+		var s os.FileInfo
+		if s, err = os.Stat(outPath); err != nil {
+			fatalf("cannot write to output file '%s': %v", outPath, err)
+		}
+
+		if s.IsDir() {
+			outPath = path.Join(outPath, adapterObj.Name + ".yaml")
+		}
+
 		if err = ioutil.WriteFile(outPath, w.Bytes(), 0644); err != nil {
 			fatalf("cannot write to output file '%s': %v", outPath, err)
 		}
