@@ -68,7 +68,7 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
- 	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
+	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
 }
 
 var _ discovery.AggregatedDiscoveryServiceServer = &Server{}
