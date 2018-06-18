@@ -26,13 +26,13 @@ import (
 
 type metricID string
 
-var currentTime = time.Now
-
 // registry holds a set of collectors that produce datapoints on demand.  This
 // allows us to smooth out the metrics we get to make them regular timeseries.
 // We also need to expire collectors that haven't been updated after a certain
 // amount of time to prevent excessive memory usage.
 type registry struct {
+	sync.RWMutex
+
 	cumulatives    map[metricID]*cumulativeCollector
 	rollingBuckets map[metricID]*sfxclient.RollingBucket
 
@@ -44,7 +44,10 @@ type registry struct {
 	lastAccesses map[metricID]*list.Element
 
 	expiryTimeout time.Duration
-	lock          sync.RWMutex
+
+	// This is the source of truth for the current time and exists to make unit
+	// testing easier
+	currentTime func() time.Time
 }
 
 var _ sfxclient.Collector = &registry{}
@@ -55,14 +58,15 @@ func newRegistry(expiryTimeout time.Duration) *registry {
 		rollingBuckets: make(map[metricID]*sfxclient.RollingBucket),
 		lastAccesses:   make(map[metricID]*list.Element),
 		expiryTimeout:  expiryTimeout,
+		currentTime:    time.Now,
 	}
 }
 
 func (r *registry) RegisterOrGetCumulative(name string, dims map[string]string) *cumulativeCollector {
 	id := idForMetric(name, dims)
 
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	if c := r.cumulatives[id]; c == nil {
 		r.cumulatives[id] = &cumulativeCollector{
@@ -78,8 +82,8 @@ func (r *registry) RegisterOrGetCumulative(name string, dims map[string]string) 
 func (r *registry) RegisterOrGetRollingBucket(name string, dims map[string]string, intervalSeconds uint32) *sfxclient.RollingBucket {
 	id := idForMetric(name, dims)
 
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	if c := r.rollingBuckets[id]; c == nil {
 		r.rollingBuckets[id] = sfxclient.NewRollingBucket(name, dims)
@@ -91,7 +95,7 @@ func (r *registry) RegisterOrGetRollingBucket(name string, dims map[string]strin
 }
 
 func (r *registry) Datapoints() []*datapoint.Datapoint {
-	r.lock.RLock()
+	r.RLock()
 
 	var out []*datapoint.Datapoint
 
@@ -103,7 +107,7 @@ func (r *registry) Datapoints() []*datapoint.Datapoint {
 		out = append(out, r.rollingBuckets[id].Datapoints()...)
 	}
 
-	r.lock.RUnlock()
+	r.RUnlock()
 
 	r.purgeOldCollectors()
 
@@ -115,7 +119,7 @@ type access struct {
 	id metricID
 }
 
-// makeUsed should be called to indicate that a metricID has been accessed and
+// markUsed should be called to indicate that a metricID has been accessed and
 // is still in use.  This causes it to move to the front of the lastAccessList
 // list with an updated access timestamp.
 // The registry lock should be held when calling this method.
@@ -124,7 +128,7 @@ func (r *registry) markUsed(id metricID) {
 	// our map for quick lookup.
 	if _, ok := r.lastAccesses[id]; !ok {
 		elm := r.lastAccessList.PushFront(&access{
-			ts: currentTime(),
+			ts: r.currentTime(),
 			id: id,
 		})
 		r.lastAccesses[id] = elm
@@ -133,15 +137,15 @@ func (r *registry) markUsed(id metricID) {
 	// Otherwise, get the element from the map and scoot it up to the front of
 	// the list with an updated timestamp.
 	elm := r.lastAccesses[id]
-	elm.Value.(*access).ts = currentTime()
+	elm.Value.(*access).ts = r.currentTime()
 	r.lastAccessList.MoveToFront(elm)
 }
 
 func (r *registry) purgeOldCollectors() {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	now := currentTime()
+	now := r.currentTime()
 
 	// Start at the back (end) of the linked list (which should always be
 	// sorted by last access time) and remove any collectors that haven't been

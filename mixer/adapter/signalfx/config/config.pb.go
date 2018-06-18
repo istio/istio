@@ -77,9 +77,9 @@ func (Params_MetricConfig_Type) EnumDescriptor() ([]byte, []int) {
 
 // Configuration format for the `signalfx` adapter.
 type Params struct {
-	// Required. The set of metrics to send to SignalFx. If a metric is defined
-	// in Istio but doesn't have a corresponding description here, it will not
-	// be sent.
+	// Required. The set of metrics to send to SignalFx. If an Istio metric is
+	// configured to be sent to this adapter, it must have a corresponding
+	// description here.
 	Metrics []*Params_MetricConfig `protobuf:"bytes,1,rep,name=metrics" json:"metrics,omitempty"`
 	// Optional. The URL of the SignalFx ingest server to use.  Will default to
 	// the global ingest server if not specified.

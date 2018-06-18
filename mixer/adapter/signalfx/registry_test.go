@@ -19,18 +19,18 @@ import (
 	"time"
 )
 
-func setTime(t time.Time) {
-	currentTime = func() time.Time { return t }
+func setTime(r *registry, t time.Time) {
+	r.currentTime = func() time.Time { return t }
 }
 
-func advanceTime(minutes int64) {
-	setTime(time.Unix(currentTime().Unix()+minutes*60, 0))
+func advanceTime(r *registry, minutes int64) {
+	setTime(r, time.Unix(r.currentTime().Unix()+minutes*60, 0))
 }
 
 func TestExpiration(t *testing.T) {
 	r := newRegistry(5 * time.Minute)
 
-	setTime(time.Unix(100, 0))
+	setTime(r, time.Unix(100, 0))
 
 	r.RegisterOrGetCumulative("test", map[string]string{"a": "1"})
 	r.RegisterOrGetCumulative("test", map[string]string{"a": "2"})
@@ -42,7 +42,7 @@ func TestExpiration(t *testing.T) {
 		t.Fatalf("Expected four datapoints")
 	}
 
-	advanceTime(4)
+	advanceTime(r, 4)
 
 	r.Datapoints()
 	if len(r.Datapoints()) != 4 {
@@ -57,7 +57,7 @@ func TestExpiration(t *testing.T) {
 		t.Fatalf("Expected five datapoints")
 	}
 
-	advanceTime(2)
+	advanceTime(r, 2)
 
 	r.Datapoints()
 	dps := r.Datapoints()
