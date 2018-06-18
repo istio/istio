@@ -19,10 +19,14 @@ package signalfx
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
+	me "github.com/hashicorp/go-multierror"
+	"github.com/signalfx/golib/errors"
 	"github.com/signalfx/golib/sfxclient"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -62,14 +66,12 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		confsByName[b.config.Metrics[i].Name] = b.config.Metrics[i]
 	}
 
-	env.Logger().Infof("Building SignalFx adapter")
-
 	h := &handler{
 		env:                env,
 		metricTypes:        b.metricTypes,
 		ingestURL:          b.config.IngestUrl,
 		accessToken:        b.config.AccessToken,
-		intervalSeconds:    b.config.IntervalSeconds,
+		intervalSeconds:    uint32(b.config.DatapointInterval.Round(time.Second).Seconds()),
 		metricConfigByName: confsByName,
 		logger:             env.Logger(),
 	}
@@ -80,10 +82,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 // adapter.HandlerBuilder#SetAdapterConfig
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.config = cfg.(*config.Params)
-
-	if b.config.IntervalSeconds == 0 {
-		b.config.IntervalSeconds = 10
-	}
 }
 
 // adapter.HandlerBuilder#Validate
@@ -91,9 +89,20 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	if b.config.AccessToken == "" {
 		ce = ce.Appendf("access_token", "You must specify the SignalFx access token")
 	}
+
 	if len(b.config.Metrics) == 0 {
 		ce = ce.Appendf("metrics", "There must be at least one metric definition for this to be useful")
 	}
+
+	if _, err := url.Parse(b.config.IngestUrl); b.config.IngestUrl != "" && err != nil {
+		ce = ce.Appendf("ingest_url", "Unable to parse url: "+err.Error())
+	}
+
+	if b.config.DatapointInterval.Round(time.Second) < 1*time.Second {
+		ce = ce.Appendf("datapoint_interval", "Interval must not be less than one second")
+	}
+
+	typesSeen := map[string]bool{}
 
 	for i := range b.config.Metrics {
 		if b.config.Metrics[i].Type == config.NONE {
@@ -106,9 +115,24 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			continue
 		}
 
-		if typ := b.metricTypes[name]; typ == nil {
+		if typ := b.metricTypes[name]; typ != nil {
+			typesSeen[name] = true
+			switch typ.Value {
+			case v1beta1.INT64, v1beta1.DOUBLE, v1beta1.BOOL, v1beta1.TIMESTAMP, v1beta1.DURATION:
+				break
+			default:
+				ce = ce.Appendf(fmt.Sprintf("metrics[%d]", i),
+					"istio metric's value should be numeric but is %s", typ.Value.String())
+			}
+		} else {
 			ce = ce.Appendf(fmt.Sprintf("metrics[%d].name", i),
 				"Name %s does not correspond to a metric type registered in Istio", name)
+		}
+	}
+
+	for name := range b.metricTypes {
+		if !typesSeen[name] {
+			ce = ce.Appendf("metrics", "istio metric type %s must be configured", name)
 		}
 	}
 
@@ -144,7 +168,9 @@ func (h *handler) Init() error {
 	h.env.ScheduleDaemon(func() {
 		err := h.scheduler.Schedule(h.ctx)
 		if err != nil {
-			h.logger.Infof("SignalFx scheduler shutdown with result %s", err.Error())
+			if ec, ok := err.(*errors.ErrorChain); !ok || ec.Tail() != context.Canceled {
+				_ = h.logger.Errorf("SignalFx scheduler shutdown unexpectedly: %s", err.Error())
+			}
 		}
 	})
 	return nil
@@ -152,16 +178,18 @@ func (h *handler) Init() error {
 
 // metric.Handler#HandleMetric
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+	var allErr *me.Error
+
 	for i := range insts {
 		name := insts[i].Name
 		if conf := h.metricConfigByName[name]; conf != nil {
 			if err := h.processMetric(conf, insts[i]); err != nil {
-				return err
+				allErr = me.Append(allErr, err)
 			}
 		}
 	}
 
-	return nil
+	return allErr.ErrorOrNil()
 }
 
 // adapter.Handler#Close
@@ -182,7 +210,9 @@ func GetInfo() adapter.Info {
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-		DefaultConfig: &config.Params{},
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		DefaultConfig: &config.Params{
+			DatapointInterval: 10 * time.Second,
+		},
 	}
 }

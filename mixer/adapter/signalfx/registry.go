@@ -33,14 +33,14 @@ var currentTime = time.Now
 // We also need to expire collectors that haven't been updated after a certain
 // amount of time to prevent excessive memory usage.
 type registry struct {
-	cumulatives    map[metricID]*CumulativeCollector
+	cumulatives    map[metricID]*cumulativeCollector
 	rollingBuckets map[metricID]*sfxclient.RollingBucket
 
 	// A linked list that we keep sorted by access time so that we can very
 	// quickly tell which collectors are expired and should be deleted.
 	lastAccessList list.List
-	// An map optimizing lookup of the access time elements that are used in
-	// the above linked list.
+	// A map optimizing lookup of the access time elements that are used in the
+	// above linked list.
 	lastAccesses map[metricID]*list.Element
 
 	expiryTimeout time.Duration
@@ -51,21 +51,21 @@ var _ sfxclient.Collector = &registry{}
 
 func newRegistry(expiryTimeout time.Duration) *registry {
 	return &registry{
-		cumulatives:    make(map[metricID]*CumulativeCollector),
+		cumulatives:    make(map[metricID]*cumulativeCollector),
 		rollingBuckets: make(map[metricID]*sfxclient.RollingBucket),
 		lastAccesses:   make(map[metricID]*list.Element),
 		expiryTimeout:  expiryTimeout,
 	}
 }
 
-func (r *registry) RegisterOrGetCumulative(name string, dims map[string]string) *CumulativeCollector {
+func (r *registry) RegisterOrGetCumulative(name string, dims map[string]string) *cumulativeCollector {
 	id := idForMetric(name, dims)
 
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	if c := r.cumulatives[id]; c == nil {
-		r.cumulatives[id] = &CumulativeCollector{
+		r.cumulatives[id] = &cumulativeCollector{
 			MetricName: name,
 			Dimensions: dims,
 		}

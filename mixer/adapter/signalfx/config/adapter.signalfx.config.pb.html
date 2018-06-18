@@ -4,8 +4,6 @@ description: Adapter that sends Istio metrics to SignalFx
 location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-aliases:
-  - /docs/reference/config/adapters/signalfx.html
 number_of_entries: 3
 ---
 <p>The <code>signalfx</code> adapter collects Istio metrics and sends them to
@@ -26,9 +24,9 @@ number_of_entries: 3
 </tr>
 </thead>
 <tbody>
-<tr id="Params.metrics">
+<tr id="Params-metrics">
 <td><code>metrics</code></td>
-<td><code><a href="#Params.MetricConfig">Params.MetricConfig[]</a></code></td>
+<td><code><a href="#Params-MetricConfig">Params.MetricConfig[]</a></code></td>
 <td>
 <p>Required. The set of metrics to send to SignalFx. If a metric is defined
 in Istio but doesn&rsquo;t have a corresponding description here, it will not
@@ -36,7 +34,7 @@ be sent.</p>
 
 </td>
 </tr>
-<tr id="Params.ingest_url">
+<tr id="Params-ingest_url">
 <td><code>ingestUrl</code></td>
 <td><code>string</code></td>
 <td>
@@ -45,7 +43,7 @@ the global ingest server if not specified.</p>
 
 </td>
 </tr>
-<tr id="Params.access_token">
+<tr id="Params-access_token">
 <td><code>accessToken</code></td>
 <td><code>string</code></td>
 <td>
@@ -54,20 +52,21 @@ receive the metrics.</p>
 
 </td>
 </tr>
-<tr id="Params.interval_seconds">
-<td><code>intervalSeconds</code></td>
-<td><code>uint32</code></td>
+<tr id="Params-datapoint_interval">
+<td><code>datapointInterval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Optional. Specifies how frequently to send metrics to SignalFx.  Metrics
 reported to this adapter are collected and reported as a timeseries.
-Defaults to 10 seconds if not specified.</p>
+This will be rounded to the nearest second and rounded values less than
+one second are not valid. Defaults to 10 seconds if not specified.</p>
 
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricConfig">Params.MetricConfig</h2>
+<h2 id="Params-MetricConfig">Params.MetricConfig</h2>
 <section>
 <p>Describes what metrics should be sent to SignalFx and in what form.</p>
 
@@ -80,20 +79,20 @@ Defaults to 10 seconds if not specified.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricConfig.name">
+<tr id="Params-MetricConfig-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
 <p>Required.  The name of the metric as it is sent to the adapter.  In
-K8s this is of the form &ldquo;<name>.metric.<namespace>&rdquo; where &ldquo;<name>&rdquo;
-is the name field of the metric resource, and &ldquo;<namespace>&rdquo; is the
-namespace of the metric resource.</p>
+Kubernetes this is of the form &ldquo;<name>.metric.<namespace>&rdquo; where
+&ldquo;<name>&rdquo; is the name field of the metric resource, and &ldquo;<namespace>&rdquo;
+is the namespace of the metric resource.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricConfig.type">
+<tr id="Params-MetricConfig-type">
 <td><code>type</code></td>
-<td><code><a href="#Params.MetricConfig.Type">Params.MetricConfig.Type</a></code></td>
+<td><code><a href="#Params-MetricConfig-Type">Params.MetricConfig.Type</a></code></td>
 <td>
 <p>The metric type of the metric</p>
 
@@ -102,7 +101,7 @@ namespace of the metric resource.</p>
 </tbody>
 </table>
 </section>
-<h2 id="Params.MetricConfig.Type">Params.MetricConfig.Type</h2>
+<h2 id="Params-MetricConfig-Type">Params.MetricConfig.Type</h2>
 <section>
 <p>Describes what kind of metric this is.</p>
 
@@ -114,14 +113,14 @@ namespace of the metric resource.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.MetricConfig.Type.NONE">
+<tr id="Params-MetricConfig-Type-NONE">
 <td><code>NONE</code></td>
 <td>
 <p>None is the default and is invalid</p>
 
 </td>
 </tr>
-<tr id="Params.MetricConfig.Type.COUNTER">
+<tr id="Params-MetricConfig-Type-COUNTER">
 <td><code>COUNTER</code></td>
 <td>
 <p>Values with the same set of dimensions will be added together
@@ -129,7 +128,7 @@ as a continuously incrementing value.</p>
 
 </td>
 </tr>
-<tr id="Params.MetricConfig.Type.HISTOGRAM">
+<tr id="Params-MetricConfig-Type-HISTOGRAM">
 <td><code>HISTOGRAM</code></td>
 <td>
 <p>A histogram distribution.  This will result in several metrics

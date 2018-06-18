@@ -17,8 +17,6 @@ syntax = "proto3";
 // $title: SignalFx
 // $description: Adapter that sends Istio metrics to SignalFx
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/adapters/signalfx.html
 
 // The `signalfx` adapter collects Istio metrics and sends them to
 // [SignalFx](https://signalfx.com).
@@ -27,6 +25,7 @@ syntax = "proto3";
 package adapter.signalfx.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 
 option go_package = "config";
 option (gogoproto.goproto_getters_all) = false;
@@ -38,9 +37,9 @@ message Params {
     // Describes what metrics should be sent to SignalFx and in what form.
     message MetricConfig {
         // Required.  The name of the metric as it is sent to the adapter.  In
-        // K8s this is of the form "<name>.metric.<namespace>" where "<name>"
-        // is the name field of the metric resource, and "<namespace>" is the
-        // namespace of the metric resource.
+        // Kubernetes this is of the form "<name>.metric.<namespace>" where
+        // "<name>" is the name field of the metric resource, and "<namespace>"
+        // is the namespace of the metric resource.
         string name = 1;
 
         // Describes what kind of metric this is.
@@ -73,6 +72,7 @@ message Params {
 
     // Optional. Specifies how frequently to send metrics to SignalFx.  Metrics
     // reported to this adapter are collected and reported as a timeseries.
-    // Defaults to 10 seconds if not specified.
-    uint32 interval_seconds = 4;
+    // This will be rounded to the nearest second and rounded values less than
+    // one second are not valid. Defaults to 10 seconds if not specified.
+    google.protobuf.Duration datapoint_interval = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
 }

@@ -17,7 +17,11 @@ package signalfx
 import (
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/signalfx/golib/errors"
+
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -36,34 +40,63 @@ func TestGetInfo(t *testing.T) {
 
 var (
 	metrics = map[string]*metric.Type{
-		"bytes_sent":  {},
-		"error_count": {},
+		"bytes_sent": {
+			Value: v1beta1.INT64,
+		},
+		"error_count": {
+			Value: v1beta1.INT64,
+		},
+	}
+
+	badMetrics = map[string]*metric.Type{
+		"service_status": {
+			Value: v1beta1.STRING,
+		},
+		"error_count": {
+			Value: v1beta1.INT64,
+		},
 	}
 )
 
 func TestValidation(t *testing.T) {
-	f := GetInfo().NewBuilder().(*builder)
+	info := GetInfo()
+	f := info.NewBuilder().(*builder)
 
 	tests := []struct {
 		name          string
+		metricTypes   map[string]*metric.Type
 		conf          config.Params
 		expectedError *adapter.ConfigError
 	}{
 		{
 			"Valid Config",
+			metrics,
 			config.Params{
-				AccessToken: "abcd",
+				AccessToken:       "abcd",
+				DatapointInterval: 5 * time.Second,
 				Metrics: []*config.Params_MetricConfig{
 					{
 						Name: "bytes_sent",
 						Type: config.COUNTER,
 					},
+					{
+						Name: "error_count",
+						Type: config.COUNTER,
+					},
 				},
 			}, nil},
-		{"No access token", config.Params{}, &adapter.ConfigError{"access_token", nil}},
-		{"No metrics", config.Params{}, &adapter.ConfigError{"metrics", nil}},
+		{"No access token", metrics, config.Params{}, &adapter.ConfigError{"access_token", nil}},
 		{
-			"Unknown metric",
+			"Malformed ingest URI",
+			metrics,
+			config.Params{
+				IngestUrl: "a;//asdf$%^:abb",
+			},
+			&adapter.ConfigError{"ingest_url", nil}},
+		{"No metrics", metrics, config.Params{}, &adapter.ConfigError{"metrics", nil}},
+		{
+			"Unknown Istio metric",
+			metrics,
 			config.Params{
 				AccessToken: "abcd",
 				Metrics: []*config.Params_MetricConfig{
@@ -74,7 +107,32 @@ func TestValidation(t *testing.T) {
 				},
 			}, &adapter.ConfigError{"metrics[0].name", nil}},
 		{
-			"Unknown type",
+			"Omitted Istio metric",
+			metrics,
+			config.Params{
+				AccessToken: "abcd",
+				Metrics: []*config.Params_MetricConfig{
+					{
+						Name: "error_count",
+						Type: config.COUNTER,
+					},
+				},
+			}, &adapter.ConfigError{"metrics", nil}},
+		{
+			"Non-numeric Istio metric value",
+			badMetrics,
+			config.Params{
+				AccessToken: "abcd",
+				Metrics: []*config.Params_MetricConfig{
+					{
+						Name: "service_status",
+						Type: config.COUNTER,
+					},
+				},
+			}, &adapter.ConfigError{"metrics[0]", errors.New("istio metric's value should be numeric but is STRING")}},
+		{
+			"Unknown SignalFx type",
+			metrics,
 			config.Params{
 				AccessToken: "abcd",
 				Metrics: []*config.Params_MetricConfig{
@@ -89,12 +147,12 @@ func TestValidation(t *testing.T) {
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 			f.SetAdapterConfig(&v.conf)
-			f.SetMetricTypes(metrics)
+			f.SetMetricTypes(v.metricTypes)
 			err := f.Validate()
 
 			if v.expectedError == nil {
 				if err != nil {
-					t.Fatalf("Validate() should not have produced an error")
+					t.Fatalf("Validate() should not have produced this error: %s", err)
 				}
 				return
 			}
@@ -102,14 +160,15 @@ func TestValidation(t *testing.T) {
 			errFound := false
 			for _, ce := range err.Multi.WrappedErrors() {
 				if ce.(adapter.ConfigError).Field == v.expectedError.Field {
-					if v.expectedError.Underlying == nil || ce.(adapter.ConfigError).Underlying == v.expectedError.Underlying {
+					if v.expectedError.Underlying == nil ||
+						ce.(adapter.ConfigError).Underlying.Error() == v.expectedError.Underlying.Error() {
 						errFound = true
 					}
 				}
 			}
 
 			if !errFound {
-				t.Fatalf("Validate() did not produce error %v", v.expectedError)
+				t.Fatalf("Validate() did not produce error %v\nbut did produce: %v", v.expectedError, err)
 			}
 		})
 	}
