@@ -312,9 +312,9 @@ mixs:
 $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
 
-GALLEY_GO_BINS:=${ISTIO_OUT}/gals
-gals:
-	bin/gobuild.sh ${ISTIO_OUT}/gals istio.io/istio/pkg/version ./galley/cmd/gals
+GALLEY_GO_BINS:=${ISTIO_OUT}/galley
+galley:
+	bin/gobuild.sh ${ISTIO_OUT}/galley istio.io/istio/pkg/version ./galley/cmd/galley
 
 $(GALLEY_GO_BINS):
 	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
@@ -331,7 +331,7 @@ $(SECURITY_GO_BINS):
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent istio_ca istioctl galley
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
@@ -351,7 +351,7 @@ node-agent:
 pilot: pilot-discovery
 
 .PHONY: node_agent istio_ca
-node_agent istio_ca: 
+node_agent istio_ca:
 	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS

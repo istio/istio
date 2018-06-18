@@ -17,7 +17,7 @@ package main
 import (
 	"os"
 
-	"istio.io/istio/galley/cmd/gals/cmd"
+	"istio.io/istio/galley/cmd/galley/cmd"
 	"istio.io/istio/galley/cmd/shared"
 )
 
