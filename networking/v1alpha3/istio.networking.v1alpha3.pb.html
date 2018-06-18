@@ -4,7 +4,7 @@ description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 45
+number_of_entries: 46
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -693,11 +693,11 @@ kind: EnvoyFilter
 metadata:
   name: reviews-lua
 spec:
-  selector:
+  workloadLabels:
     app: reviews
   filters:
   - listenerMatch:
-      port: 18080
+      portNumber: 18080
       listenerType: SIDECAR_INBOUND #will match with the listener for the podIP:18080
     filterName: envoy.lua
     filterType: HTTP
@@ -715,8 +715,8 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="EnvoyFilters-selector">
-<td><code>selector</code></td>
+<tr id="EnvoyFilters-workload_labels">
+<td><code>workloadLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels that indicate a specific set of pods/VMs whose
@@ -926,11 +926,23 @@ to be applied to a listener.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="EnvoyFilters-ListenerMatch-port">
-<td><code>port</code></td>
+<tr id="EnvoyFilters-ListenerMatch-port_number">
+<td><code>portNumber</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>Port associated with the listener. If not specified, matches all listeners.</p>
+<p>Port associated with the listener. If not specified, matches all
+listeners.</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilters-ListenerMatch-port_name_prefix">
+<td><code>portNamePrefix</code></td>
+<td><code>string</code></td>
+<td>
+<p>Instead of using specific port numbers, a set of ports matching a
+given port name prefix can be selected. E.g., &ldquo;mongo&rdquo; selects ports
+named mongo-port, mongo, mongoDB, MONGO, etc. Matching is case
+insensitive.</p>
 
 </td>
 </tr>
@@ -945,13 +957,13 @@ matches all listeners.</p>
 </tr>
 <tr id="EnvoyFilters-ListenerMatch-listener_protocol">
 <td><code>listenerProtocol</code></td>
-<td><code>string</code></td>
+<td><code><a href="#EnvoyFilters-ListenerMatch-ListenerProtocol">EnvoyFilters.ListenerMatch.ListenerProtocol</a></code></td>
 <td>
 <p>Selects a class of listeners for the same protocol. If not
 specified, applies to listeners on all protocols. Use the protocol
 selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
 where Envoy terminates TLS) or all TCP listeners (includes HTTPS
-passthrough using SNI). Acceptable values are TCP/HTTP/MONGO.</p>
+passthrough using SNI).</p>
 
 </td>
 </tr>
@@ -961,6 +973,40 @@ passthrough using SNI). Acceptable values are TCP/HTTP/MONGO.</p>
 <td>
 <p>One or more IP addresses to which the listener is bound. If
 specified, should match atleast one address in the list.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="EnvoyFilters-ListenerMatch-ListenerProtocol">EnvoyFilters.ListenerMatch.ListenerProtocol</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="EnvoyFilters-ListenerMatch-ListenerProtocol-ALL">
+<td><code>ALL</code></td>
+<td>
+<p>All protocols</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilters-ListenerMatch-ListenerProtocol-HTTP">
+<td><code>HTTP</code></td>
+<td>
+<p>HTTP or HTTPS (with termination) / HTTP2/gRPC</p>
+
+</td>
+</tr>
+<tr id="EnvoyFilters-ListenerMatch-ListenerProtocol-TCP">
+<td><code>TCP</code></td>
+<td>
+<p>Any non-HTTP listener</p>
 
 </td>
 </tr>

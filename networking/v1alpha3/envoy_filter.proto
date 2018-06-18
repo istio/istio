@@ -39,11 +39,11 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: reviews-lua
 //     spec:
-//       selector:
+//       workloadLabels:
 //         app: reviews
 //       filters:
 //       - listenerMatch:
-//           port: 18080
+//           portNumber: 18080
 //           listenerType: SIDECAR_INBOUND #will match with the listener for the podIP:18080
 //         filterName: envoy.lua
 //         filterType: HTTP
@@ -58,14 +58,21 @@ message EnvoyFilters {
   // example, the scope includes pods running in all reachable
   // namespaces. Omitting the selector applies the filter to all proxies in
   // the mesh.
-  map<string, string> selector = 1;
+  map<string, string> workload_labels = 1;
 
   // Select a listener to add the filter to based on the match conditions.
   // All conditions specified in the ListenerMatch must be met for the filter
   // to be applied to a listener.
   message ListenerMatch {
-    // Port associated with the listener. If not specified, matches all listeners.
-    uint32 port = 1;
+    // Port associated with the listener. If not specified, matches all
+    // listeners.
+    uint32 port_number = 1;
+
+    // Instead of using specific port numbers, a set of ports matching a
+    // given port name prefix can be selected. E.g., "mongo" selects ports
+    // named mongo-port, mongo, mongoDB, MONGO, etc. Matching is case
+    // insensitive.
+    string port_name_prefix = 2;
 
     enum ListenerType {
       // All listeners
@@ -83,18 +90,27 @@ message EnvoyFilters {
 
     // Inbound vs outbound sidecar listener or gateway listener. If not specified,
     // matches all listeners.
-    ListenerType listener_type = 2;
+    ListenerType listener_type = 3;
+
+    enum ListenerProtocol {
+      // All protocols
+      ALL = 0;
+      // HTTP or HTTPS (with termination) / HTTP2/gRPC
+      HTTP = 1;
+      // Any non-HTTP listener
+      TCP = 2;
+    };
 
     // Selects a class of listeners for the same protocol. If not
     // specified, applies to listeners on all protocols. Use the protocol
     // selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
     // where Envoy terminates TLS) or all TCP listeners (includes HTTPS
-    // passthrough using SNI). Acceptable values are TCP/HTTP/MONGO.
-    string listener_protocol = 3;
-    
+    // passthrough using SNI).
+    ListenerProtocol listener_protocol = 4;
+
     // One or more IP addresses to which the listener is bound. If
     // specified, should match atleast one address in the list.
-    repeated string address = 4;
+    repeated string address = 5;
   };
 
   // Indicates the relative index in the filter chain where the filter should be inserted.
