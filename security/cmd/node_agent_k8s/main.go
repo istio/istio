@@ -18,6 +18,7 @@ import (
 	"log"
 
 	"github.com/spf13/cobra"
+<<<<<<< HEAD
 
 	nvm "istio.io/istio/security/pkg/nodeagent/vm"
 )
@@ -31,6 +32,8 @@ const (
 
 	// WorkloadAPIUdsFile is the uds file name for workload api.
 	WorkloadAPIUdsFile string = "/server.sock"
+=======
+>>>>>>> 84e3ddf4c... Remove flexvolume driver, clean up node_agent_k8s dir (#6305)
 )
 
 var (
@@ -39,8 +42,11 @@ var (
 		Use:   "nodeagent",
 		Short: "Node agent",
 	}
+<<<<<<< HEAD
 
 	naConfig nvm.Config
+=======
+>>>>>>> 84e3ddf4c... Remove flexvolume driver, clean up node_agent_k8s dir (#6305)
 )
 
 // Placeholder.

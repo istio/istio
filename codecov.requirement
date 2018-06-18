@@ -198,15 +198,27 @@ istio.io/istio/pkg/test/fakes/policy:0 [0.0]
 istio.io/istio/pkg/tracing:100 [100.0]
 istio.io/istio/pkg/util:55 [57.1]
 istio.io/istio/pkg/version:100 [100.0]
+<<<<<<< HEAD
 istio.io/istio/samples/health-check:0 [0.0]
+=======
+istio.io/istio/security/cmd/generate_cert:0 [0.0]
+istio.io/istio/security/cmd/generate_csr:0 [0.0]
+>>>>>>> 84e3ddf4c... Remove flexvolume driver, clean up node_agent_k8s dir (#6305)
 istio.io/istio/security/cmd/istio_ca:0 [0.0]
 istio.io/istio/security/cmd/node_agent:0 [0.0]
+<<<<<<< HEAD
 istio.io/istio/security/cmd/node_agent/na:90 [92.8]
 istio.io/istio/security/cmd/node_agent_k8s:0 [0.0]
 istio.io/istio/security/pkg/adapter/vault:0 [0.0]
 istio.io/istio/security/pkg/caclient:86 [88.2]
 istio.io/istio/security/pkg/caclient/protocol:40 [42.1]
 istio.io/istio/security/pkg/caclient/protocol/mock:0 [0.0]
+=======
+istio.io/istio/security/cmd/node_agent/na:90 [92.2]
+istio.io/istio/security/pkg/caclient:89 [91.7]
+istio.io/istio/security/pkg/caclient/grpc:91 [93.8]
+istio.io/istio/security/pkg/caclient/grpc/mock:0 [0.0]
+>>>>>>> 84e3ddf4c... Remove flexvolume driver, clean up node_agent_k8s dir (#6305)
 istio.io/istio/security/pkg/cmd:62 [64.3]
 istio.io/istio/security/pkg/credential:0 [0.0]
 istio.io/istio/security/pkg/nodeagent/secrets:81 [83.3]
