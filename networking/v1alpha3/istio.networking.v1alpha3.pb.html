@@ -1495,7 +1495,7 @@ independent of sourceLabels.</p>
 </section>
 <h2 id="HTTPRedirect">HTTPRedirect</h2>
 <section>
-<p>HTTPRedirect can be used to send a 302 redirect response to the caller,
+<p>HTTPRedirect can be used to send a 301 redirect response to the caller,
 where the Authority/Host and the URI in the response can be swapped with
 the specified values. For example, the following rule redirects
 requests for /v1/getProductRatings API on the ratings service to
@@ -1702,7 +1702,7 @@ service version determine the proportion of traffic it receives.</p>
 <p>A http rule can either redirect or forward (default) traffic. If
 traffic passthrough option is specified in the rule,
 route/redirect will be ignored. The redirect primitive can be used to
-send a HTTP 302 redirect to a different URI or Authority.</p>
+send a HTTP 301 redirect to a different URI or Authority.</p>
 
 </td>
 </tr>
