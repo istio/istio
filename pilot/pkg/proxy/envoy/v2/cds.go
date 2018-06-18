@@ -45,6 +45,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 }
 
 func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
+	// TODO: Modify interface to take services, and config instead of making library query registry
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters %v", err)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"reflect"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -62,7 +63,8 @@ type (
 		InputType  string
 		OutputType string
 
-		encoder *messageEncoder
+		TemplateName string
+		encoder      *messageEncoder
 	}
 
 	// TemplateConfig is template configuration
@@ -82,6 +84,11 @@ type (
 func BuildHandler(name string, connConfig *policypb.Connection, sessionBased bool, adapterConfig proto.Marshaler,
 	templateConfig []*TemplateConfig) (hh *Handler, err error) {
 
+	// validate params
+	if connConfig == nil || connConfig.Address == "" {
+		return nil, errors.Errorf("empty connection address")
+	}
+
 	hh = &Handler{
 		Name:       name,
 		svcMap:     make(map[string]*Svc, len(templateConfig)),
@@ -98,7 +105,7 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 		svc = tmplMap[tc.TemplateName]
 		if svc == nil {
 			if svc, err = RemoteAdapterSvc("Handle",
-				protoyaml.NewResolver(tc.FileDescSet), sessionBased, adapterConfig); err != nil {
+				protoyaml.NewResolver(tc.FileDescSet), sessionBased, adapterConfig, tc.TemplateName); err != nil {
 				return nil, err
 			}
 			tmplMap[tc.TemplateName] = svc
@@ -135,11 +142,21 @@ func (h *Handler) connect() (err error) {
 	return nil
 }
 
-func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr proto.Marshaler,
-	dedupID string, resultPtr interface{}, encodedInstances ...[]byte) error {
-	svc := h.svcMap[instanceName]
+func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
+	dedupID string, resultPtr interface{}, encodedInstances ...*adapter.EncodedInstance) error {
+	if len(encodedInstances) == 0 {
+		return errors.New("internal: no instances sent")
+	}
+	svc := h.svcMap[encodedInstances[0].Name]
 	if svc == nil {
-		return errors.Errorf("unable to find instance: %s", instanceName)
+		return errors.Errorf("unable to find instance: %s", encodedInstances[0].Name)
+	}
+
+	for i := 1; i < len(encodedInstances); i++ {
+		if tsvc := h.svcMap[encodedInstances[i].Name]; tsvc == nil || tsvc.TemplateName != svc.TemplateName {
+			return errors.Errorf("template mismatch for %s. got: %s, want: %s", encodedInstances[i].Name,
+				tsvc.TemplateName, svc.TemplateName)
+		}
 	}
 
 	if dedupID == "" {
@@ -153,6 +170,7 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr prot
 	}
 
 	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr); err != nil {
+		handlerLog.Warnf("unable to connect to:%s, %s", svc.GrpcPath(), h.connConfig.Address)
 		return errors.WithStack(err)
 	}
 
@@ -162,10 +180,9 @@ func (h *Handler) handleRemote(ctx context.Context, instanceName string, qr prot
 var _ adapter.RemoteCheckHandler = &Handler{}
 
 // HandleRemoteCheck implements adapter.RemoteCheckHandler api
-func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte,
-	instanceName string) (*adapter.CheckResult, error) {
+func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance *adapter.EncodedInstance) (*adapter.CheckResult, error) {
 	result := &v1beta1.CheckResult{}
-	if err := h.handleRemote(ctx, instanceName, nil, "", result, encodedInstance); err != nil {
+	if err := h.handleRemote(ctx, nil, "", result, encodedInstance); err != nil {
 		return nil, err
 	}
 
@@ -179,31 +196,35 @@ func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance []byte,
 var _ adapter.RemoteReportHandler = &Handler{}
 
 // HandleRemoteReport implements adapter.RemoteReportHandler api
-func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances [][]byte, instanceName string) error {
+func (h *Handler) HandleRemoteReport(ctx context.Context, encodedInstances []*adapter.EncodedInstance) error {
 	// ReportResult is empty and it is ignored
-	return h.handleRemote(ctx, instanceName, nil, "", &v1beta1.ReportResult{}, encodedInstances...)
+	return h.handleRemote(ctx, nil, "", &v1beta1.ReportResult{}, encodedInstances...)
 }
 
 var _ adapter.RemoteQuotaHandler = &Handler{}
 
 // HandleRemoteQuota implements adapter.RemoteQuotaHandler api
-func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte, args *adapter.QuotaArgs,
-	instanceName string) (*adapter.QuotaResult, error) {
+func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance *adapter.EncodedInstance,
+	args *adapter.QuotaArgs) (*adapter.QuotaResult, error) {
 	result := &v1beta1.QuotaResult{}
 	qr := &v1beta1.QuotaRequest{
 		Quotas: map[string]v1beta1.QuotaRequest_QuotaParams{
-			instanceName: {
+			encodedInstance.Name: {
 				Amount:     args.QuotaAmount,
 				BestEffort: args.BestEffort,
 			},
 		},
 	}
 
-	if err := h.handleRemote(ctx, instanceName, qr, args.DeduplicationID, result, encodedInstance); err != nil {
+	if err := h.handleRemote(ctx, qr, args.DeduplicationID, result, encodedInstance); err != nil {
 		return nil, err
 	}
 
-	qRes := result.Quotas[instanceName]
+	qRes, found := result.Quotas[encodedInstance.Name]
+	if !found {
+		return nil, errors.Errorf("remote server did not respond with the requested quota '%s'. quotas granted: %v", encodedInstance.Name, result.Quotas)
+	}
+
 	return &adapter.QuotaResult{
 		ValidDuration: qRes.ValidDuration,
 		Amount:        qRes.GrantedAmount,
@@ -211,7 +232,8 @@ func (h *Handler) HandleRemoteQuota(ctx context.Context, encodedInstance []byte,
 }
 
 // RemoteAdapterSvc returns RemoteAdapter service
-func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool, adapterConfig proto.Marshaler) (*Svc, error) {
+func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bool,
+	adapterConfig proto.Marshaler, templateName string) (*Svc, error) {
 	svc, pkg := res.ResolveService(namePrefix)
 
 	if svc == nil {
@@ -229,12 +251,13 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 	}
 
 	return &Svc{
-		Name:       svc.GetName(),
-		Pkg:        pkg,
-		MethodName: method.GetName(),
-		InputType:  method.GetInputType(),
-		OutputType: method.GetOutputType(),
-		encoder:    me,
+		Name:         svc.GetName(),
+		Pkg:          pkg,
+		MethodName:   method.GetName(),
+		InputType:    method.GetInputType(),
+		OutputType:   method.GetOutputType(),
+		encoder:      me,
+		TemplateName: templateName,
 	}, nil
 }
 
@@ -278,13 +301,16 @@ func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapter
 		},
 	}
 	if !sessionBased {
-		encodedData, err := adapterConfig.Marshal()
-		if err != nil {
-			return nil, err // Any.Marshal() never returns an error.
-		}
-		inputData["adapter_config"] = &staticEncoder{
-			encodedData:   encodedData,
-			includeLength: true,
+		if adapterConfig != nil &&
+			(reflect.ValueOf(adapterConfig).Kind() != reflect.Ptr || !reflect.ValueOf(adapterConfig).IsNil()) {
+			encodedData, err := adapterConfig.Marshal()
+			if err != nil {
+				return nil, err // Any.Marshal() never returns an error.
+			}
+			inputData["adapter_config"] = &staticEncoder{
+				encodedData:   encodedData,
+				includeLength: true,
+			}
 		}
 	}
 
@@ -307,12 +333,12 @@ func (s Svc) GrpcPath() string {
 
 // encodeRequest encodes request using the message encoder. It supports Check, Report and Quota.
 // If qr arg is required when using quota adapter.
-func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances ...[]byte) ([]byte, error) {
+func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances ...*adapter.EncodedInstance) ([]byte, error) {
 	// at most 3 attributes at one time.
 	bag := staticBag{v: make(map[string]interface{}, 3)}
 	size := 0
 	for _, ei := range encodedInstances {
-		size += len(ei)
+		size += len(ei.Data)
 	}
 	// every fields needs up to 3 bytes
 	size += len(s.encoder.fields) * 3
@@ -321,7 +347,7 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 	instField := s.encoder.fields[0]
 	for _, ei := range encodedInstances {
 		var err error
-		bag.v[instanceAttrName] = ei
+		bag.v[instanceAttrName] = ei.Data
 		ba, err = instField.Encode(&bag, ba)
 		if err != nil {
 			return nil, errors.Errorf("fieldEncoder: %s - %v", instField.name, err)

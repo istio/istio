@@ -42,7 +42,7 @@ func TestAdapterCmd(t *testing.T) {
 			templates:    []string{"foo.bar", "foo1.bar1"},
 			// nolint:lll
 			wantCfg: `# this config is created through command
-# mixgen adapter -n myresName -c testdata/simple/foo.descriptor --description mydescription -s=false -t foo.bar -t foo1.bar1
+# mixgen adapter -n myresName -c testdata/simple/foo.descriptor --description mydescription -s=false -t=foo.bar -t=foo1.bar1
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
@@ -136,7 +136,7 @@ func getArgs(td adapterCmdTestdata, fName string) []string {
 		"-s=" + fmt.Sprintf("%v", td.sessionBased),
 	}
 	for _, tmpl := range td.templates {
-		args = append(args, fmt.Sprintf("-t %s", tmpl))
+		args = append(args, fmt.Sprintf("-t=%s", tmpl))
 	}
 	return args
 }

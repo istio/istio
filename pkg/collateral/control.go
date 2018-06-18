@@ -171,7 +171,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if cmd.HasParent() {
-		g.emit("<h2 id=\"", cmd.CommandPath(), "\">", cmd.CommandPath(), "</h2>")
+		g.emit("<h2 id=\"", normalizeID(cmd.CommandPath()), "\">", cmd.CommandPath(), "</h2>")
 	}
 
 	if cmd.Long != "" {
@@ -235,7 +235,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if len(cmd.Example) > 0 {
-		g.emit("<h3 id=\"", cmd.CommandPath(), " Examples\">", "Examples", "</h3>")
+		g.emit("<h3 id=\"", normalizeID(cmd.CommandPath()), " Examples\">", "Examples", "</h3>")
 		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.Example))
 		g.emit("</code></pre>")
 	}
@@ -324,4 +324,9 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 	}
 
 	return
+}
+
+func normalizeID(id string) string {
+	id = strings.Replace(id, " ", "-", -1)
+	return strings.Replace(id, ".", "-", -1)
 }

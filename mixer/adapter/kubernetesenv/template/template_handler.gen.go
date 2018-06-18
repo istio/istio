@@ -64,6 +64,7 @@ const TemplateName = "kubernetes"
 //
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
+// Next ID: 8
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
@@ -79,12 +80,16 @@ type Instance struct {
 
 	// Destination pod's ip.
 	DestinationIp net.IP
+
+	// Destination container's port number.
+	DestinationPort int64
 }
 
 // Output struct is returned by the attribute producing adapters that handle this template.
 //
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+// Next ID: 31
 type Output struct {
 	fieldsSet map[string]bool
 
@@ -123,6 +128,9 @@ type Output struct {
 
 	// Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
 	DestinationPodName string
+
+	// Refers to destination container name. attribute_bindings can refer to this field using $out.destination_container_name
+	DestinationContainerName string
 
 	// Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
 	DestinationLabels map[string]string
@@ -211,6 +219,11 @@ func (o *Output) SetDestinationPodIp(val net.IP) {
 func (o *Output) SetDestinationPodName(val string) {
 	o.fieldsSet["destination_pod_name"] = true
 	o.DestinationPodName = val
+}
+
+func (o *Output) SetDestinationContainerName(val string) {
+	o.fieldsSet["destination_container_name"] = true
+	o.DestinationContainerName = val
 }
 
 func (o *Output) SetDestinationLabels(val map[string]string) {

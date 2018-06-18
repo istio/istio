@@ -273,11 +273,11 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/accesslog/v2",
     "envoy/config/bootstrap/v2",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
     "envoy/config/filter/http/fault/v2",
-    "envoy/config/filter/http/jwt_authn/v2alpha",
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
@@ -290,7 +290,7 @@
     "envoy/type",
     "pkg/util"
   ]
-  revision = "39c73ae5ba014b648d4164a24340a78b6b761978"
+  revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -661,7 +661,7 @@
   branch = "master"
   name = "github.com/istio/tools"
   packages = ["protoc-gen-docs"]
-  revision = "d7fdf1b48501371ede946114e69ac2d73d8e4206"
+  revision = "ca7e3cf34b0ed739c37e2ff50b6ae0632da9911e"
 
 [[projects]]
   name = "github.com/jmespath/go-jmespath"
@@ -1312,7 +1312,9 @@
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
+    "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
+    "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
@@ -1322,7 +1324,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "a29d69c48fdc7587835ed174262dea39491cc120"
+  revision = "1503a62e53fb4a51468936d53ae9f7a5f147ed61"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1620,6 +1622,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "043ced717e08f6cebc7f7ff2364f2bf4c06fe3996c6478ae9947fe01cc322f36"
+  inputs-digest = "5b44e7303a19f4b00e36375c6bb38f454e16381b6b23dd648e88c64747809793"
   solver-name = "gps-cdcl"
   solver-version = 1

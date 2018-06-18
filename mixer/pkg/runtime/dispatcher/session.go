@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
@@ -147,7 +148,7 @@ func (s *session) dispatch() error {
 				if s.variety == tpb.TEMPLATE_VARIETY_QUOTA {
 					// only dispatch instances with a matching name
 
-					if input.InstanceShortName != s.quotaArgs.Quota {
+					if !strings.EqualFold(input.InstanceShortName, s.quotaArgs.Quota) {
 						continue
 					}
 
@@ -220,14 +221,13 @@ func (s *session) waitForDispatched() {
 	var buf *bytes.Buffer
 	code := rpc.OK
 
-	var err error
 	for s.activeDispatches > 0 {
 		state := <-s.completed
 		s.activeDispatches--
 
 		// Aggregate errors
 		if state.err != nil {
-			err = multierror.Append(err, state.err)
+			s.err = multierror.Append(s.err, state.err)
 		}
 
 		st := rpc.Status{Code: int32(rpc.OK)}
@@ -280,7 +280,6 @@ func (s *session) waitForDispatched() {
 
 		s.impl.putDispatchState(state)
 	}
-	s.err = err
 
 	if buf != nil {
 		switch s.variety {

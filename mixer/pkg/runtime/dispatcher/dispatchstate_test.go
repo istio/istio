@@ -34,7 +34,7 @@ func TestDispatchStatePool(t *testing.T) {
 	// Prime the pool
 	states := make([]*dispatchState, 100)
 	for i := 0; i < 100; i++ {
-		s := d.getDispatchState(nil, nil)
+		s := d.getDispatchState(context.TODO(), nil)
 		states[i] = s
 	}
 	for i := 0; i < 100; i++ {
@@ -50,10 +50,12 @@ func TestDispatchStatePool(t *testing.T) {
 		d.putDispatchState(states[i])
 	}
 
-	expected := &dispatchState{}
+	expected := &dispatchState{
+		ctx: context.TODO(),
+	}
 
 	for i := 0; i < 100; i++ {
-		s := d.getDispatchState(nil, nil)
+		s := d.getDispatchState(context.TODO(), nil)
 		if !reflect.DeepEqual(s, expected) {
 			t.Fatalf("mismatch '%+v' != '%+v'", s, expected)
 		}

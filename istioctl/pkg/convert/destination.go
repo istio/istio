@@ -124,12 +124,10 @@ func convertDestinationPolicy(in *v1alpha1.DestinationPolicy) *v1alpha3.Subset {
 
 			// TODO: out.TrafficPolicy.ConnectionPool.Tcp.MaxConnections =
 			out.TrafficPolicy.OutlierDetection = &v1alpha3.OutlierDetection{
-				Http: &v1alpha3.OutlierDetection_HTTPSettings{
-					Interval:           convertGogoDuration(cb.HttpDetectionInterval),
-					ConsecutiveErrors:  cb.HttpConsecutiveErrors,
-					BaseEjectionTime:   convertGogoDuration(cb.SleepWindow),
-					MaxEjectionPercent: cb.HttpMaxEjectionPercent,
-				},
+				Interval:           convertGogoDuration(cb.HttpDetectionInterval),
+				ConsecutiveErrors:  cb.HttpConsecutiveErrors,
+				BaseEjectionTime:   convertGogoDuration(cb.SleepWindow),
+				MaxEjectionPercent: cb.HttpMaxEjectionPercent,
 			}
 		}
 	}

@@ -29,21 +29,21 @@ constructed using the instance &lsquo;RequestCountByService&rsquo;.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Action.handler">
+<tr id="Action-handler">
 <td><code>handler</code></td>
 <td><code>string</code></td>
 <td>
 <p>Required. Fully qualified name of the handler to invoke.
-Must match the <code>name</code> of a <a href="#Handler.name">Handler</a>.</p>
+Must match the <code>name</code> of a <a href="#Handler-name">Handler</a>.</p>
 
 </td>
 </tr>
-<tr id="Action.instances">
+<tr id="Action-instances">
 <td><code>instances</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>Required. Each value must match the fully qualified name of the
-<a href="#Instance.name">Instance</a>s.
+<a href="#Instance-name">Instance</a>s.
 Referenced instances are evaluated by resolving the attributes/literals for all the fields.
 The constructed objects are then passed to the <code>handler</code> referenced within this action.</p>
 
@@ -66,7 +66,7 @@ of an Istio deployment.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="AttributeManifest.revision">
+<tr id="AttributeManifest-revision">
 <td><code>revision</code></td>
 <td><code>string</code></td>
 <td>
@@ -74,7 +74,7 @@ of an Istio deployment.</p>
 
 </td>
 </tr>
-<tr id="AttributeManifest.name">
+<tr id="AttributeManifest-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -84,9 +84,9 @@ the proxy (with the canonical name &ldquo;istio-proxy&rdquo;) or the name of an
 
 </td>
 </tr>
-<tr id="AttributeManifest.attributes">
+<tr id="AttributeManifest-attributes">
 <td><code>attributes</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#AttributeManifest-AttributeInfo">AttributeManifest.AttributeInfo</a>&gt;</code></td>
 <td>
 <p>The set of attributes this Istio component will be responsible for producing at runtime.
 We map from attribute name to the attribute&rsquo;s specification. The name of an attribute,
@@ -108,11 +108,11 @@ request.count-my.component.</p>
 </tbody>
 </table>
 </section>
-<h2 id="AttributeManifest.AttributeInfo">AttributeManifest.AttributeInfo</h2>
+<h2 id="AttributeManifest-AttributeInfo">AttributeManifest.AttributeInfo</h2>
 <section>
 <p>AttributeInfo describes the schema of an Istio <code>Attribute</code>.</p>
 
-<h4 id="istio-attributes">Istio Attributes</h4>
+<h3 id="istio-attributes">Istio Attributes</h3>
 
 <p>Istio uses <code>attributes</code> to describe runtime activities of Istio services.
 An Istio attribute carries a specific piece of information about an activity,
@@ -130,7 +130,7 @@ functionality by collecting, generating, and operating on attributes.
 For example, the proxy collects the error code attribute, and the logging
 stores it into a log.</p>
 
-<h4 id="design">Design</h4>
+<h3 id="design">Design</h3>
 
 <p>Each Istio attribute must conform to an <code>AttributeInfo</code> in an
 <code>AttributeManifest</code> in the current Istio deployment at runtime. An
@@ -144,7 +144,7 @@ specification, because passing attribute using JSON, XML, or Protocol Buffers
 does not change the semantics of the attribute. Different implementations
 can choose different representations based on their needs.</p>
 
-<h4 id="http-mapping">HTTP Mapping</h4>
+<h3 id="http-mapping">HTTP Mapping</h3>
 
 <p>Because many systems already have REST APIs, it makes sense to define a
 standard HTTP mapping for Istio attributes that are compatible with typical
@@ -161,7 +161,7 @@ encoding scheme will be decided later.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="AttributeManifest.AttributeInfo.description">
+<tr id="AttributeManifest-AttributeInfo-description">
 <td><code>description</code></td>
 <td><code>string</code></td>
 <td>
@@ -169,7 +169,7 @@ encoding scheme will be decided later.</p>
 
 </td>
 </tr>
-<tr id="AttributeManifest.AttributeInfo.value_type">
+<tr id="AttributeManifest-AttributeInfo-value_type">
 <td><code>valueType</code></td>
 <td><code><a href="#ValueType">ValueType</a></code></td>
 <td>
@@ -194,7 +194,7 @@ Connection is part of the handler custom resource and is specified alongside ada
 </tr>
 </thead>
 <tbody>
-<tr id="Connection.address">
+<tr id="Connection-address">
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
@@ -208,7 +208,7 @@ Connection is part of the handler custom resource and is specified alongside ada
 <h2 id="DNSName">DNSName</h2>
 <section>
 <p>An instance field of type DNSName denotes that the expression for the field must evalaute to
-<a href="#ValueType.DNS_NAME">ValueType.DNS_NAME</a></p>
+<a href="#ValueType-DNS_NAME">ValueType.DNS_NAME</a></p>
 
 <p>Objects of type DNSName are also passed to the adapters during request-time for the instance fields of
 type DNSName</p>
@@ -222,7 +222,7 @@ type DNSName</p>
 </tr>
 </thead>
 <tbody>
-<tr id="DNSName.value">
+<tr id="DNSName-value">
 <td><code>value</code></td>
 <td><code>string</code></td>
 <td>
@@ -236,7 +236,7 @@ type DNSName</p>
 <h2 id="Duration">Duration</h2>
 <section>
 <p>An instance field of type Duration denotes that the expression for the field must evalaute to
-<a href="#ValueType.DURATION">ValueType.DURATION</a></p>
+<a href="#ValueType-DURATION">ValueType.DURATION</a></p>
 
 <p>Objects of type Duration are also passed to the adapters during request-time for the instance fields of
 type Duration</p>
@@ -250,7 +250,7 @@ type Duration</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Duration.value">
+<tr id="Duration-value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -265,7 +265,7 @@ type Duration</p>
 <section>
 <p>DO NOT USE !! Under Development
 An instance field of type EmailAddress denotes that the expression for the field must evalaute to
-<a href="#ValueType.EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
+<a href="#ValueType-EMAIL_ADDRESS">ValueType.EMAIL_ADDRESS</a></p>
 
 <p>Objects of type EmailAddress are also passed to the adapters during request-time for the instance fields of
 type EmailAddress</p>
@@ -279,7 +279,7 @@ type EmailAddress</p>
 </tr>
 </thead>
 <tbody>
-<tr id="EmailAddress.value">
+<tr id="EmailAddress-value">
 <td><code>value</code></td>
 <td><code>string</code></td>
 <td>
@@ -352,25 +352,39 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Handler.name">
+<tr id="Handler-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action.handler">Actions</a>
+<p>Required. Must be unique in the entire mixer configuration. Used by <a href="#Action-handler">Actions</a>
 to refer to this handler.</p>
 
 </td>
 </tr>
-<tr id="Handler.adapter">
-<td><code>adapter</code></td>
+<tr id="Handler-compiled_adapter">
+<td><code>compiledAdapter</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. The name of a specific adapter implementation. An adapter&rsquo;s
-implementation name is typically a constant in its code.</p>
+<p>Required. The name of the compiled in adapter this handler instantiates. For referencing non compiled-in
+adapters, use the <code>adapter</code> field instead.</p>
+
+<p>The value must match the name of the available adapter Mixer is built with. An adapter&rsquo;s name is typically a
+constant in its code.</p>
 
 </td>
 </tr>
-<tr id="Handler.params">
+<tr id="Handler-adapter">
+<td><code>adapter</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of a specific adapter implementation. For referencing compiled-in
+adapters, use the <code>compiled_adapter</code> field instead.</p>
+
+<p>An adapter&rsquo;s implementation name is typically a constant in its code.</p>
+
+</td>
+</tr>
+<tr id="Handler-params">
 <td><code>params</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
 <td>
@@ -379,7 +393,7 @@ proto defined by the adapter implementation; this varies depending on the value 
 
 </td>
 </tr>
-<tr id="Handler.connection">
+<tr id="Handler-connection">
 <td><code>connection</code></td>
 <td><code><a href="#Connection">Connection</a></code></td>
 <td>
@@ -394,7 +408,7 @@ This is used if the adapter is not compiled into Mixer binary and is running as 
 <h2 id="IPAddress">IPAddress</h2>
 <section>
 <p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
-<a href="#ValueType.IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
+<a href="#ValueType-IP_ADDRESS">ValueType.IP_ADDRESS</a></p>
 
 <p>Objects of type IPAddress are also passed to the adapters during request-time for the instance fields of
 type IPAddress</p>
@@ -408,7 +422,7 @@ type IPAddress</p>
 </tr>
 </thead>
 <tbody>
-<tr id="IPAddress.value">
+<tr id="IPAddress-value">
 <td><code>value</code></td>
 <td><code>bytes</code></td>
 <td>
@@ -450,7 +464,7 @@ Instances produced with this instance can be referenced by <a href="#Action">Act
 </tr>
 </thead>
 <tbody>
-<tr id="Instance.name">
+<tr id="Instance-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -461,16 +475,29 @@ to an instance produced by this instance.</p>
 
 </td>
 </tr>
-<tr id="Instance.template">
-<td><code>template</code></td>
+<tr id="Instance-compiled_template">
+<td><code>compiledTemplate</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. The name of the template this instance creates instances for.
-The value must match the name of the available template in scope.</p>
+<p>Required. The name of the compiled in template this instance creates instances for. For referencing non compiled-in
+templates, use the <code>template</code> field instead.</p>
+
+<p>The value must match the name of the available template Mixer is built with.</p>
 
 </td>
 </tr>
-<tr id="Instance.params">
+<tr id="Instance-template">
+<td><code>template</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The name of the template this instance creates instances for. For referencing compiled-in
+templates, use the <code>compiled_template</code> field instead.</p>
+
+<p>The value must match the name of the available template in scope.</p>
+
+</td>
+</tr>
+<tr id="Instance-params">
 <td><code>params</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
 <td>
@@ -506,7 +533,7 @@ instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Rule.match">
+<tr id="Rule-match">
 <td><code>match</code></td>
 <td><code>string</code></td>
 <td>
@@ -526,7 +553,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 
 </td>
 </tr>
-<tr id="Rule.actions">
+<tr id="Rule-actions">
 <td><code>actions</code></td>
 <td><code><a href="#Action">Action[]</a></code></td>
 <td>
@@ -540,7 +567,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 <h2 id="TimeStamp">TimeStamp</h2>
 <section>
 <p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
-<a href="#ValueType.TIMESTAMP">ValueType.TIMESTAMP</a></p>
+<a href="#ValueType-TIMESTAMP">ValueType.TIMESTAMP</a></p>
 
 <p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
 type TimeStamp</p>
@@ -554,7 +581,7 @@ type TimeStamp</p>
 </tr>
 </thead>
 <tbody>
-<tr id="TimeStamp.value">
+<tr id="TimeStamp-value">
 <td><code>value</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>
@@ -569,7 +596,7 @@ type TimeStamp</p>
 <section>
 <p>DO NOT USE !! Under Development
 An instance field of type Uri denotes that the expression for the field must evalaute to
-<a href="#ValueType.URI">ValueType.URI</a></p>
+<a href="#ValueType-URI">ValueType.URI</a></p>
 
 <p>Objects of type Uri are also passed to the adapters during request-time for the instance fields of
 type Uri</p>
@@ -583,7 +610,7 @@ type Uri</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Uri.value">
+<tr id="Uri-value">
 <td><code>value</code></td>
 <td><code>string</code></td>
 <td>
@@ -615,7 +642,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 </tr>
 </thead>
 <tbody>
-<tr id="Value.string_value" class="oneof oneof-start">
+<tr id="Value-string_value" class="oneof oneof-start">
 <td><code>stringValue</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -623,7 +650,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.int64_value" class="oneof">
+<tr id="Value-int64_value" class="oneof">
 <td><code>int64Value</code></td>
 <td><code>int64 (oneof)</code></td>
 <td>
@@ -631,7 +658,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.double_value" class="oneof">
+<tr id="Value-double_value" class="oneof">
 <td><code>doubleValue</code></td>
 <td><code>double (oneof)</code></td>
 <td>
@@ -639,7 +666,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.bool_value" class="oneof">
+<tr id="Value-bool_value" class="oneof">
 <td><code>boolValue</code></td>
 <td><code>bool (oneof)</code></td>
 <td>
@@ -647,7 +674,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.ip_address_value" class="oneof">
+<tr id="Value-ip_address_value" class="oneof">
 <td><code>ipAddressValue</code></td>
 <td><code><a href="#IPAddress">IPAddress (oneof)</a></code></td>
 <td>
@@ -655,7 +682,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.timestamp_value" class="oneof">
+<tr id="Value-timestamp_value" class="oneof">
 <td><code>timestampValue</code></td>
 <td><code><a href="#TimeStamp">TimeStamp (oneof)</a></code></td>
 <td>
@@ -663,7 +690,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.duration_value" class="oneof">
+<tr id="Value-duration_value" class="oneof">
 <td><code>durationValue</code></td>
 <td><code><a href="#Duration">Duration (oneof)</a></code></td>
 <td>
@@ -671,7 +698,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.email_address_value" class="oneof">
+<tr id="Value-email_address_value" class="oneof">
 <td><code>emailAddressValue</code></td>
 <td><code><a href="#EmailAddress">EmailAddress (oneof)</a></code></td>
 <td>
@@ -679,7 +706,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.dns_name_value" class="oneof">
+<tr id="Value-dns_name_value" class="oneof">
 <td><code>dnsNameValue</code></td>
 <td><code><a href="#DNSName">DNSName (oneof)</a></code></td>
 <td>
@@ -687,7 +714,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="Value.uri_value" class="oneof">
+<tr id="Value-uri_value" class="oneof">
 <td><code>uriValue</code></td>
 <td><code><a href="#Uri">Uri (oneof)</a></code></td>
 <td>
@@ -713,84 +740,84 @@ fields of other descriptors.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ValueType.VALUE_TYPE_UNSPECIFIED">
+<tr id="ValueType-VALUE_TYPE_UNSPECIFIED">
 <td><code>VALUE_TYPE_UNSPECIFIED</code></td>
 <td>
 <p>Invalid, default value.</p>
 
 </td>
 </tr>
-<tr id="ValueType.STRING">
+<tr id="ValueType-STRING">
 <td><code>STRING</code></td>
 <td>
 <p>An undiscriminated variable-length string.</p>
 
 </td>
 </tr>
-<tr id="ValueType.INT64">
+<tr id="ValueType-INT64">
 <td><code>INT64</code></td>
 <td>
 <p>An undiscriminated 64-bit signed integer.</p>
 
 </td>
 </tr>
-<tr id="ValueType.DOUBLE">
+<tr id="ValueType-DOUBLE">
 <td><code>DOUBLE</code></td>
 <td>
 <p>An undiscriminated 64-bit floating-point value.</p>
 
 </td>
 </tr>
-<tr id="ValueType.BOOL">
+<tr id="ValueType-BOOL">
 <td><code>BOOL</code></td>
 <td>
 <p>An undiscriminated boolean value.</p>
 
 </td>
 </tr>
-<tr id="ValueType.TIMESTAMP">
+<tr id="ValueType-TIMESTAMP">
 <td><code>TIMESTAMP</code></td>
 <td>
 <p>A point in time.</p>
 
 </td>
 </tr>
-<tr id="ValueType.IP_ADDRESS">
+<tr id="ValueType-IP_ADDRESS">
 <td><code>IP_ADDRESS</code></td>
 <td>
 <p>An IP address.</p>
 
 </td>
 </tr>
-<tr id="ValueType.EMAIL_ADDRESS">
+<tr id="ValueType-EMAIL_ADDRESS">
 <td><code>EMAIL_ADDRESS</code></td>
 <td>
 <p>An email address.</p>
 
 </td>
 </tr>
-<tr id="ValueType.URI">
+<tr id="ValueType-URI">
 <td><code>URI</code></td>
 <td>
 <p>A URI.</p>
 
 </td>
 </tr>
-<tr id="ValueType.DNS_NAME">
+<tr id="ValueType-DNS_NAME">
 <td><code>DNS_NAME</code></td>
 <td>
 <p>A DNS name.</p>
 
 </td>
 </tr>
-<tr id="ValueType.DURATION">
+<tr id="ValueType-DURATION">
 <td><code>DURATION</code></td>
 <td>
 <p>A span between two points in time.</p>
 
 </td>
 </tr>
-<tr id="ValueType.STRING_MAP">
+<tr id="ValueType-STRING_MAP">
 <td><code>STRING_MAP</code></td>
 <td>
 <p>A map string -&gt; string, typically used by headers.</p>
