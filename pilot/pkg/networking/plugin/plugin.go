@@ -62,6 +62,7 @@ type InputParams struct {
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
 	// Service is the service colocated with the listener (applies to sidecar).
+	// For outbound TCP listeners, it is the destination service.
 	Service *model.Service
 }
 

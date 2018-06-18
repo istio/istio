@@ -75,15 +75,15 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		m := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
+		filter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, m)
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		m := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node)
+		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, m)
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
 		return nil
 	}
@@ -118,15 +118,15 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 	switch in.ListenerType {
 	case plugin.ListenerTypeHTTP:
-		m := buildInboundHTTPFilter(in.Env.Mesh, in.Node, attrs)
+		filter := buildInboundHTTPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, m)
+			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
 	case plugin.ListenerTypeTCP:
-		m := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
+		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
 		for cnum := range mutable.FilterChains {
-			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, m)
+			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
 		return nil
 	}
@@ -192,10 +192,6 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	disableCheckCalls := true /* TODO: enable client-side checks */
-	if node.Type == model.Router {
-		disableCheckCalls = false
-	}
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
@@ -206,7 +202,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 			DefaultDestinationService: UnknownDestination,
 			ServiceConfigs: map[string]*mccpb.ServiceConfig{
 				UnknownDestination: {
-					DisableCheckCalls: disableCheckCalls,
+					DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 					MixerAttributes: &mpb.Attributes{Attributes: attributes{ // TODO: fall through destination service, should be set in routes
 						"destination.service": attrStringValue(UnknownDestination),
 					}},
@@ -262,18 +258,17 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	return out
 }
 
-func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy) listener.Filter {
-	disableCheckCalls := true /* TODO: enable client-side checks */
-	if node.Type == model.Router {
-		disableCheckCalls = false
-	}
-	// TODO(rshriram): set destination service for TCP outbound requires parsing the struct config
+func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) listener.Filter {
 	attrs := attrsCopy(attrsIn)
-	addDestinationServiceAttributes(attrs, UnknownDestination, node.Domain)
+	if destination != nil {
+		addDestinationServiceAttributes(attrs, string(destination.Hostname), node.Domain)
+	} else {
+		addDestinationServiceAttributes(attrs, UnknownDestination, node.Domain)
+	}
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
-			DisableCheckCalls: disableCheckCalls,
+			DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 			Transport:         buildTransport(mesh, attrUID(node)),
 		}),
@@ -323,6 +318,19 @@ func nameAndNamespace(serviceHostname, proxyDomain string) (name, namespace stri
 	}
 
 	return serviceHostname, ""
+}
+
+func disableClientPolicyChecks(mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
+	if mesh.DisablePolicyChecks {
+		return true
+	}
+	if node.Type == model.Router {
+		return false
+	}
+	if mesh.EnableClientSidePolicyCheck {
+		return false
+	}
+	return true
 }
 
 func attrStringValue(value string) attribute {
