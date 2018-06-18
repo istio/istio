@@ -35,7 +35,7 @@ var baseSingleCheckSetup = perf.Setup{
 		SingleThreaded:          true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicCheck{
@@ -47,7 +47,7 @@ var baseSingleCheckSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Single_Check(b *testing.B) {
