@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -30,7 +31,6 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
-	"path"
 )
 
 func adapterCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -136,7 +136,7 @@ spec:
 		}
 
 		if s.IsDir() {
-			outPath = path.Join(outPath, adapterObj.Name + ".yaml")
+			outPath = path.Join(outPath, adapterObj.Name+".yaml")
 		}
 
 		if err = ioutil.WriteFile(outPath, w.Bytes(), 0644); err != nil {
