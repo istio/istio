@@ -20,6 +20,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -36,9 +38,12 @@ func TestGetSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	proxyID := "proxy1-id"
 	jwtToken := "jwtToken1"
-	gotSecret, err := sc.GetSecret(proxyID, jwtToken)
+	proxy := model.Proxy{
+		ID:        "id1",
+		IPAddress: "10.12.1.5",
+	}
+	gotSecret, err := sc.GetSecret(proxy, jwtToken)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -46,9 +51,9 @@ func TestGetSecret(t *testing.T) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
-	cachedSecret, found := sc.secrets.Load(proxyID)
+	cachedSecret, found := sc.secrets.Load(proxy.ID)
 	if !found {
-		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxyID, err)
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxy.ID, err)
 	}
 	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
 		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
@@ -56,7 +61,7 @@ func TestGetSecret(t *testing.T) {
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
 	jwtToken = "newToken"
-	gotSecret, err = sc.GetSecret(proxyID, jwtToken)
+	gotSecret, err = sc.GetSecret(proxy, jwtToken)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -69,7 +74,7 @@ func TestGetSecret(t *testing.T) {
 	retries := 0
 	for ; retries < 3; retries++ {
 		time.Sleep(wait)
-		if _, found := sc.secrets.Load(proxyID); found {
+		if _, found := sc.secrets.Load(proxy.ID); found {
 			// Retry after some sleep.
 			wait *= 2
 			continue
@@ -91,9 +96,12 @@ func TestRefreshSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	proxyID := "proxy1-id"
 	jwtToken := "jwtToken1"
-	_, err := sc.GetSecret(proxyID, jwtToken)
+	proxy := model.Proxy{
+		ID:        "id1",
+		IPAddress: "10.12.1.5",
+	}
+	_, err := sc.GetSecret(proxy, jwtToken)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
