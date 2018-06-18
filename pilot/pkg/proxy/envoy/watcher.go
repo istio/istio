@@ -16,7 +16,10 @@ package envoy
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -115,7 +118,12 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	w.agent.ScheduleConfigUpdate(nil)
+	h := sha256.New()
+	for _, cert := range w.certs {
+		generateCertHash(h, cert.Directory, cert.Files)
+	}
+
+	w.agent.ScheduleConfigUpdate(h.Sum(nil))
 }
 
 // retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
@@ -202,6 +210,24 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 		}
 	}
 	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
+}
+
+func generateCertHash(h hash.Hash, certsDir string, files []string) {
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		return
+	}
+
+	for _, file := range files {
+		filename := path.Join(certsDir, file)
+		bs, err := ioutil.ReadFile(filename)
+		if err != nil {
+			// log.Warnf("failed to read file %q", filename)
+			continue
+		}
+		if _, err := h.Write(bs); err != nil {
+			log.Warna(err)
+		}
+	}
 }
 
 const (
