@@ -153,7 +153,7 @@ func (s *Server) StreamAggregatedResources(stream discovery.AggregatedDiscoveryS
 		select {
 		case resp, more := <-con.responseC:
 			if !more || resp == nil {
-				return status.Errorf(codes.Unavailable, "server caneled watch: more=%v resp=%v",
+				return status.Errorf(codes.Unavailable, "server canceled watch: more=%v resp=%v",
 					more, resp)
 			}
 			if err := con.pushServerResponse(resp); err != nil {
@@ -261,7 +261,7 @@ func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error 
 			watch.nonce = nonce
 		}
 	} else {
-		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) errror=%#v",
+		scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (watch.nonce=%q) error=%#v",
 			con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, watch.nonce, req.ErrorDetail)
 	}
 	return nil
