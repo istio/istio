@@ -43,8 +43,7 @@ const (
 
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy to SDS.
-	// TODO(quanlin): update value after confirming what headerKey that client side uses.
-	credentialTokenHeaderKey = "access_token"
+	credentialTokenHeaderKey = "authorization"
 )
 
 var (
@@ -88,8 +87,6 @@ type sdsConnection struct {
 
 type sdsservice struct {
 	st SecretManager
-	//TODO(quanlin), add below properties later:
-	//1. workloadRegistry(store proxies information).
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
