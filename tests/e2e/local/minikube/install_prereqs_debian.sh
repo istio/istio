@@ -33,11 +33,14 @@ echo "Installing KVM2 as required"
 sudo apt-get install libvirt-bin
 sudo apt-get install libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
 sudo apt-get install qemu-kvm
-sudo usermod -a -G libvirtd $(whoami)
-newgrp libvirtd
+sudo systemctl stop libvirtd
+sudo systemctl start libvirtd
+sudo usermod -a -G libvirt $(whoami)
 curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
-sudo virsh net-autostart default
-sudo virsh net-start default
+# We run following commands only for making scripts resilient to failures. Hence
+# ignoring any errors from them too.
+sudo virsh net-autostart default > /dev/null 2>&1
+sudo virsh net-start default > /dev/null 2>&1
 
 # Install kubectl
 echo "Checking and Installing Kubectl as required"
@@ -68,6 +71,7 @@ if [[ $? -ne 0 || (`minikube version` != *"minikube version: v0.27.0"*) ]]; then
   if [ $? -eq 0]; then
     echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
     minikube delete
+    rm -rf ~/.minikube
   fi
   curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
   if [ $? -ne 0 ]; then
