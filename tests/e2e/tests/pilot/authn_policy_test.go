@@ -21,7 +21,13 @@ import (
 )
 
 func TestMTlsWithAuthNPolicy(t *testing.T) {
-	// This policy will enable mTLS globally. Policy should be in 'istio-global-config' namespace
+	if tc.Kube.AuthEnabled {
+		// mTLS is now enabled via CRDs, so this test is no longer needed (and could cause trouble due
+		// to conflicts of policies)
+		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
+		t.Skipf("Skipping %s: authn=true", t.Name())
+	}
+	// This policy will enable mTLS globally (mesh policy)
 	globalCfg := &deployableConfig{
 		Namespace:  "", // Use blank for cluster CRD.
 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
