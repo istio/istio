@@ -124,6 +124,18 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 		},
 	}
 
+	if e.UID != "" {
+		ep.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*types.Struct{
+				"mixer": &types.Struct{
+					Fields: map[string]*types.Value{
+						"uid": &types.Value{Kind: &types.Value_StringValue{StringValue: e.UID}},
+					},
+				},
+			},
+		}
+	}
+
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }

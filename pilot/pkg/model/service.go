@@ -286,6 +286,9 @@ type NetworkEndpoint struct {
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
 	ServicePort *Port
+
+	// Defines a platform-specific workload instance identifier (optional).
+	UID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
