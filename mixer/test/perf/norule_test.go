@@ -36,14 +36,14 @@ var baseNoRuleReportSetup = perf.Setup{
 		SingleThreaded:          true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
 				Attributes: map[string]interface{}{},
 			},
 		},
-	},
+	}},
 }
 
 var baseNoRuleCheckSetup = perf.Setup{
@@ -56,14 +56,14 @@ var baseNoRuleCheckSetup = perf.Setup{
 		SingleThreaded:          true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicCheck{
 				Attributes: map[string]interface{}{},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_NoRule_Report(b *testing.B) {

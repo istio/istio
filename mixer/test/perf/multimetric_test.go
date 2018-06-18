@@ -35,7 +35,7 @@ var baseMultiMetricSetup = perf.Setup{
 		SingleThreaded:          true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -49,7 +49,7 @@ var baseMultiMetricSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Multi_Metric(b *testing.B) {

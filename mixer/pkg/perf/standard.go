@@ -31,7 +31,7 @@ var MinimalConfig = Config{
 // MinimalSetup is a very basic setup, mainly useful for testing the perf infrastructure itself.
 var MinimalSetup = Setup{
 	Config: MinimalConfig,
-	Load: Load{
+	Loads: []Load{{
 		Multiplier:  100,
 		StableOrder: false,
 		Requests: []Request{
@@ -61,7 +61,7 @@ var MinimalSetup = Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 const (

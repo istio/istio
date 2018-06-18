@@ -35,7 +35,7 @@ var baseSingleMetricSetup = perf.Setup{
 		SingleThreaded:          true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -49,7 +49,7 @@ var baseSingleMetricSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Single_Metric(b *testing.B) {
