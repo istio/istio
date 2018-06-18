@@ -22,6 +22,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 
@@ -41,10 +42,6 @@ type attribute = *mpb.Attributes_AttributeValue
 type attributes map[string]attribute
 
 const (
-	// UnknownDestination is set for cases when the destination service cannot be determined.
-	// This is necessary since Mixer scopes config by the destination service.
-	UnknownDestination = "unknown"
-
 	//mixerPortName       = "grpc-mixer"
 	// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
 	mixerPortNumber = 9091
@@ -146,8 +143,13 @@ func (mixerplugin) OnInboundCluster(env model.Environment, node model.Proxy, ser
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// TODO: set destination service on routes
-	// TODO: not called for gateways ATM
+	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
+		host := routeConfiguration.VirtualHosts[i]
+		for j := 0; j < len(host.Routes); j++ {
+			host.Routes[j] = modifyOutboundRouteConfig(in, host.Routes[j])
+		}
+		routeConfiguration.VirtualHosts[i] = host
+	}
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
@@ -159,10 +161,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			host := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(host.Routes); j++ {
 				route := host.Routes[j]
-				if route.PerFilterConfig == nil {
-					route.PerFilterConfig = make(map[string]*types.Struct)
-				}
-				route.PerFilterConfig[mixer] = util.MessageToStruct(buildInboundRouteConfig(in, in.ServiceInstance))
+				route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in, in.ServiceInstance))
 				host.Routes[j] = route
 			}
 			routeConfiguration.VirtualHosts[i] = host
@@ -199,37 +198,65 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 			ForwardAttributes: &mpb.Attributes{Attributes: attributes{
 				"source.uid": attrUID(node),
 			}},
-			DefaultDestinationService: UnknownDestination,
-			ServiceConfigs: map[string]*mccpb.ServiceConfig{
-				UnknownDestination: {
-					DisableCheckCalls: disableClientPolicyChecks(mesh, node),
-					MixerAttributes: &mpb.Attributes{Attributes: attributes{ // TODO: fall through destination service, should be set in routes
-						"destination.service": attrStringValue(UnknownDestination),
-					}},
-				},
-			},
 			Transport: buildTransport(mesh, attrUID(node)),
 		}),
 	}
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
+	ingress := "ingress"
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-			DefaultDestinationService: UnknownDestination,
+			DefaultDestinationService: ingress,
 			ServiceConfigs: map[string]*mccpb.ServiceConfig{
-				UnknownDestination: {
+				ingress: {
 					DisableCheckCalls: mesh.DisablePolicyChecks,
-					MixerAttributes: &mpb.Attributes{Attributes: attributes{ // TODO: fall through destination services, should be set in routes
-						"destination.service": attrStringValue(UnknownDestination),
-					}},
 				},
 			},
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
 			Transport:       buildTransport(mesh, attrUID(node)),
 		}),
 	}
+}
+
+func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) route.Route {
+	// default config, to be overridden by per-weighted cluster
+	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+		DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
+	})
+	switch action := httpRoute.Action.(type) {
+	case *route.Route_Route:
+		switch upstreams := action.Route.ClusterSpecifier.(type) {
+		case *route.RouteAction_Cluster:
+			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
+			attrs := make(attributes)
+			addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
+			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+				DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
+				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+			})
+		case *route.RouteAction_WeightedClusters:
+			for _, weighted := range upstreams.WeightedClusters.Clusters {
+				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
+				attrs := make(attributes)
+				addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
+				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
+					DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
+					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+				})
+			}
+		case *route.RouteAction_ClusterHeader:
+		default:
+			log.Warn("Unknown cluster type in mixer#OnOutboundRouteConfiguration")
+		}
+	case *route.Route_Redirect, *route.Route_DirectResponse:
+	default:
+		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
+	}
+	return httpRoute
 }
 
 func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
@@ -262,8 +289,6 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
 		addDestinationServiceAttributes(attrs, string(destination.Hostname), node.Domain)
-	} else {
-		addDestinationServiceAttributes(attrs, UnknownDestination, node.Domain)
 	}
 	return listener.Filter{
 		Name: mixer,
@@ -275,16 +300,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrsIn attributes, instances []*model.ServiceInstance) listener.Filter {
-	attrs := attrsCopy(attrsIn)
-	// TODO(rshriram): pick a single service for TCP destination workload. This needs to be removed once mixer config resolution
-	// can scope by workload namespace. The choice of destination service should not be made here!
-	destination := UnknownDestination
-	if len(instances) > 0 {
-		destination = instances[0].Service.Hostname.String()
-	}
-	addDestinationServiceAttributes(attrs, destination, node.Domain)
-
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes, instances []*model.ServiceInstance) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
@@ -295,7 +311,18 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs
 	}
 }
 
+func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+	if filterConfigs == nil {
+		filterConfigs = make(map[string]*types.Struct)
+	}
+	filterConfigs[mixer] = util.MessageToStruct(config)
+	return filterConfigs
+}
+
 func addDestinationServiceAttributes(attrs attributes, destinationHostname, domain string) {
+	if destinationHostname == "" {
+		return
+	}
 	svcName, svcNamespace := nameAndNamespace(destinationHostname, domain)
 	attrs["destination.service"] = attrStringValue(destinationHostname) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(destinationHostname)
