@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+	ca "istio.io/istio/security/pkg/nodeagent/caClient"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -35,19 +36,13 @@ const keySize = 2048
 // The flag is used in unit test.
 var skipTokenExpireCheck = true
 
-// CAClient interface defines the clients need to implement to talk to CA for CSR.
-// TODO(quanlin): CAClient here is a placeholder, will move it to separated pkg.
-type CAClient interface {
-	CSRSign(csrPEM []byte /*PEM-encoded certificate request*/, subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
-}
-
 // SecretCache is the in-memory cache for secrets.
 type SecretCache struct {
 	// secrets map is the cache for secrets.
 	// map key is Envoy instance ID, map value is secretItem.
 	secrets        sync.Map
 	rotationTicker *time.Ticker
-	caClient       CAClient
+	caClient       ca.Client
 	closing        chan bool
 
 	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
@@ -64,7 +59,7 @@ type SecretCache struct {
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl CAClient, secretTTL, rotationInterval, evictionDuration time.Duration) *SecretCache {
+func NewSecretCache(cl ca.Client, secretTTL, rotationInterval, evictionDuration time.Duration) *SecretCache {
 	ret := &SecretCache{
 		caClient:         cl,
 		rotationInterval: rotationInterval,
