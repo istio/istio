@@ -30,10 +30,15 @@ func Test_Syncz(t *testing.T) {
 		_ = initLocalPilotTestEnv(t)
 		adsstr := connectADS(t, util.MockPilotGrpcAddr)
 		defer adsstr.CloseSend()
-		sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, adsstr)
-		_, err := adsReceive(adsstr, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
+		sendCDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
+		sendLDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
+		sendRDSReq(t, sidecarId(app3Ip, "app3"), []string{"80", "8080"}, adsstr)
+		sendEDSReq(t, []string{}, app3Ip, adsstr)
+		for i := 0; i < 4; i++ {
+			_, err := adsReceive(adsstr, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv failed", err)
+			}
 		}
 		req, err := http.NewRequest("GET", "/debug", nil)
 		if err != nil {
@@ -50,11 +55,29 @@ func Test_Syncz(t *testing.T) {
 			if ss.ProxyID == "" {
 				t.Errorf("%v sent not set", i)
 			}
-			if ss.Sent == "" {
-				t.Errorf("%v sent not set", i)
+			if ss.ClusterSent == "" {
+				t.Errorf("%v cluster sent not set", i)
 			}
-			if ss.Acked == "" {
-				t.Errorf("%v acked not set", i)
+			if ss.ClusterAcked == "" {
+				t.Errorf("%v cluster acked not set", i)
+			}
+			if ss.ListenerSent == "" {
+				t.Errorf("%v listener sent not set", i)
+			}
+			if ss.ListenerAcked == "" {
+				t.Errorf("%v listener acked not set", i)
+			}
+			if ss.RouteSent == "" {
+				t.Errorf("%v route sent not set", i)
+			}
+			if ss.RouteAcked == "" {
+				t.Errorf("%v route acked not set", i)
+			}
+			if ss.EndpointSent == "" {
+				t.Errorf("%v endpoint sent not set", i)
+			}
+			if ss.EndpointAcked == "" {
+				t.Errorf("%v endpoint acked not set", i)
 			}
 		}
 	})
