@@ -308,6 +308,30 @@ func TestKubegen_Generate(t *testing.T) {
 	replicaSetToReplicaSetOut.SetDestinationWorkloadNamespace("testns")
 	replicaSetToReplicaSetOut.SetDestinationWorkloadUid("istio://testns/workloads/test-replicaset-without-deployment")
 
+	containerNameIn := &kubernetes_apa_tmpl.Instance{
+		DestinationUid:  "kubernetes://pod-with-container.testns",
+		DestinationPort: 234,
+		SourceIp:        net.ParseIP("192.168.234.3"),
+	}
+
+	containerNameOut := kubernetes_apa_tmpl.NewOutput()
+	containerNameOut.SetSourceLabels(map[string]string{"app": "ipAddr"})
+	containerNameOut.SetSourceNamespace("testns")
+	containerNameOut.SetSourcePodName("ip-svc-pod")
+	containerNameOut.SetSourcePodIp(net.ParseIP("192.168.234.3"))
+	containerNameOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
+	containerNameOut.SetSourceWorkloadName("test-deployment")
+	containerNameOut.SetSourceWorkloadNamespace("testns")
+	containerNameOut.SetSourceWorkloadUid("istio://testns/workloads/test-deployment")
+	containerNameOut.SetDestinationLabels(map[string]string{"app": "container"})
+	containerNameOut.SetDestinationNamespace("testns")
+	containerNameOut.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-container-deployment")
+	containerNameOut.SetDestinationPodName("pod-with-container")
+	containerNameOut.SetDestinationContainerName("container1")
+	containerNameOut.SetDestinationWorkloadName("test-container-deployment")
+	containerNameOut.SetDestinationWorkloadNamespace("testns")
+	containerNameOut.SetDestinationWorkloadUid("istio://testns/workloads/test-container-deployment")
+
 	tests := []struct {
 		name   string
 		inputs *kubernetes_apa_tmpl.Instance
@@ -322,6 +346,7 @@ func TestKubegen_Generate(t *testing.T) {
 		{"ip-svc-pod to replicaset", ipToReplicaSetSvcIn, ipToReplicaSetSvcOut, conf},
 		{"replicasets with no deployments", replicasetToReplicaSetIn, replicaSetToReplicaSetOut, conf},
 		{"not-k8s", notKubernetesIn, kubernetes_apa_tmpl.NewOutput(), conf},
+		{"ip-svc-pod to pod-with-container", containerNameIn, containerNameOut, conf},
 	}
 
 	for _, v := range tests {
@@ -403,6 +428,20 @@ var k8sobjs = []runtime.Object{
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-deployment",
+				},
+			},
+		},
+	},
+	&appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-container-name",
+			Namespace: "testns",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Controller: &trueVar,
+					Kind:       "Deployment",
+					Name:       "test-container-deployment",
 				},
 			},
 		},
@@ -574,5 +613,26 @@ var k8sobjs = []runtime.Object{
 			},
 		},
 		Status: v1.PodStatus{PodIP: "192.168.234.3"},
+	},
+	&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-with-container",
+			Namespace: "testns",
+			Labels:    map[string]string{"app": "container"},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "apps/v1",
+					Controller: &trueVar,
+					Kind:       "ReplicaSet",
+					Name:       "test-container-name",
+				},
+			},
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{Name: "container1", Ports: []v1.ContainerPort{{ContainerPort: 123}, {ContainerPort: 234}}},
+				{Name: "container2", Ports: []v1.ContainerPort{{ContainerPort: 80}}},
+			},
+		},
 	},
 }

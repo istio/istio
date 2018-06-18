@@ -101,6 +101,7 @@ func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_Stream
 
 func sendEDSReq(t *testing.T, clusters []string, ip string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(ip, "app3"),
 		},
@@ -130,8 +131,9 @@ func sendEDSReqReconnect(t *testing.T, clusters []string,
 	}
 }
 
-func sendLDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},
@@ -141,8 +143,22 @@ func sendLDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService
 	}
 }
 
+func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:       v2.RouteType,
+		ResourceNames: routes})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
 func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
 			Id: node,
 		},

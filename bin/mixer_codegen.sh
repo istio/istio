@@ -211,3 +211,8 @@ fi
 if [ ! -z "$err" ]; then 
   die "generation failure: $err"; 
 fi
+
+err=`$protoc $IMPORTS $PLUGIN --include_imports --include_source_info --descriptor_set_out=${file}_descriptor $file`
+if [ ! -z "$err" ]; then
+die "config generation failure: $err";
+fi

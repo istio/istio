@@ -269,6 +269,7 @@
     "envoy/api/v2/endpoint",
     "envoy/api/v2/listener",
     "envoy/api/v2/route",
+    "envoy/config/accesslog/v2",
     "envoy/config/bootstrap/v2",
     "envoy/config/filter/accesslog/v2",
     "envoy/config/filter/fault/v2",
@@ -285,7 +286,7 @@
     "envoy/type",
     "pkg/util"
   ]
-  revision = "39c73ae5ba014b648d4164a24340a78b6b761978"
+  revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -1307,6 +1308,7 @@
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
+    "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mesh/v1alpha1",
@@ -1318,7 +1320,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "8c4ad02445802a6d75755fa9fe92beb1c980fb8e"
+  revision = "1503a62e53fb4a51468936d53ae9f7a5f147ed61"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1616,6 +1618,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "15437d855e4cb4b35468ae0cdb7351aba663d9d4b100aae5f10c5b48dfa8be05"
+  inputs-digest = "5b44e7303a19f4b00e36375c6bb38f454e16381b6b23dd648e88c64747809793"
   solver-name = "gps-cdcl"
   solver-version = 1

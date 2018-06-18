@@ -32,24 +32,24 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // WARNING: This API is experimental and under active development
 type IngressRule struct {
 	// REQUIRED: Port on which the ingress proxy listens and applies the rule.
-	Port int32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
+	Port int32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	// Optional TLS secret path to apply server-side TLS context on the port.
 	// It is up to the underlying secret store to interpret the path to the secret.
-	TlsSecret string `protobuf:"bytes,2,opt,name=tls_secret,json=tlsSecret" json:"tls_secret,omitempty"`
+	TlsSecret string `protobuf:"bytes,2,opt,name=tls_secret,json=tlsSecret,proto3" json:"tls_secret,omitempty"`
 	// RECOMMENDED. Precedence is used to disambiguate the order of application
 	// of rules. A higher number takes priority. If not specified, the value is
 	// assumed to be 0.  The order of application for rules with the same
 	// precedence is unspecified.
-	Precedence int32 `protobuf:"varint,3,opt,name=precedence" json:"precedence,omitempty"`
+	Precedence int32 `protobuf:"varint,3,opt,name=precedence,proto3" json:"precedence,omitempty"`
 	// Match conditions to be satisfied for the ingress rule to be
 	// activated.
-	Match *MatchCondition `protobuf:"bytes,4,opt,name=match" json:"match,omitempty"`
+	Match *MatchCondition `protobuf:"bytes,4,opt,name=match,proto3" json:"match,omitempty"`
 	// REQUIRED: Destination uniquely identifies the destination service.
 	//
 	// *Note:* The ingress rule destination specification represents all version
 	// of the service and therefore the IstioService's labels field MUST be empty.
 	//
-	Destination *IstioService `protobuf:"bytes,5,opt,name=destination" json:"destination,omitempty"`
+	Destination *IstioService `protobuf:"bytes,5,opt,name=destination,proto3" json:"destination,omitempty"`
 	// REQUIRED: Destination port identifies a port on the destination service for routing.
 	//
 	// Types that are valid to be assigned to DestinationServicePort:
@@ -90,10 +90,10 @@ type isIngressRule_DestinationServicePort interface {
 }
 
 type IngressRule_DestinationPort struct {
-	DestinationPort int32 `protobuf:"varint,6,opt,name=destination_port,json=destinationPort,oneof"`
+	DestinationPort int32 `protobuf:"varint,6,opt,name=destination_port,json=destinationPort,proto3,oneof"`
 }
 type IngressRule_DestinationPortName struct {
-	DestinationPortName string `protobuf:"bytes,7,opt,name=destination_port_name,json=destinationPortName,oneof"`
+	DestinationPortName string `protobuf:"bytes,7,opt,name=destination_port_name,json=destinationPortName,proto3,oneof"`
 }
 
 func (*IngressRule_DestinationPort) isIngressRule_DestinationServicePort()     {}

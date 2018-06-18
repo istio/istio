@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,13 @@ import (
 	rbac "istio.io/api/rbac/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
+)
+
+const (
+	// Config name for testing
+	someName = "foo"
+	// Config namespace for testing.
+	someNamespace = "bar"
 )
 
 func TestConfigDescriptorValidate(t *testing.T) {
@@ -82,6 +90,29 @@ func TestConfigDescriptorValidate(t *testing.T) {
 	}
 }
 
+// ValidateConfig ensures that the config object is well-defined
+// TODO: also check name and namespace
+func descriptorValidateConfig(descriptor ConfigDescriptor, typ string, obj interface{}) error {
+	if obj == nil {
+		return fmt.Errorf("invalid nil configuration object")
+	}
+
+	t, ok := descriptor.GetByType(typ)
+	if !ok {
+		return fmt.Errorf("undeclared type: %q", typ)
+	}
+
+	v, ok := obj.(proto.Message)
+	if !ok {
+		return fmt.Errorf("cannot cast to a proto message")
+	}
+
+	if proto.MessageName(v) != t.MessageName {
+		return fmt.Errorf("mismatched message type %q and type %q",
+			proto.MessageName(v), t.MessageName)
+	}
+	return t.Validate(someName, someNamespace, v)
+}
 func TestConfigDescriptorValidateConfig(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -130,7 +161,7 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 	types := append(IstioConfigTypes, MockConfig)
 
 	for _, c := range cases {
-		if err := types.ValidateConfig(c.typ, c.config); (err != nil) != c.wantErr {
+		if err := descriptorValidateConfig(types, c.typ, c.config); (err != nil) != c.wantErr {
 			t.Errorf("%v failed: got error=%v but wantErr=%v", c.name, err, c.wantErr)
 		}
 	}
@@ -737,7 +768,7 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			valid: false},
 	}
 	for _, c := range cases {
-		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {
+		if got := ValidateRouteRule(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateRouteRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -805,7 +836,7 @@ func TestValidateDestinationPolicy(t *testing.T) {
 			valid: false},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationPolicy(c.in); (got == nil) != c.valid {
+		if got := ValidateDestinationPolicy(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%v: %v", got == nil, c.valid, got)
 		}
 	}
@@ -1268,7 +1299,7 @@ func TestValidateIngressRule(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if ValidateIngressRule(c.in) == nil {
+		if ValidateIngressRule(someName, someNamespace, c.in) == nil {
 			t.Errorf("ValidateIngressRule failed on %s: %#v", c.name, c.in)
 		}
 	}
@@ -1370,7 +1401,7 @@ func TestValidateEgressRule(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ValidateEgressRule(c.in); (got == nil) != c.valid {
+		if got := ValidateEgressRule(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateEgressRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -1563,7 +1594,7 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateHTTPAPISpec(c.in); (got == nil) != c.valid {
+		if got := ValidateHTTPAPISpec(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateHTTPAPISpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
@@ -1617,7 +1648,7 @@ func TestValidateHTTPAPISpecBinding(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateHTTPAPISpecBinding(c.in); (got == nil) != c.valid {
+		if got := ValidateHTTPAPISpecBinding(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateHTTPAPISpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
@@ -1732,7 +1763,7 @@ func TestValidateQuotaSpec(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateQuotaSpec(c.in); (got == nil) != c.valid {
+		if got := ValidateQuotaSpec(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateQuotaSpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
@@ -1786,7 +1817,7 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateQuotaSpecBinding(c.in); (got == nil) != c.valid {
+		if got := ValidateQuotaSpecBinding(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
@@ -1879,7 +1910,7 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(tt.in)
+			err := ValidateGateway(someName, someNamespace, tt.in)
 			if err == nil && tt.out != "" {
 				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {
@@ -2479,7 +2510,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService(tc.in); (err == nil) != tc.valid {
+			if err := ValidateVirtualService("", "", tc.in); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -2529,7 +2560,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2548,7 +2579,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2572,7 +2603,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2592,7 +2623,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2613,7 +2644,7 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+					ConsecutiveErrors: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2629,7 +2660,7 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+							ConsecutiveErrors: 5,
 						},
 					},
 				},
@@ -2638,7 +2669,7 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(c.in); (got == nil) != c.valid {
+		if got := ValidateDestinationRule(someName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2662,7 +2693,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
 			OutlierDetection: &networking.OutlierDetection{
-				Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				ConsecutiveErrors: 5,
 			},
 		},
 			valid: true},
@@ -2675,22 +2706,8 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
-				Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				ConsecutiveErrors: 5,
 			},
-		},
-			valid: false},
-
-		{name: "invalid traffic policy, bad outlier detection", in: networking.TrafficPolicy{
-			LoadBalancer: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_Simple{
-					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
-				},
-			},
-			ConnectionPool: &networking.ConnectionPoolSettings{
-				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
-			},
-			OutlierDetection: &networking.OutlierDetection{},
 		},
 			valid: false},
 	}
@@ -2783,28 +2800,26 @@ func TestValidateOutlierDetection(t *testing.T) {
 		valid bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{
-				ConsecutiveErrors:  5,
-				Interval:           &types.Duration{Seconds: 2},
-				BaseEjectionTime:   &types.Duration{Seconds: 2},
-				MaxEjectionPercent: 50,
-			},
+			ConsecutiveErrors:  5,
+			Interval:           &types.Duration{Seconds: 2},
+			BaseEjectionTime:   &types.Duration{Seconds: 2},
+			MaxEjectionPercent: 50,
 		}, valid: true},
 
 		{name: "invalid outlier detection, bad consecutive errors", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{ConsecutiveErrors: -1}},
+			ConsecutiveErrors: -1},
 			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{Interval: &types.Duration{Seconds: 2, Nanos: 5}}},
+			Interval: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}}},
+			BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5}},
 			valid: false},
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
-			Http: &networking.OutlierDetection_HTTPSettings{MaxEjectionPercent: 105}},
+			MaxEjectionPercent: 105},
 			valid: false},
 	}
 
@@ -3107,7 +3122,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(&c.in); (got == nil) != c.valid {
+			if got := ValidateServiceEntry(someName, someNamespace, &c.in); (got == nil) != c.valid {
 				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
@@ -3259,7 +3274,54 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.in); (got == nil) != c.valid {
+		if got := ValidateAuthenticationPolicy(someName, someNamespace, c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateAuthenticationMeshPolicy(t *testing.T) {
+	cases := []struct {
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
+	}{
+		{
+			name:       "good name",
+			configName: DefaultAuthenticationPolicyName,
+			in:         &authn.Policy{},
+			valid:      true,
+		},
+		{
+			name:       "bad-name",
+			configName: someName,
+			in:         &authn.Policy{},
+			valid:      false,
+		},
+		{
+			name:       "has targets",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "foo",
+				}},
+			},
+			valid: false,
+		},
+		{
+			name:       "good",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{},
+				}},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
@@ -3391,7 +3453,7 @@ func TestValidateServiceRole(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		err := ValidateServiceRole(c.in)
+		err := ValidateServiceRole(someName, someNamespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
 				t.Errorf("ValidateServiceRole(%v): got nil but want %q\n", c.name, c.expectErrMsg)
@@ -3475,7 +3537,7 @@ func TestValidateServiceRoleBinding(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		err := ValidateServiceRoleBinding(c.in)
+		err := ValidateServiceRoleBinding(someName, someNamespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
 				t.Errorf("ValidateServiceRoleBinding(%v): got nil but want %q\n", c.name, c.expectErrMsg)
@@ -3551,7 +3613,7 @@ func TestValidateRbacConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		err := ValidateRbacConfig(c.in)
+		err := ValidateRbacConfig(someName, someNamespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
 				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.name, c.expectErrMsg)

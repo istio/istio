@@ -99,6 +99,7 @@ func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
 	descriptorTypes := make(map[string]bool)
 	messages := make(map[string]bool)
+	clusterMessages := make(map[string]bool)
 
 	for _, v := range descriptor {
 		if !IsDNS1123Label(v.Type) {
@@ -114,37 +115,19 @@ func (descriptor ConfigDescriptor) Validate() error {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
 		descriptorTypes[v.Type] = true
-		if _, exists := messages[v.MessageName]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+		if v.ClusterScoped {
+			if _, exists := clusterMessages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			clusterMessages[v.MessageName] = true
+		} else {
+			if _, exists := messages[v.MessageName]; exists {
+				errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
+			}
+			messages[v.MessageName] = true
 		}
-		messages[v.MessageName] = true
 	}
 	return errs
-}
-
-// ValidateConfig ensures that the config object is well-defined
-// TODO: also check name and namespace
-func (descriptor ConfigDescriptor) ValidateConfig(typ string, obj interface{}) error {
-	if obj == nil {
-		return fmt.Errorf("invalid nil configuration object")
-	}
-
-	t, ok := descriptor.GetByType(typ)
-	if !ok {
-		return fmt.Errorf("undeclared type: %q", typ)
-	}
-
-	v, ok := obj.(proto.Message)
-	if !ok {
-		return fmt.Errorf("cannot cast to a proto message")
-	}
-
-	if proto.MessageName(v) != t.MessageName {
-		return fmt.Errorf("mismatched message type %q and type %q",
-			proto.MessageName(v), t.MessageName)
-	}
-
-	return t.Validate(v)
 }
 
 // Validate ensures that the service object is well-defined
@@ -739,7 +722,7 @@ func ValidateWeights(routes []*routing.DestinationWeight) (errs error) {
 }
 
 // ValidateRouteRule checks routing rules
-func ValidateRouteRule(msg proto.Message) error {
+func ValidateRouteRule(name, namespace string, msg proto.Message) error {
 	value, ok := msg.(*routing.RouteRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to routing rule")
@@ -880,7 +863,7 @@ func ValidateRouteRule(msg proto.Message) error {
 }
 
 // ValidateIngressRule checks ingress rules
-func ValidateIngressRule(msg proto.Message) error {
+func ValidateIngressRule(name, namespace string, msg proto.Message) error {
 	value, ok := msg.(*routing.IngressRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to ingress rule")
@@ -903,7 +886,7 @@ func ValidateIngressRule(msg proto.Message) error {
 }
 
 // ValidateGateway checks gateway specifications
-func ValidateGateway(msg proto.Message) (errs error) {
+func ValidateGateway(name, namespace string, msg proto.Message) (errs error) {
 	value, ok := msg.(*networking.Gateway)
 	if !ok {
 		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
@@ -986,7 +969,7 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 }
 
 // ValidateEgressRule checks egress rules
-func ValidateEgressRule(msg proto.Message) error {
+func ValidateEgressRule(name, namespace string, msg proto.Message) error {
 	rule, ok := msg.(*routing.EgressRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to egress rule")
@@ -1111,7 +1094,7 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 }
 
 // ValidateDestinationRule checks proxy policies
-func ValidateDestinationRule(msg proto.Message) (errs error) {
+func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.DestinationRule)
 	if !ok {
 		return fmt.Errorf("cannot cast to destination rule")
@@ -1146,21 +1129,17 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier == nil {
 		return
 	}
-	if outlier.Http == nil {
-		return fmt.Errorf("outlier detection must have at least one field")
-	}
 
-	http := outlier.Http
-	if http.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.BaseEjectionTime))
+	if outlier.BaseEjectionTime != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if http.ConsecutiveErrors < 0 {
+	if outlier.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
-	if http.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Interval))
+	if outlier.Interval != nil {
+		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
 	}
-	errs = appendErrors(errs, ValidatePercent(http.MaxEjectionPercent))
+	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent))
 
 	return
 }
@@ -1235,7 +1214,7 @@ func validateSubset(subset *networking.Subset) error {
 }
 
 // ValidateDestinationPolicy checks proxy policies
-func ValidateDestinationPolicy(msg proto.Message) error {
+func ValidateDestinationPolicy(name, namespace string, msg proto.Message) error {
 	policy, ok := msg.(*routing.DestinationPolicy)
 	if !ok {
 		return fmt.Errorf("cannot cast to destination policy")
@@ -1556,7 +1535,7 @@ func ValidateMixerAttributes(msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpec checks that HTTPAPISpec is well-formed.
-func ValidateHTTPAPISpec(msg proto.Message) error {
+func ValidateHTTPAPISpec(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpec")
@@ -1609,7 +1588,7 @@ func ValidateHTTPAPISpec(msg proto.Message) error {
 }
 
 // ValidateHTTPAPISpecBinding checks that HTTPAPISpecBinding is well-formed.
-func ValidateHTTPAPISpecBinding(msg proto.Message) error {
+func ValidateHTTPAPISpecBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1638,7 +1617,7 @@ func ValidateHTTPAPISpecBinding(msg proto.Message) error {
 }
 
 // ValidateQuotaSpec checks that Quota is well-formed.
-func ValidateQuotaSpec(msg proto.Message) error {
+func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpec)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1685,7 +1664,7 @@ func ValidateQuotaSpec(msg proto.Message) error {
 }
 
 // ValidateQuotaSpecBinding checks that QuotaSpecBinding is well-formed.
-func ValidateQuotaSpecBinding(msg proto.Message) error {
+func ValidateQuotaSpecBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*mccpb.QuotaSpecBinding)
 	if !ok {
 		return errors.New("cannot case to HTTPAPISpecBinding")
@@ -1714,15 +1693,27 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 }
 
 // ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-func ValidateAuthenticationPolicy(msg proto.Message) error {
+func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) error {
+	// Empty namespace indicate policy is from cluster-scoped CRD.
+	clusterScoped := namespace == ""
 	in, ok := msg.(*authn.Policy)
 	if !ok {
 		return errors.New("cannot cast to AuthenticationPolicy")
 	}
 	var errs error
 
-	for _, target := range in.Targets {
-		errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+	if !clusterScoped {
+		for _, target := range in.Targets {
+			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
+		}
+	} else {
+		if name != DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
+				DefaultAuthenticationPolicyName, name))
+		}
+		if len(in.Targets) > 0 {
+			errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
+		}
 	}
 
 	jwtIssuers := make(map[string]bool)
@@ -1749,7 +1740,7 @@ func ValidateAuthenticationPolicy(msg proto.Message) error {
 }
 
 // ValidateServiceRole checks that ServiceRole is well-formed.
-func ValidateServiceRole(msg proto.Message) error {
+func ValidateServiceRole(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRole)
 	if !ok {
 		return errors.New("cannot cast to ServiceRole")
@@ -1778,7 +1769,7 @@ func ValidateServiceRole(msg proto.Message) error {
 }
 
 // ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func ValidateServiceRoleBinding(msg proto.Message) error {
+func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*rbac.ServiceRoleBinding)
 	if !ok {
 		return errors.New("cannot cast to ServiceRoleBinding")
@@ -1808,7 +1799,7 @@ func ValidateServiceRoleBinding(msg proto.Message) error {
 }
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
-func ValidateRbacConfig(msg proto.Message) error {
+func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
 	in, ok := msg.(*rbac.RbacConfig)
 	if !ok {
 		return errors.New("cannot cast to RbacConfig")
@@ -1873,7 +1864,7 @@ func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
 }
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
-func ValidateVirtualService(msg proto.Message) (errs error) {
+func ValidateVirtualService(name, namespace string, msg proto.Message) (errs error) {
 	virtualService, ok := msg.(*networking.VirtualService)
 	if !ok {
 		return errors.New("cannot cast to virtual service")
@@ -2190,7 +2181,7 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 }
 
 // ValidateServiceEntry validates a service entry.
-func ValidateServiceEntry(config proto.Message) (errs error) {
+func ValidateServiceEntry(name, namespace string, config proto.Message) (errs error) {
 	serviceEntry, ok := config.(*networking.ServiceEntry)
 	if !ok {
 		return fmt.Errorf("cannot cast to service entry")

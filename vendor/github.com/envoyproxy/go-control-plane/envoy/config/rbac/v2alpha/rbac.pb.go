@@ -35,14 +35,14 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Should we do white-list or black-list style access control?
+// Should we do safe-list or block-list style access control?
 type RBAC_Action int32
 
 const (
-	// The policies grant access to principals. The rest is denied. This is white-list style
+	// The policies grant access to principals. The rest is denied. This is safe-list style
 	// access control. This is the default type.
 	RBAC_ALLOW RBAC_Action = 0
-	// The policies deny access to principals. The rest is allowed. This is black-list style
+	// The policies deny access to principals. The rest is allowed. This is block-list style
 	// access control.
 	RBAC_DENY RBAC_Action = 1
 )
@@ -62,12 +62,8 @@ func (x RBAC_Action) String() string {
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) { return fileDescriptorRbac, []int{0, 0} }
 
 // Role Based Access Control (RBAC) provides service-level and method-level access control for a
-// service. The RBAC engine authorizes a request by evaluating the request context (expressed in the
-// form of :ref: `AttributeContext <envoy_api_msg_service.auth.v2alpha.AttributeContext>`) against
-// the RBAC policies.
-//
-// RBAC policies are additive. The policies are examined in order. A request is allowed once a
-// matching policy is found (suppose the `action` is ALLOW).
+// service. RBAC policies are additive. The policies are examined in order. A request is allowed
+// once a matching policy is found (suppose the `action` is ALLOW).
 //
 // Here is an example of RBAC configuration. It has two policies:
 //

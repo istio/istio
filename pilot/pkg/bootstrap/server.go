@@ -48,10 +48,8 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/plugin/registry"
+	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v1/mock"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -60,6 +58,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -93,6 +92,7 @@ var (
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
 		model.AuthenticationPolicy,
+		model.AuthenticationMeshPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 		model.RbacConfig,
@@ -153,7 +153,6 @@ type PilotArgs struct {
 	Mesh             MeshArgs
 	Config           ConfigArgs
 	Service          ServiceArgs
-	RDSv2            bool
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 }
@@ -601,7 +600,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 		err = clusterregistry.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
-			s.discoveryService,
+			s.EnvoyXdsServer,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.ResyncPeriod,
 			args.Config.ControllerOptions.WatchedNamespace,
@@ -723,12 +722,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	// MemServiceDiscovery implementation
-	discovery1 := mock.NewDiscovery(
-		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
+	discovery1 := srmemory.NewDiscovery(
+		map[model.Hostname]*model.Service{ // srmemory.HelloService.Hostname: srmemory.HelloService,
 		}, 2)
 
-	discovery2 := mock.NewDiscovery(
-		map[model.Hostname]*model.Service{ // mock.WorldService.Hostname: mock.WorldService,
+	discovery2 := srmemory.NewDiscovery(
+		map[model.Hostname]*model.Service{ // srmemory.WorldService.Hostname: srmemory.WorldService,
 		}, 2)
 
 	registry1 := aggregate.Registry{
@@ -770,6 +769,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
+	environment.DisableRDS = os.Getenv("DISABLE_RDS") == "true"
+
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
 		s.ServiceController,
@@ -786,7 +787,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, v1alpha3.NewConfigGenerator(registry.NewPlugins()))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator())
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)

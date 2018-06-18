@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -86,9 +87,6 @@ type (
 		// New test can start of with an empty "{}" string and then
 		// get the baseline from the failure logs upon execution.
 		Want string
-
-		// VerifyResult if specified is used to do verification.
-		VerifyResult VerifyResultFn
 	}
 	// Call represents the input to make a call to Mixer
 	Call struct {
@@ -251,13 +249,6 @@ func RunTest(
 		}
 	}
 
-	if scenario.VerifyResult != nil {
-		if err = scenario.VerifyResult(ctx, &got); err != nil {
-			t.Fatalf("verification failed: %v", err)
-		}
-		return
-	}
-
 	var want Result
 	if err = json.Unmarshal([]byte(scenario.Want), &want); err != nil {
 		t.Fatalf("Unable to unmarshal %s into Result: %v", scenario.Want, err)
@@ -269,12 +260,26 @@ func RunTest(
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", got, err)
 		}
+
+		// write got file, so it can be saved as golden if needed
+		file, err := ioutil.TempFile(os.TempDir(), "gotJSON-")
+		if err != nil {
+			t.Logf("unable to open tempfile")
+			return
+		}
+		defer os.Remove(file.Name())
+		fname := file.Name() + ".json"
+		_ = ioutil.WriteFile(fname, gotJSON, 0x777)
+		file.Close()
+		t.Logf("Got: %v", fname)
+
 		wantJSON, err := json.MarshalIndent(want, "", " ")
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)
 		}
 
 		t.Errorf("%v", util.Compare(gotJSON, wantJSON))
+		t.Errorf("\ngot=>\n%s\nwant=>\n%s", gotJSON, wantJSON)
 	}
 }
 

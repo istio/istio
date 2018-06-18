@@ -139,8 +139,8 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	var err error
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+	//new style cluster names
+	if strings.Index(clusterName, "outbound") == 0 || strings.Index(clusterName, "inbound") == 0 {
 		var p int
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)

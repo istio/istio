@@ -72,15 +72,15 @@ type EgressRule struct {
 	// domain of form “*-bar.foo.com” will match “baz-bar.foo.com” but not “-bar.foo.com”.
 	//
 	// The "service" field of "destination" for TCP services must be an IP or a block of IPs in CIDR notation.
-	Destination *IstioService `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
+	Destination *IstioService `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
 	// REQUIRED: list of ports on which the external service is available.
-	Ports []*EgressRule_Port `protobuf:"bytes,2,rep,name=ports" json:"ports,omitempty"`
+	Ports []*EgressRule_Port `protobuf:"bytes,2,rep,name=ports,proto3" json:"ports,omitempty"`
 	// Forward all the external traffic through a dedicated egress proxy. It is used in some scenarios
 	// where there is a requirement that all the external traffic goes through special dedicated nodes/pods.
 	// These dedicated egress nodes could then be more closely monitored for security vulnerabilities.
 	//
 	// The default is false, i.e. the sidecar forwards external traffic directly to the external service.
-	UseEgressProxy       bool     `protobuf:"varint,3,opt,name=use_egress_proxy,json=useEgressProxy" json:"use_egress_proxy,omitempty"`
+	UseEgressProxy       bool     `protobuf:"varint,3,opt,name=use_egress_proxy,json=useEgressProxy,proto3" json:"use_egress_proxy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -134,10 +134,10 @@ func (m *EgressRule) GetUseEgressProxy() bool {
 // Port describes the properties of a specific TCP port of an external service.
 type EgressRule_Port struct {
 	// A valid non-negative integer port number.
-	Port int32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
+	Port int32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	// The protocol to communicate with the external services.
 	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|TCP|MONGO.
-	Protocol             string   `protobuf:"bytes,2,opt,name=protocol" json:"protocol,omitempty"`
+	Protocol             string   `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

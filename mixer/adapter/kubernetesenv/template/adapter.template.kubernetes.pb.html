@@ -40,7 +40,8 @@ spec:
 <h2 id="OutputTemplate">OutputTemplate</h2>
 <section>
 <p>OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
-to assign values to the generated attributes using the <code>$out.&lt;field name of the OutputTemplate&gt;</code> syntax.</p>
+to assign values to the generated attributes using the <code>$out.&lt;field name of the OutputTemplate&gt;</code> syntax.
+Next ID: 31</p>
 
 <table class="message-fields">
 <thead>
@@ -147,6 +148,14 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 
 </td>
 </tr>
+<tr id="OutputTemplate-destination_container_name">
+<td><code>destinationContainerName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Refers to destination container name. attribute<em>bindings can refer to this field using $out.destination</em>container_name</p>
+
+</td>
+</tr>
 <tr id="OutputTemplate-destination_labels">
 <td><code>destinationLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
@@ -219,7 +228,8 @@ to assign values to the generated attributes using the <code>$out.&lt;field name
 <p>The <code>kubernetes</code> template represents data used to generate kubernetes-derived attributes.</p>
 
 <p>The values provided controls the manner in which the kubernetesenv adapter discovers and
-generates values related to pod information.</p>
+generates values related to pod information.
+Next ID: 8</p>
 
 <table class="message-fields">
 <thead>
@@ -259,6 +269,14 @@ generates values related to pod information.</p>
 <td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress</a></code></td>
 <td>
 <p>Destination pod&rsquo;s ip.</p>
+
+</td>
+</tr>
+<tr id="Template-destination_port">
+<td><code>destinationPort</code></td>
+<td><code>int64</code></td>
+<td>
+<p>Destination container&rsquo;s port number.</p>
 
 </td>
 </tr>

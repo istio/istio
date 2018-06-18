@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"reflect"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -143,6 +144,9 @@ func (h *Handler) connect() (err error) {
 
 func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 	dedupID string, resultPtr interface{}, encodedInstances ...*adapter.EncodedInstance) error {
+	if len(encodedInstances) == 0 {
+		return errors.New("internal: no instances sent")
+	}
 	svc := h.svcMap[encodedInstances[0].Name]
 	if svc == nil {
 		return errors.Errorf("unable to find instance: %s", encodedInstances[0].Name)
@@ -297,13 +301,16 @@ func buildRequestEncoder(b *Builder, inputMsg string, sessionBased bool, adapter
 		},
 	}
 	if !sessionBased {
-		encodedData, err := adapterConfig.Marshal()
-		if err != nil {
-			return nil, err // Any.Marshal() never returns an error.
-		}
-		inputData["adapter_config"] = &staticEncoder{
-			encodedData:   encodedData,
-			includeLength: true,
+		if adapterConfig != nil &&
+			(reflect.ValueOf(adapterConfig).Kind() != reflect.Ptr || !reflect.ValueOf(adapterConfig).IsNil()) {
+			encodedData, err := adapterConfig.Marshal()
+			if err != nil {
+				return nil, err // Any.Marshal() never returns an error.
+			}
+			inputData["adapter_config"] = &staticEncoder{
+				encodedData:   encodedData,
+				includeLength: true,
+			}
 		}
 	}
 

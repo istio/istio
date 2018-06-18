@@ -23,6 +23,7 @@ package dispatcher
 import (
 	"context"
 	"sync"
+	"time"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -112,6 +113,11 @@ func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing 
 	return d
 }
 
+const (
+	defaultValidDuration = 1 * time.Minute
+	defaultValidUseCount = 10000
+)
+
 // Check implementation of runtime.Impl.
 func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
@@ -121,6 +127,19 @@ func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResul
 	if err == nil {
 		r = s.checkResult
 		err = s.err
+
+		if err == nil {
+			// No adapters chimed in on this request, so we return a "good to go" value which can be cached
+			// for up to a minute.
+			//
+			// TODO: make these fallback values configurable
+			if r.IsDefault() {
+				r = adapter.CheckResult{
+					ValidUseCount: defaultValidUseCount,
+					ValidDuration: defaultValidDuration,
+				}
+			}
+		}
 	}
 
 	d.putSession(s)

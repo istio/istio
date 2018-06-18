@@ -549,8 +549,8 @@ func (m *TCPRoute) GetRoute() []*DestinationWeight {
 //     - headers:
 //         cookie:
 //           regex: "^(.*?;)?(user=jason)(;.*)?"
-//         uri:
-//           prefix: "/ratings/v2/"
+//       uri:
+//         prefix: "/ratings/v2/"
 //     route:
 //     - destination:
 //         host: ratings.prod.svc.cluster.local
