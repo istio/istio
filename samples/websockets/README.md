@@ -24,7 +24,7 @@ __Notice:__ The addition of websockets upgrade support in v1alpha3 routing rules
    ```
 
 ## Test
-- [Find your ingress gateway IP](https://archive.istio.io/v0.7/docs/guides/bookinfo#determining-the-ingress-ip-and-port)
+- [Find your ingress gateway IP](https://istio.io/docs/tasks/traffic-management/ingress/#determining-the-ingress-ip-and-ports)
 - Access http://$GATEWAY_IP/ with your browser
 - The `WebSocket status` should show a green `open` status which means  that a websocket connection to the server has been established.  
 To see the websocket in action see the instructions in the _REST API examples_ section of the demo app webpage for updating the server-side data and getting the updated data through the open websocket to the table in the webpage (without refreshing).
