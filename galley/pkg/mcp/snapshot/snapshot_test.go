@@ -358,6 +358,8 @@ func TestClearStatus(t *testing.T) {
 			} else if timeout {
 				t.Fatal("open watch was not canceled on ClearStatus()")
 			}
+
+			c.ClearSnapshot(key)
 		})
 	}
 }
