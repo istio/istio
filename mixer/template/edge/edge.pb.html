@@ -1,0 +1,128 @@
+---
+title: edge
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+number_of_entries: 1
+---
+<p>The <code>edge</code> template represents an edge in the mesh graph.</p>
+
+<h2 id="Template">Template</h2>
+<section>
+<p>The <code>edge</code> template represents an edge in the mesh graph</p>
+
+<p>When writing the configuration, the value for the fields associated
+with this template can either be a literal or an
+<a href="https://istio.io/docs/reference/config/mixer/expression-language.html">expression</a>. Please
+note that if the datatype of a field is not
+istio.mixer.adapter.model.v1beta1.Value, then the expression&rsquo;s
+<a href="https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking">inferred
+type</a>
+must match the datatype of the field.</p>
+
+<p>Example config:</p>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+kind: edge
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  timestamp: request.time
+  sourceUid: source.uid | &quot;Unknown&quot;
+  sourceOwner: source.owner | &quot;Unknown&quot;
+  sourceWorkloadName: source.workload.name | &quot;Unknown&quot;
+  sourceWorkloadNamespace: source.workload.namespace | &quot;Unknown&quot;
+  destinationUid: destination.uid | &quot;Unknown&quot;
+  destinationOwner: destination.owner | &quot;Unknown&quot;
+  destinationWorkloadName: destination.workload.name | &quot;Unknown&quot;
+  destinationWorkloadNamespace: destination.workload.namespace | &quot;Unknown&quot;
+  apiProtocol: api.protocol | &quot;Unknown&quot;
+  contextProtocol: context.protocol | &quot;Unknown&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Template-timestamp">
+<td><code>timestamp</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td>
+<p>Timestamp</p>
+
+</td>
+</tr>
+<tr id="Template-source_workload_namespace">
+<td><code>sourceWorkloadNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Source of edge.</p>
+
+</td>
+</tr>
+<tr id="Template-source_workload_name">
+<td><code>sourceWorkloadName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-source_owner">
+<td><code>sourceOwner</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-source_uid">
+<td><code>sourceUid</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-destination_workload_namespace">
+<td><code>destinationWorkloadNamespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>Destination of edge</p>
+
+</td>
+</tr>
+<tr id="Template-destination_workload_name">
+<td><code>destinationWorkloadName</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-destination_owner">
+<td><code>destinationOwner</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-destination_uid">
+<td><code>destinationUid</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+<tr id="Template-context_protocol">
+<td><code>contextProtocol</code></td>
+<td><code>string</code></td>
+<td>
+<p>Protocol used</p>
+
+</td>
+</tr>
+<tr id="Template-api_protocol">
+<td><code>apiProtocol</code></td>
+<td><code>string</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
