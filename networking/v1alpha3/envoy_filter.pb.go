@@ -155,7 +155,7 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 // specified for the same workload.
 //
 // The following example for Kubernetes enables Envoy's Lua filter for all
-// inbound calls arriving at port 18080 of the reviews service pod with
+// inbound calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
 //     apiVersion: networking.istio.io/v1alpha3
@@ -167,8 +167,8 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 //         app: reviews
 //       filters:
 //       - listenerMatch:
-//           portNumber: 18080
-//           listenerType: SIDECAR_INBOUND #will match with the listener for the podIP:18080
+//           portNumber: 8080
+//           listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
 //         filterName: envoy.lua
 //         filterType: HTTP
 //         filterConfig:
@@ -216,8 +216,10 @@ func (m *EnvoyFilter) GetFilters() []*EnvoyFilter_Filter {
 // All conditions specified in the ListenerMatch must be met for the filter
 // to be applied to a listener.
 type EnvoyFilter_ListenerMatch struct {
-	// Port associated with the listener. If not specified, matches all
-	// listeners.
+	// The service port/gateway port to which traffic is being
+	// sent/received. If not specified, matches all listeners. Eventhough
+	// inbound listeners are generated for the instance/pod ports, only
+	// service ports should be used to match listeners.
 	PortNumber uint32 `protobuf:"varint,1,opt,name=port_number,json=portNumber,proto3" json:"port_number,omitempty"`
 	// Instead of using specific port numbers, a set of ports matching a
 	// given port name prefix can be selected. E.g., "mongo" selects ports
