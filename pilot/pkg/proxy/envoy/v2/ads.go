@@ -313,7 +313,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -330,7 +330,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}
@@ -396,7 +396,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
 			if con.CDSWatch {
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -414,7 +414,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 			if con.LDSWatch {
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}

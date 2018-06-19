@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
+	ls, err := s.ConfigGenerator.BuildListeners(s.env, *con.modelNode)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
@@ -46,7 +46,7 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	}
 
 	con.HTTPListeners = ls
-	response := ldsDiscoveryResponse(ls, node)
+	response := ldsDiscoveryResponse(ls, *con.modelNode)
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
@@ -55,7 +55,7 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", node, con.PeerAddr, len(ls))
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode, con.PeerAddr, len(ls))
 	return nil
 }
 

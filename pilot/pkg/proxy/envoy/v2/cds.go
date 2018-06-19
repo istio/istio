@@ -21,7 +21,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
@@ -46,7 +45,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
+func (s *DiscoveryServer) pushCds(con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 	if err != nil {
@@ -71,7 +70,7 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure, closing grpc %s: %v", node.ID, err)
+		adsLog.Warnf("CDS: Send failure, closing grpc %s: %v", con.modelNode.ID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}
@@ -79,6 +78,6 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 
 	// The response can't be easily read due to 'any' marshalling.
 	adsLog.Infof("CDS: PUSH for %s %q, Response: %d",
-		node, con.PeerAddr, len(rawClusters))
+		con.modelNode, con.PeerAddr, len(rawClusters))
 	return nil
 }
