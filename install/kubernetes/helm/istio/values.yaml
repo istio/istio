@@ -146,8 +146,7 @@ ingress:
 #
 gateways:
   enabled: true
-  list:
-  - name: istio-ingressgateway
+  istio-ingressgateway:
     enabled: true
     labels:
       istio: ingressgateway
@@ -171,7 +170,7 @@ gateways:
     - name: ingressgateway-ca-certs
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
-  - name: istio-egressgateway
+  istio-egressgateway:
     enabled: true
     labels:
       istio: egressgateway
