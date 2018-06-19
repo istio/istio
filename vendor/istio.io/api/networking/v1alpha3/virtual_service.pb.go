@@ -348,7 +348,7 @@ type HTTPRoute struct {
 	// A http rule can either redirect or forward (default) traffic. If
 	// traffic passthrough option is specified in the rule,
 	// route/redirect will be ignored. The redirect primitive can be used to
-	// send a HTTP 302 redirect to a different URI or Authority.
+	// send a HTTP 301 redirect to a different URI or Authority.
 	Redirect *HTTPRedirect `protobuf:"bytes,3,opt,name=redirect" json:"redirect,omitempty"`
 	// Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
 	// Redirect primitive. Rewrite will be performed before forwarding.
@@ -849,7 +849,7 @@ func (m *L4MatchAttributes) GetGateways() []string {
 	return nil
 }
 
-// HTTPRedirect can be used to send a 302 redirect response to the caller,
+// HTTPRedirect can be used to send a 301 redirect response to the caller,
 // where the Authority/Host and the URI in the response can be swapped with
 // the specified values. For example, the following rule redirects
 // requests for /v1/getProductRatings API on the ratings service to

@@ -1111,6 +1111,41 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 	return
 }
 
+// ValidateEnvoyFilter checks envoy filter config supplied by user
+func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.EnvoyFilter)
+	if !ok {
+		return fmt.Errorf("cannot cast to envoy filter")
+	}
+
+	if len(rule.Filters) == 0 {
+		return fmt.Errorf("EnvoyFilter configuration does not have any filter")
+	}
+
+	for _, f := range rule.Filters {
+		if f.InsertPosition != nil {
+			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
+				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
+				if f.InsertPosition.RelativeTo == "" {
+					appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have empty relativeTo with BEFORE/AFTER index"))
+				}
+			}
+		}
+		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
+			appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have invalid filter type"))
+		}
+		if len(f.FilterName) == 0 {
+			appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have empty filter name"))
+		}
+
+		if f.FilterConfig == nil {
+			appendErrors(errs, fmt.Errorf("EnvoyFilter missing filter config"))
+		}
+	}
+
+	return
+}
+
 func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil

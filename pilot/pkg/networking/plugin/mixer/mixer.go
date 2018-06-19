@@ -70,14 +70,14 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"context.reporter.local": attrBoolValue(false),
 	}
 
-	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
 		filter := buildOutboundHTTPFilter(in.Env.Mesh, attrs, in.Node)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
-	case plugin.ListenerTypeTCP:
+	case plugin.ListenerProtocolTCP:
 		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
@@ -85,7 +85,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		return nil
 	}
 
-	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
+	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
 }
 
 // OnInboundListener implements the Callbacks interface method.
@@ -113,14 +113,14 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 	}
 
-	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
 		filter := buildInboundHTTPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
-	case plugin.ListenerTypeTCP:
+	case plugin.ListenerProtocolTCP:
 		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
@@ -128,7 +128,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		return nil
 	}
 
-	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerType)
+	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
 }
 
 // OnOutboundCluster implements the Plugin interface method.
@@ -154,8 +154,8 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	switch in.ListenerType {
-	case plugin.ListenerTypeHTTP:
+	switch in.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
 		for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 			host := routeConfiguration.VirtualHosts[i]
@@ -167,7 +167,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			routeConfiguration.VirtualHosts[i] = host
 		}
 
-	case plugin.ListenerTypeTCP:
+	case plugin.ListenerProtocolTCP:
 	default:
 		log.Warn("Unknown listener type in mixer#OnOutboundRouteConfiguration")
 	}
