@@ -163,6 +163,9 @@ gateways:
     - port: 443
       name: https
       nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
