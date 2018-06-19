@@ -39,6 +39,8 @@ var (
 	fakePushPrivateKey       = []byte{04}
 
 	fakeCredentialToken = "faketoken"
+
+	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 )
 
 func TestStreamSecrets(t *testing.T) {
@@ -67,7 +69,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{"test"},
+		ResourceNames: []string{fakeSpiffeID},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -105,7 +107,7 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	proxyID := "sidecar~127.0.0.1~id2~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{"test"},
+		ResourceNames: []string{fakeSpiffeID},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -137,6 +139,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	if err = NotifyProxy(proxyID, &SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
+		SpiffeID:         fakeSpiffeID,
 	}); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
 	}
@@ -162,24 +165,25 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
-	certificateChainGot := pb.GetTlsCertificate().GetCertificateChain()
-	certificateChainWant := &core.DataSource{
-		Specifier: &core.DataSource_InlineBytes{
-			InlineBytes: expectedCertChain,
+	expectedResponseSecret := authapi.Secret{
+		Name: fakeSpiffeID,
+		Type: &authapi.Secret_TlsCertificate{
+			TlsCertificate: &authapi.TlsCertificate{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: expectedCertChain,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: expectedPrivateKey,
+					},
+				},
+			},
 		},
 	}
-	if !reflect.DeepEqual(certificateChainWant, certificateChainGot) {
-		t.Errorf("certificate Chain: got %+v, want %+v", certificateChainGot, certificateChainWant)
-	}
-
-	privateKeyGot := pb.GetTlsCertificate().GetPrivateKey()
-	privateKeyWant := &core.DataSource{
-		Specifier: &core.DataSource_InlineBytes{
-			InlineBytes: expectedPrivateKey,
-		},
-	}
-	if !reflect.DeepEqual(privateKeyWant, privateKeyGot) {
-		t.Errorf("private key: got %+v, want %+v", privateKeyGot, privateKeyWant)
+	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
 	}
 }
 
@@ -245,13 +249,18 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GetSecret(proxyID, token string) (*SecretItem, error) {
-	if token == fakeCredentialToken {
-		return &SecretItem{
-			CertificateChain: fakeCertificateChain,
-			PrivateKey:       fakePrivateKey,
-		}, nil
+func (*mockSecretStore) GetSecret(proxyID, spiffeID, token string) (*SecretItem, error) {
+	if token != fakeCredentialToken {
+		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
-	return nil, fmt.Errorf("unexpected token %q", token)
+	if spiffeID != fakeSpiffeID {
+		return nil, fmt.Errorf("unexpected spiffeID %q", spiffeID)
+	}
+
+	return &SecretItem{
+		CertificateChain: fakeCertificateChain,
+		PrivateKey:       fakePrivateKey,
+		SpiffeID:         spiffeID,
+	}, nil
 }

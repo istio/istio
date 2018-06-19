@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -134,19 +136,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return receiveError
 			}
 
-			if discReq.Node.Id == "" {
-				log.Warnf("Discovery request %+v missing node id", discReq)
+			proxy, spiffeID, err := parseDiscoveryRequest(discReq)
+			if err != nil {
 				continue
 			}
-			proxy, err := model.ParseServiceNode(discReq.Node.Id)
-			if err != nil {
-				log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
-				return err
-			}
-			proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			con.proxy = &proxy
+			con.proxy = proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, token)
+			secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -181,19 +177,12 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	if discReq.Node.Id == "" {
-		log.Warnf("SDS discovery request %+v missing node id", discReq)
-		return nil, fmt.Errorf("SDS discovery request %+v missing node id", discReq)
-	}
-
-	proxy, err := model.ParseServiceNode(discReq.Node.Id)
+	proxy, spiffeID, err := parseDiscoveryRequest(discReq)
 	if err != nil {
-		log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
 		return nil, err
 	}
-	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 
-	secret, err := s.st.GetSecret(discReq.Node.Id, token)
+	secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
@@ -214,6 +203,26 @@ func NotifyProxy(proxyID string, secret *SecretItem) error {
 
 	cli.pushChannel <- &sdsEvent{}
 	return nil
+}
+
+func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (*model.Proxy, string, error) {
+	if discReq.Node.Id == "" {
+		return nil, "", fmt.Errorf("discovery request %+v missing node id", discReq)
+	}
+
+	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
+		return nil, "", fmt.Errorf("discovery request has invalid resourceNames %+v", discReq.ResourceNames)
+	}
+	spiffeID := discReq.ResourceNames[0]
+
+	proxy, err := model.ParseServiceNode(discReq.Node.Id)
+	if err != nil {
+		log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
+		return nil, "", err
+	}
+	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+
+	return &proxy, spiffeID, nil
 }
 
 func getCredentialToken(ctx context.Context) (string, error) {
@@ -245,7 +254,7 @@ func removeConn(proxyID string) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	response, err := sdsDiscoveryResponse(con.secret, *con.proxy)
+	response, err := sdsDiscoveryResponse(con.secret, con.proxy)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
@@ -260,7 +269,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *SecretItem, proxy *model.Proxy) (*xdsapi.DiscoveryResponse, error) {
 	//TODO(quanlin): use timestamp for versionInfo and nouce for now, may change later.
 	t := time.Now().String()
 	resp := &xdsapi.DiscoveryResponse{
@@ -275,8 +284,7 @@ func sdsDiscoveryResponse(s *SecretItem, proxy model.Proxy) (*xdsapi.DiscoveryRe
 	}
 
 	secret := &authapi.Secret{
-		//TODO(quanlin): better naming.
-		Name: "self-signed",
+		Name: s.SpiffeID,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{

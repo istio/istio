@@ -81,8 +81,8 @@ func NewSecretCache(cl CAClient, secretTTL, rotationInterval, evictionDuration t
 // GetSecret gets secret from cache, this function is called by SDS.FetchSecret,
 // Since credential passing from client may change, regenerate secret every time
 // instread of reading from cache.
-func (sc *SecretCache) GetSecret(proxyID, token string) (*sds.SecretItem, error) {
-	ns, err := sc.generateSecret(token, time.Now())
+func (sc *SecretCache) GetSecret(proxyID, spiffeID, token string) (*sds.SecretItem, error) {
+	ns, err := sc.generateSecret(token, spiffeID, time.Now())
 	if err != nil {
 		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 		return nil, err
@@ -140,7 +140,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(e.Token, now)
+				ns, err := sc.generateSecret(e.Token, e.SpiffeID, now)
 				if err != nil {
 					log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
 					return
@@ -161,9 +161,9 @@ func (sc *SecretCache) rotate(t time.Time) {
 	})
 }
 
-func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretItem, error) {
+func (sc *SecretCache) generateSecret(token, spiffeID string, t time.Time) (*sds.SecretItem, error) {
 	options := util.CertOptions{
-		Host:       "", //TODO(quanlin): figure out what to use here.
+		Host:       spiffeID,
 		RSAKeySize: keySize,
 	}
 
@@ -181,6 +181,7 @@ func (sc *SecretCache) generateSecret(token string, t time.Time) (*sds.SecretIte
 	return &sds.SecretItem{
 		CertificateChain: certChainPER,
 		PrivateKey:       keyPEM,
+		SpiffeID:         spiffeID,
 		Token:            token,
 		CreatedTime:      t,
 	}, nil

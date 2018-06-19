@@ -25,6 +25,8 @@ import (
 var (
 	mockCertificateChain1st    = []byte{01}
 	mockCertificateChainRemain = []byte{02}
+
+	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 )
 
 func TestGetSecret(t *testing.T) {
@@ -37,8 +39,7 @@ func TestGetSecret(t *testing.T) {
 	}()
 
 	proxyID := "proxy1-id"
-	jwtToken := "jwtToken1"
-	gotSecret, err := sc.GetSecret(proxyID, jwtToken)
+	gotSecret, err := sc.GetSecret(proxyID, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -55,8 +56,7 @@ func TestGetSecret(t *testing.T) {
 	}
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	jwtToken = "newToken"
-	gotSecret, err = sc.GetSecret(proxyID, jwtToken)
+	gotSecret, err = sc.GetSecret(proxyID, fakeSpiffeID, "newToken" /*jwtToken*/)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -91,9 +91,7 @@ func TestRefreshSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	proxyID := "proxy1-id"
-	jwtToken := "jwtToken1"
-	_, err := sc.GetSecret(proxyID, jwtToken)
+	_, err := sc.GetSecret("proxy1-id" /*proxyID*/, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
