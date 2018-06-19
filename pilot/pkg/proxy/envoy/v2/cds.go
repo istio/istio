@@ -15,6 +15,8 @@
 package v2
 
 import (
+	"fmt"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -48,16 +50,28 @@ func (s *DiscoveryServer) pushCds(node model.Proxy, con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 	if err != nil {
-		adsLog.Warnf("CDS: Failed to generate clusters %v", err)
+		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 		return err
+	}
+
+	for _, c := range rawClusters {
+		if err = c.Validate(); err != nil {
+			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %s: %v", con.modelNode, err)
+			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", con.modelNode, err, c)
+			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
+			// Generating invalid clusters is a bug.
+			// Panic instead of trying to recover from that, since we can't
+			// assume anything about the state.
+			panic(retErr.Error())
+		}
 	}
 
 	con.HTTPClusters = rawClusters
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure, closing grpc %s %v", node.ID, err)
+		adsLog.Warnf("CDS: Send failure, closing grpc %s: %v", node.ID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}

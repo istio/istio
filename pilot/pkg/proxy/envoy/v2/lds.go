@@ -15,6 +15,8 @@
 package v2
 
 import (
+	"fmt"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,10 +28,23 @@ func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
 	if err != nil {
-		adsLog.Warnf("ADS: config failure, closing grpc %v", err)
+		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 		return err
 	}
+
+	for _, l := range ls {
+		if err = l.Validate(); err != nil {
+			retErr := fmt.Errorf("LDS: Generated invalid listener for node %s: %v", con.modelNode, err)
+			adsLog.Errorf("LDS: Generated invalid listener for node %s: %v, %v", con.modelNode, err, l)
+			pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
+			// Generating invalid listeners is a bug.
+			// Panic instead of trying to recover from that, since we can't
+			// assume anything about the state.
+			panic(retErr.Error())
+		}
+	}
+
 	con.HTTPListeners = ls
 	response := ldsDiscoveryResponse(ls, node)
 	err = con.send(response)

@@ -574,6 +574,16 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 			continue
 		}
 
+		if err = r.Validate(); err != nil {
+			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
+			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
+			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			// Generating invalid routes is a bug.
+			// Panic instead of trying to recover from that, since we can't
+			// assume anything about the state.
+			panic(retErr.Error())
+		}
+
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
 		resp, _ := model.ToJSONWithIndent(r, " ")
