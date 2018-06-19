@@ -1,4 +1,4 @@
-{{- if .Values.global.mtls.enabled }}
+{{ define "security-default.yaml.tpl" }}
 # These policy and destination rules effectively enable mTLS for all services in the mesh. For now,
 # they are added to Istio installation yaml for backward compatible. In future, they should be in
 # a separated yaml file so that customer can enable mTLS independent from installation.
@@ -8,6 +8,11 @@ apiVersion: "authentication.istio.io/v1alpha1"
 kind: "MeshPolicy"
 metadata:
   name: "default"
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   peers:
   - mtls: {}
@@ -18,6 +23,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   host: "*.local"
   trafficPolicy:
@@ -30,6 +40,11 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 spec:
   host: "kubernetes.default.svc.cluster.local"
   trafficPolicy:
