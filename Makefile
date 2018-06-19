@@ -632,7 +632,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set gateways.istio-ingressgateway.service.type=LoadBalancer \
+		--set gateways.istio-ingressgateway.type=LoadBalancer \
 		--set ingress.enabled=false \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -640,7 +640,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set gateways.istio-ingressgateway.service.type=LoadBalancer \
+		--set gateways.istio-ingressgateway.type=LoadBalancer \
 		--set ingress.enabled=false \
 		--set global.mtls.enabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
