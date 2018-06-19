@@ -1,17 +1,17 @@
-{{- range .Values.gateways }}
+{{- range .Values.list }}
 {{- if .autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: {{ .service.name }}
-    namespace: {{ .service.namespace | default $.Release.Namespace }}
+    name: {{ .name }}
+    namespace: {{ .namespace | default $.Release.Namespace }}
 spec:
     maxReplicas: {{ .autoscaleMax }}
     minReplicas: {{ .autoscaleMin }}
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
-      name: {{ .service.name }}
+      name: {{ .name }}
     metrics:
       - type: Resource
         resource:

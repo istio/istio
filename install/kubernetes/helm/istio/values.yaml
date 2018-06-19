@@ -138,97 +138,54 @@ ingress:
       istio: ingress
 
 #
-# Ingress Gateway Configuration
-# By default (if enabled) a single Ingress Gateway will be created for the mesh.
-# Add additional configuration(s) to the `gateways` array to add more gateway(s). Make
+# Gateways Configuration
+# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
+# Add additional configuration(s) to the `list` array to add more gateway(s) but make
 # sure those are uniquely named and that NodePorts are not duplicated.
+# Disable specifc gateway by setting the `enabled` to false for the specific list entry.
 #
-ingressgateway:
+gateways:
   enabled: true
-  gateways:
-  - serviceAccountName: istio-ingressgateway-service-account
+  list:
+  - name: istio-ingressgateway
+    enabled: true
+    labels:
+      istio: ingressgateway
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
     resources: {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      # requests:
-      #  cpu: 100m
-      #  memory: 128Mi
-    service:
-      name: istio-ingressgateway #DNS addressible
-      labels:
-        istio: ingressgateway
-      annotations: {}
-      #namespace: istio-system
-      loadBalancerIP: ""
-      type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-      ports:
-        ## You can add custom gateway ports
-      - port: 80
-        name: http
-        nodePort: 31380
-      - port: 443
-        name: https
-        nodePort: 31390
-      - port: 31400
-        name: tcp
-        nodePort: 31400
-    deployment:
-      labels:
-        istio: ingressgateway #will be added to pods and service
-      ports:
-      - containerPort: 80
-      - containerPort: 443
-      - containerPort: 31400
-      secretVolumes:
-      - name: ingressgateway-certs
-        secretName: istio-ingressgateway-certs
-        mountPath: /etc/istio/ingressgateway-certs
-      - name: ingressgateway-ca-certs
-        secretName: istio-ingressgateway-ca-certs
-        mountPath: /etc/istio/ingressgateway-ca-certs
-
-#
-# Egress Gateway Configuration
-# By default (if enabled) a single Egress Gateway will be created for the mesh.
-# Add additional configuration(s) to the `gateways` array to add more gateway(s).
-#
-egressgateway:
-  enabled: true
-  gateways:
-  - serviceAccountName: istio-egressgateway-service-account
+    loadBalancerIP: ""
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+  - name: istio-egressgateway
+    enabled: true
+    labels:
+      istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
     resources: {}
-      # limits:
-      # cpu: 100m
-      # memory: 128Mi
-      # requests:
-      # cpu: 100m
-      # memory: 128Mi
-    service:
-      name: istio-egressgateway #DNS addressible
-      labels:
-        istio: egressgateway
-      #namespace: istio-system
-      type: ClusterIP #change to NodePort or LoadBalancer if need be
-      ports:
-        ## You can add custom gateway ports
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
       - port: 80
         name: http
       - port: 443
         name: https
-    deployment:
-      labels:
-        istio: egressgateway #will be added to pods and service
-      ports:
-      - containerPort: 80
-      - containerPort: 443
-      secretVolumes:
+    secretVolumes:
       - name: egressgateway-certs
         secretName: istio-egressgateway-certs
         mountPath: /etc/istio/egressgateway-certs
