@@ -177,6 +177,8 @@ func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.E
 			for i := 1; i < len(filterChain.HTTP); i++ {
 				if filterChain.HTTP[i].Name != envoyFilter.InsertPosition.RelativeTo {
 					filterChain.HTTP[i-1], filterChain.HTTP[i] = filterChain.HTTP[i], filterChain.HTTP[i-1]
+				} else {
+					break
 				}
 			}
 		}
@@ -187,6 +189,8 @@ func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.E
 			for i := len(filterChain.HTTP) - 2; i >= 0; i-- {
 				if filterChain.HTTP[i].Name != envoyFilter.InsertPosition.RelativeTo {
 					filterChain.HTTP[i+1], filterChain.HTTP[i] = filterChain.HTTP[i], filterChain.HTTP[i+1]
+				} else {
+					break
 				}
 			}
 		}
