@@ -284,7 +284,7 @@ func newPromProxy(namespace string) *promProxy {
 func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
-	podLogs("istio="+ingressName, "istio-"+ingressName)
+	podLogs("istio="+ingressName, ingressName)
 	podLogs("istio=mixer", "mixer")
 	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
