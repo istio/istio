@@ -352,6 +352,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
+	var proxyLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		proxyLabels = append(proxyLabels, w.Labels)
+	}
+
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	sniRoutes := buildSNIRoutes(env.VirtualServices(meshGateway), services, proxyLabels, meshGateway)
+
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
 	listenerTypeMap := make(map[string]model.Protocol)
@@ -426,17 +434,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						continue
 					}
 				}
-				filterChainOption := &filterChainOpts{
-					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-				}
 
-				// Set SNI hosts for External services only. It may or may not work for internal services.
-				// TODO (@rshriram): We need an explicit option to enable/disable SNI for a given service
-				if servicePort.Protocol.IsTLS() && service.MeshExternal {
-					filterChainOption.sniHosts = []string{service.Hostname.String()}
+				// FIXME: doc this
+				sniKey := hostPortKey{Host: service.Hostname, Port: servicePort.Port}
+				if routes := sniRoutes[sniKey]; len(routes) > 0 {
+					for _, route := range routes {
+						clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound,
+							route.Subset, route.Host, route.Port)
+						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+							sniHosts:       route.ServerNames,
+							networkFilters: buildOutboundNetworkFilters(clusterName, nil, servicePort),
+						})
+					}
+				} else {
+					listenerOpts.filterChainOpts = []*filterChainOpts{{
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
+					}}
 				}
-
-				listenerOpts.filterChainOpts = []*filterChainOpts{filterChainOption}
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
