@@ -18,13 +18,16 @@ import "time"
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
-	GetSecret(proxyID, token string) (*SecretItem, error)
+	GetSecret(proxyID, serviceAccount, token string) (*SecretItem, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte
+
+	// ServiceAccount passed from envoy, in spiffe format.
+	ServiceAccount string
 
 	// Credential token passed from envoy, caClient uses this token to send
 	// CSR to CA to sign certificate.
