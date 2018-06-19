@@ -25,8 +25,13 @@ fi
 ISTIO_HOME=~/.istio
 if [ -d "$ISTIO_HOME" ]; then
   echo "You already have Istio installed."
-  echo "You'll need to remove $ISTIO_HOME if you want to re-install."
-  exit
+  echo -n "Do you want to remove $ISTIO_HOME (y/n)? "
+  read answer
+  if [ "$answer" != "${answer#[Yy]}" ] ;then
+      rm -rf $ISTIO_HOME
+  else
+      exit
+  fi
 fi
 
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
