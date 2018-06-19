@@ -1914,15 +1914,43 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		}
 	}
 
-	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("http or tcp must be provided in virtual service"))
+	if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
+		errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 	}
 	for _, httpRoute := range virtualService.Http {
 		errs = appendErrors(errs, validateHTTPRoute(httpRoute))
 	}
-	// TODO: validate TCP
+	for _, tlsRoute := range virtualService.Tls {
+		errs = appendErrors(errs, validateTLSRoute(tlsRoute))
+	}
+	// TODO: validate tcp
+	//for _, tcpRoute := range virtualService.Tcp {
+	//	errs = appendErrors(errs, validateTCPRoute(tcpRoute))
+	//}
 
 	return
+}
+
+func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
+	if tls == nil {
+		return nil
+	}
+
+	if len(tls.Match) == 0 {
+		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
+	}
+	for _, match := range tls.Match {
+		errs = appendErrors(errs, validateTLSMatch(match))
+	}
+	if len(tls.Route) != 1 {
+		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
+	}
+	errs = appendErrors(errs, validateDestinationWeights(tls.Route))
+	return
+}
+
+func validateTLSMatch(match *networking.TLSMatchAttributes) error {
+	return nil // TODO
 }
 
 func validateHost(host string) error {
@@ -1976,22 +2004,27 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-	var totalWeight int32
-	for _, route := range http.Route {
-		if route.Destination == nil {
-			errs = multierror.Append(errs, errors.New("destination is required"))
-		}
-		errs = appendErrors(errs, validateDestination(route.Destination))
-		errs = appendErrors(errs, ValidatePercent(route.Weight))
-		totalWeight += route.Weight
-	}
-	if len(http.Route) > 1 && totalWeight > 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
-	}
+	errs = appendErrors(errs, validateDestinationWeights(http.Route))
 	if http.Timeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
 
+	return
+}
+
+func validateDestinationWeights(weights []*networking.DestinationWeight) (errs error) {
+	var totalWeight int32
+	for _, weight := range weights {
+		if weight.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		errs = appendErrors(errs, validateDestination(weight.Destination))
+		errs = appendErrors(errs, ValidatePercent(weight.Weight))
+		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight > 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
+	}
 	return
 }
 
