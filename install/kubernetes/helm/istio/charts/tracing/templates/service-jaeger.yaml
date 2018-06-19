@@ -3,6 +3,7 @@
 apiVersion: v1
 kind: List
 items:
+{{- if .Values.ingress.enabled }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -23,6 +24,7 @@ items:
     selector:
       app: jaeger
     type: LoadBalancer
+{{- end }}
 - apiVersion: v1
   kind: Service
   metadata:

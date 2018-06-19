@@ -71,7 +71,7 @@ metadata:
   name: reportInstance
   namespace: istio-system
 spec:
-  value: "2"
+  value: response.count | 0
   dimensions:
     source: source.name | "mysrc"
     target_ip: target.name | "mytarget"
@@ -93,7 +93,8 @@ spec:
 ---
 `,
 			attrs: map[string]interface{}{
-				"target.name": "somesrvcname",
+				"target.name":    "somesrvcname",
+				"response.count": int64(2),
 			},
 
 			expectSetTypes: map[string]interface{}{
