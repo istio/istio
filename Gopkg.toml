@@ -295,7 +295,8 @@ required = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  source = "https://github.com/rshriram/api.git"
+  revision = "9bc43e6eb068e75ce9193c59d1149bd243cb5321" # FIXME: don't let this merge
 
 # fortio is latest tagged by default
 

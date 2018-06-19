@@ -19,7 +19,7 @@
 		ConnectionPoolSettings
 		OutlierDetection
 		TLSSettings
-		EnvoyFilters
+		EnvoyFilter
 		Gateway
 		Server
 		Port
@@ -27,10 +27,12 @@
 		VirtualService
 		Destination
 		HTTPRoute
+		TLSRoute
 		TCPRoute
 		HTTPMatchRequest
 		DestinationWeight
 		L4MatchAttributes
+		TLSMatchAttributes
 		HTTPRedirect
 		HTTPRewrite
 		StringMatch
