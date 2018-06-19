@@ -48,8 +48,7 @@ func TestTLSMultiplexing(t *testing.T) {
 	// Pod t does not have sidecar, will send plain text traffic.
 	srcPods := []string{"a", "t"}
 	dstPods := []string{"d"}
-	// TODO(incfly): add port 7070 back once https://github.com/istio/istio/issues/6361 is resolved.
-	ports := []string{"80"}
+	ports := []string{"80", "7070"}
 	shouldFails := []struct {
 		src  string
 		dest string
