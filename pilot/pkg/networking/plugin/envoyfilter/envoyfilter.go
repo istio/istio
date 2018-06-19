@@ -44,13 +44,17 @@ func NewPlugin() plugin.Plugin {
 }
 
 func getListenerIPAddress(address *core.Address) net.IP {
-	switch t := address.Address.(type) {
-	case *core.Address_SocketAddress:
-		ip := "0.0.0.0"
-		if t.SocketAddress.Address != "::" {
-			ip = t.SocketAddress.Address
+	if address != nil && address.Address != nil {
+		switch t := address.Address.(type) {
+		case *core.Address_SocketAddress:
+			if t.SocketAddress != nil {
+				ip := "0.0.0.0"
+				if t.SocketAddress.Address != "::" {
+					ip = t.SocketAddress.Address
+				}
+				return net.ParseIP(ip)
+			}
 		}
-		return net.ParseIP(ip)
 	}
 	return nil
 }
