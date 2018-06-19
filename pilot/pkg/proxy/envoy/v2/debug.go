@@ -199,10 +199,9 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceNamespace retrieves namespace of a service if it exists. Currently it's not implemented
-// and only returns empty string.
-func (sd *MemServiceDiscovery) GetServiceNamespace(service *model.Service) (string, error) {
-	return "", fmt.Errorf("not implemented")
+// GetServiceAttributes implements discovery interface. Currently it only returns nil.
+func (sd *MemServiceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
+	return nil, nil
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is

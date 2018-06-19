@@ -225,7 +225,7 @@ func TestGetService(t *testing.T) {
 	}
 }
 
-func TestGetServiceNamespace(t *testing.T) {
+func TestGetServiceAttributes(t *testing.T) {
 	aggregateCtl := buildMockController()
 	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
 	if err != nil {
@@ -234,8 +234,9 @@ func TestGetServiceNamespace(t *testing.T) {
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
-	if _, err := aggregateCtl.GetServiceNamespace(svc); err.Error() != "NOT IMPLEMENTED" {
-		t.Fatalf("GetServiceNamespace() encountered unexpected error: %v", err)
+	// The mock controller is using the memory service discovery that only returns nil.
+	if attr, _ := aggregateCtl.GetServiceAttributes(svc); attr != nil {
+		t.Fatalf("GetServiceAttributes() got Namespace: %v but want nil", attr)
 	}
 }
 

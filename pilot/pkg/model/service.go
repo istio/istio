@@ -329,6 +329,12 @@ func (si *ServiceInstance) GetAZ() string {
 	return si.Labels[AZLabel]
 }
 
+// ServiceAttributes represents a group of custom attributes of the service.
+type ServiceAttributes struct {
+	Name      string
+	Namespace string
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
@@ -337,8 +343,8 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
 
-	// GetServiceNamespace retrieves the namespace of a service if it exists
-	GetServiceNamespace(service *Service) (string, error)
+	// GetServiceAttributes retrieves the custom attributes of a service
+	GetServiceAttributes(service *Service) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.

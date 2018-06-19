@@ -112,6 +112,26 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 }
 
+func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
+
+	tcpStaticSvc := convertServices(tcpStatic)
+	for _, svc := range tcpStaticSvc {
+		if attr, _ := sd.GetServiceAttributes(svc); attr.Namespace != "default" {
+			t.Errorf(`GetServiceAttributes("tcpStaticSvc") => %q, want "default"`, attr.Namespace)
+		}
+	}
+	tcpDNSSvc := convertServices(tcpDNS)
+	for _, svc := range tcpDNSSvc {
+		if attr, _ := sd.GetServiceAttributes(svc); attr != nil {
+			t.Errorf(`GetServiceAttributes("tcpDNSSvc") => %q, want nil`, attr.Namespace)
+		}
+	}
+}
+
 func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	store, sd, stopFn := initServiceDiscovery()
 	defer stopFn()

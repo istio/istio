@@ -61,10 +61,9 @@ func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return service, nil
 }
 
-// GetServiceNamespace retrieves namespace of a service if it exists. Currently it's not implemented
-// and only returns empty string.
-func (sd *serviceDiscovery) GetServiceNamespace(service *model.Service) (string, error) {
-	return "", fmt.Errorf("NOT IMPLEMENTED")
+// GetServiceAttributes implements a service catalog operation. Currently it only returns nil.
+func (sd *serviceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
+	return nil, nil
 }
 
 // Instances implements a service catalog operation
