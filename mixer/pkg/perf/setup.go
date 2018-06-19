@@ -51,16 +51,16 @@ type Setup struct {
 	// Config is the Mixer config to use for this test.
 	Config Config `json:"config"`
 
-	// Load is the description of the mixer load to use for this test.
-	Load Load `json:"load"`
+	// Loads is an array of Load passed from different clients in parallel.
+	Loads []Load `json:"loads"`
 }
 
-// marshallSetup converts a setup object into YAML serialized form.
-func marshallSetup(setup *Setup) ([]byte, error) {
-	return yaml.Marshal(setup)
+// marshallLoad converts a load object into YAML serialized form.
+func marshallLoad(load *Load) ([]byte, error) {
+	return yaml.Marshal(load)
 }
 
-// unmarshallSetup reads a setup object from a YAML serialized form.
-func unmarshallSetup(bytes []byte, setup *Setup) error {
-	return yaml.Unmarshal(bytes, setup)
+// unmarshallLoad reads a Load object from a YAML serialized form.
+func unmarshallLoad(bytes []byte, load *Load) error {
+	return yaml.Unmarshal(bytes, load)
 }

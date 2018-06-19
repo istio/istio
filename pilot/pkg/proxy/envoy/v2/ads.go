@@ -176,7 +176,11 @@ type XdsConnection struct {
 	HTTPClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
-	NonceSent, NonceAcked string
+	ClusterNonceSent, ClusterNonceAcked   string
+	ListenerNonceSent, ListenerNonceAcked string
+	RouteNonceSent, RouteNonceAcked       string
+	EndpointNonceSent, EndpointNonceAcked string
+	RoutePercent, EndpointPercent         int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -296,9 +300,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
 			}
-			if discReq.ResponseNonce != "" {
-				con.NonceAcked = discReq.ResponseNonce
-			}
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -309,6 +310,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
+					if discReq.ResponseNonce != "" {
+						con.ClusterNonceAcked = discReq.ResponseNonce
+					}
 					continue
 				}
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
@@ -316,6 +320,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushCds(*con.modelNode, con)
 				if err != nil {
 					return err
+				}
+				if discReq.ResponseNonce != "" {
+					con.ClusterNonceAcked = discReq.ResponseNonce
 				}
 
 			case ListenerType:
@@ -326,6 +333,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					}
 					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
+					if discReq.ResponseNonce != "" {
+						con.ListenerNonceAcked = discReq.ResponseNonce
+					}
 					continue
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
@@ -333,6 +343,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushLds(*con.modelNode, con)
 				if err != nil {
 					return err
+				}
+				if discReq.ResponseNonce != "" {
+					con.ListenerNonceAcked = discReq.ResponseNonce
 				}
 
 			case RouteType:
@@ -344,6 +357,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 					// Not logging full request, can be very long.
 					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+					if discReq.ResponseNonce != "" {
+						con.RouteNonceAcked = discReq.ResponseNonce
+					}
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
 						continue
@@ -355,6 +371,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err != nil {
 					return err
 				}
+				if discReq.ResponseNonce != "" {
+					con.RouteNonceAcked = discReq.ResponseNonce
+				}
 
 			case EndpointType:
 				clusters := discReq.GetResourceNames()
@@ -362,6 +381,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					}
+					if discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) > 0 {
+							con.EndpointPercent = (len(clusters) / len(edsClusters)) * 100
+						}
 					}
 					if len(con.Clusters) > 0 {
 						// Already got a list of clusters to watch and has same length as the request, this is an ack
@@ -380,6 +405,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushEds(con)
 				if err != nil {
 					return err
+				}
+				if discReq.ResponseNonce != "" {
+					con.EndpointNonceAcked = discReq.ResponseNonce
 				}
 
 			default:
@@ -615,7 +643,16 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		err := con.stream.Send(res)
 		done <- err
 		if res.Nonce != "" {
-			con.NonceSent = res.Nonce
+			switch res.TypeUrl {
+			case ClusterType:
+				con.ClusterNonceSent = res.Nonce
+			case ListenerType:
+				con.ListenerNonceSent = res.Nonce
+			case RouteType:
+				con.RouteNonceSent = res.Nonce
+			case EndpointType:
+				con.EndpointNonceSent = res.Nonce
+			}
 		}
 	}()
 	select {
