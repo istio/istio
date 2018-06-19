@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/list/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/list/config/config.proto -x "-n listchecker -t listentry"
 
 // Package list provides an adapter that implements the listEntry
 // template to enable blacklist / whitelist checking of values.
