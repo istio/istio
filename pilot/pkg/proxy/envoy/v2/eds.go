@@ -321,7 +321,12 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
-		c := s.getOrAddEdsCluster(clusterName)
+		c := s.getEdsCluster(clusterName)
+		if c == nil {
+			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
+			continue
+		}
+
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
 			if err := updateCluster(clusterName, c); err != nil {
