@@ -84,17 +84,11 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 			return false // We don't care about direction for gateways
 		}
 	case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND:
-		if in.Node.Type != model.Sidecar {
-			return false
-		}
-		if direction != InboundDirection {
+		if in.Node.Type != model.Sidecar || direction != InboundDirection {
 			return false
 		}
 	case networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
-		if in.Node.Type != model.Sidecar {
-			return false
-		}
-		if direction != OutboundDirection {
+		if in.Node.Type != model.Sidecar || direction != OutboundDirection {
 			return false
 		}
 		// case ANY implies do not care about proxy type or direction
@@ -119,6 +113,7 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 			// Since we have some addresses to match against, this nil IP is considered as a mismatch
 			return false
 		}
+		matched := false
 		// if any of the addresses here match, return true
 		for _, address := range matchCondition.Address {
 			if strings.Contains(address, "/") {
@@ -129,12 +124,15 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 					continue
 				}
 				if ipNet.Contains(listenerIP) {
+					matched = true
 					break
 				}
 			} else if net.ParseIP(address).Equal(listenerIP) {
+				matched = true
 				break
 			}
 		}
+		return matched
 	}
 
 	return true
