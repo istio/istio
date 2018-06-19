@@ -10,16 +10,17 @@ spec:
   peers:
     - mtls:
         mode: PERMISSIVE
----
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: "strict-authn-7070"
-spec:
-  targets:
-  - name: "d"
-    ports:
-    - number: 7070
-  peers:
-    - mtls:
-        mode: STRICT
+# TODO(incfly): add strict policy back once https://github.com/istio/istio/issues/6361 is fixed.
+#---
+#apiVersion: "authentication.istio.io/v1alpha1"
+#kind: "Policy"
+#metadata:
+  #name: "strict-authn-7070"
+#spec:
+  #targets:
+  #- name: "d"
+    #ports:
+    #- number: 7070
+  #peers:
+    #- mtls:
+        #mode: STRICT
