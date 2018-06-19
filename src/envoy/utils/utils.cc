@@ -28,7 +28,7 @@ namespace {
 const std::string kSPIFFEPrefix("spiffe://");
 
 // Per-host opaque data field
-const std::string kPerHostMixer("mixer");
+const std::string kPerHostMetadataKey("istio");
 
 // Attribute field for per-host data override
 const std::string kMetadataDestinationUID("uid");
@@ -77,7 +77,7 @@ bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port) {
 
 bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
                        std::string* uid) {
-  const auto filter_it = metadata.filter_metadata().find(kPerHostMixer);
+  const auto filter_it = metadata.filter_metadata().find(kPerHostMetadataKey);
   if (filter_it == metadata.filter_metadata().end()) {
     return false;
   }
