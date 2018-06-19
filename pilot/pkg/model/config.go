@@ -862,11 +862,10 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 		if filter.GetWorkloadLabels() == nil {
 			// no selector. Applies to all workloads asking for the gateway
 			return &config
-		} else {
-			workloadSelector := Labels(filter.GetWorkloadLabels())
-			if workloadLabels.IsSupersetOf(workloadSelector) {
-				return &config
-			}
+		}
+		workloadSelector := Labels(filter.GetWorkloadLabels())
+		if workloadLabels.IsSupersetOf(workloadSelector) {
+			return &config
 		}
 	}
 	return nil
