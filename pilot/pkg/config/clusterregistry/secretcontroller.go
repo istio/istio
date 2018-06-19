@@ -209,9 +209,15 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	// Check if there is already a cluster member with the specified
 	for clusterID, kubeConfig := range s.Data {
 		if _, ok := c.cs.rc[clusterID]; !ok {
+			// Disregard it if it's empty
+			if len(kubeConfig) == 0 {
+				log.Infof("Data '%s' in the secret %s in namespace %s is empty, and disregarded ",
+					clusterID, secretName, s.ObjectMeta.Namespace)
+				continue
+			}
 			clientConfig, err := clientcmd.Load(kubeConfig)
 			if err != nil {
-				log.Infof("Data %s in the secret %s in namespace %s is not a kubeconfig: %v",
+				log.Infof("Data '%s' in the secret %s in namespace %s is not a kubeconfig: %v",
 					clusterID, secretName, s.ObjectMeta.Namespace, err)
 				continue
 			}
