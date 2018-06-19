@@ -32,8 +32,9 @@ type entityCache struct {
 
 func newEntityCache(logger adapter.Logger) *entityCache {
 	return &entityCache{
-		cache:  make(map[entity]cacheStatus),
-		logger: logger,
+		cache:     make(map[entity]cacheStatus),
+		logger:    logger,
+		lastFlush: -1,
 	}
 }
 
@@ -60,7 +61,7 @@ func (ec *entityCache) AssertAndCheck(e entity, epoch int) bool {
 func (ec *entityCache) Flush(epoch int) []entity {
 	var result []entity
 	for k, e := range ec.cache {
-		if e.lastSeen < ec.lastFlush {
+		if e.lastSeen <= ec.lastFlush {
 			delete(ec.cache, k)
 			continue
 		}
@@ -87,8 +88,9 @@ type edgeCache struct {
 
 func newEdgeCache(logger adapter.Logger) *edgeCache {
 	return &edgeCache{
-		cache:  make(map[edge]cacheStatus),
-		logger: logger,
+		cache:     make(map[edge]cacheStatus),
+		logger:    logger,
+		lastFlush: -1,
 	}
 }
 
@@ -115,7 +117,7 @@ func (ec *edgeCache) AssertAndCheck(e edge, epoch int) bool {
 func (ec *edgeCache) Flush(epoch int) []edge {
 	var result []edge
 	for k, e := range ec.cache {
-		if e.lastSeen < ec.lastFlush {
+		if e.lastSeen <= ec.lastFlush {
 			delete(ec.cache, k)
 			continue
 		}
