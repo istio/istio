@@ -25,10 +25,14 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // subsystem (Pilot). This feature must be used with care, as incorrect
 // configurations could potentially destabilize the entire mesh.
 //
-// NOTE: Since this is break glass configuration, there will not be any
+// NOTE 1: Since this is break glass configuration, there will not be any
 // backward compatibility across different Istio releases. In other words,
 // this configuration is subject to change based on internal implementation
 // of Istio networking subsystem.
+//
+// NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
+// The behavior is undefined if multiple EnvoyFilter configurations are
+// specified for the same workload.
 //
 // The following example for Kubernetes enables Envoy's Lua filter for all
 // inbound calls arriving at port 18080 of the reviews service pod with
@@ -51,13 +55,16 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //           inlineCode: |
 //             ... lua code ...
 //
-message EnvoyFilters {
+message EnvoyFilter {
   // One or more labels that indicate a specific set of pods/VMs whose
   // proxies should be configured to use these additional filters.  The
   // scope of label search is platform dependent. On Kubernetes, for
   // example, the scope includes pods running in all reachable
   // namespaces. Omitting the selector applies the filter to all proxies in
   // the mesh.
+  // NOTE: There can be only one EnvoyFilter bound to a specific workload.
+  // The behavior is undefined if multiple EnvoyFilter configurations are
+  // specified for the same workload.
   map<string, string> workload_labels = 1;
 
   // Select a listener to add the filter to based on the match conditions.

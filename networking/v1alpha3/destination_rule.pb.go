@@ -19,7 +19,7 @@
 		ConnectionPoolSettings
 		OutlierDetection
 		TLSSettings
-		EnvoyFilters
+		EnvoyFilter
 		Gateway
 		Server
 		Port
