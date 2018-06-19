@@ -1,4 +1,4 @@
-{{- if .Values.global.zipkinEndpoint }}
+{{- if .Values.global.pilotEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
