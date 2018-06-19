@@ -155,7 +155,10 @@ func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	}
 
 	f := env.EnvoyFilter(workloadLabels)
-	return f.Spec.(*networking.EnvoyFilter)
+	if f != nil {
+		return f.Spec.(*networking.EnvoyFilter)
+	}
+	return nil
 }
 
 func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
