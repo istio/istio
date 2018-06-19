@@ -273,9 +273,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		listenerType = plugin.ModelProtocolToListenerType(protocol)
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
-<<<<<<< HEAD
 			httpOpts := &httpListenerOpts{
-				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance), 
+				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
@@ -296,15 +295,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 						httpOpts: httpOpts,
 					},
 				}
-=======
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				httpOpts: &httpListenerOpts{
-					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
-					rds:              "", // no RDS for inbound traffic
-					useRemoteAddress: false,
-					direction:        http_conn.INGRESS,
-				}},
->>>>>>> ef5c5167e1fb6dddb263f49e7f7acb8693950ab9
 			}
 		case plugin.ListenerTypeTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
