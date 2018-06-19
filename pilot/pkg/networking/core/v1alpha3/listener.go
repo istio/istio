@@ -320,7 +320,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				ProxyInstances:   proxyInstances,
 				ServiceInstance:  instance,
 				Port:             endpoint.ServicePort,
-				IP:               listenerOpts.ip,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -463,7 +462,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					ProxyInstances:   proxyInstances,
 					Service:          service,
 					Port:             servicePort,
-					IP:               listenerOpts.ip,
 				}
 
 				if err := p.OnOutboundListener(params, mutable); err != nil {

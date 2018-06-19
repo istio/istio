@@ -43,7 +43,19 @@ func NewPlugin() plugin.Plugin {
 	return envoyfilterplugin{}
 }
 
-func listenerMatch(in *plugin.InputParams, direction string, listenerAddress core.Address,
+func getListenerIPAddress(address *core.Address) net.IP {
+	switch t := address.Address.(type) {
+	case core.Address_SocketAddress:
+		ip := "0.0.0.0"
+		if t.SocketAddress.Address != "::" {
+			ip = t.SocketAddress.Address
+		}
+		return net.ParseIP(ip)
+	}
+	return nil
+}
+
+func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 	matchCondition *networking.EnvoyFilter_ListenerMatch) bool {
 	if matchCondition == nil {
 		return true
@@ -97,7 +109,12 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerAddress cor
 	}
 
 	if len(matchCondition.Address) > 0 {
-		listenerIP := net.ParseIP(in.IP)
+		if listenerIP == nil {
+			// We failed to parse the listener IP address.
+			// It could be a unix domain socket or something else.
+			// Since we have some addresses to match against, this nil IP is considered as a mismatch
+			return false
+		}
 		// if any of the addresses here match, return true
 		for _, address := range matchCondition.Address {
 			if strings.Contains(address, "/") {
@@ -214,8 +231,13 @@ func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
+	listenerIPAddress := getListenerIPAddress(&mutable.Listener.Address)
+	if listenerIPAddress == nil {
+		log.Warnf("Failed to parse IP Address from plugin listener")
+	}
+
 	for _, f := range filterCRD.Filters {
-		if !listenerMatch(in, direction, mutable.Listener.Address, f.ListenerMatch) {
+		if !listenerMatch(in, direction, listenerIPAddress, f.ListenerMatch) {
 			continue
 		}
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {

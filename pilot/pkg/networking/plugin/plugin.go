@@ -64,8 +64,6 @@ type InputParams struct {
 	// Service is the service colocated with the listener (applies to sidecar).
 	// For outbound TCP listeners, it is the destination service.
 	Service *model.Service
-	// IP is the IP address on which the listener is listening
-	IP string
 	// Port is the port for which the listener is being built
 	// For outbound/inbound sidecars this is the service port (not endpoint port)
 	// For inbound listener on gateway, this is the gateway server port

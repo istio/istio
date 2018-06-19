@@ -1119,7 +1119,7 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 	}
 
 	if len(rule.Filters) == 0 {
-		return fmt.Errorf("EnvoyFilter configuration does not have any filter")
+		return fmt.Errorf("EnvoyFilter: missing filters")
 	}
 
 	for _, f := range rule.Filters {
@@ -1127,19 +1127,19 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
 				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
 				if f.InsertPosition.RelativeTo == "" {
-					appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have empty relativeTo with BEFORE/AFTER index"))
+					errs = appendErrors(errs, fmt.Errorf("EnvoyFilter: missing relativeTo filter with BEFORE/AFTER index"))
 				}
 			}
 		}
 		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
-			appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have invalid filter type"))
+			errs = appendErrors(errs, fmt.Errorf("EnvoyFilter: missing filter type"))
 		}
 		if len(f.FilterName) == 0 {
-			appendErrors(errs, fmt.Errorf("EnvoyFilter cannot have empty filter name"))
+			errs = appendErrors(errs, fmt.Errorf("EnvoyFilter: missing filter name"))
 		}
 
 		if f.FilterConfig == nil {
-			appendErrors(errs, fmt.Errorf("EnvoyFilter missing filter config"))
+			errs = appendErrors(errs, fmt.Errorf("EnvoyFilter: missing filter config"))
 		}
 	}
 

@@ -118,7 +118,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 					Port:     int(portNumber),
 					Protocol: protocol,
 				},
-				IP: opts.ip,
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
