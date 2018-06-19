@@ -44,7 +44,7 @@ const (
 	SecretType = "type.googleapis.com/envoy.api.v2.Secret"
 
 	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
-	// pass credential token from envoy to SDS.
+	// pass credential token from envoy's SDS request to SDS service.
 	CredentialTokenHeaderKey = "authorization"
 )
 

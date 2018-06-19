@@ -1,4 +1,4 @@
-# This yaml brings up node agent as a DaemonSet, which takes FlexVolume driver connection.
+# This yaml brings up node agent as a DaemonSet.
 # A detailed tutorial will be added soon.
 apiVersion: extensions/v1beta1
 kind: DaemonSet
@@ -13,5 +13,5 @@ spec:
     spec:
       containers:
       - name: nodeagent
-        image: $HUB/node-agent-k8s:$TAG
+        image: "{{ .Values.global.hub }}/node-agent-k8s:{{ .Values.global.tag }}"
         imagePullPolicy: IfNotPresent

@@ -80,6 +80,8 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 		if err = s.grpcServer.Serve(s.grpcListener); err != nil {
 			log.Errorf("SDS grpc server failed to start: %v", err)
 		}
+
+		log.Info("SDS grpc server started")
 	}()
 
 	return nil

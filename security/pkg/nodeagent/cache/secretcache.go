@@ -41,7 +41,7 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
-	// Key rotation job running interval.
+	// Secret rotation job running interval.
 	RotationInterval time.Duration
 
 	// Secret eviction duration.

@@ -55,10 +55,14 @@ var (
 )
 
 func init() {
-	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath", "/tmp/sds31ae31c5c8c0.sock", "")
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretttl", time.Hour, "")
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval", 10*time.Minute, "")
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration", 24*time.Hour, "")
+	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
+		"/tmp/sdsuds.sock", "Unix domain socket through which SDS server communicates with proxies")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
+		time.Hour, "Secret's TTL")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval",
+		10*time.Minute, "Secret rotation job running interval")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration",
+		24*time.Hour, "Secret eviction time duration")
 }
 
 func main() {
