@@ -100,7 +100,7 @@ e2e_simple_noauth_run: out_dir
 	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-e2e_mixer_run: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+e2e_mixer_run: out_dir
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
 	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
