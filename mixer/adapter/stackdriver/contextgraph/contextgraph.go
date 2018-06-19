@@ -120,7 +120,15 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 
 // adapter.HandlerBuilder#Validate
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	// Should error on empty projid, etc
+	if b.projectID == "" {
+		ce = ce.Appendf("project_id", "Project ID not provided and could not be determined")
+	}
+	if b.zone == "" {
+		ce = ce.Appendf("none", "Location/Zone could not be determined from metadata server.")
+	}
+	if b.cluster == "" {
+		ce = ce.Appendf("none", "Cluster Name could not be determined from metadata server.")
+	}
 	return
 }
 
