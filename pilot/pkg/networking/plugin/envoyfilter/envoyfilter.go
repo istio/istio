@@ -45,7 +45,7 @@ func NewPlugin() plugin.Plugin {
 
 func getListenerIPAddress(address *core.Address) net.IP {
 	switch t := address.Address.(type) {
-	case core.Address_SocketAddress:
+	case *core.Address_SocketAddress:
 		ip := "0.0.0.0"
 		if t.SocketAddress.Address != "::" {
 			ip = t.SocketAddress.Address
