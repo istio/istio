@@ -32,7 +32,6 @@ PeerAuthenticator::PeerAuthenticator(FilterContext* filter_context,
 
 bool PeerAuthenticator::run(Payload* payload) {
   bool success = false;
-
   if (policy_.peers_size() == 0) {
     ENVOY_LOG(debug, "No method defined. Skip source authentication.");
     success = true;

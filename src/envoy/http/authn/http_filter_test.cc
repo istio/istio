@@ -51,11 +51,11 @@ const char ingoreBothPolicy[] = R"(
 // Create a fake authenticator for test. This authenticator do nothing except
 // making the authentication fail.
 std::unique_ptr<AuthenticatorBase> createAlwaysFailAuthenticator(
-    FilterContext* filter_context) {
+    FilterContext *filter_context) {
   class _local : public AuthenticatorBase {
    public:
-    _local(FilterContext* filter_context) : AuthenticatorBase(filter_context) {}
-    bool run(Payload*) override { return false; }
+    _local(FilterContext *filter_context) : AuthenticatorBase(filter_context) {}
+    bool run(Payload *) override { return false; }
   };
   return std::make_unique<_local>(filter_context);
 }
@@ -63,11 +63,11 @@ std::unique_ptr<AuthenticatorBase> createAlwaysFailAuthenticator(
 // Create a fake authenticator for test. This authenticator do nothing except
 // making the authentication successful.
 std::unique_ptr<AuthenticatorBase> createAlwaysPassAuthenticator(
-    FilterContext* filter_context) {
+    FilterContext *filter_context) {
   class _local : public AuthenticatorBase {
    public:
-    _local(FilterContext* filter_context) : AuthenticatorBase(filter_context) {}
-    bool run(Payload*) override {
+    _local(FilterContext *filter_context) : AuthenticatorBase(filter_context) {}
+    bool run(Payload *) override {
       // Set some data to verify authentication result later.
       auto payload = TestUtilities::CreateX509Payload("foo");
       filter_context()->setPeerResult(&payload);
@@ -81,15 +81,15 @@ class MockAuthenticationFilter : public AuthenticationFilter {
  public:
   // We'll use fake authenticator for test, so policy is not really needed. Use
   // default config for simplicity.
-  MockAuthenticationFilter(const FilterConfig& filter_config)
+  MockAuthenticationFilter(const FilterConfig &filter_config)
       : AuthenticationFilter(filter_config) {}
 
   ~MockAuthenticationFilter(){};
 
   MOCK_METHOD1(createPeerAuthenticator,
-               std::unique_ptr<AuthenticatorBase>(FilterContext*));
+               std::unique_ptr<AuthenticatorBase>(FilterContext *));
   MOCK_METHOD1(createOriginAuthenticator,
-               std::unique_ptr<AuthenticatorBase>(FilterContext*));
+               std::unique_ptr<AuthenticatorBase>(FilterContext *));
 };
 
 class AuthenticationFilterTest : public testing::Test {
@@ -118,7 +118,7 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
       .Times(1)
-      .WillOnce(testing::Invoke([](Http::HeaderMap& headers, bool) {
+      .WillOnce(testing::Invoke([](Http::HeaderMap &headers, bool) {
         EXPECT_STREQ("401", headers.Status()->value().c_str());
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
@@ -137,7 +137,7 @@ TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
       .Times(1)
-      .WillOnce(testing::Invoke([](Http::HeaderMap& headers, bool) {
+      .WillOnce(testing::Invoke([](Http::HeaderMap &headers, bool) {
         EXPECT_STREQ("401", headers.Status()->value().c_str());
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
@@ -166,8 +166,10 @@ TEST_F(AuthenticationFilterTest, IgnoreBothFail) {
   ASSERT_TRUE(
       Protobuf::TextFormat::ParseFromString(ingoreBothPolicy, &policy_));
   *filter_config_.mutable_policy() = policy_;
+  StrictMock<MockAuthenticationFilter> filter(filter_config_);
+  filter.setDecoderFilterCallbacks(decoder_callbacks_);
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
-            filter_.decodeHeaders(request_headers_, true));
+            filter.decodeHeaders(request_headers_, true));
 }
 
 }  // namespace
