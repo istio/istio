@@ -56,5 +56,6 @@ else
 fi
 
 echo "Added $BINDIR to your path."
+echo 'Try `istioctl version` command to verify the installation.'
 env $SHELL
-istioctl version
+
