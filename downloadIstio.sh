@@ -25,7 +25,7 @@ fi
 ISTIO_HOME=~/.istio
 if [ -d "$ISTIO_HOME" ]; then
   echo "You already have Istio installed."
-  read -e -p "Do you want to remove $ISTIO_HOME (y/n)? " answer
+  read -r -p "Do you want to remove $ISTIO_HOME (y/n)? " answer
   if [ "$answer" != "${answer#[Yy]}" ] ;then
       rm -rf $ISTIO_HOME
   else
