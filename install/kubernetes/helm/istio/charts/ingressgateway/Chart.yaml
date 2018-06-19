@@ -1,12 +1,13 @@
 apiVersion: v1
-name: pilot
+name: ingressgateway
 version: 0.8.0
 appVersion: 0.8.0
 tillerVersion: ">=2.7.2"
-description: Helm chart for pilot deployment
+description: Helm chart for deploying Istio ingress gateway
 keywords:
   - istio
-  - pilot
+  - ingress
+  - gateway
 sources:
   - http://github.com/istio/istio
 engine: gotpl

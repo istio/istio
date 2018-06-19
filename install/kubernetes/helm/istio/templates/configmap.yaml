@@ -15,6 +15,8 @@ data:
     disablePolicyChecks: false
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "/dev/stdout"
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
