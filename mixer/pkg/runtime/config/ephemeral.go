@@ -241,6 +241,16 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *
 	return handlers
 }
 
+func getCanonicalRef(n, kind, ns string, lookup func(string) interface{}) (interface{}, string) {
+	name, altName := canonicalize(n, kind, ns)
+	v := lookup(name)
+	if v != nil {
+		return v, name
+	}
+
+	return lookup(altName), altName
+}
+
 func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, counters Counters, errs *multierror.Error) map[string]*HandlerDynamic {
 	handlers := make(map[string]*HandlerDynamic, len(e.adapters))
 
@@ -249,31 +259,36 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 			continue
 		}
 
-		hdl := resource.Spec.(*config.Handler)
-		adptName, adptAltName := canonicalize(hdl.Adapter, constant.AdapterKind, key.Namespace)
 		handlerName := key.String()
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
-		adapter := adapters[adptName]
-		if adapter == nil {
-			adapter = adapters[adptAltName]
-		}
+		hdl := resource.Spec.(*config.Handler)
+		adpt, _ := getCanonicalRef(hdl.Adapter, constant.AdapterKind, key.Namespace, func(n string) interface{} {
+			if a, ok := adapters[n]; ok {
+				return a
+			}
+			return nil
+		})
 
-		if adapter == nil {
+		if adpt == nil {
 			appendErr(errs, fmt.Sprintf("handler='%s'.adapter", handlerName),
 				counters.HandlerValidationError, "adapter '%s' not found", hdl.Adapter)
 			continue
 		}
-		// validate if the param is valid
-		bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
-		if err != nil {
-			appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
-				counters.HandlerValidationError, err.Error())
-			continue
-		}
+		adapter := adpt.(*Adapter)
 
-		typeFQN := adapter.PackageName + ".Params"
-		adapterCfg := asAny(typeFQN, bytes)
+		var adapterCfg *types.Any
+		if len(adapter.ConfigDescSet.File) != 0 {
+			// validate if the param is valid
+			bytes, err := validateEncodeBytes(hdl.Params, adapter.ConfigDescSet, getParamsMsgFullName(adapter.PackageName))
+			if err != nil {
+				appendErr(errs, fmt.Sprintf("handler='%s'.params", handlerName),
+					counters.HandlerValidationError, err.Error())
+				continue
+			}
+			typeFQN := adapter.PackageName + ".Params"
+			adapterCfg = asAny(typeFQN, bytes)
+		}
 
 		cfg := &HandlerDynamic{
 			Name:          handlerName,
@@ -308,21 +323,23 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 		}
 
 		inst := resource.Spec.(*config.Instance)
-		tmplName, tmplAltName := canonicalize(inst.Template, constant.TemplateKind, key.Namespace)
 		instanceName := key.String()
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
-		template := templates[tmplName]
-		if template == nil {
-			template = templates[tmplAltName]
-		}
+		tmpl, _ := getCanonicalRef(inst.Template, constant.TemplateKind, key.Namespace, func(n string) interface{} {
+			if a, ok := templates[n]; ok {
+				return a
+			}
+			return nil
+		})
 
-		if template == nil {
+		if tmpl == nil {
 			appendErr(errs, fmt.Sprintf("instance='%s'.template", instanceName),
 				counters.instanceConfigError, "template '%s' not found", inst.Template)
 			continue
 		}
 
+		template := tmpl.(*Template)
 		// validate if the param is valid
 		compiler := compiled.NewBuilder(attributes)
 		resolver := yaml.NewResolver(template.FileDescSet)
@@ -441,17 +458,19 @@ func (e *Ephemeral) processDynamicAdapterConfigs(availableTmpls map[string]*Temp
 				"unable to parse adapter configuration: %v", err)
 			continue
 		}
-		supportedTmpls := make([]*Template, 0)
+		supportedTmpls := make([]*Template, 0, len(cfg.Templates))
 		for _, tmplN := range cfg.Templates {
-			tmplName, tmplAltName := canonicalize(tmplN, constant.TemplateKind, adapterInfoKey.Namespace)
-			tmplFullName := tmplName
-			if _, ok := availableTmpls[tmplName]; !ok {
-				tmplFullName = tmplAltName
-				if _, ok := availableTmpls[tmplAltName]; !ok {
-					appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
-						"unable to find template '%s'", tmplN)
-					continue
+
+			template, tmplFullName := getCanonicalRef(tmplN, constant.TemplateKind, adapterInfoKey.Namespace, func(n string) interface{} {
+				if a, ok := availableTmpls[n]; ok {
+					return a
 				}
+				return nil
+			})
+			if template == nil {
+				appendErr(errs, fmt.Sprintf("adapter='%s'", adapterName), counters.adapterInfoConfigError,
+					"unable to find template '%s'", tmplN)
+				continue
 			}
 			supportedTmpls = append(supportedTmpls, availableTmpls[tmplFullName])
 		}
@@ -521,52 +540,60 @@ func (e *Ephemeral) processRuleConfigs(
 		actionsDynamic := make([]*ActionDynamic, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
-			var isHandlerStat bool
-			var isHandlerDynamic bool
+			var processStaticHandler bool
+			var processDynamicHandler bool
 			var sahandler *HandlerStatic
 			var dahandler *HandlerDynamic
-			hdlName, hdlAltName := canonicalize(a.Handler, constant.HandlerKind, ruleKey.Namespace)
+			hdl, handlerName := getCanonicalRef(a.Handler, constant.HandlerKind, ruleKey.Namespace, func(n string) interface{} {
+				if a, ok := sHandlers[n]; ok {
+					return a
+				}
+				return nil
+			})
+			if hdl != nil {
+				sahandler = hdl.(*HandlerStatic)
+				processStaticHandler = true
+			} else if hdl == nil {
+				hdl, handlerName = getCanonicalRef(a.Handler, constant.HandlerKind, ruleKey.Namespace, func(n string) interface{} {
+					if a, ok := dHandlers[n]; ok {
+						return a
+					}
+					return nil
+				})
 
-			handlerName := hdlName
-			if sahandler, isHandlerStat = sHandlers[hdlName]; !isHandlerStat {
-				handlerName = hdlAltName
-				sahandler, isHandlerStat = sHandlers[hdlAltName]
-			}
-
-			if !isHandlerStat {
-				handlerName = hdlName
-				if dahandler, isHandlerDynamic = dHandlers[hdlName]; !isHandlerDynamic {
-					handlerName = hdlAltName
-					dahandler, isHandlerDynamic = dHandlers[hdlAltName]
+				if hdl != nil {
+					dahandler = hdl.(*HandlerDynamic)
+					processDynamicHandler = true
 				}
 			}
 
-			if !isHandlerStat && !isHandlerDynamic {
+			if !processStaticHandler && !processDynamicHandler {
 				appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
 					"Handler not found: handler='%s'", a.Handler)
 				continue
 			}
 
-			if isHandlerStat {
+			if processStaticHandler {
 				// Keep track of unique instances, to avoid using the same instance multiple times within the same
 				// action
 				uniqueInstances := make(map[string]bool, len(a.Instances))
 
 				actionInstances := make([]*InstanceStatic, 0, len(a.Instances))
 				for _, instanceNameRef := range a.Instances {
-					in1, in2 := canonicalize(instanceNameRef, constant.InstanceKind, ruleKey.Namespace)
-
-					var instance *InstanceStatic
-					var found bool
-					instName := in1
-					if instance, found = sInstances[in1]; !found {
-						instName = in2
-						if instance, found = sInstances[in2]; !found {
-							appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
-								"Instance not found: instance='%s'", instanceNameRef)
-							continue
+					inst, instName := getCanonicalRef(instanceNameRef, constant.InstanceKind, ruleKey.Namespace, func(n string) interface{} {
+						if a, ok := sInstances[n]; ok {
+							return a
 						}
+						return nil
+					})
+
+					if inst == nil {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"Instance not found: instance='%s'", instanceNameRef)
+						continue
 					}
+
+					instance := inst.(*InstanceStatic)
 
 					if _, ok := uniqueInstances[instName]; ok {
 						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
@@ -604,19 +631,20 @@ func (e *Ephemeral) processRuleConfigs(
 
 				actionInstances := make([]*InstanceDynamic, 0, len(a.Instances))
 				for _, instanceNameRef := range a.Instances {
-					in1, in2 := canonicalize(instanceNameRef, constant.InstanceKind, ruleKey.Namespace)
-
-					var instance *InstanceDynamic
-					var instfound bool
-					instName := in1
-					if instance, instfound = dInstances[in1]; !instfound {
-						instName = in2
-						if instance, instfound = dInstances[in2]; !instfound {
-							appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError, "Instance not found: instance='%s'", instanceNameRef)
-							continue
+					inst, instName := getCanonicalRef(instanceNameRef, constant.InstanceKind, ruleKey.Namespace, func(n string) interface{} {
+						if a, ok := dInstances[n]; ok {
+							return a
 						}
+						return nil
+					})
+
+					if inst == nil {
+						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
+							"Instance not found: instance='%s'", instanceNameRef)
+						continue
 					}
 
+					instance := inst.(*InstanceDynamic)
 					if _, ok := uniqueInstances[instName]; ok {
 						appendErr(errs, fmt.Sprintf("action='%s[%d]'", ruleName, i), counters.ruleConfigError,
 							"action specified the same instance multiple times: instance='%s',", instName)

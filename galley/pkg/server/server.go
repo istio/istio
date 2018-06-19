@@ -28,6 +28,9 @@ import (
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	// Force loading of MCP protos. Once we have them in the main repo, we can land the code
+	// that uses them.
+	_ "istio.io/api/config/mcp/v1alpha1"
 )
 
 // Server is the main entry point into the Galley code.

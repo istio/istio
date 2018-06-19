@@ -1,0 +1,10 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: instance
+metadata:
+  name: source-info
+  namespace: istio-system
+spec:
+  template: listentry
+  params:
+    value: source.name | "unknown"
+---

@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -54,19 +56,25 @@ var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
+	s.Requests.metricLock.Lock()
 	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
+	s.Requests.metricLock.Unlock()
 	return s.Behavior.HandleMetricResult, s.Behavior.HandleMetricError
 }
 
 // HandleListEntry records listrequest and responds with the programmed response
 func (s *NoSessionServer) HandleListEntry(c context.Context, r *listentry.HandleListEntryRequest) (*adptModel.CheckResult, error) {
+	s.Requests.listentryLock.Lock()
 	s.Requests.HandleListEntryRequest = append(s.Requests.HandleListEntryRequest, r)
+	s.Requests.listentryLock.Unlock()
 	return s.Behavior.HandleListEntryResult, s.Behavior.HandleListEntryError
 }
 
 // HandleQuota records quotarequest and responds with the programmed response
 func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaRequest) (*adptModel.QuotaResult, error) {
+	s.Requests.quotaLock.Lock()
 	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
+	s.Requests.quotaLock.Unlock()
 	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
 }
 
@@ -109,6 +117,104 @@ func (s *NoSessionServer) Close() error {
 	}
 
 	return nil
+}
+
+// GetState returns the adapters observed state.
+func (s *NoSessionServer) GetState() interface{} {
+	result := make([]interface{}, 0)
+	result = append(result, s.printMetrics()...)
+	result = append(result, s.printListEntry()...)
+	result = append(result, s.printQuota()...)
+	result = append(result, s.printValidationRequest()...)
+	return result
+}
+
+const stripText = "stripped_for_test"
+
+func (s *NoSessionServer) printMetrics() []interface{} {
+	result := make([]interface{}, 0)
+
+	s.Requests.metricLock.RLock()
+	defer s.Requests.metricLock.RUnlock()
+
+	if len(s.Requests.HandleMetricRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleMetricRequest {
+			mr.DedupId = stripText
+		}
+		sort.SliceStable(s.Requests.HandleMetricRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleMetricRequest[i].Instances),
+				fmt.Sprintf("%v", s.Requests.HandleMetricRequest[j].Instances)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleMetricRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printListEntry() []interface{} {
+	result := make([]interface{}, 0)
+
+	s.Requests.listentryLock.RLock()
+	defer s.Requests.listentryLock.RUnlock()
+
+	if len(s.Requests.HandleListEntryRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleListEntryRequest {
+			mr.DedupId = stripText
+		}
+		sort.Slice(s.Requests.HandleListEntryRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[i].Instance),
+				fmt.Sprintf("%v", s.Requests.HandleListEntryRequest[j].Instance)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleListEntryRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printQuota() []interface{} {
+	result := make([]interface{}, 0)
+
+	s.Requests.quotaLock.RLock()
+	defer s.Requests.quotaLock.RUnlock()
+
+	if len(s.Requests.HandleQuotaRequest) > 0 {
+		// Stable sort order for varieties.
+		for _, mr := range s.Requests.HandleQuotaRequest {
+			mr.DedupId = stripText
+		}
+		sort.Slice(s.Requests.HandleQuotaRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[i].Instance),
+				fmt.Sprintf("%v", s.Requests.HandleQuotaRequest[j].Instance)) > 0
+		})
+
+		for _, mr := range s.Requests.HandleQuotaRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
+}
+
+func (s *NoSessionServer) printValidationRequest() []interface{} {
+	result := make([]interface{}, 0)
+
+	if len(s.Requests.ValidateRequest) > 0 {
+		// Stable sort order for varieties.
+		sort.Slice(s.Requests.ValidateRequest, func(i, j int) bool {
+			return strings.Compare(fmt.Sprintf("%v", s.Requests.ValidateRequest[i].InferredTypes),
+				fmt.Sprintf("%v", s.Requests.ValidateRequest[j].InferredTypes)) > 0
+		})
+
+		for _, mr := range s.Requests.ValidateRequest {
+			result = append(result, *mr)
+		}
+	}
+	return result
 }
 
 // NewNoSessionServer creates a new no session server from given args.

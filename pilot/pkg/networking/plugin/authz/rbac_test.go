@@ -529,3 +529,183 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
+	roles := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-1"},
+			Spec:       generateServiceRole([]string{"service"}, []string{"GET"}),
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-2"},
+			Spec:       generateServiceRole([]string{"service"}, []string{"POST"}),
+		},
+	}
+	bindings := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-1"},
+			Spec:       generateServiceBinding("user1", "service-role-1", rbacproto.EnforcementMode_ENFORCED),
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-2"},
+			Spec:       generateServiceBinding("user2", "service-role-1", rbacproto.EnforcementMode_PERMISSIVE),
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-3"},
+			Spec:       generateServiceBinding("user3", "service-role-2", rbacproto.EnforcementMode_ENFORCED),
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-4"},
+			Spec:       generateServiceBinding("user4", "service-role-2", rbacproto.EnforcementMode_PERMISSIVE),
+		},
+	}
+
+	rbacConfig := &rbacconfig.RBAC{
+		Rules: &policy.RBAC{
+			Action: policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{
+				"service-role-1": {
+					Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+					Principals:  []*policy.Principal{generatePrincipal("user1")},
+				},
+				"service-role-2": {
+					Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+					Principals:  []*policy.Principal{generatePrincipal("user3")},
+				},
+			},
+		},
+		ShadowRules: &policy.RBAC{
+			Action: policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{
+				"service-role-1": {
+					Permissions: []*policy.Permission{generatePermission(":method", "GET")},
+					Principals:  []*policy.Principal{generatePrincipal("user2")},
+				},
+				"service-role-2": {
+					Permissions: []*policy.Permission{generatePermission(":method", "POST")},
+					Principals:  []*policy.Principal{generatePrincipal("user4")},
+				},
+			},
+		},
+	}
+	emptyConfig := &rbacconfig.RBAC{
+		Rules: &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		},
+		ShadowRules: &policy.RBAC{
+			Action:   policy.RBAC_ALLOW,
+			Policies: map[string]*policy.Policy{},
+		},
+	}
+
+	testCases := []struct {
+		name         string
+		service      string
+		roles        []model.Config
+		bindings     []model.Config
+		expectConfig *rbacconfig.RBAC
+	}{
+		{
+			name:         "exact matched service",
+			service:      "service",
+			roles:        roles,
+			bindings:     bindings,
+			expectConfig: rbacConfig,
+		},
+		{
+			name:         "empty roles",
+			service:      "service",
+			roles:        []model.Config{},
+			bindings:     bindings,
+			expectConfig: emptyConfig,
+		},
+		{
+			name:         "empty bindings",
+			service:      "service",
+			roles:        roles,
+			bindings:     []model.Config{},
+			expectConfig: emptyConfig,
+		},
+	}
+
+	for _, tc := range testCases {
+		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
+		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
+			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
+		}
+	}
+}
+
+func generateServiceRole(services, methods []string) *rbacproto.ServiceRole {
+	return &rbacproto.ServiceRole{
+		Rules: []*rbacproto.AccessRule{
+			{
+				Services: services,
+				Methods:  methods,
+			},
+		},
+	}
+}
+
+func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.EnforcementMode) *rbacproto.ServiceRoleBinding {
+	return &rbacproto.ServiceRoleBinding{
+		Mode: mode,
+		Subjects: []*rbacproto.Subject{
+			{
+				User: subject,
+			},
+		},
+		RoleRef: &rbacproto.RoleRef{
+			Kind: "ServiceRole",
+			Name: serviceRoleRef,
+		},
+	}
+}
+
+func generatePermission(headerName, matchSpecifier string) *policy.Permission {
+	return &policy.Permission{
+		Rule: &policy.Permission_AndRules{
+			AndRules: &policy.Permission_Set{
+				Rules: []*policy.Permission{
+					{
+						Rule: &policy.Permission_OrRules{
+							OrRules: &policy.Permission_Set{
+								Rules: []*policy.Permission{
+									{
+										Rule: &policy.Permission_Header{
+											Header: &route.HeaderMatcher{
+												Name: headerName,
+												HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+													ExactMatch: matchSpecifier,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func generatePrincipal(principalName string) *policy.Principal {
+	return &policy.Principal{
+		Identifier: &policy.Principal_AndIds{
+			AndIds: &policy.Principal_Set{
+				Ids: []*policy.Principal{
+					{
+						Identifier: &policy.Principal_Authenticated_{
+							Authenticated: &policy.Principal_Authenticated{
+								Name: principalName,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}

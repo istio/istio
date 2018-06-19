@@ -73,7 +73,13 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	exporter, err := getExporterFunc(ctx, env, b.cfg)
+	cfg := b.cfg
+	md := b.mg.GenerateMetadata()
+	if cfg.ProjectId == "" {
+		// Try to fill project ID if it is not provided with metadata.
+		cfg.ProjectId = md.ProjectID
+	}
+	exporter, err := getExporterFunc(ctx, env, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +88,9 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		te: exporter,
 	}
 	traceCfg := b.cfg.Trace
-	if sampleProbability := traceCfg.SampleProbability; sampleProbability > 0 {
+	if traceCfg == nil {
+		h.sampler = trace.NeverSample()
+	} else if sampleProbability := traceCfg.SampleProbability; sampleProbability > 0 {
 		h.sampler = trace.ProbabilitySampler(traceCfg.SampleProbability)
 	}
 	return h, nil

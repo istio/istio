@@ -10,11 +10,6 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtls.enabled }}
-    # Mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-  {{- end }}
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: false
@@ -78,12 +73,13 @@ data:
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+
+    {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
       # Statsd metrics collector converts statsd metrics into Prometheus metrics.
-    {{- if .Values.mixer.enabled }}
-      statsdUdpAddress: istio-statsd-prom-bridge.{{ .Release.Namespace }}:9125
+      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}.{{ .Release.Namespace }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
-    
+
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.

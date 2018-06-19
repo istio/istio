@@ -21,13 +21,13 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	jwtfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -264,9 +264,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						Audiences: []string{"dead", "beef"},
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "http://abc.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.abc.com|http",
 									},
 								},
@@ -323,9 +323,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						Audiences: []string{"dead", "beef"},
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "http://abc.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.abc.com|http",
 									},
 								},
@@ -347,9 +347,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 						Issuer: "bar",
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "https://xyz.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.xyz.com|https",
 									},
 								},
@@ -396,9 +396,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "http://abc.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.abc.com|http",
 									},
 								},
@@ -411,9 +411,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "https://xyz.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.xyz.com|https",
 									},
 								},
@@ -426,9 +426,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
 							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &core.HttpUri{
+								HttpUri: &jwtfilter.HttpUri{
 									Uri: "http://abc.com",
-									HttpUpstreamType: &core.HttpUri_Cluster{
+									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 										Cluster: "jwks.abc.com|http",
 									},
 								},
@@ -481,8 +481,8 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 				Rules: []*jwtfilter.JwtRule{
 					{
 						JwksSourceSpecifier: &jwtfilter.JwtRule_LocalJwks{
-							LocalJwks: &core.DataSource{
-								Specifier: &core.DataSource_InlineString{
+							LocalJwks: &jwtfilter.DataSource{
+								Specifier: &jwtfilter.DataSource_InlineString{
 									InlineString: test.JwtPubKey1,
 								},
 							},
@@ -841,10 +841,12 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 							},
 						},
 					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "/etc/certs/root-cert.pem",
+								},
 							},
 						},
 					},
@@ -882,10 +884,12 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 							},
 						},
 					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "/etc/certs/root-cert.pem",
+								},
 							},
 						},
 					},

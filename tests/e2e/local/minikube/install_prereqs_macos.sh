@@ -65,23 +65,29 @@ else
     docker-machine version
 fi
 
+function fail_hyperkit_installation() {
+  if [ $? -ne 0 ];
+    then
+        echo "Installation of hyperkit driver failed. Please install it manually."
+        exit 1
+    fi
+}
+
 echo "Checking hyperkit..."
 hyperkit -h > /dev/null
-if [ $? -ne 0 ]; 
+if [ $? -ne 0 ];
 then
     echo "hyperkit is not installed. Downloading and installing using curl."
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-hyperkit \
-    && chmod +x docker-machine-driver-hyperkit \
-    && sudo mv docker-machine-driver-hyperkit /usr/local/bin/ \
-    && sudo chown root:wheel /usr/local/bin/docker-machine-driver-hyperkit \
-    && sudo chmod u+s /usr/local/bin/docker-machine-driver-hyperkit
-    if [ $? -ne 0 ]; 
-    then
-    	echo "Installation of hyperkit failed. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
+    curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    chmod +x docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    sudo mv docker-machine-driver-hyperkit /usr/local/bin/
+    fail_hyperkit_installation
+    sudo chown root:wheel /usr/local/bin/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    sudo chmod u+s /usr/local/bin/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
 else
     echo "hyperkit is installed. Install newer version if available."
     hyperkit version
@@ -91,6 +97,10 @@ echo "Checking and Installing Minikube version 0.27.0 as required..."
 minikube --help > /dev/null
 if [[ $? -ne 0 || (`minikube version` != *"minikube version: v0.27.0"*) ]];
 then
+    if [ $? -eq 0]; then
+        echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
+        minikube delete
+    fi
     echo "Minikube version 0.27.0 is not installed. Installing it using curl."
     curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-darwin-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
     if [ $? -ne 0 ]; 

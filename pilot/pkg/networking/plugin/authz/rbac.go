@@ -180,16 +180,18 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 		Policies: map[string]*policyproto.Policy{},
 	}
 
+	permissiveRbac := &policyproto.RBAC{
+		Action:   policyproto.RBAC_ALLOW,
+		Policies: map[string]*policyproto.Policy{},
+	}
+
 	for _, role := range roles {
-		log.Debugf("checking role %v for service %v", role.Name, service)
-		principals := convertToPrincipals(roleToBinding[role.Name])
-		if len(principals) == 0 {
-			// Skip to next role if found no bindings for current role. This means nobody could
-			// access the current role, so we don't need to check the remaining rules anymore.
-			log.Debugf("role %v skipped for no bindings found", role.Name)
+		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
+		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
 			continue
 		}
 
+		log.Debugf("checking role %v for service %v", role.Name, service)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			//TODO(yangminzhu): Also check the destination related properties.
@@ -199,18 +201,31 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				permissions = append(permissions, convertToPermission(rule))
 			}
 		}
+		if len(permissions) == 0 {
+			log.Debugf("role %v skipped for no permissions found", role.Name)
+			continue
+		}
 
-		if len(permissions) != 0 {
-			// Constructs the policy for a role with both permissions and bindings.
+		if len(enforcedPrincipals) != 0 {
 			rbac.Policies[role.Name] = &policyproto.Policy{
 				Permissions: permissions,
-				Principals:  principals,
+				Principals:  enforcedPrincipals,
 			}
-			log.Debugf("role %v generated policy: %v", role.Name, *rbac.Policies[role.Name])
+			log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
+		}
+
+		if len(permissivePrincipals) != 0 {
+			permissiveRbac.Policies[role.Name] = &policyproto.Policy{
+				Permissions: permissions,
+				Principals:  permissivePrincipals,
+			}
+			log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
 		}
 	}
 
-	return &rbacconfig.RBAC{Rules: rbac}
+	return &rbacconfig.RBAC{
+		Rules:       rbac,
+		ShadowRules: permissiveRbac}
 }
 
 // convertToPermission converts a single AccessRule to a Permission.
@@ -249,15 +264,25 @@ func convertToPermission(rule *rbacproto.AccessRule) *policyproto.Permission {
 	return &policyproto.Permission{Rule: rules}
 }
 
-// convertToPrincipals converts a list of subjects to principals.
-func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) []*policyproto.Principal {
-	principals := make([]*policyproto.Principal, 0)
+// convertToPrincipals converts subjects to two lists of principals, one from enforced mode ServiceBindings,
+// and the other from permissive mode ServiceBindings.
+func convertToPrincipals(bindings []*rbacproto.ServiceRoleBinding) ([]*policyproto.Principal, []*policyproto.Principal) {
+	enforcedPrincipals := make([]*policyproto.Principal, 0)
+	permissivePrincipals := make([]*policyproto.Principal, 0)
+
 	for _, binding := range bindings {
-		for _, subject := range binding.Subjects {
-			principals = append(principals, convertToPrincipal(subject))
+		if binding.Mode == rbacproto.EnforcementMode_ENFORCED {
+			for _, subject := range binding.Subjects {
+				enforcedPrincipals = append(enforcedPrincipals, convertToPrincipal(subject))
+			}
+		} else {
+			for _, subject := range binding.Subjects {
+				permissivePrincipals = append(permissivePrincipals, convertToPrincipal(subject))
+			}
 		}
 	}
-	return principals
+
+	return enforcedPrincipals, permissivePrincipals
 }
 
 // convertToPrincipal converts a single subject to principal.

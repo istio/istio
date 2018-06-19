@@ -16,6 +16,9 @@ esac
 
 echo "Using $vm_driver as VM for Minikube."
 
+# Delete any previous minikube cluster
+minikube delete
+
 echo "Starting Minikube."
 
 # Start minikube

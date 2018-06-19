@@ -17,11 +17,11 @@
 syntax = "proto3";
 
 
-// TraceSpan represents an individual span within a distributed trace.
+// The `tracespan` template represents an individual span within a distributed trace.
 // 
 // Example config:
 // 
-// ```
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:
@@ -46,7 +46,7 @@ syntax = "proto3";
 //     source.version: source.labels["version"] | ""
 // ```
 // 
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 //
 // TraceSpan represents an individual span within a distributed trace.
@@ -141,7 +141,7 @@ message InstanceMsg {
 // Required.
     istio.policy.v1beta1.TimeStamp end_time = 6;
     
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
 // 
 // Optional.
@@ -157,7 +157,7 @@ message InstanceMsg {
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
     
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
 // 
 // Optional.
@@ -206,7 +206,7 @@ message InstanceParam {
 // Required.
     string end_time = 6;
     
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
 // 
 // Optional.

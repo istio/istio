@@ -24,7 +24,12 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
+	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -50,10 +55,13 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/edsz", edsz)
 	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
+	mux.HandleFunc("/debug/syncz", Syncz)
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
 	mux.HandleFunc("/debug/configz", s.configz)
+
+	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -66,6 +74,32 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 	}
+}
+
+// SyncStatus -- Not sure of the correct place to put this? Needed in istioctl and here.
+type SyncStatus struct {
+	ProxyID string `json:"proxy,omitempty"`
+	Sent    string `json:"sent,omitempty"`
+	Acked   string `json:"acked,omitempty"`
+}
+
+// Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
+func Syncz(w http.ResponseWriter, req *http.Request) {
+	syncz := []SyncStatus{}
+	for _, con := range adsClients {
+		if con.modelNode != nil {
+			syncz = append(syncz, SyncStatus{ProxyID: con.modelNode.ID, Sent: con.NonceSent, Acked: con.NonceAcked})
+		}
+	}
+	out, err := json.MarshalIndent(&syncz, "", "    ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(out)
+	w.WriteHeader(http.StatusOK)
 }
 
 // TODO: the mock was used for test setup, has no mutex. This will also be used for
@@ -389,6 +423,101 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprint(w, "\n{}]")
 }
 
+// Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
+// TODO: check subsets possibly conflicts between subsets.
+func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
+	if rule == nil {
+		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
+	}
+	if rule.TrafficPolicy == nil {
+		return false
+	}
+	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
+
+	return tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL
+}
+
+// AuthenticationDebug holds debug information for service authentication policy.
+type AuthenticationDebug struct {
+	Host                     string `json:"host"`
+	Port                     int    `json:"port"`
+	AuthenticationPolicyName string `json:"authentication_policy_name"`
+	DestinationRuleName      string `json:"destination_rule_name"`
+	ServerProtocol           string `json:"server_protocol"`
+	ClientProtocol           string `json:"client_protocol"`
+	TLSConflictStatus        string `json:"TLS_conflict_status"`
+}
+
+func configName(config *model.Config) string {
+	if config != nil {
+		return fmt.Sprintf("%s/%s", config.Name, config.Namespace)
+	}
+	return "-"
+}
+
+func mTLSModeToString(useTLS bool) string {
+	if useTLS {
+		return "mTLS"
+	}
+	return "HTTP"
+}
+
+// Authentication debugging
+// This handler lists what authentication policy and destination rules is used for a service, and
+// whether or not they have TLS setting conflicts (i.e authentication policy use mutual TLS, but
+// destination rule doesn't use ISTIO_MUTUAL TLS mode). If service is not provided, (via request
+// paramerter `svc`), it lists result for all services.
+func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	// This should be svc. However, use proxyID param for now so it can be used with
+	// `pilot-discovery debug` command
+	interestedSvc := req.Form.Get("proxyID")
+
+	fmt.Fprintf(w, "\n[\n")
+	svc, _ := s.env.ServiceDiscovery.Services()
+	for _, ss := range svc {
+		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
+			continue
+		}
+		for _, p := range ss.Ports {
+			info := AuthenticationDebug{
+				Host: string(ss.Hostname),
+				Port: p.Port,
+			}
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			info.AuthenticationPolicyName = configName(authnConfig)
+			if authnConfig != nil {
+				policy := authnConfig.Spec.(*authn.Policy)
+				serverSideTLS, _ := authn_plugin.RequireTLS(policy)
+				info.ServerProtocol = mTLSModeToString(serverSideTLS)
+			} else {
+				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+			}
+
+			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			info.DestinationRuleName = configName(destConfig)
+			if destConfig != nil {
+				rule := destConfig.Spec.(*networking.DestinationRule)
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+			} else {
+				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+			}
+
+			if info.ClientProtocol != info.ServerProtocol {
+				info.TLSConflictStatus = "CONFLICT"
+			} else {
+				info.TLSConflictStatus = "OK"
+			}
+			if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
+				_, _ = w.Write(b)
+			}
+			fmt.Fprintf(w, ",\n")
+		}
+	}
+	fmt.Fprint(w, "\n{}]")
+}
+
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
 func adsz(w http.ResponseWriter, req *http.Request) {
@@ -424,6 +553,14 @@ func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
 			}
 			fmt.Fprintln(w)
 		}
+		for _, rt := range conn.RouteConfigs {
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(rt)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
+			}
+			fmt.Fprintln(w)
+		}
 		for _, cs := range conn.HTTPClusters {
 			jsonm := &jsonpb.Marshaler{Indent: "  "}
 			dbgString, _ := jsonm.MarshalToString(cs)
@@ -452,6 +589,9 @@ func writeAllADS(w io.Writer) {
 		}
 		fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
 		printListeners(w, c)
+		fmt.Fprint(w, "],\n")
+		fmt.Fprintf(w, "\"RDSRoutes\":[\n")
+		printRoutes(w, c)
 		fmt.Fprint(w, "],\n")
 		fmt.Fprintf(w, "\"clusters\":[\n")
 		printClusters(w, c)
@@ -552,6 +692,26 @@ func printClusters(w io.Writer, c *XdsConnection) {
 		}
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(cl)
+		if _, err := w.Write([]byte(dbgString)); err != nil {
+			return
+		}
+	}
+}
+
+func printRoutes(w io.Writer, c *XdsConnection) {
+	comma := false
+	for _, rt := range c.RouteConfigs {
+		if rt == nil {
+			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
+			continue
+		}
+		if comma {
+			fmt.Fprint(w, ",\n")
+		} else {
+			comma = true
+		}
+		jsonm := &jsonpb.Marshaler{Indent: "  "}
+		dbgString, _ := jsonm.MarshalToString(rt)
 		if _, err := w.Write([]byte(dbgString)); err != nil {
 			return
 		}

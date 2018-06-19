@@ -15,28 +15,23 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
 
-	"istio.io/istio/pkg/kube"
+	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	discoveryContainer = "discovery"
-	proxyContainer     = "istio-proxy"
-	mesh               = "all"
-)
-
 var (
+	mesh             = "all"
+	debugConfigTypes = map[string]string{
+		"ads": "adsz",
+		"eds": "edsz",
+	}
 
 	// TODO - Add diff option to get the difference between pilot's xDS API response and the proxy config
 	// TODO - Add support for non-default proxy config locations
@@ -78,42 +73,22 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 			if len(args) > 2 {
 				configType = args[2]
 			} else {
-				configType = "all"
+				configType = mesh
 			}
-			log.Infof("Retrieving %v proxy config for %q", configType, podName)
 
 			ns := namespace
 			if ns == v1.NamespaceAll {
 				ns = defaultNamespace
 			}
+			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			if err != nil {
+				return err
+			}
 			switch location {
 			case "pilot":
-				var proxyID string
-				if podName == "mesh" {
-					proxyID = mesh
-				} else {
-					proxyID = fmt.Sprintf("%v.%v", podName, ns)
-				}
-				pilots, err := getPilotPods()
-				if err != nil {
-					return err
-				}
-				if len(pilots) == 0 {
-					return errors.New("unable to find any Pilot instances")
-				}
-				debug, pilotErr := callPilotDiscoveryDebug(pilots, proxyID, configType)
-				if pilotErr != nil {
-					fmt.Println(debug)
-					return err
-				}
-				fmt.Println(debug)
+				return pilotConfig(kubeClient, podName, ns, configType)
 			case "endpoint":
-				debug, err := callPilotAgentDebug(podName, ns, configType)
-				if err != nil {
-					fmt.Println(debug)
-					return err
-				}
-				fmt.Println(debug)
+				return endpointConfig(kubeClient, podName, ns, configType)
 			default:
 				log.Errorf("%q debug not supported", location)
 			}
@@ -122,151 +97,66 @@ istioctl proxy-config endpoint -n application productpage-v1-bb8d5cbc7-k7qbm boo
 	}
 )
 
+func pilotConfig(kubeClient *kubernetes.Client, podName, podNamespace, configType string) error {
+	var path string
+	ctEndpoint, ok := debugConfigTypes[configType]
+	if !ok {
+		return fmt.Errorf("%q is not a supported debugging config type", configType)
+	}
+	path = fmt.Sprintf("/debug/%v", ctEndpoint)
+
+	if podName != "mesh" {
+		path += fmt.Sprintf("?proxyID=%v.%v", podName, podNamespace)
+	}
+	configs, err := kubeClient.PilotDiscoveryDo(istioNamespace, "GET", path, nil)
+	if err != nil {
+		return err
+	}
+	for _, config := range configs {
+		fmt.Println(string(config))
+	}
+	return nil
+}
+
+func endpointConfig(kubeClient *kubernetes.Client, podName, podNamespace, configType string) error {
+	path := "config_dump"
+	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
+	if err != nil {
+		return err
+	}
+	cw := configdump.ConfigWriter{Stdout: os.Stdout}
+	err = cw.Prime(debug)
+	if err != nil {
+		return err
+	}
+	switch configType {
+	case "cluster", "clusters":
+		return cw.PrintClusterDump()
+	case "listener", "listeners":
+		return cw.PrintListenerDump()
+	case "route", "routes":
+		return cw.PrintRoutesDump()
+	case "bootstrap":
+		return cw.PrintBootstrapDump()
+	case "all":
+		if err := cw.PrintClusterDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintListenerDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintRoutesDump(); err != nil {
+			return err
+		}
+		if err := cw.PrintBootstrapDump(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%q is not a supported debugging config type", configType)
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
-}
-
-func createCoreV1Client() (*rest.RESTClient, error) {
-	config, err := defaultRestConfig()
-	if err != nil {
-		return nil, err
-	}
-	return rest.RESTClientFor(config)
-}
-
-func defaultRestConfig() (*rest.Config, error) {
-	config, err := kube.BuildClientConfig(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-	config.APIPath = "/api"
-	config.GroupVersion = &v1.SchemeGroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	return config, nil
-}
-
-func callPilotDiscoveryDebug(pods []v1.Pod, proxyID, configType string) (string, error) {
-	cmd := []string{"/usr/local/bin/pilot-discovery", "debug", proxyID, configType}
-	var err error
-	var stdout, stderr *bytes.Buffer
-	for _, pod := range pods {
-		fmt.Println(pod.Name, configType)
-		stdout, stderr, err = podExec(pod.Name, pod.Namespace, discoveryContainer, cmd)
-		if stdout.String() != "" {
-			if proxyID != mesh {
-				return stdout.String(), nil
-			}
-			fmt.Println(stdout.String())
-		}
-	}
-	if stderr.String() != "" {
-		return "", fmt.Errorf("unable to call pilot-discover debug: %v", stderr.String())
-	}
-	return stdout.String(), err
-}
-
-func callPilotAgentDebug(podName, podNamespace, configType string) (string, error) {
-	cmd := []string{"/usr/local/bin/pilot-agent", "debug", configType}
-	container, err := getPilotAgentContainer(podName, podNamespace)
-	if err != nil {
-		return "", fmt.Errorf("unable to retrieve proxy container name: %v", err)
-	}
-	stdout, stderr, err := podExec(podName, podNamespace, container, cmd)
-	if err != nil {
-		return stdout.String(), err
-	} else if stderr.String() != "" {
-		return "", fmt.Errorf("unable to call pilot-agent debug: %v", stderr.String())
-	}
-	return stdout.String(), nil
-}
-
-func getPilotAgentContainer(podName, podNamespace string) (string, error) {
-	client, err := createCoreV1Client()
-	if err != nil {
-		return "", err
-	}
-
-	req := client.Get().
-		Resource("pods").
-		Namespace(podNamespace).
-		Name(podName)
-
-	res := req.Do()
-	if res.Error() != nil {
-		return "", fmt.Errorf("unable to retrieve Pod: %v", res.Error())
-	}
-	pod := &v1.Pod{}
-	if err := res.Into(pod); err != nil {
-		return "", fmt.Errorf("unable to parse Pod: %v", res.Error())
-	}
-	for _, c := range pod.Spec.Containers {
-		switch c.Name {
-		case "egressgateway", "ingress", "ingressgateway":
-			return c.Name, nil
-		}
-	}
-	return proxyContainer, nil
-}
-
-func getPilotPods() ([]v1.Pod, error) {
-	client, err := createCoreV1Client()
-	if err != nil {
-		return nil, err
-	}
-
-	req := client.Get().
-		Resource("pods").
-		Namespace(istioNamespace).
-		Param("labelSelector", "istio=pilot")
-
-	res := req.Do()
-	if res.Error() != nil {
-		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
-	}
-	list := &v1.PodList{}
-	if err := res.Into(list); err != nil {
-		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
-	}
-	return list.Items, nil
-}
-
-func podExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
-	client, err := createCoreV1Client()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	req := client.Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(podNamespace).
-		SubResource("exec").
-		Param("container", container).
-		VersionedParams(&v1.PodExecOptions{
-			Container: container,
-			Command:   command,
-			Stdin:     false,
-			Stdout:    true,
-			Stderr:    true,
-			TTY:       false,
-		}, scheme.ParameterCodec)
-	config, err := defaultRestConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var stdout, stderr bytes.Buffer
-	err = exec.Stream(remotecommand.StreamOptions{
-		Stdin:  nil,
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Tty:    false,
-	})
-
-	return &stdout, &stderr, err
 }

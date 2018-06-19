@@ -231,19 +231,19 @@ func validateConfigs(configs []model.Config) error {
 		var err error
 		switch config.Type {
 		case model.RouteRule.Type:
-			err = model.ValidateRouteRule(config.Spec)
+			err = model.ValidateRouteRule(config.Name, config.Namespace, config.Spec)
 		case model.VirtualService.Type:
-			err = model.ValidateVirtualService(config.Spec)
+			err = model.ValidateVirtualService(config.Name, config.Namespace, config.Spec)
 		case model.Gateway.Type:
-			err = model.ValidateGateway(config.Spec)
+			err = model.ValidateGateway(config.Name, config.Namespace, config.Spec)
 		case model.EgressRule.Type:
-			err = model.ValidateEgressRule(config.Spec)
+			err = model.ValidateEgressRule(config.Name, config.Namespace, config.Spec)
 		case model.ServiceEntry.Type:
-			err = model.ValidateServiceEntry(config.Spec)
+			err = model.ValidateServiceEntry(config.Name, config.Namespace, config.Spec)
 		case model.DestinationPolicy.Type:
-			err = model.ValidateDestinationPolicy(config.Spec)
+			err = model.ValidateDestinationPolicy(config.Name, config.Namespace, config.Spec)
 		case model.DestinationRule.Type:
-			err = model.ValidateDestinationRule(config.Spec)
+			err = model.ValidateDestinationRule(config.Name, config.Namespace, config.Spec)
 		}
 		if err != nil {
 			errs = multierror.Append(err, errs)

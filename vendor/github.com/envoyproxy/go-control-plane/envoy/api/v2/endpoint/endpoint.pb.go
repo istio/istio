@@ -44,6 +44,14 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Upstream host identifier.
 type Endpoint struct {
 	// The upstream host address.
+	//
+	// .. attention::
+	//
+	//   The form of host address depends on the given cluster type. For STATIC,
+	//   it is expected to be a direct IP address (or something resolvable by the
+	//   specified :ref:`resolver <envoy_api_field_core.SocketAddress.resolver_name>`
+	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
+	//   and will be resolved via DNS.
 	Address *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	// [#not-implemented-hide:] The optional health check configuration is used as
 	// configuration for the health checker to contact the health checked host.

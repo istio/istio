@@ -97,12 +97,14 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 
 		o := log.DefaultOptions()
 		o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+		o.SetOutputLevel("adapters", log.DebugLevel)
 		args.LoggingOptions = o
 	}
 
 	if !setup.Config.EnableLog {
 		o := log.DefaultOptions()
 		o.SetOutputLevel(log.DefaultScopeName, log.NoneLevel)
+		o.SetOutputLevel("adapters", log.NoneLevel)
 		args.LoggingOptions = o
 	}
 

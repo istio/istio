@@ -258,10 +258,9 @@ func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSetting
 	}
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
-	if policy == nil {
-		return
-	}
+// SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
+func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
+	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
@@ -291,6 +290,15 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 			}
 		}
 	}
+	return connectionPool, outlierDetection, loadBalancer, tls
+}
+
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+	if policy == nil {
+		return
+	}
+	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
+
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
@@ -342,23 +350,24 @@ func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoo
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
 func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetection) {
-	if outlier == nil || outlier.Http == nil {
+	if outlier == nil {
 		return
 	}
 
 	out := &v2_cluster.OutlierDetection{}
-	if outlier.Http.BaseEjectionTime != nil {
-		out.BaseEjectionTime = outlier.Http.BaseEjectionTime
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = outlier.BaseEjectionTime
 	}
-	if outlier.Http.ConsecutiveErrors > 0 {
-		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.Http.ConsecutiveErrors)}
+	if outlier.ConsecutiveErrors > 0 {
+		out.Consecutive_5Xx = &types.UInt32Value{Value: uint32(outlier.ConsecutiveErrors)}
 	}
-	if outlier.Http.Interval != nil {
-		out.Interval = outlier.Http.Interval
+	if outlier.Interval != nil {
+		out.Interval = outlier.Interval
 	}
-	if outlier.Http.MaxEjectionPercent > 0 {
-		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.Http.MaxEjectionPercent)}
+	if outlier.MaxEjectionPercent > 0 {
+		out.MaxEjectionPercent = &types.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
 	}
+
 	cluster.OutlierDetection = out
 }
 
@@ -423,7 +432,9 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_SIMPLE:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContext: certValidationContext,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
 			},
 			Sni: tls.Sni,
 		}
@@ -448,7 +459,9 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 						},
 					},
 				},
-				ValidationContext: certValidationContext,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
 			},
 			Sni: tls.Sni,
 		}
@@ -463,7 +476,12 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	if port.Protocol.IsHTTP2() {
+	switch port.Protocol {
+	case model.ProtocolHTTP:
+		cluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
+	case model.ProtocolGRPC:
+		fallthrough
+	case model.ProtocolHTTP2:
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{

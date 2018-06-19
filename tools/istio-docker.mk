@@ -28,8 +28,6 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
-FLEXVOLUMEDRIVER_FILES:=security/docker/start_driver.sh
-
 GRAFANA_FILES:=addons/grafana/dashboards.yaml \
                addons/grafana/datasources.yaml \
                addons/grafana/grafana.ini
@@ -58,7 +56,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca flexvolume node_agent gals
+                             istio_ca node_agent gals
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -68,7 +66,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz tools/deb/envoy_bootstrap_tmpl.json \
-                          $(NODE_AGENT_TEST_FILES) $(FLEXVOLUMEDRIVER_FILES) $(GRAFANA_FILES) \
+                          $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -191,11 +189,9 @@ docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.ke
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
-docker.flexvolumedriver: $(ISTIO_DOCKER)/flexvolume
-$(foreach FILE,$(FLEXVOLUMEDRIVER_FILES),$(eval docker.flexvolumedriver: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test docker.flexvolumedriver
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 

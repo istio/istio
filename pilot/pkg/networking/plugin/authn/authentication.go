@@ -30,6 +30,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -159,8 +160,8 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 
 			// Put empty string in config even if above ResolveJwtPubKey fails.
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-				LocalJwks: &core.DataSource{
-					Specifier: &core.DataSource_InlineString{
+				LocalJwks: &jwtfilter.DataSource{
+					Specifier: &jwtfilter.DataSource_InlineString{
 						InlineString: jwtPubKey,
 					},
 				},
@@ -173,9 +174,9 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 
 			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
 				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &core.HttpUri{
+					HttpUri: &jwtfilter.HttpUri{
 						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &core.HttpUri_Cluster{
+						HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
 							Cluster: JwksURIClusterName(hostname, port),
 						},
 					},
@@ -266,10 +267,12 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 						},
 					},
 				},
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.RootCertFilename,
+							},
 						},
 					},
 				},

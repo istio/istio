@@ -194,3 +194,63 @@ func Empty() *Snapshot {
 		Counters: newCounters(-1),
 	}
 }
+
+// GetName gets name
+func (h HandlerStatic) GetName() string {
+	return h.Name
+}
+
+// AdapterName gets adapter name
+func (h HandlerStatic) AdapterName() string {
+	return h.Adapter.Name
+}
+
+// AdapterParams gets AdapterParams
+func (h HandlerStatic) AdapterParams() interface{} {
+	return h.Params
+}
+
+// GetName gets name
+func (i InstanceStatic) GetName() string {
+	return i.Name
+}
+
+// TemplateName gets TemplateName
+func (i InstanceStatic) TemplateName() string {
+	return i.Template.Name
+}
+
+// TemplateParams gets TemplateParams
+func (i InstanceStatic) TemplateParams() interface{} {
+	return i.Params
+}
+
+// GetName gets name
+func (h HandlerDynamic) GetName() string {
+	return h.Name
+}
+
+// AdapterName gets adapter name
+func (h HandlerDynamic) AdapterName() string {
+	return h.Adapter.Name
+}
+
+// AdapterParams gets AdapterParams
+func (h HandlerDynamic) AdapterParams() interface{} {
+	return h.AdapterConfig
+}
+
+// GetName gets name
+func (i InstanceDynamic) GetName() string {
+	return i.Name
+}
+
+// TemplateName gets TemplateName
+func (i InstanceDynamic) TemplateName() string {
+	return i.Template.Name
+}
+
+// TemplateParams gets TemplateParams
+func (i InstanceDynamic) TemplateParams() interface{} {
+	return i.Params
+}
