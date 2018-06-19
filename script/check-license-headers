@@ -45,8 +45,8 @@ do
   base="$(echo ${file} | awk -F / '{print $1}')"
   [[ "${base}" == "contrib" || "${base}" == "google" || "${base}" == "third_party" ]] && continue
   if is_source_code_file "${file}"; then
-    istio_copyright_count="$(head -n 20 ${file} | grep "${ISTIO_COPYRIGHT}" | wc -l)"
-    istio_license_count="$(head -n 20 ${file} | grep "${ISTIO_LICENSE}" | wc -l)"
+    istio_copyright_count="$(head -n 15 ${file} | grep "${ISTIO_COPYRIGHT}" | wc -l)"
+    istio_license_count="$(head -n 15 ${file} | grep "${ISTIO_LICENSE}" | wc -l)"
     if [[ "${istio_copyright_count}" != 1 || "${istio_license_count}" != 1 ]]; then
       echo ${file}
       BAD_LICENSE=1
@@ -54,4 +54,4 @@ do
   fi
 done
 
-[[ ${BAD_LICENSE} == 0 ]] || echo "have invalid license headers".
+[[ ${BAD_LICENSE} == 0 ]] || (echo "Found invalid license headers." && exit 1)

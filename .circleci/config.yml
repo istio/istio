@@ -18,6 +18,7 @@ jobs:
       # To build docker containers or run tests in a docker
       - setup_remote_docker
       - run: rm ~/.gitconfig
+      - run: make check
       - run: make deb BAZEL_BUILD_ARGS="-j 4"
       - run: make test
       - run: make test_asan
