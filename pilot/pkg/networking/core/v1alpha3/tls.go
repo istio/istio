@@ -10,17 +10,17 @@ import (
 
 type SNIRoute struct {
 	ServerNames []string
-	Host        string
+	Host        model.Hostname
 	Subset      string
 	Port        int
 }
 
 type hostPortKey struct {
-	Host string
+	Host model.Hostname
 	Port int
 }
 
-func sourceMatchTCP(match v1alpha3.L4MatchAttributes,
+func sourceMatchTLS(match *v1alpha3.TLSMatchAttributes,
 	proxyLabels model.LabelsCollection, gatewayNames map[string]bool) bool {
 
 	if match == nil {
@@ -41,22 +41,8 @@ func sourceMatchTCP(match v1alpha3.L4MatchAttributes,
 	return false
 }
 
-func buildSNIRoutes(configs []model.Config, services []*model.Service,
-	proxyLabels model.LabelsCollection, gateways map[string]bool) map[hostPortKey][]SNIRoute {
-
+func buildSNIRoutes(configs []model.Config, proxyLabels model.LabelsCollection, gateways map[string]bool) map[hostPortKey][]SNIRoute {
 	sniRoutes := make(map[hostPortKey][]SNIRoute) // host+port match -> sni routes
-
-	isSNI := make(map[hostPortKey]bool)
-	for _, service := range services {
-		for _, port := range service.Ports {
-			if port.Protocol.IsTLS() {
-				key := hostPortKey{Host: service.Hostname, Port: port.Port}
-				isSNI[key] = true
-			}
-		}
-	}
-
-	// build SNI routes from configs
 	for _, config := range configs {
 		vs := config.Spec.(*v1alpha3.VirtualService)
 		for _, host := range vs.Hosts {
@@ -66,35 +52,23 @@ func buildSNIRoutes(configs []model.Config, services []*model.Service,
 
 			fqdn := model.ResolveShortnameToFQDN(host, config.ConfigMeta)
 			for _, tls := range vs.Tls {
-				// TODO: match port. this assumes the match port and destination port are the same.
-
 				// we don't support weighted routing yet, so there is only one destination
 				dest := tls.Route[0].Destination
-				key := hostPortKey{Host: fqdn, dest.Port}
-				if isSNI[key] {
-					if len(tls.Match) == 0 {
-						sniRoutes[key] = append(sniRoutes[key], SNIRoute{
-							ServerNames: []string{fqdn},
-							Host:        dest.Host,
-							Port:        dest.Port,
-							Subset:      dest.Subset,
-						})
-					} else {
-						for _, match := range tls.Match {
-							if !sourceMatchTCP(match, proxyLabels, gateways) {
-								continue
-							}
 
-							// TODO: L4 match attributes
-							sniRoutes[key] = append(sniRoutes[key], SNIRoute{
-								ServerNames: []string{match.Sni},
-								Host:        dest.Host,
-								Port:        dest.Port,
-								Subset:      dest.Subset,
-							})
-						}
+				// TODO: len(tls.Match) == 0?
+				for _, match := range tls.Match {
+					if !sourceMatchTLS(match, proxyLabels, gateways) {
+						continue
 					}
 
+					// TODO: L4 match attributes
+					key := hostPortKey{Host: fqdn, Port: int(match.Port)}
+					sniRoutes[key] = append(sniRoutes[key], SNIRoute{
+						ServerNames: match.SniHosts,
+						Host:        model.Hostname(dest.Host),
+						Port:        int(dest.Port.GetNumber()),
+						Subset:      dest.Subset,
+					})
 				}
 			}
 		}

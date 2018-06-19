@@ -358,7 +358,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	sniRoutes := buildSNIRoutes(env.VirtualServices(meshGateway), services, proxyLabels, meshGateway)
+	sniRoutes := buildSNIRoutes(env.VirtualServices(meshGateway), proxyLabels, meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
