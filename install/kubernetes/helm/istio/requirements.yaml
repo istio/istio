@@ -10,14 +10,10 @@ dependencies:
     version: 0.8.0
     # repository: file://../ingress
     condition: ingress.enabled
-  - name: ingressgateway
+  - name: gateways
     version: 0.8.0
-    # repository: file://../ingressgateway
-    condition: ingressgateway.enabled
-  - name: egressgateway
-    version: 0.8.0
-    # repository: file://../egressgateway
-    condition: egressgateway.enabled
+    # repository: file://../gateways
+    condition: gateways.enabled
   - name: mixer
     version: 0.8.0
     # repository: file://../mixer

@@ -21,12 +21,9 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
-
-var statusTimeFormat = "2006-01-02 15:04:05.999999999 UTC"
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses
 type StatusWriter struct {
@@ -70,8 +67,8 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) e
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer)
-	w.Init(s.Writer, 0, 8, 5, '\t', 0)
-	fmt.Fprintln(w, "PROXY\tSTATUS\tSENT\tACKNOWLEDGED\tPILOT")
+	w.Init(s.Writer, 0, 8, 4, '\t', 0)
+	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {
 		ss := []*writerStatus{}
@@ -90,24 +87,22 @@ func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.
 	return w, fullStatus, nil
 }
 
-func parseMonotonicTime(t string) (time.Time, error) {
-	split := strings.Split(t, " m=") // strip monotonic clock suffix
-	return time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", split[0])
+func statusPrintln(w io.Writer, status *writerStatus) error {
+	clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked)
+	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
+	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
+	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\n",
+		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot)
+	return nil
 }
 
-func statusPrintln(w io.Writer, status *writerStatus) error {
-	sent, err := parseMonotonicTime(status.Sent)
-	if err != nil {
-		return err
+func xdsStatus(sent, acked string) string {
+	if sent == "" {
+		return "NOT SENT"
 	}
-	acked, err := parseMonotonicTime(status.Acked)
-	if err != nil {
-		return err
-	}
-	synced := "DIVERGED"
 	if sent == acked {
-		synced = "SYNCED"
+		return "SYNCED"
 	}
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", status.ProxyID, synced, sent.Format(statusTimeFormat), acked.Format(statusTimeFormat), status.pilot)
-	return nil
+	return "STALE"
 }
