@@ -18,30 +18,32 @@
 #
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Install required clang version to a folder and cache it.
 CLANG_VERSION_REQUIRED="5.0.0"
-CLANG_DIRECTORY="${HOME}/clang"
-CLANG_FORMAT="${CLANG_DIRECTORY}/bin/clang-format"
+CLANG_FORMAT=$(which clang-format-${CLANG_VERSION_REQUIRED%.*})
+if [[ ! -x "${CLANG_FORMAT}" ]]; then
+  # Install required clang version to a folder and cache it.
+  CLANG_DIRECTORY="${HOME}/clang"
+  CLANG_FORMAT="${CLANG_DIRECTORY}/bin/clang-format"
 
-if [ "$(uname)" == "Darwin" ]; then
+  if [ "$(uname)" == "Darwin" ]; then
     CLANG_BIN="x86_64-apple-darwin.tar.xz"
-elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+  elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
     CLANG_BIN="linux-x86_64-ubuntu14.04.tar.xz"
-else
+  else
     echo "Unsupported environment." ; exit 1 ;
-fi
+  fi
 
-echo "clang-bin: http://releases.llvm.org/${CLANG_VERSION_REQUIRED}/clang+llvm-${CLANG_VERSION_REQUIRED}-${CLANG_BIN}"
+  echo "clang-bin: http://releases.llvm.org/${CLANG_VERSION_REQUIRED}/clang+llvm-${CLANG_VERSION_REQUIRED}-${CLANG_BIN}"
 
-
-CLANG_VERSION="$(${CLANG_FORMAT} -version | cut -d ' ' -f 3)"
-if [[ "${CLANG_VERSION}" != "${CLANG_VERSION_REQUIRED}" ]]; then
-  echo "Installing required clang-format ${CLANG_VERSION_REQUIRED} to ${CLANG_DIRECTORY}"
-  mkdir -p ${CLANG_DIRECTORY}
-  curl --silent --show-error --retry 10 \
-    "http://releases.llvm.org/${CLANG_VERSION_REQUIRED}/clang+llvm-${CLANG_VERSION_REQUIRED}-${CLANG_BIN}" \
-    | tar Jx -C "${CLANG_DIRECTORY}" --strip=1 \
-  || { echo "Could not install required clang-format. Skip formating." ; exit 0 ; }
+  CLANG_VERSION="$(${CLANG_FORMAT} -version | cut -d ' ' -f 3)"
+  if [[ "${CLANG_VERSION}" != "${CLANG_VERSION_REQUIRED}" ]]; then
+    echo "Installing required clang-format ${CLANG_VERSION_REQUIRED} to ${CLANG_DIRECTORY}"
+    mkdir -p ${CLANG_DIRECTORY}
+    curl --silent --show-error --retry 10 \
+      "http://releases.llvm.org/${CLANG_VERSION_REQUIRED}/clang+llvm-${CLANG_VERSION_REQUIRED}-${CLANG_BIN}" \
+      | tar Jx -C "${CLANG_DIRECTORY}" --strip=1 \
+    || { echo "Could not install required clang-format. Skip formating." ; exit 0 ; }
+  fi
 fi
 
 echo "Checking file format ..."
