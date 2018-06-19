@@ -469,6 +469,12 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.ldsCache.resetStats()
 }
 
+// ClearCache is wrapper for clearCache method, used when new controller gets
+// instantiated dynamically
+func (ds *DiscoveryService) ClearCache() {
+	ds.clearCache()
+}
+
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
@@ -629,7 +635,7 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		return
 	}
 	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(proxyInstances[0].AvailabilityZone))
+	writeResponse(response, []byte(proxyInstances[0].GetAZ()))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters

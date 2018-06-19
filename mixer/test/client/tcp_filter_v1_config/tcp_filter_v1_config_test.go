@@ -104,6 +104,9 @@ var expectedStats = map[string]int{
 }
 
 func TestTCPMixerFilterV1Config(t *testing.T) {
+	// https://github.com/istio/istio/issues/5696 skip all TCP tests.
+	t.Skip("issue https://github.com/istio/istio/issues/5696")
+
 	s := env.NewTestSetup(env.TCPMixerFilterV1ConfigTest, t)
 	// Verify that Mixer TCP filter works properly when we change config version to V1 at Envoy.
 	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)

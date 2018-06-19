@@ -137,7 +137,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:                 ports,
 		Address:               addr,
-		ExternalName:          external,
+		ExternalName:          model.Hostname(external),
 		ServiceAccounts:       serviceaccounts,
 		LoadBalancingDisabled: loadBalancingDisabled,
 		MeshExternal:          meshExternal,
@@ -146,8 +146,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 }
 
 // serviceHostname produces FQDN for a k8s service
-func serviceHostname(name, namespace, domainSuffix string) string {
-	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix)
+func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
+	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
 }
 
 // canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
@@ -174,8 +174,8 @@ func KeyFunc(name, namespace string) string {
 }
 
 // parseHostname extracts service name and namespace from the service hostname
-func parseHostname(hostname string) (name string, namespace string, err error) {
-	parts := strings.Split(hostname, ".")
+func parseHostname(hostname model.Hostname) (name string, namespace string, err error) {
+	parts := strings.Split(hostname.String(), ".")
 	if len(parts) < 2 {
 		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
 		return

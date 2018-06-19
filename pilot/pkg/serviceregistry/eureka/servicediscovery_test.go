@@ -84,7 +84,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("GetService() should return nil on error")
 	}
 
-	instances, err := sd.Instances("hostname", nil, nil)
+	instances, err := sd.InstancesByPort("hostname", 0, nil)
 	if err == nil {
 		t.Error("Instances() should return error")
 	}
@@ -119,7 +119,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 	sd := NewServiceDiscovery(cl)
 
-	service, err := sd.GetService(hostDNE)
+	service, err := sd.GetService(model.Hostname(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -127,14 +127,14 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host)
+	service, err = sd.GetService(model.Hostname(host))
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
 	}
 	if service == nil {
 		t.Errorf("GetService(%q) => should exist", host)
 	}
-	if service.Hostname != host {
+	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
 	}
 }
@@ -202,8 +202,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	kitKatLabels := model.Labels{"kit": "kat"}
 
 	serviceInstanceTests := []struct {
-		hostname  string
-		ports     []string
+		hostname  model.Hostname
+		port      int
 		labels    model.LabelsCollection
 		instances []*model.ServiceInstance
 	}{
@@ -226,7 +226,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		{
 			// filter by hostname and port
 			hostname: "b.default.svc.local",
-			ports:    []string{"7070"},
+			port:     7070,
 			instances: []*model.ServiceInstance{
 				makeServiceInstance(serviceB, "10.0.0.1", 7070, nil),
 			},
@@ -234,7 +234,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	}
 
 	for _, c := range serviceInstanceTests {
-		instances, err := sd.Instances(c.hostname, c.ports, c.labels)
+		instances, err := sd.InstancesByPort(c.hostname, c.port, c.labels)
 		if err != nil {
 			t.Errorf("Instances() encountered unexpected error: %v", err)
 		}

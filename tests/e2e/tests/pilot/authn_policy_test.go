@@ -20,14 +20,11 @@ import (
 	"testing"
 )
 
-func TestAuthNPolicy(t *testing.T) {
-	if !tc.Kube.AuthEnabled {
-		t.Skipf("Skipping %s: auth_enable=false", t.Name())
-	}
-
+func TestMTlsWithAuthNPolicy(t *testing.T) {
+	// This policy will enable mTLS for all namespace, and disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl"},
+		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl", "testdata/authn/destination-rule.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
@@ -46,12 +43,12 @@ func TestAuthNPolicy(t *testing.T) {
 				for _, port := range ports {
 					for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 						testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-						runRetriableTest(t, testName, defaultRetryBudget, func() error {
+						runRetriableTest(t, testName, 15, func() error {
 							reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 							resp := ClientRequest(src, reqURL, 1, "")
 							if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
 								if len(resp.ID) == 0 {
-									// t cannot talk to b nor d:80
+									// t cannot talk to b nor d:8080
 									return nil
 								}
 								return errAgain
@@ -70,12 +67,6 @@ func TestAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
-	// V1alpha3 == true implies envoyv2, jwt authn doesn't work for v2 so skip it now.
-	// TODO(quanlin): enable test for v2 API after https://github.com/istio/istio/pull/5061 is in.
-	if tc.V1alpha3 {
-		t.Skipf("Skipping %s: V1alpha3=true", t.Name())
-	}
-
 	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
 	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
 	// Test will fail if this service account is deleted.
@@ -91,6 +82,9 @@ func TestAuthNJwt(t *testing.T) {
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy-jwt.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if tc.Kube.AuthEnabled {
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-authjwt.yaml.tmpl")
 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)

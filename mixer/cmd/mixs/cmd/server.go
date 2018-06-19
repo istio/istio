@@ -40,7 +40,9 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	// TODO: need to pick appropriate defaults for all these settings below
 
 	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", sa.APIPort,
-		"TCP port to use for Mixer's gRPC API")
+		"TCP port to use for Mixer's gRPC API, if the address option is not specified")
+	serverCmd.PersistentFlags().StringVarP(&sa.APIAddress, "address", "", sa.APIAddress,
+		"Address to use for Mixer's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", sa.MonitoringPort,
 		"HTTP port to use for the exposing mixer self-monitoring information")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", sa.MaxMessageSize,

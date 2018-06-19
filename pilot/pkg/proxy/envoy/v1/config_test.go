@@ -412,6 +412,7 @@ func makeMeshConfig() meshconfig.MeshConfig {
 	mesh.MixerCheckServer = "istio-mixer.istio-system:9091"
 	mesh.MixerReportServer = mesh.MixerCheckServer
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
+	mesh.IngressService = "istio-ingress"
 	return mesh
 }
 

@@ -18,5 +18,32 @@
 #
 # Test for istio debian. Will run in a docker image where the .deb has been installed.
 
+function startIstio() {
+    /usr/local/bin/hyperistio --envoy=false &
+    sleep 1
 
-exit 0
+    bash -x /usr/local/bin/istio-start.sh &
+    sleep 1
+}
+
+function istioDebug() {
+    curl localhost:15000/logging?upstream=debug
+    curl localhost:15000/logging?client=debug
+    curl localhost:15000/logging?connection=debug
+    curl localhost:15000/logging?http2=debug
+    curl localhost:15000/logging?grpc=debug
+}
+
+function istioStats() {
+    curl localhost:15000/stats
+
+    # Try to get the endpoints over https
+    curl -k --key tests/testdata/certs/default/key.pem \
+        --cert tests/testdata/certs/default/cert-chain.pem  \
+        -v https://istio-pilot.istio-system:15011/debug/endpointz
+}
+
+function istioTest() {
+    # Will go to local machine
+    su -s /bin/bash -c "curl -v byon-docker.test.istio.io:7072" istio-test
+}

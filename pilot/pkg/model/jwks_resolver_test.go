@@ -15,7 +15,6 @@
 package model
 
 import (
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -40,9 +39,9 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 	cases := []struct {
-		in                   string
-		expectedJwksURI      string
-		expectedErrorMessage string
+		in              string
+		expectedJwksURI string
+		expectedError   bool
 	}{
 		{
 			in:              ms.URL,
@@ -53,24 +52,19 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 			expectedJwksURI: mockCertURL,
 		},
 		{
-			in:                   "http://xyz",
-			expectedErrorMessage: "no such host",
+			in:            "http://xyz",
+			expectedError: true,
 		},
 	}
 	for _, c := range cases {
 		jwksURI, err := r.resolveJwksURIUsingOpenID(c.in)
-		if err != nil {
-			if !strings.Contains(err.Error(), c.expectedErrorMessage) {
-				t.Errorf("resolveJwksURIUsingOpenID(%+v): expected error (%s), got (%v)", c.in, c.expectedErrorMessage, err)
-			}
-		} else {
-			if c.expectedErrorMessage != "" {
-				t.Errorf("resolveJwksURIUsingOpenID(%+v): expected error (%s), got no error", c.in, c.expectedErrorMessage)
-			}
-			if c.expectedJwksURI != jwksURI {
-				t.Errorf("resolveJwksURIUsingOpenID(%+v): expected (%s), got (%s)",
-					c.in, c.expectedJwksURI, jwksURI)
-			}
+		if err != nil && !c.expectedError {
+			t.Errorf("resolveJwksURIUsingOpenID(%+v): got error (%v)", c.in, err)
+		} else if err == nil && c.expectedError {
+			t.Errorf("resolveJwksURIUsingOpenID(%+v): expected error, got no error", c.in)
+		} else if c.expectedJwksURI != jwksURI {
+			t.Errorf("resolveJwksURIUsingOpenID(%+v): expected (%s), got (%s)",
+				c.in, c.expectedJwksURI, jwksURI)
 		}
 	}
 

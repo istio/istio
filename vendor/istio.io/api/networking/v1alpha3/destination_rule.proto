@@ -439,6 +439,17 @@ message OutlierDetection {
 //         tls:
 //           mode: SIMPLE
 //
+// The following rule configures a client to use Istio mutual TLS when talking
+// to rating services.
+//     apiVersion: networking.istio.io/v1alpha3
+//     kind: DestinationRule
+//     metadata:
+//       name: ratings-istio-mtls
+//     spec:
+//       host: ratings.prod.svc.cluster.local
+//       trafficPolicy:
+//         tls:
+//           mode: ISTIO_MUTUAL
 message TLSSettings {
   // TLS connection mode
   enum TLSmode {
@@ -451,6 +462,13 @@ message TLSSettings {
     // Secure connections to the upstream using mutual TLS by presenting
     // client certificates for authentication.
     MUTUAL = 2;
+
+    // Secure connections to the upstream using mutual TLS by presenting
+    // client certificates for authentication.
+    // Compared to Mutual mode, this mode uses certificates generated
+    // automatically by Istio for mTLS authentication. When this mode is
+    // used, all other fields in `TLSSettings` should be empty.
+    ISTIO_MUTUAL = 3;
   };
 
   // REQUIRED: Indicates whether connections to this port should be secured
@@ -459,22 +477,27 @@ message TLSSettings {
 
   // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client-side TLS certificate to use.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string client_certificate = 2;
 
   // REQUIRED if mode is `MUTUAL`. The path to the file holding the
   // client's private key.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string private_key = 3;
 
   // OPTIONAL: The path to the file containing certificate authority
   // certificates to use in verifying a presented server certificate. If
   // omitted, the proxy will not verify the server's certificate.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string ca_certificates = 4;
 
   // A list of alternate names to verify the subject identity in the
   // certificate. If specified, the proxy will verify that the server
   // certificate's subject alt name matches one of the specified values.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   repeated string subject_alt_names = 5;
 
   // SNI string to present to the server during TLS handshake.
+  // Should be empty if mode is `ISTIO_MUTUAL`.
   string sni = 6;
 }

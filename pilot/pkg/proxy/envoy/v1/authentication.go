@@ -102,7 +102,7 @@ func buildJwksURIClusters(jwtSpecs []*authn.Jwt, timeout *duration.Duration) Clu
 
 	var clusters Clusters
 	for _, auth := range jwksClusters {
-		cluster := BuildOutboundCluster(auth.hostname, auth.port, nil /* labels */, true /* external */)
+		cluster := BuildOutboundCluster(model.Hostname(auth.hostname), auth.port, nil /* labels */, true /* external */)
 		cluster.Name = authn_plugin.JwksURIClusterName(auth.hostname, auth.port)
 		cluster.CircuitBreaker = &CircuitBreaker{
 			Default: DefaultCBPriority{

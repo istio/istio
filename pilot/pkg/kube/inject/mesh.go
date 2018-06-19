@@ -44,8 +44,12 @@ initContainers:
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" ]]"
   [[ else -]]
-  - "{{ .IncludeInboundPorts }}"
-  [[ end -]]
+  - [[ range .Spec.Containers -]]
+      [[ range .Ports -]]
+        [[ .ContainerPort -]],
+      [[ end -]]
+    [[ end -]]
+  [[ end ]]
   - "-d"
   [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
   - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
@@ -140,6 +144,10 @@ containers:
   {{ else -}}
   imagePullPolicy: {{ .ImagePullPolicy }}
   {{ end -}}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
   securityContext:
     {{ if eq .DebugMode true -}}
     privileged: true

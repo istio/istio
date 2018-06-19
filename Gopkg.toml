@@ -287,7 +287,7 @@ required = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  branch = "release-0.8"
 
 # fortio is latest tagged by default
 
