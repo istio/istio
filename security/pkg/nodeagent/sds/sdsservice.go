@@ -36,6 +36,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -45,9 +46,6 @@ const (
 	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy to SDS.
 	credentialTokenHeaderKey = "authorization"
-
-	// uriScheme is the URI scheme for Istio identities.
-	uriScheme = "spiffe"
 )
 
 var (
@@ -135,13 +133,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return receiveError
 			}
 
-			proxy, svcAccount, err := parseDiscoveryRequest(discReq)
+			proxy, spiffeID, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				continue
 			}
 			con.proxy = proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, svcAccount, token)
+			secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -176,12 +174,12 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	proxy, svcAccount, err := parseDiscoveryRequest(discReq)
+	proxy, spiffeID, err := parseDiscoveryRequest(discReq)
 	if err != nil {
 		return nil, err
 	}
 
-	secret, err := s.st.GetSecret(discReq.Node.Id, svcAccount, token)
+	secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
@@ -209,10 +207,10 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (*model.Proxy, stri
 		return nil, "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
 
-	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], uriScheme) {
+	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
 		return nil, "", fmt.Errorf("discovery request has invalid resourceNames %+v", discReq.ResourceNames)
 	}
-	svcAccount := discReq.ResourceNames[0]
+	spiffeID := discReq.ResourceNames[0]
 
 	proxy, err := model.ParseServiceNode(discReq.Node.Id)
 	if err != nil {
@@ -221,7 +219,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (*model.Proxy, stri
 	}
 	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 
-	return &proxy, svcAccount, nil
+	return &proxy, spiffeID, nil
 }
 
 func getCredentialToken(ctx context.Context) (string, error) {
@@ -283,7 +281,7 @@ func sdsDiscoveryResponse(s *SecretItem, proxy *model.Proxy) (*xdsapi.DiscoveryR
 	}
 
 	secret := &authapi.Secret{
-		Name: s.ServiceAccount,
+		Name: s.SpiffeID,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{

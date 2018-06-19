@@ -40,7 +40,7 @@ var (
 
 	fakeCredentialToken = "faketoken"
 
-	fakeServiceAccount = "spiffe://cluster.local/ns/bar/sa/foo"
+	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 )
 
 func TestStreamSecrets(t *testing.T) {
@@ -69,7 +69,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{fakeServiceAccount},
+		ResourceNames: []string{fakeSpiffeID},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -107,7 +107,7 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	proxyID := "sidecar~127.0.0.1~id2~local"
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{fakeServiceAccount},
+		ResourceNames: []string{fakeSpiffeID},
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -139,7 +139,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	if err = NotifyProxy(proxyID, &SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
-		ServiceAccount:   fakeServiceAccount,
+		SpiffeID:         fakeSpiffeID,
 	}); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
 	}
@@ -166,7 +166,7 @@ func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPriva
 	}
 
 	expectedResponseSecret := authapi.Secret{
-		Name: fakeServiceAccount,
+		Name: fakeSpiffeID,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
 				CertificateChain: &core.DataSource{
@@ -249,18 +249,18 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GetSecret(proxyID, serviceAccount, token string) (*SecretItem, error) {
+func (*mockSecretStore) GetSecret(proxyID, spiffeID, token string) (*SecretItem, error) {
 	if token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
-	if serviceAccount != fakeServiceAccount {
-		return nil, fmt.Errorf("unexpected service account %q", serviceAccount)
+	if spiffeID != fakeSpiffeID {
+		return nil, fmt.Errorf("unexpected spiffeID %q", spiffeID)
 	}
 
 	return &SecretItem{
 		CertificateChain: fakeCertificateChain,
 		PrivateKey:       fakePrivateKey,
-		ServiceAccount:   serviceAccount,
+		SpiffeID:         spiffeID,
 	}, nil
 }
