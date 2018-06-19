@@ -92,8 +92,6 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
 	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
 	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
-	fmt.Println(endpointSynced)
-	fmt.Println(routeSynced)
 	fmt.Fprintf(w, "%v\t%v\t%v\t%v (%v%%)\t%v\t%v\n",
 		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, status.EndpointPercent, routeSynced, status.pilot)
 	return nil
@@ -106,5 +104,5 @@ func xdsStatus(sent, acked string) string {
 	if sent == acked {
 		return "SYNCED"
 	}
-	return "DIVERGED"
+	return "STALE"
 }

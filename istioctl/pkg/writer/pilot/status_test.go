@@ -26,37 +26,6 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func statusInput1() []v2.SyncStatus {
-	return []v2.SyncStatus{
-		{
-			ProxyID:         "proxy1",
-			ClusterSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ClusterAcked:    "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			ListenerSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ListenerAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointPercent: 100,
-		},
-	}
-}
-
-func statusInput2() []v2.SyncStatus {
-	return []v2.SyncStatus{
-		{
-			ProxyID:       "proxy2",
-			ClusterSent:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ClusterAcked:  "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			ListenerSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			ListenerAcked: "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			EndpointAcked: "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
-			RouteSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-			RouteAcked:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
-		},
-	}
-}
-
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -173,5 +142,36 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 				t.Errorf(err.Error())
 			}
 		})
+	}
+}
+
+func statusInput1() []v2.SyncStatus {
+	return []v2.SyncStatus{
+		{
+			ProxyID:         "proxy1",
+			ClusterSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			ClusterAcked:    "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
+			ListenerSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			ListenerAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointSent:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointAcked:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointPercent: 100,
+		},
+	}
+}
+
+func statusInput2() []v2.SyncStatus {
+	return []v2.SyncStatus{
+		{
+			ProxyID:       "proxy2",
+			ClusterSent:   "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			ClusterAcked:  "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
+			ListenerSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			ListenerAcked: "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointSent:  "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			EndpointAcked: "2009-11-10 22:00:00 +0000 UTC m=+0.000000001",
+			RouteSent:     "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+			RouteAcked:    "2009-11-10 23:00:00 +0000 UTC m=+0.000000001",
+		},
 	}
 }
