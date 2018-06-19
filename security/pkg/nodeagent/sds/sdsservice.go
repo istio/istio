@@ -43,9 +43,9 @@ const (
 	// SecretType is used for secret discovery service to construct response.
 	SecretType = "type.googleapis.com/envoy.api.v2.Secret"
 
-	// credentialTokenHeaderKey is the header key in gPRC header which is used to
+	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy to SDS.
-	credentialTokenHeaderKey = "authorization"
+	CredentialTokenHeaderKey = "authorization"
 )
 
 var (
@@ -228,7 +228,7 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("unable to get metadata from incoming context")
 	}
 
-	if h, ok := metadata[credentialTokenHeaderKey]; ok {
+	if h, ok := metadata[CredentialTokenHeaderKey]; ok {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token must have 1 value in gRPC metadata but got %d", len(h))
 		}

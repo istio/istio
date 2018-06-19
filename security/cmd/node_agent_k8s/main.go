@@ -15,26 +15,63 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
 var (
+	cacheOptions  cache.Options
+	serverOptions sds.Options
+
 	// RootCmd defines the command for node agent.
 	RootCmd = &cobra.Command{
 		Use:   "nodeagent",
 		Short: "Node agent",
+		RunE: func(c *cobra.Command, args []string) error {
+			stop := make(chan struct{})
+
+			// TODO(quanlin): use real caClient when it's ready.
+			caClient := &mockCAClient{}
+			st := cache.NewSecretCache(caClient, cacheOptions)
+
+			server, err := sds.NewServer(serverOptions, st)
+			defer server.Stop()
+			if err != nil {
+				return fmt.Errorf("failed to create sds service: %v", err)
+			}
+
+			cmd.WaitSignal(stop)
+
+			return nil
+		},
 	}
 )
 
-// Placeholder.
-func startManagement() {
+func init() {
+	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath", "/tmp/sds31ae31c5c8c0.sock", "")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretttl", time.Hour, "")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval", 10*time.Minute, "")
+	RootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration", 24*time.Hour, "")
 }
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
-	startManagement()
+}
+
+// TODO(quanlin): remove mockCAClient when real caClient when it's ready.
+type mockCAClient struct {
+}
+
+func (c *mockCAClient) CSRSign(csrPEM []byte, /*PEM-encoded certificate request*/
+	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+	return csrPEM, nil
 }
