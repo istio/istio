@@ -124,10 +124,12 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 		},
 	}
 
+	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
+	// Do not remove: mixerfilter depends on this logic.
 	if e.UID != "" {
 		ep.Metadata = &core.Metadata{
 			FilterMetadata: map[string]*types.Struct{
-				"mixer": {
+				"istio": {
 					Fields: map[string]*types.Value{
 						"uid": {Kind: &types.Value_StringValue{StringValue: e.UID}},
 					},
