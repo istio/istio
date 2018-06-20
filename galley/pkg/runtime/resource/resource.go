@@ -23,6 +23,8 @@ import (
 )
 
 // Kind is the name of a resource type.
+// TODO(https://github.com/istio/istio/issues/6434): We should rename this to resource.MessageName to
+// align it with the proto MessageName.
 type Kind string
 
 // Version is the version identifier of a resource.
