@@ -36,10 +36,10 @@ func NewSchema() *Schema {
 }
 
 // Register a proto into the schema.
-func (s *Schema) Register(protoName string) {
+func (s *Schema) Register(protoMessageName string) {
 	info := Info{
-		Kind:    Kind(protoName),
-		TypeURL: fmt.Sprintf("%s/%s", BaseTypeURL, protoName),
+		Kind:    Kind(protoMessageName),
+		TypeURL: fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
 	}
 
 	s.byKind[info.Kind] = info
