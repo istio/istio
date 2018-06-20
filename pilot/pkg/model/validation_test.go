@@ -3138,7 +3138,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		valid      bool
 	}{
 		{
-			name:       "empty policy with namespace-wise policy name",
+			name:       "empty policy with namespace-wide policy name",
 			configName: DefaultAuthenticationPolicyName,
 			in:         &authn.Policy{},
 			valid:      true,
@@ -3150,7 +3150,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid:      false,
 		},
 		{
-			name:       "service-specific policy with namespace-wise name",
+			name:       "service-specific policy with namespace-wide name",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
