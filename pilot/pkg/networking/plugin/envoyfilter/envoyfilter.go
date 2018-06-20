@@ -43,6 +43,95 @@ func NewPlugin() plugin.Plugin {
 	return envoyfilterplugin{}
 }
 
+// OnOutboundListener implements the Callbacks interface method.
+func (envoyfilterplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return insertUserSpecifiedFilters(in, mutable, OutboundDirection)
+}
+
+// OnInboundListener implements the Callbacks interface method.
+func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return insertUserSpecifiedFilters(in, mutable, InboundDirection)
+}
+
+// OnOutboundCluster implements the Plugin interface method.
+func (envoyfilterplugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+	// do nothing
+}
+
+// OnInboundCluster implements the Plugin interface method.
+func (envoyfilterplugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+	// do nothing
+}
+
+// OnOutboundRouteConfiguration implements the Plugin interface method.
+func (envoyfilterplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	// do nothing
+}
+
+// OnInboundRouteConfiguration implements the Plugin interface method.
+func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	// do nothing
+}
+
+func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableObjects, direction string) error {
+	filterCRD := getFilterForWorkload(in)
+	if filterCRD == nil {
+		return nil
+	}
+
+	listenerIPAddress := getListenerIPAddress(&mutable.Listener.Address)
+	if listenerIPAddress == nil {
+		log.Warnf("Failed to parse IP Address from plugin listener")
+	}
+
+	for _, f := range filterCRD.Filters {
+		if !listenerMatch(in, direction, listenerIPAddress, f.ListenerMatch) {
+			continue
+		}
+		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+			// Insert into http connection manager
+			for cnum := range mutable.FilterChains {
+				insertHTTPFilter(&mutable.FilterChains[cnum], f)
+			}
+		} else {
+			// tcp listener with some opaque filter or http listener with some opaque filter
+			// We treat both as insert network filter X into network filter chain.
+			// We cannot insert a HTTP in filter in network filter chain. Even HTTP connection manager is a network filter
+			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
+				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain", f.FilterName)
+				continue
+			}
+			for cnum := range mutable.FilterChains {
+				insertNetworkFilter(&mutable.FilterChains[cnum], f)
+			}
+		}
+	}
+	return nil
+}
+
+// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
+// is undefined.
+func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
+	env := in.Env
+	// collect workload labels
+	workloadInstances, err := in.Env.GetProxyServiceInstances(in.Node)
+	if err != nil {
+		log.Errora("Failed to get gateway instances for router ", in.Node.ID, err)
+		return nil
+	}
+
+	var workloadLabels model.LabelsCollection
+	for _, w := range workloadInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	f := env.EnvoyFilter(workloadLabels)
+	if f != nil {
+		return f.Spec.(*networking.EnvoyFilter)
+	}
+	return nil
+}
+
 func getListenerIPAddress(address *core.Address) net.IP {
 	if address != nil && address.Address != nil {
 		switch t := address.Address.(type) {
@@ -138,27 +227,6 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 	return true
 }
 
-func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
-	env := in.Env
-	// collect workload labels
-	workloadInstances, err := in.Env.GetProxyServiceInstances(in.Node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", in.Node.ID, err)
-		return nil
-	}
-
-	var workloadLabels model.LabelsCollection
-	for _, w := range workloadInstances {
-		workloadLabels = append(workloadLabels, w.Labels)
-	}
-
-	f := env.EnvoyFilter(workloadLabels)
-	if f != nil {
-		return f.Spec.(*networking.EnvoyFilter)
-	}
-	return nil
-}
-
 func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
 		Name:   envoyFilter.FilterName,
@@ -232,70 +300,4 @@ func insertNetworkFilter(filterChain *plugin.FilterChain, envoyFilter *networkin
 		}
 	}
 
-}
-
-func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableObjects, direction string) error {
-	filterCRD := getFilterForWorkload(in)
-	if filterCRD == nil {
-		return nil
-	}
-
-	listenerIPAddress := getListenerIPAddress(&mutable.Listener.Address)
-	if listenerIPAddress == nil {
-		log.Warnf("Failed to parse IP Address from plugin listener")
-	}
-
-	for _, f := range filterCRD.Filters {
-		if !listenerMatch(in, direction, listenerIPAddress, f.ListenerMatch) {
-			continue
-		}
-		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-			// Insert into http connection manager
-			for cnum := range mutable.FilterChains {
-				insertHTTPFilter(&mutable.FilterChains[cnum], f)
-			}
-		} else {
-			// tcp listener with some opaque filter or http listener with some opaque filter
-			// We treat both as insert network filter X into network filter chain.
-			// We cannot insert a HTTP in filter in network filter chain. Even HTTP connection manager is a network filter
-			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain", f.FilterName)
-				continue
-			}
-			for cnum := range mutable.FilterChains {
-				insertNetworkFilter(&mutable.FilterChains[cnum], f)
-			}
-		}
-	}
-	return nil
-}
-
-// OnOutboundListener implements the Callbacks interface method.
-func (envoyfilterplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return insertUserSpecifiedFilters(in, mutable, OutboundDirection)
-}
-
-// OnInboundListener implements the Callbacks interface method.
-func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return insertUserSpecifiedFilters(in, mutable, InboundDirection)
-}
-
-// OnOutboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
-	// do nothing
-}
-
-// OnInboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
-	// do nothing
-}
-
-// OnOutboundRouteConfiguration implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// do nothing
-}
-
-// OnInboundRouteConfiguration implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// do nothing
 }

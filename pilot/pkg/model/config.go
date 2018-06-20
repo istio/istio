@@ -851,6 +851,8 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 	return out
 }
 
+// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
+// is undefined.
 func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
