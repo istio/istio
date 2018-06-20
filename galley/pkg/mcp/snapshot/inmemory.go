@@ -42,7 +42,8 @@ func (s *InMemory) Version(typ string) string {
 	return s.versions[typ]
 }
 
-// Set the values for a given type.
+// Set the values for a given type. Once a snapshot is in use, Set must not be called as it is semantically
+// immutable
 func (s *InMemory) Set(typ string, version string, resources []*mcp.Envelope) {
 	s.resources[typ] = resources
 	s.versions[typ] = version
