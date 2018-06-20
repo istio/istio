@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -298,6 +299,51 @@ func TestGetServiceNoInstances(t *testing.T) {
 	}
 	if service != nil {
 		t.Error("service should not exist")
+	}
+}
+
+func TestGetServiceAttributes(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	attr, err := controller.GetServiceAttributes("productpage.service.consul")
+	if err != nil {
+		t.Errorf("client encountered error during GetServiceAttributes(): %v", err)
+	}
+	if attr == nil {
+		t.Error("service attributes should exist")
+	}
+
+	expect := model.ServiceAttributes{
+		Name:      serviceHostname("productpage").String(),
+		Namespace: model.IstioDefaultConfigNamespace,
+	}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes() incorrect service attributes returned => %v, want %v",
+			*attr, expect)
+	}
+}
+
+func TestGetServiceAttributesNoInstances(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Productpage = []*api.CatalogService{}
+
+	attr, err := controller.GetServiceAttributes("productpage.service.consul")
+	if err != nil {
+		t.Errorf("GetServiceAttributes() encountered unexpected error: %v", err)
+	}
+	if attr != nil {
+		t.Error("service attributes should not exist")
 	}
 }
 

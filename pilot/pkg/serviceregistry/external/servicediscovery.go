@@ -134,13 +134,15 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 }
 
 // GetServiceAttributes retrieves the custom attributes of a service if it exists.
-func (d *ServiceEntryStore) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
+func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		svcs := convertServices(serviceEntry)
 		for _, s := range svcs {
-			if s.Hostname == service.Hostname {
-				return &model.ServiceAttributes{Namespace: config.Namespace}, nil
+			if s.Hostname == hostname {
+				return &model.ServiceAttributes{
+					Name:      hostname.String(),
+					Namespace: config.Namespace}, nil
 			}
 		}
 	}
