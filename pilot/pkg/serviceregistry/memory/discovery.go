@@ -186,6 +186,11 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return val, sd.GetServiceError
 }
 
+// GetServiceAttributes retrieves namespace of a service if it exists. Currently it only returns nil
+func (sd *ServiceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
+	return nil, nil
+}
+
 // Instances implements discovery interface
 func (sd *ServiceDiscovery) Instances(hostname model.Hostname, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {

@@ -106,6 +106,11 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
+	attr, err := sds.GetServiceAttributes(svc)
+	if attr.Name != testService || attr.Namespace != ns {
+		t.Errorf("GetServiceAttributes() => %v, but want %v: %v",
+			attr, model.ServiceAttributes{Name: testService, Namespace: ns}, err)
+	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)
 	if err != nil {
