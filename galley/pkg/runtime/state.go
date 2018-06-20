@@ -21,7 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -34,8 +34,8 @@ type State struct {
 	versionCounter int64
 
 	// entries for per-kind State.
-	entries     map[resource.Kind]*kindState
 	entriesLock sync.Mutex
+	entries     map[resource.Kind]*kindState
 }
 
 // per-kind State.
@@ -43,7 +43,7 @@ type kindState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
-	entries  map[string]*v1alpha1.Envelope
+	entries  map[string]*mcp.Envelope
 	versions map[string]resource.Version
 }
 
@@ -103,7 +103,7 @@ func (s *State) getKindState(kind resource.Kind) *kindState {
 	pks, found := s.entries[kind]
 	if !found {
 		pks = &kindState{
-			entries:  make(map[string]*v1alpha1.Envelope),
+			entries:  make(map[string]*mcp.Envelope),
 			versions: make(map[string]resource.Version),
 		}
 		s.entries[kind] = pks
@@ -119,7 +119,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	sn := snapshot.NewInMemory()
 
 	for kind, state := range s.entries {
-		entries := make([]*v1alpha1.Envelope, 0, len(state.entries))
+		entries := make([]*mcp.Envelope, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
@@ -128,10 +128,12 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		sn.Set(string(kind), version, entries)
 	}
 
+	sn.Freeze()
+
 	return sn
 }
 
-func (s *State) envelopeResource(event resource.Event) (*v1alpha1.Envelope, bool) {
+func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 	info, _ := s.schema.LookupByKind(event.ID.Kind)
 
 	serialized, err := proto.Marshal(event.Item)
@@ -140,8 +142,8 @@ func (s *State) envelopeResource(event resource.Event) (*v1alpha1.Envelope, bool
 		return nil, false
 	}
 
-	entry := &v1alpha1.Envelope{
-		Metadata: &v1alpha1.Metadata{
+	entry := &mcp.Envelope{
+		Metadata: &mcp.Metadata{
 			Name: event.ID.FullName,
 		},
 		Resource: &types.Any{

@@ -57,7 +57,6 @@ func TestPublishingStrategy_OnTimer(t *testing.T) {
 	s.nowFn = func() time.Time { return now }
 
 	var registeredFn func()
-	s.nowFn = func() time.Time { return now }
 	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
 		t1 = t0.Add(d)
 		registeredFn = fn
@@ -91,7 +90,6 @@ func TestPublishingStrategy_OnTimer_Quiesce(t *testing.T) {
 	s.nowFn = func() time.Time { return now }
 
 	var registeredFn func()
-	s.nowFn = func() time.Time { return now }
 	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
 		registeredFn = fn
 		return time.AfterFunc(d, func() {})
@@ -171,7 +169,6 @@ func TestPublishingStrategy_Reset(t *testing.T) {
 	now := t0
 	s.nowFn = func() time.Time { return now }
 
-	s.nowFn = func() time.Time { return now }
 	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
 		return time.AfterFunc(d, func() {})
 	}
@@ -184,5 +181,33 @@ func TestPublishingStrategy_Reset(t *testing.T) {
 	}
 	// Should not crash.
 	s.reset()
+}
 
+func TestPublishingStrategy_DeadlockAvoidance(t *testing.T) {
+	s := newPublishingStrategyWithDefaults()
+
+	// Capture t0, as a constant time.
+	t0 := time.Now()
+
+	now := t0
+	s.nowFn = func() time.Time { return now }
+
+	s.afterFuncFn = func(d time.Duration, fn func()) *time.Timer {
+		return time.AfterFunc(d, func() {})
+	}
+
+	s.onChange()
+
+	now = now.Add(defaultMaxWaitDuration)
+	s.onTimer()
+
+	// Do not drain the publish channel
+
+	s.onChange()
+
+	now = now.Add(defaultMaxWaitDuration)
+	s.onTimer()
+
+	// Go through a locking operation
+	s.onChange()
 }

@@ -15,6 +15,8 @@
 package runtime
 
 import (
+	"sync"
+
 	sn "istio.io/istio/galley/pkg/mcp/snapshot"
 )
 
@@ -27,6 +29,7 @@ type Distributor interface {
 
 // InMemoryDistributor is an in-memory distributor implementation.
 type InMemoryDistributor struct {
+	snapshotsLock sync.Mutex
 	snapshots map[string]sn.Snapshot
 }
 
@@ -41,10 +44,16 @@ func NewInMemoryDistributor() *InMemoryDistributor {
 
 // SetSnapshot is an implementation of Distributor.SetSnapshot
 func (d *InMemoryDistributor) SetSnapshot(name string, snapshot sn.Snapshot) {
+	d.snapshotsLock.Lock()
+	defer d.snapshotsLock.Unlock()
+
 	d.snapshots[name] = snapshot
 }
 
 // ClearSnapshot is an implementation of Distributor.ClearSnapshot
 func (d *InMemoryDistributor) ClearSnapshot(name string) {
+	d.snapshotsLock.Lock()
+	defer d.snapshotsLock.Unlock()
+
 	delete(d.snapshots, name)
 }

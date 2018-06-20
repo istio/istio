@@ -29,7 +29,7 @@ type Processor struct {
 	// source interface for retrieving the events from.
 	source Source
 
-	// distribotur interface for publishing config snapshots to.
+	// distributor interface for publishing config snapshots to.
 	distributor Distributor
 
 	// The heuristic publishing strategy

@@ -38,7 +38,8 @@ type publishingStrategy struct {
 	quiesceDuration time.Duration
 	timerFrequency  time.Duration
 
-	lock sync.Mutex
+	// stateLock protects the internal state of the publishing strategy.
+	stateLock sync.Mutex
 
 	// publish channel is used to trigger the publication of snapshots.
 	publish chan struct{}
@@ -79,8 +80,8 @@ func newPublishingStrategy(
 }
 
 func (s *publishingStrategy) onChange() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.stateLock.Lock()
+	defer s.stateLock.Unlock()
 
 	// Capture the latest event time.
 	s.latestEvent = s.nowFn()
@@ -93,8 +94,8 @@ func (s *publishingStrategy) onChange() {
 }
 
 func (s *publishingStrategy) onTimer() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.stateLock.Lock()
+	defer s.stateLock.Unlock()
 
 	now := s.nowFn()
 
@@ -105,17 +106,25 @@ func (s *publishingStrategy) onTimer() {
 	quiesceReached := s.latestEvent.Add(s.quiesceDuration).Before(now)
 
 	if maxTimeReached || quiesceReached {
-		s.timer.Stop()
-		s.timer = nil
-		s.publish <- struct{}{}
-	} else {
-		s.timer.Reset(s.timerFrequency)
+		// Try to send to the channel
+		select {
+		case s.publish <- struct{}{}:
+			s.timer.Stop()
+			s.timer = nil
+			return
+		default:
+			// If the calling code is not draining the publish channel, then we can potentially cause
+			// a deadlock here. Avoid the deadlock by going through the timer loop again.
+			scope.Warnf("Unable to publish to the channel, resetting the timer again to avoid deadlock")
+		}
 	}
+
+	s.timer.Reset(s.timerFrequency)
 }
 
 func (s *publishingStrategy) reset() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.stateLock.Lock()
+	defer s.stateLock.Unlock()
 
 	if s.timer != nil {
 		s.timer.Stop()
