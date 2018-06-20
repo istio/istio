@@ -249,6 +249,19 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
+// GetServiceAttributes implements a service catalog operation
+func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		log.Infof("GetServiceAttributes() => error %v", err)
+		return nil, err
+	}
+	if _, exists := c.serviceByKey(name, namespace); exists {
+		return &model.ServiceAttributes{Name: name, Namespace: namespace}, nil
+	}
+	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
+}
+
 // serviceByKey retrieves a service by name and namespace
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
@@ -347,10 +360,11 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 					}
 
 					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa := "", ""
+					az, sa, uid := "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
 					// identify the port by name
@@ -361,6 +375,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 									Address:     ea.IP,
 									Port:        int(port.Port),
 									ServicePort: svcPort,
+									UID:         uid,
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -417,10 +432,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					}
 
 					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa := "", ""
+					az, sa, uid := "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
 					// identify the port by name. K8S EndpointPort uses the service port name
@@ -433,6 +449,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Address:     ea.IP,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
+									UID:         uid,
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -452,19 +469,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
-	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
 				if proxy.IPAddress == ea.IP {
-					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
-						if err != nil {
-							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
-							return out, err
-						}
-					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -484,13 +493,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
-								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
-									"with the query for pod %v in namespace %v",
-									ea.IP, pod.GetName(), pod.GetNamespace(),
-									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
-								continue
-							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{

@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -251,6 +252,47 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 		}
 	}()
 	return ads.Recv()
+}
+
+func TestAdsClusterUpdate(t *testing.T) {
+	server := initLocalPilotTestEnv(t)
+	edsstr := connectADS(t, util.MockPilotGrpcAddr)
+
+	var sendEDSReqAndVerify = func(clusterName string) {
+		sendEDSReq(t, []string{clusterName}, "1.1.1.1", edsstr)
+		res, err := adsReceive(edsstr, 5*time.Second)
+		if err != nil {
+			t.Fatal("Recv failed", err)
+		}
+
+		if res.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+			t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res.TypeUrl)
+		}
+		if res.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
+			t.Error("Expecting type.googleapis.com/envoy.api.v2.ClusterLoadAssignment got ", res.Resources[0].TypeUrl)
+		}
+
+		cla, err := getLoadAssignment(res)
+		if err != nil {
+			t.Fatal("Invalid EDS response ", err)
+		}
+		if cla.ClusterName != clusterName {
+			t.Error(fmt.Sprintf("Expecting %s got ", clusterName), cla.ClusterName)
+		}
+	}
+
+	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
+		"http-main", 2080, "10.2.0.1", 1080)
+
+	cluster1 := "adsupdate.default.svc.cluster.local|http-main"
+	sendEDSReqAndVerify(cluster1)
+
+	// register a second endpoint
+	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
+		"http-status", 2080, "10.2.0.2", 1081)
+
+	cluster2 := "adsupdate2.default.svc.cluster.local|http-status"
+	sendEDSReqAndVerify(cluster2)
 }
 
 func TestAdsUpdate(t *testing.T) {

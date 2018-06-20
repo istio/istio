@@ -27,13 +27,18 @@ import (
 
 func Test_Syncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		_ = initLocalPilotTestEnv(t)
+		initLocalPilotTestEnv(t)
 		adsstr := connectADS(t, util.MockPilotGrpcAddr)
 		defer adsstr.CloseSend()
-		sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, adsstr)
-		_, err := adsReceive(adsstr, 5*time.Second)
-		if err != nil {
-			t.Fatal("Recv failed", err)
+		sendCDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
+		sendLDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
+		sendRDSReq(t, sidecarId(app3Ip, "app3"), []string{"80", "8080"}, adsstr)
+		sendEDSReq(t, []string{}, app3Ip, adsstr)
+		for i := 0; i < 4; i++ {
+			_, err := adsReceive(adsstr, 5*time.Second)
+			if err != nil {
+				t.Fatal("Recv failed", err)
+			}
 		}
 		req, err := http.NewRequest("GET", "/debug", nil)
 		if err != nil {
@@ -46,15 +51,47 @@ func Test_Syncz(t *testing.T) {
 		if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
 			t.Error(err)
 		}
-		for i, ss := range got {
-			if ss.ProxyID == "" {
-				t.Errorf("%v sent not set", i)
+		// This is a horrible hack because the single pilot instance is shared across multiple tests
+		// As long as each field is set somewhere we don't actually care!
+		checkMap := map[string]bool{
+			"proxyID": false,
+			"cSent":   false, "cAck": false,
+			"lSent": false, "lAck": false,
+			"rSent": false, "rAck": false,
+			"eSent": false, "eAck": false,
+		}
+		for _, ss := range got {
+			if ss.ProxyID != "" {
+				checkMap["proxyID"] = true
 			}
-			if ss.Sent == "" {
-				t.Errorf("%v sent not set", i)
+			if ss.ClusterSent != "" {
+				checkMap["cSent"] = true
 			}
-			if ss.Acked == "" {
-				t.Errorf("%v acked not set", i)
+			if ss.ClusterAcked != "" {
+				checkMap["cAck"] = true
+			}
+			if ss.ListenerSent != "" {
+				checkMap["lSent"] = true
+			}
+			if ss.ListenerAcked != "" {
+				checkMap["lAck"] = true
+			}
+			if ss.RouteSent != "" {
+				checkMap["rSent"] = true
+			}
+			if ss.RouteAcked != "" {
+				checkMap["rAck"] = true
+			}
+			if ss.EndpointSent != "" {
+				checkMap["eSent"] = true
+			}
+			if ss.EndpointAcked != "" {
+				checkMap["eAck"] = true
+			}
+		}
+		for field, present := range checkMap {
+			if !present {
+				t.Errorf("%v not set", field)
 			}
 		}
 	})

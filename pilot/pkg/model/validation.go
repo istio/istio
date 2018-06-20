@@ -1703,6 +1703,13 @@ func ValidateAuthenticationPolicy(name, namespace string, msg proto.Message) err
 	var errs error
 
 	if !clusterScoped {
+		if len(in.Targets) == 0 && name != DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
+				DefaultAuthenticationPolicyName, name))
+		}
+		if len(in.Targets) > 0 && name == DefaultAuthenticationPolicyName {
+			errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
+		}
 		for _, target := range in.Targets {
 			errs = appendErrors(errs, validateAuthNPolicyTarget(target))
 		}

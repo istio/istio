@@ -73,7 +73,7 @@ e2e_simple: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgatewa
 e2e_simple_auth: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_auth_run
 e2e_simple_noauth: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_noauth_run
 
-e2e_mixer: istioctl generate_yaml e2e_mixer_run
+e2e_mixer: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_mixer_run
 
 e2e_galley: istioctl generate_yaml e2e_galley_run
 
@@ -101,7 +101,9 @@ e2e_simple_noauth_run: out_dir
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
-	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_galley_run: out_dir
 	go test -v -timeout 20m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
@@ -119,7 +121,7 @@ e2e_version_skew_run: out_dir
 	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
 e2e_all_run: out_dir
-	$(MAKE) --keep-going e2e_simple_run e2e_mixer_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run e2e_version_skew_run
+	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run e2e_version_skew_run
 
 JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
 TARGET ?= e2e_all
@@ -163,10 +165,10 @@ test/local/noauth/e2e_simple: out_dir generate_yaml-envoyv2_transition_loadbalan
 	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_mixer: out_dir istioctl generate_yaml
-	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/mixer -args \
-		-use_local_cluster -cluster_wide -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-		${CAPTURE_LOG}
+test/local/e2e_mixer: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 20m ./tests/e2e/tests/mixer \
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_galley: out_dir istioctl generate_yaml
 	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/galley -args \

@@ -1,13 +1,14 @@
 apiVersion: v1
-name: egressgateway
+name: gateways
 version: 0.8.0
 appVersion: 0.8.0
 tillerVersion: ">=2.7.2"
-description: Helm chart for deploying Istio egress gateway
+description: Helm chart for deploying Istio gateways
 keywords:
   - istio
-  - egress
-  - gateway
+  - ingressgateway
+  - egressgateway
+  - gateways
 sources:
   - http://github.com/istio/istio
 engine: gotpl

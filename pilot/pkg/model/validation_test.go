@@ -3132,17 +3132,36 @@ func TestValidateServiceEntries(t *testing.T) {
 
 func TestValidateAuthenticationPolicy(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name       string
+		configName string
+		in         proto.Message
+		valid      bool
 	}{
 		{
-			name:  "empty",
-			in:    &authn.Policy{},
-			valid: true,
+			name:       "empty policy with namespace-wide policy name",
+			configName: DefaultAuthenticationPolicyName,
+			in:         &authn.Policy{},
+			valid:      true,
 		},
 		{
-			name: "empty-with-destination",
+			name:       "empty policy with non-default name",
+			configName: someName,
+			in:         &authn.Policy{},
+			valid:      false,
+		},
+		{
+			name:       "service-specific policy with namespace-wide name",
+			configName: DefaultAuthenticationPolicyName,
+			in: &authn.Policy{
+				Targets: []*authn.TargetSelector{{
+					Name: "foo",
+				}},
+			},
+			valid: false,
+		},
+		{
+			name:       "Targets only policy",
+			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
 					Name: "foo",
@@ -3151,7 +3170,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Source mTLS",
+			name:       "Source mTLS",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
@@ -3160,7 +3180,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Source JWT",
+			name:       "Source JWT",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
@@ -3175,7 +3196,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Origin",
+			name:       "Origin",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3190,7 +3212,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Bad JkwsURI",
+			name:       "Bad JkwsURI",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3205,7 +3228,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Bad JkwsURI Port",
+			name:       "Bad JkwsURI Port",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
 					{
@@ -3220,7 +3244,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Duplicate Jwt issuers",
+			name:       "Duplicate Jwt issuers",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
 					Params: &authn.PeerAuthenticationMethod_Jwt{
@@ -3244,14 +3269,16 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Just binding",
+			name:       "Just binding",
+			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
 			},
 			valid: true,
 		},
 		{
-			name: "Bad target name",
+			name:       "Bad target name",
+			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{
 					{
@@ -3262,7 +3289,8 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Good target name",
+			name:       "Good target name",
+			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{
 					{
@@ -3274,7 +3302,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(someName, someNamespace, c.in); (got == nil) != c.valid {
+		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
 		}
 	}
