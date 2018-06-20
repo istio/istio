@@ -101,6 +101,9 @@ type Args struct {
 
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
+
+	// Maximum number of entries in the check cache
+	NumCheckCacheEntries int32
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -121,6 +124,7 @@ func DefaultArgs() *Args {
 		ReadinessProbeOptions:         &probe.Options{},
 		IntrospectionOptions:          ctrlz.DefaultOptions(),
 		EnableProfiling:               true,
+		NumCheckCacheEntries:          5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 	}
 }
 
@@ -131,6 +135,10 @@ func (a *Args) validate() error {
 
 	if a.AdapterWorkerPoolSize <= 0 {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
+	}
+
+	if a.NumCheckCacheEntries < 0 {
+		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
 	}
 
 	return nil
@@ -149,6 +157,7 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
+	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
 	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
 	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
