@@ -21,7 +21,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 )
@@ -57,6 +57,7 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	if err != nil {
 		return err
 	}
+
 	_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
 	return err
 }
@@ -98,6 +99,9 @@ func PatchValidatingWebhookConfig(client admissionregistrationv1beta1client.Vali
 	if err != nil {
 		return err
 	}
-	_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+
+	if string(patch) != "{}" {
+		_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+	}
 	return err
 }

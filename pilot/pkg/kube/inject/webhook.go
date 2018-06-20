@@ -83,7 +83,6 @@ type Webhook struct {
 	watcher    *fsnotify.Watcher
 	certFile   string
 	keyFile    string
-	caCertPEM  []byte
 	cert       *tls.Certificate
 }
 
@@ -211,11 +210,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				log.Errorf("update error: %v", err)
 				break
 			}
-			caCertPEM, err := ioutil.ReadFile(wh.certFile)
-			if err != nil {
-				log.Errorf("reload cert error: %v", err)
-				break
-			}
+
 			version := sidecarTemplateVersionHash(sidecarConfig.Template)
 			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 			if err != nil {
@@ -226,7 +221,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.sidecarConfig = sidecarConfig
 			wh.sidecarTemplateVersion = version
 			wh.meshConfig = meshConfig
-			wh.caCertPEM = caCertPEM
 			wh.cert = &pair
 			wh.mu.Unlock()
 		case event := <-wh.watcher.Event:
@@ -245,13 +239,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			return
 		}
 	}
-}
-
-// GetCABundlePEM returns the CA bundle PEM, read from the cert file. Safe for concurrent use.
-func (wh *Webhook) GetCABundlePEM() []byte {
-	wh.mu.Lock()
-	defer wh.mu.Unlock()
-	return wh.caCertPEM
 }
 
 func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
