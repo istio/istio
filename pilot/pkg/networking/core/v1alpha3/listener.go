@@ -439,11 +439,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				sniKey := hostPortKey{Host: service.Hostname, Port: servicePort.Port}
 				if routes := sniRoutes[sniKey]; len(routes) > 0 {
 					for _, route := range routes {
-						clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound,
+						targetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound,
 							route.Subset, route.Host, route.Port)
 						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
 							sniHosts:       route.ServerNames,
-							networkFilters: buildOutboundNetworkFilters(clusterName, nil, servicePort),
+							networkFilters: buildOutboundNetworkFilters(targetClusterName, nil, servicePort),
 						})
 					}
 				} else {
@@ -653,12 +653,6 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 		connectionManager.RouteSpecifier = rds
 	} else {
 		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
-	}
-
-	if connectionManager.RouteSpecifier == nil {
-		connectionManager.RouteSpecifier = &http_conn.HttpConnectionManager_RouteConfig{
-			RouteConfig: httpOpts.routeConfig,
-		}
 	}
 
 	if env.Mesh.AccessLogFile != "" {
