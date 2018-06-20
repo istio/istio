@@ -106,10 +106,10 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
-	attr, err := sds.GetServiceAttributes(svc)
-	if attr.Name != testService || attr.Namespace != ns {
-		t.Errorf("GetServiceAttributes() => %v, but want %v: %v",
-			attr, model.ServiceAttributes{Name: testService, Namespace: ns}, err)
+	attr, err := sds.GetServiceAttributes(svc.Hostname)
+	expect := model.ServiceAttributes{Name: testService, Namespace: ns}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes(%q) => %v, but want %v", svc.Hostname, *attr, expect)
 	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)

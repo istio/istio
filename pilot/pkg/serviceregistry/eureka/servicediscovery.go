@@ -61,9 +61,15 @@ func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return service, nil
 }
 
-// GetServiceAttributes implements a service catalog operation. Currently it only returns nil.
-func (sd *serviceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	return nil, nil
+// GetServiceAttributes implements a service catalog operation.
+func (sd *serviceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	svc, err := sd.GetService(hostname)
+	if svc != nil {
+		return &model.ServiceAttributes{
+			Name:      hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace}, nil
+	}
+	return nil, err
 }
 
 // Instances implements a service catalog operation

@@ -234,9 +234,14 @@ func TestGetServiceAttributes(t *testing.T) {
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
-	// The mock controller is using the memory service discovery that only returns nil.
-	if attr, _ := aggregateCtl.GetServiceAttributes(svc); attr != nil {
-		t.Fatalf("GetServiceAttributes() got Namespace: %v but want nil", attr)
+
+	expect := model.ServiceAttributes{
+		Name:      svc.Hostname.String(),
+		Namespace: model.IstioDefaultConfigNamespace,
+	}
+	// The mock controller uses the memory service discovery that returns a default ServiceAttributes.
+	if attr, _ := aggregateCtl.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
+		t.Fatalf("GetServiceAttributes() got: %v but want %v", *attr, expect)
 	}
 }
 

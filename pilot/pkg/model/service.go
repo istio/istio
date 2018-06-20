@@ -99,8 +99,13 @@ const (
 	Passthrough
 )
 
-// UnspecifiedIP constant for empty IP address
-const UnspecifiedIP = "0.0.0.0"
+const (
+	// UnspecifiedIP constant for empty IP address
+	UnspecifiedIP = "0.0.0.0"
+
+	// IstioDefaultConfigNamespace constant for default namespace
+	IstioDefaultConfigNamespace = "default"
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -362,7 +367,7 @@ type ServiceDiscovery interface {
 	GetService(hostname Hostname) (*Service, error)
 
 	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(service *Service) (*ServiceAttributes, error)
+	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
