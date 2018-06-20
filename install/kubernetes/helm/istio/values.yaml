@@ -81,7 +81,7 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
@@ -125,6 +125,7 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   service:
+    annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     annotations: {}
@@ -155,6 +156,7 @@ gateways:
     autoscaleMax: 1
     resources: {}
     loadBalancerIP: ""
+    serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
     - port: 80
@@ -181,6 +183,7 @@ gateways:
     autoscaleMin: 1
     autoscaleMax: 1
     resources: {}
+    serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
@@ -288,6 +291,7 @@ grafana:
   replicaCount: 1
   image: grafana
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
@@ -341,6 +345,7 @@ prometheus:
     #  cpu: 100m
     #  memory: 128Mi
   service:
+    annotations: {}
     nodePort:
       enabled: false
       port: 32090
@@ -350,6 +355,7 @@ servicegraph:
   replicaCount: 1
   image: servicegraph
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 8088
@@ -388,6 +394,7 @@ tracing:
     repository: jaegertracing/all-in-one
     tag: 1.5
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
