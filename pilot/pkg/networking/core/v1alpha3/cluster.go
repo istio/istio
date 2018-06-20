@@ -24,7 +24,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -115,11 +114,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
-				}
-			} else {
-				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
-				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
-					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
 				}
 			}
 

@@ -17,9 +17,6 @@ package model
 import (
 	"reflect"
 	"testing"
-
-	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -82,32 +79,6 @@ func TestParseJwksURI(t *testing.T) {
 					c.in, c.expectedHostname, c.expectedPort, c.expectedUseSSL,
 					host, port, useSSL)
 			}
-		}
-	}
-}
-
-func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
-	cases := []struct {
-		in       meshconfig.MeshConfig_AuthPolicy
-		expected *authn.Policy
-	}{
-		{
-			in: meshconfig.MeshConfig_MUTUAL_TLS,
-			expected: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
-				}},
-			},
-		},
-		{
-			in:       meshconfig.MeshConfig_NONE,
-			expected: nil,
-		},
-	}
-
-	for _, c := range cases {
-		if got := legacyAuthenticationPolicyToPolicy(c.in); !reflect.DeepEqual(got, c.expected) {
-			t.Errorf("legacyAuthenticationPolicyToPolicy(%v): got(%#v) != want(%#v)\n", c.in, got, c.expected)
 		}
 	}
 }
