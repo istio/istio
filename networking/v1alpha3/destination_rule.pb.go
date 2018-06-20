@@ -27,10 +27,12 @@
 		VirtualService
 		Destination
 		HTTPRoute
+		TLSRoute
 		TCPRoute
 		HTTPMatchRequest
 		DestinationWeight
 		L4MatchAttributes
+		TLSMatchAttributes
 		HTTPRedirect
 		HTTPRewrite
 		StringMatch
