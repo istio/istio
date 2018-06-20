@@ -69,7 +69,11 @@ spec:
           - istio-pilot:8080
         {{- end }}
           resources:
+{{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}
+{{- else }}
+{{ toYaml $.Values.global.defaultControlPlaneResources | indent 12 }}
+{{- end }}
           env:
           - name: POD_NAME
             valueFrom:

@@ -161,7 +161,13 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
-    resources: {}
+    # resources:
+    #   limits:
+    #     cpu: 100m
+    #     memory: 128Mi
+    #   requests:
+    #     cpu: 100m
+    #     memory: 128Mi
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
@@ -188,7 +194,13 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
-    resources: {}
+    # resources:
+    #   limits:
+    #     cpu: 100m
+    #     memory: 128Mi
+    #   requests:
+    #     cpu: 100m
+    #     memory: 128Mi
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
