@@ -86,6 +86,9 @@ var (
 				return multierror.Prefix(err, "failed to patch webhook config")
 			}
 
+			if err := patchCertLoop(wh.GetCABundlePEM); err != nil {
+				return multierror.Prefix(err, "failed to start patch loop")
+			}
 			stop := make(chan struct{})
 			go wh.Run(stop)
 			cmd.WaitSignal(stop)
@@ -129,6 +132,24 @@ func patchCert() error {
 		time.Sleep(time.Second * 10)
 	}
 	return err
+}
+
+// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
+// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
+func patchCertLoop(getCABundlePEM func() []byte) error {
+	client, err := createClientset(flags.kubeconfigFile)
+	if err != nil {
+		return err
+	}
+	go func() {
+		err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+			flags.webhookConfigName, flags.webhookName, getCABundlePEM())
+		if err == nil {
+			log.Errorf("Patch webhook failed: %s", err)
+		}
+		time.Sleep(time.Second)
+	}()
+	return nil
 }
 
 func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
