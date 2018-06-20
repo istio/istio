@@ -274,12 +274,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
 	}
-
-	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetProxyServiceInstances(&svcNode)
-	if err == nil {
-		t.Errorf("GetProxyServiceInstances() should have returned error for unknown domain.")
-	}
 }
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
