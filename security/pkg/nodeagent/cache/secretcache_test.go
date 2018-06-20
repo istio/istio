@@ -32,7 +32,12 @@ var (
 func TestGetSecret(t *testing.T) {
 	skipTokenExpireCheck = false
 	fakeCACli := newMockCAClient()
-	sc := NewSecretCache(fakeCACli, time.Minute /*secret TTL*/, 300*time.Microsecond /*rotation Interval*/, 2*time.Second /*evictionDuration*/)
+	opt := Options{
+		SecretTTL:        time.Minute,
+		RotationInterval: 300 * time.Microsecond,
+		EvictionDuration: 2 * time.Second,
+	}
+	sc := NewSecretCache(fakeCACli, opt)
 	defer func() {
 		sc.Close()
 		skipTokenExpireCheck = true
@@ -85,7 +90,12 @@ func TestGetSecret(t *testing.T) {
 func TestRefreshSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
 	skipTokenExpireCheck = false
-	sc := NewSecretCache(fakeCACli, 300*time.Microsecond /*secret TTL*/, 300*time.Microsecond /*rotation Interval*/, 10*time.Second /*evictionDuration*/)
+	opt := Options{
+		SecretTTL:        300 * time.Microsecond,
+		RotationInterval: 300 * time.Microsecond,
+		EvictionDuration: 10 * time.Second,
+	}
+	sc := NewSecretCache(fakeCACli, opt)
 	defer func() {
 		sc.Close()
 		skipTokenExpireCheck = true

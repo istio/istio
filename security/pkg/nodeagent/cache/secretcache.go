@@ -36,6 +36,18 @@ const keySize = 2048
 // The flag is used in unit test.
 var skipTokenExpireCheck = true
 
+// Options provides all of the configuration parameters for secret cache.
+type Options struct {
+	// secret TTL.
+	SecretTTL time.Duration
+
+	// Secret rotation job running interval.
+	RotationInterval time.Duration
+
+	// Secret eviction duration.
+	EvictionDuration time.Duration
+}
+
 // SecretCache is the in-memory cache for secrets.
 type SecretCache struct {
 	// secrets map is the cache for secrets.
@@ -43,7 +55,6 @@ type SecretCache struct {
 	secrets        sync.Map
 	rotationTicker *time.Ticker
 	caClient       ca.Client
-	closing        chan bool
 
 	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
 	evictionDuration time.Duration
@@ -59,13 +70,12 @@ type SecretCache struct {
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, secretTTL, rotationInterval, evictionDuration time.Duration) *SecretCache {
+func NewSecretCache(cl ca.Client, options Options) *SecretCache {
 	ret := &SecretCache{
 		caClient:         cl,
-		rotationInterval: rotationInterval,
-		evictionDuration: evictionDuration,
-		secretTTL:        secretTTL,
-		closing:          make(chan bool, 1),
+		rotationInterval: options.RotationInterval,
+		evictionDuration: options.EvictionDuration,
+		secretTTL:        options.SecretTTL,
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -89,7 +99,7 @@ func (sc *SecretCache) GetSecret(proxyID, spiffeID, token string) (*sds.SecretIt
 
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
-	sc.closing <- true
+	sc.rotationTicker.Stop()
 }
 
 func (sc *SecretCache) keyCertRotationJob() {
@@ -99,9 +109,6 @@ func (sc *SecretCache) keyCertRotationJob() {
 		select {
 		case now := <-sc.rotationTicker.C:
 			sc.rotate(now)
-		case <-sc.closing:
-			sc.rotationTicker.Stop()
-			return
 		}
 	}
 }

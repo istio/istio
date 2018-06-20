@@ -32,18 +32,16 @@ type Options struct {
 
 // Server is the gPRC server that exposes SDS through UDS.
 type Server struct {
-	envoySds          *sdsservice
-	grpcServer        *grpc.Server
-	grpcListeningAddr net.Addr
+	envoySds *sdsservice
 
-	closing chan bool
+	grpcListener net.Listener
+	grpcServer   *grpc.Server
 }
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, st SecretManager) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
-		closing:  make(chan bool, 1),
 	}
 	if err := s.initDiscoveryService(&options, st); err != nil {
 		log.Errorf("Failed to initialize secret discovery service: %v", err)
@@ -57,35 +55,33 @@ func (s *Server) Stop() {
 	if s == nil {
 		return
 	}
-	s.closing <- true
+
+	if s.grpcListener != nil {
+		s.grpcListener.Close()
+	}
+
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+	}
 }
 
 func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
 	s.initGrpcServer()
 	s.envoySds.register(s.grpcServer)
 
-	grpcListener, err := net.Listen("unix", options.UDSPath)
+	var err error
+	s.grpcListener, err = net.Listen("unix", options.UDSPath)
 	if err != nil {
 		log.Errorf("Failed to listen on unix socket %q: %v", options.UDSPath, err)
 		return err
 	}
-	s.grpcListeningAddr = grpcListener.Addr()
 
 	go func() {
-		if err = s.grpcServer.Serve(grpcListener); err != nil {
+		if err = s.grpcServer.Serve(s.grpcListener); err != nil {
 			log.Errorf("SDS grpc server failed to start: %v", err)
 		}
-	}()
 
-	go func() {
-		<-s.closing
-		if grpcListener != nil {
-			grpcListener.Close()
-		}
-
-		if s.grpcServer != nil {
-			s.grpcServer.Stop()
-		}
+		log.Info("SDS grpc server started")
 	}()
 
 	return nil
