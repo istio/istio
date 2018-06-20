@@ -15,6 +15,7 @@
 package contextgraph
 
 import (
+	"context"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -22,7 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (h *handler) cacheAndSend() {
+func (h *handler) cacheAndSend(ctx context.Context) {
 	epoch := 0
 	var lastFlush time.Time
 	for {
@@ -46,8 +47,14 @@ func (h *handler) cacheAndSend() {
 				h.edgesToSend = append(h.edgesToSend, h.edgeCache.Flush(epoch)...)
 				lastFlush = t
 			}
-			h.send(t)
+			if err := h.send(ctx, t, h.entitiesToSend, h.edgesToSend); err != nil {
+				h.env.Logger().Errorf("sending context graph batch failed: %v", err)
+				// TODO: Invalidate these entities and edges so we try again on the next tick?
+			}
 			epoch++
+			// TODO: Consider using [:0] to preserve existing cap?
+			h.entitiesToSend = nil
+			h.edgesToSend = nil
 		case <-h.quit:
 			return
 		}
@@ -77,18 +84,21 @@ func (e edge) ToProto() *contextgraphpb.Relationship {
 	}
 }
 
-func (h *handler) send(t time.Time) {
-	if (len(h.entitiesToSend) == 0) && (len(h.edgesToSend) == 0) {
+func (h *handler) send(ctx context.Context, t time.Time, entitiesToSend []entity, edgesToSend []edge) error {
+	if (len(entitiesToSend) == 0) && (len(edgesToSend) == 0) {
 		h.env.Logger().Debugf("Nothing to send this tick")
-		return
+		return nil
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 
 	req := &contextgraphpb.AssertBatchRequest{
 		EntityPresentAssertions:       make([]*contextgraphpb.EntityPresentAssertion, 0),
 		RelationshipPresentAssertions: make([]*contextgraphpb.RelationshipPresentAssertion, 0),
 	}
 
-	for _, entity := range h.entitiesToSend {
+	for _, entity := range entitiesToSend {
 		asst := &contextgraphpb.EntityPresentAssertion{
 			Timestamp: &timestamp.Timestamp{
 				Seconds: t.Unix(),
@@ -98,7 +108,7 @@ func (h *handler) send(t time.Time) {
 		req.EntityPresentAssertions = append(req.EntityPresentAssertions, asst)
 	}
 
-	for _, edge := range h.edgesToSend {
+	for _, edge := range edgesToSend {
 		relAsst := &contextgraphpb.RelationshipPresentAssertion{
 			Timestamp: &timestamp.Timestamp{
 				Seconds: t.Unix(),
@@ -112,14 +122,13 @@ func (h *handler) send(t time.Time) {
 	// TODO: Batch requests if there are too many entities and edges in one request.
 
 	h.env.Logger().Debugf("Context api request: %s", req)
-	if _, err := h.assertBatch(h.ctx, req); err != nil {
-		h.env.Logger().Errorf("Request failed: %s\n", err)
+	if _, err := h.assertBatch(ctx, req); err != nil {
 		s, _ := status.FromError(err)
-		h.env.Logger().Errorf("STATUS: %s\n", s.Proto().Details[0].Value)
-		return
+		if d := s.Proto().Details; len(d) > 0 {
+			// Log the debug message, if present.
+			h.env.Logger().Errorf("STATUS: %s\n", d[0].Value)
+		}
+		return err
 	}
-
-	// TODO: Reslice to save the old cap()?
-	h.entitiesToSend = nil
-	h.edgesToSend = nil
+	return nil
 }

@@ -56,7 +56,6 @@ type (
 		edgesToSend    []edge
 		sendTick       *time.Ticker
 		quit           chan int
-		ctx            context.Context
 		assertBatch    assertBatchFn
 	}
 )
@@ -89,7 +88,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		edgesToSend:    make([]edge, 0),
 		sendTick:       time.NewTicker(30 * time.Second),
 		quit:           make(chan int),
-		ctx:            ctx,
 	}
 
 	var err error
@@ -99,7 +97,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}
 	h.assertBatch = h.client.AssertBatch
 
-	env.ScheduleDaemon(h.cacheAndSend)
+	env.ScheduleDaemon(func() { h.cacheAndSend(ctx) })
 
 	return h, nil
 }

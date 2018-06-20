@@ -38,9 +38,11 @@ type workloadInstance struct {
 // Reify turns wi into a set of Context API entities and edges.
 func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	gcpContainer := fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%s", wi.istioProject)
+	// N.B. Project names can contain ":" which needs to /not/ be escaped.
 	istioContainer := fmt.Sprintf("//istio.io/projects/%s", wi.istioProject)
 	meshUID := url.QueryEscape(wi.meshUID)
-	clusterProject := url.QueryEscape(wi.clusterProject)
+	clusterProject := wi.clusterProject
+	// TODO: Figure out if locations should be URL-escaped or not ("aws:us-east-1" is a valid region).
 	clusterLocation := url.QueryEscape(wi.clusterLocation)
 	clusterName := url.QueryEscape(wi.clusterName)
 	uid := url.QueryEscape(wi.uid)

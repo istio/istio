@@ -206,7 +206,7 @@ func TestSend(t *testing.T) {
 		assertBatch: m.fakeAssertBatch,
 	}
 
-	go h.cacheAndSend()
+	go h.cacheAndSend(context.Background())
 	h.traffics <- trafficAssertion{}
 	tChan <- time.Now()
 	h.quit <- 0
