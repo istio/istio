@@ -181,8 +181,12 @@ func buildSpanData(val *tracespan.Instance, parentContext trace.SpanContext, spa
 		status = ochttp.TraceStatus(int(val.HttpStatusCode), "")
 	}
 
+	spanKind := trace.SpanKindServer
+	if val.ClientSpan {
+		spanKind = trace.SpanKindClient
+	}
 	return &trace.SpanData{
-		SpanKind:     trace.SpanKindServer,
+		SpanKind:     spanKind,
 		Name:         val.SpanName,
 		StartTime:    val.StartTime,
 		EndTime:      val.EndTime,
