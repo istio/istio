@@ -225,6 +225,21 @@ func TestGetService(t *testing.T) {
 	}
 }
 
+func TestGetServiceAttributes(t *testing.T) {
+	aggregateCtl := buildMockController()
+	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
+	if err != nil {
+		t.Fatalf("GetService() encountered unexpected error: %v", err)
+	}
+	if svc == nil {
+		t.Fatal("Fail to get service")
+	}
+	// The mock controller is using the memory service discovery that only returns nil.
+	if attr, _ := aggregateCtl.GetServiceAttributes(svc); attr != nil {
+		t.Fatalf("GetServiceAttributes() got Namespace: %v but want nil", attr)
+	}
+}
+
 func TestGetServiceError(t *testing.T) {
 	aggregateCtl := buildMockController()
 

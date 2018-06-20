@@ -78,6 +78,11 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return convertService(endpoints), nil
 }
 
+// GetServiceAttributes retrieves namespace of a service if it exists. Currently it only returns nil.
+func (c *Controller) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
+	return nil, nil
+}
+
 func (c *Controller) getServices() (map[string][]string, error) {
 	data, _, err := c.client.Catalog().Services(nil)
 	if err != nil {
