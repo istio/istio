@@ -30,7 +30,7 @@ type Distributor interface {
 // InMemoryDistributor is an in-memory distributor implementation.
 type InMemoryDistributor struct {
 	snapshotsLock sync.Mutex
-	snapshots map[string]sn.Snapshot
+	snapshots     map[string]sn.Snapshot
 }
 
 var _ Distributor = &InMemoryDistributor{}
