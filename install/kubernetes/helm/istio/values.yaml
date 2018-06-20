@@ -18,8 +18,8 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 10m
+      #   memory: 128Mi
       # limits:
       #   cpu: 100m
       #   memory: 128Mi
@@ -110,7 +110,7 @@ global:
   # block in the relevant section below and setting appropriate resources values.
   defaultControlPlaneResources:
     requests:
-      cpu: 50m
+      cpu: 10m
 
 # Any customization for istio testing should be here
 istiotesting:
