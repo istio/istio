@@ -20,6 +20,8 @@ import mcp "istio.io/api/config/mcp/v1alpha1"
 type InMemory struct {
 	resources map[string][]*mcp.Envelope
 	versions  map[string]string
+
+	frozen bool
 }
 
 var _ Snapshot = &InMemory{}
@@ -42,9 +44,17 @@ func (s *InMemory) Version(typ string) string {
 	return s.versions[typ]
 }
 
-// Set the values for a given type. Once a snapshot is in use, Set must not be called as it is semantically
-// immutable
+// Set the values for a given type. If Set is called after a call to Freeze, then this method panics.
 func (s *InMemory) Set(typ string, version string, resources []*mcp.Envelope) {
+	if s.frozen {
+		panic("InMemory.Set: Snapshot is frozen")
+	}
+
 	s.resources[typ] = resources
 	s.versions[typ] = version
+}
+
+// Freeze the snapshot, so that it won't get mutated anymore.
+func (s *InMemory) Freeze() {
+	s.frozen = true
 }

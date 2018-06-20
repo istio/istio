@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 func TestNewInMemory(t *testing.T) {
@@ -35,7 +35,7 @@ func TestNewInMemory(t *testing.T) {
 
 func TestInMemory_Set(t *testing.T) {
 	sn := NewInMemory()
-	items := []*v1alpha1.Envelope{{Resource: &types.Any{}, Metadata: &v1alpha1.Metadata{Name: "foo"}}}
+	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
 	sn.Set("type", "version", items)
 
 	if v, ok := sn.versions["type"]; !ok || v != "version" {
@@ -49,7 +49,7 @@ func TestInMemory_Set(t *testing.T) {
 
 func TestInMemory_Resources(t *testing.T) {
 	sn := NewInMemory()
-	items := []*v1alpha1.Envelope{{Resource: &types.Any{}, Metadata: &v1alpha1.Metadata{Name: "foo"}}}
+	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
 	sn.Set("type", "version", items)
 
 	r := sn.Resources("type")
@@ -60,11 +60,24 @@ func TestInMemory_Resources(t *testing.T) {
 
 func TestInMemory_Version(t *testing.T) {
 	sn := NewInMemory()
-	items := []*v1alpha1.Envelope{{Resource: &types.Any{}, Metadata: &v1alpha1.Metadata{Name: "foo"}}}
+	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
 	sn.Set("type", "version", items)
 
 	v := sn.Version("type")
 	if v != "version" {
 		t.Fatalf("Unexpected version: %s, expected: 'version'", v)
 	}
+}
+
+func TestInMemory_Freeze(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("set should have panicked")
+		}
+	}()
+
+	sn := NewInMemory()
+	sn.Freeze()
+	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
+	sn.Set("type", "version", items)
 }
