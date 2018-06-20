@@ -8,6 +8,10 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: ingress
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
 spec:
 {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"

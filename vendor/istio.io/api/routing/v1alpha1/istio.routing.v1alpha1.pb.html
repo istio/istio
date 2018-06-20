@@ -4,7 +4,8 @@ description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.routing.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-redirect_from: /docs/reference/config/traffic-rules/routing-rules.html
+aliases:
+  - /docs/reference/config/traffic-rules/routing-rules.html
 number_of_entries: 28
 ---
 <p><strong>Note: This version of the traffic management API has been deprecated and will
@@ -61,13 +62,13 @@ for more details.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="CircuitBreaker.simple_cb" class="oneof oneof-start">
+<tr id="CircuitBreaker-simple_cb" class="oneof oneof-start">
 <td><code>simpleCb</code></td>
-<td><code><a href="#CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy (oneof)</a></code></td>
+<td><code><a href="#CircuitBreaker-SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="CircuitBreaker.custom" class="oneof">
+<tr id="CircuitBreaker-custom" class="oneof">
 <td><code>custom</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
@@ -78,7 +79,7 @@ for more details.</p>
 </tbody>
 </table>
 </section>
-<h2 id="CircuitBreaker.SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy</h2>
+<h2 id="CircuitBreaker-SimpleCircuitBreakerPolicy">CircuitBreaker.SimpleCircuitBreakerPolicy</h2>
 <section>
 <p>A simple circuit breaker can be set based on a number of criteria such as
 connection and request limits. For example, the following destination
@@ -131,7 +132,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.max_connections">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-max_connections">
 <td><code>maxConnections</code></td>
 <td><code>int32</code></td>
 <td>
@@ -139,7 +140,7 @@ spec:
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_max_pending_requests">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_max_pending_requests">
 <td><code>httpMaxPendingRequests</code></td>
 <td><code>int32</code></td>
 <td>
@@ -147,7 +148,7 @@ spec:
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_max_requests">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_max_requests">
 <td><code>httpMaxRequests</code></td>
 <td><code>int32</code></td>
 <td>
@@ -155,7 +156,7 @@ spec:
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.sleep_window">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-sleep_window">
 <td><code>sleepWindow</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -164,7 +165,7 @@ BE &gt;=1ms. Default is 30s.</p>
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_consecutive_errors">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_consecutive_errors">
 <td><code>httpConsecutiveErrors</code></td>
 <td><code>int32</code></td>
 <td>
@@ -172,7 +173,7 @@ BE &gt;=1ms. Default is 30s.</p>
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_detection_interval">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_detection_interval">
 <td><code>httpDetectionInterval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -181,7 +182,7 @@ BE &gt;=1ms. Default is 30s.</p>
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_max_requests_per_connection">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_max_requests_per_connection">
 <td><code>httpMaxRequestsPerConnection</code></td>
 <td><code>int32</code></td>
 <td>
@@ -190,7 +191,7 @@ parameter to 1 disables keep alive.</p>
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_max_ejection_percent">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_max_ejection_percent">
 <td><code>httpMaxEjectionPercent</code></td>
 <td><code>int32</code></td>
 <td>
@@ -200,7 +201,7 @@ service that can be ejected by the circuit breaker. Defaults to
 
 </td>
 </tr>
-<tr id="CircuitBreaker.SimpleCircuitBreakerPolicy.http_max_retries">
+<tr id="CircuitBreaker-SimpleCircuitBreakerPolicy-http_max_retries">
 <td><code>httpMaxRetries</code></td>
 <td><code>int32</code></td>
 <td>
@@ -253,7 +254,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="CorsPolicy.allow_origin">
+<tr id="CorsPolicy-allow_origin">
 <td><code>allowOrigin</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -263,7 +264,7 @@ all origins.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_methods">
+<tr id="CorsPolicy-allow_methods">
 <td><code>allowMethods</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -272,7 +273,7 @@ be serialized into the Access-Control-Allow-Methods header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_headers">
+<tr id="CorsPolicy-allow_headers">
 <td><code>allowHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -281,7 +282,7 @@ resource. Serialized to Access-Control-Allow-Methods header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.expose_headers">
+<tr id="CorsPolicy-expose_headers">
 <td><code>exposeHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -290,7 +291,7 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.max_age">
+<tr id="CorsPolicy-max_age">
 <td><code>maxAge</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -299,7 +300,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 
 </td>
 </tr>
-<tr id="CorsPolicy.allow_credentials">
+<tr id="CorsPolicy-allow_credentials">
 <td><code>allowCredentials</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">google.protobuf.BoolValue</a></code></td>
 <td>
@@ -371,7 +372,7 @@ service version indicated in the destination policy.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="DestinationPolicy.destination">
+<tr id="DestinationPolicy-destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -380,7 +381,7 @@ with this policy.</p>
 
 </td>
 </tr>
-<tr id="DestinationPolicy.source">
+<tr id="DestinationPolicy-source">
 <td><code>source</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -389,7 +390,7 @@ with this policy.</p>
 
 </td>
 </tr>
-<tr id="DestinationPolicy.load_balancing">
+<tr id="DestinationPolicy-load_balancing">
 <td><code>loadBalancing</code></td>
 <td><code><a href="#LoadBalancing">LoadBalancing</a></code></td>
 <td>
@@ -397,7 +398,7 @@ with this policy.</p>
 
 </td>
 </tr>
-<tr id="DestinationPolicy.circuit_breaker">
+<tr id="DestinationPolicy-circuit_breaker">
 <td><code>circuitBreaker</code></td>
 <td><code><a href="#CircuitBreaker">CircuitBreaker</a></code></td>
 <td>
@@ -405,7 +406,7 @@ with this policy.</p>
 
 </td>
 </tr>
-<tr id="DestinationPolicy.custom">
+<tr id="DestinationPolicy-custom">
 <td><code>custom</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
@@ -449,7 +450,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="DestinationWeight.destination">
+<tr id="DestinationWeight-destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -458,7 +459,7 @@ specified, the value is inherited from the parent route rule.</p>
 
 </td>
 </tr>
-<tr id="DestinationWeight.labels">
+<tr id="DestinationWeight-labels">
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -468,7 +469,7 @@ in golang protobuf library (see https://github.com/golang/protobuf/pull/208) &nd
 
 </td>
 </tr>
-<tr id="DestinationWeight.weight">
+<tr id="DestinationWeight-weight">
 <td><code>weight</code></td>
 <td><code>int32</code></td>
 <td>
@@ -535,7 +536,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="EgressRule.destination">
+<tr id="EgressRule-destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -556,15 +557,15 @@ domain of form “</em>-bar.foo.com” will match “baz-bar.foo.com” but not 
 
 </td>
 </tr>
-<tr id="EgressRule.ports">
+<tr id="EgressRule-ports">
 <td><code>ports</code></td>
-<td><code><a href="#EgressRule.Port">EgressRule.Port[]</a></code></td>
+<td><code><a href="#EgressRule-Port">EgressRule.Port[]</a></code></td>
 <td>
 <p>REQUIRED: list of ports on which the external service is available.</p>
 
 </td>
 </tr>
-<tr id="EgressRule.use_egress_proxy">
+<tr id="EgressRule-use_egress_proxy">
 <td><code>useEgressProxy</code></td>
 <td><code>bool</code></td>
 <td>
@@ -579,7 +580,7 @@ These dedicated egress nodes could then be more closely monitored for security v
 </tbody>
 </table>
 </section>
-<h2 id="EgressRule.Port">EgressRule.Port</h2>
+<h2 id="EgressRule-Port">EgressRule.Port</h2>
 <section>
 <p>Port describes the properties of a specific TCP port of an external service.</p>
 
@@ -592,7 +593,7 @@ These dedicated egress nodes could then be more closely monitored for security v
 </tr>
 </thead>
 <tbody>
-<tr id="EgressRule.Port.port">
+<tr id="EgressRule-Port-port">
 <td><code>port</code></td>
 <td><code>int32</code></td>
 <td>
@@ -600,7 +601,7 @@ These dedicated egress nodes could then be more closely monitored for security v
 
 </td>
 </tr>
-<tr id="EgressRule.Port.protocol">
+<tr id="EgressRule-Port-protocol">
 <td><code>protocol</code></td>
 <td><code>string</code></td>
 <td>
@@ -632,18 +633,18 @@ both are specified simultaneously.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.delay">
+<tr id="HTTPFaultInjection-delay">
 <td><code>delay</code></td>
-<td><code><a href="#HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</a></code></td>
 <td>
 <p>Delay requests before forwarding, emulating various failures such as
 network issues, overloaded upstream service, etc.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.abort">
+<tr id="HTTPFaultInjection-abort">
 <td><code>abort</code></td>
-<td><code><a href="#HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</a></code></td>
+<td><code><a href="#HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</a></code></td>
 <td>
 <p>Abort Http request attempts and return error codes back to downstream
 service, giving the impression that the upstream service is faulty.</p>
@@ -653,7 +654,7 @@ service, giving the impression that the upstream service is faulty.</p>
 </tbody>
 </table>
 </section>
-<h2 id="HTTPFaultInjection.Abort">HTTPFaultInjection.Abort</h2>
+<h2 id="HTTPFaultInjection-Abort">HTTPFaultInjection.Abort</h2>
 <section>
 <p>Abort specification is used to prematurely abort a request with a
 pre-specified error code. The following example will return an HTTP
@@ -687,7 +688,7 @@ not specified, all requests are aborted.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.Abort.percent">
+<tr id="HTTPFaultInjection-Abort-percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
 <td>
@@ -695,19 +696,19 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.grpc_status" class="oneof oneof-start">
+<tr id="HTTPFaultInjection-Abort-grpc_status" class="oneof oneof-start">
 <td><code>grpcStatus</code></td>
 <td><code>string (oneof)</code></td>
 <td>
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.http2_error" class="oneof">
+<tr id="HTTPFaultInjection-Abort-http2_error" class="oneof">
 <td><code>http2Error</code></td>
 <td><code>string (oneof)</code></td>
 <td>
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.http_status" class="oneof">
+<tr id="HTTPFaultInjection-Abort-http_status" class="oneof">
 <td><code>httpStatus</code></td>
 <td><code>int32 (oneof)</code></td>
 <td>
@@ -715,7 +716,7 @@ not specified, all requests are aborted.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Abort.override_header_name">
+<tr id="HTTPFaultInjection-Abort-override_header_name">
 <td><code>overrideHeaderName</code></td>
 <td><code>string</code></td>
 <td>
@@ -727,7 +728,7 @@ TODO: The semantics and syntax of the headers is undefined. &ndash;)</p>
 </tbody>
 </table>
 </section>
-<h2 id="HTTPFaultInjection.Delay">HTTPFaultInjection.Delay</h2>
+<h2 id="HTTPFaultInjection-Delay">HTTPFaultInjection.Delay</h2>
 <section>
 <p>Delay specification is used to inject latency into the request
 forwarding path. The following example will introduce a 5 second delay
@@ -762,7 +763,7 @@ unspecified, all request will be delayed.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPFaultInjection.Delay.percent">
+<tr id="HTTPFaultInjection-Delay-percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
 <td>
@@ -770,7 +771,7 @@ unspecified, all request will be delayed.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Delay.fixed_delay" class="oneof oneof-start">
+<tr id="HTTPFaultInjection-Delay-fixed_delay" class="oneof oneof-start">
 <td><code>fixedDelay</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
@@ -778,7 +779,7 @@ unspecified, all request will be delayed.</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Delay.exponential_delay" class="oneof">
+<tr id="HTTPFaultInjection-Delay-exponential_delay" class="oneof">
 <td><code>exponentialDelay</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
@@ -788,7 +789,7 @@ values &ndash;)</p>
 
 </td>
 </tr>
-<tr id="HTTPFaultInjection.Delay.override_header_name">
+<tr id="HTTPFaultInjection-Delay-override_header_name">
 <td><code>overrideHeaderName</code></td>
 <td><code>string</code></td>
 <td>
@@ -832,7 +833,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRedirect.uri">
+<tr id="HTTPRedirect-uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
 <td>
@@ -842,7 +843,7 @@ request URI being matched as an exact path or prefix.</p>
 
 </td>
 </tr>
-<tr id="HTTPRedirect.authority">
+<tr id="HTTPRedirect-authority">
 <td><code>authority</code></td>
 <td><code>string</code></td>
 <td>
@@ -884,13 +885,13 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRetry.simple_retry" class="oneof oneof-start">
+<tr id="HTTPRetry-simple_retry" class="oneof oneof-start">
 <td><code>simpleRetry</code></td>
-<td><code><a href="#HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy (oneof)</a></code></td>
+<td><code><a href="#HTTPRetry-SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="HTTPRetry.custom" class="oneof">
+<tr id="HTTPRetry-custom" class="oneof">
 <td><code>custom</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
@@ -901,7 +902,7 @@ spec:
 </tbody>
 </table>
 </section>
-<h2 id="HTTPRetry.SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy</h2>
+<h2 id="HTTPRetry-SimpleRetryPolicy">HTTPRetry.SimpleRetryPolicy</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -912,7 +913,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRetry.SimpleRetryPolicy.attempts">
+<tr id="HTTPRetry-SimpleRetryPolicy-attempts">
 <td><code>attempts</code></td>
 <td><code>int32</code></td>
 <td>
@@ -922,7 +923,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 
 </td>
 </tr>
-<tr id="HTTPRetry.SimpleRetryPolicy.per_try_timeout">
+<tr id="HTTPRetry-SimpleRetryPolicy-per_try_timeout">
 <td><code>perTryTimeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -930,7 +931,7 @@ number of retries attempted depends on the httpReqTimeout.</p>
 
 </td>
 </tr>
-<tr id="HTTPRetry.SimpleRetryPolicy.override_header_name">
+<tr id="HTTPRetry-SimpleRetryPolicy-override_header_name">
 <td><code>overrideHeaderName</code></td>
 <td><code>string</code></td>
 <td>
@@ -977,7 +978,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPRewrite.uri">
+<tr id="HTTPRewrite-uri">
 <td><code>uri</code></td>
 <td><code>string</code></td>
 <td>
@@ -987,7 +988,7 @@ provided in this field will replace the corresponding matched prefix.</p>
 
 </td>
 </tr>
-<tr id="HTTPRewrite.authority">
+<tr id="HTTPRewrite-authority">
 <td><code>authority</code></td>
 <td><code>string</code></td>
 <td>
@@ -1026,13 +1027,13 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPTimeout.simple_timeout" class="oneof oneof-start">
+<tr id="HTTPTimeout-simple_timeout" class="oneof oneof-start">
 <td><code>simpleTimeout</code></td>
-<td><code><a href="#HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy (oneof)</a></code></td>
+<td><code><a href="#HTTPTimeout-SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy (oneof)</a></code></td>
 <td>
 </td>
 </tr>
-<tr id="HTTPTimeout.custom" class="oneof">
+<tr id="HTTPTimeout-custom" class="oneof">
 <td><code>custom</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
@@ -1043,7 +1044,7 @@ spec:
 </tbody>
 </table>
 </section>
-<h2 id="HTTPTimeout.SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy</h2>
+<h2 id="HTTPTimeout-SimpleTimeoutPolicy">HTTPTimeout.SimpleTimeoutPolicy</h2>
 <section>
 <table class="message-fields">
 <thead>
@@ -1054,7 +1055,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="HTTPTimeout.SimpleTimeoutPolicy.timeout">
+<tr id="HTTPTimeout-SimpleTimeoutPolicy-timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1065,7 +1066,7 @@ x-envoy-upstream-rq-timeout-ms HTTP header.</p>
 
 </td>
 </tr>
-<tr id="HTTPTimeout.SimpleTimeoutPolicy.override_header_name">
+<tr id="HTTPTimeout-SimpleTimeoutPolicy-override_header_name">
 <td><code>overrideHeaderName</code></td>
 <td><code>string</code></td>
 <td>
@@ -1101,7 +1102,7 @@ also effective.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="IngressRule.port">
+<tr id="IngressRule-port">
 <td><code>port</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1109,7 +1110,7 @@ also effective.</p>
 
 </td>
 </tr>
-<tr id="IngressRule.tls_secret">
+<tr id="IngressRule-tls_secret">
 <td><code>tlsSecret</code></td>
 <td><code>string</code></td>
 <td>
@@ -1118,7 +1119,7 @@ It is up to the underlying secret store to interpret the path to the secret.</p>
 
 </td>
 </tr>
-<tr id="IngressRule.precedence">
+<tr id="IngressRule-precedence">
 <td><code>precedence</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1129,7 +1130,7 @@ precedence is unspecified.</p>
 
 </td>
 </tr>
-<tr id="IngressRule.match">
+<tr id="IngressRule-match">
 <td><code>match</code></td>
 <td><code><a href="#MatchCondition">MatchCondition</a></code></td>
 <td>
@@ -1138,7 +1139,7 @@ activated.</p>
 
 </td>
 </tr>
-<tr id="IngressRule.destination">
+<tr id="IngressRule-destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -1149,7 +1150,7 @@ of the service and therefore the IstioService&rsquo;s labels field MUST be empty
 
 </td>
 </tr>
-<tr id="IngressRule.destination_port" class="oneof oneof-start">
+<tr id="IngressRule-destination_port" class="oneof oneof-start">
 <td><code>destinationPort</code></td>
 <td><code>int32 (oneof)</code></td>
 <td>
@@ -1157,7 +1158,7 @@ of the service and therefore the IstioService&rsquo;s labels field MUST be empty
 
 </td>
 </tr>
-<tr id="IngressRule.destination_port_name" class="oneof">
+<tr id="IngressRule-destination_port_name" class="oneof">
 <td><code>destinationPortName</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -1183,7 +1184,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 </tr>
 </thead>
 <tbody>
-<tr id="IstioService.name">
+<tr id="IstioService-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -1191,7 +1192,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.namespace">
+<tr id="IstioService-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -1199,7 +1200,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.domain">
+<tr id="IstioService-domain">
 <td><code>domain</code></td>
 <td><code>string</code></td>
 <td>
@@ -1207,7 +1208,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.service">
+<tr id="IstioService-service">
 <td><code>service</code></td>
 <td><code>string</code></td>
 <td>
@@ -1215,7 +1216,7 @@ The FQDN of the service is composed from the name, namespace, and implementation
 
 </td>
 </tr>
-<tr id="IstioService.labels">
+<tr id="IstioService-labels">
 <td><code>labels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -1248,9 +1249,9 @@ component. L4 fault injection is not supported at the moment. &ndash;)</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4FaultInjection.throttle">
+<tr id="L4FaultInjection-throttle">
 <td><code>throttle</code></td>
-<td><code><a href="#L4FaultInjection.Throttle">L4FaultInjection.Throttle</a></code></td>
+<td><code><a href="#L4FaultInjection-Throttle">L4FaultInjection.Throttle</a></code></td>
 <td>
 <p>Unlike Http services, we have very little context for raw Tcp|Udp
 connections. We could throttle bandwidth of the connections (slow down
@@ -1260,16 +1261,16 @@ We first throttle (if set) and then terminate the connection.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.terminate">
+<tr id="L4FaultInjection-terminate">
 <td><code>terminate</code></td>
-<td><code><a href="#L4FaultInjection.Terminate">L4FaultInjection.Terminate</a></code></td>
+<td><code><a href="#L4FaultInjection-Terminate">L4FaultInjection.Terminate</a></code></td>
 <td>
 </td>
 </tr>
 </tbody>
 </table>
 </section>
-<h2 id="L4FaultInjection.Terminate">L4FaultInjection.Terminate</h2>
+<h2 id="L4FaultInjection-Terminate">L4FaultInjection.Terminate</h2>
 <section>
 <p>Abruptly reset (terminate) the Tcp connection after it has been
 established, emulating remote server crash or link failure.</p>
@@ -1283,7 +1284,7 @@ established, emulating remote server crash or link failure.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4FaultInjection.Terminate.percent">
+<tr id="L4FaultInjection-Terminate-percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
 <td>
@@ -1291,7 +1292,7 @@ established, emulating remote server crash or link failure.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Terminate.terminate_after_period">
+<tr id="L4FaultInjection-Terminate-terminate_after_period">
 <td><code>terminateAfterPeriod</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1303,7 +1304,7 @@ express time interval related configs.</p>
 </tbody>
 </table>
 </section>
-<h2 id="L4FaultInjection.Throttle">L4FaultInjection.Throttle</h2>
+<h2 id="L4FaultInjection-Throttle">L4FaultInjection.Throttle</h2>
 <section>
 <p>Bandwidth throttling for Tcp and Udp connections</p>
 
@@ -1316,7 +1317,7 @@ express time interval related configs.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4FaultInjection.Throttle.percent">
+<tr id="L4FaultInjection-Throttle-percent">
 <td><code>percent</code></td>
 <td><code>float</code></td>
 <td>
@@ -1324,7 +1325,7 @@ express time interval related configs.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Throttle.downstream_limit_bps">
+<tr id="L4FaultInjection-Throttle-downstream_limit_bps">
 <td><code>downstreamLimitBps</code></td>
 <td><code>int64</code></td>
 <td>
@@ -1332,7 +1333,7 @@ express time interval related configs.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Throttle.upstream_limit_bps">
+<tr id="L4FaultInjection-Throttle-upstream_limit_bps">
 <td><code>upstreamLimitBps</code></td>
 <td><code>int64</code></td>
 <td>
@@ -1340,7 +1341,7 @@ express time interval related configs.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Throttle.throttle_after_period" class="oneof oneof-start">
+<tr id="L4FaultInjection-Throttle-throttle_after_period" class="oneof oneof-start">
 <td><code>throttleAfterPeriod</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration (oneof)</a></code></td>
 <td>
@@ -1351,7 +1352,7 @@ establish sessions/whatever handshake necessary.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Throttle.throttle_after_bytes" class="oneof">
+<tr id="L4FaultInjection-Throttle-throttle_after_bytes" class="oneof">
 <td><code>throttleAfterBytes</code></td>
 <td><code>double (oneof)</code></td>
 <td>
@@ -1360,7 +1361,7 @@ transferred to upstream before throttling the bandwidth.</p>
 
 </td>
 </tr>
-<tr id="L4FaultInjection.Throttle.throttle_for_period">
+<tr id="L4FaultInjection-Throttle-throttle_for_period">
 <td><code>throttleForPeriod</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -1386,7 +1387,7 @@ support is incomplete. &ndash;)</p>
 </tr>
 </thead>
 <tbody>
-<tr id="L4MatchAttributes.source_subnet">
+<tr id="L4MatchAttributes-source_subnet">
 <td><code>sourceSubnet</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -1395,7 +1396,7 @@ just a.b.c.d</p>
 
 </td>
 </tr>
-<tr id="L4MatchAttributes.destination_subnet">
+<tr id="L4MatchAttributes-destination_subnet">
 <td><code>destinationSubnet</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -1434,15 +1435,15 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="LoadBalancing.name" class="oneof oneof-start">
+<tr id="LoadBalancing-name" class="oneof oneof-start">
 <td><code>name</code></td>
-<td><code><a href="#LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy (oneof)</a></code></td>
+<td><code><a href="#LoadBalancing-SimpleLBPolicy">LoadBalancing.SimpleLBPolicy (oneof)</a></code></td>
 <td>
 <p>Load balancing policy name (as defined in SimpleLBPolicy below)</p>
 
 </td>
 </tr>
-<tr id="LoadBalancing.custom" class="oneof">
+<tr id="LoadBalancing-custom" class="oneof">
 <td><code>custom</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any (oneof)</a></code></td>
 <td>
@@ -1453,7 +1454,7 @@ spec:
 </tbody>
 </table>
 </section>
-<h2 id="LoadBalancing.SimpleLBPolicy">LoadBalancing.SimpleLBPolicy</h2>
+<h2 id="LoadBalancing-SimpleLBPolicy">LoadBalancing.SimpleLBPolicy</h2>
 <section>
 <p>Load balancing algorithms supported by Envoy.</p>
 
@@ -1465,14 +1466,14 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="LoadBalancing.SimpleLBPolicy.ROUND_ROBIN">
+<tr id="LoadBalancing-SimpleLBPolicy-ROUND_ROBIN">
 <td><code>ROUND_ROBIN</code></td>
 <td>
 <p>Simple round robin policy.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancing.SimpleLBPolicy.LEAST_CONN">
+<tr id="LoadBalancing-SimpleLBPolicy-LEAST_CONN">
 <td><code>LEAST_CONN</code></td>
 <td>
 <p>The least request load balancer uses an O(1) algorithm which selects
@@ -1481,7 +1482,7 @@ requests.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancing.SimpleLBPolicy.RANDOM">
+<tr id="LoadBalancing-SimpleLBPolicy-RANDOM">
 <td><code>RANDOM</code></td>
 <td>
 <p>The random load balancer selects a random healthy host. The random
@@ -1535,7 +1536,7 @@ request header must be specified.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MatchCondition.source">
+<tr id="MatchCondition-source">
 <td><code>source</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -1543,7 +1544,7 @@ request header must be specified.</p>
 
 </td>
 </tr>
-<tr id="MatchCondition.tcp">
+<tr id="MatchCondition-tcp">
 <td><code>tcp</code></td>
 <td><code><a href="#L4MatchAttributes">L4MatchAttributes</a></code></td>
 <td>
@@ -1551,7 +1552,7 @@ request header must be specified.</p>
 
 </td>
 </tr>
-<tr id="MatchCondition.udp">
+<tr id="MatchCondition-udp">
 <td><code>udp</code></td>
 <td><code><a href="#L4MatchAttributes">L4MatchAttributes</a></code></td>
 <td>
@@ -1559,7 +1560,7 @@ request header must be specified.</p>
 
 </td>
 </tr>
-<tr id="MatchCondition.request">
+<tr id="MatchCondition-request">
 <td><code>request</code></td>
 <td><code><a href="#MatchRequest">MatchRequest</a></code></td>
 <td>
@@ -1583,7 +1584,7 @@ request header must be specified.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MatchRequest.headers">
+<tr id="MatchRequest-headers">
 <td><code>headers</code></td>
 <td><code>map&lt;string,&nbsp;<a href="#StringMatch">StringMatch</a>&gt;</code></td>
 <td>
@@ -1649,7 +1650,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="RouteRule.destination">
+<tr id="RouteRule-destination">
 <td><code>destination</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -1663,7 +1664,7 @@ of the service and therefore the IstioService&rsquo;s labels field MUST be empty
 
 </td>
 </tr>
-<tr id="RouteRule.precedence">
+<tr id="RouteRule-precedence">
 <td><code>precedence</code></td>
 <td><code>int32</code></td>
 <td>
@@ -1675,7 +1676,7 @@ unspecified.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.match">
+<tr id="RouteRule-match">
 <td><code>match</code></td>
 <td><code><a href="#MatchCondition">MatchCondition</a></code></td>
 <td>
@@ -1685,7 +1686,7 @@ traffic.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.route">
+<tr id="RouteRule-route">
 <td><code>route</code></td>
 <td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
 <td>
@@ -1697,7 +1698,7 @@ traffic it receives.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.redirect">
+<tr id="RouteRule-redirect">
 <td><code>redirect</code></td>
 <td><code><a href="#HTTPRedirect">HTTPRedirect</a></code></td>
 <td>
@@ -1707,7 +1708,7 @@ redirect to a different URI or Authority.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.rewrite">
+<tr id="RouteRule-rewrite">
 <td><code>rewrite</code></td>
 <td><code><a href="#HTTPRewrite">HTTPRewrite</a></code></td>
 <td>
@@ -1716,7 +1717,7 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.websocket_upgrade">
+<tr id="RouteRule-websocket_upgrade">
 <td><code>websocketUpgrade</code></td>
 <td><code>bool</code></td>
 <td>
@@ -1728,7 +1729,7 @@ will be rejected.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.http_req_timeout">
+<tr id="RouteRule-http_req_timeout">
 <td><code>httpReqTimeout</code></td>
 <td><code><a href="#HTTPTimeout">HTTPTimeout</a></code></td>
 <td>
@@ -1736,7 +1737,7 @@ will be rejected.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.http_req_retries">
+<tr id="RouteRule-http_req_retries">
 <td><code>httpReqRetries</code></td>
 <td><code><a href="#HTTPRetry">HTTPRetry</a></code></td>
 <td>
@@ -1744,7 +1745,7 @@ will be rejected.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.http_fault">
+<tr id="RouteRule-http_fault">
 <td><code>httpFault</code></td>
 <td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
 <td>
@@ -1752,7 +1753,7 @@ will be rejected.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.l4_fault">
+<tr id="RouteRule-l4_fault">
 <td><code>l4Fault</code></td>
 <td><code><a href="#L4FaultInjection">L4FaultInjection</a></code></td>
 <td>
@@ -1760,7 +1761,7 @@ will be rejected.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.mirror">
+<tr id="RouteRule-mirror">
 <td><code>mirror</code></td>
 <td><code><a href="#IstioService">IstioService</a></code></td>
 <td>
@@ -1772,7 +1773,7 @@ Statistics will be generated for the mirrored destination.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.cors_policy">
+<tr id="RouteRule-cors_policy">
 <td><code>corsPolicy</code></td>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
@@ -1782,7 +1783,7 @@ further details about cross origin resource sharing.</p>
 
 </td>
 </tr>
-<tr id="RouteRule.append_headers">
+<tr id="RouteRule-append_headers">
 <td><code>appendHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
@@ -1807,7 +1808,7 @@ destnation service.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="StringMatch.exact" class="oneof oneof-start">
+<tr id="StringMatch-exact" class="oneof oneof-start">
 <td><code>exact</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -1815,7 +1816,7 @@ destnation service.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.prefix" class="oneof">
+<tr id="StringMatch-prefix" class="oneof">
 <td><code>prefix</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -1823,7 +1824,7 @@ destnation service.</p>
 
 </td>
 </tr>
-<tr id="StringMatch.regex" class="oneof">
+<tr id="StringMatch-regex" class="oneof">
 <td><code>regex</code></td>
 <td><code>string (oneof)</code></td>
 <td>

@@ -186,7 +186,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 # injected configuration from kubernetes configmap 'istio-inject'
 istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConfigMapName istio-inject
 `,
-		RunE: func(_ *cobra.Command, _ []string) (err error) {
+		RunE: func(c *cobra.Command, _ []string) (err error) {
 			if err = validateFlags(); err != nil {
 				return err
 			}
@@ -216,7 +216,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 
 			var writer io.Writer
 			if outFilename == "" {
-				writer = os.Stdout
+				writer = c.OutOrStdout()
 			} else {
 				var out *os.File
 				if out, err = os.Create(outFilename); err != nil {

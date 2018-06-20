@@ -180,14 +180,14 @@ func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) {
 // of the ServiceRole is specified in "metadata" section of the ServiceRole object.
 type ServiceRole struct {
 	// Required. The set of access rules (permissions) that the role has.
-	Rules []*AccessRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
+	Rules []*AccessRule `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 	// $hide_from_docs
 	// Indicates enforcement mode of the ServiceRole config.
 	// If ServiceRole is in PERMISSIVE mode, all ServiceRoleBindings that
 	// refers to it will be treated as PERMISSIVE mode.
 	// If ServiceRole is in ENFORCED mode, ServiceRoleBindings that
 	// refers to it will decide their own enforcement modes.
-	Mode                 EnforcementMode `protobuf:"varint,2,opt,name=mode,enum=istio.rbac.v1alpha1.EnforcementMode" json:"mode,omitempty"`
+	Mode                 EnforcementMode `protobuf:"varint,2,opt,name=mode,proto3,enum=istio.rbac.v1alpha1.EnforcementMode" json:"mode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -239,7 +239,7 @@ type AccessRule struct {
 	// "bookstore.mtv.cluster.local" (exact match), or "bookstore*" (prefix match),
 	// or "*.mtv.cluster.local" (suffix match).
 	// If set to ["*"], it refers to all services in the namespace.
-	Services []string `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	Services []string `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// Optional. A list of HTTP paths or gRPC methods.
 	// gRPC methods must be presented as fully-qualified name in the form of
 	// packageName.serviceName/methodName.
@@ -248,14 +248,14 @@ type AccessRule struct {
 	// "/books/review" (exact match), or "/books/*" (prefix match),
 	// or "*/review" (suffix match).
 	// If not specified, it applies to any path.
-	Paths []string `protobuf:"bytes,2,rep,name=paths" json:"paths,omitempty"`
+	Paths []string `protobuf:"bytes,2,rep,name=paths,proto3" json:"paths,omitempty"`
 	// Optional. A list of HTTP methods (e.g., "GET", "POST").
 	// It is ignored in gRPC case because the value is always "POST".
 	// If set to ["*"] or not specified, it applies to any method.
-	Methods []string `protobuf:"bytes,3,rep,name=methods" json:"methods,omitempty"`
+	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
 	// Optional. Extra constraints in the ServiceRole specification.
 	// The above ServiceRole examples shows an example of constraint "version".
-	Constraints          []*AccessRule_Constraint `protobuf:"bytes,4,rep,name=constraints" json:"constraints,omitempty"`
+	Constraints          []*AccessRule_Constraint `protobuf:"bytes,4,rep,name=constraints,proto3" json:"constraints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -318,13 +318,13 @@ func (m *AccessRule) GetConstraints() []*AccessRule_Constraint {
 // (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 type AccessRule_Constraint struct {
 	// Key of the constraint.
-	Key string `protobuf:"bytes,1,opt,name=key" json:"key,omitempty"`
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// List of valid values for the constraint.
 	// Exact match, prefix match, and suffix match are supported for constraint values.
 	// For example, the value "v1alpha2" matches
 	// "v1alpha2" (exact match), or "v1*" (prefix match),
 	// or "*alpha2" (suffix match).
-	Values               []string `protobuf:"bytes,2,rep,name=values" json:"values,omitempty"`
+	Values               []string `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -374,16 +374,16 @@ func (m *AccessRule_Constraint) GetValues() []string {
 // object.
 type ServiceRoleBinding struct {
 	// Required. List of subjects that are assigned the ServiceRole object.
-	Subjects []*Subject `protobuf:"bytes,1,rep,name=subjects" json:"subjects,omitempty"`
+	Subjects []*Subject `protobuf:"bytes,1,rep,name=subjects,proto3" json:"subjects,omitempty"`
 	// Required. Reference to the ServiceRole object.
-	RoleRef *RoleRef `protobuf:"bytes,2,opt,name=roleRef" json:"roleRef,omitempty"`
+	RoleRef *RoleRef `protobuf:"bytes,2,opt,name=roleRef,proto3" json:"roleRef,omitempty"`
 	// $hide_from_docs
 	// Indicates enforcement mode of the ServiceRoleBinding config.
 	// If RoleRef it refers to is in PERMISSIVE mode, the ServiceRoleBinding
 	// will be treated as PERMISSIVE mode regardless this mode field.
 	// If RoleRef it refers to is in ENFORCED mode, the ServiceRoleBinding
 	// will decide its own enforcement mode from this mode field.
-	Mode                 EnforcementMode `protobuf:"varint,3,opt,name=mode,enum=istio.rbac.v1alpha1.EnforcementMode" json:"mode,omitempty"`
+	Mode                 EnforcementMode `protobuf:"varint,3,opt,name=mode,proto3,enum=istio.rbac.v1alpha1.EnforcementMode" json:"mode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -440,14 +440,14 @@ func (m *ServiceRoleBinding) GetMode() EnforcementMode {
 // (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 type Subject struct {
 	// Optional. The user name/ID that the subject represents.
-	User string `protobuf:"bytes,1,opt,name=user" json:"user,omitempty"`
+	User string `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	// Optional. The group that the subject belongs to.
-	Group string `protobuf:"bytes,2,opt,name=group" json:"group,omitempty"`
+	Group string `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
 	// Optional. The set of properties that identify the subject.
 	// In the above ServiceRoleBinding example, the second subject has two properties:
 	//     service: "reviews"
 	//     namespace: "abc"
-	Properties           map[string]string `protobuf:"bytes,3,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Properties           map[string]string `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -502,11 +502,11 @@ func (m *Subject) GetProperties() map[string]string {
 type RoleRef struct {
 	// Required. The type of the role being referenced.
 	// Currently, "ServiceRole" is the only supported value for "kind".
-	Kind string `protobuf:"bytes,1,opt,name=kind" json:"kind,omitempty"`
+	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Required. The name of the ServiceRole object being referenced.
 	// The ServiceRole object must be in the same namespace as the ServiceRoleBinding
 	// object.
-	Name                 string   `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -572,13 +572,13 @@ func (m *RoleRef) GetName() string {
 // ```
 type RbacConfig struct {
 	// Istio RBAC mode.
-	Mode RbacConfig_Mode `protobuf:"varint,1,opt,name=mode,enum=istio.rbac.v1alpha1.RbacConfig_Mode" json:"mode,omitempty"`
+	Mode RbacConfig_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=istio.rbac.v1alpha1.RbacConfig_Mode" json:"mode,omitempty"`
 	// A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
 	// effect only when mode is ON_WITH_INCLUSION and will be ignored for any other modes.
-	Inclusion *RbacConfig_Target `protobuf:"bytes,2,opt,name=inclusion" json:"inclusion,omitempty"`
+	Inclusion *RbacConfig_Target `protobuf:"bytes,2,opt,name=inclusion,proto3" json:"inclusion,omitempty"`
 	// A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
 	// effect only when mode is ON_WITH_EXCLUSION and will be ignored for any other modes.
-	Exclusion            *RbacConfig_Target `protobuf:"bytes,3,opt,name=exclusion" json:"exclusion,omitempty"`
+	Exclusion            *RbacConfig_Target `protobuf:"bytes,3,opt,name=exclusion,proto3" json:"exclusion,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -632,9 +632,9 @@ func (m *RbacConfig) GetExclusion() *RbacConfig_Target {
 // Target defines a list of services or namespaces.
 type RbacConfig_Target struct {
 	// A list of services.
-	Services []string `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	Services []string `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// A list of namespaces.
-	Namespaces           []string `protobuf:"bytes,2,rep,name=namespaces" json:"namespaces,omitempty"`
+	Namespaces           []string `protobuf:"bytes,2,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

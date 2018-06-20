@@ -39,7 +39,8 @@ func ModelProtocolToListenerType(protocol model.Protocol) ListenerType {
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 		return ListenerTypeHTTP
-	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
+	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTCPTLS,
+		model.ProtocolMongo, model.ProtocolRedis:
 		return ListenerTypeTCP
 	default:
 		return ListenerTypeUnknown
@@ -61,6 +62,7 @@ type InputParams struct {
 	// ServiceInstance is the service instance colocated with the listener (applies to sidecar).
 	ServiceInstance *model.ServiceInstance
 	// Service is the service colocated with the listener (applies to sidecar).
+	// For outbound TCP listeners, it is the destination service.
 	Service *model.Service
 }
 

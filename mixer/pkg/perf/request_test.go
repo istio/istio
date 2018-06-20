@@ -32,7 +32,7 @@ func TestBasicReportRequest(t *testing.T) {
 		},
 	}
 
-	protos := report.createRequestProtos(config)
+	protos := report.createRequestProtos(config.IdentityAttribute, config.IdentityAttributeDomain)
 	if len(protos) != 1 {
 		t.Fatalf("should have created 1 proto")
 	}
@@ -96,7 +96,7 @@ func TestBasicCheckRequest(t *testing.T) {
 		},
 	}
 
-	protos := report.createRequestProtos(config)
+	protos := report.createRequestProtos(config.IdentityAttribute, config.IdentityAttributeDomain)
 	if len(protos) != 1 {
 		t.Fatalf("should have created 1 proto")
 	}

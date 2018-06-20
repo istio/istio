@@ -31,20 +31,19 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// [#not-implemented-hide:]
 // External Authorization filter calls out to an external service over the
 // gRPC Authorization API defined by
-// :ref:`external_auth <envoy_api_msg_auth.CheckRequest>`.
+// :ref:`CheckRequest <envoy_api_msg_service.auth.v2alpha.CheckRequest>`.
 // A failed check will cause this filter to close the TCP connection.
 type ExtAuthz struct {
 	// The prefix to use when emitting statistics.
 	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The external authorization gRPC service configuration.
+	// The default timeout is set to 200ms by this filter.
 	GrpcService *envoy_api_v2_core1.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
 	// The filter's behaviour in case the external authorization service does
-	// not respond back. If set to true then in case of failure to get a
-	// response back from the authorization service or getting a response that
-	// is NOT denied then traffic will be permitted.
+	// not respond back. When it is set to true, Envoy will also allow traffic in case of
+	// communication failure between authorization service and the proxy.
 	// Defaults to false.
 	FailureModeAllow bool `protobuf:"varint,3,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
 }

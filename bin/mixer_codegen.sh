@@ -33,19 +33,29 @@ optimport=$ROOT
 template=$ROOT
 
 optproto=false
+optadapter=false
 opttemplate=false
 gendoc=true
+# extra flags are arguments that are passed to the underlying tool verbatim
+# Its value depend on the context of the main generation flag.
+# * for parent flag `-a`, the `-x` flag can provide additional options required by tool mixer/tool/mixgen adapter --help
+extraflags=""
 
-while getopts ':f:o:p:i:t:d:' flag; do
+while getopts ':f:o:p:i:t:a:d:x:' flag; do
   case "${flag}" in
-    f) $opttemplate && die "Cannot use proto file option (-f) with template file option (-t)"
+    f) $opttemplate && $optadapter && die "Cannot use proto file option (-f) with template file option (-t) or adapter option (-a)"
        optproto=true
+       file+="/${OPTARG}"
+       ;;
+    a) $opttemplate && $optproto && die "Cannot use proto adapter option (-a) with template file option (-t) or file option (-f)"
+       optadapter=true
        file+="/${OPTARG}"
        ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
+    x) extraflags="${OPTARG}" ;;
     i) optimport+=/"${OPTARG}" ;;
-    t) $optproto && die "Cannot use template file option (-t) with proto file option (-f)"
+    t) $optproto && $optadapter && die "Cannot use template file option (-t) with proto file option (-f) or adapter option (-a)"
        opttemplate=true
        template+="/${OPTARG}"
        ;;
@@ -202,6 +212,28 @@ if [ "$opttemplate" = true ]; then
   exit 0
 fi
 
+# handle adapter code generation
+if [ "$optadapter" = true ]; then
+  if [ "$gendoc" = true ]; then
+    err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
+  else
+    err=`$protoc $IMPORTS $PLUGIN $file`
+  fi
+  if [ ! -z "$err" ]; then
+    die "generation failure: $err";
+  fi
+
+  adapteCfdDS=${file}_descriptor
+  err=`$protoc $IMPORTS $PLUGIN --include_imports --include_source_info --descriptor_set_out=${adapteCfdDS} $file`
+  if [ ! -z "$err" ]; then
+  die "config generation failure: $err";
+  fi
+
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o $(dirname "${file}") ${extraflags}
+
+  exit 0
+fi
+
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
   err=`$protoc $IMPORTS $PLUGIN $GENDOCS_PLUGIN_FILE $file`
@@ -210,4 +242,9 @@ else
 fi
 if [ ! -z "$err" ]; then 
   die "generation failure: $err"; 
+fi
+
+err=`$protoc $IMPORTS $PLUGIN --include_imports --include_source_info --descriptor_set_out=${file}_descriptor $file`
+if [ ! -z "$err" ]; then
+die "config generation failure: $err";
 fi
