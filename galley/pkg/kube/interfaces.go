@@ -57,18 +57,15 @@ func NewKube(cfg *rest.Config) Interfaces {
 }
 
 // DynamicInterface returns a new dynamic.Interface for the specified API Group/Version.
-func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (
-	result dynamic.Interface, err error) {
-	var cfg *rest.Config
+func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (dynamic.Interface, error) {
+	var result dynamic.Interface
 
-	if cfg, err = k.createConfig(gv, kind, listKind); err == nil {
-		var r dynamic.Interface
-		if r, err = dynamic.NewClient(cfg); err == nil {
-			result = r
-		}
+	cfg, err := k.createConfig(gv, kind, listKind)
+	if err == nil {
+		result, err = dynamic.NewClient(cfg)
 	}
 
-	return
+	return result, err
 }
 
 func (k *kube) createConfig(gv schema.GroupVersion, kind, listKind string) (*rest.Config, error) {
