@@ -30,7 +30,6 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	rbac "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
@@ -40,17 +39,6 @@ import (
 var (
 	// Types defines the mock config descriptor
 	Types = model.ConfigDescriptor{model.MockConfig}
-
-	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Route: []*routing.DestinationWeight{
-			{Weight: 80, Labels: map[string]string{"version": "v1"}},
-			{Weight: 20, Labels: map[string]string{"version": "v2"}},
-		},
-	}
 
 	// ExampleVirtualService is an example V2 route rule
 	ExampleVirtualService = &networking.VirtualService{
@@ -94,34 +82,6 @@ var (
 			LoadBalancer: &networking.LoadBalancerSettings{
 				new(networking.LoadBalancerSettings_Simple),
 			},
-		},
-	}
-
-	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		Port: 80,
-		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
-	}
-
-	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &routing.EgressRule{
-		Destination: &routing.IstioService{
-			Service: "*cnn.com",
-		},
-		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
-		UseEgressProxy: false,
-	}
-
-	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &routing.DestinationPolicy{
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-		LoadBalancing: &routing.LoadBalancing{
-			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
 	}
 
@@ -463,14 +423,10 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		schema     model.ProtoSchema
 		spec       proto.Message
 	}{
-		{"RouteRule", configName, model.RouteRule, ExampleRouteRule},
 		{"VirtualService", configName, model.VirtualService, ExampleVirtualService},
 		{"DestinationRule", configName, model.DestinationRule, ExampleDestinationRule},
 		{"ServiceEntry", configName, model.ServiceEntry, ExampleServiceEntry},
 		{"Gatway", configName, model.Gateway, ExampleGateway},
-		{"IngressRule", configName, model.IngressRule, ExampleIngressRule},
-		{"EgressRule", configName, model.EgressRule, ExampleEgressRule},
-		{"DestinationPolicy", configName, model.DestinationPolicy, ExampleDestinationPolicy},
 		{"HTTPAPISpec", configName, model.HTTPAPISpec, ExampleHTTPAPISpec},
 		{"HTTPAPISpecBinding", configName, model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
 		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},

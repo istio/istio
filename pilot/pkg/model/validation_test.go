@@ -60,7 +60,7 @@ func TestConfigDescriptorValidate(t *testing.T) {
 		name: "Invalid DNS11234Label in ConfigDescriptor",
 		descriptor: ConfigDescriptor{ProtoSchema{
 			Type:        badLabel,
-			MessageName: RouteRule.MessageName,
+			MessageName: VirtualService.MessageName,
 		}},
 		wantErr: true,
 	}, {
@@ -73,13 +73,13 @@ func TestConfigDescriptorValidate(t *testing.T) {
 	}, {
 		name: "Missing key function",
 		descriptor: ConfigDescriptor{ProtoSchema{
-			Type:        RouteRule.Type,
-			MessageName: RouteRule.MessageName,
+			Type:        VirtualService.Type,
+			MessageName: VirtualService.MessageName,
 		}},
 		wantErr: true,
 	}, {
 		name:       "Duplicate type and message",
-		descriptor: ConfigDescriptor{RouteRule, RouteRule},
+		descriptor: ConfigDescriptor{VirtualService, VirtualService},
 		wantErr:    true,
 	}}
 
@@ -122,7 +122,7 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 	}{
 		{
 			name:    "bad configuration object",
-			typ:     RouteRule.Type,
+			typ:     VirtualService.Type,
 			config:  nil,
 			wantErr: true,
 		},
@@ -134,19 +134,19 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 		},
 		{
 			name:    "non-proto object configuration",
-			typ:     RouteRule.Type,
+			typ:     VirtualService.Type,
 			config:  "non-proto objection configuration",
 			wantErr: true,
 		},
 		{
 			name:    "message type and kind mismatch",
-			typ:     RouteRule.Type,
+			typ:     VirtualService.Type,
 			config:  &routing.DestinationPolicy{},
 			wantErr: true,
 		},
 		{
 			name:    "ProtoSchema validation1",
-			typ:     RouteRule.Type,
+			typ:     VirtualService.Type,
 			config:  &routing.RouteRule{},
 			wantErr: true,
 		},

@@ -247,26 +247,8 @@ func (descriptor ConfigDescriptor) GetByType(name string) (ProtoSchema, bool) {
 type IstioConfigStore interface {
 	ConfigStore
 
-	// EgressRules lists all egress rules
-	EgressRules() []Config
-
 	// ServiceEntries lists all service entries
 	ServiceEntries() []Config
-
-	// RouteRules selects routing rules by source service instances and
-	// destination service.  A rule must match at least one of the input service
-	// instances since the proxy does not distinguish between source instances in
-	// the request.
-	RouteRules(source []*ServiceInstance, destination string) []Config
-
-	// RouteRulesByDestination selects routing rules associated with destination
-	// service instances.  A rule must match at least one of the input
-	// destination instances.
-	RouteRulesByDestination(destination []*ServiceInstance) []Config
-
-	// Policy returns a policy for a service version that match at least one of
-	// the source instances.  The labels must match precisely in the policy.
-	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
 	// DestinationRule returns a destination rule for a service name in a given domain.
 	DestinationRule(hostname Hostname) *Config
@@ -277,9 +259,6 @@ type IstioConfigStore interface {
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels LabelsCollection) []Config
 
-	// SubsetToLabels returns the labels associated with a subset of a given service.
-	SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection
-
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -287,6 +266,9 @@ type IstioConfigStore interface {
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
+
+	// SubsetToLabels returns the labels associated with a subset of a given service.
+	SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection
 
 	// AuthenticationPolicyByDestination selects authentication policy associated
 	// with a service + port. Hostname must be FQDN.
@@ -361,16 +343,6 @@ var (
 		},
 	}
 
-	// RouteRule describes route rules
-	RouteRule = ProtoSchema{
-		Type:        "route-rule",
-		Plural:      "route-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.RouteRule",
-		Validate:    ValidateRouteRule,
-	}
-
 	// VirtualService describes v1alpha3 route rules
 	VirtualService = ProtoSchema{
 		Type:        "virtual-service",
@@ -393,26 +365,6 @@ var (
 		Validate:    ValidateGateway,
 	}
 
-	// IngressRule describes ingress rules
-	IngressRule = ProtoSchema{
-		Type:        "ingress-rule",
-		Plural:      "ingress-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.IngressRule",
-		Validate:    ValidateIngressRule,
-	}
-
-	// EgressRule describes egress rule
-	EgressRule = ProtoSchema{
-		Type:        "egress-rule",
-		Plural:      "egress-rules",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.EgressRule",
-		Validate:    ValidateEgressRule,
-	}
-
 	// ServiceEntry describes service entries
 	ServiceEntry = ProtoSchema{
 		Type:        "service-entry",
@@ -422,16 +374,6 @@ var (
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Gogo:        true,
 		Validate:    ValidateServiceEntry,
-	}
-
-	// DestinationPolicy describes destination rules
-	DestinationPolicy = ProtoSchema{
-		Type:        "destination-policy",
-		Plural:      "destination-policies",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
-		Validate:    ValidateDestinationPolicy,
 	}
 
 	// DestinationRule describes destination rules
@@ -538,13 +480,9 @@ var (
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
-		RouteRule,
 		VirtualService,
-		IngressRule,
 		Gateway,
-		EgressRule,
 		ServiceEntry,
-		DestinationPolicy,
 		DestinationRule,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
@@ -670,62 +608,6 @@ func SortRouteRules(rules []Config) {
 	})
 }
 
-func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
-	out := make([]Config, 0)
-	configs, err := store.List(RouteRule.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*routing.RouteRule)
-
-		// validate that rule match predicate applies to destination service
-		hostname := ResolveHostname(config.ConfigMeta, rule.Destination).String()
-		if hostname != destination {
-			continue
-		}
-
-		// validate that rule match predicate applies to source service instances
-		if rule.Match != nil && !MatchSource(config.ConfigMeta, rule.Match.Source, instances) {
-			continue
-		}
-
-		out = append(out, config)
-	}
-
-	return out
-}
-
-func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
-	out := make([]Config, 0)
-	configs, err := store.List(RouteRule.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	for _, config := range configs {
-		rule := config.Spec.(*routing.RouteRule)
-		destination := ResolveHostname(config.ConfigMeta, rule.Destination)
-		for _, instance := range instances {
-			if destination.Matches(instance.Service.Hostname) {
-				out = append(out, config)
-				break
-			}
-		}
-	}
-
-	return out
-}
-
-func (store *istioConfigStore) EgressRules() []Config {
-	configs, err := store.List(EgressRule.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	return configs
-}
-
 func (store *istioConfigStore) ServiceEntries() []Config {
 	configs, err := store.List(ServiceEntry.Type, NamespaceAll)
 	if err != nil {
@@ -837,44 +719,6 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 	return out
 }
 
-func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
-	configs, err := store.List(DestinationPolicy.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	// ugly go-ism
-	var out Config
-	var found bool
-	for _, config := range configs {
-		policy := config.Spec.(*routing.DestinationPolicy)
-		if !MatchSource(config.ConfigMeta, policy.Source, instances) {
-			continue
-		}
-
-		if destination != ResolveHostname(config.ConfigMeta, policy.Destination).String() {
-			continue
-		}
-
-		// note the exact label match
-		if !labels.Equals(policy.Destination.Labels) {
-			continue
-		}
-
-		// pick a deterministic policy from the matching configs by picking the smallest key
-		if !found || out.Key() > config.Key() {
-			out = config
-			found = true
-		}
-	}
-
-	if !found {
-		return nil
-	}
-
-	return &out
-}
-
 func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 	configs, err := store.List(DestinationRule.Type, NamespaceAll)
 	if err != nil {
@@ -895,6 +739,7 @@ func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 	return nil
 }
 
+// FIXME: should be able to remove this
 func (store *istioConfigStore) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
