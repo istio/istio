@@ -40,5 +40,4 @@ func TestInMemoryDistributor_ClearSnapshot(t *testing.T) {
 	if _, ok := d.snapshots["foo"]; ok {
 		t.Fatal("The snapshot should have been cleared")
 	}
-
 }
