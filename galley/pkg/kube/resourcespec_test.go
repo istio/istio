@@ -23,7 +23,7 @@ import (
 )
 
 func TestInfo_APIResource(t *testing.T) {
-	i := Info{
+	i := ResourceSpec{
 		Version:  "version",
 		Kind:     "kind",
 		Group:    "group",
@@ -48,7 +48,7 @@ func TestInfo_APIResource(t *testing.T) {
 }
 
 func TestInfo_GroupVersion(t *testing.T) {
-	i := Info{
+	i := ResourceSpec{
 		Version:  "version",
 		Kind:     "kind",
 		Group:    "group",

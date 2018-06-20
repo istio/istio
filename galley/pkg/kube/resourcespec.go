@@ -21,9 +21,9 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// Info represents a known crd. It is used to drive the K8s-related machinery, and to map to
+// ResourceSpec represents a known crd. It is used to drive the K8s-related machinery, and to map to
 // the proto format.
-type Info struct {
+type ResourceSpec struct {
 
 	// Singular name of the K8s resource
 	Singular string
@@ -48,7 +48,7 @@ type Info struct {
 }
 
 // APIResource generated from this type.
-func (i *Info) APIResource() *v1.APIResource {
+func (i *ResourceSpec) APIResource() *v1.APIResource {
 	return &v1.APIResource{
 		Name:         i.Plural,
 		SingularName: i.Singular,
@@ -60,7 +60,7 @@ func (i *Info) APIResource() *v1.APIResource {
 }
 
 // GroupVersion returns the GroupVersion of this type.
-func (i *Info) GroupVersion() sc.GroupVersion {
+func (i *ResourceSpec) GroupVersion() sc.GroupVersion {
 	return sc.GroupVersion{
 		Group:   i.Group,
 		Version: i.Version,

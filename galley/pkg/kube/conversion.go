@@ -23,32 +23,33 @@ import (
 )
 
 // toProto reads a proto.Message from the given unstructured data.
-func toProto(t Info, u *unstructured.Unstructured) (proto.Message, error) {
-	return specToProto(t, u.Object["spec"])
+func toProto(s ResourceSpec, u *unstructured.Unstructured) (proto.Message, error) {
+	return specToProto(s, u.Object["spec"])
 }
 
-func specToProto(t Info, spec interface{}) (result proto.Message, err error) {
+func specToProto(s ResourceSpec, spec interface{}) (proto.Message, error) {
 
-	var js string
-	if js, err = toJSON(spec); err == nil {
-
-		pb := t.Target.NewProtoInstance()
+	var result proto.Message
+	js, err := toJSON(spec)
+	if err == nil {
+		pb := s.Target.NewProtoInstance()
 		if err = jsonpb.UnmarshalString(js, pb); err == nil {
 			result = pb
 		}
 	}
 
-	return
+	return result, err
 }
 
-func toJSON(data interface{}) (js string, err error) {
+func toJSON(data interface{}) (string, error) {
 
-	var b []byte
-	if b, err = yaml2.Marshal(data); err == nil {
+	var result string
+	b, err := yaml2.Marshal(data)
+	if err == nil {
 		if b, err = yaml.YAMLToJSON(b); err == nil {
-			js = string(b)
+			result = string(b)
 		}
 	}
 
-	return
+	return result, err
 }

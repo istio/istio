@@ -35,13 +35,13 @@ func TestToProto(t *testing.T) {
 		},
 	}
 
-	i := Info{
+	s := ResourceSpec{
 		Target: resource.Info{
 			Kind: "google.protobuf.Empty",
 		},
 	}
 
-	p, err := toProto(i, cr)
+	p, err := toProto(s, cr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

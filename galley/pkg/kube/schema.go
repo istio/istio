@@ -22,15 +22,15 @@ import (
 
 // Schema represents a set of known Kubernetes resource types.
 type Schema struct {
-	entries []Info
+	entries []ResourceSpec
 }
 
-func (e *Schema) add(entry Info) {
+func (e *Schema) add(entry ResourceSpec) {
 	e.entries = append(e.entries, entry)
 }
 
 // All returns information about all known types.
-func (e *Schema) All() []Info {
+func (e *Schema) All() []ResourceSpec {
 	return e.entries
 }
 
