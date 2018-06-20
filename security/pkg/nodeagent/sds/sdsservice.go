@@ -43,10 +43,9 @@ const (
 	// SecretType is used for secret discovery service to construct response.
 	SecretType = "type.googleapis.com/envoy.api.v2.Secret"
 
-	// credentialTokenHeaderKey is the header key in gPRC header which is used to
-	// pass credential token from envoy to SDS.
-	// TODO(quanlin): update value after confirming what headerKey that client side uses.
-	credentialTokenHeaderKey = "access_token"
+	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
+	// pass credential token from envoy's SDS request to SDS service.
+	CredentialTokenHeaderKey = "authorization"
 )
 
 var (
@@ -90,8 +89,6 @@ type sdsConnection struct {
 
 type sdsservice struct {
 	st SecretManager
-	//TODO(quanlin), add below properties later:
-	//1. workloadRegistry(store proxies information).
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
@@ -231,7 +228,7 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("unable to get metadata from incoming context")
 	}
 
-	if h, ok := metadata[credentialTokenHeaderKey]; ok {
+	if h, ok := metadata[CredentialTokenHeaderKey]; ok {
 		if len(h) != 1 {
 			return "", fmt.Errorf("credential token must have 1 value in gRPC metadata but got %d", len(h))
 		}
