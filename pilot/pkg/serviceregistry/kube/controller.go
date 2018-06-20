@@ -475,13 +475,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
 				if proxy.IPAddress == ea.IP {
-					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
-						if err != nil {
-							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
-							return out, err
-						}
-					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue

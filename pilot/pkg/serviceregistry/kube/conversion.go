@@ -162,52 +162,6 @@ func parseHostname(hostname model.Hostname) (name string, namespace string, err 
 	return
 }
 
-// parsePodID extracts POD name and namespace from the service node ID
-func parsePodID(nodeID string) (podname string, namespace string, err error) {
-	parts := strings.Split(nodeID, ".")
-	if len(parts) != 2 {
-		err = fmt.Errorf("invalid ID %q. Should be <pod name>.<namespace>", nodeID)
-		return
-	}
-	podname = parts[0]
-	namespace = parts[1]
-	return
-}
-
-// parseDomain extracts the service node's domain
-func parseDomain(nodeDomain string) (namespace string, err error) {
-	parts := strings.Split(nodeDomain, ".")
-	if len(parts) != 4 {
-		err = fmt.Errorf("invalid node domain format %q. Should be <namespace>.svc.cluster.local", nodeDomain)
-		return
-	}
-	if parts[1] != "svc" || parts[2] != "cluster" || parts[3] != "local" {
-		err = fmt.Errorf("invalid node domain %q. Should be <namespace>.svc.cluster.local", nodeDomain)
-		return
-	}
-	namespace = parts[0]
-	return
-}
-
-func parseKubeServiceNode(IPAddress string, node *model.Proxy, kubeNodes map[string]*kubeServiceNode) (err error) {
-	podname, namespace, err := parsePodID(node.ID)
-	if err != nil {
-		return
-	}
-	namespace1, err := parseDomain(node.Domain)
-	if err != nil {
-		return
-	}
-	if namespace != namespace1 {
-		err = fmt.Errorf("namespace in ID %q must be equal to that in domain %q", node.ID, node.Domain)
-	}
-	kubeNodes[IPAddress] = &kubeServiceNode{
-		PodName:   podname,
-		Namespace: namespace,
-		Domain:    node.Domain}
-	return
-}
-
 // ConvertProtocol from k8s protocol and port name
 func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
