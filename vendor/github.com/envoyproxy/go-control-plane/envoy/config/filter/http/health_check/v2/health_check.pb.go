@@ -45,6 +45,8 @@ type HealthCheck struct {
 	PassThroughMode *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode" json:"pass_through_mode,omitempty"`
 	// Specifies the incoming HTTP endpoint that should be considered the
 	// health check endpoint. For example */healthcheck*.
+	// Note that this field is deprecated in favor of
+	// :ref:`headers <envoy_api_field_config.filter.http.health_check.v2.HealthCheck.headers>`.
 	Endpoint string `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	// If operating in pass through mode, the amount of time in milliseconds
 	// that the filter should cache the upstream response.

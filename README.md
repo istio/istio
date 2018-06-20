@@ -72,7 +72,7 @@ including Citadel (acting as Certificate Authority), node agent, etc.
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/config/traffic-rules/routing-rules.html) into proxy specific configuration.
+[routing rules](https://istio.io/docs/reference/config/istio.networking.v1alpha3/) into proxy specific configuration.
   - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
   - [mixer](mixer/). This directory

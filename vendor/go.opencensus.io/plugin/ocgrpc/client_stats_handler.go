@@ -16,15 +16,12 @@
 package ocgrpc
 
 import (
-	"sync/atomic"
 	"time"
 
-	ocstats "go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/stats"
-	"google.golang.org/grpc/status"
 )
 
 // statsTagRPC gets the tag.Map populated by the application code, serializes
@@ -48,81 +45,5 @@ func (h *ClientHandler) statsTagRPC(ctx context.Context, info *stats.RPCTagInfo)
 		ctx = stats.SetTags(ctx, encoded)
 	}
 
-	// TODO(acetechnologist): should we be recording this later? What is the
-	// point of updating d.reqLen & d.reqCount if we update now?
-	record(ctx, d, "", ClientStartedCount.M(1))
-	return context.WithValue(ctx, grpcClientRPCKey, d)
-}
-
-// statsHandleRPC processes the RPC events.
-func (h *ClientHandler) statsHandleRPC(ctx context.Context, s stats.RPCStats) {
-	switch st := s.(type) {
-	case *stats.Begin, *stats.OutHeader, *stats.InHeader, *stats.InTrailer, *stats.OutTrailer:
-		// do nothing for client
-	case *stats.OutPayload:
-		h.handleRPCOutPayload(ctx, st)
-	case *stats.InPayload:
-		h.handleRPCInPayload(ctx, st)
-	case *stats.End:
-		h.handleRPCEnd(ctx, st)
-	default:
-		grpclog.Infof("unexpected stats: %T", st)
-	}
-}
-
-func (h *ClientHandler) handleRPCOutPayload(ctx context.Context, s *stats.OutPayload) {
-	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
-	if !ok {
-		if grpclog.V(2) {
-			grpclog.Infoln("clientHandler.handleRPCOutPayload failed to retrieve *rpcData from context")
-		}
-		return
-	}
-
-	record(ctx, d, "", ClientRequestBytes.M(int64(s.Length)))
-	atomic.AddInt64(&d.reqCount, 1)
-}
-
-func (h *ClientHandler) handleRPCInPayload(ctx context.Context, s *stats.InPayload) {
-	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
-	if !ok {
-		if grpclog.V(2) {
-			grpclog.Infoln("failed to retrieve *rpcData from context")
-		}
-		return
-	}
-
-	record(ctx, d, "", ClientResponseBytes.M(int64(s.Length)))
-	atomic.AddInt64(&d.respCount, 1)
-}
-
-func (h *ClientHandler) handleRPCEnd(ctx context.Context, s *stats.End) {
-	d, ok := ctx.Value(grpcClientRPCKey).(*rpcData)
-	if !ok {
-		if grpclog.V(2) {
-			grpclog.Infoln("failed to retrieve *rpcData from context")
-		}
-		return
-	}
-
-	elapsedTime := time.Since(d.startTime)
-	reqCount := atomic.LoadInt64(&d.reqCount)
-	respCount := atomic.LoadInt64(&d.respCount)
-
-	m := []ocstats.Measurement{
-		ClientRequestCount.M(reqCount),
-		ClientResponseCount.M(respCount),
-		ClientFinishedCount.M(1),
-		ClientRoundTripLatency.M(float64(elapsedTime) / float64(time.Millisecond)),
-	}
-
-	var st string
-	if s.Error != nil {
-		s, ok := status.FromError(s.Error)
-		if ok {
-			st = s.Code().String()
-		}
-		m = append(m, ClientErrorCount.M(1))
-	}
-	record(ctx, d, st, m...)
+	return context.WithValue(ctx, rpcDataKey, d)
 }

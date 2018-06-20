@@ -102,21 +102,35 @@ type VirtualService struct {
 	// only for services defined via the Gateway.
 	Hosts []string `protobuf:"bytes,1,rep,name=hosts" json:"hosts,omitempty"`
 	// The names of gateways and sidecars that should apply these routes. A
-	// single VirtualService is used for sidecars inside the mesh as well
-	// as for one or more gateways. The selection condition imposed by this field
-	// can be overridden using the source field in the match conditions of HTTP/TCP
-	// routes. The reserved word `mesh` is used to imply all the sidecars in
-	// the mesh. When this field is omitted, the default gateway (`mesh`)
-	// will be used, which would apply the rule to all sidecars in the
-	// mesh. If a list of gateway names is provided, the rules will apply
-	// only to the gateways. To apply the rules to both gateways and sidecars,
-	// specify `mesh` as one of the gateway names.
+	// single VirtualService is used for sidecars inside the mesh as well as
+	// for one or more gateways. The selection condition imposed by this
+	// field can be overridden using the source field in the match conditions
+	// of protocol-specific routes. The reserved word `mesh` is used to imply
+	// all the sidecars in the mesh. When this field is omitted, the default
+	// gateway (`mesh`) will be used, which would apply the rule to all
+	// sidecars in the mesh. If a list of gateway names is provided, the
+	// rules will apply only to the gateways. To apply the rules to both
+	// gateways and sidecars, specify `mesh` as one of the gateway names.
 	Gateways []string `protobuf:"bytes,2,rep,name=gateways" json:"gateways,omitempty"`
-	// An ordered list of route rules for HTTP traffic.
-	// The first rule matching an incoming request is used.
+	// An ordered list of route rules for HTTP traffic. HTTP routes will be
+	// applied to platform service ports named 'http-*'/'http2-*'/'grpc-*', gateway
+	// ports with protocol HTTP/HTTP2/GRPC/ TLS-terminated-HTTPS and service
+	// entry ports using HTTP/HTTP2/GRPC protocols.  The first rule matching
+	// an incoming request is used.
 	Http []*HTTPRoute `protobuf:"bytes,3,rep,name=http" json:"http,omitempty"`
-	// An ordered list of route rules for TCP traffic.
-	// The first rule matching an incoming request is used.
+	// An ordered list of route rule for non-terminated TLS & HTTPS
+	// traffic. Routing is typically performed using the SNI value presented
+	// by the ClientHello message. TLS routes will be applied to platform
+	// service ports named 'https-*', 'tls-*', unterminated gateway ports using
+	// HTTPS/TLS protocols (i.e. with "passthrough" TLS mode) and service
+	// entry ports using HTTPS/TLS protocols.  The first rule matching an
+	// incoming request is used.  NOTE: Traffic 'https-*' or 'tls-*' ports
+	// without associated virtual service will be treated as opaque TCP
+	// traffic.
+	Tls []*TLSRoute `protobuf:"bytes,5,rep,name=tls" json:"tls,omitempty"`
+	// An ordered list of route rules for opaque TCP traffic. TCP routes will
+	// be applied to any port that is not a HTTP or TLS port. The first rule
+	// matching an incoming request is used.
 	Tcp []*TCPRoute `protobuf:"bytes,4,rep,name=tcp" json:"tcp,omitempty"`
 }
 
@@ -142,6 +156,13 @@ func (m *VirtualService) GetGateways() []string {
 func (m *VirtualService) GetHttp() []*HTTPRoute {
 	if m != nil {
 		return m.Http
+	}
+	return nil
+}
+
+func (m *VirtualService) GetTls() []*TLSRoute {
+	if m != nil {
+		return m.Tls
 	}
 	return nil
 }
@@ -348,7 +369,7 @@ type HTTPRoute struct {
 	// A http rule can either redirect or forward (default) traffic. If
 	// traffic passthrough option is specified in the rule,
 	// route/redirect will be ignored. The redirect primitive can be used to
-	// send a HTTP 302 redirect to a different URI or Authority.
+	// send a HTTP 301 redirect to a different URI or Authority.
 	Redirect *HTTPRedirect `protobuf:"bytes,3,opt,name=redirect" json:"redirect,omitempty"`
 	// Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
 	// Redirect primitive. Rewrite will be performed before forwarding.
@@ -381,6 +402,9 @@ type HTTPRoute struct {
 	// Additional HTTP headers to add before forwarding a request to the
 	// destination service.
 	AppendHeaders map[string]string `protobuf:"bytes,11,rep,name=append_headers,json=appendHeaders" json:"append_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Http headers to remove before returning the response to the caller
+	// $hide_from_docs
+	RemoveResponseHeaders map[string]string `protobuf:"bytes,12,rep,name=remove_response_headers,json=removeResponseHeaders" json:"remove_response_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *HTTPRoute) Reset()                    { *m = HTTPRoute{} }
@@ -465,10 +489,77 @@ func (m *HTTPRoute) GetAppendHeaders() map[string]string {
 	return nil
 }
 
+func (m *HTTPRoute) GetRemoveResponseHeaders() map[string]string {
+	if m != nil {
+		return m.RemoveResponseHeaders
+	}
+	return nil
+}
+
+// Describes match conditions and actions for routing unterminated TLS
+// traffic (TLS/HTTPS) The following routing rule forwards unterminated TLS
+// traffic arriving at port 443 of gateway called "mygateway" to internal
+// services in the mesh based on the SNI value.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: VirtualService
+// metadata:
+//   name: bookinfo-sni
+// spec:
+//   hosts:
+//   - "*.bookinfo.com"
+//   tls:
+//   - match:
+//     - port: 443
+//       sniHosts:
+//       - login.bookinfo.com
+//     route:
+//     - destination:
+//         host: login.prod.svc.cluster.local
+//   - match:
+//     - port: 443
+//       sniHosts:
+//       - reviews.bookinfo.com
+//     route:
+//     - destination:
+//         host: reviews.prod.svc.cluster.local
+// ```
+type TLSRoute struct {
+	// Match conditions to be satisfied for the rule to be activated. All
+	// conditions inside a single match block have AND semantics, while the
+	// list of match blocks have OR semantics. The rule is matched if any one
+	// of the match blocks succeed.
+	Match []*TLSMatchAttributes `protobuf:"bytes,1,rep,name=match" json:"match,omitempty"`
+	// The destination to which the connection should be forwarded to.
+	// Currently, only one destination is allowed for TLS services. When TCP
+	// weighted routing support is introduced in Envoy, multiple destinations
+	// with weights can be specified.
+	Route []*DestinationWeight `protobuf:"bytes,2,rep,name=route" json:"route,omitempty"`
+}
+
+func (m *TLSRoute) Reset()                    { *m = TLSRoute{} }
+func (m *TLSRoute) String() string            { return proto.CompactTextString(m) }
+func (*TLSRoute) ProtoMessage()               {}
+func (*TLSRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{3} }
+
+func (m *TLSRoute) GetMatch() []*TLSMatchAttributes {
+	if m != nil {
+		return m.Match
+	}
+	return nil
+}
+
+func (m *TLSRoute) GetRoute() []*DestinationWeight {
+	if m != nil {
+		return m.Route
+	}
+	return nil
+}
+
 // Describes match conditions and actions for routing TCP traffic. The
 // following routing rule forwards traffic arriving at port 27017 for
-// mongo.prod.svc.cluster.local from 172.17.16.* subnet to another Mongo
-// server on port 5555.
+// mongo.prod.svc.cluster.local to another Mongo server on port 5555.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -481,7 +572,6 @@ func (m *HTTPRoute) GetAppendHeaders() map[string]string {
 //   tcp:
 //   - match:
 //     - port: 27017
-//       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
 //         host: mongo.backup.svc.cluster.local
@@ -504,7 +594,7 @@ type TCPRoute struct {
 func (m *TCPRoute) Reset()                    { *m = TCPRoute{} }
 func (m *TCPRoute) String() string            { return proto.CompactTextString(m) }
 func (*TCPRoute) ProtoMessage()               {}
-func (*TCPRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{3} }
+func (*TCPRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{4} }
 
 func (m *TCPRoute) GetMatch() []*L4MatchAttributes {
 	if m != nil {
@@ -539,8 +629,8 @@ func (m *TCPRoute) GetRoute() []*DestinationWeight {
 //     - headers:
 //         cookie:
 //           regex: "^(.*?;)?(user=jason)(;.*)?"
-//         uri:
-//           prefix: "/ratings/v2/"
+//       uri:
+//         prefix: "/ratings/v2/"
 //     route:
 //     - destination:
 //         host: ratings.prod.svc.cluster.local
@@ -619,7 +709,7 @@ type HTTPMatchRequest struct {
 func (m *HTTPMatchRequest) Reset()                    { *m = HTTPMatchRequest{} }
 func (m *HTTPMatchRequest) String() string            { return proto.CompactTextString(m) }
 func (*HTTPMatchRequest) ProtoMessage()               {}
-func (*HTTPMatchRequest) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{4} }
+func (*HTTPMatchRequest) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{5} }
 
 func (m *HTTPMatchRequest) GetUri() *StringMatch {
 	if m != nil {
@@ -757,7 +847,7 @@ type DestinationWeight struct {
 func (m *DestinationWeight) Reset()                    { *m = DestinationWeight{} }
 func (m *DestinationWeight) String() string            { return proto.CompactTextString(m) }
 func (*DestinationWeight) ProtoMessage()               {}
-func (*DestinationWeight) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{5} }
+func (*DestinationWeight) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{6} }
 
 func (m *DestinationWeight) GetDestination() *Destination {
 	if m != nil {
@@ -787,6 +877,7 @@ type L4MatchAttributes struct {
 	Port uint32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
 	// IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
 	// form or just a.b.c.d
+	// $hide_from_docs
 	SourceSubnet string `protobuf:"bytes,3,opt,name=source_subnet,json=sourceSubnet,proto3" json:"source_subnet,omitempty"`
 	// One or more labels that constrain the applicability of a rule to
 	// workloads with the given labels. If the VirtualService has a list of
@@ -794,15 +885,15 @@ type L4MatchAttributes struct {
 	// `mesh` in order for this field to be applicable.
 	SourceLabels map[string]string `protobuf:"bytes,4,rep,name=source_labels,json=sourceLabels" json:"source_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Names of gateways where the rule should be applied to. Gateway names
-	// at the top of the VirtualService (if any) are overridden. The gateway match is
-	// independent of sourceLabels.
+	// at the top of the VirtualService (if any) are overridden. The gateway
+	// match is independent of sourceLabels.
 	Gateways []string `protobuf:"bytes,5,rep,name=gateways" json:"gateways,omitempty"`
 }
 
 func (m *L4MatchAttributes) Reset()                    { *m = L4MatchAttributes{} }
 func (m *L4MatchAttributes) String() string            { return proto.CompactTextString(m) }
 func (*L4MatchAttributes) ProtoMessage()               {}
-func (*L4MatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{6} }
+func (*L4MatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{7} }
 
 func (m *L4MatchAttributes) GetDestinationSubnet() string {
 	if m != nil {
@@ -839,7 +930,74 @@ func (m *L4MatchAttributes) GetGateways() []string {
 	return nil
 }
 
-// HTTPRedirect can be used to send a 302 redirect response to the caller,
+// TLS connection match attributes.
+type TLSMatchAttributes struct {
+	// IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
+	// a.b.c.d/xx form or just a.b.c.d. This is only valid when the
+	// destination service has several IPs and the application explicitly
+	// specifies a particular IP.
+	DestinationSubnet string `protobuf:"bytes,1,opt,name=destination_subnet,json=destinationSubnet,proto3" json:"destination_subnet,omitempty"`
+	// Specifies the port on the host that is being addressed. Many services
+	// only expose a single port or label ports with the protocols they
+	// support, in these cases it is not required to explicitly select the
+	// port.
+	Port uint32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	// SNI (server name indicator) to match on. Wildcard prefixes can be used
+	// in the SNI value. E.g., *.com will match foo.example.com as well as
+	// example.com.
+	SniHosts []string `protobuf:"bytes,3,rep,name=sni_hosts,json=sniHosts" json:"sni_hosts,omitempty"`
+	// One or more labels that constrain the applicability of a rule to
+	// workloads with the given labels. If the VirtualService has a list of
+	// gateways specified at the top, it should include the reserved gateway
+	// `mesh` in order for this field to be applicable.
+	SourceLabels map[string]string `protobuf:"bytes,4,rep,name=source_labels,json=sourceLabels" json:"source_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Names of gateways where the rule should be applied to. Gateway names
+	// at the top of the VirtualService (if any) are overridden. The gateway
+	// match is independent of sourceLabels.
+	Gateways []string `protobuf:"bytes,5,rep,name=gateways" json:"gateways,omitempty"`
+}
+
+func (m *TLSMatchAttributes) Reset()                    { *m = TLSMatchAttributes{} }
+func (m *TLSMatchAttributes) String() string            { return proto.CompactTextString(m) }
+func (*TLSMatchAttributes) ProtoMessage()               {}
+func (*TLSMatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{8} }
+
+func (m *TLSMatchAttributes) GetDestinationSubnet() string {
+	if m != nil {
+		return m.DestinationSubnet
+	}
+	return ""
+}
+
+func (m *TLSMatchAttributes) GetPort() uint32 {
+	if m != nil {
+		return m.Port
+	}
+	return 0
+}
+
+func (m *TLSMatchAttributes) GetSniHosts() []string {
+	if m != nil {
+		return m.SniHosts
+	}
+	return nil
+}
+
+func (m *TLSMatchAttributes) GetSourceLabels() map[string]string {
+	if m != nil {
+		return m.SourceLabels
+	}
+	return nil
+}
+
+func (m *TLSMatchAttributes) GetGateways() []string {
+	if m != nil {
+		return m.Gateways
+	}
+	return nil
+}
+
+// HTTPRedirect can be used to send a 301 redirect response to the caller,
 // where the Authority/Host and the URI in the response can be swapped with
 // the specified values. For example, the following rule redirects
 // requests for /v1/getProductRatings API on the ratings service to
@@ -875,7 +1033,7 @@ type HTTPRedirect struct {
 func (m *HTTPRedirect) Reset()                    { *m = HTTPRedirect{} }
 func (m *HTTPRedirect) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRedirect) ProtoMessage()               {}
-func (*HTTPRedirect) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{7} }
+func (*HTTPRedirect) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{9} }
 
 func (m *HTTPRedirect) GetUri() string {
 	if m != nil {
@@ -929,7 +1087,7 @@ type HTTPRewrite struct {
 func (m *HTTPRewrite) Reset()                    { *m = HTTPRewrite{} }
 func (m *HTTPRewrite) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRewrite) ProtoMessage()               {}
-func (*HTTPRewrite) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{8} }
+func (*HTTPRewrite) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{10} }
 
 func (m *HTTPRewrite) GetUri() string {
 	if m != nil {
@@ -958,7 +1116,7 @@ type StringMatch struct {
 func (m *StringMatch) Reset()                    { *m = StringMatch{} }
 func (m *StringMatch) String() string            { return proto.CompactTextString(m) }
 func (*StringMatch) ProtoMessage()               {}
-func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{9} }
+func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{11} }
 
 type isStringMatch_MatchType interface {
 	isStringMatch_MatchType()
@@ -1123,7 +1281,7 @@ type HTTPRetry struct {
 func (m *HTTPRetry) Reset()                    { *m = HTTPRetry{} }
 func (m *HTTPRetry) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRetry) ProtoMessage()               {}
-func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{10} }
+func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{12} }
 
 func (m *HTTPRetry) GetAttempts() int32 {
 	if m != nil {
@@ -1199,7 +1357,7 @@ type CorsPolicy struct {
 func (m *CorsPolicy) Reset()                    { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string            { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()               {}
-func (*CorsPolicy) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{11} }
+func (*CorsPolicy) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{13} }
 
 func (m *CorsPolicy) GetAllowOrigin() []string {
 	if m != nil {
@@ -1264,7 +1422,7 @@ func (m *HTTPFaultInjection) Reset()         { *m = HTTPFaultInjection{} }
 func (m *HTTPFaultInjection) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection) ProtoMessage()    {}
 func (*HTTPFaultInjection) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{12}
+	return fileDescriptorVirtualService, []int{14}
 }
 
 func (m *HTTPFaultInjection) GetDelay() *HTTPFaultInjection_Delay {
@@ -1325,7 +1483,7 @@ func (m *HTTPFaultInjection_Delay) Reset()         { *m = HTTPFaultInjection_Del
 func (m *HTTPFaultInjection_Delay) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection_Delay) ProtoMessage()    {}
 func (*HTTPFaultInjection_Delay) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{12, 0}
+	return fileDescriptorVirtualService, []int{14, 0}
 }
 
 type isHTTPFaultInjection_Delay_HttpDelayType interface {
@@ -1487,7 +1645,7 @@ func (m *HTTPFaultInjection_Abort) Reset()         { *m = HTTPFaultInjection_Abo
 func (m *HTTPFaultInjection_Abort) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection_Abort) ProtoMessage()    {}
 func (*HTTPFaultInjection_Abort) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{12, 1}
+	return fileDescriptorVirtualService, []int{14, 1}
 }
 
 type isHTTPFaultInjection_Abort_ErrorType interface {
@@ -1637,7 +1795,7 @@ type PortSelector struct {
 func (m *PortSelector) Reset()                    { *m = PortSelector{} }
 func (m *PortSelector) String() string            { return proto.CompactTextString(m) }
 func (*PortSelector) ProtoMessage()               {}
-func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{13} }
+func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{15} }
 
 type isPortSelector_Port interface {
 	isPortSelector_Port()
@@ -1745,10 +1903,12 @@ func init() {
 	proto.RegisterType((*VirtualService)(nil), "istio.networking.v1alpha3.VirtualService")
 	proto.RegisterType((*Destination)(nil), "istio.networking.v1alpha3.Destination")
 	proto.RegisterType((*HTTPRoute)(nil), "istio.networking.v1alpha3.HTTPRoute")
+	proto.RegisterType((*TLSRoute)(nil), "istio.networking.v1alpha3.TLSRoute")
 	proto.RegisterType((*TCPRoute)(nil), "istio.networking.v1alpha3.TCPRoute")
 	proto.RegisterType((*HTTPMatchRequest)(nil), "istio.networking.v1alpha3.HTTPMatchRequest")
 	proto.RegisterType((*DestinationWeight)(nil), "istio.networking.v1alpha3.DestinationWeight")
 	proto.RegisterType((*L4MatchAttributes)(nil), "istio.networking.v1alpha3.L4MatchAttributes")
+	proto.RegisterType((*TLSMatchAttributes)(nil), "istio.networking.v1alpha3.TLSMatchAttributes")
 	proto.RegisterType((*HTTPRedirect)(nil), "istio.networking.v1alpha3.HTTPRedirect")
 	proto.RegisterType((*HTTPRewrite)(nil), "istio.networking.v1alpha3.HTTPRewrite")
 	proto.RegisterType((*StringMatch)(nil), "istio.networking.v1alpha3.StringMatch")
@@ -1819,6 +1979,18 @@ func (m *VirtualService) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Tcp) > 0 {
 		for _, msg := range m.Tcp {
 			dAtA[i] = 0x22
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Tls) > 0 {
+		for _, msg := range m.Tls {
+			dAtA[i] = 0x2a
 			i++
 			i = encodeVarintVirtualService(dAtA, i, uint64(msg.Size()))
 			n, err := msg.MarshalTo(dAtA[i:])
@@ -2005,6 +2177,65 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			i = encodeVarintVirtualService(dAtA, i, uint64(len(v)))
 			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.RemoveResponseHeaders) > 0 {
+		for k, _ := range m.RemoveResponseHeaders {
+			dAtA[i] = 0x62
+			i++
+			v := m.RemoveResponseHeaders[k]
+			mapSize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			i = encodeVarintVirtualService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	return i, nil
+}
+
+func (m *TLSRoute) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TLSRoute) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Match) > 0 {
+		for _, msg := range m.Match {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Route) > 0 {
+		for _, msg := range m.Route {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
 		}
 	}
 	return i, nil
@@ -2239,6 +2470,82 @@ func (m *L4MatchAttributes) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(len(m.SourceSubnet)))
 		i += copy(dAtA[i:], m.SourceSubnet)
+	}
+	if len(m.SourceLabels) > 0 {
+		for k, _ := range m.SourceLabels {
+			dAtA[i] = 0x22
+			i++
+			v := m.SourceLabels[k]
+			mapSize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			i = encodeVarintVirtualService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Gateways) > 0 {
+		for _, s := range m.Gateways {
+			dAtA[i] = 0x2a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	return i, nil
+}
+
+func (m *TLSMatchAttributes) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TLSMatchAttributes) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.DestinationSubnet) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(len(m.DestinationSubnet)))
+		i += copy(dAtA[i:], m.DestinationSubnet)
+	}
+	if m.Port != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.Port))
+	}
+	if len(m.SniHosts) > 0 {
+		for _, s := range m.SniHosts {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
 	}
 	if len(m.SourceLabels) > 0 {
 		for k, _ := range m.SourceLabels {
@@ -2740,6 +3047,12 @@ func (m *VirtualService) Size() (n int) {
 			n += 1 + l + sovVirtualService(uint64(l))
 		}
 	}
+	if len(m.Tls) > 0 {
+		for _, e := range m.Tls {
+			l = e.Size()
+			n += 1 + l + sovVirtualService(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -2813,6 +3126,32 @@ func (m *HTTPRoute) Size() (n int) {
 			_ = v
 			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
 			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	if len(m.RemoveResponseHeaders) > 0 {
+		for k, v := range m.RemoveResponseHeaders {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *TLSRoute) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Match) > 0 {
+		for _, e := range m.Match {
+			l = e.Size()
+			n += 1 + l + sovVirtualService(uint64(l))
+		}
+	}
+	if len(m.Route) > 0 {
+		for _, e := range m.Route {
+			l = e.Size()
+			n += 1 + l + sovVirtualService(uint64(l))
 		}
 	}
 	return n
@@ -2914,6 +3253,39 @@ func (m *L4MatchAttributes) Size() (n int) {
 	l = len(m.SourceSubnet)
 	if l > 0 {
 		n += 1 + l + sovVirtualService(uint64(l))
+	}
+	if len(m.SourceLabels) > 0 {
+		for k, v := range m.SourceLabels {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	if len(m.Gateways) > 0 {
+		for _, s := range m.Gateways {
+			l = len(s)
+			n += 1 + l + sovVirtualService(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *TLSMatchAttributes) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.DestinationSubnet)
+	if l > 0 {
+		n += 1 + l + sovVirtualService(uint64(l))
+	}
+	if m.Port != 0 {
+		n += 1 + sovVirtualService(uint64(m.Port))
+	}
+	if len(m.SniHosts) > 0 {
+		for _, s := range m.SniHosts {
+			l = len(s)
+			n += 1 + l + sovVirtualService(uint64(l))
+		}
 	}
 	if len(m.SourceLabels) > 0 {
 		for k, v := range m.SourceLabels {
@@ -3299,6 +3671,37 @@ func (m *VirtualService) Unmarshal(dAtA []byte) error {
 			}
 			m.Tcp = append(m.Tcp, &TCPRoute{})
 			if err := m.Tcp[len(m.Tcp)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tls", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Tls = append(m.Tls, &TLSRoute{})
+			if err := m.Tls[len(m.Tls)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -3923,6 +4326,236 @@ func (m *HTTPRoute) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.AppendHeaders[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RemoveResponseHeaders", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RemoveResponseHeaders == nil {
+				m.RemoveResponseHeaders = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowVirtualService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipVirtualService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.RemoveResponseHeaders[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipVirtualService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TLSRoute) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowVirtualService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TLSRoute: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TLSRoute: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Match", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Match = append(m.Match, &TLSMatchAttributes{})
+			if err := m.Match[len(m.Match)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Route", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Route = append(m.Route, &DestinationWeight{})
+			if err := m.Route[len(m.Route)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -4735,6 +5368,280 @@ func (m *L4MatchAttributes) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.SourceSubnet = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SourceLabels", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SourceLabels == nil {
+				m.SourceLabels = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowVirtualService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipVirtualService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.SourceLabels[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Gateways", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Gateways = append(m.Gateways, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipVirtualService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TLSMatchAttributes) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowVirtualService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TLSMatchAttributes: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TLSMatchAttributes: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DestinationSubnet", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DestinationSubnet = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Port", wireType)
+			}
+			m.Port = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Port |= (uint32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SniHosts", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SniHosts = append(m.SniHosts, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -6196,88 +7103,95 @@ func init() {
 }
 
 var fileDescriptorVirtualService = []byte{
-	// 1323 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x97, 0x5d, 0x6f, 0x1b, 0x45,
-	0x17, 0xc7, 0xeb, 0xd7, 0x24, 0x67, 0x93, 0x36, 0x1e, 0x55, 0xd5, 0xd6, 0x7a, 0x14, 0xa5, 0xee,
-	0x53, 0x08, 0x2a, 0x75, 0x44, 0x02, 0x22, 0x82, 0x36, 0x34, 0x2f, 0x2d, 0xae, 0xd4, 0x8a, 0x6a,
-	0x13, 0x8a, 0xc4, 0x05, 0xab, 0xf1, 0xfa, 0xc4, 0xde, 0x76, 0xbd, 0xb3, 0xcc, 0xce, 0xc6, 0xf6,
-	0x3d, 0x9f, 0x80, 0x2b, 0x6e, 0x10, 0xf7, 0xdc, 0x72, 0x0b, 0xf7, 0x5c, 0xf2, 0x11, 0x50, 0x3f,
-	0x09, 0x9a, 0x33, 0xbb, 0xf6, 0xb6, 0x06, 0xbf, 0x08, 0xee, 0x76, 0xce, 0x9c, 0xdf, 0x99, 0xb7,
-	0xff, 0x39, 0x33, 0x0b, 0xef, 0x85, 0xa8, 0x06, 0x42, 0xbe, 0xf2, 0xc3, 0xee, 0xee, 0xe5, 0x07,
-	0x3c, 0x88, 0x7a, 0x7c, 0x7f, 0xf7, 0xd2, 0x97, 0x2a, 0xe1, 0x81, 0x1b, 0xa3, 0xbc, 0xf4, 0x3d,
-	0x6c, 0x46, 0x52, 0x28, 0xc1, 0x6e, 0xfa, 0xb1, 0xf2, 0x45, 0x73, 0x02, 0x34, 0x33, 0xa0, 0xbe,
-	0xd5, 0x15, 0xa2, 0x1b, 0xe0, 0x2e, 0x39, 0xb6, 0x93, 0x8b, 0xdd, 0x4e, 0x22, 0xb9, 0xf2, 0x45,
-	0x68, 0xd0, 0xe9, 0xfe, 0x81, 0xe4, 0x51, 0x84, 0x32, 0x36, 0xfd, 0x8d, 0x5f, 0x0a, 0x70, 0xf5,
-	0x85, 0x19, 0xf4, 0xcc, 0x8c, 0xc9, 0xae, 0x43, 0xa5, 0x27, 0x62, 0x15, 0xdb, 0x85, 0xed, 0xd2,
-	0xce, 0x9a, 0x63, 0x1a, 0xac, 0x0e, 0xab, 0x5d, 0xae, 0x70, 0xc0, 0x47, 0xb1, 0x5d, 0xa4, 0x8e,
-	0x71, 0x9b, 0x1d, 0x40, 0xb9, 0xa7, 0x54, 0x64, 0x97, 0xb6, 0x4b, 0x3b, 0xd6, 0xde, 0xff, 0x9b,
-	0xff, 0x38, 0xdd, 0x66, 0xeb, 0xfc, 0xfc, 0xb9, 0x23, 0x12, 0x85, 0x0e, 0x11, 0xec, 0x23, 0x28,
-	0x29, 0x2f, 0xb2, 0xcb, 0x04, 0xde, 0x9e, 0x01, 0x9e, 0x9f, 0xa4, 0x9c, 0xf6, 0x6f, 0x5c, 0x82,
-	0x75, 0x8a, 0xb1, 0xf2, 0x43, 0x5a, 0x2a, 0x63, 0x50, 0xd6, 0x93, 0xb4, 0x0b, 0xdb, 0x85, 0x9d,
-	0x35, 0x87, 0xbe, 0xd9, 0x0d, 0xa8, 0xc6, 0x49, 0x3b, 0x46, 0x65, 0x17, 0xc9, 0x9a, 0xb6, 0xd8,
-	0xa7, 0x50, 0x8e, 0x84, 0x54, 0x76, 0x69, 0xbb, 0xb0, 0x63, 0xed, 0xbd, 0x3b, 0x63, 0xc8, 0xe7,
-	0x42, 0xaa, 0x33, 0x0c, 0xd0, 0x53, 0x42, 0x3a, 0x04, 0x35, 0x7e, 0xae, 0xc2, 0xda, 0x78, 0x09,
-	0xec, 0x08, 0x2a, 0x7d, 0xae, 0xbc, 0x1e, 0x6d, 0x94, 0xb5, 0x77, 0x77, 0xce, 0xba, 0x9f, 0x69,
-	0x5f, 0x07, 0xbf, 0x4d, 0x30, 0x56, 0x8e, 0x21, 0xd9, 0x31, 0x54, 0xa4, 0x8e, 0x45, 0x5b, 0x6a,
-	0xed, 0xbd, 0x3f, 0x23, 0x44, 0x6e, 0xc1, 0x5f, 0xa1, 0xdf, 0xed, 0x29, 0xc7, 0xa0, 0xec, 0x04,
-	0x56, 0x25, 0x76, 0x7c, 0x89, 0xde, 0x22, 0xab, 0xa2, 0xe9, 0xa7, 0xee, 0xce, 0x18, 0x64, 0x0f,
-	0x61, 0x45, 0xe2, 0x40, 0xfa, 0x0a, 0xed, 0x32, 0xc5, 0x78, 0x67, 0x6e, 0x0c, 0xf2, 0x76, 0x32,
-	0x8c, 0xdd, 0x85, 0xda, 0x00, 0xdb, 0xb1, 0xf0, 0x5e, 0xa1, 0x72, 0x93, 0xa8, 0x2b, 0x79, 0x07,
-	0xed, 0xca, 0x76, 0x61, 0x67, 0xd5, 0xd9, 0x1c, 0x77, 0x7c, 0x69, 0xec, 0x6c, 0x1f, 0x56, 0x94,
-	0xdf, 0x47, 0x91, 0x28, 0xbb, 0x4a, 0xc3, 0xdd, 0x6c, 0x1a, 0xa1, 0x36, 0x33, 0xa1, 0x36, 0x4f,
-	0x53, 0x21, 0x3b, 0x99, 0x27, 0x3b, 0xd4, 0x73, 0x54, 0xd2, 0xc7, 0xd8, 0x5e, 0x21, 0x68, 0xae,
-	0xd2, 0x50, 0xc9, 0x91, 0x93, 0x41, 0xec, 0x04, 0x2a, 0x17, 0x3c, 0x09, 0x94, 0xbd, 0x4a, 0xf4,
-	0xbd, 0x39, 0xf4, 0x63, 0xed, 0xfb, 0x24, 0x7c, 0x89, 0x1e, 0x4d, 0xc3, 0xb0, 0xec, 0x10, 0xaa,
-	0x7d, 0x5f, 0x4a, 0x21, 0xed, 0xb5, 0xb9, 0xfb, 0x94, 0x3b, 0x32, 0x27, 0xa5, 0xd8, 0x63, 0xb0,
-	0x3c, 0x21, 0x63, 0x37, 0x12, 0x81, 0xef, 0x8d, 0x6c, 0xa0, 0x20, 0x77, 0x66, 0x04, 0x39, 0x11,
-	0x32, 0x7e, 0x4e, 0xce, 0x0e, 0x78, 0xe3, 0x6f, 0xf6, 0x0d, 0x5c, 0xd5, 0x89, 0x1c, 0x76, 0xdc,
-	0x1e, 0xf2, 0x0e, 0xca, 0xd8, 0xb6, 0x48, 0x42, 0x1f, 0x2f, 0x92, 0x7d, 0xcd, 0x23, 0x42, 0x5b,
-	0x86, 0x7c, 0x14, 0xea, 0x6d, 0xda, 0xe0, 0x79, 0x5b, 0xfd, 0x21, 0xb0, 0x69, 0x27, 0xb6, 0x09,
-	0xa5, 0x57, 0x38, 0x4a, 0x13, 0x4d, 0x7f, 0xea, 0x6a, 0x71, 0xc9, 0x83, 0x04, 0xd3, 0x34, 0x33,
-	0x8d, 0x4f, 0x8a, 0x07, 0x85, 0xc6, 0xf7, 0x05, 0x58, 0xcd, 0xd2, 0x56, 0x0b, 0x3d, 0x9f, 0x2b,
-	0xb3, 0x84, 0xfe, 0xf4, 0x43, 0xca, 0x94, 0x23, 0xa5, 0xa4, 0xdf, 0x4e, 0x14, 0xc6, 0xff, 0x61,
-	0xb2, 0x34, 0x7e, 0xaa, 0xc0, 0xe6, 0xdb, 0xc9, 0xc8, 0x0e, 0xa0, 0x94, 0x48, 0x9f, 0x56, 0x35,
-	0xfb, 0x40, 0xcf, 0x94, 0xf4, 0xc3, 0xae, 0x61, 0x35, 0xa2, 0xd5, 0x10, 0x7b, 0x3d, 0xec, 0x9b,
-	0xe5, 0x2f, 0x0e, 0xa7, 0x14, 0xa9, 0x09, 0x55, 0x4f, 0x74, 0xd2, 0xcc, 0x5d, 0x98, 0x37, 0x14,
-	0x3b, 0x85, 0x35, 0x9e, 0xa8, 0x9e, 0x90, 0xbe, 0x1a, 0x2d, 0x90, 0xb8, 0xf9, 0x10, 0x13, 0x90,
-	0x39, 0xb0, 0x92, 0x89, 0xa8, 0x42, 0x5b, 0x7b, 0xb0, 0x44, 0x29, 0x6b, 0xbe, 0xa1, 0xa2, 0x2c,
-	0x90, 0xae, 0xc9, 0x54, 0x67, 0x75, 0x7a, 0x6f, 0x98, 0xf2, 0xc9, 0xda, 0xb0, 0x11, 0x8b, 0x44,
-	0x7a, 0xe8, 0x06, 0xbc, 0x8d, 0x81, 0x4e, 0x63, 0x3d, 0xda, 0x83, 0x65, 0x46, 0x3b, 0xa3, 0x00,
-	0x4f, 0x89, 0x37, 0x43, 0xae, 0xc7, 0x39, 0xd3, 0x1b, 0xf7, 0xd4, 0xea, 0x9b, 0xf7, 0x54, 0xbd,
-	0x0d, 0xeb, 0x73, 0xd4, 0x7c, 0x3f, 0xaf, 0xe6, 0xc5, 0xf7, 0x72, 0xa2, 0xfa, 0xfa, 0x67, 0x50,
-	0x9b, 0x9a, 0xe2, 0x52, 0x69, 0x93, 0x40, 0x6d, 0x4a, 0xbd, 0xac, 0x05, 0x56, 0x67, 0x62, 0x5c,
-	0x40, 0xa9, 0xf9, 0xd2, 0x93, 0x47, 0xf5, 0xbd, 0x38, 0xa0, 0x98, 0x34, 0x72, 0xc5, 0x49, 0x5b,
-	0x8d, 0xdf, 0x8a, 0x50, 0x9b, 0xca, 0x3c, 0x76, 0x0f, 0x58, 0x0e, 0x76, 0xe3, 0xa4, 0x1d, 0x62,
-	0x76, 0xcf, 0xd6, 0x72, 0x3d, 0x67, 0xd4, 0x31, 0x3e, 0xf4, 0x62, 0xee, 0xd0, 0x6f, 0x8f, 0x0f,
-	0x3d, 0xa5, 0x4b, 0x44, 0xa7, 0xa7, 0x96, 0x82, 0xde, 0xdb, 0xca, 0x30, 0x2f, 0x82, 0xc3, 0x65,
-	0xca, 0xc4, 0x52, 0xd2, 0xa8, 0xbc, 0x25, 0x8d, 0x7f, 0x7d, 0x6c, 0x87, 0xb0, 0x9e, 0xbf, 0x5a,
-	0x35, 0x9b, 0xd5, 0x94, 0x35, 0x53, 0x2b, 0xfe, 0x97, 0xcf, 0x55, 0xc3, 0x4f, 0x0c, 0x8d, 0x07,
-	0x60, 0xe5, 0xae, 0xd5, 0xa5, 0x71, 0x04, 0x2b, 0x27, 0x48, 0x76, 0x03, 0x2a, 0x38, 0xe4, 0x5e,
-	0x7a, 0x54, 0xad, 0x2b, 0x8e, 0x69, 0x32, 0x1b, 0xaa, 0x91, 0xc4, 0x0b, 0x7f, 0x68, 0x22, 0xb4,
-	0xae, 0x38, 0x69, 0x5b, 0x13, 0x12, 0xbb, 0x38, 0x34, 0xc7, 0xa3, 0x09, 0x6a, 0x1e, 0xaf, 0x03,
-	0x50, 0xf5, 0x75, 0xd5, 0x28, 0xc2, 0xc6, 0xcb, 0xf4, 0xfd, 0xa3, 0x2f, 0x56, 0xbd, 0x9f, 0x5c,
-	0x29, 0xec, 0x47, 0xf4, 0x56, 0xd4, 0x62, 0x1a, 0xb7, 0xd9, 0x11, 0x5c, 0x8b, 0x50, 0xba, 0x4a,
-	0x8e, 0xdc, 0xec, 0xa2, 0x2f, 0xce, 0xbb, 0xe8, 0x37, 0x22, 0x94, 0xe7, 0x72, 0x74, 0x6e, 0xfc,
-	0x1b, 0x3f, 0x16, 0x01, 0x26, 0x97, 0x1f, 0xbb, 0x05, 0xeb, 0x3c, 0x08, 0xc4, 0xc0, 0x15, 0xd2,
-	0xef, 0xfa, 0x61, 0xfa, 0x3a, 0xb5, 0xc8, 0xf6, 0x05, 0x99, 0xb4, 0xd4, 0x8c, 0x8b, 0xa9, 0x8e,
-	0xd9, 0x43, 0xd5, 0x70, 0xcf, 0x8c, 0x6d, 0xe2, 0x94, 0x95, 0xbc, 0x52, 0xce, 0x29, 0x2d, 0x0f,
-	0xec, 0x0e, 0x5c, 0xc5, 0x61, 0x24, 0x62, 0x1c, 0x7b, 0x95, 0xc9, 0x6b, 0xc3, 0x58, 0x33, 0xb7,
-	0x3d, 0x58, 0xe9, 0xf3, 0xa1, 0xcb, 0xbb, 0xe6, 0xa5, 0x33, 0x73, 0x75, 0xd5, 0x3e, 0x1f, 0x1e,
-	0x75, 0x91, 0x7d, 0x0e, 0x35, 0x33, 0xbe, 0x27, 0xb1, 0x83, 0xa1, 0xf2, 0x79, 0x10, 0xa7, 0x8f,
-	0xa0, 0xfa, 0x14, 0x7d, 0x2c, 0x44, 0xf0, 0x42, 0x6b, 0xcc, 0xd9, 0x24, 0xe8, 0x64, 0xc2, 0x34,
-	0xbe, 0x2b, 0x03, 0x9b, 0x7e, 0xa7, 0xb0, 0x27, 0x50, 0xe9, 0x60, 0xc0, 0x47, 0x69, 0x91, 0xd8,
-	0x5f, 0xea, 0x95, 0xd3, 0x3c, 0xd5, 0xa8, 0x63, 0x22, 0xe8, 0x50, 0xbc, 0x9d, 0xe5, 0xf3, 0xd2,
-	0xa1, 0x8e, 0x34, 0xea, 0x98, 0x08, 0xf5, 0x5f, 0x0b, 0x50, 0xa1, 0xd8, 0xcc, 0x86, 0x95, 0x08,
-	0xa5, 0x87, 0xa1, 0x4a, 0x45, 0x93, 0x35, 0xd9, 0x7d, 0xb0, 0x2e, 0xfc, 0x21, 0x76, 0x5c, 0x33,
-	0xff, 0x79, 0x7a, 0x69, 0x5d, 0x71, 0x80, 0xfc, 0x4d, 0xdc, 0x16, 0xd4, 0xf4, 0xe1, 0x84, 0x66,
-	0x7b, 0xd2, 0x18, 0xa5, 0xf9, 0x31, 0x36, 0x73, 0x14, 0x45, 0x3a, 0xae, 0xc1, 0x35, 0xfd, 0x73,
-	0x62, 0x42, 0x90, 0xee, 0xeb, 0x3f, 0x14, 0xa0, 0x42, 0xeb, 0x99, 0x31, 0xfd, 0x5b, 0x60, 0x11,
-	0x16, 0x2b, 0xae, 0x92, 0xd8, 0x94, 0x57, 0x3d, 0x47, 0x6d, 0x3c, 0x23, 0x9b, 0x76, 0xe9, 0xca,
-	0xc8, 0xcb, 0x5c, 0xb2, 0x54, 0x03, 0x6d, 0x9c, 0xb8, 0x68, 0x60, 0xcf, 0x45, 0x7a, 0x64, 0x96,
-	0x33, 0x17, 0x32, 0x3e, 0xd2, 0x36, 0x9d, 0x92, 0xd4, 0x69, 0x52, 0xf2, 0x31, 0xac, 0xe7, 0xff,
-	0x54, 0x74, 0x8a, 0x87, 0x49, 0xbf, 0x8d, 0x92, 0xe6, 0xb7, 0xa1, 0x53, 0xdc, 0xb4, 0xd9, 0x75,
-	0x28, 0x87, 0x3c, 0x7d, 0xaa, 0xe8, 0x98, 0xd4, 0x3a, 0xae, 0x9a, 0x9a, 0x7d, 0xdc, 0xfc, 0xfd,
-	0xf5, 0x56, 0xe1, 0x8f, 0xd7, 0x5b, 0x85, 0x3f, 0x5f, 0x6f, 0x15, 0xbe, 0xde, 0x36, 0x47, 0xed,
-	0x8b, 0x5d, 0x1e, 0xf9, 0xbb, 0x7f, 0xf3, 0xab, 0xda, 0xae, 0xd2, 0x66, 0xee, 0xff, 0x15, 0x00,
-	0x00, 0xff, 0xff, 0xb4, 0xe3, 0x11, 0x92, 0xc8, 0x0e, 0x00, 0x00,
+	// 1437 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x58, 0x4d, 0x8f, 0x1b, 0x45,
+	0x13, 0x8e, 0xbf, 0xf6, 0xa3, 0xbc, 0x9b, 0xac, 0x5b, 0x79, 0xf3, 0x4e, 0xfc, 0xbe, 0x5a, 0x6d,
+	0x1c, 0x02, 0x8b, 0x42, 0xbc, 0x62, 0x17, 0xc4, 0x0a, 0x92, 0x4d, 0xf6, 0x23, 0xc1, 0x91, 0x12,
+	0x11, 0xcd, 0x2e, 0x41, 0xe2, 0xc0, 0x68, 0x3c, 0xae, 0xb5, 0x27, 0x19, 0x4f, 0x0f, 0xdd, 0x3d,
+	0x6b, 0xfb, 0xce, 0x2f, 0x80, 0x0b, 0x17, 0xc4, 0xcf, 0xe0, 0x02, 0x77, 0x8e, 0xfc, 0x04, 0x94,
+	0x23, 0x12, 0xff, 0x01, 0x75, 0xf5, 0x8c, 0x3d, 0x1b, 0x27, 0xfe, 0x10, 0x41, 0xdc, 0xdc, 0xd5,
+	0xf5, 0x3c, 0x55, 0x53, 0x5d, 0x55, 0x5d, 0x6d, 0x78, 0x37, 0x44, 0xd5, 0xe3, 0xe2, 0xb9, 0x1f,
+	0xb6, 0xb7, 0xce, 0xde, 0x77, 0x83, 0xa8, 0xe3, 0xee, 0x6c, 0x9d, 0xf9, 0x42, 0xc5, 0x6e, 0xe0,
+	0x48, 0x14, 0x67, 0xbe, 0x87, 0xf5, 0x48, 0x70, 0xc5, 0xd9, 0x55, 0x5f, 0x2a, 0x9f, 0xd7, 0x47,
+	0x80, 0x7a, 0x0a, 0xa8, 0xae, 0xb7, 0x39, 0x6f, 0x07, 0xb8, 0x45, 0x8a, 0xcd, 0xf8, 0x74, 0xab,
+	0x15, 0x0b, 0x57, 0xf9, 0x3c, 0x34, 0xd0, 0xf1, 0xfd, 0x9e, 0x70, 0xa3, 0x08, 0x85, 0x34, 0xfb,
+	0xb5, 0x3f, 0x72, 0x70, 0xf1, 0xa9, 0x31, 0x7a, 0x6c, 0x6c, 0xb2, 0xcb, 0x50, 0xea, 0x70, 0xa9,
+	0xa4, 0x95, 0xdb, 0x28, 0x6c, 0x2e, 0xdb, 0x66, 0xc1, 0xaa, 0xb0, 0xd4, 0x76, 0x15, 0xf6, 0xdc,
+	0x81, 0xb4, 0xf2, 0xb4, 0x31, 0x5c, 0xb3, 0x5d, 0x28, 0x76, 0x94, 0x8a, 0xac, 0xc2, 0x46, 0x61,
+	0xb3, 0xbc, 0xfd, 0x56, 0xfd, 0xb5, 0xee, 0xd6, 0x1b, 0x27, 0x27, 0x4f, 0x6c, 0x1e, 0x2b, 0xb4,
+	0x09, 0xc1, 0x3e, 0x84, 0x82, 0xf2, 0x22, 0xab, 0x48, 0xc0, 0xeb, 0x13, 0x80, 0x27, 0x87, 0x09,
+	0x4e, 0xeb, 0x13, 0x2c, 0x90, 0x56, 0x69, 0x3a, 0xec, 0xd1, 0x71, 0x0a, 0x0b, 0x64, 0xed, 0x0c,
+	0xca, 0x47, 0x28, 0x95, 0x1f, 0x52, 0x84, 0x18, 0x83, 0xa2, 0xfe, 0x36, 0x2b, 0xb7, 0x91, 0xdb,
+	0x5c, 0xb6, 0xe9, 0x37, 0xbb, 0x02, 0x0b, 0x32, 0x6e, 0x4a, 0x54, 0x56, 0x9e, 0xa4, 0xc9, 0x8a,
+	0x7d, 0x02, 0xc5, 0x88, 0x0b, 0x65, 0x15, 0x36, 0x72, 0x9b, 0xe5, 0xed, 0x77, 0x26, 0x98, 0x7c,
+	0xc2, 0x85, 0x3a, 0xc6, 0x00, 0x3d, 0xc5, 0x85, 0x4d, 0xa0, 0xda, 0x9f, 0x8b, 0xb0, 0x3c, 0xfc,
+	0x72, 0xb6, 0x0f, 0xa5, 0xae, 0xab, 0xbc, 0x0e, 0xc5, 0xb7, 0xbc, 0x7d, 0x73, 0x4a, 0xb8, 0x1e,
+	0x6b, 0x5d, 0x1b, 0xbf, 0x8e, 0x51, 0x2a, 0xdb, 0x20, 0xd9, 0x01, 0x94, 0x84, 0xe6, 0xa2, 0x93,
+	0x28, 0x6f, 0xbf, 0x37, 0x81, 0x22, 0xf3, 0xc1, 0x5f, 0xa0, 0xdf, 0xee, 0x28, 0xdb, 0x40, 0xd9,
+	0x21, 0x2c, 0x09, 0x6c, 0xf9, 0x02, 0xbd, 0x59, 0xbe, 0x8a, 0xdc, 0x4f, 0xd4, 0xed, 0x21, 0x90,
+	0xdd, 0x83, 0x45, 0x81, 0x3d, 0xe1, 0x2b, 0xb4, 0x8a, 0xc4, 0xf1, 0xf6, 0x54, 0x0e, 0xd2, 0xb6,
+	0x53, 0x18, 0xbb, 0x09, 0x95, 0x1e, 0x36, 0x25, 0xf7, 0x9e, 0xa3, 0x72, 0xe2, 0xa8, 0x2d, 0xdc,
+	0x16, 0x5a, 0xa5, 0x8d, 0xdc, 0xe6, 0x92, 0xbd, 0x36, 0xdc, 0xf8, 0xdc, 0xc8, 0xd9, 0x0e, 0x2c,
+	0x2a, 0xbf, 0x8b, 0x3c, 0x56, 0xd6, 0x02, 0x99, 0xbb, 0x5a, 0x37, 0xf9, 0x5d, 0x4f, 0xf3, 0xbb,
+	0x7e, 0x94, 0xe4, 0xbf, 0x9d, 0x6a, 0xb2, 0x3d, 0xed, 0xa3, 0x12, 0x3e, 0x4a, 0x6b, 0x91, 0x40,
+	0x53, 0x13, 0x14, 0x95, 0x18, 0xd8, 0x29, 0x88, 0x1d, 0x42, 0xe9, 0xd4, 0x8d, 0x03, 0x65, 0x2d,
+	0x11, 0xfa, 0xd6, 0x14, 0xf4, 0x03, 0xad, 0xfb, 0x30, 0x7c, 0x86, 0x1e, 0xb9, 0x61, 0xb0, 0x6c,
+	0x0f, 0x16, 0xba, 0xbe, 0x10, 0x5c, 0x58, 0xcb, 0x53, 0xe3, 0x94, 0x39, 0x32, 0x3b, 0x41, 0xb1,
+	0x07, 0x50, 0xf6, 0xb8, 0x90, 0x4e, 0xc4, 0x03, 0xdf, 0x1b, 0x58, 0x40, 0x24, 0x37, 0x26, 0x90,
+	0x1c, 0x72, 0x21, 0x9f, 0x90, 0xb2, 0x0d, 0xde, 0xf0, 0x37, 0xfb, 0x0a, 0x2e, 0xea, 0xfa, 0x0f,
+	0x5b, 0x4e, 0x07, 0xdd, 0x16, 0x0a, 0x69, 0x95, 0x29, 0x85, 0x3e, 0x9a, 0xa5, 0x68, 0xeb, 0xfb,
+	0x04, 0x6d, 0x18, 0xe4, 0xfd, 0x50, 0x87, 0x69, 0xd5, 0xcd, 0xca, 0x58, 0x0f, 0xfe, 0x2b, 0xb0,
+	0xcb, 0xcf, 0xd0, 0x11, 0x28, 0x23, 0x1e, 0x4a, 0x1c, 0x1a, 0x5a, 0x21, 0x43, 0x77, 0x67, 0x32,
+	0x64, 0x13, 0x87, 0x9d, 0x50, 0x9c, 0x33, 0xf8, 0x1f, 0xf1, 0xaa, 0xbd, 0xea, 0x3d, 0x60, 0xe3,
+	0xde, 0xb1, 0x35, 0x28, 0x3c, 0xc7, 0x41, 0x52, 0xe1, 0xfa, 0xa7, 0xee, 0x6e, 0x67, 0x6e, 0x10,
+	0x63, 0x52, 0xdf, 0x66, 0xf1, 0x71, 0x7e, 0x37, 0x57, 0x6d, 0x40, 0xf5, 0xf5, 0x66, 0xe7, 0x61,
+	0xaa, 0x7d, 0x97, 0x83, 0xa5, 0xb4, 0xf3, 0xe8, 0xf4, 0xc9, 0x96, 0xfb, 0xad, 0xc9, 0xdd, 0x8a,
+	0xaa, 0x7d, 0x5f, 0x29, 0xe1, 0x37, 0x63, 0x85, 0xf2, 0x0d, 0x16, 0x7c, 0xed, 0x5b, 0xed, 0x55,
+	0xd2, 0x46, 0x35, 0x61, 0xd6, 0xab, 0x49, 0x84, 0x8f, 0x3e, 0xf8, 0x07, 0x9d, 0xfa, 0xb1, 0x04,
+	0x6b, 0x2f, 0x77, 0x39, 0xb6, 0x0b, 0x85, 0x58, 0xf8, 0x14, 0xeb, 0xc9, 0x95, 0x72, 0xac, 0x84,
+	0x1f, 0xb6, 0x0d, 0x56, 0x43, 0x74, 0x99, 0x49, 0xaf, 0x83, 0x5d, 0x73, 0x28, 0xb3, 0x83, 0x13,
+	0x14, 0x95, 0x29, 0xaa, 0x0e, 0x6f, 0x25, 0x2d, 0x71, 0x66, 0xbc, 0x41, 0xb1, 0x23, 0x58, 0x76,
+	0x63, 0xd5, 0xe1, 0xc2, 0x57, 0x83, 0x19, 0x3a, 0x62, 0x96, 0x62, 0x04, 0x64, 0x36, 0x2c, 0xa6,
+	0x45, 0x63, 0xae, 0xb8, 0xdd, 0x39, 0xee, 0x88, 0xfa, 0xb9, 0x6a, 0x49, 0x89, 0xf4, 0x65, 0x47,
+	0x17, 0x98, 0xee, 0x9b, 0xab, 0xe6, 0x5e, 0x62, 0x4d, 0x58, 0x95, 0x3c, 0x16, 0x1e, 0x3a, 0x81,
+	0xdb, 0xc4, 0x40, 0xf7, 0x47, 0x6d, 0xed, 0xce, 0x3c, 0xd6, 0x8e, 0x89, 0xe0, 0x11, 0xe1, 0x8d,
+	0xc9, 0x15, 0x99, 0x11, 0x9d, 0x9b, 0x1b, 0x96, 0xce, 0xcf, 0x0d, 0xd5, 0x26, 0xac, 0x4c, 0xa9,
+	0xb1, 0xdb, 0xd9, 0x1a, 0x9b, 0x3d, 0x96, 0x99, 0xaa, 0xbe, 0x0b, 0x95, 0x31, 0x17, 0xe7, 0x2a,
+	0xe6, 0x18, 0x2a, 0x63, 0xd9, 0xcb, 0x1a, 0x50, 0x6e, 0x8d, 0x84, 0x33, 0x64, 0x6a, 0xb6, 0xa7,
+	0x67, 0xa1, 0x7a, 0xe0, 0xe8, 0x11, 0x27, 0x59, 0x2e, 0xd9, 0xc9, 0xaa, 0xf6, 0x4b, 0x1e, 0x2a,
+	0x63, 0x95, 0xc7, 0x6e, 0x01, 0xcb, 0x80, 0x1d, 0x19, 0x37, 0x43, 0x4c, 0x07, 0x98, 0x4a, 0x66,
+	0xe7, 0x98, 0x36, 0x86, 0x87, 0x9e, 0xcf, 0x1c, 0xfa, 0xf5, 0xe1, 0xa1, 0x27, 0xe8, 0x02, 0xa1,
+	0x93, 0x53, 0x4b, 0x80, 0xde, 0xcb, 0x99, 0x61, 0x26, 0xb4, 0xbd, 0x79, 0xda, 0xc4, 0x5c, 0xa9,
+	0x51, 0x7a, 0x29, 0x35, 0xfe, 0xf6, 0xb1, 0xfd, 0x94, 0x07, 0x36, 0xde, 0x4f, 0xdf, 0x44, 0x00,
+	0xff, 0x07, 0xcb, 0x32, 0xf4, 0x1d, 0x33, 0x23, 0x17, 0x8c, 0xdf, 0x32, 0xf4, 0x1b, 0x34, 0x26,
+	0xb7, 0x5e, 0x1d, 0xb8, 0xbb, 0x73, 0x75, 0xfd, 0x7f, 0x37, 0x72, 0x7b, 0xb0, 0x92, 0x9d, 0xf6,
+	0x34, 0x36, 0xed, 0xc6, 0xcb, 0xa6, 0xcb, 0xfe, 0x3f, 0xdb, 0xe5, 0x0c, 0x7e, 0x24, 0xa8, 0xdd,
+	0x81, 0x72, 0x66, 0xd2, 0x9b, 0x1b, 0x8e, 0x50, 0xce, 0x94, 0x32, 0xbb, 0x02, 0x25, 0xec, 0xbb,
+	0x5e, 0x72, 0x46, 0x8d, 0x0b, 0xb6, 0x59, 0x32, 0x0b, 0x16, 0x22, 0x81, 0xa7, 0x7e, 0xdf, 0x30,
+	0x34, 0x2e, 0xd8, 0xc9, 0x5a, 0x23, 0x04, 0xb6, 0xb1, 0x6f, 0x12, 0x5b, 0x23, 0x68, 0x79, 0xb0,
+	0x02, 0x40, 0xf7, 0x96, 0xa3, 0x06, 0x11, 0xd6, 0x9e, 0x25, 0x23, 0xb9, 0x9e, 0xf5, 0x74, 0x3c,
+	0x5d, 0xa5, 0xb0, 0x1b, 0xd1, 0xab, 0x47, 0x97, 0xe1, 0x70, 0xcd, 0xf6, 0xe1, 0x52, 0x84, 0xc2,
+	0x51, 0x62, 0xe0, 0xa4, 0xb3, 0x67, 0x7e, 0xda, 0xec, 0xb9, 0x1a, 0xa1, 0x38, 0x11, 0x83, 0x13,
+	0xa3, 0x5f, 0xfb, 0x21, 0x0f, 0x30, 0x9a, 0xc7, 0xd8, 0x35, 0x58, 0x71, 0x83, 0x80, 0xf7, 0x1c,
+	0x2e, 0xfc, 0xb6, 0x1f, 0x26, 0xef, 0xac, 0x32, 0xc9, 0x3e, 0x23, 0x91, 0x2e, 0x52, 0xa3, 0x62,
+	0xee, 0x95, 0xf4, 0xc9, 0x65, 0x70, 0x8f, 0x8d, 0x6c, 0xa4, 0x94, 0x5e, 0x16, 0x85, 0x8c, 0x52,
+	0x3a, 0x90, 0xdd, 0x80, 0x8b, 0xd8, 0x8f, 0x78, 0x66, 0x0e, 0x2b, 0x92, 0xd6, 0xaa, 0x91, 0xa6,
+	0x6a, 0xdb, 0xb0, 0xd8, 0x75, 0xfb, 0x8e, 0xdb, 0x36, 0xc3, 0xf7, 0xc4, 0xaf, 0x5b, 0xe8, 0xba,
+	0xfd, 0xfd, 0x36, 0xb2, 0x4f, 0xa1, 0x62, 0xec, 0x7b, 0x02, 0x5b, 0x18, 0x2a, 0xdf, 0x0d, 0x64,
+	0x32, 0x97, 0x57, 0xc7, 0xd0, 0x07, 0x9c, 0x07, 0x4f, 0x75, 0x8e, 0xd9, 0x6b, 0x04, 0x3a, 0x1c,
+	0x61, 0x6a, 0xdf, 0x14, 0x81, 0x8d, 0x8f, 0xce, 0xec, 0x21, 0x94, 0x5a, 0x18, 0xb8, 0x83, 0xa4,
+	0xbd, 0xee, 0xcc, 0x35, 0x78, 0xd7, 0x8f, 0x34, 0xd4, 0x36, 0x0c, 0x9a, 0xca, 0x6d, 0xa6, 0x85,
+	0x3c, 0x37, 0xd5, 0xbe, 0x86, 0xda, 0x86, 0xa1, 0xfa, 0x73, 0x0e, 0x4a, 0xc4, 0xcd, 0x2c, 0x58,
+	0x8c, 0x50, 0x78, 0x18, 0xaa, 0x24, 0x69, 0xd2, 0x25, 0xbb, 0x0d, 0xe5, 0x53, 0xbf, 0x8f, 0x2d,
+	0xc7, 0xf8, 0x3f, 0x2d, 0x5f, 0x1a, 0x17, 0x6c, 0x20, 0x7d, 0xc3, 0xdb, 0x80, 0x8a, 0x3e, 0x9c,
+	0xd0, 0x84, 0x27, 0xe1, 0x28, 0x4c, 0xe7, 0x58, 0xcb, 0xa0, 0x88, 0xe9, 0xa0, 0x02, 0x97, 0xf4,
+	0x33, 0xdb, 0x50, 0x50, 0xde, 0x57, 0xbf, 0xcf, 0x41, 0x89, 0xbe, 0x67, 0x82, 0xfb, 0xd7, 0xa0,
+	0x4c, 0x30, 0xa9, 0x5c, 0x15, 0x4b, 0x73, 0x31, 0x69, 0x1f, 0xb5, 0xf0, 0x98, 0x64, 0x5a, 0xa5,
+	0x2d, 0x22, 0x2f, 0x55, 0x49, 0x4b, 0x0d, 0xb4, 0x70, 0xa4, 0xa2, 0x01, 0xdb, 0x0e, 0xd2, 0xbb,
+	0xa7, 0x98, 0xaa, 0x90, 0xf0, 0xbe, 0x96, 0xe9, 0x92, 0xa4, 0x4d, 0x53, 0x92, 0x0f, 0x60, 0x25,
+	0xfb, 0x78, 0xd6, 0x25, 0x1e, 0xc6, 0xdd, 0x26, 0x0a, 0xf2, 0x6f, 0x55, 0x97, 0xb8, 0x59, 0xb3,
+	0xcb, 0x50, 0x0c, 0xdd, 0x64, 0xc8, 0xd3, 0x9c, 0xb4, 0x3a, 0x58, 0x30, 0xcd, 0xfa, 0xa0, 0xfe,
+	0xeb, 0x8b, 0xf5, 0xdc, 0x6f, 0x2f, 0xd6, 0x73, 0xbf, 0xbf, 0x58, 0xcf, 0x7d, 0xb9, 0x61, 0x8e,
+	0xda, 0xe7, 0x5b, 0x6e, 0xe4, 0x6f, 0xbd, 0xe2, 0x4f, 0x97, 0xe6, 0x02, 0x05, 0x73, 0xe7, 0xaf,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x49, 0x99, 0x13, 0x7c, 0x92, 0x11, 0x00, 0x00,
 }

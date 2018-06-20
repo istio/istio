@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: grafana
   namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   labels:
     app: {{ template "grafana.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

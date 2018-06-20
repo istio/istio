@@ -64,6 +64,7 @@ const TemplateName = "kubernetes"
 //
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
+// Next ID: 8
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
@@ -80,17 +81,15 @@ type Instance struct {
 	// Destination pod's ip.
 	DestinationIp net.IP
 
-	// Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
-	OriginUid string
-
-	// Origin pod's ip.
-	OriginIp net.IP
+	// Destination container's port number.
+	DestinationPort int64
 }
 
 // Output struct is returned by the attribute producing adapters that handle this template.
 //
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+// Next ID: 31
 type Output struct {
 	fieldsSet map[string]bool
 
@@ -106,14 +105,23 @@ type Output struct {
 	// Refers to source pod namespace. attribute_bindings can refer to this field using $out.source_namespace
 	SourceNamespace string
 
-	// Refers to source service. attribute_bindings can refer to this field using $out.source_service
-	SourceService string
-
 	// Refers to source pod service account name. attribute_bindings can refer to this field using $out.source_service_account_name
 	SourceServiceAccountName string
 
 	// Refers to source pod host ip address. attribute_bindings can refer to this field using $out.source_host_ip
 	SourceHostIp net.IP
+
+	// Refers to the Istio workload identifier for the source pod. Attribute_bindings can refer to this field using $out.source_workload_uid
+	SourceWorkloadUid string
+
+	// Refers to the Istio workload name for the source pod. Attribute_bindings can refer to this field using $out.source_workload_name
+	SourceWorkloadName string
+
+	// Refers to the Istio workload namespace for the source pod. Attribute_bindings can refer to this field using $out.source_workload_namespace
+	SourceWorkloadNamespace string
+
+	// Refers to the (controlling) owner of the source pod. Attribute_bindings can refer to this field using $out.source_owner
+	SourceOwner string
 
 	// Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
 	DestinationPodIp net.IP
@@ -121,14 +129,14 @@ type Output struct {
 	// Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
 	DestinationPodName string
 
+	// Refers to destination container name. attribute_bindings can refer to this field using $out.destination_container_name
+	DestinationContainerName string
+
 	// Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
 	DestinationLabels map[string]string
 
 	// Refers to destination pod namespace. attribute_bindings can refer to this field using $out.destination_namespace
 	DestinationNamespace string
-
-	// Refers to destination service. attribute_bindings can refer to this field using $out.destination_service
-	DestinationService string
 
 	// Refers to destination pod service account name. attribute_bindings can refer to this field using $out.destination_service_account_name
 	DestinationServiceAccountName string
@@ -136,26 +144,17 @@ type Output struct {
 	// Refers to destination pod host ip address. attribute_bindings can refer to this field using $out.destination_host_ip
 	DestinationHostIp net.IP
 
-	// Refers to origin pod ip address. attribute_bindings can refer to this field using $out.origin_pod_ip
-	OriginPodIp net.IP
+	// Refers to the (controlling) owner of the destination pod. Attribute_bindings can refer to this field using $out.destination_owner
+	DestinationOwner string
 
-	// Refers to origin pod name. attribute_bindings can refer to this field using $out.origin_pod_name
-	OriginPodName string
+	// Refers to the Istio workload identifier for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_uid
+	DestinationWorkloadUid string
 
-	// Refers to origin pod labels. attribute_bindings can refer to this field using $out.origin_labels
-	OriginLabels map[string]string
+	// Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_name
+	DestinationWorkloadName string
 
-	// Refers to origin pod namespace. attribute_bindings can refer to this field using $out.origin_namespace
-	OriginNamespace string
-
-	// Refers to origin service. attribute_bindings can refer to this field using $out.origin_service
-	OriginService string
-
-	// Refers to origin pod service account name. attribute_bindings can refer to this field using $out.origin_service_account_name
-	OriginServiceAccountName string
-
-	// Refers to origin pod host ip address. attribute_bindings can refer to this field using $out.origin_host_ip
-	OriginHostIp net.IP
+	// Refers to the Istio workload name for the destination pod. Attribute_bindings can refer to this field using $out.destination_workload_namespace
+	DestinationWorkloadNamespace string
 }
 
 func NewOutput() *Output {
@@ -182,11 +181,6 @@ func (o *Output) SetSourceNamespace(val string) {
 	o.SourceNamespace = val
 }
 
-func (o *Output) SetSourceService(val string) {
-	o.fieldsSet["source_service"] = true
-	o.SourceService = val
-}
-
 func (o *Output) SetSourceServiceAccountName(val string) {
 	o.fieldsSet["source_service_account_name"] = true
 	o.SourceServiceAccountName = val
@@ -195,6 +189,26 @@ func (o *Output) SetSourceServiceAccountName(val string) {
 func (o *Output) SetSourceHostIp(val net.IP) {
 	o.fieldsSet["source_host_ip"] = true
 	o.SourceHostIp = val
+}
+
+func (o *Output) SetSourceWorkloadUid(val string) {
+	o.fieldsSet["source_workload_uid"] = true
+	o.SourceWorkloadUid = val
+}
+
+func (o *Output) SetSourceWorkloadName(val string) {
+	o.fieldsSet["source_workload_name"] = true
+	o.SourceWorkloadName = val
+}
+
+func (o *Output) SetSourceWorkloadNamespace(val string) {
+	o.fieldsSet["source_workload_namespace"] = true
+	o.SourceWorkloadNamespace = val
+}
+
+func (o *Output) SetSourceOwner(val string) {
+	o.fieldsSet["source_owner"] = true
+	o.SourceOwner = val
 }
 
 func (o *Output) SetDestinationPodIp(val net.IP) {
@@ -207,6 +221,11 @@ func (o *Output) SetDestinationPodName(val string) {
 	o.DestinationPodName = val
 }
 
+func (o *Output) SetDestinationContainerName(val string) {
+	o.fieldsSet["destination_container_name"] = true
+	o.DestinationContainerName = val
+}
+
 func (o *Output) SetDestinationLabels(val map[string]string) {
 	o.fieldsSet["destination_labels"] = true
 	o.DestinationLabels = val
@@ -215,11 +234,6 @@ func (o *Output) SetDestinationLabels(val map[string]string) {
 func (o *Output) SetDestinationNamespace(val string) {
 	o.fieldsSet["destination_namespace"] = true
 	o.DestinationNamespace = val
-}
-
-func (o *Output) SetDestinationService(val string) {
-	o.fieldsSet["destination_service"] = true
-	o.DestinationService = val
 }
 
 func (o *Output) SetDestinationServiceAccountName(val string) {
@@ -232,39 +246,24 @@ func (o *Output) SetDestinationHostIp(val net.IP) {
 	o.DestinationHostIp = val
 }
 
-func (o *Output) SetOriginPodIp(val net.IP) {
-	o.fieldsSet["origin_pod_ip"] = true
-	o.OriginPodIp = val
+func (o *Output) SetDestinationOwner(val string) {
+	o.fieldsSet["destination_owner"] = true
+	o.DestinationOwner = val
 }
 
-func (o *Output) SetOriginPodName(val string) {
-	o.fieldsSet["origin_pod_name"] = true
-	o.OriginPodName = val
+func (o *Output) SetDestinationWorkloadUid(val string) {
+	o.fieldsSet["destination_workload_uid"] = true
+	o.DestinationWorkloadUid = val
 }
 
-func (o *Output) SetOriginLabels(val map[string]string) {
-	o.fieldsSet["origin_labels"] = true
-	o.OriginLabels = val
+func (o *Output) SetDestinationWorkloadName(val string) {
+	o.fieldsSet["destination_workload_name"] = true
+	o.DestinationWorkloadName = val
 }
 
-func (o *Output) SetOriginNamespace(val string) {
-	o.fieldsSet["origin_namespace"] = true
-	o.OriginNamespace = val
-}
-
-func (o *Output) SetOriginService(val string) {
-	o.fieldsSet["origin_service"] = true
-	o.OriginService = val
-}
-
-func (o *Output) SetOriginServiceAccountName(val string) {
-	o.fieldsSet["origin_service_account_name"] = true
-	o.OriginServiceAccountName = val
-}
-
-func (o *Output) SetOriginHostIp(val net.IP) {
-	o.fieldsSet["origin_host_ip"] = true
-	o.OriginHostIp = val
+func (o *Output) SetDestinationWorkloadNamespace(val string) {
+	o.fieldsSet["destination_workload_namespace"] = true
+	o.DestinationWorkloadNamespace = val
 }
 
 func (o *Output) WasSet(field string) bool {

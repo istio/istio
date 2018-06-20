@@ -2,6 +2,6 @@ syntax = "proto3";
 
 package bar;
 
-message Param {
-
+message Params {
+    string abc = 1;
 }

@@ -161,6 +161,21 @@ message AccessRule {
   repeated Constraint constraints = 4;
 }
 
+// $hide_from_docs
+// RBAC ServiceRoleBinding enforcement mode, used to verify new ServiceRoleBinding
+// configs work as expected before rolling to production. RBAC engine only logs results
+// from configs that are in permissive mode, and discards result before returning
+// to the user.
+enum EnforcementMode {
+  // Policy in ENFORCED mode has impact on user experience. 
+  // Policy is in ENFORCED mode by default. 
+  ENFORCED = 0;
+
+  // Policy in PERMISSIVE mode isn't enforced and has no impact on users.
+  // RBAC engine run policies in PERMISSIVE mode and logs stats.
+  PERMISSIVE = 1;
+ }
+ 
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
 // This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
 // of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
@@ -171,6 +186,10 @@ message ServiceRoleBinding {
 
   // Required. Reference to the ServiceRole object.
   RoleRef roleRef = 2;
+
+  // $hide_from_docs
+  // Indicates enforcement mode of the ServiceRoleBinding.
+  EnforcementMode mode = 3;
 }
 
 // Subject defines an identity or a group of identities. The identity is either a user or

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	gotemplate "text/template"
@@ -31,23 +32,26 @@ import (
 func templateCfgCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	var desc string
 	var name string
+	var output string
 	var ns string
 	adapterCmd := &cobra.Command{
 		Use:   "template",
 		Short: "creates kubernetes configuration for a template",
 		Run: func(cmd *cobra.Command, args []string) {
-			createTemplate("mixgen "+strings.Join(rawArgs, " "), name, ns, desc, fatalf, printf)
+			createTemplate("mixgen "+strings.Join(rawArgs, " "), name, ns, desc, output, fatalf, printf)
 		},
 	}
 	adapterCmd.PersistentFlags().StringVarP(&desc, "descriptor", "d", "", "path to the template's "+
 		"protobuf file descriptor set file (protobuf file descriptor set is created using "+
 		"`protoc -o <path to template proto file> <Flags>`)")
 	adapterCmd.PersistentFlags().StringVarP(&name, "name", "n", "", "name of the resource")
+	adapterCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "output file path"+
+		" to save the configuration")
 	adapterCmd.PersistentFlags().StringVar(&ns, "namespace", constant.DefaultConfigNamespace, "namespace of the resource")
 	return adapterCmd
 }
 
-func createTemplate(rawCommand, name, ns, desc string, fatalf shared.FormatFn, printf shared.FormatFn) {
+func createTemplate(rawCommand, name, ns, desc string, outPath string, fatalf shared.FormatFn, printf shared.FormatFn) {
 	type templateCRVar struct {
 		RawCommand string
 		Name       string
@@ -73,23 +77,29 @@ spec:
 	}
 
 	// validate if the file is a file descriptor set with imports.
-	if err := isFds(byts); err != nil {
+	if err = isFds(byts); err != nil {
 		fatalf("template in invalid: %v", err)
 	}
 
+	goPath := os.Getenv("GOPATH")
 	tmplObj := &templateCRVar{
 		Name:       name,
 		Namespace:  ns,
 		Descriptor: base64.StdEncoding.EncodeToString(byts),
-		RawCommand: rawCommand,
+		RawCommand: strings.Replace(rawCommand, goPath, "$GOPATH", -1),
 	}
 
 	t := gotemplate.New("templatecr")
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(templateCR)
-	if err := t.Execute(w, tmplObj); err != nil {
+	if err = t.Execute(w, tmplObj); err != nil {
 		fatalf("could not create CRD " + err.Error())
 	}
-
-	printf(w.String())
+	if outPath != "" {
+		if err = ioutil.WriteFile(outPath, w.Bytes(), 0644); err != nil {
+			fatalf("cannot write to output file '%s': %v", outPath, err)
+		}
+	} else {
+		printf(w.String())
+	}
 }

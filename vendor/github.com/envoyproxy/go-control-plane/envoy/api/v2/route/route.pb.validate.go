@@ -1127,6 +1127,8 @@ func (m *HeaderMatcher) Validate() error {
 		}
 	}
 
+	// no validation rules for InvertMatch
+
 	switch m.HeaderMatchSpecifier.(type) {
 
 	case *HeaderMatcher_ExactMatch:
@@ -1144,6 +1146,27 @@ func (m *HeaderMatcher) Validate() error {
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
+			}
+		}
+
+	case *HeaderMatcher_PresentMatch:
+		// no validation rules for PresentMatch
+
+	case *HeaderMatcher_PrefixMatch:
+
+		if len(m.GetPrefixMatch()) < 1 {
+			return HeaderMatcherValidationError{
+				Field:  "PrefixMatch",
+				Reason: "value length must be at least 1 bytes",
+			}
+		}
+
+	case *HeaderMatcher_SuffixMatch:
+
+		if len(m.GetSuffixMatch()) < 1 {
+			return HeaderMatcherValidationError{
+				Field:  "SuffixMatch",
+				Reason: "value length must be at least 1 bytes",
 			}
 		}
 
@@ -1694,6 +1717,8 @@ func (m *RouteAction_HashPolicy_Cookie) Validate() error {
 			}
 		}
 	}
+
+	// no validation rules for Path
 
 	return nil
 }

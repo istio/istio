@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -111,7 +112,10 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 				return adapter.CheckResult{}, errors.New("error at dispatch check, as expected")
 			}
 
-			result := adapter.CheckResult{}
+			result := adapter.CheckResult{
+				ValidUseCount: 123,
+				ValidDuration: 123 * time.Second,
+			}
 			if callCount < len(s.CheckResults) {
 				result = s.CheckResults[callCount]
 			}
@@ -191,7 +195,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			}
 
 			l.Write(name, "DispatchGenAttrs <= (SUCCESS)")
-			return attribute.GetFakeMutableBagForTesting(outputAttrs), nil
+			return attribute.GetMutableBagForTesting(outputAttrs), nil
 
 		},
 		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {

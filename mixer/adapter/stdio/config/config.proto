@@ -17,8 +17,8 @@ syntax = "proto3";
 // $title: Stdio
 // $description: Adapter for outputting logs and metrics locally.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/stdio.html
-// $front_matter: aliases:
-// $front_matter:   - /docs/reference/config/adapters/stdio.html
+// $aliases:
+// $  - /docs/reference/config/adapters/stdio.html
 
 // The `stdio` adapter enables Istio to output logs and metrics to
 // the local machine. Logs and metrics can be directed to Mixer's

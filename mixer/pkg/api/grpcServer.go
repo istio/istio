@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gogo/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
@@ -26,8 +27,8 @@ import (
 	grpc "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/status"
@@ -44,6 +45,7 @@ type (
 	grpcServer struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
+		cache      *checkcache.Cache
 
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
@@ -51,17 +53,10 @@ type (
 	}
 )
 
-const (
-	// defaultValidDuration is the default duration for which a check or quota result is valid.
-	defaultValidDuration = 10 * time.Second
-	// defaultValidUseCount is the default number of calls for which a check or quota result is valid.
-	defaultValidUseCount = 200
-)
-
 var lg = log.RegisterScope("api", "API dispatcher messages.", 0)
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -73,6 +68,7 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool) mix
 		gp:             gp,
 		globalWordList: list,
 		globalDict:     globalDict,
+		cache:          cache,
 	}
 }
 
@@ -83,6 +79,33 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	// bag around the input proto that keeps track of reference attributes
 	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+
+	if s.cache != nil {
+		if value, ok := s.cache.Get(protoBag); ok {
+			resp := &mixerpb.CheckResponse{
+				Precondition: mixerpb.CheckResponse_PreconditionResult{
+					Status: rpc.Status{
+						Code:    value.StatusCode,
+						Message: value.StatusMessage,
+					},
+					ValidDuration:        value.Expiration.Sub(time.Now()),
+					ValidUseCount:        value.ValidUseCount,
+					ReferencedAttributes: &value.ReferencedAttributes,
+				},
+			}
+
+			if status.IsOK(resp.Precondition.Status) {
+				log.Debug("Check approved from cache")
+			} else {
+				log.Debugf("Check denied from cache: %v", resp.Precondition.Status)
+			}
+
+			if !status.IsOK(resp.Precondition.Status) || len(req.Quotas) == 0 {
+				// we found a cached result and no quotas to allocate, so we're outta here
+				return resp, nil
+			}
+		}
+	}
 
 	// This holds the output state of preprocess operations
 	checkBag := attribute.GetMutableBag(protoBag)
@@ -121,13 +144,6 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
-	if cr == nil {
-		cr = &adapter.CheckResult{
-			ValidDuration: defaultValidDuration,
-			ValidUseCount: defaultValidUseCount,
-		}
-	}
-
 	if status.IsOK(cr.Status) {
 		lg.Debug("Check approved")
 	} else {
@@ -143,11 +159,22 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		},
 	}
 
+	if s.cache != nil {
+		// keep this for later...
+		s.cache.Set(protoBag, checkcache.Value{
+			StatusCode:           resp.Precondition.Status.Code,
+			StatusMessage:        resp.Precondition.Status.Message,
+			Expiration:           time.Now().Add(resp.Precondition.ValidDuration),
+			ValidUseCount:        resp.Precondition.ValidUseCount,
+			ReferencedAttributes: *resp.Precondition.ReferencedAttributes,
+		})
+	}
+
 	if status.IsOK(resp.Precondition.Status) && len(req.Quotas) > 0 {
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
 
 		for name, param := range req.Quotas {
-			qma := &dispatcher.QuotaMethodArgs{
+			qma := dispatcher.QuotaMethodArgs{
 				Quota:           name,
 				Amount:          param.Amount,
 				DeduplicationID: req.DeduplicationId + name,
@@ -161,17 +188,11 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			crqr := mixerpb.CheckResponse_QuotaResult{}
 
-			var qr *adapter.QuotaResult
-			qr, err = s.dispatcher.Quota(legacyCtx, checkBag, qma)
+			qr, err := s.dispatcher.Quota(legacyCtx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
 				lg.Errora("Quota failure:", err.Error())
 				// we continue the quota loop even after this error
-			} else if qr == nil {
-				// If qma.Quota does not apply to this request give the client what it asked for.
-				// Effectively the quota is unlimited.
-				crqr.ValidDuration = defaultValidDuration
-				crqr.GrantedAmount = qma.Amount
 			} else {
 				if !status.IsOK(qr.Status) {
 					lg.Debugf("Quota denied: %v", qr.Status)
@@ -182,7 +203,7 @@ func (s *grpcServer) check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 			lg.Debugf("Quota '%s' result: %#v", qma.Quota, crqr)
 
-			crqr.ReferencedAttributes = protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
+			crqr.ReferencedAttributes = *protoBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = crqr
 		}
 	}

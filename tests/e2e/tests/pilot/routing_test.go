@@ -81,7 +81,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
 			testName:      "a->c[v1=75,v2=25]",
@@ -155,7 +155,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
 			testName:      "a->c[v1=100]_CORS_policy",
@@ -167,7 +167,7 @@ func TestRoutes(t *testing.T) {
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
-			operation:     "default-route",
+			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
 	}
 
@@ -189,11 +189,6 @@ func TestRoutes(t *testing.T) {
 			}
 
 			for _, c := range cases {
-				if strings.Contains(c.testName, "websocket") && version == "v1alpha3" {
-					log.Infof("Skipping Websocket tests in v1alpha3 as they are not implemented yet")
-					continue
-				}
-
 				// Run each case in a function to scope the configuration's lifecycle.
 				func() {
 					ruleYaml := fmt.Sprintf("testdata/%s/%s", version, c.config)

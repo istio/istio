@@ -1,19 +1,19 @@
 ---
-title: Bypass
-description: Adapter for connecting to gRPC based remote adapters via the inline adapter model for a
+title: adapter.bypass.config
 layout: protoc-gen-docs
 generator: protoc-gen-docs
- - /docs/reference/config/adapters/bypass.html
 number_of_entries: 1
 ---
-<p>The <code>bypass</code> adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
+<p>$title: Bypass
+$description: Adapter for connecting to gRPC based adapters as an inline adapter for some templates.
+The <code>bypass</code> adapter makes it possible to connect to gRPC based remote adapters using the inline adapter
 model.</p>
 
 <p>This adapter supports the following templates:
-<a href="https://istio.io/docs/reference/config/template/metric.html">metric</a>.
-<a href="https://istio.io/docs/reference/config/template/checknothing.html">checknothing</a>.
-<a href="https://istio.io/docs/reference/config/template/reportnothing.html">reportnothing</a>.
-<a href="https://istio.io/docs/reference/config/template/quota.html">quota</a>.</p>
+<a href="https://istio.io/docs/reference/config/template/metric/">metric</a>.
+<a href="https://istio.io/docs/reference/config/template/checknothing/">checknothing</a>.
+<a href="https://istio.io/docs/reference/config/template/reportnothing/">reportnothing</a>.
+<a href="https://istio.io/docs/reference/config/template/quota/">quota</a>.</p>
 
 <p>Example configuration:</p>
 
@@ -42,7 +42,7 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 </tr>
 </thead>
 <tbody>
-<tr id="Params.backend_address">
+<tr id="Params-backend_address">
 <td><code>backendAddress</code></td>
 <td><code>string</code></td>
 <td>
@@ -50,7 +50,7 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 
 </td>
 </tr>
-<tr id="Params.params">
+<tr id="Params-params">
 <td><code>params</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
 <td>
@@ -58,7 +58,7 @@ params: RGFuJ3MgVG9vbHMgYXJlIGNvb2wh...
 
 </td>
 </tr>
-<tr id="Params.session_based">
+<tr id="Params-session_based">
 <td><code>sessionBased</code></td>
 <td><code>bool</code></td>
 <td>

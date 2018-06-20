@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -28,6 +29,12 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/log"
+)
+
+const (
+	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
+	// policy with this name in the cluster-scoped will be considered.
+	DefaultAuthenticationPolicyName = "default"
 )
 
 // ConfigMeta is metadata attached to each configuration unit.
@@ -76,6 +83,9 @@ type ConfigMeta struct {
 	// An empty revision carries a special meaning that the associated object has
 	// not been stored and assigned a revision.
 	ResourceVersion string `json:"resourceVersion,omitempty"`
+
+	// CreationTimestamp records the creation time
+	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -187,6 +197,9 @@ type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
 type ProtoSchema struct {
+	// ClusterScoped is true for resource in cluster-level.
+	ClusterScoped bool
+
 	// Type is the config proto type.
 	Type string
 
@@ -207,7 +220,7 @@ type ProtoSchema struct {
 
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
-	Validate func(config proto.Message) error
+	Validate func(name, namespace string, config proto.Message) error
 }
 
 // Types lists all known types in the config schema
@@ -217,16 +230,6 @@ func (descriptor ConfigDescriptor) Types() []string {
 		types = append(types, t.Type)
 	}
 	return types
-}
-
-// GetByMessageName finds a schema by message name if it is available
-func (descriptor ConfigDescriptor) GetByMessageName(name string) (ProtoSchema, bool) {
-	for _, schema := range descriptor {
-		if schema.MessageName == name {
-			return schema, true
-		}
-	}
-	return ProtoSchema{}, false
 }
 
 // GetByType finds a schema by type if it is available
@@ -292,6 +295,15 @@ type IstioConfigStore interface {
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
 	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
+
+	// ServiceRoles selects ServiceRoles in the specified namespace.
+	ServiceRoles(namespace string) []Config
+
+	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
+	ServiceRoleBindings(namespace string) []Config
+
+	// RbacConfig selects the RbacConfig with the specified name in the specified namespace.
+	RbacConfig(name, namespace string) *Config
 }
 
 const (
@@ -341,7 +353,7 @@ var (
 		Group:       "test",
 		Version:     "v1",
 		MessageName: "test.MockConfig",
-		Validate: func(config proto.Message) error {
+		Validate: func(name, namespace string, config proto.Message) error {
 			if config.(*test.MockConfig).Key == "" {
 				return errors.New("empty key")
 			}
@@ -482,6 +494,17 @@ var (
 		Validate:    ValidateAuthenticationPolicy,
 	}
 
+	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
+	AuthenticationMeshPolicy = ProtoSchema{
+		ClusterScoped: true,
+		Type:          "mesh-policy",
+		Plural:        "mesh-policies",
+		Group:         "authentication",
+		Version:       "v1alpha1",
+		MessageName:   "istio.authentication.v1alpha1.Policy",
+		Validate:      ValidateAuthenticationPolicy,
+	}
+
 	// ServiceRole describes an RBAC service role.
 	ServiceRole = ProtoSchema{
 		Type:        "service-role",
@@ -494,12 +517,23 @@ var (
 
 	// ServiceRoleBinding describes an RBAC service role.
 	ServiceRoleBinding = ProtoSchema{
-		Type:        "service-role-binding",
-		Plural:      "service-role-bindings",
+		ClusterScoped: false,
+		Type:          "service-role-binding",
+		Plural:        "service-role-bindings",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
+		Validate:      ValidateServiceRoleBinding,
+	}
+
+	// RbacConfig describes an global RBAC config.
+	RbacConfig = ProtoSchema{
+		Type:        "rbac-config",
+		Plural:      "rbac-configs",
 		Group:       "config",
 		Version:     istioAPIVersion,
-		MessageName: "istio.rbac.v1alpha1.ServiceRoleBinding",
-		Validate:    ValidateServiceRoleBinding,
+		MessageName: "istio.rbac.v1alpha1.RbacConfig",
+		Validate:    ValidateRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -517,8 +551,10 @@ var (
 		QuotaSpec,
 		QuotaSpecBinding,
 		AuthenticationPolicy,
+		AuthenticationMeshPolicy,
 		ServiceRole,
 		ServiceRoleBinding,
+		RbacConfig,
 	}
 )
 
@@ -917,7 +953,11 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.ApiSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
@@ -957,7 +997,11 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
 			if hostname == instance.Service.Hostname {
 				for _, spec := range b.QuotaSpecs {
-					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+					namespace := spec.Namespace
+					if namespace == "" {
+						namespace = binding.Namespace
+					}
+					refs[key(spec.Name, namespace)] = struct{}{}
 				}
 			}
 		}
@@ -982,8 +1026,6 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		return nil
 	}
 	namespace := parts[1]
-	// TODO(diemtvu): check for 'global' policy first, when available.
-	// Tracking issue https://github.com/istio/istio/issues/4027
 	specs, err := store.List(AuthenticationPolicy.Type, namespace)
 	if err != nil {
 		return nil
@@ -1031,11 +1073,58 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 			out = spec
 		}
 	}
-	// Zero-currentMatchLevel implies no config matching the destination found.
-	if currentMatchLevel == 0 {
+	// Non-zero currentMatchLevel implies authentication policy was found for the given host.
+	if currentMatchLevel != 0 {
+		return &out
+	}
+
+	// Reach here if no authentication policy found in service or namespace level; check for
+	// cluster-scoped (global) policy.
+	// Note: to avoid multiple global policy, we restrict that only the one with name equals to
+	// `DefaultAuthenticationPolicyName` ("default") will be used. Also, targets spec should be empty.
+	if specs, err := store.List(AuthenticationMeshPolicy.Type, ""); err == nil {
+		for _, spec := range specs {
+			if spec.Name == DefaultAuthenticationPolicyName {
+				return &spec
+			}
+		}
+	}
+
+	return nil
+}
+
+func (store *istioConfigStore) ServiceRoles(namespace string) []Config {
+	roles, err := store.List(ServiceRole.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoles in namespace %s: %v", namespace, err)
 		return nil
 	}
-	return &out
+
+	return roles
+}
+
+func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
+	bindings, err := store.List(ServiceRoleBinding.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get ServiceRoleBinding in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	return bindings
+}
+
+func (store *istioConfigStore) RbacConfig(name, namespace string) *Config {
+	rbacConfigs, err := store.List(RbacConfig.Type, namespace)
+	if err != nil {
+		log.Errorf("failed to get rbacConfig: %v", err)
+		return nil
+	}
+	for _, rc := range rbacConfigs {
+		if rc.Name == name {
+			return &rc
+		}
+	}
+	return nil
 }
 
 // SortHTTPAPISpec sorts a slice in a stable manner.

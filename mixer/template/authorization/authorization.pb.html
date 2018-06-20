@@ -46,7 +46,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Action.namespace">
+<tr id="Action-namespace">
 <td><code>namespace</code></td>
 <td><code>string</code></td>
 <td>
@@ -54,7 +54,7 @@ spec:
 
 </td>
 </tr>
-<tr id="Action.service">
+<tr id="Action-service">
 <td><code>service</code></td>
 <td><code>string</code></td>
 <td>
@@ -62,7 +62,7 @@ spec:
 
 </td>
 </tr>
-<tr id="Action.method">
+<tr id="Action-method">
 <td><code>method</code></td>
 <td><code>string</code></td>
 <td>
@@ -70,7 +70,7 @@ spec:
 
 </td>
 </tr>
-<tr id="Action.path">
+<tr id="Action-path">
 <td><code>path</code></td>
 <td><code>string</code></td>
 <td>
@@ -78,9 +78,9 @@ spec:
 
 </td>
 </tr>
-<tr id="Action.properties">
+<tr id="Action-properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional data about the action for use in policy.</p>
 
@@ -103,7 +103,7 @@ the caller identity.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Subject.user">
+<tr id="Subject-user">
 <td><code>user</code></td>
 <td><code>string</code></td>
 <td>
@@ -111,7 +111,7 @@ the caller identity.</p>
 
 </td>
 </tr>
-<tr id="Subject.groups">
+<tr id="Subject-groups">
 <td><code>groups</code></td>
 <td><code>string</code></td>
 <td>
@@ -122,9 +122,9 @@ the template.</p>
 
 </td>
 </tr>
-<tr id="Subject.properties">
+<tr id="Subject-properties">
 <td><code>properties</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio.policy.v1beta1.Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Additional attributes about the subject.</p>
 
@@ -152,7 +152,7 @@ passed to individual authorization adapters to adjudicate.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Template.subject">
+<tr id="Template-subject">
 <td><code>subject</code></td>
 <td><code><a href="#Subject">Subject</a></code></td>
 <td>
@@ -161,7 +161,7 @@ the caller identity.</p>
 
 </td>
 </tr>
-<tr id="Template.action">
+<tr id="Template-action">
 <td><code>action</code></td>
 <td><code><a href="#Action">Action</a></code></td>
 <td>
@@ -172,7 +172,7 @@ the caller identity.</p>
 </tbody>
 </table>
 </section>
-<h2 id="istio.policy.v1beta1.Value">istio.policy.v1beta1.Value</h2>
+<h2 id="istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</h2>
 <section>
 <p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
 <em>ValueType</em> enum values. For example, when
@@ -193,7 +193,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 </tr>
 </thead>
 <tbody>
-<tr id="istio.policy.v1beta1.Value.string_value" class="oneof oneof-start">
+<tr id="istio-policy-v1beta1-Value-string_value" class="oneof oneof-start">
 <td><code>stringValue</code></td>
 <td><code>string (oneof)</code></td>
 <td>
@@ -201,7 +201,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.int64_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-int64_value" class="oneof">
 <td><code>int64Value</code></td>
 <td><code>int64 (oneof)</code></td>
 <td>
@@ -209,7 +209,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.double_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-double_value" class="oneof">
 <td><code>doubleValue</code></td>
 <td><code>double (oneof)</code></td>
 <td>
@@ -217,7 +217,7 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.bool_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-bool_value" class="oneof">
 <td><code>boolValue</code></td>
 <td><code>bool (oneof)</code></td>
 <td>
@@ -225,49 +225,49 @@ the equivalent oneof field in <code>Value</code> is populated by Mixer and passe
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.ip_address_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-ip_address_value" class="oneof">
 <td><code>ipAddressValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.IPAddress">istio.policy.v1beta1.IPAddress (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress (oneof)</a></code></td>
 <td>
 <p>Used for values of type IPAddress</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.timestamp_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-timestamp_value" class="oneof">
 <td><code>timestampValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.TimeStamp">istio.policy.v1beta1.TimeStamp (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp (oneof)</a></code></td>
 <td>
 <p>Used for values of type TIMESTAMP</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.duration_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-duration_value" class="oneof">
 <td><code>durationValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.Duration">istio.policy.v1beta1.Duration (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-Duration">istio.policy.v1beta1.Duration (oneof)</a></code></td>
 <td>
 <p>Used for values of type DURATION</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.email_address_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-email_address_value" class="oneof">
 <td><code>emailAddressValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.EmailAddress">istio.policy.v1beta1.EmailAddress (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-EmailAddress">istio.policy.v1beta1.EmailAddress (oneof)</a></code></td>
 <td>
 <p>Used for values of type EmailAddress</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.dns_name_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-dns_name_value" class="oneof">
 <td><code>dnsNameValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.DNSName">istio.policy.v1beta1.DNSName (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-DNSName">istio.policy.v1beta1.DNSName (oneof)</a></code></td>
 <td>
 <p>Used for values of type DNSName</p>
 
 </td>
 </tr>
-<tr id="istio.policy.v1beta1.Value.uri_value" class="oneof">
+<tr id="istio-policy-v1beta1-Value-uri_value" class="oneof">
 <td><code>uriValue</code></td>
-<td><code><a href="#istio.policy.v1beta1.Uri">istio.policy.v1beta1.Uri (oneof)</a></code></td>
+<td><code><a href="#istio-policy-v1beta1-Uri">istio.policy.v1beta1.Uri (oneof)</a></code></td>
 <td>
 <p>Used for values of type Uri</p>
 

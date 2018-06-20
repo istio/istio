@@ -318,13 +318,17 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
+		log.Errorf("CSR generation error (%v)", err)
+		sc.monitoring.CSRError.Inc()
 		return nil, nil, err
 	}
 
 	certChainPEM := sc.ca.GetCAKeyCertBundle().GetCertChainPem()
-	certPEM, err := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
-	if err != nil {
-		return nil, nil, err
+	certPEM, signErr := sc.ca.Sign(csrPEM, sc.certTTL, sc.forCA)
+	if signErr != nil {
+		log.Errorf("CSR signing error (%v)", signErr.Error())
+		sc.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
+		return nil, nil, fmt.Errorf("CSR signing error (%v)", signErr.(*ca.Error))
 	}
 	certPEM = append(certPEM, certChainPEM...)
 

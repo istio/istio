@@ -99,8 +99,13 @@ const (
 	Passthrough
 )
 
-// UnspecifiedIP constant for empty IP address
-const UnspecifiedIP = "0.0.0.0"
+const (
+	// UnspecifiedIP constant for empty IP address
+	UnspecifiedIP = "0.0.0.0"
+
+	// IstioDefaultConfigNamespace constant for default namespace
+	IstioDefaultConfigNamespace = "default"
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -128,16 +133,19 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
-	ProtocolHTTPS Protocol = "HTTPS"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
-	ProtocolHTTP2 Protocol = "HTTP2"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	ProtocolHTTP2 Protocol = "HTTP2"
+	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
+	// ProtocolTCPTLS declares that the port carries TLS traffic on top of TCP
+	// TLS traffic is assumed to contain SNI as part of the handshake
+	ProtocolTCPTLS Protocol = "TCP_TLS"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
@@ -196,6 +204,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
+	case "tcp_tls":
+		return ProtocolTCPTLS
 	case "mongo":
 		return ProtocolMongo
 	case "redis":
@@ -228,7 +238,17 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTCPTLS, ProtocolMongo, ProtocolRedis:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
+func (p Protocol) IsTLS() bool {
+	switch p {
+	case ProtocolHTTPS, ProtocolTCPTLS:
 		return true
 	default:
 		return false
@@ -271,6 +291,9 @@ type NetworkEndpoint struct {
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
 	ServicePort *Port
+
+	// Defines a platform-specific workload instance identifier (optional).
+	UID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -329,6 +352,12 @@ func (si *ServiceInstance) GetAZ() string {
 	return si.Labels[AZLabel]
 }
 
+// ServiceAttributes represents a group of custom attributes of the service.
+type ServiceAttributes struct {
+	Name      string
+	Namespace string
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
@@ -336,6 +365,9 @@ type ServiceDiscovery interface {
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
+
+	// GetServiceAttributes retrieves the custom attributes of a service
+	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -682,6 +714,11 @@ func ParseServiceKey(s string) (hostname Hostname, ports PortList, labels Labels
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
+}
+
+// IsValidSubsetKey checks if a string is valid for subset key parsing.
+func IsValidSubsetKey(s string) bool {
+	return strings.Count(s, "|") == 3
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method

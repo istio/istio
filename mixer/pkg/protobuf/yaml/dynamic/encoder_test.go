@@ -571,6 +571,83 @@ type testdata struct {
 	skipUnknown bool
 }
 
+func TestStaticPrecoded(t *testing.T) {
+	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiler := compiled.NewBuilder(StatdardVocabulary())
+	res := protoyaml.NewResolver(fds)
+
+	b := NewEncoderBuilder(res, compiler, false)
+
+	oth := &foo.Other{
+		Str: "foo.Other.Str",
+	}
+	golden := &foo.Simple{
+		Str: "golden.str",
+		Oth: oth,
+	}
+
+	var oEnc Encoder
+	{
+		if oEnc, err = b.BuildWithLength(".foo.other", map[string]interface{}{
+			"str": `"foo.Other.Str"`,
+		}); err != nil {
+			t.Fatalf("Unable to get builder:%v", err)
+		}
+
+		var eBa []byte
+		if eBa, err = oEnc.Encode(nil, eBa); err != nil {
+			t.Fatalf("unable to encode: %v", oEnc)
+		}
+
+		// eBa is built with length, so read first bytes
+		_, nBytes := proto.DecodeVarint(eBa)
+
+		vOth := &foo.Other{}
+		if err = vOth.Unmarshal(eBa[nBytes:]); err != nil {
+			t.Fatalf("Unable to unmarshal: %v", err)
+		}
+		expectEqual(vOth, oth, t)
+	}
+
+	var enc Encoder
+	{
+		if enc, err = b.Build(".foo.Simple", map[string]interface{}{
+			"str": `"golden.str"`,
+			"oth": oEnc,
+		}); err != nil {
+			t.Fatalf("Unable to get builder:%v", err)
+		}
+		var eBa []byte
+		if eBa, err = enc.Encode(nil, eBa); err != nil {
+			t.Fatalf("unable to encode: %v", oEnc)
+		}
+
+		vOth := &foo.Simple{}
+		if err = vOth.Unmarshal(eBa); err != nil {
+			bBa, _ := golden.Marshal()
+			t.Logf("\n got: %v\nwant: %v", eBa, bBa)
+			oBa, _ := oth.Marshal()
+			t.Logf("oth: %v", oBa)
+			t.Fatalf("Unable to unmarshal: %v", err)
+		}
+		expectEqual(vOth, golden, t)
+	}
+}
+
+func expectEqual(got interface{}, want interface{}, t *testing.T) {
+	t.Helper()
+	s, equal := diff.PrettyDiff(got, want)
+	if equal {
+		return
+	}
+
+	t.Logf("difference: %s", s)
+	t.Fatalf("\n got: %v\nwant: %v", got, want)
+}
+
 func TestDynamicEncoder(t *testing.T) {
 	fds, err := protoyaml.GetFileDescSet("../testdata/all/types.descriptor")
 	if err != nil {
@@ -694,7 +771,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
 
 	ba = make([]byte, 0, 30)
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"request.reason":        "TWO",
 		"response.size":         int64(200),
 		"response.code":         int64(662),
@@ -835,7 +912,7 @@ func Test_Int64(t *testing.T) {
 	} {
 		name := fmt.Sprintf("%v-%v", tst.input, tst.found)
 		t.Run(name, func(t *testing.T) {
-			op, ok := Int64(tst.input)
+			op, ok := protoyaml.ToInt64(tst.input)
 			if ok != tst.found {
 				t.Fatalf("error in ok got:%v, want:%v", ok, tst.found)
 			}

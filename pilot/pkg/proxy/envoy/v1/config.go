@@ -140,6 +140,7 @@ func BuildConfig(config meshconfig.ProxyConfig, pilotSAN []string) *Config {
 }
 
 // buildListeners produces a list of listeners and referenced clusters for all proxies
+// nolint deadcode
 func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) {
 	switch node.Type {
 	case model.Sidecar:
@@ -178,6 +179,7 @@ func buildListeners(env model.Environment, node model.Proxy) (Listeners, error) 
 	return nil, nil
 }
 
+// nolint deadcode
 func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 	var clusters Clusters
 	var proxyInstances []*model.ServiceInstance
@@ -622,7 +624,8 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			if envoyv2 {
 				cluster.Name = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, servicePort.Port)
 			}
-			routes = append(routes, BuildDefaultRoute(cluster))
+			tracingOperation := fmt.Sprintf("%s:%d/*", service.Hostname, servicePort.Port)
+			routes = append(routes, BuildDefaultRoute(cluster, tracingOperation))
 		}
 
 		return routes
@@ -631,7 +634,8 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		// as an exception, external name HTTPS port is sent in plain-text HTTP/1.1
 		if service.External() {
 			cluster := BuildOutboundCluster(service.Hostname, servicePort, nil, service.External())
-			return []*HTTPRoute{BuildDefaultRoute(cluster)}
+			tracingOperation := fmt.Sprintf("%s:%d/*", service.Hostname, servicePort.Port)
+			return []*HTTPRoute{BuildDefaultRoute(cluster, tracingOperation)}
 		}
 
 	case model.ProtocolTCP, model.ProtocolMongo, model.ProtocolRedis:
@@ -777,6 +781,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		clusters = append(clusters, cluster)
 		authenticationPolicy := model.GetConsolidateAuthenticationPolicy(mesh,
 			config, instance.Service.Hostname, endpoint.ServicePort)
+		defaultOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, servicePort.Port)
 
 		var listener *Listener
 
@@ -789,7 +794,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		// services' kubeproxy to our specific endpoint IP.
 		switch protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			defaultRoute := BuildDefaultRoute(cluster)
+			defaultRoute := BuildDefaultRoute(cluster, defaultOperation)
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {

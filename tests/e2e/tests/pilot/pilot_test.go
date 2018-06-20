@@ -47,6 +47,7 @@ const (
 
 var (
 	tc = &testConfig{
+		// TODO(inclfy) figure out why --v1alpha1=false not working. We requires proxyv2 api.
 		V1alpha1: true, //implies envoyv1
 		V1alpha3: true, //implies envoyv2
 		Ingress:  true,
@@ -84,9 +85,6 @@ func setTestConfig() error {
 	tc.CommonConfig = cc
 
 	tc.Kube.InstallAddons = true // zipkin is used
-
-	// Add mTLS auth exclusion policy.
-	tc.Kube.MTLSExcludedServices = []string{fmt.Sprintf("fake-control.%s.svc.cluster.local", tc.Kube.Namespace)}
 
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
@@ -273,10 +271,6 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
-		// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
-		// environment, pilot can see only services in the test namespaces). This service
-		// will be listed in mtlsExcludedServices in the mesh config.
-		getApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false),
 	}
 }
 

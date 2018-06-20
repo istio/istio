@@ -145,19 +145,19 @@ func TestRuntime_OnConfigChange(t *testing.T) {
 	// of listening.
 	expected := `
 ID: 3
-Templates:
+TemplatesStatic:
   Name: tapa
   Name: tcheck
   Name: thalt
   Name: tquota
   Name: treport
-Adapters:
+AdaptersStatic:
   Name: acheck
   Name: apa
   Name: aquota
   Name: areport
-Handlers:
-Instances:
+HandlersStatic:
+InstancesStatic:
 Rules:
 Attributes:
   foo: STRING
@@ -245,7 +245,7 @@ func TestRuntime_InFlightRequestsDuringConfigChange(t *testing.T) {
 	rt.onConfigChange(events)
 
 	// start a dispatch session, which will block until we signal it to commence.
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"identityAttr": "svc.istio-system",
 	})
 	callComplete := false

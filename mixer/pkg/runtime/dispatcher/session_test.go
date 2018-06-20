@@ -31,7 +31,7 @@ func TestSessionPool(t *testing.T) {
 	// Prime the pool
 	sessions := make([]*session, 100)
 	for i := 0; i < 100; i++ {
-		s := d.getSession(nil, 0, nil)
+		s := d.getSession(context.TODO(), 0, nil)
 		sessions[i] = s
 	}
 	for i := 0; i < 100; i++ {
@@ -40,7 +40,7 @@ func TestSessionPool(t *testing.T) {
 
 	// test cleaning
 	for i := 0; i < 100; i++ {
-		s := d.getSession(nil, 0, nil)
+		s := d.getSession(context.TODO(), 0, nil)
 		s.activeDispatches = 53 + i
 		sessions[i] = s
 	}
@@ -49,12 +49,13 @@ func TestSessionPool(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		s := d.getSession(nil, 0, nil)
+		s := d.getSession(context.TODO(), 0, nil)
 
 		// all fields should be clean, except for these two
 		expected := &session{
 			impl: d,
 			rc:   d.rc,
+			ctx:  context.TODO(),
 		}
 
 		if !reflect.DeepEqual(s, expected) {
@@ -71,9 +72,9 @@ func TestSession_Clear(t *testing.T) {
 		completed:        make(chan *dispatchState, 10),
 		err:              errors.New("some error"),
 		ctx:              context.TODO(),
-		checkResult:      &adapter.CheckResult{ValidUseCount: 53},
-		quotaResult:      &adapter.QuotaResult{Amount: 23},
-		quotaArgs:        adapter.QuotaArgs{BestEffort: true},
+		checkResult:      adapter.CheckResult{ValidUseCount: 53},
+		quotaResult:      adapter.QuotaResult{Amount: 23},
+		quotaArgs:        QuotaMethodArgs{BestEffort: true},
 		variety:          tpb.TEMPLATE_VARIETY_CHECK,
 		responseBag:      attribute.GetMutableBag(nil),
 	}

@@ -76,7 +76,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //     - uk.bookinfo.com
 //     - eu.bookinfo.com
 //     tls:
-//       httpsRedirect: true # sends 302 redirect for http requests
+//       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
 //       name: https
@@ -138,7 +138,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //     - destination:
 //         port:
 //           number: 7777
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //   - match:
 //       uri:
 //         prefix: /reviews/
@@ -146,10 +146,10 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //     - destination:
 //         port:
 //           number: 9080 # can be omitted if its the only port for reviews
-//         name: reviews.prod.svc.cluster.local
+//         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
 //
@@ -175,12 +175,12 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
-//         name: mongo.prod.svc.cluster.local
+//         host: mongo.prod.svc.cluster.local
 // ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// One or more labels that indicate a specific set of pods/VMs
+	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
 	// on which this gateway configuration should be applied.
 	// The scope of label search is platform dependent.
 	// On Kubernetes, for example, the scope includes pods running in
@@ -320,7 +320,7 @@ func (m *Server) GetTls() *Server_TLSOptions {
 }
 
 type Server_TLSOptions struct {
-	// If set to true, the load balancer will send a 302 redirect for all
+	// If set to true, the load balancer will send a 301 redirect for all
 	// http connections, asking the clients to use HTTPS.
 	HttpsRedirect bool `protobuf:"varint,1,opt,name=https_redirect,json=httpsRedirect,proto3" json:"https_redirect,omitempty"`
 	// Optional: Indicates whether connections to this port should be
@@ -394,8 +394,8 @@ type Port struct {
 	// REQUIRED: A valid non-negative integer port number.
 	Number uint32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
 	// REQUIRED: The protocol exposed on the port.
-	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-	// TCP-TLS is used to indicate secure connections to non HTTP services.
+	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+	// TLS is used to indicate secure connections to non HTTP services.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Label assigned to the port.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`

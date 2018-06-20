@@ -103,7 +103,7 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="AccessRule.services">
+<tr id="AccessRule-services">
 <td><code>services</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -116,7 +116,7 @@ If set to [&ldquo;*&rdquo;], it refers to all services in the namespace.</p>
 
 </td>
 </tr>
-<tr id="AccessRule.paths">
+<tr id="AccessRule-paths">
 <td><code>paths</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -131,7 +131,7 @@ If not specified, it applies to any path.</p>
 
 </td>
 </tr>
-<tr id="AccessRule.methods">
+<tr id="AccessRule-methods">
 <td><code>methods</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -141,9 +141,9 @@ If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
 
 </td>
 </tr>
-<tr id="AccessRule.constraints">
+<tr id="AccessRule-constraints">
 <td><code>constraints</code></td>
-<td><code><a href="#AccessRule.Constraint">AccessRule.Constraint[]</a></code></td>
+<td><code><a href="#AccessRule-Constraint">AccessRule.Constraint[]</a></code></td>
 <td>
 <p>Optional. Extra constraints in the ServiceRole specification.
 The above ServiceRole examples shows an example of constraint &ldquo;version&rdquo;.</p>
@@ -153,7 +153,7 @@ The above ServiceRole examples shows an example of constraint &ldquo;version&rdq
 </tbody>
 </table>
 </section>
-<h2 id="AccessRule.Constraint">AccessRule.Constraint</h2>
+<h2 id="AccessRule-Constraint">AccessRule.Constraint</h2>
 <section>
 <p>Definition of a custom constraint. The key of a custom constraint must match
 one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldquo;authorization&rdquo; template
@@ -168,7 +168,7 @@ one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldq
 </tr>
 </thead>
 <tbody>
-<tr id="AccessRule.Constraint.key">
+<tr id="AccessRule-Constraint-key">
 <td><code>key</code></td>
 <td><code>string</code></td>
 <td>
@@ -176,7 +176,7 @@ one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldq
 
 </td>
 </tr>
-<tr id="AccessRule.Constraint.values">
+<tr id="AccessRule-Constraint-values">
 <td><code>values</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -222,26 +222,26 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="RbacConfig.mode">
+<tr id="RbacConfig-mode">
 <td><code>mode</code></td>
-<td><code><a href="#RbacConfig.Mode">RbacConfig.Mode</a></code></td>
+<td><code><a href="#RbacConfig-Mode">RbacConfig.Mode</a></code></td>
 <td>
 <p>Istio RBAC mode.</p>
 
 </td>
 </tr>
-<tr id="RbacConfig.inclusion">
+<tr id="RbacConfig-inclusion">
 <td><code>inclusion</code></td>
-<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
 <td>
 <p>A list of services or namespaces that should be enforced by Istio RBAC policies. Note: This field have
 effect only when mode is ON<em>WITH</em>INCLUSION and will be ignored for any other modes.</p>
 
 </td>
 </tr>
-<tr id="RbacConfig.exclusion">
+<tr id="RbacConfig-exclusion">
 <td><code>exclusion</code></td>
-<td><code><a href="#RbacConfig.Target">RbacConfig.Target</a></code></td>
+<td><code><a href="#RbacConfig-Target">RbacConfig.Target</a></code></td>
 <td>
 <p>A list of services or namespaces that should not be enforced by Istio RBAC policies. Note: This field have
 effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any other modes.</p>
@@ -251,7 +251,7 @@ effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any ot
 </tbody>
 </table>
 </section>
-<h2 id="RbacConfig.Mode">RbacConfig.Mode</h2>
+<h2 id="RbacConfig-Mode">RbacConfig.Mode</h2>
 <section>
 <table class="enum-values">
 <thead>
@@ -261,7 +261,7 @@ effect only when mode is ON<em>WITH</em>EXCLUSION and will be ignored for any ot
 </tr>
 </thead>
 <tbody>
-<tr id="RbacConfig.Mode.OFF">
+<tr id="RbacConfig-Mode-OFF">
 <td><code>OFF</code></td>
 <td>
 <p>Disable Istio RBAC completely, any other config in RbacConfig will be ignored and Istio RBAC policies
@@ -269,14 +269,14 @@ will not be enforced.</p>
 
 </td>
 </tr>
-<tr id="RbacConfig.Mode.ON">
+<tr id="RbacConfig-Mode-ON">
 <td><code>ON</code></td>
 <td>
 <p>Enable Istio RBAC for all services and namespaces.</p>
 
 </td>
 </tr>
-<tr id="RbacConfig.Mode.ON_WITH_INCLUSION">
+<tr id="RbacConfig-Mode-ON_WITH_INCLUSION">
 <td><code>ON_WITH_INCLUSION</code></td>
 <td>
 <p>Enable Istio RBAC only for services and namespaces specified in the inclusion field. Any other
@@ -284,7 +284,7 @@ services and namespaces not in the inclusion field will not be enforced by Istio
 
 </td>
 </tr>
-<tr id="RbacConfig.Mode.ON_WITH_EXCLUSION">
+<tr id="RbacConfig-Mode-ON_WITH_EXCLUSION">
 <td><code>ON_WITH_EXCLUSION</code></td>
 <td>
 <p>Enable Istio RBAC for all services and namespaces except those specified in the exclusion field. Any other
@@ -295,7 +295,7 @@ services and namespaces not in the exclusion field will be enforced by Istio RBA
 </tbody>
 </table>
 </section>
-<h2 id="RbacConfig.Target">RbacConfig.Target</h2>
+<h2 id="RbacConfig-Target">RbacConfig.Target</h2>
 <section>
 <p>Target defines a list of services or namespaces.</p>
 
@@ -308,7 +308,7 @@ services and namespaces not in the exclusion field will be enforced by Istio RBA
 </tr>
 </thead>
 <tbody>
-<tr id="RbacConfig.Target.services">
+<tr id="RbacConfig-Target-services">
 <td><code>services</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -316,7 +316,7 @@ services and namespaces not in the exclusion field will be enforced by Istio RBA
 
 </td>
 </tr>
-<tr id="RbacConfig.Target.namespaces">
+<tr id="RbacConfig-Target-namespaces">
 <td><code>namespaces</code></td>
 <td><code>string[]</code></td>
 <td>
@@ -340,7 +340,7 @@ services and namespaces not in the exclusion field will be enforced by Istio RBA
 </tr>
 </thead>
 <tbody>
-<tr id="RoleRef.kind">
+<tr id="RoleRef-kind">
 <td><code>kind</code></td>
 <td><code>string</code></td>
 <td>
@@ -349,7 +349,7 @@ Currently, &ldquo;ServiceRole&rdquo; is the only supported value for &ldquo;kind
 
 </td>
 </tr>
-<tr id="RoleRef.name">
+<tr id="RoleRef-name">
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
@@ -377,7 +377,7 @@ of the ServiceRole is specified in &ldquo;metadata&rdquo; section of the Service
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceRole.rules">
+<tr id="ServiceRole-rules">
 <td><code>rules</code></td>
 <td><code><a href="#AccessRule">AccessRule[]</a></code></td>
 <td>
@@ -404,7 +404,7 @@ object.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="ServiceRoleBinding.subjects">
+<tr id="ServiceRoleBinding-subjects">
 <td><code>subjects</code></td>
 <td><code><a href="#Subject">Subject[]</a></code></td>
 <td>
@@ -412,7 +412,7 @@ object.</p>
 
 </td>
 </tr>
-<tr id="ServiceRoleBinding.roleRef">
+<tr id="ServiceRoleBinding-roleRef">
 <td><code>roleRef</code></td>
 <td><code><a href="#RoleRef">RoleRef</a></code></td>
 <td>
@@ -439,7 +439,7 @@ the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;aut
 </tr>
 </thead>
 <tbody>
-<tr id="Subject.user">
+<tr id="Subject-user">
 <td><code>user</code></td>
 <td><code>string</code></td>
 <td>
@@ -447,7 +447,7 @@ the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;aut
 
 </td>
 </tr>
-<tr id="Subject.group">
+<tr id="Subject-group">
 <td><code>group</code></td>
 <td><code>string</code></td>
 <td>
@@ -455,7 +455,7 @@ the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;aut
 
 </td>
 </tr>
-<tr id="Subject.properties">
+<tr id="Subject-properties">
 <td><code>properties</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>

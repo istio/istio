@@ -57,7 +57,7 @@ Vagrant.configure("2") do |config|
   #   vb.gui = true
   #
      # Customize the amount of memory on the VM:
-     vb.memory = "8192"
+     vb.memory = "10240"
      vb.cpus = "4"
      # Set the vboxnet interface to promiscous mode so that the docker veth
      # interfaces are reachable

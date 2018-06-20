@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
+	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pkg/log"
 )
 
@@ -84,8 +85,7 @@ type serviceMetrics struct {
 func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for service(s): %v", args)
 
-	config, _ := defaultRestConfig()
-	client, err := createCoreV1Client()
+	client, err := kubernetes.NewClient(kubeconfig, configContext)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -107,7 +107,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, readyCh, err := buildPortForwarder(client, config, promPod.Name, port)
+	fw, readyCh, err := buildPortForwarder(client, client.Config, promPod.Name, port)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
@@ -153,7 +153,7 @@ func prometheusPods(client cache.Getter) (*v1.PodList, error) {
 	return obj.(*v1.PodList), nil
 }
 
-func buildPortForwarder(client *rest.RESTClient, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
+func buildPortForwarder(client *kubernetes.Client, config *rest.Config, podName string, port int) (*portforward.PortForwarder, <-chan struct{}, error) {
 	req := client.Post().Resource("pods").Namespace(istioNamespace).Name(podName).SubResource("portforward")
 
 	transport, upgrader, err := spdy.RoundTripperFor(config)
@@ -184,8 +184,7 @@ func availablePort() (int, error) {
 		return 0, err
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close()
-	return port, nil
+	return port, l.Close()
 }
 
 func prometheusAPI(port int) (promv1.API, error) {
@@ -263,7 +262,7 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 func printHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintf(w, "%13sSERVICE\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "")
-	w.Flush()
+	_ = w.Flush()
 }
 
 func printMetrics(sm serviceMetrics) {
@@ -274,5 +273,5 @@ func printMetrics(sm serviceMetrics) {
 	fmt.Fprintf(w, "%s\t", sm.p50Latency)
 	fmt.Fprintf(w, "%s\t", sm.p90Latency)
 	fmt.Fprintf(w, "%s\t\n", sm.p99Latency)
-	w.Flush()
+	_ = w.Flush()
 }
