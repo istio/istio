@@ -28,16 +28,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-type kubeServiceNode struct {
-	// PodName Specifies the name of the POD
-	PodName string
-
-	// Namespace specifies the name of the namespace the pod belongs to
-	Namespace string
-
-	// Domain specifies the pod's domain
-	Domain string
-}
+//type kubeServiceNode struct {
+//	// PodName Specifies the name of the POD
+//	PodName string
+//
+//	// Namespace specifies the name of the namespace the pod belongs to
+//	Namespace string
+//
+//	// Domain specifies the pod's domain
+//	Domain string
+//}
 
 const (
 	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
