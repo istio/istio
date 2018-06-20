@@ -561,7 +561,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		"all": {},
+		model.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -627,7 +627,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		{
 			hostname: "world.default.svc.cluster.local",
 			port:     8080,
-			expected: "all",
+			expected: "default",
 		},
 		{
 			hostname: "world.another-galaxy.svc.cluster.local",
@@ -683,7 +683,7 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 			policy: &globalPolicy,
 		},
 		{
-			name:      "namespace-policy",
+			name:      model.DefaultAuthenticationPolicyName,
 			namespace: "default",
 			policy:    &namespacePolicy,
 		},
