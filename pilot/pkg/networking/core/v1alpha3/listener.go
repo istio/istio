@@ -551,7 +551,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTCPTLS, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
