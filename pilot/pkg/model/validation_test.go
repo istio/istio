@@ -3132,25 +3132,25 @@ func TestValidateServiceEntries(t *testing.T) {
 
 func TestValidateAuthenticationPolicy(t *testing.T) {
 	cases := []struct {
-		name  string
+		name       string
 		configName string
-		in    proto.Message
-		valid bool
+		in         proto.Message
+		valid      bool
 	}{
 		{
-			name:  "empty policy with namespace-wise policy name",
+			name:       "empty policy with namespace-wise policy name",
 			configName: DefaultAuthenticationPolicyName,
-			in:    &authn.Policy{},
-			valid: true,
+			in:         &authn.Policy{},
+			valid:      true,
 		},
 		{
-			name:  "empty policy with non-default name",
+			name:       "empty policy with non-default name",
 			configName: someName,
-			in:    &authn.Policy{},
-			valid: false,
+			in:         &authn.Policy{},
+			valid:      false,
 		},
 		{
-			name: "service-specific policy with namespace-wise name",
+			name:       "service-specific policy with namespace-wise name",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
@@ -3160,7 +3160,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Targets only policy",
+			name:       "Targets only policy",
 			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{{
@@ -3170,7 +3170,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Source mTLS",
+			name:       "Source mTLS",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
@@ -3180,7 +3180,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Source JWT",
+			name:       "Source JWT",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
@@ -3196,7 +3196,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Origin",
+			name:       "Origin",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
@@ -3204,7 +3204,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 						Jwt: &authn.Jwt{
 							Issuer:     "istio.io",
 							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-			                                JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
+							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
 						},
 					},
 				},
@@ -3212,7 +3212,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Bad JkwsURI",
+			name:       "Bad JkwsURI",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
@@ -3228,7 +3228,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Bad JkwsURI Port",
+			name:       "Bad JkwsURI Port",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Origins: []*authn.OriginAuthenticationMethod{
@@ -3244,7 +3244,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Duplicate Jwt issuers",
+			name:       "Duplicate Jwt issuers",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{{
@@ -3269,7 +3269,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Just binding",
+			name:       "Just binding",
 			configName: DefaultAuthenticationPolicyName,
 			in: &authn.Policy{
 				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
@@ -3277,7 +3277,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Bad target name",
+			name:       "Bad target name",
 			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{
@@ -3289,7 +3289,7 @@ func TestValidateAuthenticationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "Good target name",
+			name:       "Good target name",
 			configName: someName,
 			in: &authn.Policy{
 				Targets: []*authn.TargetSelector{
