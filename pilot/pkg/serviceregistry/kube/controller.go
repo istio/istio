@@ -250,8 +250,8 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 }
 
 // GetServiceAttributes implements a service catalog operation
-func (c *Controller) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	name, namespace, err := parseHostname(service.Hostname)
+func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("GetServiceAttributes() => error %v", err)
 		return nil, err
@@ -259,7 +259,7 @@ func (c *Controller) GetServiceAttributes(service *model.Service) (*model.Servic
 	if _, exists := c.serviceByKey(name, namespace); exists {
 		return &model.ServiceAttributes{Name: name, Namespace: namespace}, nil
 	}
-	return nil, fmt.Errorf("service not exist for hostname %q", service.Hostname)
+	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
 }
 
 // serviceByKey retrieves a service by name and namespace

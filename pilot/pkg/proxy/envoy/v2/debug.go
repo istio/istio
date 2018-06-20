@@ -244,9 +244,11 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface. Currently it only returns nil.
-func (sd *MemServiceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	return nil, nil
+// GetServiceAttributes implements discovery interface.
+func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	return &model.ServiceAttributes{
+		Name:      hostname.String(),
+		Namespace: model.IstioDefaultConfigNamespace}, nil
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is

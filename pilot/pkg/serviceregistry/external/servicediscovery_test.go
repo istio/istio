@@ -16,6 +16,7 @@ package external
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -120,13 +121,17 @@ func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
 
 	tcpStaticSvc := convertServices(tcpStatic)
 	for _, svc := range tcpStaticSvc {
-		if attr, _ := sd.GetServiceAttributes(svc); attr.Namespace != "default" {
-			t.Errorf(`GetServiceAttributes("tcpStaticSvc") => %q, want "default"`, attr.Namespace)
+		expect := model.ServiceAttributes{
+			Name:      svc.Hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace,
+		}
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
+			t.Errorf("GetServiceAttributes(%q) => %v, want %v", svc.Hostname, *attr, expect)
 		}
 	}
 	tcpDNSSvc := convertServices(tcpDNS)
 	for _, svc := range tcpDNSSvc {
-		if attr, _ := sd.GetServiceAttributes(svc); attr != nil {
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); attr != nil {
 			t.Errorf(`GetServiceAttributes("tcpDNSSvc") => %q, want nil`, attr.Namespace)
 		}
 	}
