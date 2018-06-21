@@ -14,6 +14,8 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
+      annotations:
+        container.seccomp.security.alpha.kubernetes.io/istio-proxy: 'docker/default'
       initContainers:
       - name: istio-init
         image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
@@ -52,7 +54,6 @@ data:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       {{- if .Values.global.proxy.enableCoreDump }}
       - args:
         - -c
