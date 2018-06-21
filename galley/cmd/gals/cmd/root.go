@@ -60,12 +60,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 				return fmt.Errorf("%q is an invalid argument", args[0])
 			}
 
-			err := log.Configure(loggingOptions)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return log.Configure(loggingOptions)
 		},
 	}
 	rootCmd.SetArgs(args)
@@ -78,7 +73,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Resync period for rescanning Kubernetes resources")
 
 	rootCmd.AddCommand(purgeCmd(fatalf))
-	rootCmd.AddCommand(serverCmd(fatalf))
+	rootCmd.AddCommand(serverCmd(printf, fatalf))
 	rootCmd.AddCommand(validatorCmd(printf, fatalf))
 	rootCmd.AddCommand(probeCmd(printf, fatalf))
 	rootCmd.AddCommand(version.CobraCommand())

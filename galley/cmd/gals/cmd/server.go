@@ -16,41 +16,69 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/common"
 	"istio.io/istio/galley/pkg/server"
-	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/version"
 )
 
-func serverCmd(fatalf shared.FormatFn) *cobra.Command {
-	return &cobra.Command{
+func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
+	sa := server.DefaultArgs()
+
+	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Starts Galley as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			err := runServer(fatalf)
+			err := runServer(sa, printf, fatalf)
 			if err != nil {
 				fatalf("Error during startup: %v", err)
 			}
 		},
 	}
+
+	cmd.PersistentFlags().StringVarP(&sa.KubeConfig, "kubeConfig", "", sa.KubeConfig,
+		"Path to the Kube config file")
+	cmd.PersistentFlags().DurationVarP(&sa.ResyncPeriod, "resyncPeriod", "", sa.ResyncPeriod,
+		"The resync duration for Kubernetes watchers")
+	cmd.PersistentFlags().StringVarP(&sa.APIAddress, "address", "", sa.APIAddress,
+		"Address to use for Galley's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file")
+	cmd.PersistentFlags().UintVarP(&sa.MaxReceivedMessageSize, "maxReceivedMessageSize", "", sa.MaxReceivedMessageSize,
+		"Maximum size of individual gRPC messages")
+	cmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams,
+		"Maximum number of outstanding RPCs per connection")
+
+	cmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
+		"Path to the file for the liveness probe.")
+	cmd.PersistentFlags().DurationVar(&sa.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", sa.LivenessProbeOptions.UpdateInterval,
+		"Interval of updating file for the liveness probe.")
+	cmd.PersistentFlags().StringVar(&sa.ReadinessProbeOptions.Path, "readinessProbePath", sa.ReadinessProbeOptions.Path,
+		"Path to the file for the readiness probe.")
+	cmd.PersistentFlags().DurationVar(&sa.ReadinessProbeOptions.UpdateInterval, "readinessProbeInterval", sa.ReadinessProbeOptions.UpdateInterval,
+		"Interval of updating file for the readiness probe.")
+
+	sa.LoggingOptions.AttachCobraFlags(cmd)
+	sa.IntrospectionOptions.AttachCobraFlags(cmd)
+
+	return cmd
 }
 
-func runServer(fatalf shared.FormatFn) error {
-	config, err := clientcmd.BuildConfigFromFlags("", flags.kubeConfig)
+func runServer(sa *server.Args, printf, fatalf shared.FormatFn) error {
+	printf("Galley started with\n%s", sa)
+
+	s, err := server.New(sa)
 	if err != nil {
-		return err
+		fatalf("Unable to initialize Galley: %v", err)
 	}
 
-	kube := common.NewKube(config)
-	s := server.New(kube, server.Mapping(), flags.resyncPeriod)
+	printf("Istio Galley: %s", version.Info)
+	printf("Starting gRPC server on %v", sa.APIAddress)
 
-	stop := make(chan struct{})
+	s.Run()
+	err = s.Wait()
+	if err != nil {
+		fatalf("Galley unexpectedly terminated: %v", err)
+	}
 
-	s.Start()
-
-	cmd.WaitSignal(stop)
-	s.Stop()
+	_ = s.Close()
 	return nil
 }
