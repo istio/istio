@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // createMixerValidator creates a mixer backend validator.
@@ -111,7 +112,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 			params := validation.WebhookParameters{
 				MixerValidator:      mixerValidator,
-				PilotDescriptor:     bootstrap.ConfigDescriptor,
+				PilotDescriptor:     model.IstioConfigTypes,
 				DomainSuffix:        domainSuffix,
 				Port:                port,
 				CertFile:            certFile,

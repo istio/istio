@@ -1,6 +1,0 @@
-quotaSpecs:
-- name: quota-spec
-  namespace: default
-services:
-- name: hello
-  namespace: default

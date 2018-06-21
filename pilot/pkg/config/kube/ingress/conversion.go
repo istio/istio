@@ -26,108 +26,10 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	routing "istio.io/api/routing/v1alpha1"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
-
-func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {
-	out := make([]model.Config, 0)
-	tls := ""
-
-	if len(ingress.Spec.TLS) > 0 {
-		// TODO(istio/istio/issues/1424): implement SNI
-		if len(ingress.Spec.TLS) > 1 {
-			log.Warnf("ingress %s requires several TLS secrets but Envoy can only serve one", ingress.Name)
-		}
-		secret := ingress.Spec.TLS[0]
-		tls = fmt.Sprintf("%s.%s", secret.SecretName, ingress.Namespace)
-	}
-
-	if ingress.Spec.Backend != nil {
-		name := EncodeIngressRuleName(ingress.Name, 0, 0)
-		ingressRule := createIngressRule(name, "", "", domainSuffix, ingress, *ingress.Spec.Backend, tls)
-		out = append(out, ingressRule)
-	}
-
-	for i, rule := range ingress.Spec.Rules {
-		if rule.HTTP == nil {
-			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
-			continue
-		}
-		for j, path := range rule.HTTP.Paths {
-			name := EncodeIngressRuleName(ingress.Name, i+1, j+1)
-			ingressRule := createIngressRule(name, rule.Host, path.Path,
-				domainSuffix, ingress, path.Backend, tls)
-			out = append(out, ingressRule)
-		}
-	}
-	return out
-}
-
-func createIngressRule(name, host, path, domainSuffix string,
-	ingress v1beta1.Ingress, backend v1beta1.IngressBackend, tlsSecret string) model.Config {
-	rule := &routing.IngressRule{
-		Destination: &routing.IstioService{
-			Name: backend.ServiceName,
-		},
-		TlsSecret: tlsSecret,
-		Match: &routing.MatchCondition{
-			Request: &routing.MatchRequest{
-				Headers: make(map[string]*routing.StringMatch, 2),
-			},
-		},
-	}
-	switch backend.ServicePort.Type {
-	case intstr.Int:
-		rule.DestinationServicePort = &routing.IngressRule_DestinationPort{
-			DestinationPort: int32(backend.ServicePort.IntValue()),
-		}
-	case intstr.String:
-		rule.DestinationServicePort = &routing.IngressRule_DestinationPortName{
-			DestinationPortName: backend.ServicePort.String(),
-		}
-	}
-
-	if host != "" {
-		rule.Match.Request.Headers[model.HeaderAuthority] = &routing.StringMatch{
-			MatchType: &routing.StringMatch_Exact{Exact: host},
-		}
-	}
-
-	if path != "" {
-		if strings.HasSuffix(path, ".*") {
-			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-				MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
-			}
-		} else {
-			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-				MatchType: &routing.StringMatch_Exact{Exact: path},
-			}
-		}
-	} else {
-		rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-			MatchType: &routing.StringMatch_Prefix{Prefix: "/"},
-		}
-	}
-
-	return model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:            model.IngressRule.Type,
-			Group:           crd.ResourceGroup(&model.IngressRule),
-			Version:         model.IngressRule.Version,
-			Name:            name,
-			Namespace:       ingress.Namespace,
-			Domain:          domainSuffix,
-			Labels:          ingress.Labels,
-			Annotations:     ingress.Annotations,
-			ResourceVersion: ingress.ResourceVersion,
-		},
-		Spec: rule,
-	}
-}
 
 // EncodeIngressRuleName encodes an ingress rule name for a given ingress resource name,
 // as well as the position of the rule and path specified within it, counting from 1.

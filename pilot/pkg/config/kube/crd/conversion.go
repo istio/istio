@@ -37,13 +37,6 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 	}
 	meta := object.GetObjectMeta()
 
-	//// FIXME this is a gross hack to hardcode a service's domain name in kubernetes
-	//if domain == "" {
-	//	domain = "svc.cluster.local"
-	//} else {
-	//	domain = "svc." + domain
-	//}
-
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:              schema.Type,

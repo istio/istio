@@ -23,8 +23,8 @@ import (
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/api/networking/v1alpha3"
 )
 
 func TestGogoProtoSchemaConversions(t *testing.T) {
@@ -222,70 +222,36 @@ patterns:
 }
 
 func TestProtoSchemaConversions(t *testing.T) {
-	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
+	virtualServiceSchema := &model.ProtoSchema{MessageName: model.VirtualService.MessageName}
 
-	msg := &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "foo",
-		},
-		Precedence: 5,
-		Route: []*routing.DestinationWeight{
-			{Destination: &routing.IstioService{Name: "bar"}, Weight: 75},
-			{Destination: &routing.IstioService{Name: "baz"}, Weight: 25},
-		},
+	msg := &v1alpha3.VirtualService{
+		Hosts: []string{"foo"},
+		Http: []*v1alpha3.HTTPRoute{{
+			Route: []*v1alpha3.DestinationWeight{{
+				Destination: &v1alpha3.Destination{Host: "bar"},
+				Weight: 100,
+			}},
+		}},
 	}
 
-	wantJSON := `
-	{
-		"destination": {
-			"name": "foo"
-		},
-		"precedence": 5,
-		"route": [
-		{
-			"destination": {
-				"name" : "bar"
-			},
-			"weight": 75
-		},
-		{
-			"destination": {
-				"name" : "baz"
-			},
-			"weight": 25
-		}
-		]
-	}
-	`
+	wantJSON := `{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}`
 
-	wantYAML := "destination:\n" +
-		"  name: foo\n" +
-		"precedence: 5\n" +
-		"route:\n" +
-		"- destination:\n" +
-		"    name: bar\n" +
-		"  weight: 75\n" +
-		"- destination:\n" +
-		"    name: baz\n" +
-		"  weight: 25\n"
+	wantYAML := "hosts:\n- foo\nhttp:\n- route:\n  - destination:\n      host: bar\n    weight: 100\n"
 
 	wantJSONMap := map[string]interface{}{
-		"destination": map[string]interface{}{
-			"name": "foo",
+		"hosts": []interface{}{
+			"foo",
 		},
-		"precedence": 5.0,
-		"route": []interface{}{
+		"http": []interface{}{
 			map[string]interface{}{
-				"destination": map[string]interface{}{
-					"name": "bar",
+				"route": []interface{}{
+					map[string]interface{}{
+						"destination": map[string]interface{}{
+							"host": "bar",
+						},
+						"weight": 100.0,
+					},
 				},
-				"weight": 75.0,
-			},
-			map[string]interface{}{
-				"destination": map[string]interface{}{
-					"name": "baz",
-				},
-				"weight": 25.0,
 			},
 		},
 	}
@@ -307,7 +273,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Error("should produce an error")
 	}
 
-	gotFromJSON, err := routeRuleSchema.FromJSON(wantJSON)
+	gotFromJSON, err := virtualServiceSchema.FromJSON(wantJSON)
 	if err != nil {
 		t.Errorf("FromJSON failed: %v", err)
 	}
@@ -327,7 +293,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Error("should produce an error")
 	}
 
-	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
+	gotFromYAML, err := virtualServiceSchema.FromYAML(wantYAML)
 	if err != nil {
 		t.Errorf("FromYAML failed: %v", err)
 	}
@@ -335,7 +301,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
 	}
 
-	if _, err = routeRuleSchema.FromYAML(":"); err == nil {
+	if _, err = virtualServiceSchema.FromYAML(":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 
@@ -351,7 +317,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Error("should produce an error")
 	}
 
-	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
+	gotFromJSONMap, err := virtualServiceSchema.FromJSONMap(wantJSONMap)
 	if err != nil {
 		t.Errorf("FromJSONMap failed: %v", err)
 	}
@@ -359,10 +325,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
 	}
 
-	if _, err = routeRuleSchema.FromJSONMap(1); err == nil {
+	if _, err = virtualServiceSchema.FromJSONMap(1); err == nil {
 		t.Error("should produce an error")
 	}
-	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
+	if _, err = virtualServiceSchema.FromJSON(":"); err == nil {
 		t.Errorf("should produce an error")
 	}
 }
