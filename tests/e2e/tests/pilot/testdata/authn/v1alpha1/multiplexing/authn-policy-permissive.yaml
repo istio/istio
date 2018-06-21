@@ -1,0 +1,25 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "permissive-authn-80"
+spec:
+  targets:
+  - name: "d"
+    ports:
+    - number: 80
+  peers:
+    - mtls:
+        mode: PERMISSIVE
+---
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "strict-authn-7070"
+spec:
+  targets:
+  - name: "d"
+    ports:
+    - number: 7070
+  peers:
+    - mtls:
+        mode: STRICT

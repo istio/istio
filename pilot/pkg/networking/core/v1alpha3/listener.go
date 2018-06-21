@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -34,6 +35,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -253,6 +255,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			protocol:       protocol,
 		}
 
+		for _, p := range configgen.Plugins {
+			if authnPolicy, ok := p.(authn.Plugin); ok {
+				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
+					listenerOpts.tlsMultiplexed = true
+					log.Infof("Uses TLS multiplexing for %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
+				}
+			}
+		}
+
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if l, exists := listenerMap[listenerMapKey]; exists {
 			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
@@ -262,13 +273,28 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		listenerType = plugin.ModelProtocolToListenerType(protocol)
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				httpOpts: &httpListenerOpts{
-					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
-					rds:              "", // no RDS for inbound traffic
-					useRemoteAddress: false,
-					direction:        http_conn.INGRESS,
-				}},
+			httpOpts := &httpListenerOpts{
+				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
+				rds:              "", // no RDS for inbound traffic
+				useRemoteAddress: false,
+				direction:        http_conn.INGRESS,
+			}
+			if listenerOpts.tlsMultiplexed {
+				listenerOpts.filterChainOpts = []*filterChainOpts{
+					{
+						httpOpts:          httpOpts,
+						transportProtocol: authn.EnvoyRawBufferMatch,
+					}, {
+						httpOpts:          httpOpts,
+						transportProtocol: authn.EnvoyTLSMatch,
+					},
+				}
+			} else {
+				listenerOpts.filterChainOpts = []*filterChainOpts{
+					{
+						httpOpts: httpOpts,
+					},
+				}
 			}
 		case plugin.ListenerTypeTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
@@ -561,10 +587,11 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts       []string
-	tlsContext     *auth.DownstreamTlsContext
-	httpOpts       *httpListenerOpts
-	networkFilters []listener.Filter
+	sniHosts          []string
+	transportProtocol string
+	tlsContext        *auth.DownstreamTlsContext
+	httpOpts          *httpListenerOpts
+	networkFilters    []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -578,6 +605,7 @@ type buildListenerOpts struct {
 	protocol        model.Protocol
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
+	tlsMultiplexed  bool
 }
 
 func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
@@ -650,9 +678,21 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
-	for _, chain := range opts.filterChainOpts {
-		var match *listener.FilterChainMatch
 
+	var listenerFilters []listener.ListenerFilter
+	if opts.tlsMultiplexed {
+		listenerFilters = []listener.ListenerFilter{
+			{
+				Name:   authn.EnvoyTLSInspectorFilterName,
+				Config: &google_protobuf.Struct{},
+			},
+		}
+	}
+
+	for _, chain := range opts.filterChainOpts {
+		match := &listener.FilterChainMatch{
+			TransportProtocol: chain.transportProtocol,
+		}
 		if len(chain.sniHosts) > 0 {
 			fullWildcardFound := false
 			for _, h := range chain.sniHosts {
@@ -664,8 +704,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				}
 			}
 			if !fullWildcardFound {
-				match = &listener.FilterChainMatch{SniDomains: chain.sniHosts}
+				match.SniDomains = chain.sniHosts
 			}
+		}
+		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+			match = nil
 		}
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
@@ -681,10 +724,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		Name:         fmt.Sprintf("%s_%d", opts.ip, opts.port),
-		Address:      util.BuildAddress(opts.ip, uint32(opts.port)),
-		FilterChains: filterChains,
-		DeprecatedV1: deprecatedV1,
+		Name:            fmt.Sprintf("%s_%d", opts.ip, opts.port),
+		Address:         util.BuildAddress(opts.ip, uint32(opts.port)),
+		ListenerFilters: listenerFilters,
+		FilterChains:    filterChains,
+		DeprecatedV1:    deprecatedV1,
 	}
 }
 
