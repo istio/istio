@@ -748,6 +748,10 @@ func TestIngressCheckCache(t *testing.T) {
 	visit := func() error {
 		url := fmt.Sprintf("%s/productpage", getIngressOrFail(t))
 		// Send 100 requests in a relative short time to make sure check cache will be used.
+		httpOptions := fhttp.HTTPOptions{
+			URL: url,
+		}
+		httpOptions.AddAndValidateExtraHeader("x-user: john")
 		opts := fhttp.HTTPRunnerOptions{
 			RunnerOptions: periodic.RunnerOptions{
 				QPS:        10,
@@ -755,9 +759,7 @@ func TestIngressCheckCache(t *testing.T) {
 				NumThreads: 5,         // get the same number of calls per connection (100/5=20)
 				Out:        os.Stderr, // only needed because of log capture issue
 			},
-			HTTPOptions: fhttp.HTTPOptions{
-				URL: url,
-			},
+			HTTPOptions: httpOptions,
 		}
 
 		_, err := fhttp.RunHTTPTest(&opts)
