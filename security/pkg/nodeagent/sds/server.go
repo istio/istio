@@ -15,9 +15,11 @@
 package sds
 
 import (
+	"fmt"
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/log"
 )
@@ -28,6 +30,12 @@ const maxStreams = 100000
 type Options struct {
 	// UDSPath is the unix domain socket through which SDS server communicates with proxies.
 	UDSPath string
+
+	// CertFile is the path of Cert File for gRPC server TLS settings.
+	CertFile string
+
+	// KeyFile is the path of Key File for gRPC server TLS settings.
+	KeyFile string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -66,7 +74,10 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
-	s.initGrpcServer()
+	if err := s.initGrpcServer(options); err != nil {
+		return err
+	}
+
 	s.envoySds.register(s.grpcServer)
 
 	var err error
@@ -87,14 +98,29 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 	return nil
 }
 
-func (s *Server) initGrpcServer() {
-	grpcOptions := s.grpcServerOptions()
+func (s *Server) initGrpcServer(options *Options) error {
+	grpcOptions, err := s.grpcServerOptions(options)
+	if err != nil {
+		return err
+	}
+
 	s.grpcServer = grpc.NewServer(grpcOptions...)
+	return nil
 }
 
-func (s *Server) grpcServerOptions() []grpc.ServerOption {
+func (s *Server) grpcServerOptions(options *Options) ([]grpc.ServerOption, error) {
 	grpcOptions := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 	}
-	return grpcOptions
+
+	if options.CertFile != "" && options.KeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(options.CertFile, options.KeyFile)
+		if err != nil {
+			log.Errorf("Failed to load TLS keys: %s", err)
+			return nil, fmt.Errorf("failed to load TLS keys")
+		}
+		grpcOptions = append(grpcOptions, grpc.Creds(creds))
+	}
+
+	return grpcOptions, nil
 }
