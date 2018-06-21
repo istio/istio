@@ -566,6 +566,16 @@ jobs:
               # The xenail debug image is built first, will be used in the next steps
               make docker.all docker.push
             fi
+      - run:
+          name: Upload Artifacts
+          command: |
+            sudo apt-get -y update
+            sudo apt-get install awscli
+            rm -rf _upload
+            mkdir _upload
+            cp $(make where-is-out)/archive/*.tar.gz _upload/
+            cp $(make where-is-out)/archive/*.zip _upload/
+            /go/src/istio.io/istio/.circleci/aws_save_artifacts.sh _upload
 
   goxbuild:
     <<: *defaults
@@ -718,7 +728,7 @@ workflows:
             tags:
               only: /^[0-9.]+-am.*/
       - aspenmesh-push:
-          context: quay-ci
+          context: artifact-push
           requires:
             - test
             - e2e-simple
