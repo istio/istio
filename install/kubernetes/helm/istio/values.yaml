@@ -11,6 +11,9 @@ global:
   # docker.io/istionightly
   hub: docker.io/istio
 
+  hub_img_delim: "/"
+  img_tag_delim: ":"
+
   # Default tag for Istio images.
   # Should track latest released version in the branch.
   tag: 0.8.latest

@@ -10,7 +10,7 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
-        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.hub_img_delim }}{{ $.Values.image }}{{ $.Values.global.img_tag_delim }}{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9092
@@ -25,7 +25,7 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.hub_img_delim }}proxyv2{{ $.Values.global.img_tag_delim }}{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -81,7 +81,7 @@
     {{- end }}
       containers:
       - name: mixer
-        image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.hub_img_delim }}{{ $.Values.image }}{{ $.Values.global.img_tag_delim }}{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9092
@@ -96,7 +96,7 @@
         resources:
 {{ toYaml $.Values.resources | indent 12 }}
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}{{ $.Values.global.hub_img_delim }}{{ $.Values.global.proxy.image }}{{ $.Values.global.img_tag_delim }}{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091

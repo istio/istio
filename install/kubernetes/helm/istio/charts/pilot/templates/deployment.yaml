@@ -24,7 +24,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
@@ -73,7 +73,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}proxyv2{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003

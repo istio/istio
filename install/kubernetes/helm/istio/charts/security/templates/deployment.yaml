@@ -22,7 +22,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - --append-dns-names=true
