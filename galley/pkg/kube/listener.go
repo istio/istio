@@ -65,7 +65,6 @@ func newListener(
 
 	log.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 
-	var client dynamic.Interface
 	client, err := ifaces.DynamicInterface(spec.GroupVersion(), spec.Kind, spec.ListKind)
 	if err != nil {
 		return nil, err

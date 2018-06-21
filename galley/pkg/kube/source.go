@@ -65,7 +65,7 @@ func (s *sourceImpl) Start() (chan resource.Event, error) {
 		l.start()
 	}
 
-	// Wait in a background go-routine until all listeners are synced and send l full-sync event.
+	// Wait in a background go-routine until all listeners are synced and send a full-sync event.
 	go func() {
 		for _, l := range s.listeners {
 			l.waitForCacheSync()
