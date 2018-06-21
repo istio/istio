@@ -15,12 +15,13 @@
 package sds
 
 import (
+	"fmt"
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/nodeagent/cache"
 )
 
 const maxStreams = 100000
@@ -29,22 +30,26 @@ const maxStreams = 100000
 type Options struct {
 	// UDSPath is the unix domain socket through which SDS server communicates with proxies.
 	UDSPath string
+
+	// CertFile is the path of Cert File for gRPC server TLS settings.
+	CertFile string
+
+	// KeyFile is the path of Key File for gRPC server TLS settings.
+	KeyFile string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
 type Server struct {
-	envoySds          *sdsservice
-	grpcServer        *grpc.Server
-	grpcListeningAddr net.Addr
+	envoySds *sdsservice
 
-	closing chan bool
+	grpcListener net.Listener
+	grpcServer   *grpc.Server
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options Options, st cache.SecretManager) (*Server, error) {
+func NewServer(options Options, st SecretManager) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
-		closing:  make(chan bool, 1),
 	}
 	if err := s.initDiscoveryService(&options, st); err != nil {
 		log.Errorf("Failed to initialize secret discovery service: %v", err)
@@ -58,48 +63,64 @@ func (s *Server) Stop() {
 	if s == nil {
 		return
 	}
-	s.closing <- true
+
+	if s.grpcListener != nil {
+		s.grpcListener.Close()
+	}
+
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+	}
 }
 
-func (s *Server) initDiscoveryService(options *Options, st cache.SecretManager) error {
-	s.initGrpcServer()
+func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
+	if err := s.initGrpcServer(options); err != nil {
+		return err
+	}
+
 	s.envoySds.register(s.grpcServer)
 
-	grpcListener, err := net.Listen("unix", options.UDSPath)
+	var err error
+	s.grpcListener, err = net.Listen("unix", options.UDSPath)
 	if err != nil {
 		log.Errorf("Failed to listen on unix socket %q: %v", options.UDSPath, err)
 		return err
 	}
-	s.grpcListeningAddr = grpcListener.Addr()
 
 	go func() {
-		if err = s.grpcServer.Serve(grpcListener); err != nil {
+		if err = s.grpcServer.Serve(s.grpcListener); err != nil {
 			log.Errorf("SDS grpc server failed to start: %v", err)
 		}
-	}()
 
-	go func() {
-		<-s.closing
-		if grpcListener != nil {
-			grpcListener.Close()
-		}
-
-		if s.grpcServer != nil {
-			s.grpcServer.Stop()
-		}
+		log.Info("SDS grpc server started")
 	}()
 
 	return nil
 }
 
-func (s *Server) initGrpcServer() {
-	grpcOptions := s.grpcServerOptions()
+func (s *Server) initGrpcServer(options *Options) error {
+	grpcOptions, err := s.grpcServerOptions(options)
+	if err != nil {
+		return err
+	}
+
 	s.grpcServer = grpc.NewServer(grpcOptions...)
+	return nil
 }
 
-func (s *Server) grpcServerOptions() []grpc.ServerOption {
+func (s *Server) grpcServerOptions(options *Options) ([]grpc.ServerOption, error) {
 	grpcOptions := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 	}
-	return grpcOptions
+
+	if options.CertFile != "" && options.KeyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(options.CertFile, options.KeyFile)
+		if err != nil {
+			log.Errorf("Failed to load TLS keys: %s", err)
+			return nil, fmt.Errorf("failed to load TLS keys")
+		}
+		grpcOptions = append(grpcOptions, grpc.Creds(creds))
+	}
+
+	return grpcOptions, nil
 }

@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloadapi
+package sds
 
-import (
-	"testing"
+import "time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
-	"golang.org/x/net/context"
+// SecretManager defines secrets management interface which is used by SDS.
+type SecretManager interface {
+	GetSecret(proxyID, spiffeID, token string) (*SecretItem, error)
+}
 
-	pb "istio.io/istio/security/proto"
-)
+// SecretItem is the cached item in in-memory secret store.
+type SecretItem struct {
+	CertificateChain []byte
+	PrivateKey       []byte
 
-// TODO(wattli): add more tests.
-func TestCheck(t *testing.T) {
-	server := &server{}
+	// SpiffeID passed from envoy.
+	SpiffeID string
 
-	req := &pb.CheckRequest{Name: "check"}
-	resp, err := server.Check(context.Background(), req)
-	if err != nil {
-		t.Errorf("Failed to check with error %v.", err)
-	}
-	if resp.Status.Code != int32(rpc.PERMISSION_DENIED) {
-		t.Errorf("Failed to check with resp %v.", resp)
-	}
+	// Credential token passed from envoy, caClient uses this token to send
+	// CSR to CA to sign certificate.
+	Token string
+
+	CreatedTime time.Time
 }

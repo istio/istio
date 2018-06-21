@@ -1,3 +1,5 @@
+*This page is deprecating. The new approach is under development.*
+
 To play with this demo, you need to:
 
 - Create a GKE cluster with version 1.8.7.
