@@ -8,10 +8,14 @@
 
 	It is generated from these files:
 		config/mcp/v1alpha1/envelope.proto
+		config/mcp/v1alpha1/mcp.proto
 		config/mcp/v1alpha1/metadata.proto
 
 	It has these top-level messages:
 		Envelope
+		Client
+		MeshConfigRequest
+		MeshConfigResponse
 		Metadata
 */
 package v1alpha1
