@@ -1918,8 +1918,8 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	}
 
 	for _, gateway := range virtualService.Gateways {
-		if !IsDNS1123Label(gateway) {
-			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
 		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
@@ -1933,7 +1933,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := validateHost(host); err != nil {
-			errs = appendErrors(errs, validateHost(host))
+			errs = appendErrors(errs, err)
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
