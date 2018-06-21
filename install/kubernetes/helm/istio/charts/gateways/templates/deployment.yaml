@@ -25,7 +25,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: {{ $key }}-service-account
+{{- if $.Values.global.rbacEnabled }}
+      serviceAccountName: istio-{{ $key }}-service-account
+{{- end }}
       containers:
         - name: {{ $spec.labels.istio }}
           image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
@@ -102,7 +104,11 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: "istio.default"
+{{- if $.Values.global.rbacEnabled }}
+          secretName: istio.istio-{{ $key }}-service-account
+{{- else }}
+          secretName: istio.default
+{{- end }}
           optional: true
       {{- range $spec.secretVolumes }}
       - name: {{ .name }}
