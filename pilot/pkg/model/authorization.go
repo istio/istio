@@ -15,9 +15,7 @@
 package model
 
 const (
-	// RbacConfigName is the name of the RbacConfig custom resource that controls the RBAC behavior.
-	RbacConfigName = "rbac-config"
-
-	// RbacConfigNamespace is the namespace of the RbacConfig custom resource that controls the RBAC behavior.
-	RbacConfigNamespace = "istio-system"
+	// DefaultRbacConfigName is the name of the cluster-scoped rbac config. Only RbacConfig with this
+	// name in the cluster-scoped will be considered.
+	DefaultRbacConfigName = "rbac-config"
 )

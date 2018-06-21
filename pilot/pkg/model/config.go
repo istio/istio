@@ -305,8 +305,8 @@ type IstioConfigStore interface {
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
 
-	// RbacConfig selects the RbacConfig with the specified name in the specified namespace.
-	RbacConfig(name, namespace string) *Config
+	// RbacConfig selects the RbacConfig with the specified name.
+	RbacConfig(name string) *Config
 }
 
 const (
@@ -539,14 +539,15 @@ var (
 		Validate:      ValidateServiceRoleBinding,
 	}
 
-	// RbacConfig describes an global RBAC config.
+	// RbacConfig describes the mesh level RBAC config.
 	RbacConfig = ProtoSchema{
-		Type:        "rbac-config",
-		Plural:      "rbac-configs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.rbac.v1alpha1.RbacConfig",
-		Validate:    ValidateRbacConfig,
+		ClusterScoped: true,
+		Type:          "rbac-config",
+		Plural:        "rbac-configs",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
+		Validate:      ValidateRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -1149,10 +1150,14 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	return bindings
 }
 
-func (store *istioConfigStore) RbacConfig(name, namespace string) *Config {
-	rbacConfigs, err := store.List(RbacConfig.Type, namespace)
+func (store *istioConfigStore) RbacConfig(name string) *Config {
+	rbacConfigs, err := store.List(RbacConfig.Type, "")
 	if err != nil {
 		log.Errorf("failed to get rbacConfig: %v", err)
+		return nil
+	}
+	if len(rbacConfigs) > 1 {
+		log.Errorf("found %d rbacConfigs, expecing only 1.", len(rbacConfigs))
 		return nil
 	}
 	for _, rc := range rbacConfigs {

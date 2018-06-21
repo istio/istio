@@ -3723,15 +3723,13 @@ func TestValidateRbacConfig(t *testing.T) {
 		{
 			caseName:     "invalid name",
 			name:         "Rbac-config",
-			namespace:    "istio-system",
 			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: "RbacConfig has invalid name(Rbac-config), name must be rbac-config",
+			expectErrMsg: "rbacConfig has invalid name(Rbac-config), name must be rbac-config",
 		},
 		{
-			caseName:  "success proto",
-			name:      "rbac-config",
-			namespace: "istio-system",
-			in:        &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+			caseName: "success proto",
+			name:     "rbac-config",
+			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
 	}
 	for _, c := range cases {

@@ -1846,10 +1846,8 @@ func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
-	// TODO(yangminzhu): Don't check the namespace in validation to avoid breaking e2e test, consider
-	// make the RbacConfig to be cluster scope.
-	if name != RbacConfigName {
-		return fmt.Errorf("RbacConfig has invalid name(%s), name must be %s", name, RbacConfigName)
+	if name != DefaultRbacConfigName {
+		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
 	}
 
 	return nil

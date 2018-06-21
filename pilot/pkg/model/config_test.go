@@ -891,26 +891,20 @@ func TestServiceRoleBindings(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "istio-system", store, t)
+	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "", store, t)
 	tests := []struct {
-		name      string
-		namespace string
-		expect    bool
+		caseName string
+		name     string
+		expect   bool
 	}{
-		{name: "rbac-config", namespace: "istio-system", expect: true},
-		{name: "wrong", namespace: "istio-system", expect: false},
-		{name: "rbac-config", namespace: "wrong", expect: false},
+		{caseName: "good", name: "rbac-config", expect: true},
+		{caseName: "invalid name", name: "wrong", expect: false},
 	}
 
 	for _, tt := range tests {
-		config := store.RbacConfig(tt.name, tt.namespace)
-		if tt.expect {
-			if config.Name != tt.name || config.Namespace != tt.namespace {
-				t.Errorf("model.RbacConfig: expecting rbacConfig(%s, %s), but got rbacConfig(%s, %s)",
-					config.Name, config.Namespace, tt.name, tt.namespace)
-			}
-		} else if config != nil {
-			t.Errorf("model.RbacConfig: expecting nil, but got rbacConfig(%s, %s)", tt.name, tt.namespace)
+		hasConfig := store.RbacConfig(tt.name) != nil
+		if tt.expect != hasConfig {
+			t.Errorf("model.RbacConfig: %s expecting %v, but got %v", tt.caseName, tt.expect, hasConfig)
 		}
 	}
 }

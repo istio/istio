@@ -28,7 +28,6 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
 func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioConfigStore {
@@ -42,11 +41,11 @@ func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioC
 	return store
 }
 
-func newRbacConfig(name, ns string, mode rbacproto.RbacConfig_Mode,
+func newRbacConfig(mode rbacproto.RbacConfig_Mode,
 	include *rbacproto.RbacConfig_Target, exclude *rbacproto.RbacConfig_Target) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.RbacConfig.Type, Name: name, Namespace: ns},
+			Type: model.RbacConfig.Type, Name: model.DefaultRbacConfigName},
 		Spec: &rbacproto.RbacConfig{
 			Mode:      mode,
 			Inclusion: include,
@@ -60,11 +59,10 @@ func TestIsRbacEnabled(t *testing.T) {
 		Services:   []string{"review.default.svc", "product.default.svc"},
 		Namespaces: []string{"special"},
 	}
-	cfg0 := newRbacConfig("rbac-config", "default", rbacproto.RbacConfig_ON, nil, nil)
-	cfg1 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_ON, nil, nil)
-	cfg2 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_OFF, nil, nil)
-	cfg3 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil)
-	cfg4 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target)
+	cfg1 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil)
+	cfg2 := newRbacConfig(rbacproto.RbacConfig_OFF, nil, nil)
+	cfg3 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil)
+	cfg4 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target)
 
 	testCases := []struct {
 		Name      string
@@ -73,10 +71,6 @@ func TestIsRbacEnabled(t *testing.T) {
 		Namespace string
 		Ret       bool
 	}{
-		{
-			Name:  "rbac plugin disabled for invalid namespace",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg0}, t),
-		},
 		{
 			Name:  "rbac plugin enabled",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),

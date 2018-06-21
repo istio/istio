@@ -77,18 +77,18 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	if in.Node.Type != model.Sidecar || in.ListenerProtocol != plugin.ListenerProtocolHTTP {
 		return nil
 	}
-	hostname := in.ServiceInstance.Service.Hostname
-	attr, err := in.Env.GetServiceAttributes(hostname)
-	if attr == nil {
-		log.Errorf("rbac plugin disabled: invalid service %s: %v", hostname, err)
+	svc := in.ServiceInstance.Service.Hostname
+	attr, err := in.Env.GetServiceAttributes(svc)
+	if attr == nil || err != nil {
+		log.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
 		return nil
 	}
 
-	if !isRbacEnabled(hostname.String(), attr.Namespace, in.Env.IstioConfigStore) {
+	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 
-	filter := buildHTTPFilter(hostname.String(), attr.Namespace, in.Env.IstioConfigStore)
+	filter := buildHTTPFilter(svc.String(), attr.Namespace, in.Env.IstioConfigStore)
 	if filter != nil {
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
@@ -133,12 +133,12 @@ func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Targ
 
 func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	var configProto *rbacproto.RbacConfig
-	config := store.RbacConfig(model.RbacConfigName, model.RbacConfigNamespace)
+	config := store.RbacConfig(model.DefaultRbacConfigName)
 	if config != nil {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		log.Debugf("rbac plugin disabled: No %s found in %s", model.RbacConfigName, model.RbacConfigNamespace)
+		log.Debugf("rbac plugin disabled: no RbacConfig found")
 		return false
 	}
 
