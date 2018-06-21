@@ -39,7 +39,7 @@ type listener struct {
 	// Lock for changing the running state of the listener
 	stateLock sync.Mutex
 
-	info Info
+	spec ResourceSpec
 
 	resyncPeriod time.Duration
 
@@ -61,20 +61,20 @@ type listener struct {
 
 // newListener returns a new instance of an listener.
 func newListener(
-	ifaces Interfaces, resyncPeriod time.Duration, info Info, processor processorFn) (*listener, error) {
+	ifaces Interfaces, resyncPeriod time.Duration, spec ResourceSpec, processor processorFn) (*listener, error) {
 
-	log.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", info.Singular, info.GroupVersion())
+	log.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 
 	var client dynamic.Interface
-	client, err := ifaces.DynamicInterface(info.GroupVersion(), info.Kind, info.ListKind)
+	client, err := ifaces.DynamicInterface(spec.GroupVersion(), spec.Kind, spec.ListKind)
 	if err != nil {
 		return nil, err
 	}
 
-	iface := client.Resource(info.APIResource(), "")
+	iface := client.Resource(spec.APIResource(), "")
 
 	return &listener{
-		info:         info,
+		spec:         spec,
 		resyncPeriod: resyncPeriod,
 		iface:        iface,
 		Client:       client,
@@ -88,11 +88,11 @@ func (l *listener) start() {
 	defer l.stateLock.Unlock()
 
 	if l.stopCh != nil {
-		log.Errorf("already synchronizing resources: name='%s', gv='%v'", l.info.Singular, l.info.GroupVersion())
+		log.Errorf("already synchronizing resources: name='%s', gv='%v'", l.spec.Singular, l.spec.GroupVersion())
 		return
 	}
 
-	log.Debugf("Starting listener for %s(%v)", l.info.Singular, l.info.GroupVersion())
+	log.Debugf("Starting listener for %s(%v)", l.spec.Singular, l.spec.GroupVersion())
 
 	l.stopCh = make(chan struct{})
 

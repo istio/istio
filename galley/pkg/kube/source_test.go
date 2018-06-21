@@ -85,7 +85,7 @@ func TestSource_BasicEvents(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []Info{
+	entries := []ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
@@ -150,7 +150,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []Info{
+	entries := []ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",

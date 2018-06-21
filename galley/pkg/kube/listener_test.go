@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
-var info = Info{
+var info = ResourceSpec{
 	Kind:     "kind",
 	ListKind: "listkind",
 	Group:    "group",

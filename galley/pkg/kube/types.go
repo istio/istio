@@ -19,7 +19,7 @@ var Types = Schema{}
 
 func init() {
 	// TODO: Full set of Schema.
-	Types.add(Info{
+	Types.add(ResourceSpec{
 		Kind:     "Rule",
 		ListKind: "RuleList",
 		Singular: "rule",
@@ -29,7 +29,7 @@ func init() {
 		Target:   getTargetFor("istio.policy.v1beta1.Rule"),
 	})
 
-	Types.add(Info{
+	Types.add(ResourceSpec{
 		Kind:     "DestinationRule",
 		ListKind: "DestinationRuleList",
 		Singular: "destinationrule",

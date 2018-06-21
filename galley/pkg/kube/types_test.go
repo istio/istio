@@ -22,15 +22,15 @@ import (
 func TestEntries_All(t *testing.T) {
 	e := &Schema{}
 
-	i1 := Info{Kind: "foo"}
-	i2 := Info{Kind: "bar"}
+	i1 := ResourceSpec{Kind: "foo"}
+	i2 := ResourceSpec{Kind: "bar"}
 
 	e.entries = append(e.entries, i1)
 	e.entries = append(e.entries, i2)
 
 	r := e.All()
 
-	expected := []Info{i1, i2}
+	expected := []ResourceSpec{i1, i2}
 	if !reflect.DeepEqual(expected, r) {
 		t.Fatalf("Mismatch Expected:\n%v\nActual:\n%v\n", expected, r)
 	}

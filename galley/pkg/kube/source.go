@@ -39,19 +39,19 @@ func NewSource(k Interfaces, resyncPeriod time.Duration) (runtime.Source, error)
 	return newSource(k, resyncPeriod, Types.All())
 }
 
-func newSource(k Interfaces, resyncPeriod time.Duration, entries []Info) (runtime.Source, error) {
+func newSource(k Interfaces, resyncPeriod time.Duration, specs []ResourceSpec) (runtime.Source, error) {
 	s := &sourceImpl{
 		ifaces:    k,
 		listeners: make(map[resource.Kind]*listener),
 	}
 
-	for _, info := range entries {
-		l, err := newListener(k, resyncPeriod, info, s.process)
+	for _, spec := range specs {
+		l, err := newListener(k, resyncPeriod, spec, s.process)
 		if err != nil {
 			return nil, err
 		}
 
-		s.listeners[info.Target.Kind] = l
+		s.listeners[spec.Target.Kind] = l
 	}
 
 	return s, nil
@@ -86,7 +86,7 @@ func (s *sourceImpl) Stop() {
 func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version string, u *unstructured.Unstructured) {
 	rid := resource.VersionedKey{
 		Key: resource.Key{
-			Kind:     l.info.Target.Kind,
+			Kind:     l.spec.Target.Kind,
 			FullName: key,
 		},
 		Version: resource.Version(version),
@@ -97,7 +97,7 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 		Kind: kind,
 	}
 	if u != nil {
-		item, err := toProto(l.info, u)
+		item, err := toProto(l.spec, u)
 		if err != nil {
 			log.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
 			return
