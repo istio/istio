@@ -34,6 +34,8 @@ func (e *Schema) All() []ResourceSpec {
 	return e.entries
 }
 
+// TODO: Remove nolint: This gets used in the next CL
+// nolint: deadcode
 func getTargetFor(name string) resource.Info {
 	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
 	if !ok {
