@@ -15,29 +15,33 @@
 package kube
 
 import (
-	"fmt"
-
-	"istio.io/istio/galley/pkg/runtime/resource"
+	"reflect"
+	"testing"
 )
 
-// Schema represents a set of known Kubernetes resource types.
-type Schema struct {
-	entries []ResourceSpec
-}
+func TestEntries_All(t *testing.T) {
+	e := &Schema{}
 
-func (e *Schema) add(entry ResourceSpec) {
-	e.entries = append(e.entries, entry)
-}
+	i1 := ResourceSpec{Kind: "foo"}
+	i2 := ResourceSpec{Kind: "bar"}
 
-// All returns information about all known types.
-func (e *Schema) All() []ResourceSpec {
-	return e.entries
-}
+	e.entries = append(e.entries, i1)
+	e.entries = append(e.entries, i2)
 
-func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
-	if !ok {
-		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
+	r := e.All()
+
+	expected := []ResourceSpec{i1, i2}
+	if !reflect.DeepEqual(expected, r) {
+		t.Fatalf("Mismatch Expected:\n%v\nActual:\n%v\n", expected, r)
 	}
-	return rInfo
+}
+
+func TestGetTargetFor(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("Should have panicked")
+		}
+	}()
+
+	getTargetFor("shazbat")
 }
