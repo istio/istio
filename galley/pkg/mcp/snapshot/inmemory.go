@@ -18,7 +18,7 @@ import mcp "istio.io/api/config/mcp/v1alpha1"
 
 // InMemory Snapshot implementation
 type InMemory struct {
-	resources map[string][]*mcp.Envelope
+	envelopes map[string][]*mcp.Envelope
 	versions  map[string]string
 
 	frozen bool
@@ -29,14 +29,14 @@ var _ Snapshot = &InMemory{}
 // NewInMemory creates a new InMemory snapshot implementation
 func NewInMemory() *InMemory {
 	return &InMemory{
-		resources: make(map[string][]*mcp.Envelope),
+		envelopes: make(map[string][]*mcp.Envelope),
 		versions:  make(map[string]string),
 	}
 }
 
 // Resources is an implementation of Snapshot.Resources
 func (s *InMemory) Resources(typ string) []*mcp.Envelope {
-	return s.resources[typ]
+	return s.envelopes[typ]
 }
 
 // Version is an implementation of Snapshot.Version
@@ -50,7 +50,7 @@ func (s *InMemory) Set(typ string, version string, resources []*mcp.Envelope) {
 		panic("InMemory.Set: Snapshot is frozen")
 	}
 
-	s.resources[typ] = resources
+	s.envelopes[typ] = resources
 	s.versions[typ] = version
 }
 

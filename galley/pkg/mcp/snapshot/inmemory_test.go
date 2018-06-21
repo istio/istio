@@ -28,8 +28,8 @@ func TestNewInMemory(t *testing.T) {
 	if sn.versions == nil || len(sn.versions) != 0 {
 		t.Fatalf("Unexpected initial versions: %v", sn.versions)
 	}
-	if sn.resources == nil || len(sn.resources) != 0 {
-		t.Fatalf("Unexpected initial resources: %v", sn.resources)
+	if sn.envelopes == nil || len(sn.envelopes) != 0 {
+		t.Fatalf("Unexpected initial envelopes: %v", sn.envelopes)
 	}
 }
 
@@ -42,8 +42,8 @@ func TestInMemory_Set(t *testing.T) {
 		t.Fatalf("Unexpected version table after set: %+v", sn.versions)
 	}
 
-	if r, ok := sn.resources["type"]; !ok || !reflect.DeepEqual(r, items) {
-		t.Fatalf("Unexpected resource table after set: %+v", sn.resources)
+	if r, ok := sn.envelopes["type"]; !ok || !reflect.DeepEqual(r, items) {
+		t.Fatalf("Unexpected resource table after set: %+v", sn.envelopes)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestInMemory_Resources(t *testing.T) {
 
 	r := sn.Resources("type")
 	if !reflect.DeepEqual(items, r) {
-		t.Fatalf("Unexpected resources: %+v, expected: %+v", r, items)
+		t.Fatalf("Unexpected envelopes: %+v, expected: %+v", r, items)
 	}
 }
 

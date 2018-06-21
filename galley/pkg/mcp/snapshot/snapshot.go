@@ -18,22 +18,19 @@ import (
 	"sync"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-
 	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/fortio/log"
 	"istio.io/istio/galley/pkg/mcp/server"
 )
 
-// Snapshot provides an immutable view of versioned resources.
+// Snapshot provides an immutable view of versioned envelopes.
 type Snapshot interface {
 	Resources(typ string) []*mcp.Envelope
 	Version(typ string) string
 }
 
 // Cache is a snapshot-based cache that maintains a single versioned
-// snapshot of responses per node. Cache consistently replies with the
+// snapshot of responses per client. Cache consistently replies with the
 // latest snapshot.
 type Cache struct {
 	mu         sync.RWMutex
@@ -53,26 +50,21 @@ func New() *Cache {
 var _ server.Watcher = &Cache{}
 
 type responseWatch struct {
-	request   *xdsapi.DiscoveryRequest // original request
+	request   *mcp.MeshConfigRequest // original request
 	responseC chan<- *server.WatchResponse
 }
 
 type statusInfo struct {
 	mu                   sync.Mutex
-	node                 *core.Node
+	client               *mcp.Client
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
-	// TODO(ayj) - use hash of node's ID and locality to index map.
-	nodeID := request.Node.GetId()
-
-	if len(request.ResourceNames) > 0 {
-		log.Warnf("Watch(): resource hints not supported: resource_names=%v",
-			request.ResourceNames)
-	}
+func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
+	// TODO(ayj) - use hash of clients's ID to index map.
+	nodeID := request.Client.GetId()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -80,7 +72,7 @@ func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server
 	info, ok := c.status[nodeID]
 	if !ok {
 		info = &statusInfo{
-			node:    request.Node,
+			client:  request.Client,
 			watches: make(map[int64]*responseWatch),
 		}
 		c.status[nodeID] = info
@@ -98,7 +90,7 @@ func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server
 			response := &server.WatchResponse{
 				TypeURL:   request.TypeUrl,
 				Version:   version,
-				Resources: snapshot.Resources(request.TypeUrl),
+				Envelopes: snapshot.Resources(request.TypeUrl),
 			}
 			return response, nil
 		}
@@ -127,7 +119,7 @@ func (c *Cache) Watch(request *xdsapi.DiscoveryRequest, responseC chan<- *server
 	return nil, cancel
 }
 
-// SetSnapshot updates a snapshot for a node.
+// SetSnapshot updates a snapshot for a client.
 func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -146,7 +138,7 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
 					Version:   version,
-					Resources: snapshot.Resources(watch.request.TypeUrl),
+					Envelopes: snapshot.Resources(watch.request.TypeUrl),
 				}
 				watch.responseC <- response
 
@@ -158,7 +150,7 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	}
 }
 
-// ClearSnapshot clears snapshot for a node. This does not cancel any open
+// ClearSnapshot clears snapshot for a client. This does not cancel any open
 // watches already created (see ClearStatus).
 func (c *Cache) ClearSnapshot(node string) {
 	c.mu.Lock()
@@ -167,8 +159,8 @@ func (c *Cache) ClearSnapshot(node string) {
 	delete(c.snapshots, node)
 }
 
-// ClearStatus clears status for a node. This has the effect of canceling
-// any open watches opened against this node info.
+// ClearStatus clears status for a client. This has the effect of canceling
+// any open watches opened against this client info.
 func (c *Cache) ClearStatus(node string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -142,12 +142,13 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   - my-gateway
 //   tcp:
 //   - match:
-//     - port:
-//         number: 27017
+//     - port: 27017
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
 //         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
 // ```
 message Gateway {
   // REQUIRED: A list of server specifications.
