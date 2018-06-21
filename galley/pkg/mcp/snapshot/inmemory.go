@@ -34,7 +34,7 @@ func NewInMemory() *InMemory {
 	}
 }
 
-// Resources is an implementation of Snapshot.Resources
+// Envelopes is an implementation of Snapshot.Envelopes
 func (s *InMemory) Resources(typ string) []*mcp.Envelope {
 	return s.envelopes[typ]
 }
