@@ -16,6 +16,9 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
+  # Namespace for ConfigMap which stores clusters configs
+  clusterRegistriesNamespace: istio-system
+
 # In a multiple cluster environment, citadel uses the same root certificate in all the clusters
 security:
   selfSigned: false
