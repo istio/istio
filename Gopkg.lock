@@ -1365,7 +1365,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "1503a62e53fb4a51468936d53ae9f7a5f147ed61"
+  revision = "bd40812e1e88af8db30d2138cdabc94088fe80da"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1381,8 +1381,8 @@
     "ui",
     "version"
   ]
-  revision = "d17e45b4f794ac1722747d7cfbcbe0479722868a"
-  version = "v0.11.0"
+  revision = "b508c4b471a13fbe9f2e219ab6091e8f688b9836"
+  version = "v1.0.0"
 
 [[projects]]
   name = "k8s.io/api"

@@ -449,3 +449,27 @@ func NewHTMLEscapeWriter(w io.Writer) io.Writer {
 func OnBehalfOf(o *HTTPOptions, r *http.Request) {
 	_ = o.AddAndValidateExtraHeader("X-On-Behalf-Of: " + r.RemoteAddr)
 }
+
+const (
+	httpPrefix  = "http://"
+	httpsPrefix = "https://"
+)
+
+// AddHTTPS replaces "http://" in url with "https://" or prepends "https://"
+// if url does not contain prefix "http://".
+func AddHTTPS(url string) string {
+	if len(url) > len(httpPrefix) {
+		if strings.EqualFold(url[:len(httpPrefix)], httpPrefix) {
+			log.Infof("Replacing http scheme with https for url: %s", url)
+			return httpsPrefix + url[len(httpPrefix):]
+		}
+		// returns url with normalized lowercase https prefix
+		if strings.EqualFold(url[:len(httpsPrefix)], httpsPrefix) {
+			return httpsPrefix + url[len(httpsPrefix):]
+		}
+	}
+	// url must not contain any prefix, so add https prefix
+	log.Infof("Prepending https:// to url: %s", url)
+	return httpsPrefix + url
+
+}

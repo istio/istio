@@ -16,9 +16,26 @@
 
 - Increment the `patch` and commit that right away so the first point is true next time and so master/latest docker images have the correct next-pre version.
 
-- Once the release is deemed good/stable: move the git tag `latest_release` to the same as the release. Also push `latest_release` docker tag/image.
+- Once the release is deemed good/stable: move the git tag `latest_release` to the same as the release.
+  ```
+  # for instance for 0.11.0:
+  git fetch
+  git checkout v0.11.0
+  git tag -f latest_release
+  git push -f --tags
+  ```
+
+- Also push `latest_release` docker tag/image: wait for the autobuild to make it and then:
+  ```
+  # for instance for 0.11.0:
+  docker image pull istio/fortio:0.11.0
+  docker tag istio/fortio:0.11.0 istio/fortio:latest_release
+  docker push istio/fortio:latest_release
+  ```
 
 - To update the command line flags in the ../README.md; go install the right version of fortio so it is in your path and run updateFlags.sh
+
+- Update the homebrew tap
 
 ## How to change the build image
 
