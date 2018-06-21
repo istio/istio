@@ -13,14 +13,16 @@ from google.protobuf import descriptor_pb2
 _sym_db = _symbol_database.Default()
 
 
+from gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
 
 
 DESCRIPTOR = _descriptor.FileDescriptor(
   name='config/mcp/v1alpha1/metadata.proto',
   package='istio.config.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\"config/mcp/v1alpha1/metadata.proto\x12\x19istio.config.mcp.v1alpha1\"\x18\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\tB\"Z istio.io/api/config/mcp/v1alpha1b\x06proto3')
-)
+  serialized_pb=_b('\n\"config/mcp/v1alpha1/metadata.proto\x12\x19istio.config.mcp.v1alpha1\x1a\x14gogoproto/gogo.proto\"\x18\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\tB&Z istio.io/api/config/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  ,
+  dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,])
 
 
 
@@ -51,8 +53,8 @@ _METADATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=65,
-  serialized_end=89,
+  serialized_start=87,
+  serialized_end=111,
 )
 
 DESCRIPTOR.message_types_by_name['Metadata'] = _METADATA
@@ -67,5 +69,5 @@ _sym_db.RegisterMessage(Metadata)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z istio.io/api/config/mcp/v1alpha1'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z istio.io/api/config/mcp/v1alpha1\250\342\036\001'))
 # @@protoc_insertion_point(module_scope)

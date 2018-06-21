@@ -21,9 +21,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -45,8 +42,8 @@ type WatchResponse struct {
 	// requests as an acknowledgment.
 	Version string
 
-	// Responses to be included in the response.
-	Resources []*mcp.Envelope
+	// Enveloped resources to be included in the response.
+	Envelopes []*mcp.Envelope
 }
 
 // CancelWatchFunc allows the consumer to cancel a previous watch,
@@ -68,10 +65,10 @@ type Watcher interface {
 	//
 	// Cancel is an optional function to release resources in the
 	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*xdsapi.DiscoveryRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
+	Watch(*mcp.MeshConfigRequest, chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc)
 }
 
-var _ discovery.AggregatedDiscoveryServiceServer = &Server{}
+var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
 
 // Server implements the Mesh Configuration Protocol (MCP) gRPC server.
 type Server struct {
@@ -91,17 +88,17 @@ type watch struct {
 // through request and response channels.
 type connection struct {
 	peerAddr string
-	stream   discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	stream   mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer
 	id       int64
 
 	// unique nonce generator for req-resp pairs per xDS stream; the server
 	// ignores stale nonces. nonce is only modified within send() function.
 	streamNonce int64
 
-	requestC  chan *xdsapi.DiscoveryRequest // a channel for receiving incoming requests
-	reqError  error                         // holds error if request channel is closed
-	responseC chan *WatchResponse           // channel of pushes responses
-	watches   map[string]*watch             // per-type watches
+	requestC  chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
+	reqError  error                       // holds error if request channel is closed
+	responseC chan *WatchResponse         // channel of pushes responses
+	watches   map[string]*watch           // per-type watches
 	watcher   Watcher
 }
 
@@ -113,7 +110,7 @@ func New(watcher Watcher, supportedTypes []string) *Server {
 	}
 }
 
-func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) *connection {
+func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) *connection {
 	peerAddr := "0.0.0.0"
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		peerAddr = peerInfo.Addr.String()
@@ -122,7 +119,7 @@ func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_Strea
 	con := &connection{
 		stream:    stream,
 		peerAddr:  peerAddr,
-		requestC:  make(chan *xdsapi.DiscoveryRequest),
+		requestC:  make(chan *mcp.MeshConfigRequest),
 		responseC: make(chan *WatchResponse),
 		watches:   make(map[string]*watch),
 		watcher:   s.watcher,
@@ -144,7 +141,7 @@ func (s *Server) newConnection(stream discovery.AggregatedDiscoveryService_Strea
 }
 
 // StreamAggregatedResources implements bidirectional streaming method for MCP (ADS).
-func (s *Server) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error { // nolint: lll
+func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) error { // nolint: lll
 	con := s.newConnection(stream)
 	defer con.close()
 	go con.receive()
@@ -178,18 +175,13 @@ func (con *connection) String() string {
 }
 
 func (con *connection) send(resp *WatchResponse) (string, error) {
-	resources := make([]types.Any, 0, len(resp.Resources))
-	for _, resource := range resp.Resources {
-		data, err := types.MarshalAny(resource)
-		if err != nil {
-			scope.Errorf("MCP: connection %v: internal error: %v", con, err)
-			return "", err
-		}
-		resources = append(resources, *data)
+	envelopes := make([]mcp.Envelope, 0, len(resp.Envelopes))
+	for _, envelope := range resp.Envelopes {
+		envelopes = append(envelopes, *envelope)
 	}
-	msg := &xdsapi.DiscoveryResponse{
+	msg := &mcp.MeshConfigResponse{
 		VersionInfo: resp.Version,
-		Resources:   resources,
+		Envelopes:   envelopes,
 		TypeUrl:     resp.TypeURL,
 	}
 
@@ -233,7 +225,7 @@ func (con *connection) close() {
 	}
 }
 
-func (con *connection) processClientRequest(req *xdsapi.DiscoveryRequest) error {
+func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	watch, ok := con.watches[req.TypeUrl]
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "unsupported type_url %q", req.TypeUrl)

@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -69,15 +68,15 @@ func init() {
 	proto.RegisterType((*fakeType1)(nil), fakeType1Prefix)
 	proto.RegisterType((*fakeType2)(nil), fakeType2Prefix)
 
-	fakeResource0 = &mcp.Envelope{
+	fakeEnvelope0 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f0"},
 		Resource: mustMarshalAny(&fakeType0{fakeTypeBase{"f0"}}),
 	}
-	fakeResource1 = &mcp.Envelope{
+	fakeEnvelope1 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f1"},
 		Resource: mustMarshalAny(&fakeType1{fakeTypeBase{"f1"}}),
 	}
-	fakeResource2 = &mcp.Envelope{
+	fakeEnvelope2 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f2"},
 		Resource: mustMarshalAny(&fakeType2{fakeTypeBase{"f2"}}),
 	}
@@ -85,20 +84,20 @@ func init() {
 
 type fakeSnapshot struct {
 	// read-only fields - no locking required
-	resources map[string][]*mcp.Envelope
+	envelopes map[string][]*mcp.Envelope
 	versions  map[string]string
 }
 
-func (fs *fakeSnapshot) Resources(typ string) []*mcp.Envelope { return fs.resources[typ] }
+func (fs *fakeSnapshot) Resources(typ string) []*mcp.Envelope { return fs.envelopes[typ] }
 func (fs *fakeSnapshot) Version(typ string) string            { return fs.versions[typ] }
 
 func (fs *fakeSnapshot) copy() *fakeSnapshot {
 	fsCopy := &fakeSnapshot{
-		resources: make(map[string][]*mcp.Envelope),
+		envelopes: make(map[string][]*mcp.Envelope),
 		versions:  make(map[string]string),
 	}
-	for typeURL, resources := range fs.resources {
-		fsCopy.resources[typeURL] = append(fsCopy.resources[typeURL], resources...)
+	for typeURL, envelopes := range fs.envelopes {
+		fsCopy.envelopes[typeURL] = append(fsCopy.envelopes[typeURL], envelopes...)
 		fsCopy.versions[typeURL] = fs.versions[typeURL]
 	}
 	return fsCopy
@@ -106,10 +105,10 @@ func (fs *fakeSnapshot) copy() *fakeSnapshot {
 
 func makeSnapshot(version string) *fakeSnapshot {
 	return &fakeSnapshot{
-		resources: map[string][]*mcp.Envelope{
-			fakeType0TypeURL: {fakeResource0},
-			fakeType1TypeURL: {fakeResource1},
-			fakeType2TypeURL: {fakeResource2},
+		envelopes: map[string][]*mcp.Envelope{
+			fakeType0TypeURL: {fakeEnvelope0},
+			fakeType1TypeURL: {fakeEnvelope1},
+			fakeType2TypeURL: {fakeEnvelope2},
 		},
 		versions: map[string]string{
 			fakeType0TypeURL: version,
@@ -129,9 +128,9 @@ var (
 
 	key = node.Id
 
-	fakeResource0 *mcp.Envelope
-	fakeResource1 *mcp.Envelope
-	fakeResource2 *mcp.Envelope
+	fakeEnvelope0 *mcp.Envelope
+	fakeEnvelope1 *mcp.Envelope
+	fakeEnvelope2 *mcp.Envelope
 
 	WatchResponseTypes = []string{
 		fakeType0TypeURL,
@@ -152,10 +151,10 @@ func nextStrVersion(version *int64) string {
 }
 
 func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
-	req := &xdsapi.DiscoveryRequest{
+	req := &mcp.MeshConfigRequest{
 		TypeUrl:     typeURL,
 		VersionInfo: version,
-		Node: &core.Node{
+		Client: &mcp.Client{
 			Id: key,
 		},
 	}
@@ -230,7 +229,7 @@ func TestCreateWatch(t *testing.T) {
 				wantResponse := &server.WatchResponse{
 					TypeURL:   typeURL,
 					Version:   typeVersion,
-					Resources: snapshot.Resources(typeURL),
+					Envelopes: snapshot.Resources(typeURL),
 				}
 				if !reflect.DeepEqual(gotResponse, wantResponse) {
 					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
@@ -317,7 +316,7 @@ func TestClearSnapshot(t *testing.T) {
 				wantResponse := &server.WatchResponse{
 					TypeURL:   typeURL,
 					Version:   typeVersion,
-					Resources: snapshot.Resources(typeURL),
+					Envelopes: snapshot.Resources(typeURL),
 				}
 				if !reflect.DeepEqual(gotResponse, wantResponse) {
 					t.Fatalf("received bad WatchResponse: got %v wantResponse %v", gotResponse, wantResponse)
