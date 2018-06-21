@@ -20,7 +20,7 @@
                                     {
                                         "name": "envoy.http_connection_manager",
                                         "config": {
-                                            "stat_prefix": "http",
+                                            "stat_prefix": "0.0.0.0_8080",
                                             "use_remote_address": false,
                                             "generate_request_id": true,
                                             "access_log": [
