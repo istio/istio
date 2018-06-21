@@ -24,58 +24,30 @@ import (
 	"istio.io/istio/pilot/test/util"
 )
 
-func TestConfigWriter_Prime(t *testing.T) {
-	tests := []struct {
-		name        string
-		wantConfigs int
-		inputFile   string
-		wantErr     bool
-	}{
-		{
-			name:        "load in the config dump",
-			wantConfigs: 4,
-			inputFile:   "testdata/configdump.json",
-		},
-		{
-			name:        "errors if unable to unmarshal bytes",
-			inputFile:   "",
-			wantConfigs: 0,
-			wantErr:     true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cw := &ConfigWriter{}
-			cd, _ := ioutil.ReadFile(tt.inputFile)
-			err := cw.Prime(cd)
-			if len(cw.configDump.Configs) != tt.wantConfigs {
-				t.Errorf("wanted %v configs loaded in got %v", tt.wantConfigs, len(cw.configDump.Configs))
-			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
+func TestConfigWriter_PrintRouteSummary(t *testing.T) {
 	tests := []struct {
 		name           string
+		filter         RouteFilter
 		wantOutputFile string
 		callPrime      bool
 		wantErr        bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "returns expected bootstrap dump from Envoy onto Stdout",
-		// 	callPrime:      true,
-		// 	wantOutputFile: "testdata/bootstrapdump.json",
-		// },
 		{
-			name:    "errors if config dump is not primed",
-			wantErr: true,
+			name:           "display all routes when no filter is passed",
+			filter:         RouteFilter{},
+			wantOutputFile: "testdata/routesummary.txt",
+			callPrime:      true,
+		},
+		{
+			name:           "filter routes in the summary",
+			filter:         RouteFilter{Name: "15004"},
+			wantOutputFile: "testdata/routesummaryfiltered.txt",
+			callPrime:      true,
+		},
+		{
+			name:      "errors if config writer is not primed",
+			callPrime: false,
+			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {
@@ -86,7 +58,55 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			if tt.callPrime {
 				cw.Prime(cd)
 			}
-			err := cw.PrintBootstrapDump()
+			err := cw.PrintRouteSummary(tt.filter)
+			if tt.wantOutputFile != "" {
+				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+			}
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfigWriter_PrintRouteDump(t *testing.T) {
+	tests := []struct {
+		name           string
+		filter         RouteFilter
+		wantOutputFile string
+		callPrime      bool
+		wantErr        bool
+	}{
+		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
+		// {
+		// 	name:           "display all routes when no filter is passed",
+		// 	filter:         RouteFilter{},
+		// 	wantOutputFile: "testdata/routedump.txt",
+		// 	callPrime:      true,
+		// },
+		{
+			name:           "filter routes in the dump",
+			filter:         RouteFilter{Name: "15004"},
+			wantOutputFile: "testdata/routedumpfiltered.txt",
+			callPrime:      true,
+		},
+		{
+			name:      "errors if config writer is not primed",
+			callPrime: false,
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOut := &bytes.Buffer{}
+			cw := &ConfigWriter{Stdout: gotOut}
+			cd, _ := ioutil.ReadFile("testdata/configdump.json")
+			if tt.callPrime {
+				cw.Prime(cd)
+			}
+			err := cw.PrintRouteDump(tt.filter)
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}

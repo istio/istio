@@ -48,21 +48,6 @@ func (c *ConfigWriter) Prime(b []byte) error {
 	return nil
 }
 
-// PrintClusterDump prints just the cluster config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintClusterDump() error {
-	return c.genericPrinter(clustersKey)
-}
-
-// PrintListenerDump prints just the listener config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintListenerDump() error {
-	return c.genericPrinter(listenersKey)
-}
-
-// PrintRoutesDump prints just the routes config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintRoutesDump() error {
-	return c.genericPrinter(routesKey)
-}
-
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintBootstrapDump() error {
 	return c.genericPrinter(bootstrapKey)

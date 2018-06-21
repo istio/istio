@@ -44,7 +44,7 @@ func (t *TLSCheckWriter) setupTLSCheckPrint(authDebug []byte) (*tabwriter.Writer
 		return dat[i].Host < dat[j].Host
 	})
 	w := new(tabwriter.Writer)
-	w.Init(t.Writer, 0, 8, 5, '\t', 0)
+	w.Init(t.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "HOST:PORT\tSTATUS\tSERVER\tCLIENT\tAUTHN POLICY\tDESTINATION RULE")
 	return w, dat, nil
 }
