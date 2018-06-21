@@ -7,6 +7,14 @@ spec:
   outputAsJson: true
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: stdio
+metadata:
+  name: directhandler
+  namespace: istio-system
+spec:
+  outputAsJson: false
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: accesslog
@@ -29,13 +37,41 @@ spec:
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: directaccesslog
+  namespace: istio-system
+spec:
+  severity: '"Default"'
+  timestamp: io.prometheus.client.metric.timestamp
+  variables:
+    nodeID: envoy.api.v2.core.node.id | "unknown"
+    cluster: envoy.api.v2.core.node.cluster | "unknown"
+    metricName: io.prometheus.client.metricfamily.name | "unknown"
+    metricType: io.prometheus.client.metricfamily.kind | "unknown"
+    metricValue: io.prometheus.client.metric.counter.value | io.prometheus.client.metric.gauge.value | 0.0 
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: stdio
   namespace: istio-system
 spec:
-  match: "true" # If omitted match is true.
+  match: match(context.protocol, "http*") 
   actions:
   - handler: handler.stdio
     instances:
     - accesslog.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: directstdio
+  namespace: istio-system
+spec:
+  match: match(context.protocol, "envoy*")
+  actions:
+  - handler: directhandler.stdio
+    instances:
+    - directaccesslog.logentry

@@ -70,15 +70,19 @@ spec:
     - source_version
     - destination_service
     - destination_version
+  - name: envoy_family_one
+    instance_name: envoyfamilyone.metric.istio-system
+    kind: GAUGE
+    label_names:
+    - testing
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
   namespace: istio-system
-  labels:
-    istio-protocol: http
 spec:
+  match: match(context.protocol, "http*")
   actions:
   - handler: handler.prometheus
     instances:
@@ -100,3 +104,14 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promenvoy
+  namespace: istio-system
+spec:
+  match: match(context.protocol, "envoy*")
+  actions:
+  - handler: handler.prometheus
+    instances:    
+    - envoyfamilyone.metric
