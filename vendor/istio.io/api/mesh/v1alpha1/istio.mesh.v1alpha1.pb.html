@@ -229,6 +229,23 @@ instead of using allow</em>any.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-sds_uds_path">
+<td><code>sdsUdsPath</code></td>
+<td><code>string</code></td>
+<td>
+<p>Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
+Use secret-mount files instead of SDS if set to empty.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sds_refresh_delay">
+<td><code>sdsRefreshDelay</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>Polling interval for SDS (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>

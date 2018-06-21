@@ -4,7 +4,7 @@ description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 46
+number_of_entries: 48
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -689,7 +689,7 @@ The behavior is undefined if multiple EnvoyFilter configurations are
 specified for the same workload.</p>
 
 <p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
-inbound calls arriving at port 18080 of the reviews service pod with
+inbound calls arriving at service port 8080 of the reviews service pod with
 labels &ldquo;app: reviews&rdquo;.</p>
 
 <pre><code>apiVersion: networking.istio.io/v1alpha3
@@ -701,8 +701,8 @@ spec:
     app: reviews
   filters:
   - listenerMatch:
-      portNumber: 18080
-      listenerType: SIDECAR_INBOUND #will match with the listener for the podIP:18080
+      portNumber: 8080 
+      listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
     filterName: envoy.lua
     filterType: HTTP
     filterConfig:
@@ -937,8 +937,10 @@ to be applied to a listener.</p>
 <td><code>portNumber</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>Port associated with the listener. If not specified, matches all
-listeners.</p>
+<p>The service port/gateway port to which traffic is being
+sent/received. If not specified, matches all listeners. Eventhough
+inbound listeners are generated for the instance/pod ports, only
+service ports should be used to match listeners.</p>
 
 </td>
 </tr>
@@ -1876,15 +1878,6 @@ in these cases it is not required to explicitly select the port.</p>
 
 </td>
 </tr>
-<tr id="L4MatchAttributes-source_subnet">
-<td><code>sourceSubnet</code></td>
-<td><code>string</code></td>
-<td>
-<p>IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
-form or just a.b.c.d</p>
-
-</td>
-</tr>
 <tr id="L4MatchAttributes-source_labels">
 <td><code>sourceLabels</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
@@ -1901,8 +1894,8 @@ gateways specified at the top, it should include the reserved gateway
 <td><code>string[]</code></td>
 <td>
 <p>Names of gateways where the rule should be applied to. Gateway names
-at the top of the VirtualService (if any) are overridden. The gateway match is
-independent of sourceLabels.</p>
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
 
 </td>
 </tr>
@@ -2200,8 +2193,8 @@ service that can be ejected. Defaults to 10%.</p>
 <td><code>string</code></td>
 <td>
 <p>REQUIRED: The protocol exposed on the port.
-MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-TCP-TLS is used to indicate secure connections to non HTTP services.</p>
+MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+TLS is used to indicate secure connections to non HTTP services.</p>
 
 </td>
 </tr>
@@ -2513,6 +2506,132 @@ spec:
       caCertificates: /etc/certs/rootcacerts.pem
 </code></pre>
 
+<p>The following example uses a combination of service entry and TLS
+routing in virtual service to demonstrate the use of SNI routing to
+forward unterminated TLS traffic from the application to external
+services via the sidecar. The sidecar inspects the SNI value in the
+ClientHello message to route to the appropriate external service.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-https
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: DNS
+</code></pre>
+
+<p>And the associated VirtualService to route based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - api.dropboxapi.com
+    route:
+    - destination:
+        host: api.dropboxapi.com
+  - match:
+    - port: 443
+      sniHosts:
+      - www.googleapis.com
+    route:
+    - destination:
+        host: www.googleapis.com
+  - match:
+    - port: 443
+      sniHosts:
+      - api.facebook.com
+    route:
+    - destination:
+        host: api.facebook.com
+
+</code></pre>
+
+<p>The following example demonstrates the use of a dedicated egress gateway
+through which all external service traffic is forwarded.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-httpbin
+spec:
+  hosts:
+  - httpbin.com
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+</code></pre>
+
+<p>Define a gateway to to handle all egress traffic.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+ name: istio-egressgateway
+spec:
+ selector:
+   istio: egressgateway
+ servers:
+ - port:
+     number: 80
+     name: http
+     protocol: HTTP
+   hosts:
+   - &quot;*&quot;
+
+And the associated VirtualService to route from the sidecar to the
+gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
+well as route from the gateway to the external service.
+
+```yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-routing
+spec:
+  hosts:
+  - httpbin.com
+  gateways:
+  - mesh
+  - istio-egressgateway
+  http:
+  - match:
+    - port: 80
+      gateways:
+      - mesh
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+  - match:
+    - port: 80
+      gateway:
+      - istio-egressgateway
+    route:
+    - destination:
+        host: httpbin.com
+</code></pre>
+
 <p>The following example demonstrates the use of wildcards in the hosts for
 external services. If the connection has to be routed to the IP address
 requested by the application (i.e. application resolves DNS and attempts
@@ -2559,8 +2678,8 @@ backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
 example, the following configuration creates a non-existent external
-service called foo.bar.com backed by three domains: us.foo.bar.com:8443,
-uk.foo.bar.com:9443, and in.foo.bar.com:7443</p>
+service called foo.bar.com backed by three domains: us.foo.bar.com:8080,
+uk.foo.bar.com:9080, and in.foo.bar.com:7080</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -2571,40 +2690,26 @@ spec:
   - foo.bar.com
   location: MESH_EXTERNAL
   ports:
-  - number: 443
+  - number: 80
     name: https
     protocol: HTTP
   resolution: DNS
   endpoints:
   - address: us.foo.bar.com
     ports:
-      https: 8443
+      https: 8080
   - address: uk.foo.bar.com
     ports:
-      https: 9443
+      https: 9080
   - address: in.foo.bar.com
     ports:
-      https: 7443
+      https: 7080
 </code></pre>
 
-<p>and a DestinationRule to initiate TLS connections to the ServiceEntry.</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: tls-foobar
-spec:
-  host: foo.bar.com
-  trafficPolicy:
-    tls:
-      mode: SIMPLE # initiates HTTPS
-</code></pre>
-
-<p>With HTTP_PROXY=http://localhost:443, calls from the application to
-http://foo.bar.com will be upgraded to HTTPS and load balanced across
-the three domains specified above. In other words, a call to
-http://foo.bar.com/baz would be translated to
-https://uk.foo.bar.com/baz.</p>
+<p>With HTTP_PROXY=http://localhost/, calls from the application to
+http://foo.bar.com will be load balanced across the three domains
+specified above. In other words, a call to http://foo.bar.com/baz would
+be translated to http://uk.foo.bar.com/baz.</p>
 
 <table class="message-fields">
 <thead>
@@ -2946,8 +3051,7 @@ specified at the DestinationRule level.</p>
 <section>
 <p>Describes match conditions and actions for routing TCP traffic. The
 following routing rule forwards traffic arriving at port 27017 for
-mongo.prod.svc.cluster.local from 172.17.16.* subnet to another Mongo
-server on port 5555.</p>
+mongo.prod.svc.cluster.local to another Mongo server on port 5555.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -2959,7 +3063,6 @@ spec:
   tcp:
   - match:
     - port: 27017
-      sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
         host: mongo.backup.svc.cluster.local
@@ -2993,6 +3096,140 @@ is matched if any one of the match blocks succeed.</p>
 <td>
 <p>The destination to which the connection should be forwarded to.
 Currently, only one destination is allowed for TCP services. When TCP
+weighted routing support is introduced in Envoy, multiple destinations
+with weights can be specified.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSMatchAttributes">TLSMatchAttributes</h2>
+<section>
+<p>TLS connection match attributes.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSMatchAttributes-destination_subnet">
+<td><code>destinationSubnet</code></td>
+<td><code>string</code></td>
+<td>
+<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d. This is only valid when the
+destination service has several IPs and the application explicitly
+specifies a particular IP.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-port">
+<td><code>port</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Specifies the port on the host that is being addressed. Many services
+only expose a single port or label ports with the protocols they
+support, in these cases it is not required to explicitly select the
+port.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-sni_hosts">
+<td><code>sniHosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>SNI (server name indicator) to match on. Wildcard prefixes can be used
+in the SNI value. E.g., *.com will match foo.example.com as well as
+example.com.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-source_labels">
+<td><code>sourceLabels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that constrain the applicability of a rule to
+workloads with the given labels. If the VirtualService has a list of
+gateways specified at the top, it should include the reserved gateway
+<code>mesh</code> in order for this field to be applicable.</p>
+
+</td>
+</tr>
+<tr id="TLSMatchAttributes-gateways">
+<td><code>gateways</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of gateways where the rule should be applied to. Gateway names
+at the top of the VirtualService (if any) are overridden. The gateway
+match is independent of sourceLabels.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TLSRoute">TLSRoute</h2>
+<section>
+<p>Describes match conditions and actions for routing unterminated TLS
+traffic (TLS/HTTPS) The following routing rule forwards unterminated TLS
+traffic arriving at port 443 of gateway called &ldquo;mygateway&rdquo; to internal
+services in the mesh based on the SNI value.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: bookinfo-sni
+spec:
+  hosts:
+  - &quot;*.bookinfo.com&quot;
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - login.bookinfo.com
+    route:
+    - destination:
+        host: login.prod.svc.cluster.local
+  - match:
+    - port: 443
+      sniHosts:
+      - reviews.bookinfo.com
+    route:
+    - destination:
+        host: reviews.prod.svc.cluster.local
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TLSRoute-match">
+<td><code>match</code></td>
+<td><code><a href="#TLSMatchAttributes">TLSMatchAttributes[]</a></code></td>
+<td>
+<p>Match conditions to be satisfied for the rule to be activated. All
+conditions inside a single match block have AND semantics, while the
+list of match blocks have OR semantics. The rule is matched if any one
+of the match blocks succeed.</p>
+
+</td>
+</tr>
+<tr id="TLSRoute-route">
+<td><code>route</code></td>
+<td><code><a href="#DestinationWeight">DestinationWeight[]</a></code></td>
+<td>
+<p>The destination to which the connection should be forwarded to.
+Currently, only one destination is allowed for TLS services. When TCP
 weighted routing support is introduced in Envoy, multiple destinations
 with weights can be specified.</p>
 
@@ -3398,15 +3635,15 @@ only for services defined via the Gateway.</p>
 <td><code>string[]</code></td>
 <td>
 <p>The names of gateways and sidecars that should apply these routes. A
-single VirtualService is used for sidecars inside the mesh as well
-as for one or more gateways. The selection condition imposed by this field
-can be overridden using the source field in the match conditions of HTTP/TCP
-routes. The reserved word <code>mesh</code> is used to imply all the sidecars in
-the mesh. When this field is omitted, the default gateway (<code>mesh</code>)
-will be used, which would apply the rule to all sidecars in the
-mesh. If a list of gateway names is provided, the rules will apply
-only to the gateways. To apply the rules to both gateways and sidecars,
-specify <code>mesh</code> as one of the gateway names.</p>
+single VirtualService is used for sidecars inside the mesh as well as
+for one or more gateways. The selection condition imposed by this
+field can be overridden using the source field in the match conditions
+of protocol-specific routes. The reserved word <code>mesh</code> is used to imply
+all the sidecars in the mesh. When this field is omitted, the default
+gateway (<code>mesh</code>) will be used, which would apply the rule to all
+sidecars in the mesh. If a list of gateway names is provided, the
+rules will apply only to the gateways. To apply the rules to both
+gateways and sidecars, specify <code>mesh</code> as one of the gateway names.</p>
 
 </td>
 </tr>
@@ -3414,8 +3651,27 @@ specify <code>mesh</code> as one of the gateway names.</p>
 <td><code>http</code></td>
 <td><code><a href="#HTTPRoute">HTTPRoute[]</a></code></td>
 <td>
-<p>An ordered list of route rules for HTTP traffic.
-The first rule matching an incoming request is used.</p>
+<p>An ordered list of route rules for HTTP traffic. HTTP routes will be
+applied to platform service ports named &lsquo;http-<em>&rsquo;/&lsquo;http2-</em>&rsquo;/&lsquo;grpc-*&rsquo;, gateway
+ports with protocol HTTP/HTTP2/GRPC/ TLS-terminated-HTTPS and service
+entry ports using HTTP/HTTP2/GRPC protocols.  The first rule matching
+an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-tls">
+<td><code>tls</code></td>
+<td><code><a href="#TLSRoute">TLSRoute[]</a></code></td>
+<td>
+<p>An ordered list of route rule for non-terminated TLS &amp; HTTPS
+traffic. Routing is typically performed using the SNI value presented
+by the ClientHello message. TLS routes will be applied to platform
+service ports named &lsquo;https-<em>&rsquo;, &lsquo;tls-</em>&rsquo;, unterminated gateway ports using
+HTTPS/TLS protocols (i.e. with &ldquo;passthrough&rdquo; TLS mode) and service
+entry ports using HTTPS/TLS protocols.  The first rule matching an
+incoming request is used.  NOTE: Traffic &lsquo;https-<em>&rsquo; or &lsquo;tls-</em>&rsquo; ports
+without associated virtual service will be treated as opaque TCP
+traffic.</p>
 
 </td>
 </tr>
@@ -3423,8 +3679,9 @@ The first rule matching an incoming request is used.</p>
 <td><code>tcp</code></td>
 <td><code><a href="#TCPRoute">TCPRoute[]</a></code></td>
 <td>
-<p>An ordered list of route rules for TCP traffic.
-The first rule matching an incoming request is used.</p>
+<p>An ordered list of route rules for opaque TCP traffic. TCP routes will
+be applied to any port that is not a HTTP or TLS port. The first rule
+matching an incoming request is used.</p>
 
 </td>
 </tr>

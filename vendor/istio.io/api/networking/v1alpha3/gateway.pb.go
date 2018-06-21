@@ -394,8 +394,8 @@ type Port struct {
 	// REQUIRED: A valid non-negative integer port number.
 	Number uint32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
 	// REQUIRED: The protocol exposed on the port.
-	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-	// TCP-TLS is used to indicate secure connections to non HTTP services.
+	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+	// TLS is used to indicate secure connections to non HTTP services.
 	Protocol string `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// Label assigned to the port.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`

@@ -160,3 +160,13 @@ func Proxy(port string, dest *net.TCPAddr) *net.TCPAddr {
 func ProxyToDestination(listenPort string, destination string) *net.TCPAddr {
 	return Proxy(listenPort, ResolveDestination(destination))
 }
+
+// NormalizeHostPort generates host:port string for the address or uses localhost instead of [::]
+// when the original port binding input didn't specify an address
+func NormalizeHostPort(inputPort string, addr *net.TCPAddr) string {
+	urlHostPort := addr.String()
+	if strings.HasPrefix(inputPort, ":") || !strings.Contains(inputPort, ":") {
+		urlHostPort = fmt.Sprintf("localhost:%d", addr.Port)
+	}
+	return urlHostPort
+}
