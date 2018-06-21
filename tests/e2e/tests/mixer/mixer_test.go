@@ -701,7 +701,7 @@ func testDenials(t *testing.T, rule string) {
 
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
-	log.Infof("Denials: block productpage if x-user header is missing")
+	log.Infof("Denials: block productpage if x-user header is john")
 	if err := applyMixerRule(rule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
@@ -715,8 +715,8 @@ func testDenials(t *testing.T, rule string) {
 	time.Sleep(10 * time.Second)
 
 	// Product page should not be accessible anymore.
-	log.Infof("Denials: ensure productpage is denied access")
-	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
+	log.Infof("Denials: ensure productpage is denied access for user john")
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", "john"}); err != nil {
 		fatalf(t, "product page was not denied: %v", err)
 	}
 
@@ -733,7 +733,7 @@ func TestIngressCheckCache(t *testing.T) {
 
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
-	t.Logf("block request through ingress if x-user header is missing")
+	t.Logf("block request through ingress if x-user header is john")
 	if err := applyMixerRule(ingressDenialRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
