@@ -34,7 +34,7 @@ type Options struct {
 	// CertFile is the path of Cert File for gRPC server TLS settings.
 	CertFile string
 
-	// CertFile is the path of Key File for gRPC server TLS settings.
+	// KeyFile is the path of Key File for gRPC server TLS settings.
 	KeyFile string
 }
 
