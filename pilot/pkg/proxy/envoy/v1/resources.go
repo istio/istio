@@ -408,6 +408,7 @@ func (host *VirtualHost) clusters() Clusters {
 type HTTPRouteConfig struct {
 	ValidateClusters bool           `json:"validate_clusters"`
 	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
+	Protocol         model.Protocol `json:"-"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -494,7 +495,7 @@ func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts, Protocol: rc.Protocol}
 }
 
 // AccessLog definition.

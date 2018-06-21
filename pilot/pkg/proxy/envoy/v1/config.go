@@ -559,7 +559,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			operation = IngressTraceOperation
 		}
 
-		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
+		listenerOpts := buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
 			proxyInstances:   proxyInstances,
@@ -572,11 +572,76 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			outboundListener: true,
 			store:            config,
 			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
-		}))
+		}
 		clusters = append(clusters, routeConfig.Clusters()...)
+		if routeConfig.Protocol == model.ProtocolBOLT {
+			listeners = append(listeners, buildBOLTListener(listenerOpts))
+			continue
+		}
+		listeners = append(listeners, buildHTTPListener(listenerOpts))
+
 	}
 
 	return listeners, clusters
+}
+
+func buildBOLTListener(opts buildHTTPListenerOpts) *Listener {
+	filters := buildFaultFilters(opts.routeConfig)
+
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+		filter := HTTPFilter{
+			Type:   decoder,
+			Name:   MixerFilter,
+			Config: mixerConfig,
+		}
+		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
+	}
+
+	config := &HTTPFilterConfig{
+		CodecType:        auto,
+		UseRemoteAddress: opts.useRemoteAddress,
+		StatPrefix:       "bolt",
+		Filters:          filters,
+	}
+
+	if opts.mesh.AccessLogFile != "" {
+		config.AccessLog = []AccessLog{{
+			Path: opts.mesh.AccessLogFile,
+		}}
+	}
+
+	if opts.mesh.EnableTracing {
+		config.GenerateRequestID = true
+		config.Tracing = &HTTPFilterTraceConfig{
+			OperationName: opts.direction,
+		}
+	}
+
+	if opts.rds != "" {
+		config.RDS = &RDS{
+			Cluster:         RDSName,
+			RouteConfigName: opts.rds,
+			RefreshDelayMs:  protoDurationToMS(opts.mesh.RdsRefreshDelay),
+		}
+	} else {
+		config.RouteConfig = opts.routeConfig
+	}
+
+	return &Listener{
+		BindToPort: true,
+		Name:       fmt.Sprintf("bolt_%s_%d", opts.ip, opts.port),
+		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
+		Filters: []*NetworkFilter{{
+			Type:   read,
+			Name:   "outbound_bolt",
+			Config: config,
+		}},
+	}
 }
 
 // BuildClusterFunc is a function that builds a Cluster.
@@ -671,6 +736,7 @@ func buildOutboundHTTPRoutes(node model.Proxy,
 				// for example, a service "a" with two ports 80 and 8080, would have virtual
 				// hosts on 80 and 8080 listeners that contain domain "a".
 				http.VirtualHosts = append(http.VirtualHosts, host)
+				http.Protocol = servicePort.Protocol
 			}
 		}
 	}
