@@ -479,7 +479,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
-		{"RbacConfig", configName, model.RbacConfig, ExampleRbacConfig},
+		{"RbacConfig", model.RbacConfigName, model.RbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {

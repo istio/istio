@@ -1842,14 +1842,14 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
+	if _, ok := msg.(*rbac.RbacConfig); !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
-	switch in.Mode {
-	case rbac.RbacConfig_ON_WITH_EXCLUSION, rbac.RbacConfig_ON_WITH_INCLUSION:
-		return errors.New("rbac mode not implemented, currently only supports ON/OFF")
+	// TODO(yangminzhu): Don't check the namespace in validation to avoid breaking e2e test, consider
+	// make the RbacConfig to be cluster scope.
+	if name != RbacConfigName {
+		return fmt.Errorf("RbacConfig has invalid name(%s), name must be %s", name, RbacConfigName)
 	}
 
 	return nil
