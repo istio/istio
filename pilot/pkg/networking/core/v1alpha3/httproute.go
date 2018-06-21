@@ -81,11 +81,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType:    plugin.ListenerTypeHTTP,
-			Env:             &env,
-			Node:            &node,
-			ServiceInstance: instance,
-			Service:         instance.Service,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
+			ServiceInstance:  instance,
+			Service:          instance.Service,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -179,9 +179,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	// call plugins
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType: plugin.ListenerTypeHTTP,
-			Env:          &env,
-			Node:         &node,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}

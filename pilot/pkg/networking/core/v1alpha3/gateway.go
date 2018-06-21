@@ -89,11 +89,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			bindToPort: true,
 			protocol:   protocol,
 		}
-		listenerType := plugin.ModelProtocolToListenerType(protocol)
+		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
-		case plugin.ListenerTypeHTTP:
+		case plugin.ListenerProtocolHTTP:
 			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(env, node, servers, merged.Names)
-		case plugin.ListenerTypeTCP:
+		case plugin.ListenerProtocolTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
@@ -109,10 +109,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		}
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType:   listenerType,
-				Env:            &env,
-				Node:           &node,
-				ProxyInstances: workloadInstances,
+				ListenerProtocol: listenerType,
+				Env:              &env,
+				Node:             &node,
+				ProxyInstances:   workloadInstances,
+				Port: &model.Port{
+					Name:     servers[0].Port.Name,
+					Port:     int(portNumber),
+					Protocol: protocol,
+				},
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
@@ -380,9 +385,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	// call plugins
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType: plugin.ListenerTypeHTTP,
-			Env:          &env,
-			Node:         &node,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}

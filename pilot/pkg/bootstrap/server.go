@@ -87,6 +87,7 @@ var (
 		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
+		model.EnvoyFilter,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,

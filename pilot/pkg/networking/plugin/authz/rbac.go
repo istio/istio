@@ -78,7 +78,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// Only supports sidecar proxy of HTTP listener for now.
-	if in.Node.Type != model.Sidecar || in.ListenerType != plugin.ListenerTypeHTTP {
+	if in.Node.Type != model.Sidecar || in.ListenerProtocol != plugin.ListenerProtocolHTTP {
 		return nil
 	}
 	if !isRbacEnabled(in.Env.IstioConfigStore) {
