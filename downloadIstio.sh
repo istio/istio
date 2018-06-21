@@ -44,7 +44,7 @@ BINDIR="$(cd $ISTIO_HOME/bin; pwd)"
 PATH_INJECT="export PATH=\"\$PATH:$BINDIR\""
 CURRENT_SHELL=$(expr "$SHELL" : '.*/\(.*\)')
 if [ "$CURRENT_SHELL" = "zsh" ]; then
-  grep -q "$PATH_INJECT" ~/.zshrc || echo "\n$2" >> ~/.zshrc
+  grep -q "$PATH_INJECT" ~/.zshrc || echo "\n$PATH_INJECT" >> ~/.zshrc
 elif [ "$CURRENT_SHELL" = "bash" ]; then
   if [ "$(uname)" = Darwin ]; then
     grep -q "$PATH_INJECT" ~/.bash_profile || echo "\n$PATH_INJECT" >> ~/.bash_profile
