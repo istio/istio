@@ -47,8 +47,9 @@ syntax = "proto3";
 //   destinationOwner: destination.owner | "Unknown"
 //   destinationWorkloadName: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
-//   apiProtocol: api.protocol | "Unknown"
+//   destinationServiceUid: destination.service.uid | "Unknown"
 //   contextProtocol: context.protocol | "Unknown"
+//   apiProtocol: api.protocol | "Unknown"
 // ```
 package edge;
 
@@ -101,34 +102,37 @@ message InstanceMsg {
     // Timestamp
     istio.policy.v1beta1.TimeStamp timestamp = 1;
     
-    // Source of edge.
+    // Source of edge. Workload Namespace
     string source_workload_namespace = 10;
     
-    
+    // Source of edge. Workload Name
     string source_workload_name = 11;
     
-    
+    // Source of edge. Owner
     string source_owner = 12;
     
-    
+    // Source of edge. UID
     string source_uid = 13;
     
-    // Destination of edge
+    // Destination of edge. Workload Namespace
     string destination_workload_namespace = 20;
     
-    
+    // Destination of edge. Workload Name
     string destination_workload_name = 21;
     
-    
+    // Destination of edge. Owner
     string destination_owner = 22;
     
-    
+    // Destination of edge. UID
     string destination_uid = 23;
     
-    // Protocol used
+    // Destination of edge. Service UID
+    string destination_service_uid = 24;
+    
+    // Protocol used. Context
     string context_protocol = 30;
     
-    
+    // Protocol used. API
     string api_protocol = 31;
     
 }
@@ -145,34 +149,37 @@ message InstanceParam {
     // Timestamp
     string timestamp = 1;
     
-    // Source of edge.
+    // Source of edge. Workload Namespace
     string source_workload_namespace = 10;
     
-    
+    // Source of edge. Workload Name
     string source_workload_name = 11;
     
-    
+    // Source of edge. Owner
     string source_owner = 12;
     
-    
+    // Source of edge. UID
     string source_uid = 13;
     
-    // Destination of edge
+    // Destination of edge. Workload Namespace
     string destination_workload_namespace = 20;
     
-    
+    // Destination of edge. Workload Name
     string destination_workload_name = 21;
     
-    
+    // Destination of edge. Owner
     string destination_owner = 22;
     
-    
+    // Destination of edge. UID
     string destination_uid = 23;
     
-    // Protocol used
+    // Destination of edge. Service UID
+    string destination_service_uid = 24;
+    
+    // Protocol used. Context
     string context_protocol = 30;
     
-    
+    // Protocol used. API
     string api_protocol = 31;
     
 }
