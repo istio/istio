@@ -165,7 +165,7 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 		apaOutput: *out,
 	}
 
-	bag := attribute.GetFakeMutableBagForTesting(defaultApaAttributes)
+	bag := attribute.GetMutableBagForTesting(defaultApaAttributes)
 	f := finder{combineManifests(defaultAttributeInfos, SupportedTmplInfo[sample_apa.TemplateName].AttributeManifests...)}
 	builder := compiled.NewBuilder(f)
 	expressions, err := SupportedTmplInfo[sample_apa.TemplateName].CreateOutputExpressions(&sampleApaInstanceParam, f, builder)
@@ -197,7 +197,7 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 func TestDispatchGenAttrs_Failure(t *testing.T) {
 	h := &mockHandler{err: errors.New("handler is not interested in generating attributes")}
 
-	bag := attribute.GetFakeMutableBagForTesting(defaultApaAttributes)
+	bag := attribute.GetMutableBagForTesting(defaultApaAttributes)
 	mapper := template.NewOutputMapperFn(map[string]compiled.Expression{})
 
 	_, err := executeDispatchGenAttrs(t, h, bag, mapper)
@@ -234,7 +234,7 @@ func createInstance(t *testing.T, template string, instanceParam proto.Message, 
 		t.Fail()
 	}
 
-	bag := attribute.GetFakeMutableBagForTesting(attrs)
+	bag := attribute.GetMutableBagForTesting(attrs)
 	instance, e2 := builder(bag)
 	if e2 != nil {
 		t.Fail()
