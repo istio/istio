@@ -2,23 +2,19 @@
 {{- if and (ne $key "global") (ne $key "enabled") -}}
 {{- if $spec.enabled -}}
 {{- if $.Values.global.rbacEnabled }}
-apiVersion: v1
-kind: ServiceAccount
-{{- if $.Values.global.imagePullSecrets }}
-imagePullSecrets:
-{{- range $.Values.global.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
-{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
 metadata:
-  name: istio-{{ $key }}-service-account
-  namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    app: {{ $spec.labels.istio }}
+    app: {{ template "istio.name" $ }}
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
----
+  name: istio-{{ $key }}-{{ $.Release.Namespace }}
+rules:
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
+  verbs: ["get", "watch", "list", "update"]
 {{- end }}
 {{- end }}
 {{- end }}
