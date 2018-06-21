@@ -16,6 +16,7 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -239,6 +240,9 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, sd.GetServiceError
 	}
 	val := sd.services[hostname]
+	if val == nil {
+		return nil, errors.New("missing service")
+	}
 	// Make a new service out of the existing one
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
