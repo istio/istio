@@ -15,6 +15,7 @@
 
 #include "common/common/logger.h"
 #include "envoy/http/header_map.h"
+#include "google/protobuf/struct.pb.h"
 #include "src/istio/authn/context.pb.h"
 
 namespace Envoy {
@@ -28,6 +29,10 @@ class Authentication : public Logger::Loggable<Logger::Id::filter> {
   // returns false and data is *not* overwritten.
   static bool SaveResultToHeader(const istio::authn::Result& result,
                                  Http::HeaderMap* headers);
+
+  // Save authentication attributes into the data Struct.
+  static void SaveAuthAttributesToStruct(const istio::authn::Result& result,
+                                         ::google::protobuf::Struct& data);
 
   // Looks up authentication result data in the header. If data is available,
   // decodes and output result proto. Returns false if data is not available, or

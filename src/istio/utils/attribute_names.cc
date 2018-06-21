@@ -1,4 +1,4 @@
-/* Copyright 2017 Istio Authors. All Rights Reserved.
+/* Copyright 2018 Istio Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "attribute_names.h"
+#include "include/istio/utils/attribute_names.h"
 
 namespace istio {
-namespace control {
+namespace utils {
 
 // Define attribute names
 const char AttributeName::kSourceUser[] = "source.user";
@@ -84,5 +84,5 @@ const char AttributeName::kRequestAuthRawClaims[] = "request.auth.raw_claims";
 const char AttributeName::kResponseGrpcStatus[] = "response.grpc_status";
 const char AttributeName::kResponseGrpcMessage[] = "response.grpc_message";
 
-}  // namespace control
+}  // namespace utils
 }  // namespace istio

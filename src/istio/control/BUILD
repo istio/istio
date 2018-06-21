@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright 2018 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,19 +17,19 @@ licenses(["notice"])
 cc_library(
     name = "common_lib",
     srcs = [
-        "attribute_names.cc",
         "client_context_base.cc",
     ],
     hdrs = [
-        "attribute_names.h",
         "client_context_base.h",
         "request_context.h",
     ],
     visibility = [":__subpackages__"],
     deps = [
         "//external:mixer_client_config_cc_proto",
+        "//include/istio/utils:attribute_names_header",
         "//src/istio/mixerclient:mixerclient_lib",
         "//src/istio/quota_config:config_parser_lib",
+        "//src/istio/utils:attribute_names_lib",
     ],
 )
 

@@ -18,8 +18,8 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
+#include "include/istio/utils/attribute_names.h"
 #include "include/istio/utils/attributes_builder.h"
-#include "src/istio/control/attribute_names.h"
 #include "src/istio/control/tcp/mock_check_data.h"
 #include "src/istio/control/tcp/mock_report_data.h"
 
@@ -285,7 +285,7 @@ void ClearContextTime(RequestContext* request) {
   // Override timestamp with -
   utils::AttributesBuilder builder(&request->attributes);
   std::chrono::time_point<std::chrono::system_clock> time0;
-  builder.AddTimestamp(AttributeName::kContextTime, time0);
+  builder.AddTimestamp(utils::AttributeName::kContextTime, time0);
 }
 
 TEST(AttributesBuilderTest, TestCheckAttributes) {

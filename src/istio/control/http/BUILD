@@ -31,9 +31,11 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//include/istio/control/http:headers_lib",
+        "//include/istio/utils:attribute_names_header",
         "//src/istio/api_spec:api_spec_lib",
         "//src/istio/authn:context_proto",
         "//src/istio/control:common_lib",
+        "//src/istio/utils:attribute_names_lib",
         "//src/istio/utils:utils_lib",
     ],
 )

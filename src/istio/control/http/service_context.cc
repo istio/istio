@@ -14,7 +14,7 @@
  */
 
 #include "service_context.h"
-#include "src/istio/control/attribute_names.h"
+#include "include/istio/utils/attribute_names.h"
 #include "src/istio/control/http/attributes_builder.h"
 
 using ::istio::mixer::v1::Attributes;
@@ -91,7 +91,8 @@ void ServiceContext::AddApiAttributes(CheckData *check_data,
 
   std::string api_key;
   if (api_spec_parser_->ExtractApiKey(check_data, &api_key)) {
-    (*request->attributes.mutable_attributes())[AttributeName::kRequestApiKey]
+    (*request->attributes
+          .mutable_attributes())[utils::AttributeName::kRequestApiKey]
         .set_string_value(api_key);
   }
 }

@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors. All Rights Reserved.
+# Copyright 2018 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,5 +64,16 @@ cc_test(
     deps = [
         ":md5_lib",
         "//external:googletest_main",
+    ],
+)
+
+cc_library(
+    name = "attribute_names_lib",
+    srcs = [
+        "attribute_names.cc",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//include/istio/utils:attribute_names_header",
     ],
 )

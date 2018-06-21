@@ -74,8 +74,17 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
 
   // Put authentication result to headers.
   if (filter_context_ != nullptr) {
+    // TODO(yangminzhu): Remove the header and only use the metadata to pass the
+    // attributes.
     Utils::Authentication::SaveResultToHeader(
         filter_context_->authenticationResult(), filter_context_->headers());
+
+    // Save auth results in the metadata, could be later used by RBAC filter.
+    ProtobufWkt::Struct data;
+    Utils::Authentication::SaveAuthAttributesToStruct(
+        filter_context_->authenticationResult(), data);
+    decoder_callbacks_->requestInfo().setDynamicMetadata("istio_authn", data);
+    ENVOY_LOG(debug, "Saved Dynamic Metadata:\n{}", data.DebugString());
   }
   state_ = State::COMPLETE;
   return FilterHeadersStatus::Continue;

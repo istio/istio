@@ -1,4 +1,4 @@
-/* Copyright 2017 Istio Authors. All Rights Reserved.
+/* Copyright 2018 Istio Authors. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#ifndef ISTIO_CONTROL_ATTRIBUTE_NAMES_H
-#define ISTIO_CONTROL_ATTRIBUTE_NAMES_H
+#ifndef ISTIO_UTILS_ATTRIBUTE_NAMES_H
+#define ISTIO_UTILS_ATTRIBUTE_NAMES_H
 
 #include <string>
 
 namespace istio {
-namespace control {
+namespace utils {
 
 // Define attribute names
 struct AttributeName {
@@ -92,7 +92,7 @@ struct AttributeName {
   static const char kResponseGrpcMessage[];
 };
 
-}  // namespace control
+}  // namespace utils
 }  // namespace istio
 
-#endif  // ISTIO_CONTROL_ATTRIBUTE_NAMES_H
+#endif  // ISTIO_UTILS_ATTRIBUTE_NAMES_H

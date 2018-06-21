@@ -18,8 +18,8 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
+#include "include/istio/utils/attribute_names.h"
 #include "include/istio/utils/attributes_builder.h"
-#include "src/istio/control/attribute_names.h"
 #include "src/istio/control/http/mock_check_data.h"
 #include "src/istio/control/http/mock_report_data.h"
 
@@ -240,7 +240,7 @@ void ClearContextTime(const std::string &name, RequestContext *request) {
 
 void SetDestinationIp(RequestContext *request, const std::string &ip) {
   utils::AttributesBuilder builder(&request->attributes);
-  builder.AddBytes(AttributeName::kDestinationIp, ip);
+  builder.AddBytes(utils::AttributeName::kDestinationIp, ip);
 }
 
 TEST(AttributesBuilderTest, TestExtractForwardedAttributes) {
@@ -323,7 +323,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
   AttributesBuilder builder(&request);
   builder.ExtractCheckAttributes(&mock_data);
 
-  ClearContextTime(AttributeName::kRequestTime, &request);
+  ClearContextTime(utils::AttributeName::kRequestTime, &request);
 
   std::string out_str;
   TextFormat::PrintToString(request.attributes, &out_str);
@@ -382,7 +382,7 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   AttributesBuilder builder(&request);
   builder.ExtractCheckAttributes(&mock_data);
 
-  ClearContextTime(AttributeName::kRequestTime, &request);
+  ClearContextTime(utils::AttributeName::kRequestTime, &request);
 
   std::string out_str;
   TextFormat::PrintToString(request.attributes, &out_str);
@@ -396,7 +396,7 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   // not available, which can be removed after 0.8). For now, modifying expected
   // data manually for this test.
   (*expected_attributes
-        .mutable_attributes())[AttributeName::kRequestAuthRawClaims]
+        .mutable_attributes())[utils::AttributeName::kRequestAuthRawClaims]
       .set_string_value("test_raw_claims");
 
   EXPECT_TRUE(
@@ -443,7 +443,7 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   AttributesBuilder builder(&request);
   builder.ExtractReportAttributes(&mock_data);
 
-  ClearContextTime(AttributeName::kResponseTime, &request);
+  ClearContextTime(utils::AttributeName::kResponseTime, &request);
 
   std::string out_str;
   TextFormat::PrintToString(request.attributes, &out_str);
@@ -452,13 +452,14 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   Attributes expected_attributes;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
-  (*expected_attributes.mutable_attributes())[AttributeName::kDestinationUID]
+  (*expected_attributes
+        .mutable_attributes())[utils::AttributeName::kDestinationUID]
       .set_string_value("pod1.ns2");
   (*expected_attributes
-        .mutable_attributes())[AttributeName::kResponseGrpcStatus]
+        .mutable_attributes())[utils::AttributeName::kResponseGrpcStatus]
       .set_string_value("grpc-status");
   (*expected_attributes
-        .mutable_attributes())[AttributeName::kResponseGrpcMessage]
+        .mutable_attributes())[utils::AttributeName::kResponseGrpcMessage]
       .set_string_value("grpc-message");
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));
@@ -494,7 +495,7 @@ TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
   AttributesBuilder builder(&request);
   builder.ExtractReportAttributes(&mock_data);
 
-  ClearContextTime(AttributeName::kResponseTime, &request);
+  ClearContextTime(utils::AttributeName::kResponseTime, &request);
 
   std::string out_str;
   TextFormat::PrintToString(request.attributes, &out_str);

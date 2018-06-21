@@ -15,7 +15,7 @@
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
-#include "src/istio/control/attribute_names.h"
+#include "include/istio/utils/attribute_names.h"
 #include "src/istio/control/http/client_context.h"
 #include "src/istio/control/http/controller_impl.h"
 #include "src/istio/control/http/mock_check_data.h"
@@ -403,7 +403,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultApiKey) {
                           TransportCheckFunc transport,
                           CheckDoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
-        EXPECT_EQ(map[AttributeName::kRequestApiKey].string_value(),
+        EXPECT_EQ(map[utils::AttributeName::kRequestApiKey].string_value(),
                   "test-api-key");
         return nullptr;
       }));

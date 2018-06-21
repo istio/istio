@@ -15,8 +15,8 @@
 
 #include "client_context_base.h"
 #include "include/istio/mixerclient/check_response.h"
+#include "include/istio/utils/attribute_names.h"
 #include "include/istio/utils/attributes_builder.h"
-#include "src/istio/control/attribute_names.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::NetworkFailPolicy;
@@ -86,9 +86,9 @@ CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
     request->check_status = check_response_info.response_status;
 
     utils::AttributesBuilder builder(&request->attributes);
-    builder.AddBool(AttributeName::kCheckCacheHit,
+    builder.AddBool(utils::AttributeName::kCheckCacheHit,
                     check_response_info.is_check_cache_hit);
-    builder.AddBool(AttributeName::kQuotaCacheHit,
+    builder.AddBool(utils::AttributeName::kQuotaCacheHit,
                     check_response_info.is_quota_cache_hit);
     on_done(check_response_info);
   };

@@ -16,6 +16,7 @@
 #include "src/envoy/utils/authn.h"
 #include "common/protobuf/protobuf.h"
 #include "envoy/http/header_map.h"
+#include "include/istio/utils/attribute_names.h"
 #include "src/istio/authn/context.pb.h"
 #include "test/test_common/utility.h"
 
@@ -53,6 +54,60 @@ TEST_F(AuthenticationTest, SaveSomeResult) {
   const auto entry = request_headers_.get(GetHeaderLocation());
   EXPECT_TRUE(entry != nullptr);
   EXPECT_EQ("CgNmb28SA2Jhcg==", entry->value().getStringView());
+}
+
+TEST_F(AuthenticationTest, SaveAuthAttributesToStruct) {
+  istio::authn::Result result;
+  ::google::protobuf::Struct data;
+
+  Authentication::SaveAuthAttributesToStruct(result, data);
+  EXPECT_TRUE(data.mutable_fields()->empty());
+
+  result.set_principal("principal");
+  result.set_peer_user("peeruser");
+  auto origin = result.mutable_origin();
+  origin->add_audiences("audiences0");
+  origin->add_audiences("audiences1");
+  origin->set_presenter("presenter");
+  auto claim = origin->mutable_claims();
+  (*claim)["key1"] = "value1";
+  (*claim)["key2"] = "value2";
+  origin->set_raw_claims("rawclaim");
+
+  Authentication::SaveAuthAttributesToStruct(result, data);
+  EXPECT_FALSE(data.mutable_fields()->empty());
+
+  EXPECT_EQ(data.fields()
+                .at(istio::utils::AttributeName::kRequestAuthPrincipal)
+                .string_value(),
+            "principal");
+  EXPECT_EQ(
+      data.fields().at(istio::utils::AttributeName::kSourceUser).string_value(),
+      "peeruser");
+  EXPECT_EQ(data.fields()
+                .at(istio::utils::AttributeName::kSourcePrincipal)
+                .string_value(),
+            "peeruser");
+  EXPECT_EQ(data.fields()
+                .at(istio::utils::AttributeName::kRequestAuthAudiences)
+                .string_value(),
+            "audiences0");
+  EXPECT_EQ(data.fields()
+                .at(istio::utils::AttributeName::kRequestAuthPresenter)
+                .string_value(),
+            "presenter");
+
+  auto actual_claim =
+      data.fields().at(istio::utils::AttributeName::kRequestAuthClaims);
+  EXPECT_EQ(actual_claim.struct_value().fields().at("key1").string_value(),
+            "value1");
+  EXPECT_EQ(actual_claim.struct_value().fields().at("key2").string_value(),
+            "value2");
+
+  EXPECT_EQ(data.fields()
+                .at(istio::utils::AttributeName::kRequestAuthRawClaims)
+                .string_value(),
+            "rawclaim");
 }
 
 TEST_F(AuthenticationTest, ResultAlreadyExist) {
