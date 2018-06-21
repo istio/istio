@@ -15,22 +15,13 @@
 package envoy
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
-	"time"
-
-	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
-	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/util"
 )
@@ -39,8 +30,8 @@ const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
 	DefaultLogLevel = LogLevelTrace
 
-	healthCheckTimeout  = 10 * time.Second
-	healthCheckInterval = 100 * time.Millisecond
+	// DefaultLogEntryPrefix the default prefix for all log lines from Envoy.
+	DefaultLogEntryPrefix = "[ENVOY]"
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -63,32 +54,11 @@ const (
 	LogLevelOff = "off"
 )
 
-// HealthCheckState represents a health checking state returned from /server_info
-type HealthCheckState string
-
-const (
-	// HealthCheckLive indicates Envoy is live and ready to serve requests
-	HealthCheckLive HealthCheckState = "live"
-	// HealthCheckDraining indicates Envoy is not currently capable of serving requests
-	HealthCheckDraining HealthCheckState = "draining"
-)
-
 var (
 	idGenerator = &baseIDGenerator{
 		ids: make(map[uint32]byte),
 	}
-	nilServerInfo = ServerInfo{}
 )
-
-// ServerInfo is the result of a request to /server_info
-type ServerInfo struct {
-	ProcessName                  string
-	CompiledSHABuildType         string
-	HealthCheckState             HealthCheckState
-	CurrentHotRestartEpochUptime time.Duration
-	TotalUptime                  time.Duration
-	CurrentHotRestartEpoch       int
-}
 
 // Envoy is a wrapper that simplifies running Envoy.
 type Envoy struct {
@@ -102,10 +72,11 @@ type Envoy struct {
 	LogFilePath string
 	// LogLevel (optional) if provided, sets the log level for Envoy. If not set, DefaultLogLevel will be used.
 	LogLevel LogLevel
+	// LogEntryPrefix (optional) if provided, sets the prefix for every log line from this Envoy. Defaults to DefaultLogPrefix.
+	LogEntryPrefix string
 
-	cmd       *exec.Cmd
-	baseID    uint32
-	adminPort int
+	cmd    *exec.Cmd
+	baseID uint32
 }
 
 // Start starts the Envoy process.
@@ -118,11 +89,6 @@ func (e *Envoy) Start() (err error) {
 	}()
 
 	if err = e.validateCommandArgs(); err != nil {
-		return err
-	}
-
-	e.adminPort, err = parseAdminPort(e.YamlFile)
-	if err != nil {
 		return err
 	}
 
@@ -144,11 +110,7 @@ func (e *Envoy) Start() (err error) {
 	e.cmd = exec.Command(envoyPath, args...)
 	e.cmd.Stderr = os.Stderr
 	e.cmd.Stdout = os.Stdout
-	if err = e.cmd.Start(); err != nil {
-		return err
-	}
-
-	return e.waitForHealthCheckLive()
+	return e.cmd.Start()
 }
 
 // Stop kills the Envoy process.
@@ -163,99 +125,6 @@ func (e *Envoy) Stop() error {
 
 	// Kill the process.
 	return e.cmd.Process.Kill()
-}
-
-func parseAdminPort(configFile string) (int, error) {
-	yamlBytes, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return 0, err
-	}
-	json, err := yaml.YAMLToJSON(yamlBytes)
-	if err != nil {
-		return 0, err
-	}
-	bootstrap := v2.Bootstrap{}
-	err = jsonpb.Unmarshal(bytes.NewReader(json), &bootstrap)
-	if err != nil {
-		return 0, err
-	}
-	return int(bootstrap.Admin.Address.GetSocketAddress().GetPortValue()), nil
-}
-
-// GetAdminPort returns the admin port for the Envoy server.
-func (e *Envoy) GetAdminPort() int {
-	return e.adminPort
-}
-
-// GetServerInfo a structure representing a call to /server_info
-func (e *Envoy) GetServerInfo() (ServerInfo, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/server_info", e.adminPort)
-	response, err := http.Get(requestURL)
-	if err != nil {
-		fmt.Println(err)
-		return nilServerInfo, err
-	}
-	defer response.Body.Close()
-
-	bodyBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	body := strings.TrimSpace(string(bodyBytes))
-	fmt.Println("NM: /server_info returned:")
-	fmt.Println(body)
-	parts := strings.Split(body, " ")
-	if len(parts) != 6 {
-		return nilServerInfo, fmt.Errorf("call to /server_info returned invalid response: %s", body)
-	}
-
-	currentHotRestartEpochUptime, err := strconv.Atoi(parts[3])
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	totalUptime, err := strconv.Atoi(parts[4])
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	currentHotRestartEpoch, err := strconv.Atoi(parts[5])
-	if err != nil {
-		return nilServerInfo, err
-	}
-
-	return ServerInfo{
-		ProcessName:                  parts[0],
-		CompiledSHABuildType:         parts[1],
-		HealthCheckState:             HealthCheckState(parts[2]),
-		CurrentHotRestartEpochUptime: time.Second * time.Duration(currentHotRestartEpochUptime),
-		TotalUptime:                  time.Second * time.Duration(totalUptime),
-		CurrentHotRestartEpoch:       currentHotRestartEpoch,
-	}, nil
-}
-
-func (e *Envoy) waitForHealthCheckLive() error {
-	endTime := time.Now().Add(healthCheckTimeout)
-	for {
-		var info ServerInfo
-		info, err := e.GetServerInfo()
-		if err == nil {
-			if info.HealthCheckState == HealthCheckLive {
-				// It's running, we can return now.
-				return nil
-			}
-		}
-
-		// Stop trying after the timeout
-		if time.Now().After(endTime) {
-			err = fmt.Errorf("failed to start envoy after %ds. Error: %v", healthCheckTimeout/time.Second, err)
-			return err
-		}
-
-		// Sleep a short before retry.
-		time.Sleep(healthCheckInterval)
-	}
 }
 
 func (e *Envoy) validateCommandArgs() error {
@@ -283,7 +152,7 @@ func (e *Envoy) returnBaseID() {
 
 func (e *Envoy) getCommandArgs() []string {
 	// Prefix Envoy log entries with [ENVOY] to make them distinct from other logs if mixed within the same stream (e.g. stderr)
-	logFormat := "[ENVOY] [%Y-%m-%d %T.%e][%t][%l][%n] %v"
+	logFormat := e.getLogEntryPrefix() + " [%Y-%m-%d %T.%e][%t][%l][%n] %v"
 
 	args := []string{
 		"--base-id",
@@ -311,6 +180,12 @@ func (e *Envoy) getLogLevel() LogLevel {
 	return DefaultLogLevel
 }
 
+func (e *Envoy) getLogEntryPrefix() string {
+	if e.LogEntryPrefix != "" {
+		return e.LogEntryPrefix
+	}
+	return DefaultLogEntryPrefix
+}
 func checkFileExists(f string) error {
 	if _, err := os.Stat(f); os.IsNotExist(err) {
 		return err
