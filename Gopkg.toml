@@ -348,3 +348,7 @@ required = [
     non-go = false
     unused-packages = false
 
+
+[[constraint]]
+  branch = "master"
+  name = "istio.io/gogo-genproto"
