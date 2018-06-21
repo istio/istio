@@ -25,6 +25,7 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
@@ -245,27 +246,13 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 }
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
+func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, serviceAccount string) *auth.DownstreamTlsContext {
 	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return nil
 	}
 	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
-		return &auth.DownstreamTlsContext{
+		ret := &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.KeyFilename,
-							},
-						},
-					},
-				},
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 					ValidationContext: &auth.CertificateValidationContext{
 						TrustedCa: &core.DataSource{
@@ -282,7 +269,51 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
 			},
 		}
+
+		if model.DefaultMeshConfig().SdsUdsPath == "" {
+			ret.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			}
+		} else {
+			refreshDuration, _ := ptypes.Duration(model.DefaultMeshConfig().SdsRefreshDelay)
+			ret.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+				{
+					Name: serviceAccount,
+					SdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+							ApiConfigSource: &core.ApiConfigSource{
+								ApiType: core.ApiConfigSource_GRPC,
+								GrpcServices: []*core.GrpcService{
+									{
+										TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+											GoogleGrpc: &core.GrpcService_GoogleGrpc{
+												TargetUri: model.DefaultMeshConfig().SdsUdsPath,
+											},
+										},
+									},
+								},
+								RefreshDelay: &refreshDuration,
+							},
+						},
+					},
+				},
+			}
+		}
+
+		return ret
 	}
+
 	return nil
 }
 
@@ -309,7 +340,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
+		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.ServiceInstance.ServiceAccount)
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {

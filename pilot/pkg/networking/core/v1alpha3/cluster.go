@@ -23,6 +23,7 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -84,6 +85,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environment, proxy model.Proxy,
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
+
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
@@ -117,6 +119,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					clusters = append(clusters, subsetCluster)
 				}
 			} else {
+
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
 				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
 					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
@@ -445,26 +448,58 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.ClientCertificate,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.PrivateKey,
-							},
-						},
-					},
-				},
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 					ValidationContext: certValidationContext,
 				},
 			},
 			Sni: tls.Sni,
 		}
+		if model.DefaultMeshConfig().SdsUdsPath == "" {
+			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.ClientCertificate,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.PrivateKey,
+						},
+					},
+				},
+			}
+		} else {
+			refreshDuration, _ := ptypes.Duration(model.DefaultMeshConfig().SdsRefreshDelay)
+
+			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
+			// tls.SubjectAltNames is set to upstreamServiceAccount for mTLS case.
+			for _, account := range tls.SubjectAltNames {
+				config := &auth.SdsSecretConfig{
+					Name: account,
+					SdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+							ApiConfigSource: &core.ApiConfigSource{
+								ApiType: core.ApiConfigSource_GRPC,
+								GrpcServices: []*core.GrpcService{
+									{
+										TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+											GoogleGrpc: &core.GrpcService_GoogleGrpc{
+												TargetUri: model.DefaultMeshConfig().SdsUdsPath,
+											},
+										},
+									},
+								},
+								RefreshDelay: &refreshDuration,
+							},
+						},
+					},
+				}
+
+				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs, config)
+			}
+		}
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
