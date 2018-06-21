@@ -14,30 +14,28 @@
 
 package kube
 
-import (
-	"fmt"
+// Types in the schema.
+var Types = Schema{}
 
-	"istio.io/istio/galley/pkg/runtime/resource"
-)
+func init() {
+	// TODO: Full set of Schema.
+	Types.add(ResourceSpec{
+		Kind:     "Rule",
+		ListKind: "RuleList",
+		Singular: "rule",
+		Plural:   "rules",
+		Version:  "v1beta1",
+		Group:    "config.istio.io",
+		Target:   getTargetFor("istio.policy.v1beta1.Rule"),
+	})
 
-// Schema represents a set of known Kubernetes resource types.
-type Schema struct {
-	entries []ResourceSpec
-}
-
-func (e *Schema) add(entry ResourceSpec) {
-	e.entries = append(e.entries, entry)
-}
-
-// All returns information about all known types.
-func (e *Schema) All() []ResourceSpec {
-	return e.entries
-}
-
-func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
-	if !ok {
-		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
-	}
-	return rInfo
+	Types.add(ResourceSpec{
+		Kind:     "DestinationRule",
+		ListKind: "DestinationRuleList",
+		Singular: "destinationrule",
+		Plural:   "destinationrules",
+		Version:  "v1alpha3",
+		Group:    "config.istio.io",
+		Target:   getTargetFor("istio.networking.v1alpha3.DestinationRule"),
+	})
 }

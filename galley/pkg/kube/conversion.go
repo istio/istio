@@ -23,8 +23,6 @@ import (
 )
 
 // toProto reads a proto.Message from the given unstructured data.
-// TODO: Remove nolint: This gets used in the next CL
-// nolint: deadcode
 func toProto(s ResourceSpec, u *unstructured.Unstructured) (proto.Message, error) {
 	return specToProto(s, u.Object["spec"])
 }
