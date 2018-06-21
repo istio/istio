@@ -14,6 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import any_pb2 as google_dot_protobuf_dot_any__pb2
+from gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
 from config.mcp.v1alpha1 import metadata_pb2 as config_dot_mcp_dot_v1alpha1_dot_metadata__pb2
 
 
@@ -21,9 +22,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='config/mcp/v1alpha1/envelope.proto',
   package='istio.config.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\"config/mcp/v1alpha1/envelope.proto\x12\x19istio.config.mcp.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\"config/mcp/v1alpha1/metadata.proto\"i\n\x08\x45nvelope\x12\x35\n\x08metadata\x18\x01 \x01(\x0b\x32#.istio.config.mcp.v1alpha1.Metadata\x12&\n\x08resource\x18\x02 \x01(\x0b\x32\x14.google.protobuf.AnyB\"Z istio.io/api/config/mcp/v1alpha1b\x06proto3')
+  serialized_pb=_b('\n\"config/mcp/v1alpha1/envelope.proto\x12\x19istio.config.mcp.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\x14gogoproto/gogo.proto\x1a\"config/mcp/v1alpha1/metadata.proto\"i\n\x08\x45nvelope\x12\x35\n\x08metadata\x18\x01 \x01(\x0b\x32#.istio.config.mcp.v1alpha1.Metadata\x12&\n\x08resource\x18\x02 \x01(\x0b\x32\x14.google.protobuf.AnyB&Z istio.io/api/config/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
-  dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,config_dot_mcp_dot_v1alpha1_dot_metadata__pb2.DESCRIPTOR,])
+  dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,gogoproto_dot_gogo__pb2.DESCRIPTOR,config_dot_mcp_dot_v1alpha1_dot_metadata__pb2.DESCRIPTOR,])
 
 
 
@@ -61,8 +62,8 @@ _ENVELOPE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=128,
-  serialized_end=233,
+  serialized_start=150,
+  serialized_end=255,
 )
 
 _ENVELOPE.fields_by_name['metadata'].message_type = config_dot_mcp_dot_v1alpha1_dot_metadata__pb2._METADATA
@@ -79,5 +80,5 @@ _sym_db.RegisterMessage(Envelope)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z istio.io/api/config/mcp/v1alpha1'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z istio.io/api/config/mcp/v1alpha1\250\342\036\001'))
 # @@protoc_insertion_point(module_scope)
