@@ -203,6 +203,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMongo
 	case "redis":
 		return ProtocolRedis
+	case "bolt":
+		return ProtocolBOLT
 	}
 
 	return ProtocolUnsupported

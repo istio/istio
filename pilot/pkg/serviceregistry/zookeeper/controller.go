@@ -153,7 +153,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
 
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	instances := c.client.InstancesByHost(proxy.IPAddress)
-	result := make([]*model.ServiceInstance, len(instances))
+	result := make([]*model.ServiceInstance, 0, len(instances))
 	for _, instance := range instances {
 		i, err := toInstance(instance)
 		if err == nil {
@@ -212,7 +212,7 @@ func toInstance(instance *Instance) (*model.ServiceInstance, error) {
 func toPort(port *Port) *model.Port {
 	return &model.Port{
 		Name:     port.Protocol,
-		Protocol: model.Protocol(port.Protocol),
+		Protocol: model.ParseProtocol(port.Protocol),
 		Port:     port.Portoi(),
 	}
 }
