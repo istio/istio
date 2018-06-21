@@ -40,4 +40,3 @@ func foo8002(w http.ResponseWriter, r *http.Request) {
 func bar8002(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Listening on 8002: bar "))
 }
-
