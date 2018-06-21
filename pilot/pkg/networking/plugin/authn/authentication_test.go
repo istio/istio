@@ -18,16 +18,19 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 )
@@ -786,20 +789,26 @@ func TestBuildAuthNFilter(t *testing.T) {
 }
 
 func TestBuildSidecarListenerTLSContex(t *testing.T) {
+	refreshDelay := 15 * time.Second
+
 	cases := []struct {
-		name     string
-		in       *authn.Policy
-		expected *auth.DownstreamTlsContext
+		name           string
+		in             *authn.Policy
+		serviceAccount string
+		meshConfig     *meshconfig.MeshConfig
+		expected       *auth.DownstreamTlsContext
 	}{
 		{
-			name:     "nil policy",
-			in:       nil,
-			expected: nil,
+			name:       "nil policy",
+			in:         nil,
+			meshConfig: &meshconfig.MeshConfig{},
+			expected:   nil,
 		},
 		{
-			name:     "empty policy",
-			in:       &authn.Policy{},
-			expected: nil,
+			name:       "empty policy",
+			in:         &authn.Policy{},
+			meshConfig: &meshconfig.MeshConfig{},
+			expected:   nil,
 		},
 		{
 			name: "non-mTLS policy",
@@ -814,7 +823,8 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 					},
 				},
 			},
-			expected: nil,
+			meshConfig: &meshconfig.MeshConfig{},
+			expected:   nil,
 		},
 		{
 			name: "mTLS policy with nil param",
@@ -825,6 +835,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 					},
 				},
 			},
+			meshConfig: &meshconfig.MeshConfig{},
 			expected: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					TlsCertificates: []*auth.TlsCertificate{
@@ -868,6 +879,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 					},
 				},
 			},
+			meshConfig: &meshconfig.MeshConfig{},
 			expected: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					TlsCertificates: []*auth.TlsCertificate{
@@ -898,9 +910,61 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 				RequireClientCertificate: &types.BoolValue{false},
 			},
 		},
+		{
+			name: "mTLS policy using SDS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				SdsUdsPath:      "/tmp/sdsuds.sock",
+				SdsRefreshDelay: ptypes.DurationProto(refreshDelay),
+			},
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			expected: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "spiffe://cluster.local/ns/bar/sa/foo",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri: "/tmp/sdsuds.sock",
+													},
+												},
+											},
+										},
+										RefreshDelay: &refreshDelay,
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+						ValidationContext: &auth.CertificateValidationContext{
+							TrustedCa: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "/etc/certs/root-cert.pem",
+								},
+							},
+						},
+					},
+					AlpnProtocols: []string{"h2", "http/1.1"},
+				},
+				RequireClientCertificate: &types.BoolValue{true},
+			},
+		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in, nil, ""); !reflect.DeepEqual(c.expected, got) {
+		if got := buildSidecarListenerTLSContext(c.in, nil, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}

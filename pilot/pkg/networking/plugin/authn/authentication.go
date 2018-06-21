@@ -246,7 +246,8 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 }
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, serviceAccount string) *auth.DownstreamTlsContext {
+func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch,
+	serviceAccount string, meshConfig *meshconfig.MeshConfig) *auth.DownstreamTlsContext {
 	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return nil
 	}
@@ -270,7 +271,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 			},
 		}
 
-		if model.DefaultMeshConfig().SdsUdsPath == "" {
+		if meshConfig.SdsUdsPath == "" {
 			ret.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -286,7 +287,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 				},
 			}
 		} else {
-			refreshDuration, _ := ptypes.Duration(model.DefaultMeshConfig().SdsRefreshDelay)
+			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
 			ret.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 				{
 					Name: serviceAccount,
@@ -298,7 +299,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 									{
 										TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 											GoogleGrpc: &core.GrpcService_GoogleGrpc{
-												TargetUri: model.DefaultMeshConfig().SdsUdsPath,
+												TargetUri: meshConfig.SdsUdsPath,
 											},
 										},
 									},
@@ -340,7 +341,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.ServiceInstance.ServiceAccount)
+		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.ServiceInstance.ServiceAccount, in.Env.Mesh)
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
