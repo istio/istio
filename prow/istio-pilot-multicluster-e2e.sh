@@ -20,7 +20,7 @@ export OWNER=istio-pilot-multicluster-e2e
 
 export SETUP_CLUSTERREG="True"
 CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
-export CLUSTERREG_DIR=${CLUSTERREG_DIR}
+export CLUSTERREG_DIR
 
 export GIT_SHA=${GIT_SHA:-$TAG}
 
