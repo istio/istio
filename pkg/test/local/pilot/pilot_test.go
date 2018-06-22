@@ -23,7 +23,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	envoyv1 "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/environment"
 )
@@ -87,7 +87,7 @@ func TestLocalPilot(t *testing.T) {
 func newPilot(t *testing.T) (environment.DeployedPilot, func()) {
 	t.Helper()
 	mesh := model.DefaultMeshConfig()
-	options := envoyv1.DiscoveryServiceOptions{
+	options := envoy.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",

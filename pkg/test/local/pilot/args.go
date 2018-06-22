@@ -16,7 +16,7 @@ package pilot
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 )
 
 // Args provide the options for creating a local pilot.
