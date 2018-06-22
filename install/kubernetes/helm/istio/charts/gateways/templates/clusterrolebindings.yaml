@@ -15,7 +15,7 @@ subjects:
     name: istio-{{ $key }}-service-account
     namespace: {{ $.Release.Namespace }}
 ---
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
+{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}

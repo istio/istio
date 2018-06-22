@@ -16,7 +16,7 @@ rules:
   resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
   verbs: ["get", "watch", "list", "update"]
 ---
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
+{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}
