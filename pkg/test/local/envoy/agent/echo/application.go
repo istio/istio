@@ -15,22 +15,14 @@
 package echo
 
 import (
-	"fmt"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/server/echo"
 	"istio.io/istio/pkg/test/local/envoy/agent"
 )
 
-// PortConfig contains meta information about a port
-type PortConfig struct {
-	Name     string
-	Protocol model.Protocol
-}
-
 // Factory is a factory for echo applications.
 type Factory struct {
-	Ports   []PortConfig
+	Ports   model.PortList
 	TLSCert string
 	TLSCKey string
 	Version string
@@ -38,90 +30,40 @@ type Factory struct {
 
 // NewApplication is an agent.ApplicationFactory function that manufactures echo applications.
 func (f *Factory) NewApplication() (agent.Application, agent.StopFunc, error) {
-	if err := f.validate(); err != nil {
-		return nil, nil, err
+
+	// Make a copy of the port list.
+	ports := make(model.PortList, len(f.Ports))
+	for i, p := range f.Ports {
+		tempP := *p
+		ports[i] = &tempP
 	}
 
-	app := &application{}
-	server := &echo.Server{
-		HTTPPorts: make([]int, f.getProtocolCount(model.ProtocolHTTP)),
-		GRPCPorts: make([]int, f.getProtocolCount(model.ProtocolGRPC)),
-		TLSCert:   f.TLSCert,
-		TLSCKey:   f.TLSCKey,
-		Version:   f.Version,
+	app := &echo.Application{
+		Ports:   ports,
+		TLSCert: f.TLSCert,
+		TLSCKey: f.TLSCKey,
+		Version: f.Version,
 	}
-	if err := server.Start(); err != nil {
+	if err := app.Start(); err != nil {
 		return nil, nil, err
 	}
-	app.ports = f.createPorts(server)
 
 	stopFunc := func() error {
-		if server != nil {
-			return server.Stop()
+		if app != nil {
+			return app.Stop()
 		}
 		return nil
 	}
-	return app, stopFunc, nil
+	return &wrapper{
+		app: app,
+	}, stopFunc, nil
 }
 
-func (f *Factory) validate() error {
-	for _, port := range f.Ports {
-		switch port.Protocol {
-		case model.ProtocolHTTP:
-		case model.ProtocolGRPC:
-		default:
-			return fmt.Errorf("protocol %v not currently supported", port.Protocol)
-		}
-	}
-	return nil
-}
-
-func (f *Factory) getProtocolCount(protocol model.Protocol) int {
-	count := 0
-	for _, p := range f.Ports {
-		if p.Protocol == protocol {
-			count++
-		}
-	}
-	return count
-}
-
-func (f *Factory) createPorts(server *echo.Server) []model.Port {
-	httpPorts := server.HTTPPorts
-	grpcPorts := server.GRPCPorts
-	out := make([]model.Port, len(httpPorts)+len(grpcPorts))
-	httpIndex := 0
-	grpcIndex := 0
-	outIndex := 0
-	for _, port := range f.Ports {
-		switch port.Protocol {
-		case model.ProtocolHTTP:
-			out[outIndex] = model.Port{
-				Name:     port.Name,
-				Protocol: port.Protocol,
-				Port:     httpPorts[httpIndex],
-			}
-			outIndex++
-			httpIndex++
-		case model.ProtocolGRPC:
-			out[outIndex] = model.Port{
-				Name:     port.Name,
-				Protocol: port.Protocol,
-				Port:     grpcPorts[grpcIndex],
-			}
-			outIndex++
-			grpcIndex++
-		}
-	}
-
-	return out
-}
-
-type application struct {
-	ports []model.Port
+type wrapper struct {
+	app *echo.Application
 }
 
 // GetPorts implements the agent.Application interface
-func (a *application) GetPorts() []model.Port {
-	return a.ports
+func (w *wrapper) GetPorts() model.PortList {
+	return w.app.Ports
 }

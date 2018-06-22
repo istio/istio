@@ -353,7 +353,7 @@ func randomBase64String(len int) string {
 	return str[:len]
 }
 
-func createPorts(servicePorts []model.Port) (adminPort int, ports []agent.MappedPort, err error) {
+func createPorts(servicePorts model.PortList) (adminPort int, ports []agent.MappedPort, err error) {
 	if adminPort, err = findFreePort(); err != nil {
 		return
 	}

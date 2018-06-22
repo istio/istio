@@ -17,16 +17,18 @@ package main
 import (
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	flag "github.com/spf13/pflag"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/server/echo"
 	"istio.io/istio/pkg/log"
 )
 
 var (
-	ports     []int
+	httpPorts []int
 	grpcPorts []int
 	version   string
 	crt       string
@@ -34,7 +36,7 @@ var (
 )
 
 func init() {
-	flag.IntSliceVar(&ports, "port", []int{8080}, "HTTP/1.1 ports")
+	flag.IntSliceVar(&httpPorts, "port", []int{8080}, "HTTP/1.1 ports")
 	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
 	flag.StringVar(&version, "version", "", "Version string")
 	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
@@ -46,12 +48,30 @@ func main() {
 
 	flag.Parse()
 
-	s := &echo.Server{
-		HTTPPorts: ports,
-		GRPCPorts: grpcPorts,
-		TLSCert:   crt,
-		TLSCKey:   key,
-		Version:   version,
+	ports := make(model.PortList, len(httpPorts)+len(grpcPorts))
+	portIndex := 0
+	for i, p := range httpPorts {
+		ports[portIndex] = &model.Port{
+			Name:     "http-" + strconv.Itoa(i),
+			Protocol: model.ProtocolHTTP,
+			Port:     p,
+		}
+		portIndex++
+	}
+	for i, p := range grpcPorts {
+		ports[portIndex] = &model.Port{
+			Name:     "grpc-" + strconv.Itoa(i),
+			Protocol: model.ProtocolGRPC,
+			Port:     p,
+		}
+		portIndex++
+	}
+
+	s := &echo.Application{
+		Ports:   ports,
+		TLSCert: crt,
+		TLSCKey: key,
+		Version: version,
 	}
 
 	if err := s.Start(); err != nil {

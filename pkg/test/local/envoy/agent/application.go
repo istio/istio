@@ -19,7 +19,7 @@ import "istio.io/istio/pilot/pkg/model"
 // Application represents a locally running application with exposed ports.
 type Application interface {
 	// GetPorts provides a list of ports that are actively listening for the application.
-	GetPorts() []model.Port
+	GetPorts() model.PortList
 }
 
 // ApplicationFactory is a function that manufactures a running application.
