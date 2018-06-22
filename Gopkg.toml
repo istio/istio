@@ -349,3 +349,7 @@ required = [
     non-go = false
     unused-packages = false
 
+
+[[constraint]]
+  name = "github.com/gogo/status"
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"

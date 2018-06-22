@@ -363,6 +363,11 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/gogo/status"
+  packages = ["."]
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
@@ -1585,6 +1590,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "740f1664dbc3031eea3097fd27b90ce66ddc00a53607476b96a34f1dd46cd5b7"
+  inputs-digest = "0b423337ce2db1eaf9a2b1fe3cf7c5bd63455d149b72bac5a8c27e5ca2c221ee"
   solver-name = "gps-cdcl"
   solver-version = 1
