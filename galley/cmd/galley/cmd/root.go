@@ -51,7 +51,7 @@ func createInterface(kubeconfig string) (kubernetes.Interface, error) {
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "gals",
+		Use:          "galley",
 		Short:        "Galley provides configuration management services for Istio.",
 		Long:         "Galley provides configuration management services for Istio.",
 		SilenceUsage: true,
@@ -78,7 +78,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Galley Server",
-		Section: "gals CLI",
+		Section: "galley CLI",
 		Manual:  "Istio Galley Server",
 	}))
 
