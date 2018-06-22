@@ -407,11 +407,6 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 					// identify the port by name
 					for _, port := range ss.Ports {
 						if svcPort, exists := svcPorts[port.Name]; exists {
-							endpoint := model.NetworkEndpoint{
-								Address:     ea.IP,
-								Port:        int(port.Port),
-								ServicePort: svcPort,
-							}
 							out = append(out, &model.ServiceInstance{
 								Endpoint: model.NetworkEndpoint{
 									Address:     ea.IP,
@@ -486,11 +481,6 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 						if port.Name == "" || // 'name optional if single port is defined'
 							reqSvcPort == 0 || // return all ports (mostly used by tests/debug)
 							svcPortEntry.Name == port.Name {
-							endpoint := model.NetworkEndpoint{
-								Address:     ea.IP,
-								Port:        int(port.Port),
-								ServicePort: svcPortEntry,
-							}
 							out = append(out, &model.ServiceInstance{
 								Endpoint: model.NetworkEndpoint{
 									Address:     ea.IP,

@@ -56,11 +56,16 @@ func BuildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	}
 }
 
-func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList) {
+func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint) {
 	for _, probe := range probes {
-		filter := BuildHealthCheckFilter(probe)
-		if !containsHTTPFilter(filterChain.HTTP, filter) {
-			filterChain.HTTP = append(filterChain.HTTP, filter)
+		// Check that the probe matches the listener port. If not, then the probe will be handled
+		// as a management port and not traced. If the port does match, then we need to add a
+		// health check filter for the probe path, to ensure that health checks are not traced.
+		if probe.Port.Port == endpoint.Port {
+			filter := BuildHealthCheckFilter(probe)
+			if !containsHTTPFilter(filterChain.HTTP, filter) {
+				filterChain.HTTP = append(filterChain.HTTP, filter)
+			}
 		}
 	}
 }
@@ -102,13 +107,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return fmt.Errorf("listener not defined in mutable %v", mutable)
 	}
 
-	if len(mutable.Listener.FilterChains) != len(mutable.FilterChains) {
-		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
-	}
-
 	for i := range mutable.Listener.FilterChains {
-		if in.ListenerType == plugin.ListenerTypeHTTP {
-			buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(in.Node.IPAddress))
+		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
+			buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(in.Node.IPAddress),
+				&in.ServiceInstance.Endpoint)
 		}
 	}
 

@@ -31,7 +31,7 @@ func NewPlugins() []plugin.Plugin {
 	return []plugin.Plugin{
 		authn.NewPlugin(),
 		authz.NewPlugin(),
-		envoyfilter.NewPlugin()}
+		envoyfilter.NewPlugin(),
 		health.NewPlugin(),
 		mixer.NewPlugin()}
 }
