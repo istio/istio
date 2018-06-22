@@ -27,7 +27,6 @@ global:
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
-    serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
 
     # istio egress capture whitelist
@@ -113,7 +112,6 @@ istiotesting:
 #
 ingress:
   enabled: true
-  serviceAccountName: default
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
@@ -218,7 +216,6 @@ sidecarInjectorWebhook:
 #
 galley:
   enabled: true
-  serviceAccountName: default
   replicaCount: 1
   image: galley
   resources: {}
@@ -234,7 +231,6 @@ galley:
 #
 mixer:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
   resources: {}
@@ -255,7 +251,6 @@ mixer:
 #
 pilot:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
   resources: {}
@@ -270,7 +265,6 @@ pilot:
 # security configuration
 #
 security:
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
   resources: {}
