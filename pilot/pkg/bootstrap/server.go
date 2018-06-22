@@ -49,7 +49,7 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
-	envoy "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -87,11 +87,13 @@ var (
 		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
+		model.EnvoyFilter,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
 		model.AuthenticationPolicy,
+		model.AuthenticationMeshPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 		model.RbacConfig,
@@ -195,11 +197,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
-	}
-
-	// TODO: remove when no longer needed
-	if os.Getenv("PILOT_VALIDATE_CLUSTERS") == "false" {
-		envoy.ValidateClusters = false
 	}
 
 	s := &Server{}
@@ -599,7 +596,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 		err = clusterregistry.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
-			s.discoveryService,
+			s.EnvoyXdsServer,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.ResyncPeriod,
 			args.Config.ControllerOptions.WatchedNamespace,

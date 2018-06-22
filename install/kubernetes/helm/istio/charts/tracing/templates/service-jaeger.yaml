@@ -3,11 +3,16 @@
 apiVersion: v1
 kind: List
 items:
+{{- if .Values.ingress.enabled }}
 - apiVersion: v1
   kind: Service
   metadata:
     name: jaeger-query
     namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
     labels:
       app: jaeger
       jaeger-infra: jaeger-service
@@ -23,6 +28,7 @@ items:
     selector:
       app: jaeger
     type: LoadBalancer
+{{- end }}
 - apiVersion: v1
   kind: Service
   metadata:

@@ -107,7 +107,7 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			if enc == nil {
 				return
 			}
-			bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+			bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 				"request.reason": "TWO",
 			})
 			var ba []byte
@@ -182,7 +182,7 @@ func TestValueTypeEncoder(t *testing.T) {
 				t.Fatalf("unexpected encoder build error: %v", err)
 			}
 
-			bag := attribute.GetFakeMutableBagForTesting(tst.bag)
+			bag := attribute.GetMutableBagForTesting(tst.bag)
 			var ba []byte
 			if ba, err = enc.Encode(bag, ba); err != nil {
 				t.Fatalf("unexpected encoder  error: %v", err)

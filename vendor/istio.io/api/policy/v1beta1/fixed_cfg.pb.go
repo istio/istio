@@ -4,8 +4,6 @@
 /*
 Package v1beta1 is a generated protocol buffer package.
 
-Describes the rules used to configure Mixer's policy and telemetry features.
-
 It is generated from these files:
 	policy/v1beta1/cfg.proto
 
@@ -87,7 +85,7 @@ func (m *AttributeManifest) GetAttributes() map[string]*AttributeManifest_Attrib
 
 // AttributeInfo describes the schema of an Istio `Attribute`.
 //
-// ## Istio Attributes
+// # Istio Attributes
 //
 // Istio uses `attributes` to describe runtime activities of Istio services.
 // An Istio attribute carries a specific piece of information about an activity,
@@ -105,7 +103,7 @@ func (m *AttributeManifest) GetAttributes() map[string]*AttributeManifest_Attrib
 // For example, the proxy collects the error code attribute, and the logging
 // stores it into a log.
 //
-// ## Design
+// # Design
 //
 // Each Istio attribute must conform to an `AttributeInfo` in an
 // `AttributeManifest` in the current Istio deployment at runtime. An
@@ -119,7 +117,7 @@ func (m *AttributeManifest) GetAttributes() map[string]*AttributeManifest_Attrib
 // does not change the semantics of the attribute. Different implementations
 // can choose different representations based on their needs.
 //
-// ## HTTP Mapping
+// # HTTP Mapping
 //
 // Because many systems already have REST APIs, it makes sense to define a
 // standard HTTP mapping for Istio attributes that are compatible with typical

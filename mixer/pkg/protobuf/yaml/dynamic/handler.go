@@ -144,6 +144,9 @@ func (h *Handler) connect() (err error) {
 
 func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 	dedupID string, resultPtr interface{}, encodedInstances ...*adapter.EncodedInstance) error {
+	if len(encodedInstances) == 0 {
+		return errors.New("internal: no instances sent")
+	}
 	svc := h.svcMap[encodedInstances[0].Name]
 	if svc == nil {
 		return errors.Errorf("unable to find instance: %s", encodedInstances[0].Name)

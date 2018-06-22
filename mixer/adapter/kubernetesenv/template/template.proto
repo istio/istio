@@ -60,6 +60,7 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_A
 //
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
+// Next ID: 8
 message Template {
     reserved 5, 6;
     
@@ -74,10 +75,14 @@ message Template {
 
     // Destination pod's ip.
     istio.policy.v1beta1.IPAddress destination_ip = 4;
+
+    // Destination container's port number.
+    int64 destination_port = 7;
 }
 
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
+// Next ID: 31
 message OutputTemplate {
     reserved 5, 12, 15, 16, 17, 18, 19, 21;
 
@@ -116,6 +121,9 @@ message OutputTemplate {
 
     // Refers to destination pod name. attribute_bindings can refer to this field using $out.destination_pod_name
     string destination_pod_name = 9;
+
+    // Refers to destination container name. attribute_bindings can refer to this field using $out.destination_container_name
+    string destination_container_name = 30;
 
     // Refers to destination pod labels. attribute_bindings can refer to this field using $out.destination_labels
     map<string, string> destination_labels = 10;
