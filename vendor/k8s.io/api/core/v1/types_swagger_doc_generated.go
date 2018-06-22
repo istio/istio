@@ -117,10 +117,15 @@ func (Binding) SwaggerDoc() map[string]string {
 }
 
 var map_CSIPersistentVolumeSource = map[string]string{
-	"":             "Represents storage that is managed by an external CSI volume driver",
-	"driver":       "Driver is the name of the driver to use for this volume. Required.",
-	"volumeHandle": "VolumeHandle is the unique volume name returned by the CSI volume plugin’s CreateVolume to refer to the volume on all subsequent calls. Required.",
-	"readOnly":     "Optional: The value to pass to ControllerPublishVolumeRequest. Defaults to false (read/write).",
+	"":                           "Represents storage that is managed by an external CSI volume driver (Beta feature)",
+	"driver":                     "Driver is the name of the driver to use for this volume. Required.",
+	"volumeHandle":               "VolumeHandle is the unique volume name returned by the CSI volume plugin’s CreateVolume to refer to the volume on all subsequent calls. Required.",
+	"readOnly":                   "Optional: The value to pass to ControllerPublishVolumeRequest. Defaults to false (read/write).",
+	"fsType":                     "Filesystem type to mount. Must be a filesystem type supported by the host operating system. Ex. \"ext4\", \"xfs\", \"ntfs\". Implicitly inferred to be \"ext4\" if unspecified.",
+	"volumeAttributes":           "Attributes of the volume to publish.",
+	"controllerPublishSecretRef": "ControllerPublishSecretRef is a reference to the secret object containing sensitive information to pass to the CSI driver to complete the CSI ControllerPublishVolume and ControllerUnpublishVolume calls. This field is optional, and  may be empty if no secret is required. If the secret object contains more than one secret, all secrets are passed.",
+	"nodeStageSecretRef":         "NodeStageSecretRef is a reference to the secret object containing sensitive information to pass to the CSI driver to complete the CSI NodeStageVolume and NodeStageVolume and NodeUnstageVolume calls. This field is optional, and  may be empty if no secret is required. If the secret object contains more than one secret, all secrets are passed.",
+	"nodePublishSecretRef":       "NodePublishSecretRef is a reference to the secret object containing sensitive information to pass to the CSI driver to complete the CSI NodePublishVolume and NodeUnpublishVolume calls. This field is optional, and  may be empty if no secret is required. If the secret object contains more than one secret, all secrets are passed.",
 }
 
 func (CSIPersistentVolumeSource) SwaggerDoc() map[string]string {
@@ -218,9 +223,10 @@ func (ComponentStatusList) SwaggerDoc() map[string]string {
 }
 
 var map_ConfigMap = map[string]string{
-	"":         "ConfigMap holds configuration data for pods to consume.",
-	"metadata": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata",
-	"data":     "Data contains the configuration data. Each key must consist of alphanumeric characters, '-', '_' or '.'.",
+	"":           "ConfigMap holds configuration data for pods to consume.",
+	"metadata":   "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata",
+	"data":       "Data contains the configuration data. Each key must consist of alphanumeric characters, '-', '_' or '.'. Values with non-UTF-8 byte sequences must use the BinaryData field. The keys stored in Data must not overlap with the keys in the BinaryData field, this is enforced during validation process.",
+	"binaryData": "BinaryData contains the binary data. Each key must consist of alphanumeric characters, '-', '_' or '.'. BinaryData can contain byte sequences that are not in the UTF-8 range. The keys stored in BinaryData must not overlap with the ones in the Data field, this is enforced during validation process. Using this field will require 1.10+ apiserver and kubelet.",
 }
 
 func (ConfigMap) SwaggerDoc() map[string]string {
@@ -308,7 +314,7 @@ func (Container) SwaggerDoc() map[string]string {
 
 var map_ContainerImage = map[string]string{
 	"":          "Describe a container image",
-	"names":     "Names by which this image is known. e.g. [\"gcr.io/google_containers/hyperkube:v1.0.7\", \"dockerhub.io/google_containers/hyperkube:v1.0.7\"]",
+	"names":     "Names by which this image is known. e.g. [\"k8s.gcr.io/hyperkube:v1.0.7\", \"dockerhub.io/google_containers/hyperkube:v1.0.7\"]",
 	"sizeBytes": "The size of the image in bytes.",
 }
 
@@ -508,7 +514,7 @@ func (EndpointsList) SwaggerDoc() map[string]string {
 
 var map_EnvFromSource = map[string]string{
 	"":             "EnvFromSource represents the source of a set of ConfigMaps",
-	"prefix":       "An optional identifer to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.",
+	"prefix":       "An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.",
 	"configMapRef": "The ConfigMap to select from",
 	"secretRef":    "The Secret to select from",
 }
@@ -574,9 +580,9 @@ func (EventList) SwaggerDoc() map[string]string {
 }
 
 var map_EventSeries = map[string]string{
-	"":                 "EventSeries contain information on series of events, i.e. thing that was/is happening continously for some time.",
+	"":                 "EventSeries contain information on series of events, i.e. thing that was/is happening continuously for some time.",
 	"count":            "Number of occurrences in this series up to the last heartbeat time",
-	"lastObservedTime": "Time of the last occurence observed",
+	"lastObservedTime": "Time of the last occurrence observed",
 	"state":            "State of this Series: Ongoing or Finished",
 }
 
@@ -614,6 +620,19 @@ var map_FCVolumeSource = map[string]string{
 
 func (FCVolumeSource) SwaggerDoc() map[string]string {
 	return map_FCVolumeSource
+}
+
+var map_FlexPersistentVolumeSource = map[string]string{
+	"":          "FlexPersistentVolumeSource represents a generic persistent volume resource that is provisioned/attached using an exec based plugin.",
+	"driver":    "Driver is the name of the driver to use for this volume.",
+	"fsType":    "Filesystem type to mount. Must be a filesystem type supported by the host operating system. Ex. \"ext4\", \"xfs\", \"ntfs\". The default filesystem depends on FlexVolume script.",
+	"secretRef": "Optional: SecretRef is reference to the secret object containing sensitive information to pass to the plugin scripts. This may be empty if no secret object is specified. If the secret object contains more than one secret, all secrets are passed to the plugin scripts.",
+	"readOnly":  "Optional: Defaults to false (read/write). ReadOnly here will force the ReadOnly setting in VolumeMounts.",
+	"options":   "Optional: Extra command options if any.",
+}
+
+func (FlexPersistentVolumeSource) SwaggerDoc() map[string]string {
+	return map_FlexPersistentVolumeSource
 }
 
 var map_FlexVolumeSource = map[string]string{
@@ -1261,7 +1280,7 @@ var map_PersistentVolumeSource = map[string]string{
 	"scaleIO":              "ScaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.",
 	"local":                "Local represents directly-attached storage with node affinity",
 	"storageos":            "StorageOS represents a StorageOS volume that is attached to the kubelet's host machine and mounted into the pod More info: https://releases.k8s.io/HEAD/examples/volumes/storageos/README.md",
-	"csi":                  "CSI represents storage that handled by an external CSI driver",
+	"csi":                  "CSI represents storage that handled by an external CSI driver (Beta feature).",
 }
 
 func (PersistentVolumeSource) SwaggerDoc() map[string]string {
@@ -1273,10 +1292,11 @@ var map_PersistentVolumeSpec = map[string]string{
 	"capacity":                      "A description of the persistent volume's resources and capacity. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#capacity",
 	"accessModes":                   "AccessModes contains all ways the volume can be mounted. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes",
 	"claimRef":                      "ClaimRef is part of a bi-directional binding between PersistentVolume and PersistentVolumeClaim. Expected to be non-nil when bound. claim.VolumeName is the authoritative bind between PV and PVC. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#binding",
-	"persistentVolumeReclaimPolicy": "What happens to a persistent volume when released from its claim. Valid options are Retain (default) and Recycle. Recycling must be supported by the volume plugin underlying this persistent volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#reclaiming",
+	"persistentVolumeReclaimPolicy": "What happens to a persistent volume when released from its claim. Valid options are Retain (default for manually created PersistentVolumes), Delete (default for dynamically provisioned PersistentVolumes), and Recycle (deprecated). Recycle must be supported by the volume plugin underlying this PersistentVolume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#reclaiming",
 	"storageClassName":              "Name of StorageClass to which this persistent volume belongs. Empty value means that this volume does not belong to any StorageClass.",
 	"mountOptions":                  "A list of mount options, e.g. [\"ro\", \"soft\"]. Not validated - mount will simply fail if one is invalid. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#mount-options",
 	"volumeMode":                    "volumeMode defines if a volume is intended to be used with a formatted filesystem or to remain in raw block state. Value of Filesystem is implied when not included in spec. This is an alpha feature and may change in the future.",
+	"nodeAffinity":                  "NodeAffinity defines constraints that limit what nodes this volume can be accessed from. This field influences the scheduling of pods that use this volume.",
 }
 
 func (PersistentVolumeSpec) SwaggerDoc() map[string]string {
@@ -1455,6 +1475,7 @@ var map_PodSecurityContext = map[string]string{
 	"":                   "PodSecurityContext holds pod-level security attributes and common container settings. Some fields are also present in container.securityContext.  Field values of container.securityContext take precedence over field values of PodSecurityContext.",
 	"seLinuxOptions":     "The SELinux context to be applied to all containers. If unspecified, the container runtime will allocate a random SELinux context for each container.  May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container.",
 	"runAsUser":          "The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container.",
+	"runAsGroup":         "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container.",
 	"runAsNonRoot":       "Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
 	"supplementalGroups": "A list of groups applied to the first process run in each container, in addition to the container's primary GID.  If unspecified, no groups will be added to any container.",
 	"fsGroup":            "A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to change the ownership of that volume to be owned by the pod:\n\n1. The owning GID will be the FSGroup 2. The setgid bit is set (new files created in the volume will be owned by FSGroup) 3. The permission bits are OR'd with rw-rw ",
@@ -1481,7 +1502,7 @@ var map_PodSpec = map[string]string{
 	"restartPolicy":                 "Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
 	"terminationGracePeriodSeconds": "Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.",
 	"activeDeadlineSeconds":         "Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.",
-	"dnsPolicy":                     "Set DNS policy for the pod. Defaults to \"ClusterFirst\". Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'. Note that 'None' policy is an alpha feature introduced in v1.9 and CustomPodDNS feature gate must be enabled to use it.",
+	"dnsPolicy":                     "Set DNS policy for the pod. Defaults to \"ClusterFirst\". Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'.",
 	"nodeSelector":                  "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 	"serviceAccountName":            "ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
 	"serviceAccount":                "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
@@ -1490,6 +1511,7 @@ var map_PodSpec = map[string]string{
 	"hostNetwork":                   "Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.",
 	"hostPID":                       "Use the host's pid namespace. Optional: Default to false.",
 	"hostIPC":                       "Use the host's ipc namespace. Optional: Default to false.",
+	"shareProcessNamespace":         "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false. This field is alpha-level and is honored only by servers that enable the PodShareProcessNamespace feature.",
 	"securityContext":               "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
 	"imagePullSecrets":              "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
 	"hostname":                      "Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value.",
@@ -1498,9 +1520,9 @@ var map_PodSpec = map[string]string{
 	"schedulerName":                 "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
 	"tolerations":                   "If specified, the pod's tolerations.",
 	"hostAliases":                   "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.",
-	"priorityClassName":             "If specified, indicates the pod's priority. \"SYSTEM\" is a special keyword which indicates the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
+	"priorityClassName":             "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
 	"priority":                      "The priority value. Various system components use this field to find the priority of the pod. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. The higher the value, the higher the priority.",
-	"dnsConfig":                     "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy. This is an alpha feature introduced in v1.9 and CustomPodDNS feature gate must be enabled to use it.",
+	"dnsConfig":                     "Specifies the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS configuration based on DNSPolicy.",
 }
 
 func (PodSpec) SwaggerDoc() map[string]string {
@@ -1513,12 +1535,13 @@ var map_PodStatus = map[string]string{
 	"conditions":            "Current service state of pod. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions",
 	"message":               "A human readable message indicating details about why the pod is in this condition.",
 	"reason":                "A brief CamelCase message indicating details about why the pod is in this state. e.g. 'Evicted'",
+	"nominatedNodeName":     "nominatedNodeName is set only when this pod preempts other pods on the node, but it cannot be scheduled right away as preemption victims receive their graceful termination periods. This field does not guarantee that the pod will be scheduled on this node. Scheduler may decide to place the pod elsewhere if other nodes become available sooner. Scheduler may also decide to give the resources on this node to a higher priority pod that is created after preemption. As a result, this field may be different than PodSpec.nodeName when the pod is scheduled.",
 	"hostIP":                "IP address of the host to which the pod is assigned. Empty if not yet scheduled.",
 	"podIP":                 "IP address allocated to the pod. Routable at least within the cluster. Empty if not yet allocated.",
 	"startTime":             "RFC 3339 date and time at which the object was acknowledged by the Kubelet. This is before the Kubelet pulled the container image(s) for the pod.",
 	"initContainerStatuses": "The list has one entry per init container in the manifest. The most recent successful init container will have ready = true, the most recently started container will have startTime set. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
 	"containerStatuses":     "The list has one entry per container in the manifest. Each entry is currently the output of `docker inspect`. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
-	"qosClass":              "The Quality of Service (QOS) classification assigned to the pod based on resource requirements See PodQOSClass type for available QOS classes More info: https://github.com/kubernetes/kubernetes/blob/master/docs/design/resource-qos.md",
+	"qosClass":              "The Quality of Service (QOS) classification assigned to the pod based on resource requirements See PodQOSClass type for available QOS classes More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md",
 }
 
 func (PodStatus) SwaggerDoc() map[string]string {
@@ -1935,6 +1958,7 @@ var map_SecurityContext = map[string]string{
 	"privileged":               "Run container in privileged mode. Processes in privileged containers are essentially equivalent to root on the host. Defaults to false.",
 	"seLinuxOptions":           "The SELinux context to be applied to the container. If unspecified, the container runtime will allocate a random SELinux context for each container.  May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
 	"runAsUser":                "The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
+	"runAsGroup":               "The GID to run the entrypoint of the container process. Uses runtime default if unset. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
 	"runAsNonRoot":             "Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed. May also be set in PodSecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence.",
 	"readOnlyRootFilesystem":   "Whether this container has a read-only root filesystem. Default is false.",
 	"allowPrivilegeEscalation": "AllowPrivilegeEscalation controls whether a process can gain more privileges than its parent process. This bool directly controls if the no_new_privs flag will be set on the container process. AllowPrivilegeEscalation is true always when the container is: 1) run as Privileged 2) has CAP_SYS_ADMIN",
@@ -2153,11 +2177,20 @@ var map_VolumeMount = map[string]string{
 	"readOnly":         "Mounted read-only if true, read-write otherwise (false or unspecified). Defaults to false.",
 	"mountPath":        "Path within the container at which the volume should be mounted.  Must not contain ':'.",
 	"subPath":          "Path within the volume from which the container's volume should be mounted. Defaults to \"\" (volume's root).",
-	"mountPropagation": "mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationHostToContainer is used. This field is alpha in 1.8 and can be reworked or removed in a future release.",
+	"mountPropagation": "mountPropagation determines how mounts are propagated from the host to container and the other way around. When not set, MountPropagationHostToContainer is used. This field is beta in 1.10.",
 }
 
 func (VolumeMount) SwaggerDoc() map[string]string {
 	return map_VolumeMount
+}
+
+var map_VolumeNodeAffinity = map[string]string{
+	"":         "VolumeNodeAffinity defines constraints that limit what nodes this volume can be accessed from.",
+	"required": "Required specifies hard node constraints that must be met.",
+}
+
+func (VolumeNodeAffinity) SwaggerDoc() map[string]string {
+	return map_VolumeNodeAffinity
 }
 
 var map_VolumeProjection = map[string]string{
