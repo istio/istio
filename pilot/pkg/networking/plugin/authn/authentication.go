@@ -266,16 +266,11 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn
 }
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-<<<<<<< HEAD
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
+func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType) *auth.DownstreamTlsContext {
 	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return nil
 	}
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
-=======
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, proxyType model.NodeType) *auth.DownstreamTlsContext {
 	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, proxyType); requireTLS {
->>>>>>> 04ca705f3... disable mTLS for ingress authN
 		return &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -347,14 +342,9 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-<<<<<<< HEAD
 		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
+		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
-=======
-		mutable.Listener.FilterChains[i].TlsContext = buildSidecarListenerTLSContext(authnPolicy, in.Node.Type)
-		if in.ListenerType == plugin.ListenerTypeHTTP {
->>>>>>> 04ca705f3... disable mTLS for ingress authN
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)

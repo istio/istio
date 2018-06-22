@@ -174,9 +174,9 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
+	runRetriableTest(t, primaryCluster, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-		resp := ClientRequest("t", reqURL, 1, "-key Host -val uk.bookinfo.com")
+		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
 		if len(resp.Code) > 0 && resp.Code[0] == "401" {
 			return nil
 		}

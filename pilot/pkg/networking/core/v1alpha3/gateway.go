@@ -114,22 +114,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 				si = w
 				break
 			}
-			for _, p := range configgen.Plugins {
-				params := &plugin.InputParams{
-					ListenerType:    listenerType,
-					Env:             &env,
-					Node:            &node,
-					ProxyInstances:  workloadInstances,
-					ServiceInstance: si,
-					Port: &model.Port{
-						Name:     servers[0].Port.Name,
-						Port:     int(portNumber),
-						Protocol: protocol,
-					},
-				}
-				if err = p.OnOutboundListener(params, mutable); err != nil {
-					log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
-				}
+		}
+
+		for _, p := range configgen.Plugins {
+			params := &plugin.InputParams{
+				ListenerProtocol: listenerType,
+				Env:              &env,
+				Node:             &node,
+				ProxyInstances:   workloadInstances,
+				ServiceInstance:  si,
+				Port: &model.Port{
+					Name:     servers[0].Port.Name,
+					Port:     int(portNumber),
+					Protocol: protocol,
+				},
+			}
+			if err = p.OnOutboundListener(params, mutable); err != nil {
+				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
