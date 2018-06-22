@@ -54,7 +54,7 @@ func TestAgent(t *testing.T) {
 			ServiceName: "A",
 			ConfigStore: configStore,
 			AppFactory: (&echo.Factory{
-				Ports: []echo.PortConfig{
+				Ports: model.PortList{
 					{
 						Name:     "http-1",
 						Protocol: model.ProtocolHTTP,
@@ -75,7 +75,7 @@ func TestAgent(t *testing.T) {
 			ServiceName: "B",
 			ConfigStore: configStore,
 			AppFactory: (&echo.Factory{
-				Ports: []echo.PortConfig{
+				Ports: model.PortList{
 					{
 						Name:     "http-1",
 						Protocol: model.ProtocolHTTP,
