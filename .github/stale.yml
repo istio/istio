@@ -20,7 +20,7 @@ pulls:
   # Comment to post when closing a stale Issue or Pull Request.
   closeComment: >
      This pull request has been automatically closed because it has not had
-     activity in the last 14 days. Please feel free to give a status update now, ping for review, or re-open when it's ready.
+     activity in the last month. Please feel free to give a status update now, ping for review, or re-open when it's ready.
      Thank you for your contributions!
   # Limit the number of actions per hour, from 1-30. Default is 30
   limitPerRun: 1
@@ -41,3 +41,5 @@ issues:
     Thank you for your contributions.
   exemptLabels:
     - help wanted
+    - kind/customer issue
+    - Epic
