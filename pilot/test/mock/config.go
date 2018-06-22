@@ -211,6 +211,13 @@ var (
 		}},
 	}
 
+	// ExampleAuthenticationMeshPolicy is an example cluster-scoped authentication Policy
+	ExampleAuthenticationMeshPolicy = &authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
 	// ExampleServiceRole is an example rbac service role
 	ExampleServiceRole = &rbac.ServiceRole{Rules: []*rbac.AccessRule{
 		{
@@ -448,41 +455,47 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
-	name := "example"
+	configName := "example"
 
 	cases := []struct {
-		name   string
-		schema model.ProtoSchema
-		spec   proto.Message
+		name       string
+		configName string
+		schema     model.ProtoSchema
+		spec       proto.Message
 	}{
-		{"RouteRule", model.RouteRule, ExampleRouteRule},
-		{"VirtualService", model.VirtualService, ExampleVirtualService},
-		{"DestinationRule", model.DestinationRule, ExampleDestinationRule},
-		{"ServiceEntry", model.ServiceEntry, ExampleServiceEntry},
-		{"Gatway", model.Gateway, ExampleGateway},
-		{"IngressRule", model.IngressRule, ExampleIngressRule},
-		{"EgressRule", model.EgressRule, ExampleEgressRule},
-		{"DestinationPolicy", model.DestinationPolicy, ExampleDestinationPolicy},
-		{"HTTPAPISpec", model.HTTPAPISpec, ExampleHTTPAPISpec},
-		{"HTTPAPISpecBinding", model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
-		{"QuotaSpec", model.QuotaSpec, ExampleQuotaSpec},
-		{"QuotaSpecBinding", model.QuotaSpecBinding, ExampleQuotaSpecBinding},
-		{"Policy", model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"ServiceRole", model.ServiceRole, ExampleServiceRole},
-		{"ServiceRoleBinding", model.ServiceRoleBinding, ExampleServiceRoleBinding},
-		{"RbacConfig", model.RbacConfig, ExampleRbacConfig},
+		{"RouteRule", configName, model.RouteRule, ExampleRouteRule},
+		{"VirtualService", configName, model.VirtualService, ExampleVirtualService},
+		{"DestinationRule", configName, model.DestinationRule, ExampleDestinationRule},
+		{"ServiceEntry", configName, model.ServiceEntry, ExampleServiceEntry},
+		{"Gatway", configName, model.Gateway, ExampleGateway},
+		{"IngressRule", configName, model.IngressRule, ExampleIngressRule},
+		{"EgressRule", configName, model.EgressRule, ExampleEgressRule},
+		{"DestinationPolicy", configName, model.DestinationPolicy, ExampleDestinationPolicy},
+		{"HTTPAPISpec", configName, model.HTTPAPISpec, ExampleHTTPAPISpec},
+		{"HTTPAPISpecBinding", configName, model.HTTPAPISpecBinding, ExampleHTTPAPISpecBinding},
+		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
+		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
+		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
+		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
+		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
+		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
+		{"RbacConfig", configName, model.RbacConfig, ExampleRbacConfig},
 	}
 
 	for _, c := range cases {
+		configMeta := model.ConfigMeta{
+			Type:    c.schema.Type,
+			Name:    c.configName,
+			Group:   c.schema.Group + model.IstioAPIGroupDomain,
+			Version: c.schema.Version,
+		}
+		if !c.schema.ClusterScoped {
+			configMeta.Namespace = namespace
+		}
+
 		if _, err := store.Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      c.schema.Type,
-				Name:      name,
-				Group:     c.schema.Group + model.IstioAPIGroupDomain,
-				Version:   c.schema.Version,
-				Namespace: namespace,
-			},
-			Spec: c.spec,
+			ConfigMeta: configMeta,
+			Spec:       c.spec,
 		}); err != nil {
 			t.Errorf("Post(%v) => got %v", c.name, err)
 		}
