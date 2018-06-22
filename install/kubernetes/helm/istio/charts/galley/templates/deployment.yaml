@@ -63,6 +63,10 @@ spec:
       volumes:
       - name: certs
         secret:
+{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-galley-service-account
+{{- else }}
+          secretName: istio.default
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
