@@ -15,7 +15,7 @@
 package model
 
 const (
-	// DefaultRbacConfigName is the name of the cluster-scoped rbac config. Only RbacConfig with this
-	// name in the cluster-scoped will be considered.
+	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
+	// name will be considered.
 	DefaultRbacConfigName = "rbac-config"
 )
