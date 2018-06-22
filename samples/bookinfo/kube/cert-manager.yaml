@@ -103,13 +103,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cm-acme-http-solver
-  namespace: cert-system
+  namespace: istio-system # expose certificate issuer pod
   annotations:
     auth.istio.io/8089: NONE
 spec:
   ports:
   - port: 8089
     name: http-certingr
+  selector:
+    certmanager.k8s.io/domain: bookinfo.example.com
 ---
 apiVersion: apps/v1beta1
 kind: Deployment

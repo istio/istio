@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: cert-manager-gateway
-  namespace: cert-system
+  namespace: istio-system
 spec:
   selector:
     istio: ingressgateway
@@ -18,7 +18,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: cert-manager
-  namespace: cert-system
+  namespace: istio-system
 spec:
   hosts:
   - "*"
