@@ -388,3 +388,39 @@ func TestRouteMirroring(t *testing.T) {
 		}()
 	}
 }
+
+// Inject a fault filter in a normal path and check if the filters are triggered
+func TestEnvoyFilterConfigViaCRD(t *testing.T) {
+	if !tc.V1alpha3 {
+		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
+	}
+
+	cfgs := &deployableConfig{
+		Namespace:  tc.Kube.Namespace,
+		YamlFiles:  []string{"testdata/v1alpha3/envoyfilter-c.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+			reqURL := "http://c/a"
+			resp := ClientRequest(cluster, "a", reqURL, 1, "-key envoyfilter-test -val foobar123")
+
+			statusCode := ""
+			if len(resp.Code) > 0 {
+				statusCode = resp.Code[0]
+			}
+
+			expectedRespCode := 444
+			if strconv.Itoa(expectedRespCode) != statusCode {
+				return fmt.Errorf("test configuration of envoy filters via CRD (EnvoyFilter) failed."+
+					"Expected %d response code from the manually configured fault filter. Got %s", expectedRespCode, statusCode)
+			}
+			return nil
+		})
+	}
+}

@@ -2489,6 +2489,15 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "FQDN for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"gateway.example.com"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
@@ -2828,6 +2837,90 @@ func TestValidateOutlierDetection(t *testing.T) {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func TestValidateEnvoyFilter(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    proto.Message
+		error string
+	}{
+		{name: "empty filters", in: &networking.EnvoyFilter{}, error: "missing filters"},
+
+		{name: "missing relativeTo", in: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_AFTER,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
+					FilterName:   "envoy.foo",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		}, error: "missing relativeTo"},
+
+		{name: "missing filter type", in: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterName:   "envoy.foo",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		}, error: "missing filter type"},
+
+		{name: "missing filter name", in: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
+					FilterConfig: &types.Struct{},
+				},
+			},
+		}, error: "missing filter name"},
+
+		{name: "missing filter config", in: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType: networking.EnvoyFilter_Filter_NETWORK,
+					FilterName: "envoy.foo",
+				},
+			},
+		}, error: "missing filter config"},
+
+		{name: "happy filter config", in: &networking.EnvoyFilter{
+			Filters: []*networking.EnvoyFilter_Filter{
+				{
+					InsertPosition: &networking.EnvoyFilter_InsertPosition{
+						Index: networking.EnvoyFilter_InsertPosition_FIRST,
+					},
+					FilterType:   networking.EnvoyFilter_Filter_NETWORK,
+					FilterName:   "envoy.foo",
+					FilterConfig: &types.Struct{},
+				},
+			},
+		}, error: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEnvoyFilter(someName, someNamespace, tt.in)
+			if err == nil && tt.error != "" {
+				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
+			} else if err != nil && tt.error == "" {
+				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.error) {
+				t.Fatalf("ValidateEnvoyFilter(%v) = %v, wanted %q", tt.in, err, tt.error)
+			}
+		})
 	}
 }
 

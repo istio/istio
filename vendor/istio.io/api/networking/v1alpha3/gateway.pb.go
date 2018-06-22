@@ -170,12 +170,13 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //   - my-gateway
 //   tcp:
 //   - match:
-//     - port:
-//         number: 27017
+//     - port: 27017
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
 //         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
 // ```
 type Gateway struct {
 	// REQUIRED: A list of server specifications.

@@ -509,6 +509,8 @@ func (m *HTTPRoute) GetRemoveResponseHeaders() map[string]string {
 // spec:
 //   hosts:
 //   - "*.bookinfo.com"
+//   gateways:
+//   - mygateway
 //   tls:
 //   - match:
 //     - port: 443

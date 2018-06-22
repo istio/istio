@@ -319,7 +319,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -342,7 +342,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}
@@ -423,7 +423,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
 			if con.CDSWatch {
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -441,7 +441,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 			if con.LDSWatch {
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}
@@ -599,6 +599,16 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 		if r == nil {
 			adsLog.Warnf("RDS: got nil value for route %s for node %s: %v", routeName, con.modelNode, err)
 			continue
+		}
+
+		if err = r.Validate(); err != nil {
+			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
+			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
+			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			// Generating invalid routes is a bug.
+			// Panic instead of trying to recover from that, since we can't
+			// assume anything about the state.
+			panic(retErr.Error())
 		}
 
 		rc = append(rc, r)

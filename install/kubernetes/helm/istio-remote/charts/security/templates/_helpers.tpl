@@ -14,14 +14,3 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
-
-{{/*
-Service account name.
-*/}}
-{{- define "security.serviceAccountName" -}}
-{{- if .Values.global.rbacEnabled -}}
-{{- template "security.fullname" . -}}-service-account
-{{- else }}
-{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}-service-account
-{{- end -}}
-{{- end -}}

@@ -354,8 +354,12 @@ func (si *ServiceInstance) GetAZ() string {
 
 // ServiceAttributes represents a group of custom attributes of the service.
 type ServiceAttributes struct {
-	Name      string
+	// Name is "destination.service.name" attribute
+	Name string
+	// Namespace is "destination.service.namespace" attribute
 	Namespace string
+	// UID is "destination.service.uid" attribute
+	UID string
 }
 
 // ServiceDiscovery enumerates Istio service instances.

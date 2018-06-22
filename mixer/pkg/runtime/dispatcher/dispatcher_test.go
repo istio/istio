@@ -728,9 +728,9 @@ func TestDispatcher(t *testing.T) {
 					"ident": "dest.istio-system",
 				}
 			}
-			bag := attribute.GetFakeMutableBagForTesting(attr)
+			bag := attribute.GetMutableBagForTesting(attr)
 
-			responseBag := attribute.GetFakeMutableBagForTesting(make(map[string]interface{}))
+			responseBag := attribute.GetMutableBagForTesting(make(map[string]interface{}))
 
 			var err error
 			switch tst.variety {
@@ -773,7 +773,7 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
 
-				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
+				expectedBag := attribute.GetMutableBagForTesting(tst.responseAttrs)
 				if strings.TrimSpace(responseBag.String()) != strings.TrimSpace(expectedBag.String()) {
 					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.String(), expectedBag.String())
 				}

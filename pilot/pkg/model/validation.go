@@ -1111,6 +1111,41 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 	return
 }
 
+// ValidateEnvoyFilter checks envoy filter config supplied by user
+func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.EnvoyFilter)
+	if !ok {
+		return fmt.Errorf("cannot cast to envoy filter")
+	}
+
+	if len(rule.Filters) == 0 {
+		return fmt.Errorf("envoy filter: missing filters")
+	}
+
+	for _, f := range rule.Filters {
+		if f.InsertPosition != nil {
+			if f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_BEFORE ||
+				f.InsertPosition.Index == networking.EnvoyFilter_InsertPosition_AFTER {
+				if f.InsertPosition.RelativeTo == "" {
+					errs = appendErrors(errs, fmt.Errorf("envoy filter: missing relativeTo filter with BEFORE/AFTER index"))
+				}
+			}
+		}
+		if f.FilterType == networking.EnvoyFilter_Filter_INVALID {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter type"))
+		}
+		if len(f.FilterName) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter name"))
+		}
+
+		if f.FilterConfig == nil {
+			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+		}
+	}
+
+	return
+}
+
 func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
@@ -1883,8 +1918,8 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	}
 
 	for _, gateway := range virtualService.Gateways {
-		if !IsDNS1123Label(gateway) {
-			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
 		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
@@ -1898,7 +1933,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := validateHost(host); err != nil {
-			errs = appendErrors(errs, validateHost(host))
+			errs = appendErrors(errs, err)
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
