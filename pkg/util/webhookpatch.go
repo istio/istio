@@ -58,7 +58,9 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		return err
 	}
 
-	_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+	if string(patch) != "{}" {
+		_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+	}
 	return err
 }
 

@@ -113,6 +113,7 @@ var (
 
 // patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
 // values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
+// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
 func patchCertLoop() error {
 	client, err := createClientset(flags.kubeconfigFile)
 	if err != nil {
@@ -138,15 +139,15 @@ func patchCertLoop() error {
 	for {
 		select {
 		case <-tickerC:
-			err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-				flags.webhookConfigName, flags.webhookName, caCertPem)
-			if err == nil {
+			if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+				flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
 				log.Errorf("Patch webhook failed: %s", err)
 			}
 
 		case <-watcher.Event:
-			caCertPem, err = ioutil.ReadFile(flags.caCertFile)
-			if err != nil {
+			if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
+				caCertPem = b
+			} else {
 				log.Errorf("CA bundle file read error: %v", err)
 			}
 		}
