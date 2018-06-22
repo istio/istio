@@ -142,9 +142,16 @@ func KubeApplyContents(namespace, yamlContents string, kubeconfig string) error 
 	return KubeApply(namespace, tmpfile, kubeconfig)
 }
 
+func kubeCommand(subCommand, namespace, yamlFileName string, kubeconfig string) string {
+	if namespace == "" {
+		return fmt.Sprintf("kubectl %s -f %s --kubeconfig=%s", subCommand, yamlFileName, kubeconfig)
+	}
+	return fmt.Sprintf("kubectl %s -n %s -f %s --kubeconfig=%s", subCommand, namespace, yamlFileName, kubeconfig)
+}
+
 // KubeApply kubectl apply from file
 func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
-	_, err := Shell("kubectl apply -n %s -f %s --kubeconfig=%s", namespace, yamlFileName, kubeconfig)
+	_, err := Shell(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
 	return err
 }
 
@@ -160,7 +167,7 @@ func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) e
 
 // KubeApplySilent kubectl apply from file silently
 func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
-	_, err := ShellSilent("kubectl apply -n %s -f %s --kubeconfig=%s", namespace, yamlFileName, kubeconfig)
+	_, err := ShellSilent(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
 	return err
 }
 
@@ -208,7 +215,7 @@ func removeFile(path string) {
 
 // KubeDelete kubectl delete from file
 func KubeDelete(namespace, yamlFileName string, kubeconfig string) error {
-	_, err := Shell("kubectl delete -n %s -f %s --kubeconfig=%s", namespace, yamlFileName, kubeconfig)
+	_, err := Shell(kubeCommand("delete", namespace, yamlFileName, kubeconfig))
 	return err
 }
 
