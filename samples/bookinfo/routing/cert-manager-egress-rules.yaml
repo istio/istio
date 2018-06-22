@@ -1,0 +1,46 @@
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: kubernetesapis
+  namespace: cert-system
+spec:
+  hosts:
+  - kubernetes.default.svc.cluster.local
+  location: MESH_INTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: NONE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: kubernetesapis
+  namespace: cert-system
+spec:
+  host: kubernetes.default.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: letsencryptapis
+  namespace: cert-system
+spec:
+  hosts:
+  - "*.api.letsencrypt.org"
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  resolution: NONE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: letsencryptapis
+  namespace: cert-system
+spec:
+  host: "*.api.letsencrypt.org"

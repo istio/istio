@@ -1,0 +1,190 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+ name: cert-system
+ labels:
+    istio-injection: enabled
+---
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: certificates.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: Certificate
+    plural: certificates
+    shortNames:
+      - cert
+      - certs
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterissuers.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: ClusterIssuer
+    plural: clusterissuers
+  scope: Cluster
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: issuers.certmanager.k8s.io
+  labels:
+    app: cert-manager
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  names:
+    kind: Issuer
+    plural: issuers
+  scope: Namespaced
+---
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager
+  namespace: cert-system
+  labels:
+    app: cert-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: cert-manager
+  labels:
+    app: cert-manager
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates", "issuers", "clusterissuers"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    # TODO: remove endpoints once 0.4 is released. We include it here in case
+    # users use the 'master' version of the Helm chart with a 0.2.x release of
+    # cert-manager that still performs leader election with Endpoint resources.
+    # We advise users don't do this, but some will anyway and this will reduce
+    # friction.
+    resources: ["endpoints", "configmaps", "secrets", "events", "services", "pods"]
+    verbs: ["*"]
+  - apiGroups: ["extensions"]
+    resources: ["ingresses"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager
+  labels:
+    app: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager
+subjects:
+  - name: cert-manager
+    namespace: cert-system
+    kind: ServiceAccount
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cm-acme-http-solver
+  namespace: cert-system
+  annotations:
+    auth.istio.io/8089: NONE
+spec:
+  ports:
+  - port: 8089
+    name: http-certingr
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cert-manager
+  namespace: cert-system
+  labels:
+    app: cert-manager
+    version: v0.3.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cert-manager
+      version: v0.3.0
+  template:
+    metadata:
+      labels:
+        app: cert-manager
+        version: v0.3.0
+    spec:
+      serviceAccountName: cert-manager
+      containers:
+        - name: cert-manager
+          image: quay.io/jetstack/cert-manager-controller:v0.3.0
+          imagePullPolicy: IfNotPresent
+          args:
+          - --cluster-resource-namespace=$(POD_NAMESPACE)
+          - --leader-election-namespace=$(POD_NAMESPACE)
+          - --default-issuer-name=letsencrypt-prod
+          - --default-issuer-kind=ClusterIssuer
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources:
+            limits:
+             cpu: 1
+             memory: 256Mi
+            requests:
+             cpu: 0.01
+             memory: 32Mi
+---
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-system
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: prod@istio.io
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    # Enable the HTTP-01 challenge provider
+    http01: {}
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  namespace: cert-system
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: stage@istio.io
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    # Enable the HTTP-01 challenge provider
+    http01: {}
