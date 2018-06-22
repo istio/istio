@@ -42,7 +42,7 @@ func TestInMemory_Start_Empty(t *testing.T) {
 
 func TestInMemory_Start_WithItem(t *testing.T) {
 	i := NewInMemorySource()
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: "foo", FullName: "n1/f1"}, &types.Empty{})
 
 	ch, err := i.Start()
 	if err != nil {
@@ -83,8 +83,8 @@ func TestInMemory_Set(t *testing.T) {
 	}
 
 	// One Register one update
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: "foo", FullName: "n1/f1"}, &types.Empty{})
 
 	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
@@ -103,10 +103,10 @@ func TestInMemory_Delete(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: "foo", FullName: "n1/f1"}, &types.Empty{})
 	// Two deletes
-	i.Delete(resource.Key{Kind: "foo", FullName: "n1/f1"})
-	i.Delete(resource.Key{Kind: "foo", FullName: "n1/f1"})
+	i.Delete(resource.Key{MessageName: "foo", FullName: "n1/f1"})
+	i.Delete(resource.Key{MessageName: "foo", FullName: "n1/f1"})
 
 	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
@@ -120,14 +120,14 @@ func TestInMemory_Delete(t *testing.T) {
 
 func TestInMemory_Get(t *testing.T) {
 	i := NewInMemorySource()
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: "foo", FullName: "n1/f1"}, &types.Empty{})
 
-	r, _ := i.Get(resource.Key{Kind: "foo", FullName: "n1/f1"})
+	r, _ := i.Get(resource.Key{MessageName: "foo", FullName: "n1/f1"})
 	if r.IsEmpty() {
 		t.Fatal("Get should have been non empty")
 	}
 
-	r, _ = i.Get(resource.Key{Kind: "foo", FullName: "n1/f2"})
+	r, _ = i.Get(resource.Key{MessageName: "foo", FullName: "n1/f2"})
 	if !r.IsEmpty() {
 		t.Fatalf("Get should have been empty: %v", r)
 	}

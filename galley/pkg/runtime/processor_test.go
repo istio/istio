@@ -84,7 +84,7 @@ func TestProcessor_Stop(t *testing.T) {
 func TestProcessor_EventAccumulation(t *testing.T) {
 	schema := resource.NewSchema()
 	schema.Register("google.protobuf.Empty")
-	emptyKind := resource.Kind("google.protobuf.Empty")
+	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -97,7 +97,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{Kind: emptyKind, FullName: "r1"}
+	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -111,7 +111,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	schema := resource.NewSchema()
 	schema.Register("google.protobuf.Empty")
-	emptyKind := resource.Kind("google.protobuf.Empty")
+	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -124,7 +124,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{Kind: emptyKind, FullName: "r1"}
+	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -138,7 +138,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 func TestProcessor_Publishing(t *testing.T) {
 	schema := resource.NewSchema()
 	schema.Register("google.protobuf.Empty")
-	emptyKind := resource.Kind("google.protobuf.Empty")
+	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -156,7 +156,7 @@ func TestProcessor_Publishing(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{Kind: emptyKind, FullName: "r1"}
+	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	processCallCount.Wait()
