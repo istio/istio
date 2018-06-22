@@ -135,23 +135,25 @@ func patchCertLoop() error {
 		return fmt.Errorf("could not watch %v: %v", flags.caCertFile, err)
 	}
 
-	tickerC := time.NewTicker(time.Second).C
-	for {
-		select {
-		case <-tickerC:
-			if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
-				flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
-				log.Errorf("Patch webhook failed: %s", err)
-			}
+	go func() {
+		tickerC := time.NewTicker(time.Second).C
+		for {
+			select {
+			case <-tickerC:
+				if err = util.PatchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
+					flags.webhookConfigName, flags.webhookName, caCertPem); err != nil {
+					log.Errorf("Patch webhook failed: %s", err)
+				}
 
-		case <-watcher.Event:
-			if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
-				caCertPem = b
-			} else {
-				log.Errorf("CA bundle file read error: %v", err)
+			case <-watcher.Event:
+				if b, err := ioutil.ReadFile(flags.caCertFile); err == nil {
+					caCertPem = b
+				} else {
+					log.Errorf("CA bundle file read error: %v", err)
+				}
 			}
 		}
-	}
+	}()
 
 	return nil
 }
