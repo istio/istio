@@ -85,6 +85,9 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
+	// This needs to be de-flaked.
+	t.Skip("https://github.com/istio/istio/issues/6545")
+
 	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
 	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
 	// Test will fail if this service account is deleted.
