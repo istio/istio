@@ -1,9 +1,10 @@
 # Builder version
-CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25
+CI_VERSION ?= go1.10-k8s1.9-helm2.7.2-minikube0.25-06072018
 CI_HUB ?= istio
 
 ci.image:
-	docker build -t ${CI_HUB}/ci:$(CI_VERSION) -f Dockerfile .
+	# --no-cache ensures go get installs the latest
+	docker build --no-cache -t ${CI_HUB}/ci:$(CI_VERSION) -f Dockerfile .
 
 ci.push:
 	docker push "${CI_HUB}/ci:$(CI_VERSION)"

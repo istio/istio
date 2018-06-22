@@ -27,8 +27,6 @@ TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)
 ENCRYPTED_SA_JSON="${ROOTDIR}/.circleci/accounts/istio-circle-ci.gcp.serviceaccount"
 openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GCS_BUCKET_TOKEN}" -md sha256
 
-go get -u istio.io/test-infra/toolbox/ci2gubernator
-
 ARGS=(
 	--service_account="${TMP_SA_JSON}" \
 	--sha=${CIRCLE_BRANCH}/${CIRCLE_SHA1} \
