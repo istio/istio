@@ -111,7 +111,7 @@ func (g *ClientConfigGetter) IsDefaultConfig(config *restclient.Config) bool {
 // ClientConfigLoadingRules is an ExplicitPath and string slice of specific locations that are used for merging together a Config
 // Callers can put the chain together however they want, but we'd recommend:
 // EnvVarPathFiles if set (a list of files if set) OR the HomeDirectoryPath
-// ExplicitPath is special, because if a user specifically requests a certain file be used and error is reported if thie file is not present
+// ExplicitPath is special, because if a user specifically requests a certain file be used and error is reported if this file is not present
 type ClientConfigLoadingRules struct {
 	ExplicitPath string
 	Precedence   []string
@@ -420,7 +420,7 @@ func WriteToFile(config clientcmdapi.Config, filename string) error {
 
 func lockFile(filename string) error {
 	// TODO: find a way to do this with actual file locks. Will
-	// probably need seperate solution for windows and linux.
+	// probably need separate solution for windows and Linux.
 
 	// Make sure the dir exists before we try to create a lock file.
 	dir := filepath.Dir(filename)
@@ -557,7 +557,12 @@ func GetClusterFileReferences(cluster *clientcmdapi.Cluster) []*string {
 }
 
 func GetAuthInfoFileReferences(authInfo *clientcmdapi.AuthInfo) []*string {
-	return []*string{&authInfo.ClientCertificate, &authInfo.ClientKey, &authInfo.TokenFile}
+	s := []*string{&authInfo.ClientCertificate, &authInfo.ClientKey, &authInfo.TokenFile}
+	// Only resolve exec command if it isn't PATH based.
+	if authInfo.Exec != nil && strings.ContainsRune(authInfo.Exec.Command, filepath.Separator) {
+		s = append(s, &authInfo.Exec.Command)
+	}
+	return s
 }
 
 // ResolvePaths updates the given refs to be absolute paths, relative to the given base directory
