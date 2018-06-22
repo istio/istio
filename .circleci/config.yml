@@ -555,10 +555,18 @@ jobs:
       - run: make sync
       - setup_remote_docker:
           docker_layer_caching: true
-      - run: make istio-archive
+      - run:
+          name: make istio-archive
+          command: |
+            if [[ $CIRCLE_TAG != "" ]]; then
+              VERSION=$CIRCLE_TAG make istio-archive
+            else
+              make istio-archive
+            fi
       # Build the docker+extra
       - run: make docker.basedebug
       - run:
+          name: Upload Docker Images
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
