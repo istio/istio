@@ -85,9 +85,6 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 }
 
 func TestAuthNJwt(t *testing.T) {
-	// This needs to be de-flaked.
-	t.Skip("https://github.com/istio/istio/issues/6545")
-
 	// JWT token used is borrowed from https://github.com/istio/proxy/blob/master/src/envoy/http/jwt_auth/sample/correct_jwt.
 	// The Token expires in year 2132, issuer is 628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com.
 	// Test will fail if this service account is deleted.
@@ -133,9 +130,22 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		//{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
+	}
+
+	if !tc.Kube.AuthEnabled {
+		extraCases := []struct {
+			dst    string
+			src    string
+			port   string
+			token  string
+			expect string
+		}{
+			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6545
+			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		}
+		cases = append(cases, extraCases...)
 	}
 
 	for _, c := range cases {
