@@ -33,7 +33,7 @@ func Test_Syncz(t *testing.T) {
 		sendCDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
 		sendLDSReq(t, sidecarId(app3Ip, "app3"), adsstr)
 		sendRDSReq(t, sidecarId(app3Ip, "app3"), []string{"80", "8080"}, adsstr)
-		sendEDSReq(t, []string{}, app3Ip, adsstr)
+		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, app3Ip, adsstr)
 		for i := 0; i < 4; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
@@ -58,7 +58,7 @@ func Test_Syncz(t *testing.T) {
 			"cSent":   false, "cAck": false,
 			"lSent": false, "lAck": false,
 			"rSent": false, "rAck": false,
-			"eSent": false, "eAck": false,
+			"eSent": false, "eAck": false, "ePercent": false,
 		}
 		for _, ss := range got {
 			if ss.ProxyID != "" {
@@ -87,6 +87,9 @@ func Test_Syncz(t *testing.T) {
 			}
 			if ss.EndpointAcked != "" {
 				checkMap["eAck"] = true
+			}
+			if ss.EndpointPercent != 0 {
+				checkMap["ePercent"] = true
 			}
 		}
 		for field, present := range checkMap {

@@ -384,6 +384,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 				}
 
+				if discReq.ResponseNonce != "" {
+					con.EndpointNonceAcked = discReq.ResponseNonce
+				}
 				sort.Strings(clusters)
 				sort.Strings(con.Clusters)
 
@@ -398,15 +401,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				for _, cn := range clusters {
 					s.addEdsCon(cn, con.ConID, con)
 				}
+				if len(edsClusters) != 0 {
+					con.EndpointPercent = (len(clusters) / len(edsClusters)) * 100
+				}
 
 				con.Clusters = clusters
 				adsLog.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(con)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.EndpointNonceAcked = discReq.ResponseNonce
 				}
 
 			default:
