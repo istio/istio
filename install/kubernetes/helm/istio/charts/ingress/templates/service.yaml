@@ -25,5 +25,5 @@ spec:
       {{- range $pkey, $pval := $val }}
       {{ $pkey}}: {{ $pval }}
       {{- end }}
-    {{- end }}  
+    {{- end }}
 ---

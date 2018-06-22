@@ -17,6 +17,7 @@ package eureka
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -136,6 +137,48 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
+	}
+}
+
+func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
+	host := "hello.world.local"
+	hostAlt := "foo.bar.local"
+	hostDNE := "does.not.exist.local"
+
+	cl := &mockClient{
+		apps: []*application{
+			{
+				Name: "APP",
+				Instances: []*instance{
+					makeInstance(host, "10.0.0.1", 9090, 8080, nil),
+					makeInstance(hostAlt, "10.0.0.2", 7070, -1, nil),
+				},
+			},
+		},
+	}
+	sd := NewServiceDiscovery(cl)
+
+	attr, err := sd.GetServiceAttributes(model.Hostname(hostDNE))
+	if err != nil {
+		t.Errorf("GetServiceAttributes() encountered unexpected error: %v", err)
+	}
+	if attr != nil {
+		t.Errorf("GetServiceAttributes(%q) => should not exist, got %v", hostDNE, *attr)
+	}
+
+	attr, err = sd.GetServiceAttributes(model.Hostname(host))
+	if err != nil {
+		t.Errorf("GetServiceAttributes(%q) encountered unexpected error: %v", host, err)
+	}
+	if attr == nil {
+		t.Errorf("GetServiceAttributes(%q) => should exist", host)
+	}
+	expect := model.ServiceAttributes{
+		Name:      model.Hostname(host).String(),
+		Namespace: model.IstioDefaultConfigNamespace,
+	}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes(%q) => %v, want %v", host, *attr, expect)
 	}
 }
 

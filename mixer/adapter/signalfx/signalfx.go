@@ -14,7 +14,8 @@
 
 package signalfx
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/signalfx/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/signalfx/config/config.proto -x "-n signalfx -t metric"
 
 import (
 	"context"

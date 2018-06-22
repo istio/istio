@@ -16,6 +16,7 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -76,11 +77,18 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 	}
 }
 
-// SyncStatus -- Not sure of the correct place to put this? Needed in istioctl and here.
+// SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
-	ProxyID string `json:"proxy,omitempty"`
-	Sent    string `json:"sent,omitempty"`
-	Acked   string `json:"acked,omitempty"`
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterSent     string `json:"cluster_sent,omitempty"`
+	ClusterAcked    string `json:"cluster_acked,omitempty"`
+	ListenerSent    string `json:"listener_sent,omitempty"`
+	ListenerAcked   string `json:"listener_acked,omitempty"`
+	RouteSent       string `json:"route_sent,omitempty"`
+	RouteAcked      string `json:"route_acked,omitempty"`
+	EndpointSent    string `json:"endpoint_sent,omitempty"`
+	EndpointAcked   string `json:"endpoint_acked,omitempty"`
+	EndpointPercent int    `json:"endpoint_percent,omitempty"`
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -88,7 +96,18 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
 	for _, con := range adsClients {
 		if con.modelNode != nil {
-			syncz = append(syncz, SyncStatus{ProxyID: con.modelNode.ID, Sent: con.NonceSent, Acked: con.NonceAcked})
+			syncz = append(syncz, SyncStatus{
+				ProxyID:         con.modelNode.ID,
+				ClusterSent:     con.ClusterNonceSent,
+				ClusterAcked:    con.ClusterNonceAcked,
+				ListenerSent:    con.ListenerNonceSent,
+				ListenerAcked:   con.ListenerNonceAcked,
+				RouteSent:       con.RouteNonceSent,
+				RouteAcked:      con.RouteNonceAcked,
+				EndpointSent:    con.EndpointNonceSent,
+				EndpointAcked:   con.EndpointNonceAcked,
+				EndpointPercent: con.EndpointPercent,
+			})
 		}
 	}
 	out, err := json.MarshalIndent(&syncz, "", "    ")
@@ -221,9 +240,19 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, sd.GetServiceError
 	}
 	val := sd.services[hostname]
+	if val == nil {
+		return nil, errors.New("missing service")
+	}
 	// Make a new service out of the existing one
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
+}
+
+// GetServiceAttributes implements discovery interface.
+func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	return &model.ServiceAttributes{
+		Name:      hostname.String(),
+		Namespace: model.IstioDefaultConfigNamespace}, nil
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is

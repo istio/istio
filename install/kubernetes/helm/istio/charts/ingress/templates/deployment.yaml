@@ -90,7 +90,11 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: "istio.default"
+{{- if .Values.global.rbacEnabled }}
+          secretName: istio.istio-ingress-service-account
+{{- else }}
+          secretName: istio.default
+{{- end }}
           optional: true
       - name: ingress-certs
         secret:

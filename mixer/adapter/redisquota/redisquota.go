@@ -15,7 +15,9 @@
 // Package redisquota provides a quota implementation with redis as backend.
 // The prerequisite is to have a redis server running.
 //
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/redisquota/config/config.proto
+//
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/redisquota/config/config.proto -x "-n redisquota -t quota"
 package redisquota // import "istio.io/istio/mixer/adapter/redisquota"
 
 import (

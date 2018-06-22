@@ -124,6 +124,20 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 		},
 	}
 
+	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
+	// Do not remove: mixerfilter depends on this logic.
+	if e.UID != "" {
+		ep.Metadata = &core.Metadata{
+			FilterMetadata: map[string]*types.Struct{
+				"istio": {
+					Fields: map[string]*types.Value{
+						"uid": {Kind: &types.Value_StringValue{StringValue: e.UID}},
+					},
+				},
+			},
+		}
+	}
+
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }
@@ -321,7 +335,12 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
-		c := s.getOrAddEdsCluster(clusterName)
+		c := s.getEdsCluster(clusterName)
+		if c == nil {
+			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
+			continue
+		}
+
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
 			if err := updateCluster(clusterName, c); err != nil {

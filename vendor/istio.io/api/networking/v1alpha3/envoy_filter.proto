@@ -25,13 +25,17 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // subsystem (Pilot). This feature must be used with care, as incorrect
 // configurations could potentially destabilize the entire mesh.
 //
-// NOTE: Since this is break glass configuration, there will not be any
+// NOTE 1: Since this is break glass configuration, there will not be any
 // backward compatibility across different Istio releases. In other words,
 // this configuration is subject to change based on internal implementation
 // of Istio networking subsystem.
 //
+// NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
+// The behavior is undefined if multiple EnvoyFilter configurations are
+// specified for the same workload.
+//
 // The following example for Kubernetes enables Envoy's Lua filter for all
-// inbound calls arriving at port 18080 of the reviews service pod with
+// inbound calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
 //     apiVersion: networking.istio.io/v1alpha3
@@ -39,33 +43,45 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     metadata:
 //       name: reviews-lua
 //     spec:
-//       selector:
+//       workloadLabels:
 //         app: reviews
 //       filters:
 //       - listenerMatch:
-//           port: 18080
-//           listenerType: SIDECAR_INBOUND #will match with the listener for the podIP:18080
+//           portNumber: 8080 
+//           listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
 //         filterName: envoy.lua
 //         filterType: HTTP
 //         filterConfig:
 //           inlineCode: |
 //             ... lua code ...
 //
-message EnvoyFilters {
+message EnvoyFilter {
   // One or more labels that indicate a specific set of pods/VMs whose
   // proxies should be configured to use these additional filters.  The
   // scope of label search is platform dependent. On Kubernetes, for
   // example, the scope includes pods running in all reachable
   // namespaces. Omitting the selector applies the filter to all proxies in
   // the mesh.
-  map<string, string> selector = 1;
+  // NOTE: There can be only one EnvoyFilter bound to a specific workload.
+  // The behavior is undefined if multiple EnvoyFilter configurations are
+  // specified for the same workload.
+  map<string, string> workload_labels = 1;
 
   // Select a listener to add the filter to based on the match conditions.
   // All conditions specified in the ListenerMatch must be met for the filter
   // to be applied to a listener.
   message ListenerMatch {
-    // Port associated with the listener. If not specified, matches all listeners.
-    uint32 port = 1;
+    // The service port/gateway port to which traffic is being
+    // sent/received. If not specified, matches all listeners. Eventhough
+    // inbound listeners are generated for the instance/pod ports, only
+    // service ports should be used to match listeners.
+    uint32 port_number = 1;
+
+    // Instead of using specific port numbers, a set of ports matching a
+    // given port name prefix can be selected. E.g., "mongo" selects ports
+    // named mongo-port, mongo, mongoDB, MONGO, etc. Matching is case
+    // insensitive.
+    string port_name_prefix = 2;
 
     enum ListenerType {
       // All listeners
@@ -83,18 +99,27 @@ message EnvoyFilters {
 
     // Inbound vs outbound sidecar listener or gateway listener. If not specified,
     // matches all listeners.
-    ListenerType listener_type = 2;
+    ListenerType listener_type = 3;
+
+    enum ListenerProtocol {
+      // All protocols
+      ALL = 0;
+      // HTTP or HTTPS (with termination) / HTTP2/gRPC
+      HTTP = 1;
+      // Any non-HTTP listener
+      TCP = 2;
+    };
 
     // Selects a class of listeners for the same protocol. If not
     // specified, applies to listeners on all protocols. Use the protocol
     // selection to select all HTTP listeners (includes HTTP2/gRPC/HTTPS
     // where Envoy terminates TLS) or all TCP listeners (includes HTTPS
-    // passthrough using SNI). Acceptable values are TCP/HTTP/MONGO.
-    string listener_protocol = 3;
-    
+    // passthrough using SNI).
+    ListenerProtocol listener_protocol = 4;
+
     // One or more IP addresses to which the listener is bound. If
     // specified, should match atleast one address in the list.
-    repeated string address = 4;
+    repeated string address = 5;
   };
 
   // Indicates the relative index in the filter chain where the filter should be inserted.
