@@ -58,3 +58,13 @@ spec:
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: envoyfamilyone
+  namespace: istio-system
+spec:
+  value: io.prometheus.client.metric.gauge.value | 0.0
+  dimensions:
+    testing: io.prometheus.client.metric.labels["testing"] | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'

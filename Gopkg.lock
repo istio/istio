@@ -283,6 +283,7 @@
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
+    "envoy/service/metrics/v2",
     "envoy/type",
     "pkg/util"
   ]
@@ -1383,6 +1384,12 @@
   ]
   revision = "b508c4b471a13fbe9f2e219ab6091e8f688b9836"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "istio.io/gogo-genproto"
+  packages = ["prometheus"]
+  revision = "e7e4d094a5f0fc3c2245f37ce54ccbbd83fd4355"
 
 [[projects]]
   name = "k8s.io/api"

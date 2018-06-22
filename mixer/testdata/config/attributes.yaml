@@ -161,3 +161,51 @@ spec:
         valueType: STRING
       destination.workload.namespace:
         valueType: STRING
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: envoymetricsservice
+  namespace: istio-system
+spec:
+  attributes:
+    envoy.api.v2.core.node.id:
+      valueType: STRING
+    envoy.api.v2.core.node.cluster:
+      valueType: STRING
+    envoy.api.v2.core.node.metadata:
+      valueType: STRING
+    envoy.api.v2.core.node.build_version:
+      valueType: STRING
+    envoy.api.v2.core.node.locality.region:
+      valueType: STRING
+    envoy.api.v2.core.node.locality.zone:
+      valueType: STRING
+    envoy.api.v2.core.node.locality.subzone:
+      valueType: STRING
+    io.prometheus.client.metricfamily.name:
+      valueType: STRING
+    io.prometheus.client.metricfamily.kind:
+      valueType: STRING
+    io.prometheus.client.metric.labels:
+      valueType: STRING_MAP
+    io.prometheus.client.metric.counter.value:
+      valueType: DOUBLE
+    io.prometheus.client.metric.gauge.value:
+      valueType: DOUBLE    
+    io.prometheus.client.metric.summary.sample_count:
+      valueType: DOUBLE    
+    io.prometheus.client.metric.summary.sample_sum:
+      valueType: DOUBLE
+    io.prometheus.client.metric.summary.quantiles:
+      valueType: STRING_MAP
+    io.prometheus.client.metric.untyped.value:
+      valueType: DOUBLE
+    io.prometheus.client.metric.histogram.sample_count:
+      valueType: DOUBLE
+    io.prometheus.client.metric.histogram.sample_sum:
+      valueType: DOUBLE
+    io.prometheus.client.metric.histogram.buckets:
+      valueType: STRING_MAP
+    io.prometheus.client.metric.timestamp:
+      valueType: TIMESTAMP
