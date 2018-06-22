@@ -91,7 +91,7 @@ func TestSource_BasicEvents(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target: resource.Info{
-				Kind: "google.protobuf.Empty",
+				MessageName: "google.protobuf.Empty",
 			},
 		},
 	}
@@ -156,7 +156,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target: resource.Info{
-				Kind: "google.protobuf.Empty",
+				MessageName: "google.protobuf.Empty",
 			},
 		},
 	}
