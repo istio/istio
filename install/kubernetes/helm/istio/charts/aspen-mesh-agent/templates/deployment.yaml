@@ -1,0 +1,57 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: aspen-mesh-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: aspen-mesh-agent
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: aspen-mesh-agent
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: aspen-mesh-agent
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: aspen-mesh-agent-service-account
+      containers:
+      - command:
+        - agent
+        - --listen-trace
+        - 0.0.0.0:9411
+        - --listen-grpc
+        - 0.0.0.0:12000
+        - --listen-http
+        - 0.0.0.0:12001
+        - --apiserver
+        - api.aspenmesh.io:443
+        - --kubeconfig
+        - /dev/null
+        env:
+        - name: ASPEN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aspenmesh
+              key: TOKEN
+        image: "{{ .Values.image }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: agent
+        ports:
+        - containerPort: 9411
+          name: http-trace
+          protocol: TCP
+        - containerPort: 12000
+          name: grpc
+          protocol: TCP
+        - containerPort: 12001
+          name: http
+          protocol: TCP
+        resources:
+{{ toYaml .Values.resources | indent 12 }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

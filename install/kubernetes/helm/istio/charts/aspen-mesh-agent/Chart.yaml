@@ -1,0 +1,11 @@
+apiVersion: v1
+name: aspen-mesh-agent
+version: 0.8.0
+description: Helm chart for aspen mesh agent deployment
+keywords:
+  - aspen-mesh
+  - istio
+sources:
+  - http://aspenmesh.io/
+engine: gotpl
+icon: https://aspenmesh.io/wp-content/uploads/2018/06/favicon-192.png

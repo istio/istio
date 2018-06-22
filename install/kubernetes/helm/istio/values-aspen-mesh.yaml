@@ -1,0 +1,30 @@
+global:
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: true
+
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+
+  imagePullSecrets:
+    - name: aspen-mesh-pull-secret
+
+  hub: quay.io/aspenmesh/jenkins-artifacts
+  hub_public: quay.io/aspenmesh/istio
+  hub_img_delim: ":"
+  # image: per deployment
+  img_tag_delim: "-"
+  tag: circle-istio-private-2087
+
+  aspenMesh:
+    enabled: true
+    
+
+ingress:
+  enabled: false
+
+
+aspen-mesh-agent:
+  image: quay.io/aspenmesh/agent:master-211
