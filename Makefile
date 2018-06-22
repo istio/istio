@@ -347,7 +347,7 @@ citadel:
 node-agent:
 	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
 
-.PHONY: nodeagent_k8s
+.PHONY: node_agent_k8s
 node_agent_k8s:
 	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
 
