@@ -29,6 +29,7 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
+	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"
@@ -51,6 +52,7 @@ type Server struct {
 	monitor   *monitor
 	tracer    io.Closer
 
+	checkCache *checkcache.Cache
 	dispatcher dispatcher.Dispatcher
 
 	// probes
@@ -194,10 +196,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 	s.dispatcher = rt.Dispatcher()
 
+	if a.NumCheckCacheEntries > 0 {
+		s.checkCache = checkcache.New(a.NumCheckCacheEntries)
+	}
+
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp))
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
 	if a.LivenessProbeOptions.IsValid() {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
@@ -246,6 +252,10 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.checkCache != nil {
+		_ = s.checkCache.Close()
 	}
 
 	if s.listener != nil {

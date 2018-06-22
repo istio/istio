@@ -6,6 +6,7 @@
 
 	It is generated from these files:
 		networking/v1alpha3/destination_rule.proto
+		networking/v1alpha3/envoy_filter.proto
 		networking/v1alpha3/gateway.proto
 		networking/v1alpha3/service_entry.proto
 		networking/v1alpha3/virtual_service.proto
@@ -18,6 +19,7 @@
 		ConnectionPoolSettings
 		OutlierDetection
 		TLSSettings
+		EnvoyFilter
 		Gateway
 		Server
 		Port
@@ -25,10 +27,12 @@
 		VirtualService
 		Destination
 		HTTPRoute
+		TLSRoute
 		TCPRoute
 		HTTPMatchRequest
 		DestinationWeight
 		L4MatchAttributes
+		TLSMatchAttributes
 		HTTPRedirect
 		HTTPRewrite
 		StringMatch

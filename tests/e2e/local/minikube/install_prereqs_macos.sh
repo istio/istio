@@ -65,23 +65,29 @@ else
     docker-machine version
 fi
 
+function fail_hyperkit_installation() {
+  if [ $? -ne 0 ];
+    then
+        echo "Installation of hyperkit driver failed. Please install it manually."
+        exit 1
+    fi
+}
+
 echo "Checking hyperkit..."
 hyperkit -h > /dev/null
-if [ $? -ne 0 ]; 
+if [ $? -ne 0 ];
 then
     echo "hyperkit is not installed. Downloading and installing using curl."
-    curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-hyperkit \
-    && chmod +x docker-machine-driver-hyperkit \
-    && sudo mv docker-machine-driver-hyperkit /usr/local/bin/ \
-    && sudo chown root:wheel /usr/local/bin/docker-machine-driver-hyperkit \
-    && sudo chmod u+s /usr/local/bin/docker-machine-driver-hyperkit
-    if [ $? -ne 0 ]; 
-    then
-    	echo "Installation of hyperkit failed. Please install it manually."
-        exit 1
-    else
-    	echo "Done."
-    fi
+    curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    chmod +x docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    sudo mv docker-machine-driver-hyperkit /usr/local/bin/
+    fail_hyperkit_installation
+    sudo chown root:wheel /usr/local/bin/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
+    sudo chmod u+s /usr/local/bin/docker-machine-driver-hyperkit
+    fail_hyperkit_installation
 else
     echo "hyperkit is installed. Install newer version if available."
     hyperkit version

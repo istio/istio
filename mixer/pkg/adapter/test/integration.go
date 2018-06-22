@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -259,6 +260,19 @@ func RunTest(
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", got, err)
 		}
+
+		// write got file, so it can be saved as golden if needed
+		file, err := ioutil.TempFile(os.TempDir(), "gotJSON-")
+		if err != nil {
+			t.Logf("unable to open tempfile")
+			return
+		}
+		defer os.Remove(file.Name())
+		fname := file.Name() + ".json"
+		_ = ioutil.WriteFile(fname, gotJSON, 0x777)
+		file.Close()
+		t.Logf("Got: %v", fname)
+
 		wantJSON, err := json.MarshalIndent(want, "", " ")
 		if err != nil {
 			t.Fatalf("Unable to convert %v into json: %v", want, err)

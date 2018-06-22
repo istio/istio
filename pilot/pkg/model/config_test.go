@@ -32,6 +32,18 @@ import (
 	mock_config "istio.io/istio/pilot/test/mock"
 )
 
+// getByMessageName finds a schema by message name if it is available
+// In test setup, we do not have more than one descriptor with the same message type, so this
+// function is ok for testing purpose.
+func getByMessageName(descriptor model.ConfigDescriptor, name string) (model.ProtoSchema, bool) {
+	for _, schema := range descriptor {
+		if schema.MessageName == name {
+			return schema, true
+		}
+	}
+	return model.ProtoSchema{}, false
+}
+
 func TestConfigDescriptor(t *testing.T) {
 	a := model.ProtoSchema{Type: "a", MessageName: "proxy.A"}
 	descriptor := model.ConfigDescriptor{
@@ -53,11 +65,11 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
-	aSchema, aSchemaExists := descriptor.GetByMessageName(a.MessageName)
+	aSchema, aSchemaExists := getByMessageName(descriptor, a.MessageName)
 	if !aSchemaExists || !reflect.DeepEqual(aSchema, a) {
 		t.Errorf("descriptor.GetByMessageName(a) => got %+v, want %+v", aType, a)
 	}
-	_, aSchemaNotExist := descriptor.GetByMessageName("blah")
+	_, aSchemaNotExist := getByMessageName(descriptor, "blah")
 	if aSchemaNotExist {
 		t.Errorf("descriptor.GetByMessageName(blah) => got true, want false")
 	}
@@ -549,7 +561,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		"all": {},
+		model.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -615,7 +627,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		{
 			hostname: "world.default.svc.cluster.local",
 			port:     8080,
-			expected: "all",
+			expected: "default",
 		},
 		{
 			hostname: "world.another-galaxy.svc.cluster.local",
@@ -638,6 +650,116 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 			if !reflect.DeepEqual(expected, policy) {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got %#v",
 					testCase.hostname, testCase.port, expected, out)
+			}
+		}
+	}
+}
+
+func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+
+	globalPolicy := authn.Policy{
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+	namespacePolicy := authn.Policy{}
+	helloPolicy := authn.Policy{
+		Targets: []*authn.TargetSelector{{
+			Name: "hello",
+		}},
+		Peers: []*authn.PeerAuthenticationMethod{{
+			Params: &authn.PeerAuthenticationMethod_Mtls{},
+		}},
+	}
+
+	authNPolicies := []struct {
+		name      string
+		namespace string
+		policy    *authn.Policy
+	}{
+		{
+			name:   model.DefaultAuthenticationPolicyName,
+			policy: &globalPolicy,
+		},
+		{
+			name:      model.DefaultAuthenticationPolicyName,
+			namespace: "default",
+			policy:    &namespacePolicy,
+		},
+		{
+			name:      "hello-policy",
+			namespace: "default",
+			policy:    &helloPolicy,
+		},
+	}
+	for _, in := range authNPolicies {
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:    in.name,
+				Group:   "authentication",
+				Version: "v1alpha2",
+				Domain:  "cluster.local",
+			},
+			Spec: in.policy,
+		}
+		if in.namespace == "" {
+			// Cluster-scoped policy
+			config.ConfigMeta.Type = model.AuthenticationMeshPolicy.Type
+		} else {
+			config.ConfigMeta.Type = model.AuthenticationPolicy.Type
+			config.ConfigMeta.Namespace = in.namespace
+		}
+		if _, err := store.Create(config); err != nil {
+			t.Error(err)
+		}
+	}
+
+	cases := []struct {
+		hostname model.Hostname
+		port     int
+		expected *authn.Policy
+	}{
+		{
+			hostname: "hello.default.svc.cluster.local",
+			port:     80,
+			expected: &helloPolicy,
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     80,
+			expected: &namespacePolicy,
+		},
+		{
+			hostname: "world.default.svc.cluster.local",
+			port:     8080,
+			expected: &namespacePolicy,
+		},
+		{
+			hostname: "hello.another-galaxy.svc.cluster.local",
+			port:     8080,
+			expected: &globalPolicy,
+		},
+		{
+			hostname: "world.another-galaxy.svc.cluster.local",
+			port:     9090,
+			expected: &globalPolicy,
+		},
+	}
+
+	for _, testCase := range cases {
+		port := &model.Port{Port: testCase.port}
+		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+
+		if out == nil {
+			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
+			// return non `nill` config.
+			t.Errorf("AuthenticationPolicy(%s:%d) => cannot be nil", testCase.hostname, testCase.port)
+		} else {
+			policy := out.Spec.(*authn.Policy)
+			if !reflect.DeepEqual(testCase.expected, policy) {
+				t.Errorf("AuthenticationPolicy(%s:%d) => expected:\n%s\nbut got:\n%s\n(from %s/%s)",
+					testCase.hostname, testCase.port, testCase.expected.String(), policy.String(), out.Name, out.Namespace)
 			}
 		}
 	}

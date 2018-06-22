@@ -31,6 +31,7 @@ import (
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
 	rbac "istio.io/istio/mixer/adapter/rbac"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
+	signalfx "istio.io/istio/mixer/adapter/signalfx"
 	solarwinds "istio.io/istio/mixer/adapter/solarwinds"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
 	statsd "istio.io/istio/mixer/adapter/statsd"
@@ -55,6 +56,7 @@ func Inventory() []adptr.InfoFn {
 		prometheus.GetInfo,
 		rbac.GetInfo,
 		servicecontrol.GetInfo,
+		signalfx.GetInfo,
 		solarwinds.GetInfo,
 		stackdriver.GetInfo,
 		statsd.GetInfo,

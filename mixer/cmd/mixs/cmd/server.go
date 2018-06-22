@@ -55,6 +55,8 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		"Max number of goroutines in the adapter worker pool")
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", sa.SingleThreaded,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
+	serverCmd.PersistentFlags().Int32VarP(&sa.NumCheckCacheEntries, "numCheckCacheEntries", "", sa.NumCheckCacheEntries,
+		"Max number of entries in the check result cache")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", sa.ConfigStoreURL,
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")

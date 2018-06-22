@@ -15,6 +15,7 @@
 package external
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -130,6 +131,22 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 	}
 
 	return nil, nil
+}
+
+// GetServiceAttributes retrieves the custom attributes of a service if it exists.
+func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		svcs := convertServices(serviceEntry)
+		for _, s := range svcs {
+			if s.Hostname == hostname {
+				return &model.ServiceAttributes{
+					Name:      hostname.String(),
+					Namespace: config.Namespace}, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("service not found")
 }
 
 func (d *ServiceEntryStore) getServices() []*model.Service {
