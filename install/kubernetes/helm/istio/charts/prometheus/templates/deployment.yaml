@@ -20,6 +20,7 @@ spec:
         app: prometheus
       annotations:
         sidecar.istio.io/inject: "false"
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
 {{- if .Values.global.rbacEnabled }}
       serviceAccountName: prometheus
@@ -28,9 +29,19 @@ spec:
         - name: prometheus
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.global.aspenMesh.enabled }}
+          command: [ "/bin/sh" ]
+          args:
+            - '-c'
+            - |
+              set -e
+              sed -e "s|<CLUSTER_NAME>|$(CLUSTER_NAME)|g" -e "s|<ASPEN_TOKEN>|$(ASPEN_TOKEN)|g" /etc/prom-config/prometheus.yml > /etc/prometheus/prometheus.yml
+              exec /bin/prometheus --storage.tsdb.retention=6h --config.file=/etc/prometheus/prometheus.yml
+          {{- else }}
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
+          {{- end }}
           ports:
             - containerPort: 9090
               name: http
@@ -46,7 +57,20 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
           - name: config-volume
-            mountPath: /etc/prometheus
+            mountPath: {{ if .Values.global.aspenMesh.enabled }}/etc/prom-config{{ else }}/etc/prometheus{{ end }}
+          {{- if .Values.global.aspenMesh.enabled }}
+          env:
+          - name: ASPEN_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: aspenmesh
+                key: TOKEN
+          - name: CLUSTER_NAME
+            valueFrom:
+              secretKeyRef:
+                name: aspenmesh
+                key: CLUSTER_NAME
+          {{- end }}
       volumes:
       - name: config-volume
         configMap:

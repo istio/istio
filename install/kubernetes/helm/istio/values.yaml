@@ -366,6 +366,12 @@ prometheus:
     nodePort:
       enabled: false
       port: 32090
+  scrapeTargets:
+    kubernetesApiservers: true
+    kubernetesCadvisor: true
+    kubernetesNodes: true
+    kubernetesServiceEndpoints: true
+    kubernetesPods: true
 
 servicegraph:
   enabled: false

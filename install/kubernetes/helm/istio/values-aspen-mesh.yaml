@@ -26,5 +26,13 @@ ingress:
   enabled: false
 
 
+prometheus:
+  image:
+    tag: v2.3.1
+  scrapeTargets:
+    kubernetesApiservers: false
+    kubernetesServiceEndpoints: false
+    kubernetesPods: false
+
 aspen-mesh-agent:
   image: quay.io/aspenmesh/agent:master-211
