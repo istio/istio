@@ -249,7 +249,7 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
-// GetServiceAttributes implements a service catalog operation
+// GetServiceAttributes returns istio attributes for a service in the registry if it is present
 func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
@@ -257,7 +257,11 @@ func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.Servi
 		return nil, err
 	}
 	if _, exists := c.serviceByKey(name, namespace); exists {
-		return &model.ServiceAttributes{Name: name, Namespace: namespace}, nil
+		return &model.ServiceAttributes{
+			Name:      name,
+			Namespace: namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+		}, nil
 	}
 	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
 }

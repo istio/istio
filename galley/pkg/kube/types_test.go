@@ -12,33 +12,36 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// Package change contains data structures for capturing resource state change related information.
-package change
+package kube
 
 import (
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
+	"testing"
 )
 
-// Info captures information about a Kubernetes resource change.
-type Info struct {
-	Type         Type
-	Name         string
-	GroupVersion schema.GroupVersion
+func TestEntries_All(t *testing.T) {
+	e := &Schema{}
+
+	i1 := ResourceSpec{Kind: "foo"}
+	i2 := ResourceSpec{Kind: "bar"}
+
+	e.entries = append(e.entries, i1)
+	e.entries = append(e.entries, i2)
+
+	r := e.All()
+
+	expected := []ResourceSpec{i1, i2}
+	if !reflect.DeepEqual(expected, r) {
+		t.Fatalf("Mismatch Expected:\n%v\nActual:\n%v\n", expected, r)
+	}
 }
 
-func (i Info) String() string {
-	var t string
-	switch i.Type {
-	case Add:
-		t = "Add"
-	case Update:
-		t = "Update"
-	case Delete:
-		t = "Delete"
-	default:
-		t = "Unknown"
-	}
-	return fmt.Sprintf("Info[Type:%s, Name:%s, GroupVersion:%v]", t, i.Name, i.GroupVersion)
+func TestGetTargetFor(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("Should have panicked")
+		}
+	}()
+
+	getTargetFor("shazbat")
 }

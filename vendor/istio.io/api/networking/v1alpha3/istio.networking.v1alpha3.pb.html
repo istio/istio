@@ -1187,12 +1187,13 @@ spec:
   - my-gateway
   tcp:
   - match:
-    - port:
-        number: 27017
+    - port: 27017
       sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
         host: mongo.prod.svc.cluster.local
+        port:
+          number: 5555
 </code></pre>
 
 <table class="message-fields">
@@ -3187,6 +3188,8 @@ metadata:
 spec:
   hosts:
   - &quot;*.bookinfo.com&quot;
+  gateways:
+  - mygateway
   tls:
   - match:
     - port: 443

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
+package kube
 
 import (
 	"reflect"
@@ -22,36 +22,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/change"
-	"istio.io/istio/galley/pkg/common"
+	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 )
 
-// accessor is a data access object for a particular type of custom resource, identified by its name,
-// api group and version.
-type accessor struct {
-	// Lock for changing the running state of the accessor
+// processorFn is a callback function that will receive change events back from listener.
+type processorFn func(
+	l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured)
+
+// listener is a simplified client interface for listening/getting Kubernetes resources in an unstructured way.
+type listener struct {
+	// Lock for changing the running state of the listener
 	stateLock sync.Mutex
 
-	// name, API group and version of the resource.
-	name string
-	gv   schema.GroupVersion
+	spec ResourceSpec
 
 	resyncPeriod time.Duration
 
-	// client for accessing the resources dynamically
-	client dynamic.Interface
+	// Client for accessing the resources dynamically
+	Client dynamic.Interface
 
 	// The dynamic resource interface for accessing custom resources dynamically.
 	iface dynamic.ResourceInterface
-
-	// metadata about the resource (i.e. name, kind, group, version etc.)
-	apiResource *metav1.APIResource
 
 	// stopCh is used to quiesce the background activity during shutdown
 	stopCh chan struct{}
@@ -60,72 +56,61 @@ type accessor struct {
 	informer cache.SharedIndexInformer
 
 	// The processor function to invoke to send the incoming changes.
-	processor changeProcessorFn
+	processor processorFn
 }
 
-type changeProcessorFn func(c *change.Info)
+// newListener returns a new instance of an listener.
+func newListener(
+	ifaces Interfaces, resyncPeriod time.Duration, spec ResourceSpec, processor processorFn) (*listener, error) {
 
-// creates a new accessor instance.
-func newAccessor(kube common.Kube, resyncPeriod time.Duration, name string, gv schema.GroupVersion,
-	kind string, listKind string, processor changeProcessorFn) (*accessor, error) {
+	log.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 
-	log.Debugf("Creating a new resource accessor for: name='%s', gv:'%v'", name, gv)
-
-	var client dynamic.Interface
-	client, err := kube.DynamicInterface(gv, kind, listKind)
+	client, err := ifaces.DynamicInterface(spec.GroupVersion(), spec.Kind, spec.ListKind)
 	if err != nil {
 		return nil, err
 	}
 
-	apiResource := &metav1.APIResource{
-		Name:       name,
-		Group:      gv.Group,
-		Version:    gv.Version,
-		Namespaced: true,
-		Kind:       kind,
-	}
-	iface := client.Resource(apiResource, "")
+	iface := client.Resource(spec.APIResource(), "")
 
-	return &accessor{
+	return &listener{
+		spec:         spec,
 		resyncPeriod: resyncPeriod,
-		name:         name,
-		gv:           gv,
 		iface:        iface,
-		client:       client,
+		Client:       client,
 		processor:    processor,
-		apiResource:  apiResource,
 	}, nil
 }
 
-func (s *accessor) start() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
+// Start the listener. This will commence listening and dispatching of events.
+func (l *listener) start() {
+	l.stateLock.Lock()
+	defer l.stateLock.Unlock()
 
-	if s.stopCh != nil {
-		log.Errorf("already synchronizing resources: name='%s', gv='%v'", s.name, s.gv)
+	if l.stopCh != nil {
+		log.Errorf("already synchronizing resources: name='%s', gv='%v'", l.spec.Singular, l.spec.GroupVersion())
 		return
 	}
 
-	log.Debugf("Starting accessor for %s(%v)", s.name, s.gv)
+	log.Debugf("Starting listener for %s(%v)", l.spec.Singular, l.spec.GroupVersion())
 
-	s.stopCh = make(chan struct{})
+	l.stopCh = make(chan struct{})
 
-	s.informer = cache.NewSharedIndexInformer(
+	l.informer = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return s.iface.List(options)
+				return l.iface.List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.Watch = true
-				return s.iface.Watch(options)
+				return l.iface.Watch(options)
 			},
 		},
 		&unstructured.Unstructured{},
-		s.resyncPeriod,
+		l.resyncPeriod,
 		cache.Indexers{})
 
-	s.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { s.handleEvent(change.Add, obj) },
+	l.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) { l.handleEvent(resource.Added, obj) },
 		UpdateFunc: func(old, new interface{}) {
 			newRes := new.(*unstructured.Unstructured)
 			oldRes := old.(*unstructured.Unstructured)
@@ -134,35 +119,35 @@ func (s *accessor) start() {
 				// Two different versions of the same resource will always have different RVs.
 				return
 			}
-			s.handleEvent(change.Update, new)
+			l.handleEvent(resource.Updated, new)
 		},
-		DeleteFunc: func(obj interface{}) { s.handleEvent(change.Delete, obj) },
+		DeleteFunc: func(obj interface{}) { l.handleEvent(resource.Deleted, obj) },
 	})
 
-	// start CRD shared informer background process.
-	go s.informer.Run(s.stopCh)
-
-	// Wait for CRD cache sync.
-	if !cache.WaitForCacheSync(s.stopCh, s.informer.HasSynced) {
-		log.Warnf("Shutting down while waiting for accessor cache sync %s(%v)", s.name, s.gv)
-	}
-	log.Debugf("Completed cache sync and listening. %s(%v)", s.name, s.gv)
+	// Start CRD shared informer background process.
+	go l.informer.Run(l.stopCh)
 }
 
-func (s *accessor) stop() {
-	s.stateLock.Lock()
-	defer s.stateLock.Unlock()
+func (l *listener) waitForCacheSync() bool {
+	// Wait for CRD cache sync.
+	return cache.WaitForCacheSync(l.stopCh, l.informer.HasSynced)
+}
 
-	if s.stopCh == nil {
+// Stop the listener. This will stop publishing of events.
+func (l *listener) stop() {
+	l.stateLock.Lock()
+	defer l.stateLock.Unlock()
+
+	if l.stopCh == nil {
 		log.Errorf("already stopped")
 		return
 	}
 
-	close(s.stopCh)
-	s.stopCh = nil
+	close(l.stopCh)
+	l.stopCh = nil
 }
 
-func (s *accessor) handleEvent(t change.Type, obj interface{}) {
+func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 	object, ok := obj.(metav1.Object)
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
@@ -179,15 +164,14 @@ func (s *accessor) handleEvent(t change.Type, obj interface{}) {
 
 	key, err := cache.MetaNamespaceKeyFunc(object)
 	if err != nil {
-		log.Errorf("Error creating a MetaNamespaceKey from object: %v", object)
+		log.Errorf("Error creating MetaNamespaceKey from object: %v", object)
 		return
 	}
 
-	info := &change.Info{
-		Type:         t,
-		Name:         key,
-		GroupVersion: s.gv,
-	}
+	var u *unstructured.Unstructured
 
-	s.processor(info)
+	if uns, ok := obj.(*unstructured.Unstructured); ok {
+		u = uns
+	}
+	l.processor(l, c, key, object.GetResourceVersion(), u)
 }

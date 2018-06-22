@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -35,9 +34,10 @@ import (
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filter {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
-		StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
-		Cluster:    model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port),
+		StatPrefix: clusterName,
+		Cluster:    clusterName,
 	}
 	return []listener.Filter{
 		{
@@ -66,7 +66,7 @@ func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string, port 
 	// destination port is unnecessary with use_original_dst since
 	// the listener address already contains the port
 	filterConfig := &DeprecatedTCPProxyFilterConfig{
-		StatPrefix:  fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
+		StatPrefix:  clusterName,
 		RouteConfig: &DeprecatedTCPRouteConfig{Routes: []*DeprecatedTCPRoute{route}},
 	}
 
@@ -118,7 +118,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	} else {
 		// construct TCP proxy using v2 config
 		config := &tcp_proxy.TcpProxy{
-			StatPrefix: fmt.Sprintf("%s|tcp|%d", model.TrafficDirectionOutbound, port.Port),
+			StatPrefix: clusterName,
 			Cluster:    clusterName,
 			// TODO: Need to set other fields such as Idle timeouts
 		}
@@ -132,19 +132,19 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
-		filterstack = append(filterstack, buildOutboundMongoFilter())
+		filterstack = append(filterstack, buildOutboundMongoFilter(clusterName))
 	}
 	filterstack = append(filterstack, *tcpFilter)
 
 	return filterstack
 }
 
-func buildOutboundMongoFilter() listener.Filter {
+func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
 	// User is responsible for mounting those certs in the pod.
 	config := &mongo_proxy.MongoProxy{
-		StatPrefix: "mongo",
+		StatPrefix: statPrefix, // mongo stats are prefixed with mongo.<statPrefix> by Envoy
 		// TODO enable faults in mongo
 	}
 
