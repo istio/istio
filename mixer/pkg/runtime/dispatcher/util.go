@@ -25,7 +25,7 @@ func getIdentityAttributeValue(attrs attribute.Bag, idAttribute string) (string,
 
 	v, ok := attrs.Get(idAttribute)
 	if !ok {
-		return "", fmt.Errorf("identity parameter not found: '%s'", idAttribute)
+		return "", fmt.Errorf("identity parameter not found: '%s' in %q", idAttribute, attrs.String())
 	}
 
 	var destination string
