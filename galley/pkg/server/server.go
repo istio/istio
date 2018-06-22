@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
@@ -114,7 +114,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	discovery.RegisterAggregatedDiscoveryServiceServer(s.grpcServer, s.mcp)
+	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
 
 	s.Probe = probe.NewProbe()
 

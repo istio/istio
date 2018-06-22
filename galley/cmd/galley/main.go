@@ -12,5 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pkg is a place holder file, until we can put more content here.
-package pkg
+package main
+
+import (
+	"os"
+
+	"istio.io/istio/galley/cmd/galley/cmd"
+	"istio.io/istio/galley/cmd/shared"
+)
+
+func main() {
+	rootCmd := cmd.GetRootCmd(os.Args[1:], shared.Printf, shared.Fatalf)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
+	}
+}
