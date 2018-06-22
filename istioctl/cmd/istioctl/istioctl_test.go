@@ -545,7 +545,7 @@ func TestVersion(t *testing.T) {
 		{ // case 0
 			configs:        []model.Config{},
 			args:           strings.Split("version", " "),
-			expectedRegexp: regexp.MustCompile("Version: unknown\nGitRevision: unknown\nUser: unknown@unknown\nHub: unknown\nGolangVersion: go1.([0-9]+)\nBuildStatus: unknown\n"),
+			expectedRegexp: regexp.MustCompile("Version: unknown\nGitRevision: unknown\nUser: unknown@unknown\nHub: unknown\nGolangVersion: go1.([0-9\\.]+)\nBuildStatus: unknown\n"),
 		},
 		{ // case 1 short output
 			configs:        []model.Config{},
