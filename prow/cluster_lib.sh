@@ -21,25 +21,9 @@
 #                                     #
 #######################################
 
-PROJECT_NAME=istio-testing
-ZONE=us-central1-f
-MACHINE_TYPE=n1-standard-4
-NUM_NODES=${NUM_NODES:-1}
-CLUSTER_NAME=
-USE_GKE=${USE_GKE:-True}
-SETUP_CLUSTERREG=${SETUP_CLUSTERREG:-False}
-
-if [[ "$USE_GKE" == "True" ]]; then
-  IFS=';'
-  VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
-  unset IFS
-  CLUSTER_VERSION="${VERSIONS[0]}"
-else
-  CLUSTER_VERSION=$(kubectl version --short | grep Server | awk  '{ print $3 }')
-fi
-
 KUBE_USER="${KUBE_USER:-istio-prow-test-job@istio-testing.iam.gserviceaccount.com}"
-CLUSTER_CREATED=false
+SETUP_CLUSTERREG=${SETUP_CLUSTERREG:-False}
+USE_GKE=${USE_GKE:-True}
 
 function gen_kubeconf_from_sa () {
     local service_account=$1
@@ -79,7 +63,7 @@ function setup_clusterreg () {
 
     SERVICE_ACCOUNT=istio-multi
     NAMESPACE=istio-system
-    
+
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
     #  -- if PILOT_CLUSTER not set, assume pilot install to be in the first cluster
@@ -89,7 +73,6 @@ function setup_clusterreg () {
     for context in $k_contexts; do
         if [[ "$PILOT_CLUSTER" != "$context" ]]; then
             kubectl config use-context ${context}
-             
             kubectl create ns ${NAMESPACE}
             kubectl create sa ${SERVICE_ACCOUNT} -n ${NAMESPACE}
             kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${NAMESPACE}:${SERVICE_ACCOUNT}
@@ -105,15 +88,6 @@ function setup_clusterreg () {
     kubectl config use-context $PILOT_CLUSTER
 }
 
-function delete_cluster () {
-  if [ "${CLUSTER_CREATED}" = true ]; then
-    gcloud container clusters delete ${CLUSTER_NAME}\
-      --zone ${ZONE}\
-      --project ${PROJECT_NAME}\
-      --quiet\
-      || echo "Failed to delete cluster ${CLUSTER_NAME}"
-  fi
-}
 
 function setup_cluster() {
   # use current-context if pilot_cluster not set
@@ -142,7 +116,7 @@ function setup_cluster() {
       ALL_CLUSTER_CIDRS+=$cidr
     done
     ALL_CLUSTER_NETTAGS=
-    for net_tag in $(gcloud compute instances list --format=json | jq '.[].tags.items[0]' | tr -d '"'); do
+    for net_tag in $(gcloud compute instances list --format='value(tags.items.[0])'); do
       if [[ "$ALL_CLUSTER_NETTAGS" =~ .*"$net_tag".* ]]; then
         # tag isn't unique so don't add
         echo "$net_tag isn't unique"
@@ -153,7 +127,12 @@ function setup_cluster() {
         ALL_CLUSTER_NETTAGS+=$net_tag
       fi
     done
-    gcloud compute firewall-rules create istio-multicluster-test-pods --allow=tcp,udp,icmp,esp,ah,sctp --direction=INGRESS --priority=900 --source-ranges="$ALL_CLUSTER_CIDRS" --target-tags=$ALL_CLUSTER_NETTAGS --quiet
+    gcloud compute firewall-rules create istio-multicluster-test-pods \
+	    --allow=tcp,udp,icmp,esp,ah,sctp \
+	    --direction=INGRESS \
+	    --priority=900 \
+	    --source-ranges="$ALL_CLUSTER_CIDRS" \
+	    --target-tags=$ALL_CLUSTER_NETTAGS --quiet
   fi
 }
 
@@ -178,15 +157,5 @@ function unsetup_clusters() {
   fi
 }
 
-function check_cluster() {
-  for i in {1..10}
-  do
-    status=$(kubectl get namespace || echo "Unreachable")
-    [[ ${status} == 'Unreachable' ]] || break
-    if [ ${i} -eq 10 ]; then
-      echo "Cannot connect to the new cluster"; exit 1
-    fi
-    sleep 5
-  done
-}
+
 
