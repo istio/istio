@@ -37,7 +37,7 @@ func TestToProto(t *testing.T) {
 
 	s := ResourceSpec{
 		Target: resource.Info{
-			Kind: "google.protobuf.Empty",
+			MessageName: "google.protobuf.Empty",
 		},
 	}
 

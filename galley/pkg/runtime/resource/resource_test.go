@@ -22,8 +22,8 @@ import (
 )
 
 func TestKind_Equality_True(t *testing.T) {
-	k1 := Kind("a")
-	k2 := Kind("a")
+	k1 := MessageName("a")
+	k2 := MessageName("a")
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
@@ -31,8 +31,8 @@ func TestKind_Equality_True(t *testing.T) {
 }
 
 func TestKind_Equality_False(t *testing.T) {
-	k1 := Kind("a")
-	k2 := Kind("v")
+	k1 := MessageName("a")
+	k2 := MessageName("v")
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -57,8 +57,8 @@ func TestVersion_Equality_False(t *testing.T) {
 	}
 }
 func TestKey_Equality_True(t *testing.T) {
-	k1 := Key{Kind: Kind("a"), FullName: "ks"}
-	k2 := Key{Kind: Kind("a"), FullName: "ks"}
+	k1 := Key{MessageName: MessageName("a"), FullName: "ks"}
+	k2 := Key{MessageName: MessageName("a"), FullName: "ks"}
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
@@ -66,8 +66,8 @@ func TestKey_Equality_True(t *testing.T) {
 }
 
 func TestKey_Equality_False_DifferentKind(t *testing.T) {
-	k1 := Key{Kind: Kind("a"), FullName: "ks"}
-	k2 := Key{Kind: Kind("b"), FullName: "ks"}
+	k1 := Key{MessageName: MessageName("a"), FullName: "ks"}
+	k2 := Key{MessageName: MessageName("b"), FullName: "ks"}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -75,8 +75,8 @@ func TestKey_Equality_False_DifferentKind(t *testing.T) {
 }
 
 func TestKey_Equality_False_DifferentName(t *testing.T) {
-	k1 := Key{Kind: Kind("a"), FullName: "ks"}
-	k2 := Key{Kind: Kind("a"), FullName: "otherks"}
+	k1 := Key{MessageName: MessageName("a"), FullName: "ks"}
+	k2 := Key{MessageName: MessageName("a"), FullName: "otherks"}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -84,16 +84,16 @@ func TestKey_Equality_False_DifferentName(t *testing.T) {
 }
 
 func TestKey_String(t *testing.T) {
-	k1 := Key{Kind: Kind("a"), FullName: "ks"}
+	k1 := Key{MessageName: MessageName("a"), FullName: "ks"}
 	// Ensure that it doesn't crash
 	_ = k1.String()
 }
 
 func TestVersionedKey_Equality_True(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
@@ -102,9 +102,9 @@ func TestVersionedKey_Equality_True(t *testing.T) {
 
 func TestVersionedKey_Equality_False_DifferentKind(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{Kind: Kind("b"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("b"), FullName: "ks"}, Version: Version("v1")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -113,9 +113,9 @@ func TestVersionedKey_Equality_False_DifferentKind(t *testing.T) {
 
 func TestVersionedKey_Equality_False_DifferentName(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "otherks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "otherks"}, Version: Version("v1")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -124,9 +124,9 @@ func TestVersionedKey_Equality_False_DifferentName(t *testing.T) {
 
 func TestVersionedKey_Equality_False_DifferentVersion(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v2")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v2")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -135,7 +135,7 @@ func TestVersionedKey_Equality_False_DifferentVersion(t *testing.T) {
 
 func TestVersionedKey_String(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{Kind: Kind("a"), FullName: "ks"}, Version: Version("v1")}
+		Key: Key{MessageName: MessageName("a"), FullName: "ks"}, Version: Version("v1")}
 	// Ensure that it doesn't crash
 	_ = k1.String()
 }
@@ -204,8 +204,8 @@ func TestInfo_newProtoInstance_PanicAtNonProto(t *testing.T) {
 
 func TestInfo_String(t *testing.T) {
 	i := Info{
-		TypeURL: "http://foo.bar.com",
-		Kind:    "foo",
+		TypeURL:     "http://foo.bar.com",
+		MessageName: "foo",
 	}
 	// Ensure that it doesn't crash
 	_ = i.String()
