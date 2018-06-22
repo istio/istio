@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.pilotEndpoint }}
@@ -26,7 +26,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-policy
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.policyEndpoint }}
@@ -51,7 +51,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-statsd-prom-bridge
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.statsdEndpoint }}
@@ -66,7 +66,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-telemetry
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.telemetryEndpoint }}
@@ -88,7 +88,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: istio-ingress
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.ingressEndpoint }}
@@ -104,7 +104,7 @@ apiVersion: v1
 kind: Endpoints
 metadata:
   name: zipkin
-  namespace: istio-system
+  namespace: {{ .Release.Namespace }}
 subsets:
 - addresses:
   - ip: {{ .Values.global.zipkinEndpoint }}
