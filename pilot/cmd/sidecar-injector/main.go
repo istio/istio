@@ -17,12 +17,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -131,7 +131,7 @@ func patchCertLoop() error {
 	}
 
 	watchDir, _ := filepath.Split(flags.caCertFile)
-	if err := watcher.Watch(watchDir); err != nil {
+	if err = watcher.Watch(watchDir); err != nil {
 		return fmt.Errorf("could not watch %v: %v", flags.caCertFile, err)
 	}
 
