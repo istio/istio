@@ -66,9 +66,10 @@ func (a *Agent) Start() (err error) {
 // Stop stops Envoy and the application.
 func (a *Agent) Stop() (err error) {
 	if a.proxyStopFunc != nil {
-		err = multierror.Append(a.proxyStopFunc())
+		err = a.proxyStopFunc()
 	}
-	return multierror.Append(err, a.appStopFunc())
+
+	return multierror.Append(err, a.appStopFunc()).ErrorOrNil()
 }
 
 // GetProxy returns the proxy for the backend Application. Only valid after the Agent has been started.

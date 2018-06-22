@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	envoyv1 "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/fakes/policy"
@@ -226,7 +226,7 @@ func newPilot() (environment.DeployedPilot, error) {
 
 	args := pilot.Args{
 		Namespace: namespace,
-		Options: envoyv1.DiscoveryServiceOptions{
+		Options: envoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",

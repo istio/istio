@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	envoyv1 "istio.io/istio/pilot/pkg/proxy/envoy/v1"
+	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/local/envoy"
 	"istio.io/istio/pkg/test/local/envoy/agent"
@@ -179,7 +179,7 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 	mesh := model.DefaultMeshConfig()
 	bootstrapArgs := bootstrap.PilotArgs{
 		Namespace: namespace,
-		DiscoveryOptions: envoyv1.DiscoveryServiceOptions{
+		DiscoveryOptions: proxy_envoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",

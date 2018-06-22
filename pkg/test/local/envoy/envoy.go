@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"sync"
 
@@ -32,6 +33,8 @@ const (
 
 	// DefaultLogEntryPrefix the default prefix for all log lines from Envoy.
 	DefaultLogEntryPrefix = "[ENVOY]"
+
+	envoyFileNamePattern = "^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$"
 )
 
 // LogLevel represents the log level to use for Envoy.
@@ -118,7 +121,7 @@ func (e *Envoy) Stop() error {
 	// Make sure we return the base ID.
 	defer e.returnBaseID()
 
-	if e.cmd == nil || e.cmd.Process != nil {
+	if e.cmd == nil || e.cmd.Process == nil {
 		// Wasn't previously started - nothing to do.
 		return nil
 	}
@@ -193,33 +196,60 @@ func checkFileExists(f string) error {
 	return nil
 }
 
+func isEnvoyBinary(f os.FileInfo) bool {
+	if f.IsDir() {
+		return false
+	}
+	matches, _ := regexp.MatchString(envoyFileNamePattern, f.Name())
+	return matches
+}
+
+func findEnvoyBinaries() ([]string, error) {
+	binPaths := make([]string, 0)
+	err := filepath.Walk(util.IstioOut, func(path string, f os.FileInfo, err error) error {
+		if isEnvoyBinary(f) {
+			binPaths = append(binPaths, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return binPaths, nil
+}
+
+func findMostRecentFile(filePaths []string) (string, error) {
+	latestFilePath := ""
+	latestFileTime := int64(0)
+	for _, filePath := range filePaths {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			// Should never happen
+			return "", err
+		}
+		fileTime := fileInfo.ModTime().Unix()
+		if fileTime > latestFileTime {
+			latestFileTime = fileTime
+			latestFilePath = filePath
+		}
+	}
+	return latestFilePath, nil
+}
+
 func getDefaultEnvoyBinaryPath() (string, error) {
-	// Find all of the debug envoy binaries.
-	binDir := filepath.Join(util.IstioOut, "debug")
-	binPrefix := filepath.Join(binDir, "envoy-debug-")
-	binPaths, err := filepath.Glob(binPrefix + "*")
+	binPaths, err := findEnvoyBinaries()
 	if err != nil {
 		return "", err
 	}
 
 	if len(binPaths) == 0 {
-		return "", fmt.Errorf("unable to locate Envoy binary in dir %s", util.IstioOut)
+		return "", fmt.Errorf("unable to locate an Envoy binary under dir %s", util.IstioOut)
 	}
 
-	// Find the most recent debug binary.
-	latestBinPath := ""
-	latestBinTime := int64(0)
-	for _, binPath := range binPaths {
-		binFile, err := os.Stat(binPath)
-		if err != nil {
-			// Should never happen
-			return "", err
-		}
-		binTime := binFile.ModTime().Unix()
-		if binTime > latestBinTime {
-			latestBinTime = binTime
-			latestBinPath = binPath
-		}
+	latestBinPath, err := findMostRecentFile(binPaths)
+	if err != nil {
+		return "", err
 	}
 
 	return latestBinPath, nil

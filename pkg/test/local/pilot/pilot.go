@@ -53,7 +53,6 @@ func NewPilot(args Args) (environment.DeployedPilot, error) {
 				string(serviceregistry.ConfigRegistry),
 			},
 		},
-		RDSv2: true,
 	}
 
 	// Create the server for the discovery service.
