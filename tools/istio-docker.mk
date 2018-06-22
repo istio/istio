@@ -44,7 +44,7 @@ $(ISTIO_DOCKER)/js $(ISTIO_DOCKER)/force: addons/servicegraph/$$(notdir $$@) | $
 # generated content
 $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key: ${GEN_CERT} | ${ISTIO_DOCKER}
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/istio_ca.crt \
-                    # --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
+                    --out-priv=${ISTIO_DOCKER}/istio_ca.key --organization="k8s.cluster.local" \
                     --self-signed=true --ca=true
 $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
 	${GEN_CERT} --key-size=2048 --out-cert=${ISTIO_DOCKER}/node_agent.crt \
@@ -71,8 +71,6 @@ DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
-
-print-% : ; @echo $* = $($*)
 
 # pilot docker imagesDOCKER_BUILD_TOP
 
