@@ -108,7 +108,7 @@
 
     "hosts": [
     {
-    "socket_address": {"address": "mypilot", "port_value": 15011}
+    "socket_address": {"address": "mypilot", "port_value": 1001}
     }
     ],
     "circuit_breakers": {
