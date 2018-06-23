@@ -62,7 +62,7 @@ func TestProcessor_Start_Error(t *testing.T) {
 
 func TestProcessor_Stop(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty")
+	schema.Register("google.protobuf.Empty", false)
 
 	src := NewInMemorySource()
 	distributor := snapshot.New()
@@ -83,7 +83,7 @@ func TestProcessor_Stop(t *testing.T) {
 
 func TestProcessor_EventAccumulation(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty")
+	schema.Register("google.protobuf.Empty", false)
 	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
@@ -110,7 +110,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 
 func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty")
+	schema.Register("google.protobuf.Empty", false)
 	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
@@ -137,7 +137,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 
 func TestProcessor_Publishing(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty")
+	schema.Register("google.protobuf.Empty", false)
 	emptyMessageName := resource.MessageName("google.protobuf.Empty")
 
 	src := NewInMemorySource()
