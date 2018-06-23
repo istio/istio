@@ -45,6 +45,7 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintln(c.Stdout, "NOTE: This output only contains routes loaded via RDS.")
 	fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
 	for _, route := range routes {
 		if filter.Verify(route) {
@@ -79,7 +80,6 @@ func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*xdsapi.Ro
 	}
 	w := new(tabwriter.Writer)
 	w.Init(c.Stdout, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(c.Stdout, "NOTE: This output only contains routes loaded via RDS.")
 	return w, clusters, nil
 }
 
