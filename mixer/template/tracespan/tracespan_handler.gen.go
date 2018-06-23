@@ -41,6 +41,7 @@ import (
 //   startTime: request.time
 //   endTime: response.time
 //   clientSpan: (context.reporter.local | true) == false
+//   rewriteId: false
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
