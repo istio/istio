@@ -40,7 +40,7 @@ import (
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
-//   client_span: !context.reporter.local
+//   clientSpan: (context.reporter.local | true) == false
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -122,6 +122,13 @@ type Instance struct {
 	// not provided for server spans.
 	// Optional
 	ClientSpan bool
+
+	// rewrite_id is used to indicate whether create a new client span id to
+	// accommodate shared span model used by Zipkin. Stackdriver separates a
+	// RPC into client span and server span. To solve this incompatibility,
+	// rewriting both span id of client span and parent span id of server span
+	// to the same newly generated id.
+	RewriteId bool
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
