@@ -320,7 +320,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port, nodeType model.NodeType) bool {
+func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,
+	hostname model.Hostname, port *model.Port, nodeType model.NodeType) bool {
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port, nodeType)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return false
