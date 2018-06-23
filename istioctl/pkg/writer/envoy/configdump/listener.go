@@ -29,7 +29,7 @@ const (
 	// HTTPListener identifies a listener as being of HTTP type by the presence of an HTTP connection manager filter
 	HTTPListener = "envoy.http_connection_manager"
 
-	// TCPListener identifies a listener as being of TCP type by the presence of TCP proxt filter
+	// TCPListener identifies a listener as being of TCP type by the presence of TCP proxy filter
 	TCPListener = "envoy.tcp_proxy"
 )
 
