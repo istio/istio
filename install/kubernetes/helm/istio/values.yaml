@@ -206,6 +206,7 @@ sidecarInjectorWebhook:
   replicaCount: 1
   image: sidecar_injector
   resources: {}
+  enableNamespacesByDefault: false
   # limits:
   #  cpu: 100m
   #  memory: 128Mi

@@ -18,3 +18,5 @@ zipkin:
 
 sidecarInjectorWebhook:
   enabled: true
+  enableNamespacesByDefault: false
+
