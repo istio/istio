@@ -13,7 +13,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-mixer-post-install-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}

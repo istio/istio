@@ -14,7 +14,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
