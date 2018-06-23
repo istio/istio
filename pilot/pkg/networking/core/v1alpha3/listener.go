@@ -251,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		for _, p := range configgen.Plugins {
 			if authnPolicy, ok := p.(authn.Plugin); ok {
-				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
+				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort, node.Type) {
 					listenerOpts.tlsMultiplexed = true
 					log.Infof("Uses TLS multiplexing for %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
 				}

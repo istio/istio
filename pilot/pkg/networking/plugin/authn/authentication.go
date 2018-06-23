@@ -297,12 +297,8 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Node.Type != model.Sidecar {
-		// Only care about sidecar.
-		return nil
-	}
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort, in.Node.Type)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
@@ -324,8 +320,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
+func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port, nodeType model.NodeType) bool {
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port, nodeType)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return false
 	}
