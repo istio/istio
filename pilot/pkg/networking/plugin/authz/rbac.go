@@ -133,7 +133,7 @@ func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Targ
 
 func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	var configProto *rbacproto.RbacConfig
-	config := store.RbacConfig(model.DefaultRbacConfigName)
+	config := store.RbacConfig()
 	if config != nil {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
@@ -328,7 +328,7 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			v, _ := subject.Properties[k]
+			v := subject.Properties[k]
 			id := principalForKeyValue(k, v)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)

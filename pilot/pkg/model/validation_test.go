@@ -3721,14 +3721,15 @@ func TestValidateRbacConfig(t *testing.T) {
 			expectErrMsg: "cannot cast to RbacConfig",
 		},
 		{
-			caseName:     "invalid name",
-			name:         "Rbac-config",
-			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: "rbacConfig has invalid name(Rbac-config), name must be rbac-config",
+			caseName: "invalid name",
+			name:     "Rbac-config",
+			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: fmt.Sprintf("rbacConfig has invalid name(Rbac-config), name must be %s",
+				DefaultRbacConfigName),
 		},
 		{
 			caseName: "success proto",
-			name:     "rbac-config",
+			name:     DefaultRbacConfigName,
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
 	}

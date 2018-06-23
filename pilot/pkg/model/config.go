@@ -305,8 +305,8 @@ type IstioConfigStore interface {
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
 
-	// RbacConfig selects the RbacConfig with the specified name.
-	RbacConfig(name string) *Config
+	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
+	RbacConfig() *Config
 }
 
 const (
@@ -1150,18 +1150,17 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	return bindings
 }
 
-func (store *istioConfigStore) RbacConfig(name string) *Config {
+func (store *istioConfigStore) RbacConfig() *Config {
 	rbacConfigs, err := store.List(RbacConfig.Type, "")
 	if err != nil {
 		log.Errorf("failed to get rbacConfig: %v", err)
 		return nil
 	}
 	if len(rbacConfigs) > 1 {
-		log.Errorf("found %d rbacConfigs, expecing only 1.", len(rbacConfigs))
-		return nil
+		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
 	}
 	for _, rc := range rbacConfigs {
-		if rc.Name == name {
+		if rc.Name == DefaultRbacConfigName {
 			return &rc
 		}
 	}

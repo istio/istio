@@ -891,21 +891,10 @@ func TestServiceRoleBindings(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "", store, t)
-	tests := []struct {
-		caseName string
-		name     string
-		expect   bool
-	}{
-		{caseName: "good", name: "rbac-config", expect: true},
-		{caseName: "invalid name", name: "wrong", expect: false},
-	}
-
-	for _, tt := range tests {
-		hasConfig := store.RbacConfig(tt.name) != nil
-		if tt.expect != hasConfig {
-			t.Errorf("model.RbacConfig: %s expecting %v, but got %v", tt.caseName, tt.expect, hasConfig)
-		}
+	addRbacConfigToStore(model.RbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
+	rbacConfig := store.RbacConfig()
+	if rbacConfig.Name != model.DefaultRbacConfigName {
+		t.Errorf("model.RbacConfig: expecting %s, but got %s", model.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 

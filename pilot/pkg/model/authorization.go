@@ -17,5 +17,5 @@ package model
 const (
 	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
 	// name will be considered.
-	DefaultRbacConfigName = "rbac-config"
+	DefaultRbacConfigName = "default"
 )
