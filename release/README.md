@@ -1,6 +1,6 @@
-# Istio Release
+# Istio Release Process
 
-- [Istio Release](#istio-release)
+- [Istio Release Process](#istio-release-process)
   * [Overview](#overview)
   * [Daily Releases](#daily-releases)
   * [Weekly Releases](#weekly-releases)
@@ -11,18 +11,17 @@
 ## Overview
 
 Starting with [0.3.0](https://github.com/istio/istio/releases/tag/0.3.0), Istio is released and published every month. The
-monthly releases can all be found on https://github.com/istio/istio/releases. Each monthly release has its own minor version
-number, while the patch version indicates important bug fixes in the corresponding monthly release. You can find more
-information about version semantic, cadence, and support in [Istio Release Principles](https://goo.gl/dcSBxF).
+monthly releases can all be found on https://github.com/istio/istio/releases. You can find more
+information about version semantic, cadence, and support in [Istio Release Cadence](https://istio.io/about/release-cadence/).
 
 Internally, Istio releases are cut, tested, and qualified every day. And once a week, a daily release will go through
 stability and performance testing to detect regression. The monthly release mentioned above is promoted from a weekly release
 that passed all functional, stability, and performance testing. You can find more information about this process in
 [Istio OSS release train](https://goo.gl/6V1SHm).
 
-The test/release working group is currently working on release train automation. As of 2018 Q1, it is in alpha state that
+The test/release working group is currently working on release train automation. As of 2018 Q2, it is in alpha state that
 produces daily, monthly, and patch releases automatically, under manual supervision. Once the process is all ironed out,
-daily, weekly, and monthly releases will be entirely automatic. Patch releases can be requested by developers to fix severe
+daily, weekly, and monthly releases are expected to be automatic. Patch releases can be requested by developers to fix severe
 bugs.
 
 ## Daily Releases
@@ -31,6 +30,11 @@ Every day, a new release is automatically built and made available at
 https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/
 after it passes the automatic daily release tests. These are meant for developer testing, but not general consumption.
 
+Each daily release is versioned and identified by ```<branch_name>-<build_datetime>```. For example, E.g. 
+```master-20180615-09-15``` is cut from master at 9:15AM GMT on June 15, 2018. Daily release artifacts are stored in 
+sub-directories using the same naming scheme in [GCS](https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/).
+
+
 ## Weekly Releases
 
 The daily releases built on 7th, 14th, 21st, and 28th are used as weekly releases. If there is no daily release on that day,
@@ -38,7 +42,7 @@ as a result of issues like broken build and test failures, the last good daily r
 instead. Istio developers are expected to restore the build or failing tests ASAP.
 
 We are in the process of automating weekly releases to go through a week long rigorous stability and performance testing. 
-(ETC Q1)
+(ETC Q2)
 
 ## Monthly Releases
 

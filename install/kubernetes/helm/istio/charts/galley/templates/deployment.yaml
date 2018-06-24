@@ -26,7 +26,7 @@ spec:
           ports:
           - containerPort: 443
           command:
-          - /usr/local/bin/gals
+          - /usr/local/bin/galley
           - validator
           - --webhook-name=istio-galley
           - --pilot-webhook-name=pilot.validation.istio.io
@@ -43,7 +43,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/gals
+                - /usr/local/bin/galley
                 - probe
                 - --probe-path=/health
                 - --interval=2s
@@ -52,7 +52,7 @@ spec:
           readinessProbe:
             exec:
               command:
-                - /usr/local/bin/gals
+                - /usr/local/bin/galley
                 - probe
                 - --probe-path=/health
                 - --interval=2s
@@ -63,6 +63,10 @@ spec:
       volumes:
       - name: certs
         secret:
+{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-galley-service-account
+{{- else }}
+          secretName: istio.default
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

@@ -40,6 +40,7 @@ import (
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
+//   client_span: !context.reporter.local
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -52,7 +53,7 @@ import (
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 
 // Fully qualified name of the template
@@ -107,7 +108,7 @@ type Instance struct {
 	// Required.
 	EndTime time.Time
 
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
@@ -116,6 +117,11 @@ type Instance struct {
 	// HTTP status code used to set the span status. If unset or set to 0, the
 	// span status will be assumed to be successful.
 	HttpStatusCode int64
+
+	// client_span indicates the span kind. True for client spans and False or
+	// not provided for server spans.
+	// Optional
+	ClientSpan bool
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

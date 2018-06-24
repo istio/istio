@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.10-k8s1.9-helm2.7.2-minikube0.25
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
 
@@ -377,26 +377,15 @@ jobs:
       - run:
           command: |
             mkdir -p /go/out/tests
+            export PATH=$GOPATH/bin:$PATH
             make localTestEnv
             set -o pipefail
             make test T=-v | tee -a /go/out/tests/build-log.txt
-      - run:
-          no_output_timeout: 20m
-          when: always
-          command: |
-            # This is a fast test (<1 min), it takes more time to prepare.
-            export PATH=$GOPATH/bin:$PATH
-            make localTestEnv
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
       - store_test_results:
           path: /go/out/tests
-
-  dependencies:
-    <<: *defaults
-    steps:
-      - run: echo "Placeholder until an admin removes the required job"
 
   racetest:
     <<: *defaults
@@ -584,7 +573,6 @@ workflows:
 
   all:
     jobs:
-      - dependencies
       - lint
       - build
       - test

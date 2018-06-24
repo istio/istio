@@ -26,8 +26,7 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 OUT=${1:?"output path"}
-VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/pkg/version
-BUILDPATH=${3:?"path to build"}
+BUILDPATH=${2:?"path to build"}
 
 set -e
 
@@ -54,13 +53,12 @@ if [[ -z ${BUILDINFO} ]];then
     ${ROOT}/bin/get_workspace_status > ${BUILDINFO}
 fi
 
-# BUILD LD_VERSIONFLAGS
-LD_VERSIONFLAGS=""
+# BUILD LD_EXTRAFLAGS
+LD_EXTRAFLAGS=""
 while read line; do
-    read SYMBOL VALUE < <(echo $line)
-    LD_VERSIONFLAGS=${LD_VERSIONFLAGS}" -X ${VERSION_PACKAGE}.${SYMBOL}=${VALUE}"
+    LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
 time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
-       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"

@@ -53,6 +53,7 @@ syntax = "proto3";
 // 
 // The values provided controls the manner in which the kubernetesenv adapter discovers and
 // generates values related to pod information.
+// Next ID: 8
 package adapter.template.kubernetes;
 
 
@@ -83,6 +84,9 @@ message InstanceParam {
     
     // Destination pod's ip.
     string destination_ip = 4;
+    
+    // Destination container's port number.
+    string destination_port = 7;
     // Attribute names to expression mapping. These expressions can use the fields from the output object
     // returned by the attribute producing adapters using $out.<fieldName> notation. For example:
     // source.ip : $out.source_pod_ip

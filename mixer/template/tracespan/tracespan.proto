@@ -35,6 +35,7 @@ syntax = "proto3";
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
+//   client_span: !context.reporter.local
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -47,7 +48,7 @@ syntax = "proto3";
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 package traceSpan;
 
@@ -100,7 +101,7 @@ message Template {
     // Required.
     istio.policy.v1beta1.TimeStamp end_time = 6;
 
-    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // Span tags are a set of < key, value > pairs that provide metadata for the
     // entire span. The values can be specified in the form of expressions.
     //
     // Optional.
@@ -109,4 +110,9 @@ message Template {
     // HTTP status code used to set the span status. If unset or set to 0, the
     // span status will be assumed to be successful.
     int64 httpStatusCode = 8;
+
+    // client_span indicates the span kind. True for client spans and False or
+    // not provided for server spans.
+    // Optional
+    bool client_span = 9;
 }

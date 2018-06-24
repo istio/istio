@@ -82,7 +82,8 @@ var tests = []struct {
 			data.InstanceCheck1,
 			data.RuleCheck1,
 		},
-		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		variety:             tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
@@ -235,7 +236,7 @@ ident                         : dest.istio-system
 			"attr.string": "bar",
 			"ident":       "dest.istio-system",
 		},
-		expectedCheckResult: adapter.CheckResult{},
+		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 attr.string                   : bar
@@ -638,8 +639,9 @@ ident                         : dest.istio-system
 			"ident":            "dest.istio-system",
 			"destination.name": "barf", // "foo*" is expected
 		},
-		variety: tpb.TEMPLATE_VARIETY_CHECK,
-		log:     ``, // log should be empty
+		variety:             tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{ValidDuration: defaultValidDuration, ValidUseCount: defaultValidUseCount},
+		log:                 ``, // log should be empty
 	},
 
 	{
@@ -653,6 +655,7 @@ ident                         : dest.istio-system
 			Name: "tcheck", ErrorAtCreateInstance: true,
 		}},
 		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		err:     "error at create instance",
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 ident                         : dest.istio-system
@@ -725,9 +728,9 @@ func TestDispatcher(t *testing.T) {
 					"ident": "dest.istio-system",
 				}
 			}
-			bag := attribute.GetFakeMutableBagForTesting(attr)
+			bag := attribute.GetMutableBagForTesting(attr)
 
-			responseBag := attribute.GetFakeMutableBagForTesting(make(map[string]interface{}))
+			responseBag := attribute.GetMutableBagForTesting(make(map[string]interface{}))
 
 			var err error
 			switch tst.variety {
@@ -770,7 +773,7 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
 
-				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
+				expectedBag := attribute.GetMutableBagForTesting(tst.responseAttrs)
 				if strings.TrimSpace(responseBag.String()) != strings.TrimSpace(expectedBag.String()) {
 					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.String(), expectedBag.String())
 				}

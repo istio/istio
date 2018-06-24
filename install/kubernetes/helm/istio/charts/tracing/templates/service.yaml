@@ -25,6 +25,10 @@ items:
   metadata:
     name: tracing
     namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
     labels:
       app: jaeger
       chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -38,4 +42,3 @@ items:
         targetPort: {{ .Values.service.uiPort }}
     selector:
       app: jaeger
-

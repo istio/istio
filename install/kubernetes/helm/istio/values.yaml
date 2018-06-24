@@ -18,21 +18,16 @@ global:
     image: proxyv2
     resources:
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
     enableCoreDump: false
-    serviceAccountName: default # used only if RBAC is not enabled
     replicaCount: 1
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -50,6 +45,14 @@ global:
     includeInboundPorts: "*"
     excludeInboundPorts: ""
     policy: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
 
   proxy_init:
     image: proxy_init
@@ -77,7 +80,7 @@ global:
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
-  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace 
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
@@ -85,11 +88,6 @@ global:
 
   # Default is 1 second
   refreshInterval: 10s
-
-  # Enable multicluster operation.  Must be set to true if multicluster operation
-  # is desired.
-  multicluster:
-    enabled: false
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -114,7 +112,6 @@ istiotesting:
 #
 ingress:
   enabled: true
-  serviceAccountName: default
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
@@ -126,8 +123,10 @@ ingress:
 #  cpu: 100m
 #  memory: 128Mi
   service:
+    annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    annotations: {}
     ports:
     - port: 80
       name: http
@@ -136,32 +135,31 @@ ingress:
       name: https
     selector:
       istio: ingress
+
 #
-# ingressgateway configuration
+# Gateways Configuration
+# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
+# You can add more gateways in addition to the defaults but make sure those are uniquely named
+# and that NodePorts are not conflicting.
+# Disable specifc gateway by setting the `enabled` to false.
 #
-ingressgateway:
+gateways:
   enabled: true
-  serviceAccountName: istio-ingressgateway-service-account
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
-  service:
-    name: istio-ingressgateway #DNS addressible
+  istio-ingressgateway:
+    enabled: true
     labels:
       istio: ingressgateway
-    #namespace: istio-system
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    resources: {}
     loadBalancerIP: ""
+    serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
       ## You can add custom gateway ports
     - port: 80
+      targetPort: 80
       name: http
       nodePort: 31380
     - port: 443
@@ -170,56 +168,35 @@ ingressgateway:
     - port: 31400
       name: tcp
       nodePort: 31400
-  deployment:
-    labels:
-      istio: ingressgateway #will be added to pods and service
-    ports:
-    - containerPort: 80
-    - containerPort: 443
-    - containerPort: 31400
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
       mountPath: /etc/istio/ingressgateway-certs
-
-#
-# egressgateway configuration
-#
-egressgateway:
-  enabled: true
-  serviceAccountName: istio-egressgateway-service-account
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
-  service:
-    name: istio-egressgateway #DNS addressible
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+  istio-egressgateway:
+    enabled: true
     labels:
       istio: egressgateway
-    #namespace: istio-system
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    resources: {}
+    serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
-      ## You can add custom gateway ports
-    - port: 80
-      name: http
-    - port: 443
-      name: https
-  deployment:
-    labels:
-      istio: egressgateway #will be added to pods and service
-    ports:
-    - containerPort: 80
-    - containerPort: 443
-  # secretVolumes: TODO
-  # - name: someName
-  #   mountPath: somePath
-  #   secretName: someName
+      - port: 80
+        name: http
+      - port: 443
+        name: https
+    secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
 
 #
 # sidecar-injector webhook configuration
@@ -241,7 +218,6 @@ sidecarInjectorWebhook:
 #
 galley:
   enabled: true
-  serviceAccountName: default
   replicaCount: 1
   image: galley
   resources: {}
@@ -257,7 +233,6 @@ galley:
 #
 mixer:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: mixer
   resources: {}
@@ -278,7 +253,6 @@ mixer:
 #
 pilot:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: pilot
   resources: {}
@@ -293,7 +267,6 @@ pilot:
 # security configuration
 #
 security:
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
   image: citadel
   resources: {}
@@ -314,6 +287,7 @@ grafana:
   replicaCount: 1
   image: grafana
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
@@ -367,6 +341,7 @@ prometheus:
     #  cpu: 100m
     #  memory: 128Mi
   service:
+    annotations: {}
     nodePort:
       enabled: false
       port: 32090
@@ -376,6 +351,7 @@ servicegraph:
   replicaCount: 1
   image: servicegraph
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 8088
@@ -414,6 +390,7 @@ tracing:
     repository: jaegertracing/all-in-one
     tag: 1.5
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
@@ -445,7 +422,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.0.Alpha
+    tag: 0.3.1.Alpha
   ingress:
     enabled: false
     ## Used to create an Ingress record.

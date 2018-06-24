@@ -29,6 +29,28 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
+// BuildHTTPRoutes produces a list of routes for the proxy
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
+	// TODO: Move all this out
+	proxyInstances, err := env.GetProxyServiceInstances(&node)
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := env.Services()
+	if err != nil {
+		return nil, err
+	}
+
+	switch node.Type {
+	case model.Sidecar:
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
+	case model.Router, model.Ingress:
+		return configgen.buildGatewayHTTPRouteConfig(env, node, proxyInstances, services, routeName)
+	}
+	return nil, nil
+}
+
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
@@ -59,11 +81,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType:    plugin.ListenerTypeHTTP,
-			Env:             &env,
-			Node:            &node,
-			ServiceInstance: instance,
-			Service:         instance.Service,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
+			ServiceInstance:  instance,
+			Service:          instance.Service,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -71,15 +93,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 	return r
 }
 
-// BuildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
+// buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
-	port := 0
+	listenerPort := 0
 	if routeName != RDSHttpProxy {
 		var err error
-		port, err = strconv.Atoi(routeName)
+		listenerPort, err = strconv.Atoi(routeName)
 		if err != nil {
 			return nil
 		}
@@ -87,10 +109,10 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
-		if port == 0 {
+		if listenerPort == 0 {
 			nameToServiceMap[svc.Hostname] = svc
 		} else {
-			if svcPort, exists := svc.Ports.GetByPort(port); exists {
+			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 				nameToServiceMap[svc.Hostname] = &model.Service{
 					Hostname:     svc.Hostname,
 					Address:      svc.Address,
@@ -111,45 +133,45 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	// Get list of virtual services bound to the mesh gateway
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := env.VirtualServices(meshGateway)
-	guardedHosts := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
-	for _, guardedHost := range guardedHosts {
-		// If none of the routes matched by source, skip this guarded host
-		if len(guardedHost.Routes) == 0 {
+	for _, virtualHostWrapper := range virtualHostWrappers {
+		// If none of the routes matched by source, skip this virtual host
+		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
 
-		virtualHosts := make([]route.VirtualHost, 0, len(guardedHost.Hosts)+len(guardedHost.Services))
-		for _, host := range guardedHost.Hosts {
+		virtualHosts := make([]route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
 				Domains: []string{host},
-				Routes:  guardedHost.Routes,
+				Routes:  virtualHostWrapper.Routes,
 			})
 		}
 
-		for _, svc := range guardedHost.Services {
+		for _, svc := range virtualHostWrapper.Services {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
-				Name:    fmt.Sprintf("%s:%d", svc.Hostname, guardedHost.Port),
-				Domains: buildVirtualHostDomains(svc, guardedHost.Port, node),
-				Routes:  guardedHost.Routes,
+				Name:    fmt.Sprintf("%s:%d", svc.Hostname, virtualHostWrapper.Port),
+				Domains: generateVirtualHostDomains(svc, virtualHostWrapper.Port, node),
+				Routes:  virtualHostWrapper.Routes,
 			})
 		}
 
-		vHostPortMap[guardedHost.Port] = append(vHostPortMap[guardedHost.Port], virtualHosts...)
+		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
 	var virtualHosts []route.VirtualHost
 	if routeName == RDSHttpProxy {
 		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
-		virtualHosts = vHostPortMap[port]
+		virtualHosts = vHostPortMap[listenerPort]
 	}
 
 	util.SortVirtualHosts(virtualHosts)
 	out := &xdsapi.RouteConfiguration{
-		Name:             fmt.Sprintf("%d", port),
+		Name:             routeName,
 		VirtualHosts:     virtualHosts,
 		ValidateClusters: &types.BoolValue{Value: false},
 	}
@@ -157,9 +179,9 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	// call plugins
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType: plugin.ListenerTypeHTTP,
-			Env:          &env,
-			Node:         &node,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
@@ -167,9 +189,9 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	return out
 }
 
-// buildVirtualHostDomains generates the set of domain matches for a service being accessed from
+// generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func buildVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
+func generateVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
 	domains := []string{service.Hostname.String(), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(service.Hostname.String(), port, node.Domain)...)
 
@@ -228,7 +250,7 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 }
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
-// virtual hosts without an explicit port suffix (IP:PORT) should be stripped
+// virtual hosts without an explicit port suffix (IP:PORT) should not be added
 func mergeAllVirtualHosts(vHostPortMap map[int][]route.VirtualHost) []route.VirtualHost {
 	var virtualHosts []route.VirtualHost
 	for p, vhosts := range vHostPortMap {

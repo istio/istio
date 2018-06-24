@@ -15,11 +15,11 @@
 #   limitations under the License.
 
 
-#######################################
-#                                     #
-#             e2e-bookInfoTests       #
-#                                     #
-#######################################
+################################################
+#                                              #
+#             e2e-bookInfoTests (v1alpha3)     #
+#                                              #
+################################################
 
 # Exit immediately for non zero status
 set -e
@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running bookinfo test with rbac, auth Tests'
-./prow/e2e-suite.sh --auth_enable --single_test e2e_bookinfo --installer helm "$@"
+./prow/e2e-suite.sh --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"

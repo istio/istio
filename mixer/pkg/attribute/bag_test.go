@@ -765,16 +765,35 @@ func TestGlobalWordCount(t *testing.T) {
 	}
 }
 
-func TestFakeMutableBag(t *testing.T) {
+func TestMutableBagForTesting(t *testing.T) {
 	m := map[string]interface{}{
 		"A": 1,
 		"B": 2,
 	}
 
-	mb := GetFakeMutableBagForTesting(m)
+	mb := GetMutableBagForTesting(m)
 	if v, found := mb.Get("A"); !found {
 		t.Errorf("Didn't find A")
 	} else if v.(int) != 1 {
+		t.Errorf("Got %d, expecting 1", v.(int))
+	}
+}
+
+func TestToProtoForTesting(t *testing.T) {
+	m := map[string]interface{}{
+		"A": 1.0,
+		"B": 2.0,
+	}
+
+	ca := GetProtoForTesting(m)
+	b, err := GetBagFromProto(ca, nil)
+	if err != nil {
+		t.Errorf("Expecting success, got %v", err)
+	}
+
+	if v, found := b.Get("A"); !found {
+		t.Errorf("Didn't find A")
+	} else if v.(float64) != 1.0 {
 		t.Errorf("Got %d, expecting 1", v.(int))
 	}
 }

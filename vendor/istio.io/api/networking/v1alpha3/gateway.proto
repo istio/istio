@@ -48,7 +48,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - uk.bookinfo.com
 //     - eu.bookinfo.com
 //     tls:
-//       httpsRedirect: true # sends 302 redirect for http requests
+//       httpsRedirect: true # sends 301 redirect for http requests
 //   - port:
 //       number: 443
 //       name: https
@@ -110,7 +110,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 7777
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //   - match:
 //       uri:
 //         prefix: /reviews/
@@ -118,10 +118,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - destination:
 //         port:
 //           number: 9080 # can be omitted if its the only port for reviews
-//         name: reviews.prod.svc.cluster.local
+//         host: reviews.prod.svc.cluster.local
 //       weight: 80
 //     - destination:
-//         name: reviews.qa.svc.cluster.local
+//         host: reviews.qa.svc.cluster.local
 //       weight: 20
 // ```
 //
@@ -142,18 +142,19 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   - my-gateway
 //   tcp:
 //   - match:
-//     - port:
-//         number: 27017
+//     - port: 27017
 //       sourceSubnet: "172.17.16.0/24"
 //     route:
 //     - destination:
-//         name: mongo.prod.svc.cluster.local
+//         host: mongo.prod.svc.cluster.local
+//         port:
+//           number: 5555
 // ```
 message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
 
-  // One or more labels that indicate a specific set of pods/VMs
+  // REQUIRED: One or more labels that indicate a specific set of pods/VMs
   // on which this gateway configuration should be applied.
   // The scope of label search is platform dependent.
   // On Kubernetes, for example, the scope includes pods running in
@@ -244,7 +245,7 @@ message Server {
   repeated string hosts = 2;
 
   message TLSOptions {
-    // If set to true, the load balancer will send a 302 redirect for all
+    // If set to true, the load balancer will send a 301 redirect for all
     // http connections, asking the clients to use HTTPS.
     bool https_redirect = 1;
 
@@ -297,8 +298,8 @@ message Port {
   uint32 number = 1;
 
   // REQUIRED: The protocol exposed on the port.
-  // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TCP-TLS.
-  // TCP-TLS is used to indicate secure connections to non HTTP services.
+  // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
+  // TLS is used to indicate secure connections to non HTTP services.
   string protocol = 2;
 
   // Label assigned to the port.
