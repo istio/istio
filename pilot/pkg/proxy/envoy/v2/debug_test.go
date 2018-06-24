@@ -33,8 +33,8 @@ func Test_Syncz(t *testing.T) {
 		defer adsstr.CloseSend()
 
 		// Need to send two of each so that the second sends an Ack that is picked up
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, app3Ip, adsstr)
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, app3Ip, adsstr)
+		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
+		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
 		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
 		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
 		sendLDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
@@ -55,8 +55,8 @@ func Test_Syncz(t *testing.T) {
 		adsstr := connectADS(t, util.MockPilotGrpcAddr)
 		defer adsstr.CloseSend()
 
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, app3Ip, adsstr)
-		sendEDSNack(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, app3Ip, adsstr)
+		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
+		sendEDSNack(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
 		sendCDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
 		sendCDSNack(t, sidecarId(app3Ip, "syncApp2"), adsstr)
 		sendLDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
@@ -123,6 +123,6 @@ func verifySyncStatus(t *testing.T, gotStatus []v2.SyncStatus, nodeID string, wa
 			}
 			return
 		}
-		t.Errorf("node id %v not found", nodeID)
 	}
+	t.Errorf("node id %v not found", nodeID)
 }
