@@ -21,6 +21,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
@@ -66,4 +67,27 @@ func (c *ConfigWriter) genericPrinter(configKey string) error {
 		return fmt.Errorf("unable to marshal %v in Envoy config dump", configKey)
 	}
 	return nil
+}
+
+// protoMessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes correctly
+type protoMessageSlice []interface{}
+
+func (pSLice protoMessageSlice) MarshalJSON() ([]byte, error) {
+	buffer := bytes.NewBufferString("[")
+	sliceLength := len(pSLice)
+	jsonm := &jsonpb.Marshaler{}
+	for index, msg := range pSLice {
+		p, ok := msg.(proto.Message)
+		if !ok {
+			return nil, fmt.Errorf("object at index %v doesn't statisfy proto.Message interface", index)
+		}
+		if err := jsonm.Marshal(buffer, p); err != nil {
+			return nil, err
+		}
+		if index < sliceLength-1 {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString("]")
+	return buffer.Bytes(), nil
 }

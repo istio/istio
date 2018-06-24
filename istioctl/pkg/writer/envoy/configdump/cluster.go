@@ -15,6 +15,7 @@
 package configdump
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,7 +23,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/jsonpb"
 	proto "github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -89,15 +89,17 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	filteredClusters := protoMessageSlice{}
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
-			if err := jsonm.Marshal(c.Stdout, cluster); err != nil {
-				return fmt.Errorf("unable to marshal clusters")
-			}
-			fmt.Fprint(c.Stdout, "\n")
+			filteredClusters = append(filteredClusters, cluster)
 		}
 	}
+	out, err := json.MarshalIndent(filteredClusters, "", "    ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 

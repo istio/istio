@@ -88,19 +88,19 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 		{
 			name:           "display all clusters when no filter is passed",
 			filter:         ClusterFilter{},
-			wantOutputFile: "testdata/clusterdump.txt",
+			wantOutputFile: "testdata/clusterdump.json",
 			callPrime:      true,
 		},
 		{
 			name:           "filter clusters in the dump",
 			filter:         ClusterFilter{FQDN: "istio-policy.istio-system.svc.cluster.local"},
-			wantOutputFile: "testdata/clusterdumpfiltered.txt",
+			wantOutputFile: "testdata/clusterdumpfiltered.json",
 			callPrime:      true,
 		},
 		{
 			name:           "handles port filtering",
 			filter:         ClusterFilter{Port: 15004},
-			wantOutputFile: "testdata/clusterdumpfiltered.txt",
+			wantOutputFile: "testdata/clusterdumpfiltered.json",
 			callPrime:      true,
 		},
 		{

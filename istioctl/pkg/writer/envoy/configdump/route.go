@@ -15,6 +15,7 @@
 package configdump
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -22,7 +23,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/jsonpb"
 	proto "github.com/gogo/protobuf/types"
 )
 
@@ -61,26 +61,28 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	if err != nil {
 		return err
 	}
-	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	filteredRoutes := protoMessageSlice{}
 	for _, route := range routes {
 		if filter.Verify(route) {
-			if err := jsonm.Marshal(c.Stdout, route); err != nil {
-				return fmt.Errorf("unable to marshal routes")
-			}
-			fmt.Fprint(c.Stdout, "\n")
+			filteredRoutes = append(filteredRoutes, route)
 		}
 	}
+	out, err := json.MarshalIndent(filteredRoutes, "", "    ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 
 func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*xdsapi.RouteConfiguration, error) {
-	clusters, err := c.retrieveSortedRouteSlice()
+	routes, err := c.retrieveSortedRouteSlice()
 	if err != nil {
 		return nil, nil, err
 	}
 	w := new(tabwriter.Writer)
 	w.Init(c.Stdout, 0, 8, 5, ' ', 0)
-	return w, clusters, nil
+	return w, routes, nil
 }
 
 func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration, error) {

@@ -79,17 +79,16 @@ func TestConfigWriter_PrintRouteDump(t *testing.T) {
 		callPrime      bool
 		wantErr        bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "display all routes when no filter is passed",
-		// 	filter:         RouteFilter{},
-		// 	wantOutputFile: "testdata/routedump.txt",
-		// 	callPrime:      true,
-		// },
+		{
+			name:           "display all routes when no filter is passed",
+			filter:         RouteFilter{},
+			wantOutputFile: "testdata/routedump.json",
+			callPrime:      true,
+		},
 		{
 			name:           "filter routes in the dump",
 			filter:         RouteFilter{Name: "15004"},
-			wantOutputFile: "testdata/routedumpfiltered.txt",
+			wantOutputFile: "testdata/routedumpfiltered.json",
 			callPrime:      true,
 		},
 		{

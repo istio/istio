@@ -15,13 +15,13 @@
 package configdump
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gogo/protobuf/jsonpb"
 	proto "github.com/gogo/protobuf/types"
 )
 
@@ -102,15 +102,17 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	if err != nil {
 		return err
 	}
-	jsonm := &jsonpb.Marshaler{Indent: "    "}
+	filteredListeners := protoMessageSlice{}
 	for _, listener := range listeners {
 		if filter.Verify(listener) {
-			if err := jsonm.Marshal(c.Stdout, listener); err != nil {
-				return fmt.Errorf("unable to marshal listener")
-			}
-			fmt.Fprint(c.Stdout, "\n")
+			filteredListeners = append(filteredListeners, listener)
 		}
 	}
+	out, err := json.MarshalIndent(filteredListeners, "", "    ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(c.Stdout, string(out))
 	return nil
 }
 

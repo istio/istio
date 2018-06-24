@@ -102,7 +102,7 @@
                                     {
                                         "name": "envoy.http_connection_manager",
                                         "config": {
-                                            "stat_prefix": "0.0.0.0_8080",
+                                            "stat_prefix": "http",
                                             "use_remote_address": false,
                                             "generate_request_id": true,
                                             "access_log": [

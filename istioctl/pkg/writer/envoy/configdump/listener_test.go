@@ -91,31 +91,30 @@ func TestConfigWriter_PrintListenerDump(t *testing.T) {
 		callPrime      bool
 		wantErr        bool
 	}{
-		// TODO: Turn on when protobuf bug is resolved - https://github.com/golang/protobuf/issues/632
-		// {
-		// 	name:           "display all listeners when no filter is passed",
-		// 	filter:         ListenerFilter{},
-		// 	wantOutputFile: "testdata/listenerdump.txt",
-		// 	callPrime:      true,
-		// },
-		// {
-		// 	name:           "filter listeners in the dump",
-		// 	filter:         ListenerFilter{Address: "172.21.134.116"},
-		// 	wantOutputFile: "testdata/listenerdumpfiltered.txt",
-		// 	callPrime:      true,
-		// },
-		// {
-		// 	name:           "handles port filtering",
-		// 	filter:         ListenerFilter{Port: 443},
-		// 	wantOutputFile: "testdata/listenerdumpfiltered.txt",
-		// 	callPrime:      true,
-		// },
-		// {
-		// 	name:           "handles type filtering",
-		// 	filter:         ListenerFilter{Type: "TCP"},
-		// 	wantOutputFile: "testdata/listenerdumpfiltered.txt",
-		// 	callPrime:      true,
-		// },
+		{
+			name:           "display all listeners when no filter is passed",
+			filter:         ListenerFilter{},
+			wantOutputFile: "testdata/listenerdump.json",
+			callPrime:      true,
+		},
+		{
+			name:           "filter listeners in the dump",
+			filter:         ListenerFilter{Address: "172.21.134.116"},
+			wantOutputFile: "testdata/listenerdumpfiltered.json",
+			callPrime:      true,
+		},
+		{
+			name:           "handles port filtering",
+			filter:         ListenerFilter{Port: 443},
+			wantOutputFile: "testdata/listenerdumpfiltered.json",
+			callPrime:      true,
+		},
+		{
+			name:           "handles type filtering",
+			filter:         ListenerFilter{Type: "TCP"},
+			wantOutputFile: "testdata/listenerdumpfiltered.json",
+			callPrime:      true,
+		},
 		{
 			name:      "errors if config writer is not primed",
 			callPrime: false,
