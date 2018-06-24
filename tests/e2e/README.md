@@ -76,8 +76,8 @@ Writing new tests doesn't require knowledge of the framework.
 - framework.go: `Cleanable` is a interface defined with setup() and teardown(). While initialization, framework calls setup() from all registered cleanable
 structures and calls teardown() while framework cleanup. The cleanable register works like a stack, first setup, last teardown.
 
-- kubernetes.go: `KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in store at
-[install/kubernetes/templates](../../install/kubernetes/templates) and will finally use all-in-one yaml [istio.yaml](../../install/kubernetes/istio.yaml)
+- kubernetes.go: `KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in Helm charts
+[install/kubernetes/helm](../../install/kubernetes/helm) and will finally use all-in-one yaml [istio.yaml](../../install/kubernetes/istio.yaml)
 
 - appManager.go: gather apps required for test into a array and deploy them while setup()
 
