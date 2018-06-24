@@ -21,8 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
@@ -126,6 +124,5 @@ func verifySyncStatus(t *testing.T, gotStatus []v2.SyncStatus, nodeID string, wa
 			return
 		}
 		t.Errorf("node id %v not found", nodeID)
-		spew.Dump(ss)
 	}
 }
