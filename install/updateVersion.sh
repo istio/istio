@@ -22,6 +22,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 
 cd ${ROOT}
 
+${ROOT}/install/init.sh "$@"
+
 echo "$@"
 
 DEST_DIR=${ROOT}
