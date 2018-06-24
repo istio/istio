@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
@@ -212,6 +213,50 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (conn *XdsConnection) configDump() (*adminapi.ConfigDump, error) {
+	configDump := &adminapi.ConfigDump{}
+
+	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
+	for _, cs := range conn.HTTPClusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["clusters"] = *clustersAny
+
+	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
+	for _, cs := range conn.HTTPListeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["listeners"] = *listenersAny
+
+	dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+	for _, rs := range conn.RouteConfigs {
+		dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+	}
+	routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["routes"] = *routeConfigAny
+
+	return configDump, nil
 }
 
 // XdsEvent represents a config or registry event that results in a push.

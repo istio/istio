@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,6 +64,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
+	mux.HandleFunc("/debug/config_dump", ConfigDump)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -566,47 +568,42 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
-
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		writeADSForSidecar(w, proxyID)
-		return
-	}
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-	connections, ok := adsSidecarIDConnectionsMap[proxyID]
-	if !ok {
-		w.WriteHeader(404)
+// ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
+// The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
+// should look like according to Pilot vs what it currently does look like.
+func ConfigDump(w http.ResponseWriter, req *http.Request) {
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		jsonm := &jsonpb.Marshaler{Indent: "    "}
+		buffer := &bytes.Buffer{}
+		// TODO: dump a map[connID]ConfigDump instead
+		for _, conn := range connections {
+			dump, err := conn.configDump()
+			handleIfError(w, http.StatusInternalServerError, err)
+			handleIfError(w, http.StatusInternalServerError, jsonm.Marshal(buffer, dump))
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(buffer.Bytes())
 		return
 	}
-	for _, conn := range connections {
-		for _, ls := range conn.HTTPListeners {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(ls)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
-		for _, rt := range conn.RouteConfigs {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(rt)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
-		for _, cs := range conn.HTTPClusters {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cs)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+func handleIfError(w http.ResponseWriter, statusCode int, err error) {
+	if err != nil {
+		w.WriteHeader(statusCode)
+		w.Write([]byte(err.Error()))
 	}
 }
 
