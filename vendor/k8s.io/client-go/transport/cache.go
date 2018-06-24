@@ -31,12 +31,29 @@ import (
 // the config has no custom TLS options, http.DefaultTransport is returned.
 type tlsTransportCache struct {
 	mu         sync.Mutex
-	transports map[string]*http.Transport
+	transports map[tlsCacheKey]*http.Transport
 }
 
 const idleConnsPerHost = 25
 
-var tlsCache = &tlsTransportCache{transports: make(map[string]*http.Transport)}
+var tlsCache = &tlsTransportCache{transports: make(map[tlsCacheKey]*http.Transport)}
+
+type tlsCacheKey struct {
+	insecure   bool
+	caData     string
+	certData   string
+	keyData    string
+	serverName string
+	dial       string
+}
+
+func (t tlsCacheKey) String() string {
+	keyText := "<none>"
+	if len(t.keyData) > 0 {
+		keyText = "<redacted>"
+	}
+	return fmt.Sprintf("insecure:%v, caData:%#v, certData:%#v, keyData:%s, serverName:%s, dial:%s", t.insecure, t.caData, t.certData, keyText, t.serverName, t.dial)
+}
 
 func (c *tlsTransportCache) get(config *Config) (http.RoundTripper, error) {
 	key, err := tlsConfigKey(config)
@@ -59,7 +76,7 @@ func (c *tlsTransportCache) get(config *Config) (http.RoundTripper, error) {
 		return nil, err
 	}
 	// The options didn't require a custom TLS config
-	if tlsConfig == nil {
+	if tlsConfig == nil && config.Dial == nil {
 		return http.DefaultTransport, nil
 	}
 
@@ -82,11 +99,17 @@ func (c *tlsTransportCache) get(config *Config) (http.RoundTripper, error) {
 }
 
 // tlsConfigKey returns a unique key for tls.Config objects returned from TLSConfigFor
-func tlsConfigKey(c *Config) (string, error) {
+func tlsConfigKey(c *Config) (tlsCacheKey, error) {
 	// Make sure ca/key/cert content is loaded
 	if err := loadTLSFiles(c); err != nil {
-		return "", err
+		return tlsCacheKey{}, err
 	}
-	// Only include the things that actually affect the tls.Config
-	return fmt.Sprintf("%v/%x/%x/%x/%v", c.TLS.Insecure, c.TLS.CAData, c.TLS.CertData, c.TLS.KeyData, c.TLS.ServerName), nil
+	return tlsCacheKey{
+		insecure:   c.TLS.Insecure,
+		caData:     string(c.TLS.CAData),
+		certData:   string(c.TLS.CertData),
+		keyData:    string(c.TLS.KeyData),
+		serverName: c.TLS.ServerName,
+		dial:       fmt.Sprintf("%p", c.Dial),
+	}, nil
 }
