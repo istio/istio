@@ -60,7 +60,7 @@
       }
     ]
   },
-  "editable": true,
+  "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
@@ -976,7 +976,7 @@
           "refId": "E"
         },
         {
-          "expr": "label_replace(sum(irate(istio_request_count{response_code!~\"5.*\"}[1m])) by (destination_service)/ sum(irate(istio_request_count[1m]) > 0) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
+          "expr": "label_replace(sum(irate(istio_request_count{response_code!~\"5.*\"}[1m])) by (destination_service)/ sum(irate(istio_request_count[1m]) > bool 0) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
           "format": "table",
           "instant": true,
           "interval": "",
