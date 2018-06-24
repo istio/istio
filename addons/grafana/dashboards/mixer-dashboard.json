@@ -14,25 +14,25 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.0.0-beta2"
+      "version": "5.0.4"
     },
     {
       "type": "panel",
       "id": "graph",
       "name": "Graph",
-      "version": ""
+      "version": "5.0.0"
     },
     {
       "type": "datasource",
       "id": "prometheus",
       "name": "Prometheus",
-      "version": "1.0.0"
+      "version": "5.0.0"
     },
     {
       "type": "panel",
       "id": "text",
       "name": "Text",
-      "version": ""
+      "version": "5.0.0"
     }
   ],
   "annotations": {
@@ -52,7 +52,7 @@
   "gnetId": null,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1520470122238,
+  "iteration": 1529808982599,
   "links": [],
   "panels": [
     {
@@ -534,20 +534,6 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(envoy_cluster_mixer_check_server_upstream_rq_total[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "envoy (Check)",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(envoy_cluster_mixer_report_server_upstream_rq_total[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "envoy (Report)",
-          "refId": "D"
-        },
-        {
           "expr": "sum(rate(grpc_server_handled_total[1m]))",
           "format": "time_series",
           "hide": false,
@@ -556,7 +542,7 @@
           "refId": "B"
         },
         {
-          "expr": "rate(grpc_server_handled_total[1m])",
+          "expr": "sum(rate(grpc_server_handled_total[1m])) by (grpc_method)",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "mixer ({{ grpc_method }})",
@@ -640,20 +626,6 @@
       "stack": false,
       "steppedLine": false,
       "targets": [
-        {
-          "expr": "envoy_cluster_mixer_check_server_upstream_rq_time",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ quantile }} (envoy Check)",
-          "refId": "A"
-        },
-        {
-          "expr": "envoy_cluster_mixer_report_server_upstream_rq_time",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ quantile }} (envoy Report)",
-          "refId": "E"
-        },
         {
           "expr": "histogram_quantile(0.5, sum(rate(grpc_server_handling_seconds_bucket{}[1m])) by (grpc_method, le)) * 1000",
           "format": "time_series",
@@ -749,20 +721,6 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(envoy_cluster_mixer_check_server_upstream_rq_5xx[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Envoy Check",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(envoy_cluster_mixer_report_server_upstream_rq_5xx[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Envoy Report",
-          "refId": "C"
-        },
-        {
           "expr": "sum(rate(grpc_server_handled_total{grpc_code=~\"Unknown|Unimplemented|Internal|DataLoss\"}[1m])) by (grpc_method)",
           "format": "time_series",
           "intervalFactor": 2,
@@ -843,20 +801,6 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(envoy_cluster_mixer_check_server_upstream_rq_4xx[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Envoy Check",
-          "refId": "A"
-        },
-        {
-          "expr": "irate(envoy_cluster_mixer_report_server_upstream_rq_4xx[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Envoy Report",
-          "refId": "C"
-        },
-        {
           "expr": "sum(irate(grpc_server_handled_total{grpc_code!=\"OK\",grpc_service=~\".*Mixer\"}[1m])) by (grpc_method)",
           "format": "time_series",
           "intervalFactor": 2,
@@ -901,419 +845,12 @@
       ]
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 0,
-        "y": 19
-      },
-      "id": 10,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "envoy_cluster_mixer_check_server_upstream_cx_active",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Active  (mixer_check_server)",
-          "refId": "B"
-        },
-        {
-          "expr": "envoy_cluster_mixer_report_server_upstream_cx_active",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Active  (mixer_report_server)",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Connections",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 6,
-        "y": 19
-      },
-      "id": 1,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "envoy_cluster_mixer_check_server_membership_healthy",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "Healthy (mixer_check_server)",
-          "refId": "A"
-        },
-        {
-          "expr": "envoy_cluster_mixer_check_server_membership_total",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "Total (mixer_check_server)",
-          "refId": "B"
-        },
-        {
-          "expr": "envoy_cluster_mixer_report_server_membership_healthy",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "Healthy (mixer_report_server)",
-          "refId": "C"
-        },
-        {
-          "expr": "envoy_cluster_mixer_report_server_membership_total",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 2,
-          "legendFormat": "Total (mixer_report_server)",
-          "refId": "D"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Cluster Membership",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 12,
-        "y": 19
-      },
-      "id": 35,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "rate(envoy_cluster_mixer_check_server_outlier_detection_ejections_enforced_total[1m])",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Total Ejections (mixer_check_server)",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(envoy_cluster_mixer_check_server_outlier_detection_ejections_overflow[1m])",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Overflow Ejections (mixer_check_server)",
-          "refId": "B"
-        },
-        {
-          "expr": "envoy_cluster_mixer_check_server_outlier_detection_ejections_active",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Active Ejections (mixer_check_server)",
-          "refId": "C"
-        },
-        {
-          "expr": "rate(envoy_cluster_mixer_report_server_outlier_detection_ejections_enforced_total[1m])",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Total Ejections (mixer_report_server)",
-          "refId": "D"
-        },
-        {
-          "expr": "rate(envoy_cluster_mixer_report_server_outlier_detection_ejections_overflow[1m])",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Overflow Ejections (mixer_report_server)",
-          "refId": "E"
-        },
-        {
-          "expr": "envoy_cluster_mixer_report_server_outlier_detection_ejections_active",
-          "format": "time_series",
-          "instant": false,
-          "intervalFactor": 2,
-          "legendFormat": "Active Ejections (mixer_report_server)",
-          "refId": "F"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Outliers",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 18,
-        "y": 19
-      },
-      "id": 36,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "irate(envoy_cluster_mixer_check_server_upstream_rq_retry[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Total (mixer_check_server)",
-          "refId": "A"
-        },
-        {
-          "expr": "irate(envoy_cluster_mixer_check_server_upstream_rq_retry_success[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Success  (mixer_check_server)",
-          "refId": "B"
-        },
-        {
-          "expr": "irate(envoy_cluster_mixer_check_server_upstream_rq_retry_overflow[1m])",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "Overflow  (mixer_check_server)",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Client Retries",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ]
-    },
-    {
       "content": "<center><h2>Adapters and Config</h2></center>",
       "gridPos": {
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 19
       },
       "id": 28,
       "links": [],
@@ -1333,7 +870,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 22
       },
       "id": 13,
       "legend": {
@@ -1413,7 +950,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 22
       },
       "id": 14,
       "legend": {
@@ -1507,7 +1044,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 36
+        "y": 29
       },
       "id": 60,
       "legend": {
@@ -1608,7 +1145,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 36
+        "y": 29
       },
       "id": 56,
       "legend": {
@@ -1688,7 +1225,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 36
+        "y": 29
       },
       "id": 54,
       "legend": {
@@ -1768,7 +1305,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 36
+        "y": 29
       },
       "id": 58,
       "legend": {
@@ -1844,7 +1381,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 36
       },
       "id": 23,
       "links": [],
@@ -1859,7 +1396,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 39
       },
       "id": 46,
       "panels": [],
@@ -1878,7 +1415,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 40
       },
       "id": 17,
       "legend": {
@@ -1958,7 +1495,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 47
+        "y": 40
       },
       "id": 18,
       "legend": {
@@ -2071,8 +1608,8 @@
     ]
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "now/d",
+    "to": "now/d"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -2102,5 +1639,5 @@
   "timezone": "",
   "title": "Mixer Dashboard",
   "uid": "2",
-  "version": 9
+  "version": 3
 }
