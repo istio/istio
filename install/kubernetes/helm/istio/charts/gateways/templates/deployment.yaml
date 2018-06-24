@@ -105,7 +105,7 @@ spec:
       - name: istio-certs
         secret:
 {{- if $.Values.global.rbacEnabled }}
-          secretName: istio.istio-{{ $key }}-service-account
+          secretName: istio.{{ $key }}-service-account
 {{- else }}
           secretName: istio.default
 {{- end }}
