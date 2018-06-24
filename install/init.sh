@@ -108,17 +108,17 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
 fi
 
 # handle PROXY_DEBUG conversion to proxy_debug or proxy image
-PROXY_IMAGE="proxy"
-if [[ "${PROXY_DEBUG}" == "true" ]]; then
-    echo "# Use proxy_debug image"
-    PROXY_IMAGE="proxy_debug"
-fi
+# PROXY_IMAGE="proxy"
+# if [[ "${PROXY_DEBUG}" == "true" ]]; then
+#     echo "# Use proxy_debug image"
+#     PROXY_IMAGE="proxy_debug"
+# fi
 
-function error_exit() {
-  # ${BASH_SOURCE[1]} is the file name of the caller.
-  echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
-  exit ${2:-1}
-}
+# function error_exit() {
+#   # ${BASH_SOURCE[1]} is the file name of the caller.
+#   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
+#   exit ${2:-1}
+# }
 
 #
 # In-place portable sed operation
@@ -269,27 +269,27 @@ function update_helm_version() {
 #   popd
 # }
 
-# function update_istio_addons() {
-#   DEST=$DEST_DIR/install/kubernetes/addons
-#   mkdir -p $DEST
-#   pushd $TEMP_DIR/templates/addons
-#   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
-#   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
-#   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
-#   popd
-# }
-
-function update_istio_install_docker() {
-  pushd $TEMP_DIR/templates
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+function update_istio_addons() {
+  DEST=$DEST_DIR/install/kubernetes/addons
+  mkdir -p $DEST
+  pushd $TEMP_DIR/templates/addons
+  # execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
+  # sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
+  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
   popd
 }
+
+# function update_istio_install_docker() {
+#   pushd $TEMP_DIR/templates
+#   execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+#   execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+#   popd
+# }
 
 # Generated merge yaml files for easy installation
 function merge_files_docker() {
   TYPE=$1
-  #SRC=$TEMP_DIR/templates
+  SRC=$TEMP_DIR/templates
 
   # Merge istio.yaml install file
   INSTALL_DEST=$DEST_DIR/install/$TYPE
@@ -318,20 +318,20 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
   cp -R $ROOT/samples $DEST_DIR/
 fi
 
-# mkdir -p $TEMP_DIR/templates
-# cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
+mkdir -p $TEMP_DIR/templates
+cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
 update_version_file
 update_helm_version
 # update_istio_install
-# update_istio_addons
+update_istio_addons
 #merge_files
 # rm -R $TEMP_DIR/templates
 
-for platform in consul eureka
-do
-    cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
-    cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
-    update_istio_install_docker
-    merge_files_docker $platform
-    rm -R $TEMP_DIR/templates
-done
+# for platform in consul eureka
+# do
+#     cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
+#     cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+#     update_istio_install_docker
+#     merge_files_docker $platform
+#     rm -R $TEMP_DIR/templates
+# done
