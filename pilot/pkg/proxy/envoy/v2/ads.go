@@ -381,7 +381,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
 						con.EndpointNonceAcked = discReq.ResponseNonce
 						if len(edsClusters) != 0 {
-							con.EndpointPercent = (len(clusters) / len(edsClusters)) * 100
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 						}
 					}
 					continue
