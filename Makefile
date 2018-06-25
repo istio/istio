@@ -331,7 +331,7 @@ $(SECURITY_GO_BINS):
 
 .PHONY: build
 # Build will rebuild the go binaries.
-build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent nodeagent_k8s istio_ca istioctl gals
+build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent nodeagent_k8s istio_ca istioctl galley
 
 # The following are convenience aliases for most of the go targets
 # The first block is for aliases that are the same as the actual binary,
