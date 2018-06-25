@@ -22,7 +22,7 @@ import (
 
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
+	"istio.io/istio/pkg/kube"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"
@@ -34,7 +34,6 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 )
@@ -58,7 +57,7 @@ func createMixerValidator() (store.BackendValidator, error) {
 // values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
 // TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
 func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, webhookNames []string) error {
-	client, err := createClientset(flags.kubeConfig)
+	client, err := kube.CreateClientset(flags.kubeConfig, "")
 	if err != nil {
 		return err
 	}
@@ -100,14 +99,6 @@ func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, w
 	}()
 
 	return nil
-}
-
-func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
-	c, err := kube.BuildClientConfig(kubeconfigFile, "")
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(c)
 }
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {

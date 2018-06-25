@@ -26,7 +26,6 @@ import (
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
@@ -115,7 +114,7 @@ var (
 // values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
 // TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
 func patchCertLoop() error {
-	client, err := createClientset(flags.kubeconfigFile)
+	client, err := kube.CreateClientset(flags.kubeconfigFile, "")
 	if err != nil {
 		return err
 	}
@@ -156,14 +155,6 @@ func patchCertLoop() error {
 	}()
 
 	return nil
-}
-
-func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
-	c, err := kube.BuildClientConfig(kubeconfigFile, "")
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(c)
 }
 
 func init() {
