@@ -167,7 +167,7 @@ var (
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
-  istioctl proxy-config endpoint bootstrap <pod-name>
+  istioctl proxy-config bootstrap <pod-name>
 `,
 		Aliases: []string{"b"},
 		Args:    cobra.ExactArgs(1),

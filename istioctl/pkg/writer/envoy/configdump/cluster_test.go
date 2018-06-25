@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -68,10 +66,10 @@ func TestConfigWriter_PrintClusterSummary(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintClusterSummary (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintClusterSummary (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}
@@ -121,10 +119,10 @@ func TestConfigWriter_PrintClusterDump(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintClusterDump (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintClusterDump (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}

@@ -19,8 +19,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -74,10 +72,10 @@ func TestConfigWriter_PrintListenerSummary(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintListenerSummary (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintListenerSummary (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}
@@ -133,10 +131,10 @@ func TestConfigWriter_PrintListenerDump(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintListenerDump (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintListenerDump (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}

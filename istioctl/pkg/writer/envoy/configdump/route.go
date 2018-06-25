@@ -80,8 +80,7 @@ func (c *ConfigWriter) setupRouteConfigWriter() (*tabwriter.Writer, []*xdsapi.Ro
 	if err != nil {
 		return nil, nil, err
 	}
-	w := new(tabwriter.Writer)
-	w.Init(c.Stdout, 0, 8, 5, ' ', 0)
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 	return w, routes, nil
 }
 

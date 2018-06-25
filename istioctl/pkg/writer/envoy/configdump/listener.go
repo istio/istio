@@ -121,8 +121,7 @@ func (c *ConfigWriter) setupListenerConfigWriter() (*tabwriter.Writer, []*xdsapi
 	if err != nil {
 		return nil, nil, err
 	}
-	w := new(tabwriter.Writer)
-	w.Init(c.Stdout, 0, 8, 5, ' ', 0)
+	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 	return w, listeners, nil
 }
 

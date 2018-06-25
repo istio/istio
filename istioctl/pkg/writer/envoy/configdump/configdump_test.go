@@ -90,10 +90,10 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintBootstrapDump (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintBootstrapDump (%v) produced unexpected err: %v", tt.name, err)
 			}
 		})
 	}
