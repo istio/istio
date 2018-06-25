@@ -47,8 +47,8 @@ const (
 
 var (
 	tc = &testConfig{
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 
 	errAgain     = errors.New("try again")
