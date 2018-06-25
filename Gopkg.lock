@@ -887,7 +887,7 @@
     "timekeeper",
     "trace"
   ]
-  revision = "b1be94c3ec8d1fdeccd62735b851489f0b3798e0"
+  revision = "23eb012a5fd9ba184a3baa1ee092fe384a1dbf86"
   version = "v1.1.6"
 
 [[projects]]
@@ -1606,6 +1606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "70f66277068be52e07b9b2e40c6959ddae2b8708745af55a9a22cac843b99210"
+  inputs-digest = "346348e33c5dd182dfc8f81ac793dc616c8e640625bc671402d085785f030264"
   solver-name = "gps-cdcl"
   solver-version = 1
