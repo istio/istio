@@ -272,7 +272,7 @@ function update_helm_version() {
 function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
-  pushd $TEMP_DIR/templates/addons
+  pushd $TEMP_DIR/templates
   # execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   # sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
@@ -319,7 +319,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
 fi
 
 mkdir -p $TEMP_DIR/templates
-cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
+cp $ROOT/install/kubernetes/addons/* $TEMP_DIR/templates/
 update_version_file
 update_helm_version
 # update_istio_install
