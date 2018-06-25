@@ -15,6 +15,8 @@
 package version
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -27,9 +29,9 @@ func CobraCommand() *cobra.Command {
 		Short: "Prints out build version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			if short {
-				cmd.Println(Info)
+				fmt.Println(Info)
 			} else {
-				cmd.Println(Info.LongForm())
+				fmt.Println(Info.LongForm())
 			}
 		},
 	}
