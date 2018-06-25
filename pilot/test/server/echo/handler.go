@@ -1,59 +1,40 @@
-// Copyright 2017 Istio Authors
+//  Copyright 2018 Istio Authors
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
 
-// An example implementation of an echo backend.
-//
-// To test flaky HTTP service recovery, this backend has a special features.
-// If the "?codes=" query parameter is used it will return HTTP response codes other than 200
-// according to a probability distribution.
-// For example, ?codes=500:90,200:10 returns 500 90% of times and 200 10% of times
-// For example, ?codes=500:1,200:1 returns 500 50% of times and 200 50% of times
-// For example, ?codes=501:999,401:1 returns 500 99.9% of times and 401 0.1% of times.
-// For example, ?codes=500,200 returns 500 50% of times and 200 50% of times
-
-package main
+package echo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"log"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/gorilla/websocket"
-	flag "github.com/spf13/pflag"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	pb "istio.io/istio/pilot/test/grpcecho"
+	"istio.io/istio/pkg/log"
 )
 
-var (
-	ports     []int
-	grpcPorts []int
-	version   string
-
-	crt, key string
-)
+type handler struct {
+	port    int
+	version string
+}
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -61,18 +42,6 @@ var upgrader = websocket.Upgrader{
 		return true
 	},
 } //defaults
-
-func init() {
-	flag.IntSliceVar(&ports, "port", []int{8080}, "HTTP/1.1 ports")
-	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
-	flag.StringVar(&version, "version", "", "Version string")
-	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
-	flag.StringVar(&key, "key", "", "gRPC TLS server-side key")
-}
-
-type handler struct {
-	port int
-}
 
 // Imagine a pie of different flavors.
 // The flavors are the HTTP response codes.
@@ -84,7 +53,7 @@ type codeAndSlices struct {
 
 func (h handler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 
-	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Method=" + r.Method + "\n")
 	body.WriteString("URL=" + r.URL.String() + "\n")
@@ -125,7 +94,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/text")
 	if _, err := w.Write(body.Bytes()); err != nil {
-		log.Println(err.Error())
+		log.Warna(err)
 	}
 }
 
@@ -137,7 +106,7 @@ func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRespons
 			body.WriteString(key + "=" + strings.Join(vals, " ") + "\n")
 		}
 	}
-	body.WriteString("ServiceVersion=" + version + "\n")
+	body.WriteString("ServiceVersion=" + h.version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &pb.EchoResponse{Message: body.String()}, nil
@@ -151,7 +120,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// First send upgrade headers
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("websocket-echo upgrade failed:", err)
+		log.Warna("websocket-echo upgrade failed:", err)
 		return
 	}
 
@@ -161,7 +130,7 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	// ping
 	mt, message, err := c.ReadMessage()
 	if err != nil {
-		log.Println("websocket-echo read failed:", err)
+		log.Warna("websocket-echo read failed:", err)
 		return
 	}
 
@@ -169,55 +138,9 @@ func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
 	body.Write(message)
 	err = c.WriteMessage(mt, body.Bytes())
 	if err != nil {
-		log.Println("websocket-echo write failed:", err)
+		log.Warna("websocket-echo write failed:", err)
 		return
 	}
-}
-
-func runHTTP(port int) {
-	fmt.Printf("Listening HTTP1.1 on %v\n", port)
-	h := handler{port: port}
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), h); err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func runGRPC(port int) {
-	fmt.Printf("Listening GRPC on %v\n", port)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	h := handler{port: port}
-
-	var grpcServer *grpc.Server
-	if crt != "" && key != "" {
-		// Create the TLS credentials
-		creds, errCreds := credentials.NewServerTLSFromFile(crt, key)
-		if errCreds != nil {
-			log.Fatalf("could not load TLS keys: %s", errCreds)
-		}
-		grpcServer = grpc.NewServer(grpc.Creds(creds))
-	} else {
-		grpcServer = grpc.NewServer()
-	}
-	pb.RegisterEchoTestServiceServer(grpcServer, &h)
-	if err = grpcServer.Serve(lis); err != nil {
-		log.Println(err.Error())
-	}
-}
-
-func main() {
-	flag.Parse()
-	for _, port := range ports {
-		go runHTTP(port)
-	}
-	for _, grpcPort := range grpcPorts {
-		go runGRPC(grpcPort)
-	}
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
 }
 
 func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {
