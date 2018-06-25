@@ -78,6 +78,8 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.ip:
@@ -154,6 +156,8 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local                        
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.ip:

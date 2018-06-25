@@ -42,11 +42,11 @@
       }
     ]
   },
-  "editable": false,
+  "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1527789805774,
+  "iteration": 1530133251829,
   "links": [],
   "panels": [
     {
@@ -86,10 +86,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(round(sum(irate(istio_tcp_bytes_received{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "round(sum(irate(istio_tcp_received_bytes_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version}} -> {{ destination_version }}",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }}",
           "refId": "A",
           "step": 2
         }
@@ -97,7 +97,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Bytes Received",
+      "title": "Received Bytes",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -167,10 +167,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(round(sum(irate(istio_tcp_bytes_sent{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "round(sum(irate(istio_tcp_sent_bytes_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_version }} -> {{ source_service }}-{{ source_version}} ",
+          "legendFormat": "{{ destination_workload }} -> {{ source_workload }} ",
           "refId": "A",
           "step": 2
         }
@@ -224,11 +224,31 @@
         "datasource": "Prometheus",
         "hide": 0,
         "includeAll": false,
-        "label": "Service",
+        "label": "Namespace",
         "multi": false,
-        "name": "service",
+        "name": "namespace",
         "options": [],
-        "query": "label_values(istio_tcp_bytes_sent, destination_service)",
+        "query": "label_values(istio_tcp_sent_bytes_total, destination_namespace)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "Prometheus",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Workload",
+        "multi": false,
+        "name": "workload",
+        "options": [],
+        "query": "label_values(istio_tcp_sent_bytes_total{destination_namespace=~\"$namespace\"}, destination_workload)",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -270,7 +290,7 @@
     ]
   },
   "timezone": "",
-  "title": "Istio TCP Service Dashboard",
+  "title": "Istio TCP Workload Dashboard",
   "uid": "0G9AS34ik",
-  "version": 9
+  "version": 6
 }
