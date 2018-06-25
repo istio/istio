@@ -23,7 +23,6 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -470,32 +469,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 				},
 			}
 		} else {
-			refreshDuration, _ := ptypes.Duration(meshConfig.RdsRefreshDelay)
-
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
 			// tls.SubjectAltNames is set to upstreamServiceAccount for mTLS case.
-			for _, account := range tls.SubjectAltNames {
-				config := &auth.SdsSecretConfig{
-					Name: account,
-					SdsConfig: &core.ConfigSource{
-						ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-							ApiConfigSource: &core.ApiConfigSource{
-								ApiType: core.ApiConfigSource_GRPC,
-								GrpcServices: []*core.GrpcService{
-									{
-										TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-											GoogleGrpc: &core.GrpcService_GoogleGrpc{
-												TargetUri: model.DefaultMeshConfig().SdsUdsPath,
-											},
-										},
-									},
-								},
-								RefreshDelay: &refreshDuration,
-							},
-						},
-					},
-				}
-
+			for _, sa := range tls.SubjectAltNames {
+				config := model.ConstructSdsSecretConfig(sa, meshConfig)
 				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs, config)
 			}
 		}

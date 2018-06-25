@@ -17,6 +17,11 @@ package model
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -108,6 +113,50 @@ func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
 	for _, c := range cases {
 		if got := legacyAuthenticationPolicyToPolicy(c.in); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("legacyAuthenticationPolicyToPolicy(%v): got(%#v) != want(%#v)\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestConstructSdsSecretConfig(t *testing.T) {
+	refreshDelay := 15 * time.Second
+
+	cases := []struct {
+		serviceAccount string
+		meshConfig     *meshconfig.MeshConfig
+		expected       *auth.SdsSecretConfig
+	}{
+		{
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			meshConfig: &meshconfig.MeshConfig{
+				SdsUdsPath:      "/tmp/sdsuds.sock",
+				SdsRefreshDelay: ptypes.DurationProto(refreshDelay),
+			},
+			expected: &auth.SdsSecretConfig{
+				Name: "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType: core.ApiConfigSource_GRPC,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+										GoogleGrpc: &core.GrpcService_GoogleGrpc{
+											TargetUri: "/tmp/sdsuds.sock",
+										},
+									},
+								},
+							},
+							RefreshDelay: &refreshDelay,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.meshConfig); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
 }
