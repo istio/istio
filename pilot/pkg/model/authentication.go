@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/golang/protobuf/ptypes"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -52,8 +52,11 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(serviceAccount string, meshConfig *meshconfig.MeshConfig) *auth.SdsSecretConfig {
-	refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
+func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Duration, sdsUdsPath string) *auth.SdsSecretConfig {
+	if serviceAccount == "" || sdsUdsPath == "" || refreshDuration == nil {
+		return nil
+	}
+
 	return &auth.SdsSecretConfig{
 		Name: serviceAccount,
 		SdsConfig: &core.ConfigSource{
@@ -64,12 +67,12 @@ func ConstructSdsSecretConfig(serviceAccount string, meshConfig *meshconfig.Mesh
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
-									TargetUri: meshConfig.SdsUdsPath,
+									TargetUri: sdsUdsPath,
 								},
 							},
 						},
 					},
-					RefreshDelay: &refreshDuration,
+					RefreshDelay: refreshDuration,
 				},
 			},
 		},
