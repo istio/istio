@@ -274,13 +274,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				direction:        http_conn.INGRESS,
 			}
 			if listenerOpts.tlsMultiplexed {
+				// If multiplexed is needed, setup to filter chain match, one for "istio" ALPN TLS, one for default.
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
-						httpOpts:          httpOpts,
-						transportProtocol: authn.EnvoyRawBufferMatch,
+						httpOpts: httpOpts,
+						match: &listener.FilterChainMatch{
+							ApplicationProtocols: ALPNInMesh,
+						},
 					}, {
-						httpOpts:          httpOpts,
-						transportProtocol: authn.EnvoyTLSMatch,
+						httpOpts: httpOpts,
 					},
 				}
 			} else {
@@ -585,11 +587,11 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts          []string
-	transportProtocol string
-	tlsContext        *auth.DownstreamTlsContext
-	httpOpts          *httpListenerOpts
-	networkFilters    []listener.Filter
+	sniHosts       []string
+	tlsContext     *auth.DownstreamTlsContext
+	httpOpts       *httpListenerOpts
+	match          *listener.FilterChainMatch
+	networkFilters []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -688,8 +690,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	for _, chain := range opts.filterChainOpts {
-		match := &listener.FilterChainMatch{
-			TransportProtocol: chain.transportProtocol,
+		match := chain.match
+		if match == nil {
+			match = &listener.FilterChainMatch{}
 		}
 		if len(chain.sniHosts) > 0 {
 			fullWildcardFound := false
