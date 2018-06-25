@@ -92,18 +92,18 @@ e2e_simple_run: e2e_simple_auth_run
 
 e2e_simple_auth_run: out_dir
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
-	--egress=false --ingress=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_simple_noauth_run: out_dir
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
-	--egress=false --ingress=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_mixer_run: out_dir
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/mixer \
-	--egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_galley_run: out_dir
 	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
@@ -157,28 +157,39 @@ out_dir:
 
 test/local/auth/e2e_simple: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
-	--egress=false --ingress=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_simple: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
-	--egress=false --ingress=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_mixer: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/mixer \
-	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_galley: out_dir istioctl generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/galley -args \
 	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 	${CAPTURE_LOG}
 
+# v1alpha1+envoy v1 test with MTLS
+# Test runs in istio-system, using istio-auth.yaml generated config.
+# This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
+# you only changed pilot) to build.
+# Note: This test is used by CircleCI as "e2e-pilot".
+# REQUIRED TEST for V1
+test/local/auth/e2e_pilot: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
+		--auth_enable=true --egress=false --v1alpha3=false --rbac_enable=true \
+		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -186,7 +197,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -201,13 +212,13 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 
 test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
-		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
-		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+		--auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
+		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/mixer \
-	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 	${ISTIO_BIN}/go-junit-report < $(OUT_DIR)/tests/build-log.txt > $(OUT_DIR)/tests/junit.xml
