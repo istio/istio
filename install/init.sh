@@ -325,7 +325,7 @@ update_helm_version
 # update_istio_install
 update_istio_addons
 #merge_files
-# rm -R $TEMP_DIR/templates
+rm -R $TEMP_DIR/templates
 
 # for platform in consul eureka
 # do
