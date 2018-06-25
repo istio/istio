@@ -22,17 +22,17 @@ import (
 	"path/filepath"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/util"
@@ -159,8 +159,7 @@ func patchCertLoop() error {
 }
 
 func createClientset(kubeconfigFile string) (*kubernetes.Clientset, error) {
-	c, err := clientcmd.BuildConfigFromFlags("", kubeconfigFile)
-
+	c, err := kube.BuildClientConfig(kubeconfigFile, "")
 	if err != nil {
 		return nil, err
 	}
