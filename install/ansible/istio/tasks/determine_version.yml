@@ -1,8 +1,3 @@
-- name: Use specified version
-  set_fact:
-    istio_version_to_use: "{{ istio.release_tag_name }}"
-  when: istio.release_tag_name != ''
-
 - name: Set non-empty Authorization header dictionary
   set_fact:
     github_api_authorization_header:
@@ -19,7 +14,6 @@
     github_api_http_headers: "{{ default_github_api_headers | combine(github_api_authorization_header)}}"
 
 - include_tasks: determine_latest_version.yml
-  when: istio.release_tag_name == ''
 
 - name: Show Istio version to be used
   debug:
