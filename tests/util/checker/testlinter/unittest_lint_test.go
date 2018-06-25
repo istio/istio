@@ -92,3 +92,19 @@ func TestUnitTestNoGoroutineRule(t *testing.T) {
 		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
 	}
 }
+
+func TestUnitTestGlobalWhitelistRule(t *testing.T) {
+	clearLintRulesList()
+	LintRulesList[UnitTest] = []checker.Rule{
+		rules.NewSkipByIssue(),
+		rules.NewNoGoroutine(),
+		rules.NewNoSleep(),
+		rules.NewNoShort()}
+
+	rpts, _ := getReport([]string{"testdata/unit_whitelist_test.go"})
+	expectedRpts := []string{}
+
+	if !reflect.DeepEqual(rpts, expectedRpts) {
+		t.Errorf("lint reports don't match\nReceived: %v\nExpected: %v", rpts, expectedRpts)
+	}
+}

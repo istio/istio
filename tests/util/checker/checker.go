@@ -72,9 +72,9 @@ func fileCheck(path string, rules []Rule, whitelist WhitelistFactory, report *Re
 		if fn, isFn := d.(*ast.FuncDecl); isFn {
 			v.SetCurrentFuncName(fn.Name.String())
 			ast.Walk(&v, fn)
+			v.report.Sort()
 		}
 	}
-	v.report.Sort()
 }
 
 // FileVisitor visits the go file syntax tree and applies the given rules.
