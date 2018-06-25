@@ -554,6 +554,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
+				"Redis Quota Adapter Built",
 				"key: fixed-window maxAmount: 10",
 				"failed to run quota script: Error",
 			},
@@ -593,6 +594,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 				},
 			},
 			errMsg: []string{
+				"Redis Quota Adapter Built",
 				"key: fixed-window maxAmount: 10",
 				"invalid response from the redis server: [10]",
 			},
