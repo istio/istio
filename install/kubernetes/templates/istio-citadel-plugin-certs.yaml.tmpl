@@ -1,12 +1,6 @@
 ################################
-# Citadel with plug-in key/certs. Run this after istio-auth.yaml
+# Citadel with plug-in key/certs. Apply this after istio-auth.yaml
 ################################
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-citadel-service-account
-  namespace: {ISTIO_NAMESPACE}
----
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
