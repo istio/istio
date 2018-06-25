@@ -37,9 +37,7 @@ func TestHttp(t *testing.T) {
 			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
 			kubeconfig: tc.Kube.KubeConfig,
 		}
-		if tc.V1alpha3 {
-			cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-d8080.yaml.tmpl")
-		}
+		cfgs.YamlFiles = append(cfgs.YamlFiles, "testdata/authn/destination-rule-d8080.yaml.tmpl")
 		if err := cfgs.Setup(); err != nil {
 			t.Fatal(err)
 		}
