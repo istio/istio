@@ -73,6 +73,10 @@ type (
 	}
 )
 
+// ensure our types implement the requisite interfaces
+var _ quota.HandlerBuilder = &builder{}
+var _ quota.Handler = &handler{}
+
 ///////////////// Configuration Methods ///////////////
 
 func (b *builder) SetQuotaTypes(quotaTypes map[string]*quota.Type) {
@@ -236,6 +240,8 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		getTime:       time.Now,
 		dimensionHash: dimensionHash,
 	}
+
+	env.Logger().Infof("Redis Quota Adapter Built")
 
 	return h, nil
 }

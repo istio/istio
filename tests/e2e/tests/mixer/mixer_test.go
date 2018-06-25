@@ -51,6 +51,7 @@ const (
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
 	sleepYaml             = "samples/sleep/sleep"
+	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -77,6 +78,9 @@ const (
 	reportPath = "/istio.mixer.v1.Mixer/Report"
 
 	testRetryTimes = 5
+
+	redisInstallDir  = "stable/redis"
+	redisInstallName = "redis-release"
 )
 
 type testConfig struct {
@@ -86,6 +90,7 @@ type testConfig struct {
 
 var (
 	tc        *testConfig
+	mp        *promProxy
 	testFlags = &framework.TestFlags{
 		V1alpha1: false, //implies envoyv1
 		V1alpha3: true,  //implies envoyv2
@@ -107,6 +112,7 @@ var (
 	routeReviewsV3Rule       = "route-rule-reviews-v3"
 	tcpDbRule                = "route-rule-ratings-db"
 	bookinfoGateway          = "bookinfo-gateway"
+	redisQuotaRule           = "mixer-rule-ratings-redis-quota"
 
 	defaultRules []string
 	rules        []string
@@ -135,12 +141,17 @@ func (t *testConfig) Setup() (err error) {
 	drs := []*string{&routeAllRule, &bookinfoGateway}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	rsMore := []*string{&redisQuotaRule}
 	for _, dr := range drs {
-		*dr = filepath.Join(rulesDir, *dr)
+		*dr = filepath.Join(bookinfoSampleDir, rulesDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
 	for _, r := range rs {
-		*r = filepath.Join(rulesDir, *r)
+		*r = filepath.Join(bookinfoSampleDir, rulesDir, *r)
+		rules = append(rules, *r)
+	}
+	for _, r := range rsMore {
+		*r = filepath.Join(mixerTestDataDir, *r)
 		rules = append(rules, *r)
 	}
 
@@ -201,7 +212,7 @@ func copyRuleToFilesystem(t *testConfig, rule string) error {
 }
 
 func getSourceRulePath(rule string) string {
-	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
+	return util.GetResourcePath(filepath.Join(rule + "." + yamlExtension))
 }
 
 func getDestinationRulePath(t *testConfig, rule string) string {
@@ -432,7 +443,7 @@ func setTestConfig() error {
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
-	mp := newPromProxy(tc.Kube.Namespace)
+	mp = newPromProxy(tc.Kube.Namespace)
 	tc.Cleanup.RegisterCleanable(mp)
 	return nil
 }
@@ -882,25 +893,7 @@ func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults
 	return res
 }
 
-func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/6309")
-
-	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
-		fatalf(t, "Could not create replace reviews routing rule: %v", err)
-	}
-
-	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
-	if err := applyMixerRule(rateLimitRule); err != nil {
-		fatalf(t, "could not create required mixer rule: %v", err)
-	}
-	defer func() {
-		if err := deleteMixerRule(rateLimitRule); err != nil {
-			t.Logf("could not clear rule: %v", err)
-		}
-	}()
-
-	allowRuleSync()
-
+func checkQuotaLimits(t *testing.T) {
 	// setup prometheus API
 	promAPI, err := promAPI()
 	if err != nil {
@@ -1000,6 +993,67 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
+}
+
+func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		fatalf(t, "Could not create replace reviews routing rule: %v", err)
+	}
+
+	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
+	if err := applyMixerRule(rateLimitRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := deleteMixerRule(rateLimitRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	allowRuleSync()
+
+	checkQuotaLimits(t)
+}
+
+func TestRedisQuota(t *testing.T) {
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		fatalf(t, "Could not create replace reviews routing rule: %v", err)
+	}
+
+	if err := tc.Kube.DeployTiller(); err != nil {
+		fatalf(t, "Failed to deploy helm tiller.")
+	}
+
+	setValue := "--set usePassword=false,persistence.enabled=false"
+	if err := util.HelmInstall(redisInstallDir, redisInstallName, tc.Kube.Namespace, setValue); err != nil {
+		fatalf(t, "Helm install %s failed, setValue=%s", redisInstallDir, setValue)
+	}
+	defer func() {
+		if err := util.HelmDelete(redisInstallName); err != nil {
+			t.Logf("Could not delete %s: %v", redisInstallName, err)
+		}
+	}()
+
+	allowRuleSync()
+
+	log.Info("Setting up port forwarding for redis server")
+	mp.portForward("app=redis", "6379", "6379")
+
+	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
+	if err := applyMixerRule(redisQuotaRule); err != nil {
+		fatalf(t, "could not create required mixer rule: %v", err)
+	}
+	defer func() {
+		if err := deleteMixerRule(redisQuotaRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	allowRuleSync()
+
+	checkQuotaLimits(t)
 }
 
 func TestMixerReportingToMixer(t *testing.T) {

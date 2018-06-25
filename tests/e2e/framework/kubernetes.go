@@ -679,6 +679,18 @@ func (k *KubeInfo) deployIstio() error {
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
+// DeployTiller deploys tiller in Istio mesh or returns error
+func (k *KubeInfo) DeployTiller() error {
+	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
+	if *installer == "helm" {
+		return nil
+	}
+
+	yamlDir := filepath.Join(istioInstallDir+"/helm", helmServiceAccountFile)
+	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
+	return k.deployTiller(baseHelmServiceAccountYaml)
+}
+
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	// apply helm service account
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
