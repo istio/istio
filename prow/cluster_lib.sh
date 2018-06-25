@@ -21,13 +21,14 @@
 #                                     #
 #######################################
 
-PROJECT_NAME=istio-testing
-ZONE=us-central1-f
+PROJECT_NAME=${PROJECT_NAME:-istio-testing}
+ZONE=${ZONE:-us-central1-f}
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=${NUM_NODES:-1}
 CLUSTER_NAME=
 USE_GKE=${USE_GKE:-True}
 SETUP_CLUSTERREG=${SETUP_CLUSTERREG:-False}
+SA_NAMESPACE=istio-system-multi
 
 if [[ "$USE_GKE" == "True" ]]; then
   IFS=';'
@@ -44,6 +45,8 @@ CLUSTER_CREATED=false
 function gen_kubeconf_from_sa () {
     local service_account=$1
     local filename=$2
+
+    NAMESPACE=${SA_NAMESPACE:-istio-system}
 
     SERVER=$(kubectl config view --minify=true -o "jsonpath={.clusters[].cluster.server}")
     SECRET_NAME=$(kubectl get sa ${service_account} -n ${NAMESPACE} -o jsonpath='{.secrets[].name}')
@@ -78,7 +81,6 @@ function setup_clusterreg () {
     CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
 
     SERVICE_ACCOUNT=istio-multi
-    NAMESPACE=istio-system
     
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
@@ -90,9 +92,9 @@ function setup_clusterreg () {
         if [[ "$PILOT_CLUSTER" != "$context" ]]; then
             kubectl config use-context ${context}
              
-            kubectl create ns ${NAMESPACE}
-            kubectl create sa ${SERVICE_ACCOUNT} -n ${NAMESPACE}
-            kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${NAMESPACE}:${SERVICE_ACCOUNT}
+            kubectl create ns ${SA_NAMESPACE}
+            kubectl create sa ${SERVICE_ACCOUNT} -n ${SA_NAMESPACE}
+            kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${SA_NAMESPACE}:${SERVICE_ACCOUNT}
             CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
             if [[ "$CLUSTER_NAME" =~ .*"_".* ]]; then
                 # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
@@ -135,14 +137,14 @@ function setup_cluster() {
 
   if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
     ALL_CLUSTER_CIDRS=
-    for cidr in $(gcloud container clusters list --format='value(clusterIpv4Cidr)'); do
+    for cidr in $(gcloud container clusters list --project=${PROJECT_NAME} --zone=${ZONE} --format='value(clusterIpv4Cidr)'); do
       if [[ "$ALL_CLUSTER_CIDRS" != "" ]]; then
         ALL_CLUSTER_CIDRS+=','
       fi
       ALL_CLUSTER_CIDRS+=$cidr
     done
     ALL_CLUSTER_NETTAGS=
-    for net_tag in $(gcloud compute instances list --format=json | jq '.[].tags.items[0]' | tr -d '"'); do
+    for net_tag in $(gcloud compute instances list --project=${PROJECT_NAME} --format=json | jq '.[].tags.items[0]' | tr -d '"'); do
       if [[ "$ALL_CLUSTER_NETTAGS" =~ .*"$net_tag".* ]]; then
         # tag isn't unique so don't add
         echo "$net_tag isn't unique"
@@ -153,7 +155,7 @@ function setup_cluster() {
         ALL_CLUSTER_NETTAGS+=$net_tag
       fi
     done
-    gcloud compute firewall-rules create istio-multicluster-test-pods --allow=tcp,udp,icmp,esp,ah,sctp --direction=INGRESS --priority=900 --source-ranges="$ALL_CLUSTER_CIDRS" --target-tags=$ALL_CLUSTER_NETTAGS --quiet
+    gcloud compute firewall-rules create istio-multicluster-test-pods --project=${PROJECT_NAME} --allow=tcp,udp,icmp,esp,ah,sctp --direction=INGRESS --priority=900 --source-ranges="$ALL_CLUSTER_CIDRS" --target-tags=$ALL_CLUSTER_NETTAGS --quiet
   fi
 }
 
@@ -169,12 +171,12 @@ function unsetup_clusters() {
      kubectl delete clusterrolebinding prow-cluster-admin-binding 2>/dev/null
      if [[ "$SETUP_CLUSTERREG" == "True" && "$PILOT_CLUSTER" != "$context" ]]; then
         kubectl delete clusterrolebinding istio-multi 2>/dev/null
-        kubectl delete ns istio-system 2>/dev/null
+        kubectl delete ns $SA_NAMESPACE 2>/dev/null
      fi
   done
   kubectl config use-context $PILOT_CLUSTER
   if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
-     gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
+     gcloud compute firewall-rules delete --project=${PROJECT_NAME} istio-multicluster-test-pods --quiet
   fi
 }
 
