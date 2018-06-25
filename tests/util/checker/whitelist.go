@@ -14,23 +14,18 @@
 
 package checker
 
-// Whitelist determines if rules are whitelisted for the given paths.
-type Whitelist struct {
-	// Map from path to whitelisted rules.
-	ruleWhitelist []string
+import (
+	"go/ast"
+)
+
+// Whitelist is interface for whitelisting rule for a target.
+type Whitelist interface {
+	// Apply returns true if the rule is whitelisted for a target.
+	Apply(target string, rule Rule) bool
 }
 
-// NewWhitelist creates and returns a Whitelist object.
-func NewWhitelist(ruleWhitelist []string) *Whitelist {
-	return &Whitelist{ruleWhitelist: ruleWhitelist}
-}
-
-// Apply returns true if the given rule is whitelisted.
-func (wl *Whitelist) Apply(rule Rule) bool {
-	for _, skipRule := range wl.ruleWhitelist {
-		if skipRule == rule.GetID() || skipRule == "*" {
-			return true
-		}
-	}
-	return false
+// WhitelistFactory is interface to get a whitelist of rules for a file.
+type WhitelistFactory interface {
+	// GetWhitelist returns a whitelist of rules.
+	GetWhitelist(astFile *ast.File) Whitelist
 }

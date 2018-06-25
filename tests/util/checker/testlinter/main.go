@@ -42,8 +42,9 @@ func main() {
 func getReport(args []string) ([]string, error) {
 	matcher := RulesMatcher{}
 	report := checker.NewLintReport()
+	whitelist := WhitelistParser{}
 
-	err := checker.Check(args, &matcher, report)
+	err := checker.Check(args, &matcher, &whitelist, report)
 	if err != nil {
 		return []string{}, err
 	}
