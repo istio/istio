@@ -247,7 +247,7 @@ depend.diff: $(ISTIO_OUT)
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/cmd/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -284,50 +284,50 @@ PILOT_GO_BINS:=${ISTIO_OUT}/pilot-discovery ${ISTIO_OUT}/pilot-agent \
 PILOT_GO_BINS_SHORT:=pilot-discovery pilot-agent sidecar-injector
 define pilotbuild
 $(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
 
 ${ISTIO_OUT}/$(1):
-	bin/gobuild.sh ${ISTIO_OUT}/$(1) istio.io/istio/pkg/version ./pilot/cmd/$(1)
+	bin/gobuild.sh ${ISTIO_OUT}/$(1) ./pilot/cmd/$(1)
 endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
 istioctl ${ISTIO_OUT}/istioctl:
-	bin/gobuild.sh ${ISTIO_OUT}/istioctl istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
 ${ISTIO_OUT}/istioctl-linux: depend
-	STATIC=0 GOOS=linux   bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=linux   bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-osx: depend
-	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=darwin  bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 ${ISTIO_OUT}/istioctl-win.exe: depend
-	STATIC=0 GOOS=windows bin/gobuild.sh $@ istio.io/istio/pkg/version ./istioctl/cmd/istioctl
+	STATIC=0 GOOS=windows bin/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 MIXER_GO_BINS:=${ISTIO_OUT}/mixs ${ISTIO_OUT}/mixc
 mixc:
-	bin/gobuild.sh ${ISTIO_OUT}/mixc istio.io/istio/pkg/version ./mixer/cmd/mixc
+	bin/gobuild.sh ${ISTIO_OUT}/mixc ./mixer/cmd/mixc
 mixs:
-	bin/gobuild.sh ${ISTIO_OUT}/mixs istio.io/istio/pkg/version ./mixer/cmd/mixs
+	bin/gobuild.sh ${ISTIO_OUT}/mixs ./mixer/cmd/mixs
 
 $(MIXER_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./mixer/cmd/$(@F)
+	bin/gobuild.sh $@ ./mixer/cmd/$(@F)
 
-GALLEY_GO_BINS:=${ISTIO_OUT}/gals
-gals:
-	bin/gobuild.sh ${ISTIO_OUT}/gals istio.io/istio/pkg/version ./galley/cmd/gals
+GALLEY_GO_BINS:=${ISTIO_OUT}/galley
+galley:
+	bin/gobuild.sh ${ISTIO_OUT}/galley ./galley/cmd/galley
 
 $(GALLEY_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./galley/cmd/$(@F)
+	bin/gobuild.sh $@ ./galley/cmd/$(@F)
 
 servicegraph:
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./addons/servicegraph/cmd/server
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./addons/servicegraph/cmd/server
 
 ${ISTIO_OUT}/servicegraph:
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./addons/$(@F)/cmd/server
+	bin/gobuild.sh $@ ./addons/$(@F)/cmd/server
 
 SECURITY_GO_BINS:=${ISTIO_OUT}/node_agent_k8s ${ISTIO_OUT}/node_agent ${ISTIO_OUT}/istio_ca
 $(SECURITY_GO_BINS):
-	bin/gobuild.sh $@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh $@ ./security/cmd/$(@F)
 
 .PHONY: build
 # Build will rebuild the go binaries.
@@ -341,11 +341,11 @@ build: depend $(PILOT_GO_BINS_SHORT) mixc mixs node_agent nodeagent_k8s istio_ca
 
 .PHONY: citadel
 citadel:
-	bin/gobuild.sh ${ISTIO_OUT}/istio_ca istio.io/istio/pkg/version ./security/cmd/istio_ca
+	bin/gobuild.sh ${ISTIO_OUT}/istio_ca ./security/cmd/istio_ca
 
 .PHONY: node-agent
 node-agent:
-	bin/gobuild.sh ${ISTIO_OUT}/node-agent istio.io/istio/pkg/version ./security/cmd/node_agent
+	bin/gobuild.sh ${ISTIO_OUT}/node-agent ./security/cmd/node_agent
 
 .PHONY: node_agent_k8s
 node_agent_k8s:
@@ -356,7 +356,7 @@ pilot: pilot-discovery
 
 .PHONY: node_agent istio_ca
 node_agent istio_ca: 
-	bin/gobuild.sh ${ISTIO_OUT}/$@ istio.io/istio/pkg/version ./security/cmd/$(@F)
+	bin/gobuild.sh ${ISTIO_OUT}/$@ ./security/cmd/$(@F)
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
@@ -636,7 +636,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set ingressgateway.service.type=LoadBalancer \
+		--set gateways.istio-ingressgateway.type=LoadBalancer \
 		--set ingress.enabled=false \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -644,7 +644,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set ingressgateway.service.type=LoadBalancer \
+		--set gateways.istio-ingressgateway.type=LoadBalancer \
 		--set ingress.enabled=false \
 		--set global.mtls.enabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml

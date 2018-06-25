@@ -283,7 +283,7 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
-	if err := schema.Validate(out.Spec); err != nil {
+	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 

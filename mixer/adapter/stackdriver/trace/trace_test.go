@@ -24,8 +24,14 @@ import (
 	"go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/tracespan"
 )
+
+var dummyShouldFill = func() bool { return true }
+var dummyMetadataFn = func() (string, error) { return "", nil }
 
 func TestHandleTraceSpan(t *testing.T) {
 	now := time.Now()
@@ -167,6 +173,41 @@ func TestHandleTraceSpan(t *testing.T) {
 			spans:   nil,
 			sampler: nil,
 			flushes: 0,
+		},
+		{
+			name: "client span",
+			vals: []*tracespan.Instance{
+				{
+					TraceId:    "463ac35c9f6413ad48485a3953bb6124",
+					SpanId:     "a2fb4a1d1a96d312",
+					Name:       "tracespan.test",
+					SpanName:   "/io.opencensus.Service.Method",
+					StartTime:  now.Add(-10 * time.Millisecond),
+					EndTime:    now,
+					ClientSpan: true,
+				},
+			},
+			spans: []*trace.SpanData{
+				{
+					SpanContext: trace.SpanContext{
+						TraceID:      trace.TraceID{0x46, 0x3a, 0xc3, 0x5c, 0x9f, 0x64, 0x13, 0xad, 0x48, 0x48, 0x5a, 0x39, 0x53, 0xbb, 0x61, 0x24},
+						SpanID:       trace.SpanID{0xa2, 0xfb, 0x4a, 0x1d, 0x1a, 0x96, 0xd3, 0x12},
+						TraceOptions: 0x1,
+					},
+					SpanKind:        trace.SpanKindClient,
+					Name:            "/io.opencensus.Service.Method",
+					StartTime:       now.Add(-10 * time.Millisecond),
+					EndTime:         now,
+					Attributes:      map[string]interface{}{},
+					Annotations:     nil,
+					MessageEvents:   nil,
+					Status:          trace.Status{Code: 0, Message: ""},
+					Links:           nil,
+					HasRemoteParent: true,
+				},
+			},
+			sampler: trace.ProbabilitySampler(1.0),
+			flushes: 1,
 		},
 	}
 
@@ -333,6 +374,48 @@ func TestValidate(t *testing.T) {
 			}
 			if tt.wantErr && err == nil {
 				t.Errorf("wantErr, got nil")
+			}
+		})
+	}
+}
+
+func TestProjectID(t *testing.T) {
+	getExporterFunc = func(_ context.Context, _ adapter.Env, params *config.Params) (trace.Exporter, error) {
+		if params.ProjectId != "pid" {
+			return nil, fmt.Errorf("wanted pid got %v", params.ProjectId)
+		}
+		return nil, nil
+	}
+
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		pid  func() (string, error)
+	}{
+		{
+			"empty project id",
+			&config.Params{
+				ProjectId: "",
+			},
+			func() (string, error) { return "pid", nil },
+		},
+		{
+			"filled project id",
+			&config.Params{
+				ProjectId: "pid",
+			},
+			func() (string, error) { return "meta-pid", nil },
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
+			b := &builder{mg: mg}
+			b.SetAdapterConfig(tt.cfg)
+			_, err := b.Build(context.Background(), test.NewEnv(t))
+			if err != nil {
+				t.Errorf("Project id is not expected: %v", err)
 			}
 		})
 	}

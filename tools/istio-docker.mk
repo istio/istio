@@ -180,7 +180,7 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(suffix $$@) \
 # galley docker images
 
 GALLEY_DOCKER:=docker.galley
-$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/gals | $(ISTIO_DOCKER)
+$(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
 # security docker images

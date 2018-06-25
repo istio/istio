@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
@@ -59,7 +60,7 @@ const (
 	kubePlatform = "kube"
 
 	// Headings for short format listing of unknown types
-	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE"
+	unknownShortOutputHeading = "NAME\tKIND\tNAMESPACE\tAGE"
 )
 
 var (
@@ -105,12 +106,30 @@ var (
 		model.EgressRule.Type:        true,
 	}
 
+	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
+	// The user wants reasonable error messages when doing `get all` against a different
+	// server version.
+	mustList = map[string]bool{
+		model.Gateway.Type:              true,
+		model.VirtualService.Type:       true,
+		model.DestinationRule.Type:      true,
+		model.ServiceEntry.Type:         true,
+		model.HTTPAPISpec.Type:          true,
+		model.HTTPAPISpecBinding.Type:   true,
+		model.QuotaSpec.Type:            true,
+		model.QuotaSpecBinding.Type:     true,
+		model.AuthenticationPolicy.Type: true,
+		model.ServiceRole.Type:          true,
+		model.ServiceRoleBinding.Type:   true,
+		model.RbacConfig.Type:           true,
+	}
+
 	// Headings for short format listing specific to type
 	shortOutputHeadings = map[string]string{
-		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE",
-		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE",
-		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE",
-		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE",
+		"gateway":          "GATEWAY NAME\tHOSTS\tNAMESPACE\tAGE",
+		"virtual-service":  "VIRTUAL-SERVICE NAME\tGATEWAYS\tHOSTS\t#HTTP\t#TCP\tNAMESPACE\tAGE",
+		"destination-rule": "DESTINATION-RULE NAME\tHOST\tSUBSETS\tNAMESPACE\tAGE",
+		"service-entry":    "SERVICE-ENTRY NAME\tHOSTS\tPORTS\tNAMESPACE\tAGE",
 	}
 
 	// Formatters for short format listing specific to type
@@ -136,6 +155,7 @@ var (
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
 		model.AuthenticationPolicy,
+		model.AuthenticationMeshPolicy,
 		model.ServiceRole,
 		model.ServiceRoleBinding,
 		model.RbacConfig,
@@ -386,6 +406,7 @@ istioctl get virtualservice bookinfo
 				ns, _ = handleNamespaces(namespace)
 			}
 
+			var errs error
 			var configs []model.Config
 			if getByName {
 				config, exists := configClient.Get(typs[0].Type, args[1], ns)
@@ -395,8 +416,8 @@ istioctl get virtualservice bookinfo
 			} else {
 				for _, typ := range typs {
 					typeConfigs, err := configClient.List(typ.Type, ns)
-					if err != nil {
-						return multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type))
+					if err != nil && mustList[typ.Type] {
+						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
 					}
 					configs = append(configs, typeConfigs...)
 				}
@@ -404,7 +425,7 @@ istioctl get virtualservice bookinfo
 
 			if len(configs) == 0 {
 				c.Println("No resources found.")
-				return nil
+				return errs
 			}
 
 			var outputters = map[string](func(io.Writer, model.ConfigStore, []model.Config)){
@@ -418,7 +439,7 @@ istioctl get virtualservice bookinfo
 				return fmt.Errorf("unknown output format %v. Types are yaml|short", outputFormat)
 			}
 
-			return nil
+			return errs
 		},
 
 		ValidArgs:  configTypeResourceNames(configTypes),
@@ -751,10 +772,11 @@ func kindAsString(config model.Config) string {
 }
 
 func printShortConfig(config model.Config, w io.Writer) {
-	fmt.Fprintf(w, "%s\t%s\t%s\n",
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 		config.Name,
 		kindAsString(config),
-		config.Namespace)
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 func printShortVirtualService(config model.Config, w io.Writer) {
@@ -764,13 +786,14 @@ func printShortVirtualService(config model.Config, w io.Writer) {
 		return
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\n",
+	fmt.Fprintf(w, "%s\t%s\t%s\t%5d\t%4d\t%s\t%s\n",
 		config.Name,
 		strings.Join(virtualService.Gateways, ","),
 		strings.Join(virtualService.Hosts, ","),
 		len(virtualService.Http),
 		len(virtualService.Tcp),
-		config.Namespace)
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 func printShortDestinationRule(config model.Config, w io.Writer) {
@@ -785,11 +808,12 @@ func printShortDestinationRule(config model.Config, w io.Writer) {
 		subsets = append(subsets, subset.Name)
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 		config.Name,
 		destinationRule.Host,
 		strings.Join(subsets, ","),
-		config.Namespace)
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 func printShortServiceEntry(config model.Config, w io.Writer) {
@@ -804,11 +828,12 @@ func printShortServiceEntry(config model.Config, w io.Writer) {
 		ports = append(ports, fmt.Sprintf("%s/%d", port.Protocol, port.Number))
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 		config.Name,
 		strings.Join(serviceEntry.Hosts, ","),
 		strings.Join(ports, ","),
-		config.Namespace)
+		config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 func printShortGateway(config model.Config, w io.Writer) {
@@ -830,8 +855,9 @@ func printShortGateway(config model.Config, w io.Writer) {
 		hosts = append(hosts, host)
 	}
 
-	fmt.Fprintf(w, "%s\t%s\t%s\n",
-		config.Name, strings.Join(hosts, ","), config.Namespace)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		config.Name, strings.Join(hosts, ","), config.Namespace,
+		renderTimestamp(config.CreationTimestamp))
 }
 
 // Print as YAML
@@ -1010,4 +1036,33 @@ func configTypePluralResourceNames(configTypes model.ConfigDescriptor) []string 
 		resourceNames = append(resourceNames, crd.ResourceName(typ.Plural))
 	}
 	return resourceNames
+}
+
+// renderTimestamp creates a human-readable age similar to docker and kubectl CLI output
+func renderTimestamp(ts metav1.Time) string {
+	if ts.IsZero() {
+		return "<unknown>"
+	}
+
+	seconds := int(time.Since(ts.Time).Seconds())
+	if seconds < -2 {
+		return fmt.Sprintf("<invalid>")
+	} else if seconds < 0 {
+		return fmt.Sprintf("0s")
+	} else if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+
+	minutes := int(time.Since(ts.Time).Minutes())
+	if minutes < 60 {
+		return fmt.Sprintf("%dm", minutes)
+	}
+
+	hours := int(time.Since(ts.Time).Hours())
+	if hours < 24 {
+		return fmt.Sprintf("%dh", hours)
+	} else if hours < 365*24 {
+		return fmt.Sprintf("%dd", hours/24)
+	}
+	return fmt.Sprintf("%dy", int((hours/24)/365))
 }

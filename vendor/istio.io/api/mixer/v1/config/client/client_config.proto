@@ -23,8 +23,6 @@ import "mixer/v1/config/client/quota.proto";
 
 // $title: Mixer Client
 // $description: Configuration state for the Mixer client library
-// $location:
-// https://istio.io/docs/reference/config/istio.mixer.v1.config.client.html
 
 package istio.mixer.v1.config.client;
 

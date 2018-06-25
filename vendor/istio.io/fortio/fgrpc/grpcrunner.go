@@ -50,7 +50,8 @@ func Dial(serverAddr, cacert, override string) (conn *grpc.ClientConn, err error
 	var opts []grpc.DialOption
 	switch {
 	case cacert != "":
-		creds, err := credentials.NewClientTLSFromFile(cacert, override)
+		var creds credentials.TransportCredentials
+		creds, err = credentials.NewClientTLSFromFile(cacert, override)
 		if err != nil {
 			log.Errf("Invalid TLS credentials: %v\n", err)
 			return nil, err

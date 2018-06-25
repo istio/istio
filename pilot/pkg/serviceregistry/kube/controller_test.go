@@ -106,6 +106,11 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
+	attr, err := sds.GetServiceAttributes(svc.Hostname)
+	expect := model.ServiceAttributes{Name: testService, Namespace: ns, UID: fmt.Sprintf("istio://%s/services/%s", ns, testService)}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes(%q) => %v, but want %v", svc.Hostname, *attr, expect)
+	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)
 	if err != nil {
@@ -273,12 +278,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if services[0].Service.Hostname != hostname {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
-	}
-
-	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetProxyServiceInstances(&svcNode)
-	if err == nil {
-		t.Errorf("GetProxyServiceInstances() should have returned error for unknown domain.")
 	}
 }
 
