@@ -22,7 +22,6 @@ import (
 
 	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/kube"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"
@@ -34,6 +33,7 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 )
