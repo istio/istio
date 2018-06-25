@@ -30,6 +30,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -100,14 +101,29 @@ func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_Stream
 	return edsstr
 }
 
-func sendEDSReq(t *testing.T, clusters []string, ip string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+func sendEDSReq(t *testing.T, clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &envoy_api_v2_core1.Node{
-			Id: sidecarId(ip, "app3"),
+			Id: node,
 		},
 		TypeUrl:       v2.EndpointType,
-		ResourceNames: clusters})
+		ResourceNames: clusters,
+	})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
+func sendEDSNack(t *testing.T, clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:     v2.EndpointType,
+		ErrorDetail: &rpc.Status{Message: "NOPE!"},
+	})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -144,6 +160,19 @@ func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService
 	}
 }
 
+func sendLDSNack(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:     v2.ListenerType,
+		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
 func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
@@ -152,6 +181,19 @@ func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.Aggregate
 		},
 		TypeUrl:       v2.RouteType,
 		ResourceNames: routes})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+
+}
+func sendRDSNack(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		TypeUrl:     v2.RouteType,
+		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -169,11 +211,24 @@ func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService
 	}
 }
 
+func sendCDSNack(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	err := edsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &envoy_api_v2_core1.Node{
+			Id: node,
+		},
+		ErrorDetail: &rpc.Status{Message: "NOPE!"},
+		TypeUrl:     v2.ClusterType})
+	if err != nil {
+		t.Fatal("Send failed", err)
+	}
+}
+
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
 	res, _ := adsReceive(edsstr, 5*time.Second)
 
 	// closes old process
@@ -182,7 +237,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	edsstr = connectADS(t, util.MockPilotGrpcAddr)
 	defer edsstr.CloseSend()
 	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, app3Ip, edsstr)
+	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
 	res, _ = adsReceive(edsstr, 5*time.Second)
 	_ = edsstr.CloseSend()
 
@@ -259,7 +314,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 	edsstr := connectADS(t, util.MockPilotGrpcAddr)
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		sendEDSReq(t, []string{clusterName}, "1.1.1.1", edsstr)
+		sendEDSReq(t, []string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
 		res, err := adsReceive(edsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
@@ -309,7 +364,7 @@ func TestAdsUpdate(t *testing.T) {
 		"http-main", 2080, "10.2.0.1", 1080)
 
 	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|http-main"},
-		"1.1.1.1", edsstr)
+		sidecarId("1.1.1.1", "app3"), edsstr)
 
 	res1, err := adsReceive(edsstr, 5*time.Second)
 	if err != nil {
@@ -399,8 +454,7 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 		i := i
 		go func() {
 			edsstr := connectADS(t, util.MockPilotGrpcAddr)
-			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"},
-				testIp(uint32(0x0a200000+i)), edsstr)
+			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
