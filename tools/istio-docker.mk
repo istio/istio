@@ -100,7 +100,7 @@ ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
 # Target to build a proxy image with v2 interfaces enabled. Partial implementation, but
 # will scale better and have v2-specific features. Not built automatically until it passes
 # all tests. Developers working on v2 are currently expected to call this manually as
-# make docker.proxyv2; docker push ${HUB}/proxy:${TAG}
+# make docker.proxyv2; docker push ${HUB}/proxyv2:${TAG}
 docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
