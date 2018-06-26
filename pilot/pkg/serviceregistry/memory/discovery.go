@@ -284,6 +284,11 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	}}
 }
 
+// WorkloadHealthCheckInfo implements discovery interface
+func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
+}
+
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	if hostname == "world.default.svc.cluster.local" {
