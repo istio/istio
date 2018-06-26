@@ -25,26 +25,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-type confParam struct {
-	ClientConfig       string
-	ServerConfig       string
-	TCPServerConfig    string
-	MixerRouteConfig   string
-	FiltersBeforeMixer string
-
-	// Ports contains the allocated ports.
-	Ports     *Ports
-	IstioSrc  string
-	IstioOut  string
-	AccessLog string
-
-	// Options are additional config options for the template
-	Options map[string]interface{}
-}
-
 const envoyConfTemplYAML = `
 admin:
-  access_log_path: {{.AccessLog}}
+  access_log_path: {{.AccessLogPath}}
   address:
     socket_address:
       address: 127.0.0.1
@@ -94,11 +77,11 @@ static_resources:
           access_log:
           - name: envoy.file_access_log
             config:
-              path: {{.AccessLog}}
+              path: {{.AccessLogPath}}
           http_filters:
-{{.FiltersBeforeMixer}}
+{{.FiltersBeforeMixer | indent 10 }}
           - name: mixer
-            config: {{.ServerConfig}}
+            config: {{.MfConfig.HTTPServerConf | toJSON }}
           - name: envoy.router
           route_config:
             name: backend
@@ -112,7 +95,7 @@ static_resources:
                   cluster: backend
                   timeout: 0s
                 per_filter_config:
-                  mixer: {{.MixerRouteConfig}}
+                  mixer: {{.MfConfig.PerRouteConf | toJSON }}
   - name: client
     address:
       socket_address:
@@ -127,10 +110,10 @@ static_resources:
           access_log:
           - name: envoy.file_access_log
             config:
-              path: {{.AccessLog}}
+              path: {{.AccessLogPath}}
           http_filters:
           - name: mixer
-            config: {{.ClientConfig}}
+            config: {{.MfConfig.HTTPClientConf | toJSON }}
           - name: envoy.router
           route_config:
             name: loop
@@ -151,57 +134,42 @@ static_resources:
     filter_chains:
     - filters:
       - name: mixer
-        config: {{.TCPServerConfig}}
+        config: {{.MfConfig.TCPServerConf | toJSON }}
       - name: envoy.tcp_proxy
         config:
           stat_prefix: inbound_tcp
           cluster: backend
 `
 
-func (c *confParam) write(outPath, confTmpl string) error {
-	tmpl, err := template.New("test").Parse(confTmpl)
-	if err != nil {
-		return fmt.Errorf("failed to parse config template: %v", err)
-	}
-
-	f, err := os.Create(outPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file %v: %v", outPath, err)
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-	return tmpl.Execute(f, *c)
-}
-
 // CreateEnvoyConf create envoy config.
-func (s *TestSetup) CreateEnvoyConf(path string, stress bool, filtersBeforeMixer string, mfConfig *MixerFilterConf, ports *Ports) error {
-	c := &confParam{
-		AccessLog:        s.AccessLogPath,
-		ServerConfig:     toJSON(mfConfig.HTTPServerConf),
-		ClientConfig:     toJSON(mfConfig.HTTPClientConf),
-		TCPServerConfig:  toJSON(mfConfig.TCPServerConf),
-		MixerRouteConfig: toJSON(mfConfig.PerRouteConf),
-		Ports:            ports,
-		IstioSrc:         s.IstioSrc,
-		IstioOut:         s.IstioOut,
-		Options:          s.EnvoyConfigOpt,
-	}
-	// TODO: use fields from s directly instead of copying
-
-	if stress {
-		c.AccessLog = "/dev/null"
-	}
-	if len(filtersBeforeMixer) > 0 {
-		pad := strings.Repeat(" ", 10)
-		c.FiltersBeforeMixer = pad + strings.Replace(filtersBeforeMixer, "\n", "\n"+pad, -1)
+func (s *TestSetup) CreateEnvoyConf(path string) error {
+	if s.stress {
+		s.AccessLogPath = "/dev/null"
 	}
 
 	confTmpl := envoyConfTemplYAML
 	if s.EnvoyTemplate != "" {
 		confTmpl = s.EnvoyTemplate
 	}
-	return c.write(path, confTmpl)
+
+	tmpl, err := template.New("test").Funcs(template.FuncMap{
+		"toJSON": toJSON,
+		"indent": indent,
+	}).Parse(confTmpl)
+	if err != nil {
+		return fmt.Errorf("failed to parse config template: %v", err)
+	}
+	tmpl.Funcs(template.FuncMap{})
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create file %v: %v", path, err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	return tmpl.Execute(f, s)
 }
 
 func toJSON(mixerFilterConfig proto.Message) string {
@@ -211,4 +179,9 @@ func toJSON(mixerFilterConfig proto.Message) string {
 		return ""
 	}
 	return str
+}
+
+func indent(n int, s string) string {
+	pad := strings.Repeat(" ", n)
+	return pad + strings.Replace(s, "\n", "\n"+pad, -1)
 }

@@ -33,11 +33,10 @@ type Envoy struct {
 }
 
 // NewEnvoy creates a new Envoy struct and starts envoy.
-func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *MixerFilterConf, ports *Ports, epoch int,
-	disableHotRestart bool) (*Envoy, error) {
-	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.yaml", ports.AdminPort))
+func (s *TestSetup) NewEnvoy() (*Envoy, error) {
+	confPath := filepath.Join(util.IstioOut, fmt.Sprintf("config.conf.%v.yaml", s.ports.AdminPort))
 	log.Printf("Envoy config: in %v\n", confPath)
-	if err := s.CreateEnvoyConf(confPath, stress, filtersBeforeMixer, mfConf, ports); err != nil {
+	if err := s.CreateEnvoyConf(confPath); err != nil {
 		return nil, err
 	}
 
@@ -49,14 +48,14 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 	// Don't use hot-start, each Envoy re-start use different base-id
 	args := []string{"-c", confPath,
 		"--v2-config-only",
-		"--base-id", strconv.Itoa(int(ports.AdminPort) + epoch)}
-	if stress {
+		"--base-id", strconv.Itoa(int(s.ports.AdminPort) + s.epoch)}
+	if s.stress {
 		args = append(args, "--concurrency", "10")
 	} else {
 		// debug is far too verbose.
 		args = append(args, "-l", debugLevel, "--concurrency", "1")
 	}
-	if disableHotRestart {
+	if s.disableHotRestart {
 		args = append(args, "--disable-hot-restart")
 	}
 	if s.EnvoyParams != nil {
@@ -72,7 +71,7 @@ func (s *TestSetup) NewEnvoy(stress bool, filtersBeforeMixer string, mfConf *Mix
 	cmd.Stdout = os.Stdout
 	return &Envoy{
 		cmd:   cmd,
-		ports: ports,
+		ports: s.ports,
 	}, nil
 }
 

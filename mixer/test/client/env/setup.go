@@ -35,16 +35,17 @@ type TestSetup struct {
 	mfConf *MixerFilterConf
 	ports  *Ports
 
-	envoy              *Envoy
-	mixer              *MixerServer
-	backend            *HTTPServer
-	testName           uint16
-	stress             bool
-	filtersBeforeMixer string
-	noMixer            bool
-	noProxy            bool
-	noBackend          bool
-	disableHotRestart  bool
+	envoy             *Envoy
+	mixer             *MixerServer
+	backend           *HTTPServer
+	testName          uint16
+	stress            bool
+	noMixer           bool
+	noProxy           bool
+	noBackend         bool
+	disableHotRestart bool
+
+	FiltersBeforeMixer string
 
 	// EnvoyTemplate is the bootstrap config used by envoy.
 	EnvoyTemplate string
@@ -145,7 +146,7 @@ func (s *TestSetup) SetNoMixer(no bool) {
 
 // SetFiltersBeforeMixer sets the configurations of the filters before the Mixer filter
 func (s *TestSetup) SetFiltersBeforeMixer(filters string) {
-	s.filtersBeforeMixer = filters
+	s.FiltersBeforeMixer = filters
 }
 
 // SetDisableHotRestart sets whether disable the HotRestart feature of Envoy
@@ -166,7 +167,7 @@ func (s *TestSetup) SetNoBackend(no bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.disableHotRestart)
+	s.envoy, err = s.NewEnvoy()
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 		return err
@@ -232,7 +233,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.disableHotRestart)
+	s.envoy, err = s.NewEnvoy()
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
