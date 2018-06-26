@@ -18,6 +18,7 @@ package tracespan
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -48,8 +49,6 @@ import (
 //     http.url: request.path | ""
 //     request.size: request.size | 0
 //     response.size: response.size | 0
-//     source.ip: source.ip | ip("0.0.0.0")
-//     source.service: source.service | ""
 //     source.user: source.user | ""
 //     source.version: source.labels["version"] | ""
 // ```
@@ -135,6 +134,56 @@ type Instance struct {
 	//
 	// Optional
 	RewriteClientSpanId bool
+
+	// Identifies the source (client side) of this span.
+	// Should usually be set to `source.workload.name`.
+	//
+	// Optional.
+	SourceName string
+
+	// Client IP address. Should usually be set to `source.ip`.
+	//
+	// Optional.
+	SourceIp net.IP
+
+	// Identifies the destination (server side) of this span.
+	// Should usually be set to `destination.workload.name`.
+	//
+	// Optional.
+	DestinationName string
+
+	// Server IP address. Should usually be set to `destination.ip`.
+	//
+	// Optional.
+	DestinationIp net.IP
+
+	// Request body size. Should usually be set to `request.size`.
+	//
+	// Optional.
+	RequestSize int64
+
+	// Total request size (headers and body).
+	// Should usually be set to `request.total_size`.
+	//
+	// Optional.
+	RequestTotalSize int64
+
+	// Response body size. Should usually be set to `response.size`.
+	//
+	// Optional.
+	ResponseSize int64
+
+	// Response total size (headers and body).
+	// Should usually be set to `response.total_size`.
+	//
+	// Optional.
+	ResponseTotalSize int64
+
+	// One of "http", "https", or "grpc" or any other value of
+	// the `api.protocol` attribute. Should usually be set to `api.protocol`.
+	//
+	// Optional.
+	ApiProtocol string
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

@@ -29,6 +29,7 @@ import (
 	octrace "go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/opencensus"
 	"istio.io/istio/mixer/template/tracespan"
 )
 
@@ -122,11 +123,11 @@ func (th *tracinghandler) HandleTraceSpan(ctx context.Context, values []*tracesp
 }
 
 func (th *tracinghandler) shouldSend(span *tracespan.Instance) bool {
-	parentContext, ok := adapter.ExtractParentContext(span.TraceId, span.ParentSpanId)
+	parentContext, ok := opencensus.ExtractParentContext(span.TraceId, span.ParentSpanId)
 	if !ok {
 		return false
 	}
-	spanContext, ok := adapter.ExtractSpanContext(span.SpanId, parentContext)
+	spanContext, ok := opencensus.ExtractSpanContext(span.SpanId, parentContext)
 	if !ok {
 		return false
 	}
