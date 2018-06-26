@@ -17,6 +17,7 @@ package authn
 import (
 	"crypto/sha1"
 	"fmt"
+	"reflect"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -31,6 +32,7 @@ import (
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/common"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
@@ -246,42 +248,47 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 
 // buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
 func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
-	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
+	tlsContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.RootCertFilename,
+						},
+					},
+				},
+			},
+			// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: true,
+		},
+	}
+	// We already decide the purpose of the filter chain, ALPN istio traffic or legacy traffic.
+	if match != nil {
+		if reflect.DeepEqual(match.ApplicationProtocols, common.ALPNInMesh) {
+			return tlsContext
+		}
 		return nil
 	}
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.KeyFilename,
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.RootCertFilename,
-							},
-						},
-					},
-				},
-				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-				AlpnProtocols: []string{"h2", "http/1.1"},
-			},
-			RequireClientCertificate: &types.BoolValue{
-				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
-			},
-		}
+	if requireTLS, _ := RequireTLS(authenticationPolicy); requireTLS {
+		return tlsContext
 	}
 	return nil
 }
@@ -323,8 +330,9 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	return nil
 }
 
-// RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
+// AcceptIstioAndLegacy returns true if any one of MTLS mode is `PERMISSIVE`, which indicates the
+// listener needs to accept both Istio and legacy traffic.
+func (Plugin) AcceptIstioAndLegacy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return false

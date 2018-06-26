@@ -34,6 +34,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/common"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -251,9 +252,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 
 		for _, p := range configgen.Plugins {
 			if authnPolicy, ok := p.(authn.Plugin); ok {
-				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
-					listenerOpts.tlsMultiplexed = true
-					log.Infof("Uses TLS multiplexing for %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
+				if authnPolicy.AcceptIstioAndLegacy(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
+					listenerOpts.acceptIstioAndLegacy = true
+					log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
 				}
 			}
 		}
@@ -273,12 +274,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
-			if listenerOpts.tlsMultiplexed {
-				// If multiplexed is needed, setup to filter chain match, one for "istio" ALPN TLS, one for default.
+			if listenerOpts.acceptIstioAndLegacy {
+				// Allow both: istio mTLS ("istio" ALPN) and legacy clients.
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
 						httpOpts:            httpOpts,
-						applicationProtocol: ALPNInMesh,
+						applicationProtocol: common.ALPNInMesh,
 					}, {
 						httpOpts: httpOpts,
 					},
@@ -596,15 +597,15 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env             model.Environment
-	proxy           model.Proxy
-	proxyInstances  []*model.ServiceInstance
-	ip              string
-	port            int
-	protocol        model.Protocol
-	bindToPort      bool
-	filterChainOpts []*filterChainOpts
-	tlsMultiplexed  bool
+	env                  model.Environment
+	proxy                model.Proxy
+	proxyInstances       []*model.ServiceInstance
+	ip                   string
+	port                 int
+	protocol             model.Protocol
+	bindToPort           bool
+	filterChainOpts      []*filterChainOpts
+	acceptIstioAndLegacy bool
 }
 
 func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
@@ -679,7 +680,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 
 	var listenerFilters []listener.ListenerFilter
-	if opts.tlsMultiplexed {
+	if opts.acceptIstioAndLegacy {
 		listenerFilters = []listener.ListenerFilter{
 			{
 				Name:   authn.EnvoyTLSInspectorFilterName,
