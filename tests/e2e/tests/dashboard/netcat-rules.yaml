@@ -27,10 +27,10 @@ spec:
         ports:
          - containerPort: 44444
          readinessProbe:
-          tcpSocket:
-            port: 44444
-          initialDelaySeconds: 5
-          periodSeconds: 5
+           tcpSocket:
+             port: 44444
+           initialDelaySeconds: 5
+           periodSeconds: 5
         args:
           - "-vl"
           - "44444"
