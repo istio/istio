@@ -219,13 +219,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 	StoreHostPort(h, p, "pilot_address", opts)
 
-	// Default values for the grpc address.
-	// TODO: take over the DiscoveryAddress or add a separate mesh config option
-	// Default value
-	grpcPort := "15010"
-	if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		grpcPort = "15011"
-	}
+	grpcPort := p // Use pilot port
 	grpcHost := h // Use pilot host
 
 	grpcAddress := opts["pilot_grpc"]
