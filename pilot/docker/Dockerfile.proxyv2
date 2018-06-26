@@ -27,5 +27,10 @@ RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
+# Must be set here to generate core dumps in Circle.
+RUN mkdir -p /var/istio/proxy
+RUN ulimit -c unlimited
+RUN sysctl -w kernel.core_pattern=/var/istio/proxy/core.%e.%p.%t
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

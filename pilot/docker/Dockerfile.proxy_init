@@ -5,4 +5,5 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 ADD istio-iptables.sh /usr/local/bin/
+RUN ulimit -c unlimited
 ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]
