@@ -48,7 +48,8 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	// Don't use hot-start, each Envoy re-start use different base-id
 	args := []string{"-c", confPath,
 		"--v2-config-only",
-		"--base-id", strconv.Itoa(int(s.ports.AdminPort) + s.epoch)}
+		// base id is shared between restarted envoys
+		"--base-id", strconv.Itoa(int(s.testName))}
 	if s.stress {
 		args = append(args, "--concurrency", "10")
 	} else {
@@ -57,6 +58,10 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	}
 	if s.disableHotRestart {
 		args = append(args, "--disable-hot-restart")
+	} else {
+		args = append(args,
+			"--parent-shutdown-time-s", "1",
+			"--restart-epoch", strconv.Itoa(s.epoch))
 	}
 	if s.EnvoyParams != nil {
 		args = append(args, s.EnvoyParams...)

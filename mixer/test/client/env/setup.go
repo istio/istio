@@ -228,7 +228,8 @@ func (s *TestSetup) LastRequestHeaders() http.Header {
 
 // ReStartEnvoy restarts Envoy
 func (s *TestSetup) ReStartEnvoy() {
-	_ = s.envoy.Stop()
+	// don't stop envoy before starting the new one since we use hot restart
+	oldEnvoy := s.envoy
 	s.ports = NewEnvoyPorts(s.ports, s.testName)
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
@@ -244,6 +245,8 @@ func (s *TestSetup) ReStartEnvoy() {
 			WaitForPort(s.ports.ServerProxyPort)
 		}
 	}
+
+	_ = oldEnvoy.Stop()
 }
 
 // VerifyCheckCount verifies the number of Check calls.
