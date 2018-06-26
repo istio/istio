@@ -94,10 +94,10 @@ type SyncStatus struct {
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
+	adsClientsMutex.RLock()
 	for _, con := range adsClients {
+		con.mutex.RLock()
 		if con.modelNode != nil {
-			con.mutex.Lock()
-			defer con.mutex.Unlock()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
 				ClusterSent:     con.ClusterNonceSent,
@@ -111,7 +111,9 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 				EndpointPercent: con.EndpointPercent,
 			})
 		}
+		con.mutex.RUnlock()
 	}
+	adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -211,7 +211,7 @@ type XdsConnection struct {
 	LastPushFailure time.Time
 
 	// mutex protects changes to this XDS connection
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -300,7 +300,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			con.mutex.Lock()
 			con.modelNode = &nt
+			con.mutex.Unlock()
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
@@ -357,7 +359,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
 						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.mutex.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mutex.Unlock()
 						}
 						continue
 					}
