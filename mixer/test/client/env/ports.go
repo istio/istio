@@ -41,7 +41,6 @@ const (
 	ReportBatchTest
 	TCPMixerFilterPeriodicalReportTest
 	TCPMixerFilterTest
-	TCPMixerFilterV1ConfigTest
 	XDSTest
 	CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin
 	CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer
@@ -53,6 +52,7 @@ const (
 	IstioAuthnTestPeerRejectNoTLS
 	RouteDirectiveTest
 	DynamicAttributeTest
+	DynamicListenerTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

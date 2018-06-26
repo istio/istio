@@ -169,8 +169,6 @@ func (hasher) ID(*core.Node) string {
 func TestDynamicAttribute(t *testing.T) {
 	s := env.NewTestSetup(env.DynamicAttributeTest, t)
 	s.EnvoyTemplate = envoyConf
-	s.Ports().ClientProxyPort = s.Ports().ServerProxyPort
-
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Ports().DiscoveryPort))
 	if err != nil {

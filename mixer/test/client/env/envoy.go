@@ -48,6 +48,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	// Don't use hot-start, each Envoy re-start use different base-id
 	args := []string{"-c", confPath,
 		"--v2-config-only",
+		"--drain-time-s", "1",
 		// base id is shared between restarted envoys
 		"--base-id", strconv.Itoa(int(s.testName))}
 	if s.stress {
