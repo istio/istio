@@ -8,7 +8,6 @@ metadata:
     version: master
 rules:
 - apiGroups: ["","apps", "autoscaling"]
-  attributeRestrictions: null
   resources:
   - configmaps
   - namespaces
@@ -24,7 +23,6 @@ rules:
   - list
   - watch
 - apiGroups: ["config.istio.io"]
-  attributeRestrictions: null
   resources:
   - routerules
   - destinationpolicies
@@ -58,7 +56,6 @@ rules:
   - list
   - watch
 - apiGroups: ["networking.istio.io"]
-  attributeRestrictions: null
   resources:
   - virtualservices
   - destinationrules
