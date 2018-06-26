@@ -28,7 +28,6 @@ import (
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
 func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioConfigStore {
@@ -42,47 +41,75 @@ func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioC
 	return store
 }
 
-func newRbacConfig(name, ns string, mode rbacproto.RbacConfig_Mode) model.Config {
+func newRbacConfig(mode rbacproto.RbacConfig_Mode,
+	include *rbacproto.RbacConfig_Target, exclude *rbacproto.RbacConfig_Target) model.Config {
 	return model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type: model.RbacConfig.Type, Name: name, Namespace: ns},
+			Type: model.RbacConfig.Type, Name: model.DefaultRbacConfigName},
 		Spec: &rbacproto.RbacConfig{
-			Mode: mode,
+			Mode:      mode,
+			Inclusion: include,
+			Exclusion: exclude,
 		},
 	}
 }
 
 func TestIsRbacEnabled(t *testing.T) {
-	cfg1 := newRbacConfig("rbac-config", "default", rbacproto.RbacConfig_ON)
-	cfg2 := newRbacConfig("cfg2", kube.IstioNamespace, rbacproto.RbacConfig_ON)
-	cfg3 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_ON)
-	cfg4 := newRbacConfig("rbac-config", kube.IstioNamespace, rbacproto.RbacConfig_OFF)
+	target := &rbacproto.RbacConfig_Target{
+		Services:   []string{"review.default.svc", "product.default.svc"},
+		Namespaces: []string{"special"},
+	}
+	cfg1 := newRbacConfig(rbacproto.RbacConfig_ON, nil, nil)
+	cfg2 := newRbacConfig(rbacproto.RbacConfig_OFF, nil, nil)
+	cfg3 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_INCLUSION, target, nil)
+	cfg4 := newRbacConfig(rbacproto.RbacConfig_ON_WITH_EXCLUSION, nil, target)
+
 	testCases := []struct {
-		Name  string
-		Store model.IstioConfigStore
-		Ret   bool
+		Name      string
+		Store     model.IstioConfigStore
+		Service   string
+		Namespace string
+		Ret       bool
 	}{
 		{
-			Name:  "zero rbacConfig",
+			Name:  "rbac plugin enabled",
 			Store: newIstioStoreWithConfigs([]model.Config{cfg1}, t),
-		},
-		{
-			Name:  "wrong rbacConfig name",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg2}, t),
+			Ret:   true,
 		},
 		{
 			Name:  "rbac plugin disabled",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg4}, t),
+			Store: newIstioStoreWithConfigs([]model.Config{cfg2}, t),
 		},
 		{
-			Name:  "valid filter",
-			Store: newIstioStoreWithConfigs([]model.Config{cfg1, cfg3}, t),
-			Ret:   true,
+			Name:      "rbac plugin enabled by inclusion.service",
+			Store:     newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			Service:   "product.default.svc",
+			Namespace: "default",
+			Ret:       true,
+		},
+		{
+			Name:      "rbac plugin enabled by inclusion.namespace",
+			Store:     newIstioStoreWithConfigs([]model.Config{cfg3}, t),
+			Service:   "other.special.svc",
+			Namespace: "special",
+			Ret:       true,
+		},
+		{
+			Name:      "rbac plugin disabled by exclusion.service",
+			Store:     newIstioStoreWithConfigs([]model.Config{cfg4}, t),
+			Service:   "product.default.svc",
+			Namespace: "default",
+		},
+		{
+			Name:      "rbac plugin disabled by exclusion.namespace",
+			Store:     newIstioStoreWithConfigs([]model.Config{cfg4}, t),
+			Service:   "other.special.svc",
+			Namespace: "special",
 		},
 	}
 
 	for _, tc := range testCases {
-		ret := isRbacEnabled(tc.Store)
+		ret := isRbacEnabled(tc.Service, tc.Namespace, tc.Store)
 		if tc.Ret != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.Name, tc.Ret, ret)
 		}
@@ -118,31 +145,35 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 	store := newIstioStoreWithConfigs([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}, t)
 	testCases := []struct {
-		Name   string
-		Host   string
-		Store  model.IstioConfigStore
-		Policy string
+		Name      string
+		Namespace string
+		Host      string
+		Store     model.IstioConfigStore
+		Policy    string
 	}{
 		{
-			Name:  "no matched role",
-			Host:  "abc.xyz",
-			Store: store,
+			Name:      "no matched role",
+			Namespace: "xyz",
+			Host:      "abc.xyz",
+			Store:     store,
 		},
 		{
-			Name:  "no matched binding",
-			Host:  "review.default",
-			Store: store,
+			Name:      "no matched binding",
+			Namespace: "default",
+			Host:      "review.default",
+			Store:     store,
 		},
 		{
-			Name:   "role with binding",
-			Host:   "product.default",
-			Store:  store,
-			Policy: "test-role-1",
+			Name:      "role with binding",
+			Namespace: "default",
+			Host:      "product.default",
+			Store:     store,
+			Policy:    "test-role-1",
 		},
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(model.Hostname(tc.Host), tc.Store)
+		filter := buildHTTPFilter(tc.Host, tc.Namespace, tc.Store)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
