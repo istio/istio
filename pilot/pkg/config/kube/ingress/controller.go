@@ -197,10 +197,10 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 
 		switch typ {
 		case model.VirtualService.Type:
-			_, virtualServices := ConvertIngressV1alpha3(*ingress, namespace)
+			_, virtualServices := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, virtualServices)
 		case model.Gateway.Type:
-			gateways, _ := ConvertIngressV1alpha3(*ingress, namespace)
+			gateways, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
 		case model.IngressRule.Type:
 			rules := convertIngress(*ingress, c.domainSuffix)
