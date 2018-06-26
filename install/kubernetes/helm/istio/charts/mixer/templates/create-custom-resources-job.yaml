@@ -76,9 +76,11 @@ spec:
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
-          command: ["/bin/bash","-c",
-            "sleep 30 && \
-            ./kubectl apply -f /tmp/mixer/custom-resources.yaml"]
+          command:
+            - ./kubectl
+            - apply
+            - -f
+            - /tmp/mixer/custom-resources.yaml
           volumeMounts:
             - mountPath: "/tmp/mixer"
               name: tmp-configmap-mixer
@@ -86,4 +88,4 @@ spec:
         - name: tmp-configmap-mixer
           configMap:
             name: istio-mixer-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to consume
+      restartPolicy: OnFailure
