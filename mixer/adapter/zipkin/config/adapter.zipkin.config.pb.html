@@ -1,0 +1,51 @@
+---
+title: Zipkin
+description: Adapter to deliver tracing to Zipkin
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/zipkin.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+redirect_from: /docs/reference/config/adapters/zipkin.html
+number_of_entries: 1
+---
+<p>The <code>zipkin</code> adapter enables Istio to deliver tracingn data to the
+<a href="https://cloud.google.com/zipkin/">Zipkin</a> tracing backend.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan.html">tracespan template</a>.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration format for the <code>zipkin</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-url">
+<td><code>url</code></td>
+<td><code>string</code></td>
+<td>
+<p>URL of Zipkin HTTP endpoint.</p>
+
+<p>Required.</p>
+
+</td>
+</tr>
+<tr id="Params-sample_probability">
+<td><code>sampleProbability</code></td>
+<td><code>double</code></td>
+<td>
+<p>Uniform probability that a trace will be sampled.
+Defaults to 0 (sampling disabled) if unset.</p>
+
+<p>Optional.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>

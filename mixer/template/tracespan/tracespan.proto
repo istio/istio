@@ -43,8 +43,6 @@ syntax = "proto3";
 //     http.url: request.path | ""
 //     request.size: request.size | 0
 //     response.size: response.size | 0
-//     source.ip: source.ip | ip("0.0.0.0")
-//     source.service: source.service | ""
 //     source.user: source.user | ""
 //     source.version: source.labels["version"] | ""
 // ```
@@ -128,4 +126,54 @@ message Template {
     //
     // Optional
     bool rewrite_client_span_id = 10;
+
+    // Identifies the source (client side) of this span.
+    // Should usually be set to `source.workload.name`.
+    //
+    // Optional.
+    string source_name = 11;
+
+    // Client IP address. Should usually be set to `source.ip`.
+    //
+    // Optional.
+    istio.policy.v1beta1.IPAddress source_ip = 12;
+
+    // Identifies the destination (server side) of this span.
+    // Should usually be set to `destination.workload.name`.
+    //
+    // Optional.
+    string destination_name = 13;
+
+    // Server IP address. Should usually be set to `destination.ip`.
+    //
+    // Optional.
+    istio.policy.v1beta1.IPAddress destination_ip = 14;
+
+    // Request body size. Should usually be set to `request.size`.
+    //
+    // Optional.
+    int64 request_size = 15;
+
+    // Total request size (headers and body).
+    // Should usually be set to `request.total_size`.
+    //
+    // Optional.
+    int64 request_total_size = 16;
+
+    // Response body size. Should usually be set to `response.size`.
+    //
+    // Optional.
+    int64 response_size = 17;
+
+    // Response total size (headers and body).
+    // Should usually be set to `response.total_size`.
+    //
+    // Optional.
+    int64 response_total_size = 18;
+
+    // One of "http", "https", or "grpc" or any other value of
+    // the `api.protocol` attribute. Should usually be set to `api.protocol`.
+    //
+    // Optional.
+    string api_protocol = 19;
 }

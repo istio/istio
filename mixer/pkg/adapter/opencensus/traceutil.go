@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+package opencensus
 
 import (
 	"go.opencensus.io/plugin/ochttp/propagation/b3"

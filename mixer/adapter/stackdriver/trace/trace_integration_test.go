@@ -45,17 +45,19 @@ spec:
   startTime: request.time
   endTime: response.time
   httpStatusCode: response.code | 0
+  sourceName: source.service | ""
+  sourceIp: source.ip | ip("0.0.0.0")
+  requestSize: request.size | 0
+  requestTotalSize: request.total_size | 0
+  responseSize: response.size | 0
+  responseTotalSize: response.total_size | 0
+  apiProtocol: api.protocol | ""
   spanTags:
     http.host: request.host | ""
     http.method: request.method | ""
     http.path: request.path | ""
     http.user_agent: request.useragent | ""
-    protocol: api.protocol | "unknown"
     principal: request.auth.principal | "unknown"
-    request.size: request.size | 0
-    response.size: response.size | 0
-    source.ip: source.ip | ip("0.0.0.0")
-    source.service: source.service | "unknown"
     source.version: source.labels["version"] | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -123,12 +125,13 @@ func TestReport(t *testing.T) {
 						"request.path":        "/foo/bar",
 						"request.host":        "example.istio.com",
 						"request.useragent":   "xxx",
-						"request.size":        int64(128),
-						"response.size":       int64(512),
+						"request.size":        int64(100),
+						"request.total_size":  int64(128),
+						"response.size":       int64(500),
+						"response.total_size": int64(512),
 						"source.service":      "srcsvc",
 						"destination.service": "destsvc",
 						"source.labels":       map[string]string{"version": "v1"},
-						"source.ip":           "10.0.0.1",
 						"api.protocol":        "http",
 						"request.method":      "POST",
 						"response.code":       int64(200),
@@ -155,11 +158,6 @@ func TestReport(t *testing.T) {
         "http.status_code": 200,
         "http.user_agent": "xxx",
         "principal": "unknown",
-        "protocol": "http",
-        "request.size": 128,
-        "response.size": 512,
-        "source.ip": "10.0.0.1",
-        "source.service": "srcsvc",
         "source.version": "v1"
       },
       "Code": 0,
@@ -167,7 +165,22 @@ func TestReport(t *testing.T) {
       "HasRemoteParent": true,
       "Links": null,
       "Message": "\"OK\"",
-      "MessageEvents": null,
+      "MessageEvents": [
+        {
+          "CompressedByteSize": 128,
+          "EventType": 2,
+          "MessageID": 0,
+          "Time": "2006-01-02T22:04:04.9Z",
+          "UncompressedByteSize": 128
+        },
+        {
+          "CompressedByteSize": 512,
+          "EventType": 1,
+          "MessageID": 0,
+          "Time": "2006-01-02T22:04:05Z",
+          "UncompressedByteSize": 512
+        }
+      ],
       "Name": "/foo/bar",
       "ParentSpanID": [
         0,
@@ -247,4 +260,17 @@ func getInfo() adapter.Info {
 		NewBuilder: func() adapter.HandlerBuilder {
 			return NewBuilder(mg)
 		}}
+}
+
+type testExporter struct {
+	exported []*trace.SpanData
+	flushes  int
+}
+
+func (te *testExporter) ExportSpan(sd *trace.SpanData) {
+	te.exported = append(te.exported, sd)
+}
+
+func (te *testExporter) Flush() {
+	te.flushes++
 }
