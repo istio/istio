@@ -9,9 +9,6 @@ global:
     # destination rules or service annotations.
     enabled: true
 
-  proxy:
-    image: proxy
-
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
