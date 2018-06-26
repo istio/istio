@@ -48,7 +48,6 @@ const (
 var (
 	tc = &testConfig{
 		// TODO(inclfy) figure out why --v1alpha1=false not working. We requires proxyv2 api.
-		V1alpha1: true, //implies envoyv1
 		V1alpha3: true, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
@@ -63,7 +62,6 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&tc.V1alpha1, "v1alpha1", tc.V1alpha1, "Enable / disable v1alpha1 routing rules.")
 	flag.BoolVar(&tc.V1alpha3, "v1alpha3", tc.V1alpha3, "Enable / disable v1alpha3 routing rules.")
 	flag.BoolVar(&tc.Ingress, "ingress", tc.Ingress, "Enable / disable Ingress tests.")
 	flag.BoolVar(&tc.Egress, "egress", tc.Egress, "Enable / disable Egress tests.")
@@ -211,7 +209,6 @@ func (c *deployableConfig) propagationDelay() time.Duration {
 type testConfig struct {
 	*framework.CommonConfig
 	AppDir      string
-	V1alpha1    bool
 	V1alpha3    bool
 	Ingress     bool
 	Egress      bool
@@ -253,9 +250,6 @@ func (t *testConfig) Teardown() (err error) {
 
 func configVersions() []string {
 	versions := []string{}
-	if tc.V1alpha1 {
-		versions = append(versions, "v1alpha1")
-	}
 	if tc.V1alpha3 {
 		versions = append(versions, "v1alpha3")
 	}
