@@ -88,7 +88,6 @@ type jwksResolver struct {
 
 	secureHTTPClient *http.Client
 	httpClient       *http.Client
-	closing          chan bool
 	refreshTicker    *time.Ticker
 
 	expireDuration time.Duration
@@ -107,7 +106,6 @@ type jwksResolver struct {
 func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Duration) *jwksResolver {
 	ret := &jwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
-		closing:          make(chan bool, 1),
 		expireDuration:   expireDuration,
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
@@ -283,9 +281,6 @@ func (r *jwksResolver) refresher() {
 		select {
 		case now := <-r.refreshTicker.C:
 			r.refresh(now)
-		case <-r.closing:
-			r.refreshTicker.Stop()
-			return
 		}
 	}
 }
@@ -352,5 +347,5 @@ func (r *jwksResolver) refresh(t time.Time) {
 // TODO: may need to figure out the right place to call this function.
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *jwksResolver) Close() {
-	r.closing <- true
+	r.refreshTicker.Stop()
 }
