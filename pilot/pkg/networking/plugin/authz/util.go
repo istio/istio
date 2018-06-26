@@ -96,7 +96,7 @@ func convertToCidr(v string) (*core.CidrRange, error) {
 // convertToPort converts a port string to a uint32.
 func convertToPort(v string) (uint32, error) {
 	p, err := strconv.ParseUint(v, 10, 32)
-	if err != nil || p < 0 || p > 65535 {
+	if err != nil || p > 65535 {
 		return 0, fmt.Errorf("invalid port %s: %v", v, err)
 	}
 	return uint32(p), nil
