@@ -209,6 +209,9 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+
+	// mutex protects changes to this XDS connection
+	mutex sync.Mutex
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -645,6 +648,8 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 		err := con.stream.Send(res)
 		done <- err
 		if res.Nonce != "" {
+			con.mutex.Lock()
+			defer con.mutex.Unlock()
 			switch res.TypeUrl {
 			case ClusterType:
 				con.ClusterNonceSent = res.Nonce
