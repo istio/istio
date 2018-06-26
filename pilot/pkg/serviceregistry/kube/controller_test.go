@@ -90,7 +90,7 @@ func TestServices(t *testing.T) {
 			}
 		}
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil || len(ep) > 0 {
+		if anotherErr != nil || len(ep) == 2 {
 			return true
 		}
 		return false
