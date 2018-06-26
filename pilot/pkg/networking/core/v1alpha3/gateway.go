@@ -503,7 +503,7 @@ func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes, 
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				fqdn := model.ResolveShortnameToFQDN(gateway, meta)
+				fqdn := model.ResolveShortnameToFQDN(gateway, meta).String()
 				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
 			}
 		}
@@ -535,7 +535,7 @@ func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				fqdn := model.ResolveShortnameToFQDN(gateway, meta)
+				fqdn := model.ResolveShortnameToFQDN(gateway, meta).String()
 				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
 			}
 		}
