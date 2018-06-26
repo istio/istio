@@ -855,49 +855,6 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 				RequireClientCertificate: &types.BoolValue{true},
 			},
 		},
-		{
-			name: "mTLS policy allowTls",
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{
-							&authn.MutualTls{
-								AllowTls: true,
-							},
-						},
-					},
-				},
-			},
-			expected: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/cert-chain.pem",
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/key.pem",
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
-								},
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2", "http/1.1"},
-				},
-				RequireClientCertificate: &types.BoolValue{false},
-			},
-		},
 	}
 	for _, c := range cases {
 		if got := buildSidecarListenerTLSContext(c.in, nil); !reflect.DeepEqual(c.expected, got) {
