@@ -46,4 +46,4 @@ hard-coded instead of using the randomly generated one. This is to
 allow easy direct hyperlinks to dashboards.
 
 Environment-specific config is set in the [install
-config](/install/kubernetes/templates/addons/grafana.yaml.tmpl).
+config](/install/kubernetes/helm/istio/values.yaml).
