@@ -95,9 +95,9 @@ type SyncStatus struct {
 func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
 	for _, con := range adsClients {
-		con.mutex.Lock()
-		defer con.mutex.Unlock()
 		if con.modelNode != nil {
+			con.mutex.Lock()
+			defer con.mutex.Unlock()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
 				ClusterSent:     con.ClusterNonceSent,
