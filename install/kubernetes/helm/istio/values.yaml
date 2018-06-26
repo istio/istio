@@ -5,18 +5,16 @@
 
 # Common settings.
 global:
-  # Default repository for Istio images.
-  # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io, and nightly builds from circle on
-  # docker.io/istionightly
-  hub: docker.io/istio
+  hub: quay.io/aspenmesh/jenkins-artifacts
+  hub_public: quay.io/aspenmesh/istio
+  hub_img_delim: ":"
+  # image: per deployment
+  img_tag_delim: "-"
+  tag: circle-istio-private-2087
 
-  hub_img_delim: "/"
-  img_tag_delim: ":"
+  aspenMesh:
+    enabled: true
 
-  # Default tag for Istio images.
-  # Should track latest released version in the branch.
-  tag: 0.8.latest
   proxy:
     image: proxyv2
     resources:
@@ -69,13 +67,13 @@ global:
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: false
+  controlPlaneSecurityEnabled: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
-    enabled: false
+    enabled: true
     # List of fully qualified services to exclude from mtls
     # TODO: add the templating.
     mtlsExcludedServices:
@@ -85,8 +83,8 @@ global:
   rbacEnabled: true
 
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  # imagePullSecrets:
-  #   - name: "private-registry-key"
+  imagePullSecrets:
+    - name: aspen-mesh-pull-secret
 
   # Default is 1 second
   refreshInterval: 10s
@@ -107,10 +105,6 @@ global:
     ppc64le: 2
 
 
-  # Should aspenmesh portal be used
-  aspenMesh:
-    enabled: false
-
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -119,7 +113,7 @@ istiotesting:
 # ingress configuration
 #
 ingress:
-  enabled: true
+  enabled: false
   serviceAccountName: default
   autoscaleMin: 1
   autoscaleMax: 1
@@ -341,7 +335,7 @@ prometheus:
   replicaCount: 1
   image:
     repository: docker.io/prom/prometheus
-    tag: latest
+    tag: v2.3.1
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -367,11 +361,11 @@ prometheus:
       enabled: false
       port: 32090
   scrapeTargets:
-    kubernetesApiservers: true
+    kubernetesApiservers: false
     kubernetesCadvisor: true
     kubernetesNodes: true
-    kubernetesServiceEndpoints: true
-    kubernetesPods: true
+    kubernetesServiceEndpoints: false
+    kubernetesPods: false
 
 servicegraph:
   enabled: false

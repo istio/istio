@@ -1,7 +1,13 @@
 # Configuration overrides for deploying istio for testing using proxyv2 image
 global:
+  hub: docker.io/istio
+  hub_img_delim: "/"
+  img_tag_delim: ":"
   nodePort: true
+  controlPlaneSecurityEnabled: false
   mtls:
+    enabled: false
+  aspenMesh:
     enabled: false
 
 ingress:
