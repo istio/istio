@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"istio.io/istio/tests/util"
 )
@@ -90,8 +91,23 @@ func (s *Envoy) Start() error {
 
 // Stop stops the envoy process
 func (s *Envoy) Stop() error {
-	log.Printf("Kill Envoy ...\n")
-	err := s.cmd.Process.Kill()
-	log.Printf("Kill Envoy ... Done\n")
-	return err
+	log.Printf("stop envoy ...\n")
+	_, _, _ = HTTPPost(fmt.Sprintf("http://127.0.0.1:%v/quitquitquit", s.ports.AdminPort), "", "")
+	done := make(chan error, 1)
+	go func() {
+		done <- s.cmd.Wait()
+	}()
+
+	select {
+	case <-time.After(3 * time.Second):
+		log.Println("envoy killed as timeout reached")
+		if err := s.cmd.Process.Kill(); err != nil {
+			return err
+		}
+	case err := <-done:
+		log.Printf("stop envoy ... done\n")
+		return err
+	}
+
+	return nil
 }

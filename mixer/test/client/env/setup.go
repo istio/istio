@@ -199,7 +199,9 @@ func (s *TestSetup) SetUp() error {
 
 // TearDown shutdown the servers.
 func (s *TestSetup) TearDown() {
-	_ = s.envoy.Stop()
+	if err := s.envoy.Stop(); err != nil {
+		s.t.Errorf("error quitting envoy: %v", err)
+	}
 	if s.mixer != nil {
 		s.mixer.Stop()
 	}
@@ -283,7 +285,7 @@ func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 // request to Envoy for stats. Returns stats response.
 func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, error) {
 	time.Sleep(time.Duration(waitDuration) * time.Second)
-	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json", s.Ports().AdminPort)
+	statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
 	code, respBody, err := HTTPGet(statsURL)
 	if err != nil {
 		return "", fmt.Errorf("sending stats request returns an error: %v", err)
@@ -326,7 +328,7 @@ func (s *TestSetup) VerifyStats(actualStats string, expectedStats map[string]int
 
 	for eStatsName, eStatsValue := range expectedStats {
 		aStatsValue, ok := actualStatsMap[eStatsName]
-		if !ok {
+		if !ok && eStatsValue != 0 {
 			s.t.Fatalf("Failed to find expected Stat %s\n", eStatsName)
 		}
 		if aStatsValue != eStatsValue {
