@@ -317,13 +317,6 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to deploy Istio.")
 				return err
 			}
-
-			if k.InstallAddons {
-				if err = k.deployAddons(); err != nil {
-					log.Error("Failed to deploy istio addons")
-					return err
-				}
-			}
 		}
 		// Create the ingress secret.
 		certDir := util.GetResourcePath("./tests/testdata/certs")
@@ -632,6 +625,13 @@ func (k *KubeInfo) deployIstio() error {
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
+	}
+
+	if k.InstallAddons {
+		if err := k.deployAddons(); err != nil {
+			log.Error("Failed to deploy istio addons")
+			return err
+		}
 	}
 
 	if *multiClusterDir != "" {
