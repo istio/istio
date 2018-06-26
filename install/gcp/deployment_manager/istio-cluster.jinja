@@ -8,7 +8,7 @@ resources:
     zone: {{ properties['zone'] }}
     cluster:
       name: {{ properties['gkeClusterName'] }}
-      initialClusterVersion: 1.9.7-gke.1
+      initialClusterVersion: 1.9.7
       legacyAbac:
         enabled: false
       initialNodeCount: {{ properties['initialNodeCount'] }}
@@ -121,8 +121,8 @@ resources:
             ISTIO_OPTIONS=$ISTIO_OPTIONS" --set grafana.enabled=true"
           {% endif %}
 
-          {% if  properties['enableZipkin'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set zipkin.enabled=true "
+          {% if  properties['enableTracing'] %}
+            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set tracing.enabled=true "
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
