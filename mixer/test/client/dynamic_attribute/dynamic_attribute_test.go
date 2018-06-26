@@ -186,9 +186,9 @@ func TestDynamicAttribute(t *testing.T) {
 					LbEndpoints: []endpoint.LbEndpoint{{
 						Metadata: &core.Metadata{
 							FilterMetadata: map[string]*types.Struct{
-								"istio": &types.Struct{
+								"istio": {
 									Fields: map[string]*types.Value{
-										"uid": &types.Value{Kind: &types.Value_StringValue{StringValue: "pod1.ns2"}},
+										"uid": {Kind: &types.Value_StringValue{StringValue: "pod1.ns2"}},
 									},
 								},
 							},
