@@ -459,7 +459,7 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 
 		// hosts match, now we ensure we satisfy the rule's l4 match conditions, if any exist
 		for _, tcp := range vsvc.Tcp {
-			if l4Match(tcp.Match, server, gateways) {
+			if l4Match(spec.ConfigMeta, tcp.Match, server, gateways) {
 				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
 			}
 		}
@@ -480,7 +480,7 @@ func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServi
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
@@ -496,7 +496,8 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+				fqdn := model.ResolveShortnameToFQDN(gateway, meta)
+				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
 			}
 		}
 
