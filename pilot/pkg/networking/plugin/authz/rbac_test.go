@@ -151,20 +151,23 @@ func TestBuildHTTPFilter(t *testing.T) {
 		Policy  string
 	}{
 		{
-			Name:    "no matched role",
-			Service: &serviceMetadata{name: "abc.xyz"},
-			Store:   store,
+			Name: "no matched role",
+			Service: &serviceMetadata{
+				name: "abc.xyz", attributes: map[string]string{attrDestName: "abc", attrDestNamespace: "xyz"}},
+			Store: store,
 		},
 		{
-			Name:    "no matched binding",
-			Service: &serviceMetadata{name: "review.default"},
-			Store:   store,
+			Name: "no matched binding",
+			Service: &serviceMetadata{
+				name: "review.default", attributes: map[string]string{attrDestName: "review", attrDestNamespace: "default"}},
+			Store: store,
 		},
 		{
-			Name:    "role with binding",
-			Service: &serviceMetadata{name: "product.default"},
-			Store:   store,
-			Policy:  "test-role-1",
+			Name: "role with binding",
+			Service: &serviceMetadata{
+				name: "product.default", attributes: map[string]string{attrDestName: "product", attrDestNamespace: "default"}},
+			Store:  store,
+			Policy: "test-role-1",
 		},
 	}
 
@@ -219,9 +222,9 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Constraints: []*rbacproto.AccessRule_Constraint{
 							{Key: "destination.port", Values: []string{"80", "443"}},
 							{Key: "destination.ip", Values: []string{"192.1.2.0/24", "2001:db8::/28"}},
-							{Key: "destination.header[key1]", Values: []string{"prefix*", "*suffix"}},
-							{Key: "destination.header[key2]", Values: []string{"simple", "*"}},
-							{Key: "destination.label[version]", Values: []string{"v10"}},
+							{Key: "request.headers[key1]", Values: []string{"prefix*", "*suffix"}},
+							{Key: "request.headers[key2]", Values: []string{"simple", "*"}},
+							{Key: "destination.labels[version]", Values: []string{"v10"}},
 							{Key: "destination.name", Values: []string{"attr-name"}},
 						},
 					},
@@ -250,8 +253,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"source.header[key]": "value",
-							"source.ip":          "192.1.2.0/24",
+							"request.headers[key]": "value",
+							"source.ip":            "192.1.2.0/24",
 						},
 					},
 				},
@@ -720,7 +723,7 @@ func TestServiceMetadataMatch(t *testing.T) {
 			Rule: &rbacproto.AccessRule{
 				Services: []string{"product.default"},
 				Constraints: []*rbacproto.AccessRule_Constraint{
-					{Key: "destination.label[token]", Values: []string{"t1", "t2"}},
+					{Key: "destination.labels[token]", Values: []string{"t1", "t2"}},
 				},
 			},
 			Expect: false,
@@ -739,8 +742,8 @@ func TestServiceMetadataMatch(t *testing.T) {
 					{Key: "destination.name", Values: []string{"s1", "s2"}},
 					{Key: "destination.namespace", Values: []string{"ns1", "ns2"}},
 					{Key: "destination.user", Values: []string{"sa1", "sa2"}},
-					{Key: "destination.label[token]", Values: []string{"t1", "t2"}},
-					{Key: "destination.header[user-agent]", Values: []string{"x1", "x2"}},
+					{Key: "destination.labels[token]", Values: []string{"t1", "t2"}},
+					{Key: "request.headers[user-agent]", Values: []string{"x1", "x2"}},
 				},
 			},
 			Expect: true,

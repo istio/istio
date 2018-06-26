@@ -42,15 +42,16 @@ const (
 	// rbacFilterName is the name of the RBAC filter in envoy.
 	rbacFilterName = "envoy.filters.http.rbac"
 
+	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
+	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP     = "source.ip"     // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrSrcHeader = "source.header" // header name is surrounded by brackets, e.g. "source.header[User-Agent]".
+	attrSrcIP = "source.ip" // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
-	attrDestHeader    = "destination.header"    // header name is surrounded by brackets, e.g. "destination.header[User-Agent]".
-	attrDestLabel     = "destination.label"     // label name is surrounded by brackets, e.g. "destination.label[version]".
+	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[version]".
 	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage"
@@ -239,7 +240,11 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
 func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
-	namespace := service.attributes[attrDestName]
+	namespace, present := service.attributes[attrDestNamespace]
+	if !present {
+		log.Errorf("rbac plugin: no namespace for service %v", service)
+		return nil
+	}
 
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
@@ -455,10 +460,10 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				},
 			}, nil
 		}
-	case strings.HasPrefix(key, attrDestHeader):
-		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrDestHeader))
+	case strings.HasPrefix(key, attrRequestHeader):
+		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
 		if err != nil {
-			log.Errorf("rbac plugin: ignored invalid %s: %v", attrDestHeader, err)
+			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
 			return nil
 		}
 		converter = func(v string) (*policyproto.Permission, error) {
@@ -516,10 +521,10 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 			return nil
 		}
 		return &policyproto.Principal{Identifier: &policyproto.Principal_SourceIp{SourceIp: cidr}}
-	case strings.HasPrefix(key, attrSrcHeader):
-		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrSrcHeader))
+	case strings.HasPrefix(key, attrRequestHeader):
+		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
 		if err != nil {
-			log.Errorf("rbac plugin: ignored invalid %s: %v", attrSrcHeader, err)
+			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
 			return nil
 		}
 		return &policyproto.Principal{
