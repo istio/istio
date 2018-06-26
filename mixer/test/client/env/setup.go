@@ -43,7 +43,6 @@ type TestSetup struct {
 	noMixer            bool
 	noProxy            bool
 	noBackend          bool
-	mfConfVersion      string
 	disableHotRestart  bool
 
 	// EnvoyTemplate is the bootstrap config used by envoy.
@@ -66,12 +65,6 @@ type TestSetup struct {
 	AccessLogPath string
 }
 
-// MixerFilterConfigV1 is version v1 for Mixer filter config.
-const MixerFilterConfigV1 = "\"v1\": "
-
-// MixerFilterConfigV2 is version v2 for Mixer filter config.
-const MixerFilterConfigV2 = "\"v2\": "
-
 // NewTestSetup creates a new test setup
 // "name" has to be defined in ports.go
 func NewTestSetup(name uint16, t *testing.T) *TestSetup {
@@ -80,7 +73,6 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 		mfConf:        GetDefaultMixerFilterConf(),
 		ports:         NewPorts(name),
 		testName:      name,
-		mfConfVersion: MixerFilterConfigV2,
 		AccessLogPath: "/tmp/envoy-access.log",
 	}
 }
@@ -88,11 +80,6 @@ func NewTestSetup(name uint16, t *testing.T) *TestSetup {
 // MfConfig get Mixer filter config
 func (s *TestSetup) MfConfig() *MixerFilterConf {
 	return s.mfConf
-}
-
-// SetMixerFilterConfVersion sets Mixer filter config version into Envoy config.
-func (s *TestSetup) SetMixerFilterConfVersion(ver string) {
-	s.mfConfVersion = ver
 }
 
 // Ports get ports object
@@ -173,7 +160,7 @@ func (s *TestSetup) SetNoBackend(no bool) {
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion, s.disableHotRestart)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.disableHotRestart)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 		return err
@@ -229,7 +216,7 @@ func (s *TestSetup) ReStartEnvoy() {
 	log.Printf("new allocated ports are %v:", s.ports)
 	var err error
 	s.epoch++
-	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.mfConfVersion, s.disableHotRestart)
+	s.envoy, err = s.NewEnvoy(s.stress, s.filtersBeforeMixer, s.mfConf, s.ports, s.epoch, s.disableHotRestart)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
@@ -244,6 +231,7 @@ func (s *TestSetup) ReStartEnvoy() {
 
 // VerifyCheckCount verifies the number of Check calls.
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
+	s.t.Helper()
 	test.Eventually(s.t, "VerifyCheckCount", func() bool {
 		return s.mixer.check.Count() == expected
 	})
@@ -251,6 +239,7 @@ func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
 
 // VerifyReportCount verifies the number of Report calls.
 func (s *TestSetup) VerifyReportCount(tag string, expected int) {
+	s.t.Helper()
 	test.Eventually(s.t, "VerifyReportCount", func() bool {
 		return s.mixer.report.Count() == expected
 	})
@@ -258,6 +247,7 @@ func (s *TestSetup) VerifyReportCount(tag string, expected int) {
 
 // VerifyCheck verifies Check request data.
 func (s *TestSetup) VerifyCheck(tag string, result string) {
+	s.t.Helper()
 	bag := <-s.mixer.check.ch
 	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s check: %v\n, Attributes: %+v",
@@ -267,6 +257,7 @@ func (s *TestSetup) VerifyCheck(tag string, result string) {
 
 // VerifyReport verifies Report request data.
 func (s *TestSetup) VerifyReport(tag string, result string) {
+	s.t.Helper()
 	bag := <-s.mixer.report.ch
 	if err := Verify(bag, result); err != nil {
 		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
@@ -276,6 +267,7 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 
 // VerifyQuota verified Quota request data.
 func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
+	s.t.Helper()
 	<-s.mixer.quota.ch
 	if s.mixer.qma.Quota != name {
 		s.t.Fatalf("Failed to verify %s quota name: %v, expected: %v\n",
@@ -329,6 +321,7 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]int {
 
 // VerifyStats verifies Envoy stats.
 func (s *TestSetup) VerifyStats(actualStats string, expectedStats map[string]int) {
+	s.t.Helper()
 	actualStatsMap := s.unmarshalStats(actualStats)
 
 	for eStatsName, eStatsValue := range expectedStats {
@@ -348,6 +341,7 @@ func (s *TestSetup) VerifyStats(actualStats string, expectedStats map[string]int
 // VerifyStatsLT verifies that Envoy stats contains stat expectedStat, whose value is less than
 // expectedStatVal.
 func (s *TestSetup) VerifyStatsLT(actualStats string, expectedStat string, expectedStatVal int) {
+	s.t.Helper()
 	actualStatsMap := s.unmarshalStats(actualStats)
 
 	aStatsValue, ok := actualStatsMap[expectedStat]

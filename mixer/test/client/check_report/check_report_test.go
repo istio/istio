@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checkReport
+package client_test
 
 import (
 	"fmt"
@@ -223,16 +223,4 @@ func TestCheckReportAttributes(t *testing.T) {
 	} else {
 		t.Errorf("Failed to get stats from Envoy %v", err)
 	}
-
-	// Verify that Mixer HTTP filter works properly when we change config version to V1 at Envoy.
-	s.SetMixerFilterConfVersion(env.MixerFilterConfigV1)
-	s.ReStartEnvoy()
-
-	// Issues a POST request.
-	url = fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)
-	if _, _, err := env.HTTPPost(url, "text/plain", "Hello World!"); err != nil {
-		t.Errorf("Failed in request %s: %v", tag, err)
-	}
-	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyReport(tag, reportAttributesOkPost)
 }
