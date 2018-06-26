@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"testing"
 	"time"
 
@@ -100,6 +101,11 @@ func (s *TestSetup) SetMixerQuotaReferenced(ref *mixerpb.ReferencedAttributes) {
 // SetMixerCheckStatus set Status in mocked Check response
 func (s *TestSetup) SetMixerCheckStatus(status rpc.Status) {
 	s.mixer.check.rStatus = status
+}
+
+// SetMixerRouteDirective sets the route directive for Check precondition
+func (s *TestSetup) SetMixerRouteDirective(directive *mixerpb.RouteDirective) {
+	s.mixer.directive = directive
 }
 
 // SetMixerQuotaStatus set Status in mocked Quota response
@@ -209,6 +215,14 @@ func (s *TestSetup) TearDown() {
 	if s.backend != nil {
 		s.backend.Stop()
 	}
+}
+
+// LastRequestHeaders returns last backend request headers
+func (s *TestSetup) LastRequestHeaders() http.Header {
+	if s.backend != nil {
+		return s.backend.LastRequestHeaders()
+	}
+	return nil
 }
 
 // ReStartEnvoy restarts Envoy

@@ -51,6 +51,7 @@ const (
 	IstioAuthnTestPeerRejectNoJwt
 	IstioAuthnTestPeerRejectNoMtls
 	IstioAuthnTestPeerRejectNoTLS
+	RouteDirectiveTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
