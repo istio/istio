@@ -48,7 +48,7 @@ function get_resource() {
     grep -q READY ${file_log} && ready=true || ready=false
     if [[ ${ready} == true ]]; then
       cat "${info_path}"
-      local project="$(cat "${info_path}" | head -n 1 | tr -d ':')"
+      local project="$(head -n 1 "${info_path}" | tr -d ':')"
       gcloud config set project "${project}"
       return 0
     fi

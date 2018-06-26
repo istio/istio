@@ -22,9 +22,5 @@ export SETUP_CLUSTERREG="True"
 CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
 export CLUSTERREG_DIR
 
-export GIT_SHA=${GIT_SHA:-$TAG}
-
-# Run tests with auth disabled
-#make depend e2e_pilot HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="--cluster-registry-dir $CLUSTERREG_DIR -use-sidecar-injector=false -use-admission-webhook=false -auth_enable=false -v1alpha3=false"
-echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
+#echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
 ./prow/e2e-suite.sh  --cluster_registry_dir=$CLUSTERREG_DIR --single_test e2e_pilotv2_v1alpha3 "$@"
