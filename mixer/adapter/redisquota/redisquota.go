@@ -241,8 +241,6 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		dimensionHash: dimensionHash,
 	}
 
-	env.Logger().Infof("Redis Quota Adapter Built")
-
 	return h, nil
 }
 

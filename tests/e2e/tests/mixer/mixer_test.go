@@ -1001,6 +1001,11 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
+	defer func() {
+		if err := deleteRouteRule(routeReviewsV3Rule); err != nil {
+			t.Fatalf("Could not delete reviews routing rule: %v", err)
+		}
+	}()
 
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
 	if err := applyMixerRule(rateLimitRule); err != nil {
@@ -1021,6 +1026,11 @@ func TestRedisQuota(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
+	defer func() {
+		if err := deleteRouteRule(routeReviewsV3Rule); err != nil {
+			t.Fatalf("Could not delete reviews routing rule: %v", err)
+		}
+	}()
 
 	if err := tc.Kube.DeployTiller(); err != nil {
 		fatalf(t, "Failed to deploy helm tiller.")
