@@ -43,10 +43,6 @@ func maybeAddTLSForDestinationRule(tc *testConfig, templateFile string) string {
 // default (kube service level) to expose ports 80/443. So our gateway specs also expose
 // ports 80/443.
 func TestGateway_HTTPIngress(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
-
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
@@ -82,9 +78,6 @@ func TestGateway_HTTPIngress(t *testing.T) {
 }
 
 func TestIngressGateway503DuringRuleChange(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
@@ -204,9 +197,6 @@ cleanup:
 // TODO: rename this file gateway_test.go, merge w/ egress too? At least this test and test above
 // use gateway as an "ingress" of sorts.
 func TestGateway_TCP(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: V1alpha3=false", t.Name())
-	}
 	// TODO: use current namespace so test doesn't require --cluster_wide flag
 	// circle CI always runs with --cluster_wide, and its required for gateway tests atm due to
 	// gateway resource only being created in istio-system namespace

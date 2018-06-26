@@ -111,12 +111,19 @@ var (
 	// Kubernetes, and have special scaling options on top of those available
 	// to normal per-pod metrics (the "pods" source).
 	ResourceMetricSourceType MetricSourceType = "Resource"
+	// ExternalMetricSourceType is a global metric that is not associated
+	// with any Kubernetes object. It allows autoscaling based on information
+	// coming from components running outside of cluster
+	// (for example length of queue in cloud messaging service, or
+	// QPS from loadbalancer running outside of cluster).
+	ExternalMetricSourceType MetricSourceType = "External"
 )
 
 // MetricSpec specifies how to scale based on a single metric
 // (only `type` and one other matching field should be set at once).
 type MetricSpec struct {
-	// Type is the type of metric source.  It should match one of the fields below.
+	// Type is the type of metric source.  It should be one of "Object",
+	// "Pods" or "Resource", each mapping to a matching field in the object.
 	Type MetricSourceType
 
 	// Object refers to a metric describing a single kubernetes object
@@ -135,6 +142,13 @@ type MetricSpec struct {
 	// to normal per-pod metrics using the "pods" source.
 	// +optional
 	Resource *ResourceMetricSource
+	// External refers to a global metric that is not associated
+	// with any Kubernetes object. It allows autoscaling based on information
+	// coming from components running outside of cluster
+	// (for example length of queue in cloud messaging service, or
+	// QPS from loadbalancer running outside of cluster).
+	// +optional
+	External *ExternalMetricSource
 }
 
 // ObjectMetricSource indicates how to scale on a metric describing a
@@ -179,6 +193,26 @@ type ResourceMetricSource struct {
 	// TargetAverageValue is the target value of the average of the
 	// resource metric across all relevant pods, as a raw value (instead of as
 	// a percentage of the request), similar to the "pods" metric source type.
+	// +optional
+	TargetAverageValue *resource.Quantity
+}
+
+// ExternalMetricSource indicates how to scale on a metric not associated with
+// any Kubernetes object (for example length of queue in cloud
+// messaging service, or QPS from loadbalancer running outside of cluster).
+type ExternalMetricSource struct {
+	// metricName is the name of the metric in question.
+	MetricName string
+	// MetricSelector is used to identify a specific time series
+	// within a given metric.
+	// +optional
+	MetricSelector *metav1.LabelSelector
+	// TargetValue is the target value of the metric (as a quantity).
+	// Mutually exclusive with TargetAverageValue.
+	// +optional
+	TargetValue *resource.Quantity
+	// TargetAverageValue is the target per-pod value of global metric (as a quantity).
+	// Mutually exclusive with TargetValue.
 	// +optional
 	TargetAverageValue *resource.Quantity
 }
@@ -261,7 +295,8 @@ type HorizontalPodAutoscalerCondition struct {
 
 // MetricStatus describes the last-read state of a single metric.
 type MetricStatus struct {
-	// Type is the type of metric source.  It will match one of the fields below.
+	// Type is the type of metric source.  It will be one of "Object",
+	// "Pods" or "Resource", each corresponds to a matching field in the object.
 	Type MetricSourceType
 
 	// Object refers to a metric describing a single kubernetes object
@@ -280,6 +315,13 @@ type MetricStatus struct {
 	// to normal per-pod metrics using the "pods" source.
 	// +optional
 	Resource *ResourceMetricStatus
+	// External refers to a global metric that is not associated
+	// with any Kubernetes object. It allows autoscaling based on information
+	// coming from components running outside of cluster
+	// (for example length of queue in cloud messaging service, or
+	// QPS from loadbalancer running outside of cluster).
+	// +optional
+	External *ExternalMetricStatus
 }
 
 // ObjectMetricStatus indicates the current value of a metric describing a
@@ -324,6 +366,23 @@ type ResourceMetricStatus struct {
 	// a percentage of the request), similar to the "pods" metric source type.
 	// It will always be set, regardless of the corresponding metric specification.
 	CurrentAverageValue resource.Quantity
+}
+
+// ExternalMetricStatus indicates the current value of a global metric
+// not associated with any Kubernetes object.
+type ExternalMetricStatus struct {
+	// MetricName is the name of a metric used for autoscaling in
+	// metric system.
+	MetricName string
+	// MetricSelector is used to identify a specific time series
+	// within a given metric.
+	// +optional
+	MetricSelector *metav1.LabelSelector
+	// CurrentValue is the current value of the metric (as a quantity)
+	CurrentValue resource.Quantity
+	// CurrentAverageValue is the current value of metric averaged over autoscaled pods.
+	// +optional
+	CurrentAverageValue *resource.Quantity
 }
 
 // +genclient

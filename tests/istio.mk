@@ -109,7 +109,7 @@ e2e_galley_run: out_dir
 	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
 e2e_dashboard_run: out_dir
-	go test -v -timeout 25m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+	ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
 e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
@@ -175,21 +175,10 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
 	${CAPTURE_LOG}
 
-# v1alpha1+envoy v1 test with MTLS
-# Test runs in istio-system, using istio-auth.yaml generated config.
-# This will only (re)run the test - call "make docker istio.yaml" (or "make pilot docker.pilot" if
-# you only changed pilot) to build.
-# Note: This test is used by CircleCI as "e2e-pilot".
-# REQUIRED TEST for V1
-test/local/auth/e2e_pilot: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --egress=false --v1alpha3=false --rbac_enable=true \
-		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
-
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
+		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -197,7 +186,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; ISTIO_PROXY_IMAGE=proxyv2 go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --v1alpha3=true --egress=false --ingress=false --rbac_enable=true --v1alpha1=false --cluster_wide \
+		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
