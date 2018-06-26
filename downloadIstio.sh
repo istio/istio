@@ -58,4 +58,4 @@ fi
 echo "Added $BINDIR to your path."
 echo "Istio ${ISTIO_VERSION} successfully installed."
 env $SHELL
-istioctl version
+echo 'Try `istioctl version` command to verify the installation.'
