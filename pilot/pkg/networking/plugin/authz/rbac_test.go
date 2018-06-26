@@ -145,35 +145,31 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 	store := newIstioStoreWithConfigs([]model.Config{roleCfg, roleCfgWithoutBinding, bindingCfg}, t)
 	testCases := []struct {
-		Name      string
-		Namespace string
-		Host      string
-		Store     model.IstioConfigStore
-		Policy    string
+		Name    string
+		Service *serviceMetadata
+		Store   model.IstioConfigStore
+		Policy  string
 	}{
 		{
-			Name:      "no matched role",
-			Namespace: "xyz",
-			Host:      "abc.xyz",
-			Store:     store,
+			Name:    "no matched role",
+			Service: &serviceMetadata{name: "abc.xyz"},
+			Store:   store,
 		},
 		{
-			Name:      "no matched binding",
-			Namespace: "default",
-			Host:      "review.default",
-			Store:     store,
+			Name:    "no matched binding",
+			Service: &serviceMetadata{name: "review.default"},
+			Store:   store,
 		},
 		{
-			Name:      "role with binding",
-			Namespace: "default",
-			Host:      "product.default",
-			Store:     store,
-			Policy:    "test-role-1",
+			Name:    "role with binding",
+			Service: &serviceMetadata{name: "product.default"},
+			Store:   store,
+			Policy:  "test-role-1",
 		},
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(tc.Host, tc.Namespace, tc.Store)
+		filter := buildHTTPFilter(tc.Service, tc.Store)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -223,8 +219,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						Constraints: []*rbacproto.AccessRule_Constraint{
 							{Key: "destination.port", Values: []string{"80", "443"}},
 							{Key: "destination.ip", Values: []string{"192.1.2.0/24", "2001:db8::/28"}},
-							{Key: "request.header[key1]", Values: []string{"prefix*", "*suffix"}},
-							{Key: "request.header[key2]", Values: []string{"simple", "*"}},
+							{Key: "destination.header[key1]", Values: []string{"prefix*", "*suffix"}},
+							{Key: "destination.header[key2]", Values: []string{"simple", "*"}},
+							{Key: "destination.label[version]", Values: []string{"v10"}},
+							{Key: "destination.name", Values: []string{"attr-name"}},
 						},
 					},
 				},
@@ -252,9 +250,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"request.header[key]": "value",
-							"source.service":      "service-name",
-							"source.ip":           "192.1.2.0/24",
+							"source.header[key]": "value",
+							"source.ip":          "192.1.2.0/24",
 						},
 					},
 				},
@@ -307,8 +304,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^.*/suffix$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+														SuffixMatch: "/suffix",
 													},
 												},
 											},
@@ -317,8 +314,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^/prefix.*$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
+														PrefixMatch: "/prefix",
 													},
 												},
 											},
@@ -337,8 +334,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: ":path",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^.*$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
+														PresentMatch: true,
 													},
 												},
 											},
@@ -423,8 +420,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: "key1",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^prefix.*$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
+														PrefixMatch: "prefix",
 													},
 												},
 											},
@@ -433,8 +430,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: "key1",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^.*suffix$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+														SuffixMatch: "suffix",
 													},
 												},
 											},
@@ -461,8 +458,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 											Rule: &policy.Permission_Header{
 												Header: &route.HeaderMatcher{
 													Name: "key2",
-													HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-														RegexMatch: "^.*$",
+													HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
+														PresentMatch: true,
 													},
 												},
 											},
@@ -497,16 +494,6 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 								},
 							},
 						},
-						{
-							Identifier: &policy.Principal_Header{
-								Header: &route.HeaderMatcher{
-									Name: ":service",
-									HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-										ExactMatch: "service-name",
-									},
-								},
-							},
-						},
 					},
 				},
 			},
@@ -528,28 +515,44 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 	}
 	testCases := []struct {
 		name    string
-		service string
+		service *serviceMetadata
 		rbac    *policy.RBAC
 	}{
 		{
-			name:    "prefix matched service",
-			service: "prefix.service",
-			rbac:    expectRbac1,
+			name: "prefix matched service",
+			service: &serviceMetadata{
+				name:       "prefix.service",
+				labels:     map[string]string{"version": "v10"},
+				attributes: map[string]string{"destination.name": "attr-name"},
+			},
+			rbac: expectRbac1,
 		},
 		{
-			name:    "suffix matched service",
-			service: "service.suffix",
-			rbac:    expectRbac1,
+			name: "suffix matched service",
+			service: &serviceMetadata{
+				name:       "service.suffix",
+				labels:     map[string]string{"version": "v10"},
+				attributes: map[string]string{"destination.name": "attr-name"},
+			},
+			rbac: expectRbac1,
 		},
 		{
-			name:    "exact matched service",
-			service: "service",
-			rbac:    expectRbac1,
+			name: "exact matched service",
+			service: &serviceMetadata{
+				name:       "service",
+				labels:     map[string]string{"version": "v10"},
+				attributes: map[string]string{"destination.name": "attr-name"},
+			},
+			rbac: expectRbac1,
 		},
 		{
-			name:    "* matched service",
-			service: "unknown",
-			rbac:    expectRbac2,
+			name: "* matched service",
+			service: &serviceMetadata{
+				name:       "unknown",
+				labels:     map[string]string{"version": "v10"},
+				attributes: map[string]string{"destination.name": "attr-name"},
+			},
+			rbac: expectRbac2,
 		},
 	}
 
@@ -632,28 +635,28 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		service      string
+		service      *serviceMetadata
 		roles        []model.Config
 		bindings     []model.Config
 		expectConfig *rbacconfig.RBAC
 	}{
 		{
 			name:         "exact matched service",
-			service:      "service",
+			service:      &serviceMetadata{name: "service"},
 			roles:        roles,
 			bindings:     bindings,
 			expectConfig: rbacConfig,
 		},
 		{
 			name:         "empty roles",
-			service:      "service",
+			service:      &serviceMetadata{name: "service"},
 			roles:        []model.Config{},
 			bindings:     bindings,
 			expectConfig: emptyConfig,
 		},
 		{
 			name:         "empty bindings",
-			service:      "service",
+			service:      &serviceMetadata{name: "service"},
 			roles:        roles,
 			bindings:     []model.Config{},
 			expectConfig: emptyConfig,
@@ -664,6 +667,90 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 		rbac := convertRbacRulesToFilterConfig(tc.service, tc.roles, tc.bindings)
 		if !reflect.DeepEqual(*tc.expectConfig, *rbac) {
 			t.Errorf("%s rbac config want:\n%v\nbut got:\n%v", tc.name, *tc.expectConfig, *rbac)
+		}
+	}
+}
+
+func TestServiceMetadataMatch(t *testing.T) {
+	cases := []struct {
+		Name    string
+		Service *serviceMetadata
+		Rule    *rbacproto.AccessRule
+		Expect  bool
+	}{
+		{
+			Name:    "empty access rule",
+			Service: &serviceMetadata{},
+			Expect:  true,
+		},
+		{
+			Name: "service.name not matched",
+			Service: &serviceMetadata{
+				name:       "product.default",
+				attributes: map[string]string{"destination.name": "s2"},
+			},
+			Rule: &rbacproto.AccessRule{
+				Services: []string{"review.default"},
+				Constraints: []*rbacproto.AccessRule_Constraint{
+					{Key: "destination.name", Values: []string{"s1", "s2"}},
+				},
+			},
+			Expect: false,
+		},
+		{
+			Name: "constraint.name not matched",
+			Service: &serviceMetadata{
+				name:       "product.default",
+				attributes: map[string]string{"destination.name": "s3"},
+			},
+			Rule: &rbacproto.AccessRule{
+				Services: []string{"product.default"},
+				Constraints: []*rbacproto.AccessRule_Constraint{
+					{Key: "destination.name", Values: []string{"s1", "s2"}},
+				},
+			},
+			Expect: false,
+		},
+		{
+			Name: "constraint.label not matched",
+			Service: &serviceMetadata{
+				name:   "product.default",
+				labels: map[string]string{"token": "t3"},
+			},
+			Rule: &rbacproto.AccessRule{
+				Services: []string{"product.default"},
+				Constraints: []*rbacproto.AccessRule_Constraint{
+					{Key: "destination.label[token]", Values: []string{"t1", "t2"}},
+				},
+			},
+			Expect: false,
+		},
+		{
+			Name: "allt matched",
+			Service: &serviceMetadata{
+				name: "product.default",
+				attributes: map[string]string{
+					"destination.name": "s2", "destination.namespace": "ns2", "destination.user": "sa2", "other": "other"},
+				labels: map[string]string{"token": "t2"},
+			},
+			Rule: &rbacproto.AccessRule{
+				Services: []string{"product.default"},
+				Constraints: []*rbacproto.AccessRule_Constraint{
+					{Key: "destination.name", Values: []string{"s1", "s2"}},
+					{Key: "destination.namespace", Values: []string{"ns1", "ns2"}},
+					{Key: "destination.user", Values: []string{"sa1", "sa2"}},
+					{Key: "destination.label[token]", Values: []string{"t1", "t2"}},
+					{Key: "destination.header[user-agent]", Values: []string{"x1", "x2"}},
+				},
+			},
+			Expect: true,
+		},
+	}
+
+	for _, tc := range cases {
+		if tc.Service.match(tc.Rule) != tc.Expect {
+			t.Errorf("%s: expecting %v for service %v and rule %v",
+				tc.Name, tc.Expect, tc.Service, tc.Rule)
 		}
 	}
 }
