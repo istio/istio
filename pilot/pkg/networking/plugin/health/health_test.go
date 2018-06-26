@@ -48,7 +48,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
-					&http_conn.HttpFilter{
+					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
 							PassThroughMode: &types.BoolValue{
@@ -85,7 +85,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
-					&http_conn.HttpFilter{
+					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
 							PassThroughMode: &types.BoolValue{
@@ -99,7 +99,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 						}),
 					},
-					&http_conn.HttpFilter{
+					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
 							PassThroughMode: &types.BoolValue{
@@ -137,7 +137,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 			},
 			expected: plugin.FilterChain{
 				HTTP: []*http_conn.HttpFilter{
-					&http_conn.HttpFilter{
+					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
 							PassThroughMode: &types.BoolValue{

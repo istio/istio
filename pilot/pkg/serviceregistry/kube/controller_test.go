@@ -356,7 +356,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
 
 	expected := []*model.Probe{
-		&model.Probe{
+		{
 			Path: "/ready",
 			Port: &model.Port{
 				Name:     "mgmt-8080",
@@ -364,7 +364,7 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 				Protocol: model.ProtocolHTTP,
 			},
 		},
-		&model.Probe{
+		{
 			Path: "/live",
 			Port: &model.Port{
 				Name:     "mgmt-9090",
