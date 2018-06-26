@@ -192,6 +192,14 @@ func HelmInstall(chartDir, chartName, namespace, setValue string) error {
 	return err
 }
 
+// HelmTemplate helm template from a chart for a given namespace
+//      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+func HelmTemplate(chartDir, chartName, namespace, setValue, outfile string) error {
+	_, err := Shell("helm template %s --name %s --namespace %s %s > %s", chartDir,
+		chartName, namespace, setValue, outfile)
+	return err
+}
+
 // HelmDelete helm del --purge a chart
 func HelmDelete(chartName string) error {
 	_, err := Shell("helm del --purge %s", chartName)

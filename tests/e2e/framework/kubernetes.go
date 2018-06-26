@@ -662,10 +662,8 @@ func (k *KubeInfo) deployIstio() error {
 			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
-		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
-		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", mcRemoteInstallFile)
-		if err := k.generateRemoteIstio(baseIstioYaml, testIstioYaml); err != nil {
+		if err := k.generateRemoteIstio(testIstioYaml); err != nil {
 			log.Errorf("Generating Remote yaml %s failed", testIstioYaml)
 			return err
 		}
