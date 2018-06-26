@@ -323,6 +323,39 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return managementPorts
 }
 
+// WorkloadHealthCheckInfo implements a service catalog operation
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return nil
+	}
+
+	probes := make([]*model.Probe, 0)
+	for _, container := range pod.Spec.Containers {
+		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing readiness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
+			})
+		}
+		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing liveness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.LivenessProbe.Handler.HTTPGet.Path,
+			})
+		}
+	}
+	return probes
+}
+
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
