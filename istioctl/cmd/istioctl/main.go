@@ -203,7 +203,6 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 				return fmt.Errorf("create takes no arguments")
 			}
 			varr, others, err := readInputs()
-
 			if err != nil {
 				return err
 			}

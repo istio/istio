@@ -184,6 +184,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 
 	return varr, others, nil
 }
+
 // ParseInputs reads multiple documents from `kubectl` output and checks with
 // the schema. It also returns the list of unrecognized kinds as the second
 // response.
