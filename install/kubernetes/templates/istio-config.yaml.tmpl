@@ -30,6 +30,13 @@ data:
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
     rdsRefreshDelay: 1s
+
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    sdsUdsPath: "/tmp/sdsuds.sock"
+    
+    # How frequently should Envoy fetch key/cert from NodeAgent.
+    sdsRefreshDelay: 15s
     #
     defaultConfig:
       # NOTE: If you change any values in this section, make sure to make
