@@ -331,6 +331,11 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	}}
 }
 
+// WorkloadHealthCheckInfo implements discovery interface
+func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
+}
+
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	sd.mutex.Lock()
