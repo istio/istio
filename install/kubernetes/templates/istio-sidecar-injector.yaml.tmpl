@@ -62,7 +62,7 @@ spec:
                 - /usr/local/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
-                - --interval=2s
+                - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
           readinessProbe:
@@ -71,7 +71,7 @@ spec:
                 - /usr/local/bin/sidecar-injector
                 - probe
                 - --probe-path=/health
-                - --interval=2s
+                - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
       volumes:
