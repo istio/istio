@@ -527,17 +527,16 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						labels, _ := c.pods.labelsByIP(ea.IP)
 						pod, exists := c.pods.getPodByIP(ea.IP)
 						az, sa := "", ""
-						endpoint := model.NetworkEndpoint{
-							Address:     ea.IP,
-							Port:        int(port.Port),
-							ServicePort: svcPort,
-						}
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 						}
 						out = append(out, &model.ServiceInstance{
-							Endpoint:         endpoint,
+							Endpoint: model.NetworkEndpoint{
+								Address:     ea.IP,
+								Port:        int(port.Port),
+								ServicePort: svcPort,
+							},
 							Service:          svc,
 							Labels:           labels,
 							AvailabilityZone: az,

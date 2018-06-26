@@ -39,7 +39,7 @@ func NewPlugin() plugin.Plugin {
 }
 
 // BuildHealthCheckFilter returns a HealthCheck filter.
-func BuildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
+func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
 		Config: util.MessageToStruct(&hcfilter.HealthCheck{
@@ -62,7 +62,7 @@ func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.Probe
 		// as a management port and not traced. If the port does match, then we need to add a
 		// health check filter for the probe path, to ensure that health checks are not traced.
 		if probe.Port.Port == endpoint.Port {
-			filter := BuildHealthCheckFilter(probe)
+			filter := buildHealthCheckFilter(probe)
 			if !containsHTTPFilter(filterChain.HTTP, filter) {
 				filterChain.HTTP = append(filterChain.HTTP, filter)
 			}
@@ -90,12 +90,12 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Node.Type != model.Sidecar {
-		// Only care about sidecar.
+	if in.Node == nil {
 		return nil
 	}
 
-	if in.Node == nil {
+	if in.Node.Type != model.Sidecar {
+		// Only care about sidecar.
 		return nil
 	}
 

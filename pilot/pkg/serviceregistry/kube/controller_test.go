@@ -354,11 +354,36 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
 
 	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
-	if len(probes) != 2 {
-		t.Errorf("Expecting 2 probes but got %d\r\n", len(probes))
+
+	expected := []*model.Probe{
+		&model.Probe{
+			Path: "/ready",
+			Port: &model.Port{
+				Name:     "mgmt-8080",
+				Port:     8080,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+		&model.Probe{
+			Path: "/live",
+			Port: &model.Port{
+				Name:     "mgmt-9090",
+				Port:     9090,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
 	}
 
-	// TODO: GPB Test the probes to make sure the path and port are correct
+	if len(probes) != len(expected) {
+		t.Errorf("Expecting %d probes but got %d\r\n", len(expected), len(probes))
+	}
+
+	for i, exp := range expected {
+		if !reflect.DeepEqual(exp, probes[i]) {
+			t.Errorf("Port got: %#v  wanted %#v\r\n", probes[i].Port, exp.Port)
+			t.Errorf("Probe %d, got:\n%#v\nwanted:\n%#v\n", i, probes[i], exp)
+		}
+	}
 }
 
 func makeFakeKubeAPIController() *Controller {

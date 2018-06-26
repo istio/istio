@@ -24,38 +24,158 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-func TestBuildHealthCheckFilter(t *testing.T) {
+func TestBuildHealthCheckFilters(t *testing.T) {
 	cases := []struct {
-		in       *model.Probe
-		expected *http_conn.HttpFilter
+		probes   model.ProbeList
+		endpoint *model.NetworkEndpoint
+		expected plugin.FilterChain
 	}{
 		{
-			in: &model.Probe{
-				Path: "/health",
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "envoy.health_check",
-				Config: util.MessageToStruct(&hcfilter.HealthCheck{
-					PassThroughMode: &types.BoolValue{
-						Value: true,
+			probes: model.ProbeList{
+				&model.Probe{
+					Port: &model.Port{
+						Port: 8080,
 					},
-					Headers: []*envoy_api_v2_route.HeaderMatcher{
-						{
-							Name:  ":path",
-							Value: "/health",
-						},
-					},
-				}),
+					Path: "/health",
+				},
 			},
+			endpoint: &model.NetworkEndpoint{
+				Port: 8080,
+			},
+			expected: plugin.FilterChain{
+				HTTP: []*http_conn.HttpFilter{
+					&http_conn.HttpFilter{
+						Name: "envoy.health_check",
+						Config: util.MessageToStruct(&hcfilter.HealthCheck{
+							PassThroughMode: &types.BoolValue{
+								Value: true,
+							},
+							Headers: []*envoy_api_v2_route.HeaderMatcher{
+								{
+									Name:  ":path",
+									Value: "/health",
+								},
+							},
+						}),
+					},
+				},
+			},
+		},
+		{
+			probes: model.ProbeList{
+				&model.Probe{
+					Port: &model.Port{
+						Port: 8080,
+					},
+					Path: "/ready",
+				},
+				&model.Probe{
+					Port: &model.Port{
+						Port: 8080,
+					},
+					Path: "/live",
+				},
+			},
+			endpoint: &model.NetworkEndpoint{
+				Port: 8080,
+			},
+			expected: plugin.FilterChain{
+				HTTP: []*http_conn.HttpFilter{
+					&http_conn.HttpFilter{
+						Name: "envoy.health_check",
+						Config: util.MessageToStruct(&hcfilter.HealthCheck{
+							PassThroughMode: &types.BoolValue{
+								Value: true,
+							},
+							Headers: []*envoy_api_v2_route.HeaderMatcher{
+								{
+									Name:  ":path",
+									Value: "/ready",
+								},
+							},
+						}),
+					},
+					&http_conn.HttpFilter{
+						Name: "envoy.health_check",
+						Config: util.MessageToStruct(&hcfilter.HealthCheck{
+							PassThroughMode: &types.BoolValue{
+								Value: true,
+							},
+							Headers: []*envoy_api_v2_route.HeaderMatcher{
+								{
+									Name:  ":path",
+									Value: "/live",
+								},
+							},
+						}),
+					},
+				},
+			},
+		},
+		// Duplicate probes
+		{
+			probes: model.ProbeList{
+				&model.Probe{
+					Port: &model.Port{
+						Port: 8080,
+					},
+					Path: "/health",
+				},
+				&model.Probe{
+					Port: &model.Port{
+						Port: 8080,
+					},
+					Path: "/health",
+				},
+			},
+			endpoint: &model.NetworkEndpoint{
+				Port: 8080,
+			},
+			expected: plugin.FilterChain{
+				HTTP: []*http_conn.HttpFilter{
+					&http_conn.HttpFilter{
+						Name: "envoy.health_check",
+						Config: util.MessageToStruct(&hcfilter.HealthCheck{
+							PassThroughMode: &types.BoolValue{
+								Value: true,
+							},
+							Headers: []*envoy_api_v2_route.HeaderMatcher{
+								{
+									Name:  ":path",
+									Value: "/health",
+								},
+							},
+						}),
+					},
+				},
+			},
+		},
+		// Probe on management port, so no health check filter required
+		{
+			probes: model.ProbeList{
+				&model.Probe{
+					Port: &model.Port{
+						Port: 9090,
+					},
+					Path: "/health",
+				},
+			},
+			endpoint: &model.NetworkEndpoint{
+				Port: 8080,
+			},
+			expected: plugin.FilterChain{},
 		},
 	}
 
 	for _, c := range cases {
-		if got := BuildHealthCheckFilter(c.in); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("buildHealthCheckFilter(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
+		var filterChain plugin.FilterChain
+		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint)
+		if !reflect.DeepEqual(c.expected, filterChain) {
+			t.Errorf("buildHealthCheckFilters(%#v on endpoint %#v), got:\n%#v\nwanted:\n%#v\n", c.probes, c.endpoint, filterChain, c.expected)
 		}
 	}
 }
