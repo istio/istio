@@ -83,15 +83,20 @@ func TestServices(t *testing.T) {
 		}
 		log.Infof("Services: %#v", out)
 
+		serviceFound := false
 		for _, item := range out {
 			if item.Hostname == hostname &&
 				len(item.Ports) == 1 &&
 				item.Ports[0].Protocol == model.ProtocolHTTP {
-				return true
+				serviceFound = true
 			}
 		}
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil || len(ep) > 0 {
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if serviceFound && len(ep) == 2 {
 			return true
 		}
 		return false
