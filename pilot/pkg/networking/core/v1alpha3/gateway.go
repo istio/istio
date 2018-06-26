@@ -463,6 +463,14 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
 			}
 		}
+
+		// FIXME: revisit this logic
+		// hosts match, now we ensure we satisfy the rule's tls match conditions, if any exist
+		for _, tls := range vsvc.Tls {
+			if tlsMatch(tls.Match, server, gateways) {
+				downstreams = append(downstreams, gatherDestinations(tls.Route)...)
+			}
+		}
 	}
 	return downstreams
 }
@@ -480,7 +488,40 @@ func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServi
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
+// FIXME: FQDN gateway match!
 func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
+	// This means we can return as soon as we get any match of an entire predicate.
+	for _, match := range predicates {
+		// TODO: implement more matches, like CIDR ranges, etc.
+
+		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+		portMatch := match.Port == 0
+		if match.Port != 0 {
+			portMatch = server.Port.Number == match.Port
+		}
+
+		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+		gatewayMatch := len(match.Gateways) == 0
+		if len(match.Gateways) > 0 {
+			for _, gateway := range match.Gateways {
+				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+			}
+		}
+
+		if portMatch && gatewayMatch {
+			return true
+		}
+	}
+	// If we had no predicates we match; otherwise we don't match since we'd have exited at the first match.
+	return len(predicates) == 0
+}
+
+// TODO: move up to more general location so this can be re-used in other service matching
+// TODO: de-dup code w/ l4Match?
+// FIXME: FQDN gateway match!
+// TODO: filter on sni_hosts?
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
