@@ -12,31 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package version
+package model
 
-import (
-	"fmt"
-
-	"github.com/spf13/cobra"
+const (
+	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
+	// name will be considered.
+	DefaultRbacConfigName = "default"
 )
-
-// CobraCommand returns a command used to print version information.
-func CobraCommand() *cobra.Command {
-	var short bool
-
-	cmd := &cobra.Command{
-		Use:   "version",
-		Short: "Prints out build version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			if short {
-				fmt.Fprintln(cmd.OutOrStdout(), Info)
-			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), Info.LongForm())
-			}
-		},
-	}
-
-	cmd.PersistentFlags().BoolVarP(&short, "short", "s", short, "Displays a short form of the version information")
-
-	return cmd
-}

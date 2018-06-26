@@ -35,16 +35,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 )
 
 const (
 	// RbacFilterName is the name of the RBAC filter in envoy.
 	RbacFilterName = "envoy.filters.http.rbac"
-
-	// RbacConfigName is the name of the RbacConfig custom resource that controls the RBAC behavior.
-	RbacConfigName = "rbac-config"
 
 	sourceIP        = "source.ip"
 	sourceService   = "source.service"
@@ -81,11 +77,18 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	if in.Node.Type != model.Sidecar || in.ListenerProtocol != plugin.ListenerProtocolHTTP {
 		return nil
 	}
-	if !isRbacEnabled(in.Env.IstioConfigStore) {
+	svc := in.ServiceInstance.Service.Hostname
+	attr, err := in.Env.GetServiceAttributes(svc)
+	if attr == nil || err != nil {
+		log.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
 		return nil
 	}
 
-	filter := buildHTTPFilter(in.ServiceInstance.Service.Hostname, in.Env.IstioConfigStore)
+	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
+		return nil
+	}
+
+	filter := buildHTTPFilter(svc.String(), attr.Namespace, in.Env.IstioConfigStore)
 	if filter != nil {
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
@@ -113,46 +116,57 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-func isRbacEnabled(store model.IstioConfigStore) bool {
+// isServiceInList checks if a given service or namespace is found in the RbacConfig target list.
+func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Target) bool {
+	for _, ns := range li.Namespaces {
+		if namespace == ns {
+			return true
+		}
+	}
+	for _, service := range li.Services {
+		if service == svc {
+			return true
+		}
+	}
+	return false
+}
+
+func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	var configProto *rbacproto.RbacConfig
-	config := store.RbacConfig(RbacConfigName, kube.IstioNamespace)
+	config := store.RbacConfig()
 	if config != nil {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		log.Debugf("rbac plugin disabled: No RbacConfig")
+		log.Debugf("rbac plugin disabled: no RbacConfig found")
 		return false
 	}
-	// TODO(yangminzhu): Supports ON_WITH_INCLUSION and ON_WITH_EXCLUSION.
-	if configProto.Mode == rbacproto.RbacConfig_ON {
-		return true
-	}
 
-	log.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
-	return false
+	switch configProto.Mode {
+	case rbacproto.RbacConfig_ON:
+		return true
+	case rbacproto.RbacConfig_ON_WITH_INCLUSION:
+		return isServiceInList(svc, ns, configProto.Inclusion)
+	case rbacproto.RbacConfig_ON_WITH_EXCLUSION:
+		return !isServiceInList(svc, ns, configProto.Exclusion)
+	default:
+		log.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
+		return false
+	}
 }
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(hostName model.Hostname, store model.IstioConfigStore) *http_conn.HttpFilter {
-	namespace := ""
-	split := strings.Split(hostName.String(), ".")
-	if len(split) >= 2 {
-		namespace = split[1]
-	} else {
-		log.Errorf("could not find namespace for host %v", hostName)
-		return nil
-	}
-
+func buildHTTPFilter(svc string, namespace string, store model.IstioConfigStore) *http_conn.HttpFilter {
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
-		log.Debugf("no service role found for %s in namespace %s", hostName, namespace)
+		log.Debugf("no service role found for %s in namespace %s", svc, namespace)
 	}
 	bindings := store.ServiceRoleBindings(namespace)
 	if bindings == nil {
-		log.Debugf("no service role binding found for %s in namespace %s", hostName, namespace)
+		log.Debugf("no service role binding found for %s in namespace %s", svc, namespace)
 	}
-	config := convertRbacRulesToFilterConfig(hostName.String(), roles, bindings)
+	config := convertRbacRulesToFilterConfig(svc, roles, bindings)
 	return &http_conn.HttpFilter{
 		Name:   RbacFilterName,
 		Config: util.MessageToStruct(config),
@@ -314,7 +328,7 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			v, _ := subject.Properties[k]
+			v := subject.Properties[k]
 			id := principalForKeyValue(k, v)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
