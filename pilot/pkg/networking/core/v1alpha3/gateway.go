@@ -457,10 +457,17 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 			continue
 		}
 
-		// hosts match, now we ensure we satisfy the rule's l4 match conditions, if any exist
+		// ensure we satisfy the rule's l4 match conditions, if any exist
 		for _, tcp := range vsvc.Tcp {
 			if l4Match(spec.ConfigMeta, tcp.Match, server, gateways) {
 				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
+			}
+		}
+
+		// ensure we satisfy the rule's tls match conditions, if any exist
+		for _, tls := range vsvc.Tls {
+			if tlsMatch(spec.ConfigMeta, tls.Match, server, gateways) {
+				downstreams = append(downstreams, gatherDestinations(tls.Route)...)
 			}
 		}
 	}
@@ -485,6 +492,38 @@ func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes, 
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
+
+		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+		portMatch := match.Port == 0
+		if match.Port != 0 {
+			portMatch = server.Port.Number == match.Port
+		}
+
+		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+		gatewayMatch := len(match.Gateways) == 0
+		if len(match.Gateways) > 0 {
+			for _, gateway := range match.Gateways {
+				fqdn := model.ResolveShortnameToFQDN(gateway, meta)
+				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
+			}
+		}
+
+		if portMatch && gatewayMatch {
+			return true
+		}
+	}
+	// If we had no predicates we match; otherwise we don't match since we'd have exited at the first match.
+	return len(predicates) == 0
+}
+
+// TODO: move up to more general location so this can be re-used in other service matching
+// TODO: de-dup with l4Match?
+func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
+	// This means we can return as soon as we get any match of an entire predicate.
+	for _, match := range predicates {
+		// TODO: implement more matches, like CIDR ranges, etc.
+		// TODO: sni_hosts
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
