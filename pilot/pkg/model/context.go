@@ -239,8 +239,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
-		SdsUdsPath:            "",
-		SdsRefreshDelay:       ptypes.DurationProto(15 * time.Second),
 	}
 }
 
