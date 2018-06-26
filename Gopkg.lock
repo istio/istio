@@ -272,6 +272,9 @@
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
+    "pkg/cache",
+    "pkg/log",
+    "pkg/server",
     "pkg/util"
   ]
   revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
@@ -1584,6 +1587,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6c56d131e0d34db208de3fa5f514b5169c6f9c0d97e84032c1720f54a64dca19"
+  inputs-digest = "1e7be201dcd0b1651a828ce60c11ff230d9232200d25cedf25159fb709437aef"
   solver-name = "gps-cdcl"
   solver-version = 1
