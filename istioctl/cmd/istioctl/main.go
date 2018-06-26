@@ -203,6 +203,7 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 				return fmt.Errorf("create takes no arguments")
 			}
 			varr, others, err := readInputs()
+
 			if err != nil {
 				return err
 			}
@@ -728,7 +729,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return crd.ParseInputs(string(input))
+	return crd.ParseInputsWithoutValidation(string(input))
 }
 
 // Print a simple list of names
