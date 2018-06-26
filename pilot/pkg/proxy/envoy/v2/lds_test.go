@@ -45,6 +45,10 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
+		if err := util.ApplyRuleFiles([]string{"gateway-all.yaml"}); err != nil {
+			t.Fatalf("Failed to apply rule files: %v", err)
+			return
+		}
 		ldsr := connectADS(t, util.MockPilotGrpcAddr)
 		sendLDSReq(t, gatewayId(gatewayIP), ldsr)
 
@@ -64,6 +68,10 @@ func TestLDS(t *testing.T) {
 	})
 
 	t.Run("ingress", func(t *testing.T) {
+		if err := util.ApplyRuleFiles([]string{"ingress.yaml"}); err != nil {
+			t.Fatalf("Failed to apply rule files: %v", err)
+			return
+		}
 		ldsr := connectADS(t, util.MockPilotGrpcAddr)
 		sendLDSReq(t, ingressId(ingressIP), ldsr)
 
