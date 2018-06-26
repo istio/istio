@@ -89,9 +89,6 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	// Make sure tcp port is ready before starting the test.
-	env.WaitForPort(s.Ports().TCPProxyPort)
-
 	// Sends a request with parameter delay=3, so that server sleeps 3 seconds and sends response.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
 	// second.
@@ -106,7 +103,5 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s.VerifyReport("finalReport", finalReportAttributesOkPost)
 
 	// Check stats for Check, Quota and report calls.
-	// https://github.com/istio/istio/issues/5696
-	// skip stats -- pinging the same port affects the stats!
-	// s.VerifyStats(respStats, expectedStats)
+	s.VerifyStats(expectedStats)
 }

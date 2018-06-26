@@ -75,8 +75,5 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 	}
 	s.VerifyCheckCount(tag, 0)
 	s.VerifyReport(tag, reportAttributesOkPost)
-
-	// https://github.com/istio/istio/issues/5696
-	// skip stats -- pinging the same port affects the stats
-	// s.VerifyStats(respStats, expectedStats)
+	s.VerifyStats(expectedStats)
 }

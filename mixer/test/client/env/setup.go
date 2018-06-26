@@ -178,11 +178,6 @@ func (s *TestSetup) SetUp() error {
 		return err
 	}
 
-	if !s.noProxy {
-		WaitForPort(s.ports.ClientProxyPort)
-		WaitForPort(s.ports.ServerProxyPort)
-	}
-
 	if !s.noMixer {
 		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress)
 		if err != nil {
@@ -200,6 +195,8 @@ func (s *TestSetup) SetUp() error {
 			s.backend.Start()
 		}
 	}
+
+	s.WaitEnvoyReady()
 
 	return nil
 }
@@ -236,15 +233,16 @@ func (s *TestSetup) ReStartEnvoy() {
 	s.epoch++
 	s.envoy, err = s.NewEnvoy()
 	if err != nil {
-		s.t.Errorf("unable to re-start Envoy %v", err)
-	} else {
-		_ = s.envoy.Start()
-
-		if !s.noProxy {
-			WaitForPort(s.ports.ClientProxyPort)
-			WaitForPort(s.ports.ServerProxyPort)
-		}
+		s.t.Errorf("unable to re-start envoy %v", err)
+		return
 	}
+
+	err = s.envoy.Start()
+	if err != nil {
+		s.t.Fatalf("unable to re-start envoy %v", err)
+	}
+
+	s.WaitEnvoyReady()
 
 	_ = oldEnvoy.Stop()
 }
@@ -321,6 +319,28 @@ type statEntry struct {
 
 type stats struct {
 	StatList []statEntry `json:"stats"`
+}
+
+// WaitEnvoyReady waits until envoy receives and applies all config
+func (s *TestSetup) WaitEnvoyReady() {
+	delay := 200 * time.Millisecond
+	total := 3 * time.Second
+	var stats map[string]int
+	for attempt := 0; attempt < int(total/delay); attempt++ {
+		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
+		code, respBody, errGet := HTTPGet(statsURL)
+		if errGet == nil && code == 200 {
+			stats = s.unmarshalStats(respBody)
+			warmingListeners, hasListeners := stats["listener_manager.total_listeners_warming"]
+			warmingClusters, hasClusters := stats["cluster_manager.warming_clusters"]
+			if hasListeners && hasClusters && warmingListeners == 0 && warmingClusters == 0 {
+				return
+			}
+		}
+		time.Sleep(delay)
+	}
+
+	s.t.Fatalf("envoy failed to get ready: %v", stats)
 }
 
 // UnmarshalStats Unmarshals Envoy stats from JSON format into a map, where stats name is

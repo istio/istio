@@ -108,9 +108,6 @@ func TestTCPMixerFilter(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	// Make sure tcp port is ready before starting the test.
-	env.WaitForPort(s.Ports().TCPProxyPort)
-
 	url := fmt.Sprintf("http://localhost:%d/echo", s.Ports().TCPProxyPort)
 
 	// Issues a POST request.
@@ -134,7 +131,5 @@ func TestTCPMixerFilter(t *testing.T) {
 	s.VerifyReport(tag, reportAttributesFailPost)
 
 	// Check stats for Check, Quota and report calls.
-	// https://github.com/istio/istio/issues/5696
-	// skip stats -- pinging the same port affects the stats
-	// s.VerifyStats(respStats, expectedStats)
+	s.VerifyStats(expectedStats)
 }
