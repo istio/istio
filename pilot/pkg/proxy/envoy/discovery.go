@@ -114,19 +114,19 @@ var (
 	// Variables associated with clear cache squashing.
 
 	// lastClearCache is the time we last pushed
-	lastClearCache     time.Time
+	lastClearCache time.Time
 
 	// lastClearCacheEvent is the time of the last config event
-	lastClearCacheEvent     time.Time
+	lastClearCacheEvent time.Time
 
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
 
-	clearCacheMutex    sync.Mutex
+	clearCacheMutex sync.Mutex
 
 	// clearCacheTime is the max time to squash a series of events.
 	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
-	clearCacheTime     = 1
+	clearCacheTime = 1
 
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
 	// avoid adding a circular dependency from v1 to v2.
@@ -466,15 +466,15 @@ func (ds *DiscoveryService) clearCache() {
 	// Last config change was < 1 second ago, and we're continuing to get changes.
 	// Set a timer 1 second in the future, to evaluate again.
 	// if a timer was already set, don't bother.
-		if !clearCacheTimerSet {
-			clearCacheTimerSet = true
-			time.AfterFunc(1*time.Second, func() {
-				clearCacheMutex.Lock()
-				clearCacheTimerSet = false
-				clearCacheMutex.Unlock()
-				ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
-			})
-		}
+	if !clearCacheTimerSet {
+		clearCacheTimerSet = true
+		time.AfterFunc(1*time.Second, func() {
+			clearCacheMutex.Lock()
+			clearCacheTimerSet = false
+			clearCacheMutex.Unlock()
+			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
+		})
+	}
 
 }
 
