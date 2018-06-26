@@ -310,11 +310,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
-					if discReq.ResponseNonce != "" {
+					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
+					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
@@ -323,9 +322,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				if err != nil {
 					return err
 				}
-				if discReq.ResponseNonce != "" {
-					con.ClusterNonceAcked = discReq.ResponseNonce
-				}
 
 			case ListenerType:
 				if con.LDSWatch {
@@ -333,11 +329,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
-					if discReq.ResponseNonce != "" {
+					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
+					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
@@ -345,9 +340,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushLds(con)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.ListenerNonceAcked = discReq.ResponseNonce
 				}
 
 			case RouteType:
@@ -359,11 +351,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 					// Not logging full request, can be very long.
 					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-					if discReq.ResponseNonce != "" {
-						con.RouteNonceAcked = discReq.ResponseNonce
-					}
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.RouteNonceAcked = discReq.ResponseNonce
+						}
 						continue
 					}
 				}
@@ -372,9 +364,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushRoute(con)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.RouteNonceAcked = discReq.ResponseNonce
 				}
 
 			case EndpointType:
@@ -387,7 +376,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				sort.Strings(clusters)
 				sort.Strings(con.Clusters)
 
+				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 				if reflect.DeepEqual(con.Clusters, clusters) {
+					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) != 0 {
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+						}
+					}
 					continue
 				}
 
@@ -404,9 +400,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				err := s.pushEds(con)
 				if err != nil {
 					return err
-				}
-				if discReq.ResponseNonce != "" {
-					con.EndpointNonceAcked = discReq.ResponseNonce
 				}
 
 			default:

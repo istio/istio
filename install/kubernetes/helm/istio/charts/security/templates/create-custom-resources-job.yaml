@@ -83,5 +83,5 @@ spec:
         - name: tmp-configmap-security
           configMap:
             name: istio-security-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to consume
+      restartPolicy: OnFailure
 {{- end }}

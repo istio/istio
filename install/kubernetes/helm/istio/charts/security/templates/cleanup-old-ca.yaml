@@ -37,5 +37,5 @@ spec:
               if [[ $? = 0 ]]; then ./kubectl delete serviceaccount istio-ca-service-account $NS; fi;
               ./kubectl get service istio-ca-ilb $NS;
               if [[ $? = 0 ]]; then ./kubectl delete service istio-ca-ilb $NS; fi
-      restartPolicy: Never
+      restartPolicy: OnFailure
 {{- end }}
