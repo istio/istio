@@ -75,7 +75,7 @@ func buildSNIRoutes(configs []model.Config, proxyLabels model.LabelsCollection, 
 					// TODO: L4 match attributes
 					key := hostPortKey{Host: fqdn, Port: int(match.Port)}
 					sniRoutes[key] = append(sniRoutes[key], sniRoute{
-						ServerNames: match.SniHosts,
+						ServerNames: match.SniHosts, // FIXME: can be empty!
 						Host:        model.Hostname(dest.Host),
 						Port:        int(dest.Port.GetNumber()),
 						Subset:      dest.Subset,

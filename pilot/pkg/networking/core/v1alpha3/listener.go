@@ -431,6 +431,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				// FIXME: doc this
+				// TODO: passthrough?
 				sniKey := hostPortKey{Host: service.Hostname, Port: servicePort.Port}
 				if routes := sniRoutes[sniKey]; len(routes) > 0 {
 					for _, route := range routes {
@@ -461,6 +462,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				Listener:     l,
 				FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 			}
+
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
