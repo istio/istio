@@ -1447,7 +1447,11 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
+	}
+
+	if err := ValidateRefreshDelay(mesh.SdsRefreshDelay); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid sds refresh delay:"))
 	}
 
 	if mesh.DefaultConfig == nil {
