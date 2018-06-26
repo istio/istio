@@ -1,12 +1,4 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
- name: cert-system
- labels:
-    istio-injection: enabled
----
----
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -57,7 +49,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cert-manager
-  namespace: cert-system
+  namespace: istio-system
   labels:
     app: cert-manager
 ---
@@ -95,7 +87,7 @@ roleRef:
   name: cert-manager
 subjects:
   - name: cert-manager
-    namespace: cert-system
+    namespace: istio-system
     kind: ServiceAccount
 
 ---
@@ -117,7 +109,7 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: cert-manager
-  namespace: cert-system
+  namespace: istio-system
   labels:
     app: cert-manager
     version: v0.3.0
@@ -126,12 +118,10 @@ spec:
   selector:
     matchLabels:
       app: cert-manager
-      version: v0.3.0
   template:
     metadata:
       labels:
         app: cert-manager
-        version: v0.3.0
     spec:
       serviceAccountName: cert-manager
       containers:
@@ -161,7 +151,7 @@ apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
-  namespace: cert-system
+  namespace: istio-system
 spec:
   acme:
     # The ACME server URL
@@ -178,7 +168,7 @@ apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-staging
-  namespace: cert-system
+  namespace: istio-system
 spec:
   acme:
     # The ACME server URL

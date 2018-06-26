@@ -2,10 +2,10 @@
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Certificate
 metadata:
-  name: istio-ingress-certs
+  name: istio-ingressgateway-certs
   namespace: istio-system
 spec:
-  secretName: istio-ingress-certs
+  secretName: istio-ingressgateway-certs
   issuerRef:
     name: letsencrypt-staging
     kind: ClusterIssuer
