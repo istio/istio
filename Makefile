@@ -593,14 +593,14 @@ $(HELM):
 
 # create istio-remote.yaml
 istio-remote.yaml: $(HELM)
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
@@ -610,15 +610,15 @@ isti%.yaml: $(HELM)
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
 generate_yaml-envoyv2_transition: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
@@ -630,8 +630,8 @@ generate_yaml-envoyv2_transition: $(HELM)
 # This is temporary. REMOVE ME after Envoy v2 transition
 # creates istio.yaml using values-envoyv2-transition.yaml
 generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
-	./install/updateVersion_orig.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio.yaml
+	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
@@ -639,7 +639,7 @@ generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
 		--set gateways.istio-ingressgateway.type=LoadBalancer \
 		--set ingress.enabled=false \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-	cat install/kubernetes/templates/namespace.yaml > install/kubernetes/istio-auth.yaml
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
