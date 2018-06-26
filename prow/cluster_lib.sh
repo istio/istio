@@ -74,7 +74,7 @@ function setup_clusterreg () {
     PILOT_CLUSTER=${PILOT_CLUSTER:-$(kubectl config current-context)}
     unset IFS
     k_contexts=$(kubectl config get-contexts -o name)
-    for context in $k_contexts; do
+    for context in ${k_contexts}; do
         if [[ "$PILOT_CLUSTER" != "$context" ]]; then
             kubectl config use-context ${context}
              
@@ -82,15 +82,15 @@ function setup_clusterreg () {
             kubectl create sa ${SERVICE_ACCOUNT} -n ${SA_NAMESPACE}
             kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${SA_NAMESPACE}:${SERVICE_ACCOUNT}
             CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
-            if [[ "$CLUSTER_NAME" =~ .*"_".* ]]; then
+            if [[ "${CLUSTER_NAME}" =~ .*"_".* ]]; then
                 # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
                 CLUSTER_NAME=${CLUSTER_NAME##*_}
             fi
             KUBECFG_FILE=${CLUSTERREG_DIR}/${CLUSTER_NAME}
-            gen_kubeconf_from_sa $SERVICE_ACCOUNT $KUBECFG_FILE
+            gen_kubeconf_from_sa ${SERVICE_ACCOUNT} ${KUBECFG_FILE}
         fi
     done
-    kubectl config use-context $PILOT_CLUSTER
+    kubectl config use-context ${PILOT_CLUSTER}
 }
 
 
@@ -100,44 +100,44 @@ function setup_cluster() {
 
   unset IFS
   k_contexts=$(kubectl config get-contexts -o name)
-  for context in $k_contexts; do
+  for context in ${k_contexts}; do
      kubectl config use-context ${context}
 
      kubectl create clusterrolebinding prow-cluster-admin-binding\
        --clusterrole=cluster-admin\
        --user="${KUBE_USER}"
   done
-  if [[ "$SETUP_CLUSTERREG" == "True" ]]; then
+  if [[ "${SETUP_CLUSTERREG}" == "True" ]]; then
       setup_clusterreg
   fi
-  kubectl config use-context $PILOT_CLUSTER
+  kubectl config use-context ${PILOT_CLUSTER}
 
-  if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
+  if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
     ALL_CLUSTER_CIDRS=
     for cidr in $(gcloud container clusters list --format='value(clusterIpv4Cidr)'); do
-      if [[ "$ALL_CLUSTER_CIDRS" != "" ]]; then
+      if [[ "${ALL_CLUSTER_CIDRS}" != "" ]]; then
         ALL_CLUSTER_CIDRS+=','
       fi
-      ALL_CLUSTER_CIDRS+=$cidr
+      ALL_CLUSTER_CIDRS+=${cidr}
     done
     ALL_CLUSTER_NETTAGS=
     for net_tag in $(gcloud compute instances list --format='value(tags.items.[0])'); do
-      if [[ "$ALL_CLUSTER_NETTAGS" =~ .*"$net_tag".* ]]; then
+      if [[ "${ALL_CLUSTER_NETTAGS}" =~ .*"${net_tag}".* ]]; then
         # tag isn't unique so don't add
-        echo "$net_tag isn't unique"
+        echo "${net_tag} isn't unique"
       else
-        if [[ "$ALL_CLUSTER_NETTAGS" != "" ]]; then
+        if [[ "${ALL_CLUSTER_NETTAGS}" != "" ]]; then
           ALL_CLUSTER_NETTAGS+=','
         fi
-        ALL_CLUSTER_NETTAGS+=$net_tag
+        ALL_CLUSTER_NETTAGS+=${net_tag}
       fi
     done
     gcloud compute firewall-rules create istio-multicluster-test-pods \
 	    --allow=tcp,udp,icmp,esp,ah,sctp \
 	    --direction=INGRESS \
 	    --priority=900 \
-	    --source-ranges="$ALL_CLUSTER_CIDRS" \
-	    --target-tags=$ALL_CLUSTER_NETTAGS --quiet
+	    --source-ranges="${ALL_CLUSTER_CIDRS}" \
+	    --target-tags=${ALL_CLUSTER_NETTAGS} --quiet
   fi
 }
 
@@ -147,17 +147,17 @@ function unsetup_clusters() {
 
   unset IFS
   k_contexts=$(kubectl config get-contexts -o name)
-  for context in $k_contexts; do
+  for context in ${k_contexts}; do
      kubectl config use-context ${context}
 
      kubectl delete clusterrolebinding prow-cluster-admin-binding 2>/dev/null
-     if [[ "$SETUP_CLUSTERREG" == "True" && "$PILOT_CLUSTER" != "$context" ]]; then
+     if [[ "${SETUP_CLUSTERREG}" == "True" && "${PILOT_CLUSTER}" != "$context" ]]; then
         kubectl delete clusterrolebinding istio-multi 2>/dev/null
-        kubectl delete ns $SA_NAMESPACE 2>/dev/null
+        kubectl delete ns ${SA_NAMESPACE} 2>/dev/null
      fi
   done
-  kubectl config use-context $PILOT_CLUSTER
-  if [[ "$USE_GKE" == "True" && "$SETUP_CLUSTERREG" == "True" ]]; then
+  kubectl config use-context ${PILOT_CLUSTER}
+  if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
      gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
   fi
 }
