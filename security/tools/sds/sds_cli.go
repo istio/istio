@@ -36,11 +36,11 @@ import (
 
 var fakeCredentialToken = "fakeToken"
 
-func sdsRequest(socket, caFile string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+func sdsRequest(socket, sdsCert string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
 	var opts []grpc.DialOption
 
-	if caFile != "" {
-		creds, err := credentials.NewClientTLSFromFile(caFile, "")
+	if sdsCert != "" {
+		creds, err := credentials.NewClientTLSFromFile(sdsCert, "")
 		if err != nil {
 			panic(err.Error())
 		}
@@ -79,7 +79,7 @@ func sdsRequest(socket, caFile string, req *xdsapi.DiscoveryRequest) *xdsapi.Dis
 
 func main() {
 	sdsSocket := flag.String("socket", "/tmp/sdsuds.sock", "SDS socket")
-	caFile := flag.String("caFile", "./../../docker/nodeagent-sds-cert.pem", "SDS socket")
+	sdsCertFile := flag.String("certFile", "./../../docker/nodeagent-sds-cert.pem", "cert file used to send secure gRPC request to SDS server")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
 
@@ -89,7 +89,7 @@ func main() {
 			Id: "sidecar~127.0.0.1~id~local",
 		},
 	}
-	resp := sdsRequest(*sdsSocket, *caFile, req)
+	resp := sdsRequest(*sdsSocket, *sdsCertFile, req)
 
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
