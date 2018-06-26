@@ -2,7 +2,7 @@
 #
 # Early version of a downloader/installer for Istio
 #
-# This file will be fetched as: curl -L https://git.io/getIstio | sh -
+# This file will be fetched as: sh -c "$(curl -fsSL https://git.io/getIstio)"
 # so it should be pure bourne shell, not bash (and not reference other scripts)
 #
 # The script fetches the latest STABLE Istio release and untars it.
@@ -56,6 +56,6 @@ else
 fi
 
 echo "Added $BINDIR to your path."
-echo 'Try `istioctl version` command to verify the installation.'
+echo "Istio ${ISTIO_VERSION} successfully installed."
 env $SHELL
-
+istioctl version
