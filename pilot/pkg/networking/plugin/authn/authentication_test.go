@@ -786,7 +786,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 }
 
-func TestBuildSidecarListenerTLSContex(t *testing.T) {
+func TestBuildListenerTLSContex(t *testing.T) {
 	cases := []struct {
 		name     string
 		in       *authn.Policy
@@ -901,7 +901,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in, nil, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
+		if got := buildListenerTLSContext(c.in, nil, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}

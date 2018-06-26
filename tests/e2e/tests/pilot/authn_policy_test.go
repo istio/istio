@@ -152,11 +152,6 @@ func TestAuthNJwt(t *testing.T) {
 }
 
 func TestGatewayIngress_AuthN_JWT(t *testing.T) {
-	//if !tc.V1alpha3 || tc.Kube.AuthEnabled {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
-
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
 
