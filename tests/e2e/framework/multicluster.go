@@ -67,11 +67,14 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	}
 
 	if err == nil && eps != nil {
-		if len(eps.Subsets[0].Addresses) != 0 {
-			ip = eps.Subsets[0].Addresses[0].IP
-		} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
-			ip = eps.Subsets[0].NotReadyAddresses[0].IP
-		} else {
+		if len(eps.Subsets) > 0 {
+			if len(eps.Subsets[0].Addresses) != 0 {
+				ip = eps.Subsets[0].Addresses[0].IP
+			} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
+				ip = eps.Subsets[0].NotReadyAddresses[0].IP
+			}
+		}
+		if ip == "" {
 			err = fmt.Errorf("could not get endpoint addresses for service %s", svc)
 			return "", err
 		}
@@ -79,28 +82,32 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	return
 }
 
-func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("cannot read remote yaml file %s", src)
+func (k *KubeInfo) generateRemoteIstio(dst string) (err error) {
+	svcToHelmVal := map[string]string{
+		"istio-pilot":              "pilotEndpoint",
+		"istio-policy":             "policyEndpoint",
+		"istio-statsd-prom-bridge": "statsdEndpoint",
+		"istio-ingress":            "ingressEndpoint",
+		"istio-ingressgateway":     "ingressGatewayEndpoint",
+		"istio-telemetry":          "telemetryEndpoint",
+		"zipkin":                   "zipkinEndpoint",
 	}
-
-	svcs := []string{"istio-pilot", "istio-policy", "istio-statsd-prom-bridge", "istio-ingress", "istio-telemetry"}
-	for _, svc := range svcs {
+	var helmSetContent string
+	for svc, helmVal := range svcToHelmVal {
 		var ip string
 		ip, err = k.getEndpointIPForService(svc)
 		if err == nil {
-			replaceStr := fmt.Sprintf("%s.istio-system", svc)
-			content = replacePattern(content, replaceStr, ip)
+			helmSetContent += " --set global." + helmVal + "=" + ip
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
 		} else {
-			return err
+			log.Infof("Endpoint for service %s not found", svc)
 		}
 	}
-	content = replacePattern(content, istioSystem, k.Namespace)
-	err = ioutil.WriteFile(dst, content, 0600)
+	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
+	util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {
-		return fmt.Errorf("cannot write remote into generated yaml file %s", dst)
+		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
+		return err
 	}
 	return nil
 }
