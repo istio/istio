@@ -20,7 +20,7 @@ def protobuf_repositories(load_repo=True, bind=True):
     if load_repo:
         git_repository(
             name = "com_google_protobuf",
-            commit = "2761122b810fe8861004ae785cc3ab39f384d342",  # v3.5.0
+            commit = "6a4fec616ec4b20f54d5fb530808b855cb664390",  # Match SHA used by Envoy
             remote = "https://github.com/google/protobuf.git",
         )
 
