@@ -58,9 +58,9 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/tmp/sdsuds.sock", "Unix domain socket through which SDS server communicates with proxies")
 	RootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile",
-		"", "gRPC TLS server-side certificate")
+		"/etc/istio/nodeagent-sds-cert.pem", "SDS gRPC TLS server-side certificate")
 	RootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile",
-		"", "gRPC TLS server-side key")
+		"/etc/istio/nodeagent-sds-key.pem", "SDS gRPC TLS server-side key")
 
 	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
 		time.Hour, "Secret's TTL")
