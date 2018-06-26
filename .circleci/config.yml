@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.10-k8s1.9-helm2.7.2-minikube0.25
+    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
 
@@ -144,7 +144,6 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
             - GOPATH: /go
-            - ISTIO_PROXY_IMAGE: proxyv2
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -252,7 +251,6 @@ jobs:
             - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
-            - ISTIO_PROXY_IMAGE: proxyv2
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -292,7 +290,6 @@ jobs:
             - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
-            - ISTIO_PROXY_IMAGE: proxyv2
     steps:
       - <<: *initWorkingDir
       - checkout

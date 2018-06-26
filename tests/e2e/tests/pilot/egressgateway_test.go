@@ -30,10 +30,6 @@ import (
 //    3.b. Traffic from egress gateway goes to actual destination (in our case, its t)
 // The tests will only check for requests from a->t with host matching ext service
 func TestEgressGateway(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
-
 	// In authn enable test, mTLS is enabled globally, which mean all clients will use TLS
 	// to talk to egress-gateway. We need to explicitly specify the TLSMode to DISABLE in the
 	// DestinationRule to the gateway.

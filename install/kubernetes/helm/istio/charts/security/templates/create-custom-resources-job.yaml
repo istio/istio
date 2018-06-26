@@ -14,7 +14,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
-  namespace: {{ .Release.Namespace }}
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -84,5 +83,5 @@ spec:
         - name: tmp-configmap-security
           configMap:
             name: istio-security-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to consume
+      restartPolicy: OnFailure
 {{- end }}

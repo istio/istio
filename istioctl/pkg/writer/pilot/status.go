@@ -66,8 +66,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) e
 }
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
-	w := new(tabwriter.Writer)
-	w.Init(s.Writer, 0, 8, 4, '\t', 0)
+	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {

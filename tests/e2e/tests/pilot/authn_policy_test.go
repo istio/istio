@@ -130,9 +130,22 @@ func TestAuthNJwt(t *testing.T) {
 		{dst: "c", src: "b", port: "", token: "random", expect: "401"},
 		{dst: "c", src: "d", port: "80", token: validJwtToken, expect: "200"},
 
-		//{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
-		{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
 		{dst: "d", src: "c", port: "8080", token: "bar", expect: "200"},
+	}
+
+	if !tc.Kube.AuthEnabled {
+		extraCases := []struct {
+			dst    string
+			src    string
+			port   string
+			token  string
+			expect string
+		}{
+			// This needs to be de-flaked when authN is enabled https://github.com/istio/istio/issues/6288
+			{dst: "d", src: "a", port: "", token: validJwtToken, expect: "200"},
+			{dst: "d", src: "b", port: "80", token: "foo", expect: "401"},
+		}
+		cases = append(cases, extraCases...)
 	}
 
 	for _, c := range cases {

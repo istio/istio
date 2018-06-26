@@ -14,25 +14,25 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "5.0.0-beta2"
+      "version": "5.0.4"
     },
     {
       "type": "panel",
       "id": "graph",
       "name": "Graph",
-      "version": ""
+      "version": "5.0.0"
     },
     {
       "type": "datasource",
       "id": "prometheus",
       "name": "Prometheus",
-      "version": "1.0.0"
+      "version": "5.0.0"
     },
     {
       "type": "panel",
       "id": "text",
       "name": "Text",
-      "version": ""
+      "version": "5.0.0"
     }
   ],
   "annotations": {
@@ -517,7 +517,7 @@
       "fill": 1,
       "gridPos": {
         "h": 7,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 13
       },
@@ -598,8 +598,8 @@
       "fill": 1,
       "gridPos": {
         "h": 7,
-        "w": 6,
-        "x": 6,
+        "w": 8,
+        "x": 8,
         "y": 13
       },
       "id": 12,
@@ -679,89 +679,8 @@
       "fill": 1,
       "gridPos": {
         "h": 7,
-        "w": 6,
-        "x": 12,
-        "y": 13
-      },
-      "id": 38,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(pilot_discovery_cache_size) by (cache_name)",
-          "format": "time_series",
-          "intervalFactor": 2,
-          "legendFormat": "{{ cache_name }}",
-          "refId": "A",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Discovery Cache Sizes",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "bytes",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 18,
+        "w": 8,
+        "x": 16,
         "y": 13
       },
       "id": 39,
@@ -857,357 +776,9 @@
       "fill": 1,
       "gridPos": {
         "h": 7,
-        "w": 6,
-        "x": 0,
-        "y": 20
-      },
-      "id": 37,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(irate(pilot_discovery_cache_hit{cache_name=\"cds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "Hits",
-          "refId": "A",
-          "step": 2
-        },
-        {
-          "expr": "sum(irate(pilot_discovery_cache_miss{cache_name=\"cds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "MIsses",
-          "refId": "B",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "CDS Cache",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 6,
-        "y": 20
-      },
-      "id": 46,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(irate(pilot_discovery_cache_hit{cache_name=\"lds\"}[1m])) ",
-          "intervalFactor": 2,
-          "legendFormat": "Hits",
-          "refId": "A",
-          "step": 2
-        },
-        {
-          "expr": "sum(irate(pilot_discovery_cache_miss{cache_name=\"lds\"}[1m])) ",
-          "intervalFactor": 2,
-          "legendFormat": "Misses",
-          "refId": "B",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "LDS Cache",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 12,
-        "y": 20
-      },
-      "id": 47,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(irate(pilot_discovery_cache_hit{cache_name=\"rds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "Hits",
-          "refId": "A",
-          "step": 2
-        },
-        {
-          "expr": "sum(irate(pilot_discovery_cache_miss{cache_name=\"rds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "Misses",
-          "refId": "B",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "RDS Cache",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 18,
-        "y": 20
-      },
-      "id": 48,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "nullPointMode": "null",
-      "percentage": false,
-      "pointradius": 5,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "sum(irate(pilot_discovery_cache_hit{cache_name=\"sds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "Hits",
-          "refId": "A",
-          "step": 2
-        },
-        {
-          "expr": "sum(irate(pilot_discovery_cache_miss{cache_name=\"sds\"}[1m]))",
-          "intervalFactor": 2,
-          "legendFormat": "Misses",
-          "refId": "B",
-          "step": 2
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "SDS Cache",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ]
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
-      "fill": 1,
-      "gridPos": {
-        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 20
       },
       "id": 45,
       "legend": {
@@ -1296,7 +867,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 20
       },
       "id": 50,
       "legend": {
@@ -1372,7 +943,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 27
       },
       "id": 28,
       "links": [],
@@ -1392,7 +963,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 37
+        "y": 30
       },
       "id": 40,
       "legend": {
@@ -1513,7 +1084,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 37
+        "y": 30
       },
       "id": 42,
       "legend": {
@@ -1610,7 +1181,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 37
+        "y": 30
       },
       "id": 41,
       "legend": {
@@ -1720,5 +1291,5 @@
   "timezone": "browser",
   "title": "Pilot Dashboard",
   "uid": "3",
-  "version": 2
+  "version": 3
 }

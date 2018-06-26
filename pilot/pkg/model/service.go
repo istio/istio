@@ -308,6 +308,15 @@ type Labels map[string]string
 // collection of labels
 type LabelsCollection []Labels
 
+// Probe represents a health probe associated with an instance of service.
+type Probe struct {
+	Port *Port  `json:"port,omitempty"`
+	Path string `json:"path,omitempty"`
+}
+
+// ProbeList is a set of probes
+type ProbeList []*Probe
+
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
 // description (which is oblivious to various versions) and a set of labels
@@ -443,6 +452,11 @@ type ServiceDiscovery interface {
 	// the configuration generated for the proxy will not manipulate traffic destined for
 	// the management ports
 	ManagementPorts(addr string) PortList
+
+	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
+	// These probes are used by the platform to identify requests that are performing
+	// health checks.
+	WorkloadHealthCheckInfo(addr string) ProbeList
 }
 
 // ServiceAccounts exposes Istio service accounts
