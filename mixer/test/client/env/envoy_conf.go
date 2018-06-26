@@ -26,13 +26,6 @@ import (
 )
 
 type confParam struct {
-	ClientPort   uint16
-	ServerPort   uint16
-	TCPProxyPort uint16
-	AdminPort    uint16
-	MixerPort    uint16
-	BackendPort  uint16
-
 	ClientConfig       string
 	ServerConfig       string
 	TCPServerConfig    string
@@ -55,7 +48,7 @@ admin:
   address:
     socket_address:
       address: 127.0.0.1
-      port_value: {{.AdminPort}}
+      port_value: {{.Ports.AdminPort}}
 static_resources:
   clusters:
   - name: backend
@@ -64,14 +57,14 @@ static_resources:
     hosts:
     - socket_address:
         address: 127.0.0.1
-        port_value: {{.BackendPort}}
+        port_value: {{.Ports.BackendPort}}
   - name: loop
     connect_timeout: 5s
     type: STATIC
     hosts:
     - socket_address:
         address: 127.0.0.1
-        port_value: {{.ServerPort}}
+        port_value: {{.Ports.ServerProxyPort}}
   - name: mixer_server
     http2_protocol_options: {}
     connect_timeout: 5s
@@ -79,7 +72,7 @@ static_resources:
     hosts:
     - socket_address:
         address: 127.0.0.1
-        port_value: {{.MixerPort}}
+        port_value: {{.Ports.MixerPort}}
     circuit_breakers:
       thresholds:
       - max_connections: 10000
@@ -91,7 +84,7 @@ static_resources:
     address:
       socket_address:
         address: 127.0.0.1
-        port_value: {{.ServerPort}}
+        port_value: {{.Ports.ServerProxyPort}}
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
@@ -124,7 +117,7 @@ static_resources:
     address:
       socket_address:
         address: 127.0.0.1
-        port_value: {{.ClientPort}}
+        port_value: {{.Ports.ClientProxyPort}}
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
@@ -154,7 +147,7 @@ static_resources:
     address:
       socket_address:
         address: 127.0.0.1
-        port_value: {{.TCPProxyPort}}
+        port_value: {{.Ports.TCPProxyPort}}
     filter_chains:
     - filters:
       - name: mixer
@@ -184,12 +177,6 @@ func (c *confParam) write(outPath, confTmpl string) error {
 // CreateEnvoyConf create envoy config.
 func (s *TestSetup) CreateEnvoyConf(path string, stress bool, filtersBeforeMixer string, mfConfig *MixerFilterConf, ports *Ports) error {
 	c := &confParam{
-		ClientPort:       ports.ClientProxyPort,
-		ServerPort:       ports.ServerProxyPort,
-		TCPProxyPort:     ports.TCPProxyPort,
-		AdminPort:        ports.AdminPort,
-		MixerPort:        ports.MixerPort,
-		BackendPort:      ports.BackendPort,
 		AccessLog:        s.AccessLogPath,
 		ServerConfig:     toJSON(mfConfig.HTTPServerConf),
 		ClientConfig:     toJSON(mfConfig.HTTPClientConf),

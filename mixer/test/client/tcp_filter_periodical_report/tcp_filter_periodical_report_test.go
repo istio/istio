@@ -106,12 +106,7 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s.VerifyReport("finalReport", finalReportAttributesOkPost)
 
 	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		// https://github.com/istio/istio/issues/5696
-		// skip stats -- pinging the same port affects the stats!
-		// s.VerifyStats(respStats, expectedStats)
-		_ = respStats
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	// https://github.com/istio/istio/issues/5696
+	// skip stats -- pinging the same port affects the stats!
+	// s.VerifyStats(respStats, expectedStats)
 }

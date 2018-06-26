@@ -322,22 +322,46 @@ func (s *TestSetup) unmarshalStats(statsJSON string) map[string]int {
 }
 
 // VerifyStats verifies Envoy stats.
-func (s *TestSetup) VerifyStats(actualStats string, expectedStats map[string]int) {
+func (s *TestSetup) VerifyStats(expectedStats map[string]int) {
 	s.t.Helper()
-	actualStatsMap := s.unmarshalStats(actualStats)
 
-	for eStatsName, eStatsValue := range expectedStats {
-		aStatsValue, ok := actualStatsMap[eStatsName]
-		if !ok && eStatsValue != 0 {
-			s.t.Fatalf("Failed to find expected Stat %s\n", eStatsName)
-		}
-		if aStatsValue != eStatsValue {
-			s.t.Fatalf("Stats %s does not match. Expected vs Actual: %d vs %d",
-				eStatsName, eStatsValue, aStatsValue)
-		} else {
+	check := func(actualStatsMap map[string]int) error {
+		for eStatsName, eStatsValue := range expectedStats {
+			aStatsValue, ok := actualStatsMap[eStatsName]
+			if !ok && eStatsValue != 0 {
+				return fmt.Errorf("failed to find expected stat %s", eStatsName)
+			}
+			if aStatsValue != eStatsValue {
+				return fmt.Errorf("stats %s does not match. expected vs actual: %d vs %d",
+					eStatsName, eStatsValue, aStatsValue)
+			}
+
 			log.Printf("stat %s is matched. value is %d", eStatsName, eStatsValue)
 		}
+		return nil
 	}
+
+	delay := 200 * time.Millisecond
+	total := 3 * time.Second
+
+	var err error
+	for attempt := 0; attempt < int(total/delay); attempt++ {
+		statsURL := fmt.Sprintf("http://localhost:%d/stats?format=json&usedonly", s.Ports().AdminPort)
+		code, respBody, errGet := HTTPGet(statsURL)
+		if errGet != nil {
+			log.Printf("sending stats request returns an error: %v", errGet)
+		} else if code != 200 {
+			log.Printf("sending stats request returns unexpected status code: %d", code)
+		} else {
+			actualStatsMap := s.unmarshalStats(respBody)
+			if err = check(actualStatsMap); err == nil {
+				return
+			}
+			log.Printf("failed to verify stats: %v", err)
+		}
+		time.Sleep(delay)
+	}
+	s.t.Errorf("failed to find expected stats: %v", err)
 }
 
 // VerifyStatsLT verifies that Envoy stats contains stat expectedStat, whose value is less than

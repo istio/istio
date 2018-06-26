@@ -76,12 +76,7 @@ func TestDisableTCPCheckCalls(t *testing.T) {
 	s.VerifyCheckCount(tag, 0)
 	s.VerifyReport(tag, reportAttributesOkPost)
 
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		// https://github.com/istio/istio/issues/5696
-		// skip stats -- pinging the same port affects the stats
-		// s.VerifyStats(respStats, expectedStats)
-		_ = respStats
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	// https://github.com/istio/istio/issues/5696
+	// skip stats -- pinging the same port affects the stats
+	// s.VerifyStats(respStats, expectedStats)
 }
