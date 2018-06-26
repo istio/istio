@@ -123,9 +123,16 @@ func (sd *serviceDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*mod
 	return out, nil
 }
 
-// ManagementPorts retries set of health check ports by instance IP.
+// ManagementPorts retrieves set of health check ports by instance IP.
 // This does not apply to Eureka service registry, as Eureka does not
 // manage the service instances.
 func (sd *serviceDiscovery) ManagementPorts(addr string) model.PortList {
+	return nil
+}
+
+// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
+// This does not apply to Eureka service registry, as Eureka does not
+// manage the service instances.
+func (sd *serviceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
