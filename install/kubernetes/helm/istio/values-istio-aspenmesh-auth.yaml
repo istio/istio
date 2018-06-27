@@ -1,0 +1,6 @@
+# Used to generate aspen mesh release manifest
+
+global:
+  controlPlaneSecurityEnabled: true
+  mtls:
+    enabled: true

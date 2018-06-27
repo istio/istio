@@ -55,7 +55,7 @@ function gen_file() {
 }
 
 if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
-    for target in istio-demo.yaml istio-demo-auth.yaml; do
+    for target in istio-aspenmesh.yaml istio-aspenmesh-auth.yaml; do
         gen_file $target ${DEST_DIR}
     done
 else
