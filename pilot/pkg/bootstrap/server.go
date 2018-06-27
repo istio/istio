@@ -419,7 +419,7 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	if s.mesh == nil {
 		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
 	}
-	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.authenticationPolicy_MUTUAL_TLS {
 		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
 	}
 	return nil
@@ -781,8 +781,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
 	}
-
-	environment.DisableRDS = os.Getenv("DISABLE_RDS") == "true"
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
