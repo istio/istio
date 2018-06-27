@@ -487,7 +487,9 @@ func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServi
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes,
+	server *networking.Server, gatewayNames map[string]bool) bool {
+
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
@@ -517,13 +519,22 @@ func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes, 
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-// TODO: de-dup with l4Match?
-func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes,
+	server *networking.Server, gatewayNames map[string]bool) bool {
+
+	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		gatewayHosts[model.Hostname(host)] = true
+	}
+
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
-		// TODO: sni_hosts
+		if len(match.SniHosts) > 0 && len(pickMatchingGatewayHosts(gatewayHosts, match.SniHosts)) == 0 {
+			// the match's sni hosts don't include hosts advertised by server
+			continue
+		}
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
