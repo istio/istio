@@ -13,7 +13,7 @@ pathToResourceYAML=${1}
 if [ "$?" -eq 0 ]; then
     echo "istio-galley validatingwebhookconfiguration found - waiting for istio-galley deployment to be ready"
     while true; do
-        kubectl -n istio-system get deployment istio-galley 2>/dev/null
+        kubectl -n {{ .Release.Namespace }} get deployment istio-galley 2>/dev/null
         if [ "$?" -eq 0 ]; then
             break
         fi
