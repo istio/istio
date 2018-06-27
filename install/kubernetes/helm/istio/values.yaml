@@ -77,6 +77,8 @@ global:
     # destination rules or service annotations.
     enabled: false
 
+  nodePort: true
+
   # create RBAC resources. Must be set for any cluster configured with rbac.
   rbacEnabled: true
 
@@ -378,6 +380,9 @@ servicegraph:
     #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: true
 
 tracing:
   enabled: false

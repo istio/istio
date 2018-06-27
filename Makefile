@@ -580,10 +580,6 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG}
-
 $(HELM):
 	bin/init_helm.sh
 
@@ -603,22 +599,20 @@ isti%.yaml: $(HELM)
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-# This is temporary. REMOVE ME after Envoy v2 transition
-# creates istio.yaml using values-envoyv2-transition.yaml
-generate_yaml-envoyv2_transition: $(HELM)
+generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
