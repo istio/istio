@@ -150,6 +150,9 @@ type DiscoveryStream interface {
 
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
+	// Mutex to protect changes to this XDS connection
+	mu sync.RWMutex
+
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
 
@@ -209,9 +212,6 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
-
-	// mutex protects changes to this XDS connection
-	mutex sync.RWMutex
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -300,9 +300,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			con.mutex.Lock()
+			con.mu.Lock()
 			con.modelNode = &nt
-			con.mutex.Unlock()
+			con.mu.Unlock()
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
@@ -359,9 +359,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
 						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-							con.mutex.Lock()
+							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
-							con.mutex.Unlock()
+							con.mu.Unlock()
 						}
 						continue
 					}
@@ -651,9 +651,8 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	go func() {
 		err := con.stream.Send(res)
 		done <- err
+		con.mu.Lock()
 		if res.Nonce != "" {
-			con.mutex.Lock()
-			defer con.mutex.Unlock()
 			switch res.TypeUrl {
 			case ClusterType:
 				con.ClusterNonceSent = res.Nonce
@@ -665,6 +664,7 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				con.EndpointNonceSent = res.Nonce
 			}
 		}
+		con.mu.Unlock()
 	}()
 	select {
 	case <-t.C:
