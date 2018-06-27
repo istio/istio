@@ -169,7 +169,7 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 	var typeName string
 	var protocol string
 	switch t.contextProtocol {
-	case "tcp", "http":
+	case "tcp", "http", "grpc":
 		protocol = t.contextProtocol
 	default:
 		protocol = t.apiProtocol
