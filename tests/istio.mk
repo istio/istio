@@ -69,11 +69,11 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-e2e_simple: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_run
-e2e_simple_auth: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_auth_run
-e2e_simple_noauth: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_simple_noauth_run
+e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
+e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
-e2e_mixer: istioctl generate_yaml-envoyv2_transition_loadbalancer_ingressgateway e2e_mixer_run
+e2e_mixer: istioctl generate_yaml e2e_mixer_run
 
 e2e_galley: istioctl generate_yaml e2e_galley_run
 
@@ -155,17 +155,17 @@ CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 out_dir:
 	@mkdir -p ${OUT_DIR}/{logs,tests}
 
-test/local/auth/e2e_simple: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/auth/e2e_simple: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_simple: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/noauth/e2e_simple: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
 	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_mixer: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/e2e_mixer: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
 	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -176,7 +176,7 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 	${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test without MTLS
-test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
+test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
 		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -184,7 +184,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
-test/local/auth/e2e_pilotv2: out_dir generate_yaml-envoyv2_transition
+test/local/auth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
 		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -199,12 +199,12 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 		${CAPTURE_LOG}
 	sudo iptables -t nat -F
 
-test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
 		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml-envoyv2_transition_loadbalancer_ingressgateway
+test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
 	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
