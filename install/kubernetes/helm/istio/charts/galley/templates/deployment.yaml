@@ -16,9 +16,7 @@ spec:
       labels:
         istio: galley
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-galley-service-account
-{{- end }}
       containers:
         - name: validator
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -63,10 +61,6 @@ spec:
       volumes:
       - name: certs
         secret:
-{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-galley-service-account
-{{- else }}
-          secretName: istio.default
-{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
