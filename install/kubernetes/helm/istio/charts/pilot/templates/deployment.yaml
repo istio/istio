@@ -21,9 +21,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-pilot-service-account
-{{- end }}
       containers:
         - name: discovery
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -116,10 +114,6 @@ spec:
           name: istio
       - name: istio-certs
         secret:
-{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-pilot-service-account
-{{- else }}
-          secretName: istio.default
-{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
