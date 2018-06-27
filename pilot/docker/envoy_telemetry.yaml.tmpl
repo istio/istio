@@ -58,8 +58,8 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
@@ -132,8 +132,8 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:

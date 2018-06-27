@@ -20,26 +20,25 @@ import (
 
 // getIdentityNamespace returns the namespace scope for the attribute bag
 func getIdentityNamespace(attrs attribute.Bag) (namespace string, err error) {
-	// use destination.namespace for inbound, source.namespace for outbound
-	localValue, ok := attrs.Get("context.reporter.local")
-	local := true
-	if ok {
-		if v, isBool := localValue.(bool); isBool {
-			local = v
+	reporterType := "inbound"
+	if typeValue, ok := attrs.Get("context.reporter.type"); ok {
+		if v, isString := typeValue.(string); isString {
+			reporterType = v
 		}
 	}
-
-	if local {
+	// use destination.namespace for inbound, source.namespace for outbound
+	switch reporterType {
+	case "inbound":
 		destinationNamespace, ok := attrs.Get("destination.namespace")
 		if ok {
 			namespace, _ = destinationNamespace.(string)
 		}
-		return
+	case "outbound":
+		sourceNamespace, ok := attrs.Get("source.namespace")
+		if ok {
+			namespace, _ = sourceNamespace.(string)
+		}
 	}
 
-	sourceNamespace, ok := attrs.Get("source.namespace")
-	if ok {
-		namespace, _ = sourceNamespace.(string)
-	}
 	return
 }

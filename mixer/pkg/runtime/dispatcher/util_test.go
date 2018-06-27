@@ -26,14 +26,14 @@ func TestGetIdentityNamespace(t *testing.T) {
 		want string
 	}{{
 		bag: attribute.GetMutableBagForTesting(map[string]interface{}{
-			"destination.namespace":  "value",
-			"context.reporter.local": true,
+			"destination.namespace": "value",
+			"context.reporter.type": "inbound",
 		}),
 		want: "value",
 	}, {
 		bag: attribute.GetMutableBagForTesting(map[string]interface{}{
-			"source.namespace":       "value",
-			"context.reporter.local": false,
+			"source.namespace":      "value",
+			"context.reporter.type": "outbound",
 		}),
 		want: "value",
 	}, {
