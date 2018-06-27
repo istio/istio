@@ -64,6 +64,9 @@ const (
 var (
 	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
 	publicRootCABundlePath = "/cacert.pem"
+
+	// Close channel
+	close = make(chan bool)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -276,11 +279,14 @@ func (r *jwksResolver) getRemoteContent(uri string) ([]byte, error) {
 
 func (r *jwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
+	//Write
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
 	for {
 		select {
 		case now := <-r.refreshTicker.C:
 			r.refresh(now)
+		case <-close:
+			r.refreshTicker.Stop()
 		}
 	}
 }
@@ -347,5 +353,5 @@ func (r *jwksResolver) refresh(t time.Time) {
 // TODO: may need to figure out the right place to call this function.
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *jwksResolver) Close() {
-	r.refreshTicker.Stop()
+	close <- true
 }
