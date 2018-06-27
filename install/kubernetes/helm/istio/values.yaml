@@ -454,7 +454,6 @@ certmanager:
     repository: quay.io/jetstack/cert-manager-controller
     tag: v0.3.1
     pullPolicy: IfNotPresent
-  createCustomResource: true
   clusterResourceNamespace: "istio-system"
   leaderElection:
     # Override the namespace used to store the ConfigMap for leader election
