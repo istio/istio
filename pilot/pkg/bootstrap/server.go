@@ -782,8 +782,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	environment.DisableRDS = os.Getenv("DISABLE_RDS") == "true"
-
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
 		s.ServiceController,
