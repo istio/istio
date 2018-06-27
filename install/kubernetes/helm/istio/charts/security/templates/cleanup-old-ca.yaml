@@ -20,9 +20,7 @@ spec:
         app: {{ template "security.name" . }}
         release: {{ .Release.Name }}
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-cleanup-old-ca-service-account
-{{- end }}
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
