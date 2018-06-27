@@ -142,6 +142,9 @@ func (mixerplugin) OnInboundCluster(env model.Environment, node model.Proxy, ser
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return
+	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
