@@ -102,6 +102,8 @@ var (
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
 
+	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
+	// is specified through the command line
 	DefaultPlugins = []string{
 		plugin.Authn,
 		plugin.Authz,
