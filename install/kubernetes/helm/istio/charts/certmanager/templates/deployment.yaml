@@ -46,20 +46,6 @@ spec:
         {{- if .Values.extraArgs }}
 {{ toYaml .Values.extraArgs | indent 10 }}
         {{- end }}
-          {{- with .Values.ingressShim }}
-          {{- if .defaultIssuerName }}
-          - --default-issuer-name={{ .defaultIssuerName }}
-          {{- end }}
-          {{- if .defaultIssuerKind }}
-          - --default-issuer-kind={{ .defaultIssuerKind }}
-          {{- end }}
-          {{- if .defaultACMEChallengeType }}
-          - --default-acme-issuer-challenge-type={{ .defaultACMEChallengeType }}
-          {{- end }}
-          {{- if .defaultACMEDNS01ChallengeProvider }}
-          - --default-acme-issuer-dns01-provider-name={{ .defaultACMEDNS01ChallengeProvider }}
-          {{- end }}
-          {{- end }}
           env:
           - name: POD_NAMESPACE
             valueFrom:
