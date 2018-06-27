@@ -107,12 +107,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			// this is for.
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
+
+		var si *model.ServiceInstance
+		for _, w := range workloadInstances {
+			if w.Endpoint.Port == int(portNumber) {
+				si = w
+				break
+			}
+		}
+
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
 				ListenerProtocol: listenerType,
 				Env:              &env,
 				Node:             &node,
 				ProxyInstances:   workloadInstances,
+				ServiceInstance:  si,
 				Port: &model.Port{
 					Name:     servers[0].Port.Name,
 					Port:     int(portNumber),
