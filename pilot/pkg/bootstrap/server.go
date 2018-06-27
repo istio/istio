@@ -198,6 +198,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		if args.Namespace != "" {
+			args.Config.ClusterRegistriesNamespace = args.Namespace
+		} else {
+			args.Config.ClusterRegistriesNamespace = "istio-system"
+		}
+	}
 
 	s := &Server{}
 
