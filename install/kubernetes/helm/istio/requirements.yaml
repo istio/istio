@@ -44,3 +44,6 @@ dependencies:
   - name: kiali
     version: 0.3.0.Alpha
     condition: kiali.enabled
+  - name: certmanager
+    version: 0.1.0
+    condition: certmanager.enabled

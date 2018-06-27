@@ -1,0 +1,22 @@
+{{- if .Values.createCustomResource -}}
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: certificates.certmanager.k8s.io
+  labels:
+    app: {{ template "certmanager.name" . }}
+    chart: {{ template "certmanager.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  group: certmanager.k8s.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: Certificate
+    plural: certificates
+    {{- if .Values.certificateResourceShortNames }}
+    shortNames:
+{{ toYaml .Values.certificateResourceShortNames | indent 6 }}
+    {{- end -}}
+{{- end -}}
