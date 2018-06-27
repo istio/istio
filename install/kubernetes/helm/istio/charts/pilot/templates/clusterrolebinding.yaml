@@ -13,9 +13,5 @@ roleRef:
   name: istio-pilot-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-{{- if .Values.global.rbacEnabled }}
     name: istio-pilot-service-account
-{{- else }}
-    name: default
-{{- end }}
     namespace: {{ .Release.Namespace }}

@@ -825,6 +825,19 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
 			}
 		}
+		//resolve host in tls route.destination
+		for _, tls := range rule.Tls {
+			for _, m := range tls.Match {
+				for i, g := range m.Gateways {
+					if g != IstioMeshGateway {
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+					}
+				}
+			}
+			for _, w := range tls.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
+			}
+		}
 	}
 
 	return out
