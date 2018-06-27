@@ -531,9 +531,10 @@ func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
-		if len(match.SniHosts) > 0 && len(pickMatchingGatewayHosts(gatewayHosts, match.SniHosts)) == 0 {
-			// the match's sni hosts don't include hosts advertised by server
-			continue
+		sniHostsMatch := len(match.SniHosts) == 0
+		if len(match.SniHosts) > 0 {
+			// the match's sni hosts includes hosts advertised by server
+			sniHostsMatch = len(pickMatchingGatewayHosts(gatewayHosts, match.SniHosts)) > 0
 		}
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
@@ -551,7 +552,7 @@ func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes
 			}
 		}
 
-		if portMatch && gatewayMatch {
+		if sniHostsMatch && portMatch && gatewayMatch {
 			return true
 		}
 	}
