@@ -104,12 +104,27 @@ func convertToPort(v string) (uint32, error) {
 
 // convertToHeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
-	//TODO(yangminzhu): Update the HeaderMatcher to support prefix and suffix match.
-	if strings.Contains(v, "*") {
+	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
+	// Empty prefix/suffix value is invalid in HeaderMatcher.
+	if v == "*" {
 		return &route.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-				RegexMatch: "^" + strings.Replace(v, "*", ".*", -1) + "$",
+			HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
+				PresentMatch: true,
+			},
+		}
+	} else if strings.HasPrefix(v, "*") {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+				SuffixMatch: v[1:],
+			},
+		}
+	} else if strings.HasSuffix(v, "*") {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
+				PrefixMatch: v[:len(v)-1],
 			},
 		}
 	}
@@ -119,4 +134,11 @@ func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 			ExactMatch: v,
 		},
 	}
+}
+
+func extractNameInBrackets(s string) (string, error) {
+	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
+		return "", fmt.Errorf("expecting format [<NAME>], but found %s", s)
+	}
+	return strings.TrimPrefix(strings.TrimSuffix(s, "]"), "["), nil
 }
