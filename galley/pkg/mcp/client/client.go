@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
@@ -165,9 +166,22 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		Objects:     make([]*Object, 0, len(response.Envelopes)),
 	}
 	for _, envelope := range response.Envelopes {
-		var dynamicAny types.DynamicAny
-		if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
-			return sendNACKRequest(state.version(), err)
+		var message proto.Message
+
+		if proto.MessageType(responseMessageName) != nil {
+			// gogo proto
+			var dynamicAny types.DynamicAny
+			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
+				return sendNACKRequest(state.version(), err)
+			}
+			message = dynamicAny.Message
+		} else {
+			// golang proto
+			var dynamicAny ptypes.DynamicAny
+			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
+				return sendNACKRequest(state.version(), err)
+			}
+			message = dynamicAny.Message
 		}
 
 		if response.TypeUrl != envelope.Resource.TypeUrl {
@@ -178,9 +192,9 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		}
 
 		object := &Object{
-			MessageName: proto.MessageName(dynamicAny.Message),
+			MessageName: responseMessageName,
 			Metadata:    envelope.Metadata,
-			Resource:    dynamicAny.Message,
+			Resource:    message,
 			Version:     response.VersionInfo,
 		}
 		change.Objects = append(change.Objects, object)
