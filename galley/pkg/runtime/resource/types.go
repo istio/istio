@@ -41,6 +41,5 @@ func init() {
 	Types.Register("istio.rbac.v1alpha1.ServiceRoleBinding", false)
 	Types.Register("istio.routing.v1alpha1.DestinationPolicy", false)
 	Types.Register("istio.routing.v1alpha1.EgressRule", false)
-	Types.Register("istio.routing.v1alpha1.IngressRule", false)
 	Types.Register("istio.routing.v1alpha1.RouteRule", false)
 }

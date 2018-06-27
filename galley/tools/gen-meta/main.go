@@ -36,14 +36,17 @@ var knownProtoTypes = map[string]struct{}{
 	"google.protobuf.Struct": {},
 }
 
+// metadata is a combination of read and derived metadata.
 type metadata struct {
-	Items         []*entry   `json:"items"`
-	ProtoPackages []string   `json:"-"`
-	ProtoDefs     []protoDef `json:"-"`
+	Items           []*entry   `json:"items"`
+	ProtoGoPackages []string   `json:"-"`
+	ProtoDefs       []protoDef `json:"-"`
 }
 
+// entry in a metadata file
 type entry struct {
 	Kind      string `json:"kind"`
+	ListKind  string `json:"listKind"`
 	Singular  string `json:"singular"`
 	Plural    string `json:"plural"`
 	Group     string `json:"group"`
@@ -53,6 +56,7 @@ type entry struct {
 	Converter string `json:"converter"`
 }
 
+// proto related metadata
 type protoDef struct {
 	MessageName string `json:"-"`
 	Gogo        bool   `json:"-"`
@@ -65,6 +69,7 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// The tool can generate both K8s level, as well as the proto level metadata.
 	isRuntime := false
 	switch os.Args[2] {
 	case "kube":
@@ -116,12 +121,19 @@ func readMetadata(path string) (*metadata, error) {
 		return nil, fmt.Errorf("error marshalling input file: %v", err)
 	}
 
+	// Auto-complete listkind fields with defaults.
+	for _, item := range m.Items {
+		if item.ListKind == "" {
+			item.ListKind = item.Kind + "List"
+		}
+	}
+
 	// Stable sort based on message name.
 	sort.Slice(m.Items, func(i, j int) bool {
 		return strings.Compare(m.Items[i].Proto, m.Items[j].Proto) < 0
 	})
 
-	// Calculate the Go packages
+	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	names := make(map[string]struct{})
 	for _, e := range m.Items {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
@@ -138,12 +150,12 @@ func readMetadata(path string) (*metadata, error) {
 	}
 
 	for k := range names {
-		m.ProtoPackages = append(m.ProtoPackages, k)
+		m.ProtoGoPackages = append(m.ProtoGoPackages, k)
 	}
-	sort.Strings(m.ProtoPackages)
+	sort.Strings(m.ProtoGoPackages)
 
-	// Calculate the proto types
-	// First, single instance the proto defs
+	// Calculate the proto types that needs to be handled.
+	// First, single instance the proto definitions.
 	protoDefs := make(map[string]protoDef)
 	for _, e := range m.Items {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
@@ -161,7 +173,7 @@ func readMetadata(path string) (*metadata, error) {
 		m.ProtoDefs = append(m.ProtoDefs, v)
 	}
 
-	// Stable sort based on message name.
+	// Then, stable sort based on message name.
 	sort.Slice(m.ProtoDefs, func(i, j int) bool {
 		return strings.Compare(m.ProtoDefs[i].MessageName, m.ProtoDefs[j].MessageName) < 0
 	})
@@ -179,7 +191,7 @@ package resource
 
 import (
 // Pull in all the known proto types to ensure we get their types registered.
-{{range .ProtoPackages}}	_ "{{.}}"
+{{range .ProtoGoPackages}}	_ "{{.}}"
 {{end}}
 )
 
@@ -206,7 +218,7 @@ func init() {
 {{range .Items}}
 	Types.add(ResourceSpec{
 		Kind:       "{{.Kind}}",
-		ListKind:   "{{.Kind}}List",
+		ListKind:   "{{.ListKind}}",
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",

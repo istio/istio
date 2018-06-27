@@ -2,16 +2,16 @@
 items:
 # Types from Pilot
   - kind:        "RouteRule"
-    singular:    "route-rule"
-    plural:      "route-rules"
-    group:       "config"
+    singular:    "routerule"
+    plural:      "routerules"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.routing.v1alpha1.RouteRule"
 
   - kind:        "VirtualService"
-    singular:    "virtual-service"
-    plural:      "virtual-services"
-    group:       "networking"
+    singular:    "virtualservice"
+    plural:      "virtualservices"
+    group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.VirtualService"
     gogo:        true
@@ -19,84 +19,77 @@ items:
   - kind:        "Gateway"
     singular:    "gateway"
     plural:      "gateways"
-    group:       "networking"
+    group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.Gateway"
     gogo:        true
 
-  - kind:        "IngressRule"
-    singular:    "ingress-rule"
-    plural:      "ingress-rules"
-    group:       "config"
-    version:     "v1alpha2"
-    proto:       "istio.routing.v1alpha1.IngressRule"
-
   - kind:        "EgressRule"
-    singular:    "egress-rule"
-    plural:      "egress-rules"
-    group:       "config"
+    singular:    "egressrule"
+    plural:      "egressrules"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.routing.v1alpha1.EgressRule"
 
   - kind:        "ServiceEntry"
-    singular:    "service-entry"
-    plural:      "service-entries"
-    group:       "networking"
+    singular:    "serviceentry"
+    plural:      "serviceentries"
+    group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     gogo:        true
 
   - kind:        "DestinationPolicy"
-    singular:    "destination-policy"
-    plural:      "destination-policies"
-    group:       "config"
+    singular:    "destinationpolicy"
+    plural:      "destinationpolicies"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.routing.v1alpha1.DestinationPolicy"
 
   - kind:        "DestinationRule"
-    singular:    "destination-rule"
-    plural:      "destination-rules"
-    group:       "networking"
+    singular:    "destinationrule"
+    plural:      "destinationrules"
+    group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.DestinationRule"
     gogo:        true
 
   - kind:        "EnvoyFilter"
-    singular:    "envoy-filter"
-    plural:      "envoy-filters"
-    group:       "networking"
+    singular:    "envoyfilter"
+    plural:      "envoyfilters"
+    group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
     gogo:        true
 
   - kind:        "HTTPAPISpec"
-    singular:    "http-api-spec"
-    plural:      "http-api-specs"
-    group:       "config"
+    singular:    "httpapispec"
+    plural:      "httpapispecs"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpec"
     gogo:        true
 
   - kind:        "HTTPAPISpecBinding"
-    singular:    "http-api-spec-binding"
-    plural:      "http-api-spec-bindings"
-    group:       "config"
+    singular:    "httpapispecbinding"
+    plural:      "httpapispecbindings"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpecBinding"
     gogo:        true
 
   - kind:        "QuotaSpec"
-    singular:    "quota-spec"
-    plural:      "quota-specs"
-    group:       "config"
+    singular:    "quotaspec"
+    plural:      "quotaspecs"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpec"
     gogo:        true
 
   - kind:        "QuotaSpecBinding"
-    singular:    "quota-spec-binding"
-    plural:      "quota-spec-bindings"
-    group:       "config"
+    singular:    "quotaspecbinding"
+    plural:      "quotaspecbindings"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpecBinding"
     gogo:        true
@@ -104,39 +97,40 @@ items:
   - kind:        "AuthenticationPolicy"
     singular:    "policy"
     plural:      "policies"
-    group:       "authentication"
+    group:       "authentication.istio.io"
     version:     "v1alpha1"
     proto:       "istio.authentication.v1alpha1.Policy"
     gogo:        true
 
-  - kind:        "AuthenticationMeshPolicy"
+  - kind:          "MeshPolicy"
     clusterScoped: true
-    singular:      "mesh-policy"
-    plural:        "mesh-policies"
-    group:       "authentication"
-    version:     "v1alpha1"
+    singular:      "meshpolicy"
+    plural:        "meshpolicies"
+    group:         "authentication.istio.io"
+    version:       "v1alpha1"
     proto:         "istio.authentication.v1alpha1.Policy"
-    gogo:        true
+    gogo:          true
 
   - kind:        "ServiceRole"
-    singular:    "service-role"
-    plural:      "service-roles"
-    group:       "config"
+    singular:    "servicerole"
+    plural:      "serviceroles"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
 
   - kind:        "ServiceRoleBinding"
     clusterScoped: false
-    singular:      "service-role-binding"
-    plural:        "service-role-bindings"
-    group:       "config"
+    singular:      "servicerolebinding"
+    plural:        "servicerolebindings"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:         "istio.rbac.v1alpha1.ServiceRoleBinding"
 
-  - kind:        "RbacConfig"
-    singular:    "rbac-config"
-    plural:      "rbac-configs"
-    group:       "config"
+  - kind:        "Rbac"
+    listKind:    "rbacList"
+    singular:    "rbac"
+    plural:      "rbacs"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
 
@@ -145,7 +139,7 @@ items:
   - kind:        "rule"
     singular:    "rule"
     plural:      "rules"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Rule"
     gogo:        true
@@ -153,7 +147,7 @@ items:
   - kind:        "attributemanifest"
     singular:    "attributemanifest"
     plural:      "attributemanifests"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.AttributeManifest"
     gogo:        true
@@ -161,7 +155,7 @@ items:
   - kind:        "instance"
     singular:    "instance"
     plural:      "instances"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Instance"
     gogo:        true
@@ -169,7 +163,7 @@ items:
   - kind:        "handler"
     singular:    "handler"
     plural:      "handlers"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.policy.v1beta1.Handler"
     gogo:        true
@@ -177,7 +171,7 @@ items:
   - kind:        "template"
     singular:    "template"
     plural:      "templates"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -186,7 +180,7 @@ items:
   - kind:        "adapter"
     singular:    "adapter"
     plural:      "adapters"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -197,7 +191,7 @@ items:
   - kind:        "bypass"
     singular:    "bypass"
     plural:      "bypasses"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -206,7 +200,7 @@ items:
   - kind:        "circonus"
     singular:    "circonus"
     plural:      "circonuses"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -215,7 +209,7 @@ items:
   - kind:        "denier"
     singular:    "denier"
     plural:      "deniers"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -224,7 +218,7 @@ items:
   - kind:        "fluentd"
     singular:    "fluentd"
     plural:      "fluentds"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -233,7 +227,7 @@ items:
   - kind:        "kubernetesenv"
     singular:    "kubernetesenv"
     plural:      "kubernetesenvs"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -242,7 +236,7 @@ items:
   - kind:        "listchecker"
     singular:    "listchecker"
     plural:      "listcheckers"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -251,7 +245,7 @@ items:
   - kind:        "memquota"
     singular:    "memquota"
     plural:      "memquotas"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -260,7 +254,7 @@ items:
   - kind:        "noop"
     singular:    "noop"
     plural:      "noops"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -269,7 +263,7 @@ items:
   - kind:        "opa"
     singular:    "opa"
     plural:      "opas"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -278,16 +272,7 @@ items:
   - kind:        "prometheus"
     singular:    "prometheus"
     plural:      "prometheuses"
-    group:       "config"
-    version:     "v1alpha2"
-    proto:       "istio.mixer.adapter.model.v1beta1.Info"
-    gogo:        true
-    converter:   "old-mixer-adapter"
-
-  - kind:        "rbac"
-    singular:    "rbac"
-    plural:      "rbacs"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -296,14 +281,14 @@ items:
   - kind:        "servicecontrol"
     singular:    "servicecontrol"
     plural:      "servicecontrols"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
     converter:   "old-mixer-adapter"
 
   - kind:        "signalfx"
-    group:       "config"
+    group:       "config.istio.io"
     plural:      "signalfxs"
     singular:    "signalfx"
     version:     "v1alpha2"
@@ -314,7 +299,7 @@ items:
   - kind:        "solarwinds"
     singular:    "solarwinds"
     plural:      "solarwindses"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -323,7 +308,7 @@ items:
   - kind:        "stackdriver"
     singular:    "stackdriver"
     plural:      "stackdrivers"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -332,7 +317,7 @@ items:
   - kind:        "statsd"
     singular:    "statsd"
     plural:      "statsds"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -341,7 +326,7 @@ items:
   - kind:        "stdio"
     singular:    "stdio"
     plural:      "stdios"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
@@ -350,7 +335,7 @@ items:
   - kind:        "apikey"
     singular:    "apikey"
     plural:      "apikeys"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -359,7 +344,7 @@ items:
   - kind:        "authorization"
     singular:    "authorization"
     plural:      "authorizations"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -368,7 +353,7 @@ items:
   - kind:        "checknothing"
     singular:    "checknothing"
     plural:      "checknothings"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -377,7 +362,7 @@ items:
   - kind:        "kubernetes"
     singular:    "kubernetes"
     plural:      "kuberneteses"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -386,7 +371,7 @@ items:
   - kind:        "listentry"
     singular:    "listentry"
     plural:      "listentries"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -395,7 +380,7 @@ items:
   - kind:        "logentry"
     singular:    "logentry"
     plural:      "logentries"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -404,7 +389,7 @@ items:
   - kind:        "metric"
     singular:    "metric"
     plural:      "metrics"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -413,7 +398,7 @@ items:
   - kind:        "quota"
     singular:    "quota"
     plural:      "quotas"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -422,7 +407,7 @@ items:
   - kind:        "reportnothing"
     singular:    "reportnothing"
     plural:      "reportnothings"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -431,7 +416,7 @@ items:
   - kind:        "servicecontrolreport"
     singular:    "servicecontrolreport"
     plural:      "servicecontrolreports"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
@@ -440,26 +425,8 @@ items:
   - kind:        "tracespan"
     singular:    "tracespan"
     plural:      "tracespans"
-    group:       "config"
+    group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
     converter:   "old-mixer-template"
-
-# TODO
-#  - kind:        "ServiceRole"
-#    singular:    "servicerole"
-#    plural:      "serviceroles"
-#    group:       "config"
-#    version:     "v1alpha2"
-#    proto:       "istio.mixer.adapter.model.v1beta1.Template"
-#    gogo:        true
-
-# TODO
-#  - kind:        "ServiceRoleBinding"
-#    singular:    "servicerolebinding"
-#    plural:      "servicerolebindings"
-#    group:       "config"
-#    version:     "v1alpha2"
-#    proto:       "istio.mixer.adapter.model.v1beta1.Template"
-#    gogo:        true
