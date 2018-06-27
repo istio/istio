@@ -416,10 +416,13 @@ istioctl get virtualservice bookinfo
 			} else {
 				for _, typ := range typs {
 					typeConfigs, err := configClient.List(typ.Type, ns)
-					if err != nil && mustList[typ.Type] {
-						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+					if err == nil {
+						configs = append(configs, typeConfigs...)
+					} else {
+						if mustList[typ.Type] {
+							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+						}
 					}
-					configs = append(configs, typeConfigs...)
 				}
 			}
 
