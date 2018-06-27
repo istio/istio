@@ -448,7 +448,7 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 	}
 
 	virtualServices := env.VirtualServices(gateways)
-	downstreams := make([]*networking.Destination, 0, len(virtualServices))
+	upstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
@@ -457,21 +457,23 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 			continue
 		}
 
-		// ensure we satisfy the rule's l4 match conditions, if any exist
-		for _, tcp := range vsvc.Tcp {
-			if l4Match(spec.ConfigMeta, tcp.Match, server, gateways) {
-				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
+		// ensure we satisfy the rule's tls match conditions, if any exist
+		for _, tls := range vsvc.Tls {
+			if tlsMatch(tls.Match, server, gateways) {
+				upstreams = append(upstreams, gatherDestinations(tls.Route)...)
 			}
 		}
 
-		// ensure we satisfy the rule's tls match conditions, if any exist
-		for _, tls := range vsvc.Tls {
-			if tlsMatch(spec.ConfigMeta, tls.Match, server, gateways) {
-				downstreams = append(downstreams, gatherDestinations(tls.Route)...)
+		// ensure we satisfy the rule's l4 match conditions, if any exist
+		for _, tcp := range vsvc.Tcp {
+			if l4Match(tcp.Match, server, gateways) {
+				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
 			}
 		}
+
+		// TODO: detect conflicting upstreams
 	}
-	return downstreams
+	return upstreams
 }
 
 func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
@@ -487,9 +489,7 @@ func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServi
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes,
-	server *networking.Server, gatewayNames map[string]bool) bool {
-
+func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
@@ -505,8 +505,7 @@ func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes,
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				fqdn := model.ResolveShortnameToFQDN(gateway, meta).String()
-				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
+				gatewayMatch = gatewayMatch || gatewayNames[gateway]
 			}
 		}
 
@@ -519,9 +518,7 @@ func l4Match(meta model.ConfigMeta, predicates []*networking.L4MatchAttributes,
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes,
-	server *networking.Server, gatewayNames map[string]bool) bool {
-
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
@@ -547,8 +544,7 @@ func tlsMatch(meta model.ConfigMeta, predicates []*networking.TLSMatchAttributes
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				fqdn := model.ResolveShortnameToFQDN(gateway, meta).String()
-				gatewayMatch = gatewayMatch || gatewayNames[fqdn]
+				gatewayMatch = gatewayMatch || gatewayNames[gateway]
 			}
 		}
 
