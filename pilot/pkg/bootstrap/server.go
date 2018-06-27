@@ -49,6 +49,7 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -74,9 +75,7 @@ const (
 var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
-)
 
-var (
 	// ConfigDescriptor describes all supported configuration kinds.
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	ConfigDescriptor = model.ConfigDescriptor{
@@ -102,6 +101,14 @@ var (
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
+
+	DefaultPlugins = []string{
+		plugin.Authn,
+		plugin.Authz,
+		plugin.Envoyfilter,
+		plugin.Health,
+		plugin.Mixer,
+	}
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -156,6 +163,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
+	Plugins          []string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -783,7 +791,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator())
+
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)

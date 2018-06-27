@@ -32,6 +32,13 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+
+	// Available plugin names that can be specified through command line
+	Authn       = "authn"
+	Authz       = "authz"
+	Envoyfilter = "envoyfilter"
+	Health      = "health"
+	Mixer       = "mixer"
 )
 
 // ModelProtocolToListenerProtocol converts from a model.Protocol to its corresponding plugin.ListenerProtocol
