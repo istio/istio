@@ -29,7 +29,8 @@ func ApplyClusterPolicy(cluster *Cluster,
 	proxyInstances []*model.ServiceInstance,
 	config model.IstioConfigStore,
 	mesh *meshconfig.MeshConfig,
-	accounts model.ServiceAccounts) {
+	accounts model.ServiceAccounts,
+	proxyType model.NodeType) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
 
@@ -41,7 +42,7 @@ func ApplyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, model.Hostname(cluster.Hostname), cluster.Port))
+		requireTLS, _ := authn_plugin.RequireTLS(model.GetConsolidateAuthenticationPolicy(mesh, config, model.Hostname(cluster.Hostname), cluster.Port), proxyType)
 		if requireTLS {
 			// apply auth policies
 			ports := model.PortList{cluster.Port}.GetNames()

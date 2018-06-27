@@ -45,8 +45,8 @@ func buildJwtFilter(policy *authn.Policy) *HTTPFilter {
 }
 
 // buildAuthnFilter returns a authN filter for the policy.
-func buildAuthnFilter(policy *authn.Policy) *HTTPFilter {
-	filterConfigProto := authn_plugin.ConvertPolicyToAuthNFilterConfig(policy)
+func buildAuthnFilter(policy *authn.Policy, proxyType model.NodeType) *HTTPFilter {
+	filterConfigProto := authn_plugin.ConvertPolicyToAuthNFilterConfig(policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
