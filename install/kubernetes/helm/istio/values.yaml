@@ -470,6 +470,7 @@ certmanager:
     #   cpu: 10m
     #   memory: 32Mi
   podAnnotations: {}
+    # sidecar.istio.io/inject: "true"
   podLabels: {}
   # Optional DNS settings, useful if you have a public and private DNS zone for
   # the same domain on Route 53. What follows is an example of ensuring
