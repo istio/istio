@@ -19,9 +19,7 @@ spec:
       labels:
         app: kiali
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: kiali-service-account
-{{ end }}
       containers:
       - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         name: kiali

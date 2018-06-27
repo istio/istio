@@ -16,6 +16,7 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -93,7 +94,9 @@ type SyncStatus struct {
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
+	adsClientsMutex.RLock()
 	for _, con := range adsClients {
+		con.mu.RLock()
 		if con.modelNode != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
@@ -108,7 +111,9 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 				EndpointPercent: con.EndpointPercent,
 			})
 		}
+		con.mu.RUnlock()
 	}
+	adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -239,14 +244,19 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, sd.GetServiceError
 	}
 	val := sd.services[hostname]
+	if val == nil {
+		return nil, errors.New("missing service")
+	}
 	// Make a new service out of the existing one
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface. Currently it only returns nil.
-func (sd *MemServiceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	return nil, nil
+// GetServiceAttributes implements discovery interface.
+func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	return &model.ServiceAttributes{
+		Name:      hostname.String(),
+		Namespace: model.IstioDefaultConfigNamespace}, nil
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is
@@ -319,6 +329,11 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 		Port:     9999,
 		Protocol: model.ProtocolTCP,
 	}}
+}
+
+// WorkloadHealthCheckInfo implements discovery interface
+func (sd *MemServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.

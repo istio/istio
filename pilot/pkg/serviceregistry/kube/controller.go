@@ -249,17 +249,21 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
-// GetServiceAttributes implements a service catalog operation
-func (c *Controller) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	name, namespace, err := parseHostname(service.Hostname)
+// GetServiceAttributes returns istio attributes for a service in the registry if it is present
+func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		log.Infof("GetServiceAttributes() => error %v", err)
 		return nil, err
 	}
 	if _, exists := c.serviceByKey(name, namespace); exists {
-		return &model.ServiceAttributes{Name: name, Namespace: namespace}, nil
+		return &model.ServiceAttributes{
+			Name:      name,
+			Namespace: namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+		}, nil
 	}
-	return nil, fmt.Errorf("service not exist for hostname %q", service.Hostname)
+	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -317,6 +321,39 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	// We continue despite the error because healthCheckPorts could return a partial
 	// list of management ports
 	return managementPorts
+}
+
+// WorkloadHealthCheckInfo implements a service catalog operation
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return nil
+	}
+
+	probes := make([]*model.Probe, 0)
+	for _, container := range pod.Spec.Containers {
+		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing readiness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
+			})
+		}
+		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing liveness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.LivenessProbe.Handler.HTTPGet.Path,
+			})
+		}
+	}
+	return probes
 }
 
 // Instances implements a service catalog operation
@@ -469,19 +506,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
-	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
 				if proxy.IPAddress == ea.IP {
-					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
-						if err != nil {
-							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
-							return out, err
-						}
-					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -501,13 +530,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
-								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
-									"with the query for pod %v in namespace %v",
-									ea.IP, pod.GetName(), pod.GetNamespace(),
-									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
-								continue
-							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{

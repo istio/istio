@@ -22,7 +22,7 @@ import (
 )
 
 func TestGetIdentityAttributeValue(t *testing.T) {
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"ident":     "value",
 		"nonstring": 23,
 	})

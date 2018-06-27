@@ -9,6 +9,10 @@ items:
   metadata:
     name: jaeger-query
     namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
     labels:
       app: jaeger
       jaeger-infra: jaeger-service

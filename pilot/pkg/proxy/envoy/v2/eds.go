@@ -153,8 +153,8 @@ func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	var err error
 
 	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
-	//new style cluster names
-	if strings.Index(clusterName, "outbound") == 0 || strings.Index(clusterName, "inbound") == 0 {
+	if strings.Index(clusterName, "outbound") == 0 ||
+		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
 		var p int
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
@@ -335,7 +335,12 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
-		c := s.getOrAddEdsCluster(clusterName)
+		c := s.getEdsCluster(clusterName)
+		if c == nil {
+			adsLog.Errorf("cluster %s was nil skipping it.", clusterName)
+			continue
+		}
+
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
 			if err := updateCluster(clusterName, c); err != nil {

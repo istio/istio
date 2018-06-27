@@ -87,7 +87,8 @@ var (
 	certFlag          = flag.String("cert", "", "Path to the certificate file to be used for GRPC server TLS")
 	keyFlag           = flag.String("key", "", "Path to the key file used for GRPC server TLS")
 	caCertFlag        = flag.String("cacert", "",
-		"Path to a custom CA certificate file to be used for the GRPC client TLS, if empty, use https:// prefix for standard internet CAs TLS")
+		"Path to a custom CA certificate file to be used for the GRPC client TLS, "+
+			"if empty, use https:// prefix for standard internet CAs TLS")
 	echoPortFlag = flag.String("http-port", "8080", "http echo server port. Can be in the form of host:port, ip:port or port.")
 	grpcPortFlag = flag.String("grpc-port", fgrpc.DefaultGRPCPort,
 		"grpc server port. Can be in the form of host:port, ip:port or port or \""+disabled+"\" to not start the grpc server.")

@@ -45,12 +45,6 @@ const (
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
-	// HTTPStatPrefix indicates envoy stat prefix for http listeners
-	HTTPStatPrefix = "http"
-
-	// RDSName is the name of route-discovery-service (RDS) cluster
-	//RDSName = "rds"
-
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -245,7 +239,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		// by outbound routes.
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
-		var listenerType plugin.ListenerType
+		var listenerType plugin.ListenerProtocol
 		listenerOpts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -270,9 +264,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			// Skip building listener for the same ip port
 			continue
 		}
-		listenerType = plugin.ModelProtocolToListenerType(protocol)
+		listenerType = plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
-		case plugin.ListenerTypeHTTP:
+		case plugin.ListenerProtocolHTTP:
 			httpOpts := &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "", // no RDS for inbound traffic
@@ -296,7 +290,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 					},
 				}
 			}
-		case plugin.ListenerTypeTCP:
+		case plugin.ListenerProtocolTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				networkFilters: buildInboundNetworkFilters(instance),
 			}}
@@ -314,11 +308,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		}
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType:    listenerType,
-				Env:             &env,
-				Node:            &node,
-				ProxyInstances:  proxyInstances,
-				ServiceInstance: instance,
+				ListenerProtocol: listenerType,
+				Env:              &env,
+				Node:             &node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             endpoint.ServicePort,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -375,8 +370,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			currentListener = nil
 
-			switch plugin.ModelProtocolToListenerType(servicePort.Protocol) {
-			case plugin.ListenerTypeHTTP:
+			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
+			case plugin.ListenerProtocolHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !listenerTypeMap[listenerMapKey].IsHTTP() {
@@ -407,7 +402,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						direction:        operation,
 					},
 				}}
-			case plugin.ListenerTypeTCP:
+			case plugin.ListenerProtocolTCP:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
 					addresses = []string{listenAddress}
@@ -455,11 +450,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
-					ListenerType:   plugin.ModelProtocolToListenerType(servicePort.Protocol),
-					Env:            &env,
-					Node:           &node,
-					ProxyInstances: proxyInstances,
-					Service:        service,
+					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+					Env:              &env,
+					Node:             &node,
+					ProxyInstances:   proxyInstances,
+					Service:          service,
+					Port:             servicePort,
 				}
 
 				if err := p.OnOutboundListener(params, mutable); err != nil {
@@ -582,6 +578,9 @@ type httpListenerOpts struct {
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
+	// stat prefix for the http connection manager
+	// DO not set this field. Will be overridden by marshalFilters
+	statPrefix string
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -622,7 +621,7 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 	connectionManager.CodecType = http_conn.AUTO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
-	connectionManager.StatPrefix = HTTPStatPrefix
+	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
 	if httpOpts.rds != "" && !env.DisableRDS {
@@ -744,20 +743,21 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 	for i, chain := range chains {
 		opt := opts.filterChainOpts[i]
-		// check that we either have all TCP or all HTTP chain, and not a mix
-		// TODO: remove when Envoy supports port protocol multiplexing
-		if (len(chain.TCP) > 0 || len(opt.networkFilters) > 0) && (len(chain.HTTP) > 0 || opt.httpOpts != nil) {
-			return fmt.Errorf("listener %q filter chain %d cannot set both network(%#v) and HTTP(%#v) filter chains",
-				l.Name, i, append(chain.TCP, opt.networkFilters...), chain.HTTP)
+
+		if len(chain.TCP) > 0 {
+			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, chain.TCP...)
 		}
 
-		l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, chain.TCP...)
-		l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, opt.networkFilters...)
+		if len(opt.networkFilters) > 0 {
+			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, opt.networkFilters...)
+		}
+
 		if log.DebugEnabled() {
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), l.Name, i)
 		}
 
 		if opt.httpOpts != nil {
+			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,

@@ -310,7 +310,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
 		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
-		if in.ListenerType == plugin.ListenerTypeHTTP {
+		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)

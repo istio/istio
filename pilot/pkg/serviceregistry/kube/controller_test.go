@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -73,9 +74,8 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
 
-	test.Eventually(t, "successfully list services", func() bool {
+	test.Eventually(t, "successfully added a service", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
@@ -89,8 +89,18 @@ func TestServices(t *testing.T) {
 				return true
 			}
 		}
+		return false
+	})
+
+	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
+
+	test.Eventually(t, "successfully created endpoints", func() bool {
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil || len(ep) > 0 {
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if len(ep) == 2 {
 			return true
 		}
 		return false
@@ -106,10 +116,10 @@ func TestServices(t *testing.T) {
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
-	attr, err := sds.GetServiceAttributes(svc)
-	if attr.Name != testService || attr.Namespace != ns {
-		t.Errorf("GetServiceAttributes() => %v, but want %v: %v",
-			attr, model.ServiceAttributes{Name: testService, Namespace: ns}, err)
+	attr, err := sds.GetServiceAttributes(svc.Hostname)
+	expect := model.ServiceAttributes{Name: testService, Namespace: ns, UID: fmt.Sprintf("istio://%s/services/%s", ns, testService)}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes(%q) => %v, but want %v", svc.Hostname, *attr, expect)
 	}
 
 	ep, err := sds.InstancesByPort(hostname, 80, nil)
@@ -149,7 +159,6 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_getPodAZ(t *testing.T) {
-
 	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
 	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"})
 	testCases := []struct {
@@ -279,12 +288,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Errorf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, hostname)
 	}
-
-	svcNode.Domain = "nsWRONG.svc.cluster.local"
-	_, err = controller.GetProxyServiceInstances(&svcNode)
-	if err == nil {
-		t.Errorf("GetProxyServiceInstances() should have returned error for unknown domain.")
-	}
 }
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
@@ -346,6 +349,49 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	sa = controller.GetIstioServiceAccounts(hostname, []string{})
 	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
+	}
+}
+
+func TestWorkloadHealthCheckInfo(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+
+	pods := []*v1.Pod{
+		generatePodWithProbes("pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090")),
+	}
+	addPods(t, controller, pods...)
+
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+
+	expected := []*model.Probe{
+		{
+			Path: "/ready",
+			Port: &model.Port{
+				Name:     "mgmt-8080",
+				Port:     8080,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+		{
+			Path: "/live",
+			Port: &model.Port{
+				Name:     "mgmt-9090",
+				Port:     9090,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	}
+
+	if len(probes) != len(expected) {
+		t.Errorf("Expecting %d probes but got %d\r\n", len(expected), len(probes))
+	}
+
+	for i, exp := range expected {
+		if !reflect.DeepEqual(exp, probes[i]) {
+			t.Errorf("Port got: %#v  wanted %#v\r\n", probes[i].Port, exp.Port)
+			t.Errorf("Probe %d, got:\n%#v\nwanted:\n%#v\n", i, probes[i], exp)
+		}
 	}
 }
 
@@ -431,6 +477,38 @@ func generatePod(name, namespace, saName, node string, labels map[string]string)
 		Spec: v1.PodSpec{
 			ServiceAccountName: saName,
 			NodeName:           node,
+		},
+	}
+}
+
+func generatePodWithProbes(name, namespace, saName, node string, readinessPath string, readinessPort intstr.IntOrString,
+	livenessPath string, livenessPort intstr.IntOrString) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: saName,
+			NodeName:           node,
+			Containers: []v1.Container{{
+				ReadinessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: readinessPath,
+							Port: readinessPort,
+						},
+					},
+				},
+				LivenessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: livenessPath,
+							Port: livenessPort,
+						},
+					},
+				},
+			}},
 		},
 	}
 }

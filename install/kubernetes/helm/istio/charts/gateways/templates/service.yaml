@@ -1,11 +1,15 @@
-{{- range $key, $spec := .Values -}}
-{{- if and (ne $key "global") (ne $key "enabled") -}}
-{{- if $spec.enabled -}}
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  annotations:
+    {{- range $key, $val := $spec.serviceAnnotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   labels:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
@@ -30,6 +34,6 @@ spec:
       {{- end }}
     {{- end }}
 ---
-{{ end }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

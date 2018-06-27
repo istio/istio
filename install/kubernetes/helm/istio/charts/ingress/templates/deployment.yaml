@@ -18,12 +18,10 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-ingress-service-account
-{{- end }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}/proxy:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80
@@ -94,11 +92,7 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-ingress-service-account
-{{- else }}
-          secretName: istio.default
-{{- end }}
           optional: true
       - name: ingress-certs
         secret:

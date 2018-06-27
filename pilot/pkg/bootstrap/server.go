@@ -87,6 +87,7 @@ var (
 		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
+		model.EnvoyFilter,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
@@ -196,6 +197,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
+	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		if args.Namespace != "" {
+			args.Config.ClusterRegistriesNamespace = args.Namespace
+		} else {
+			args.Config.ClusterRegistriesNamespace = "istio-system"
+		}
 	}
 
 	s := &Server{}

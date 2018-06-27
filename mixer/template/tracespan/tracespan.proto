@@ -35,6 +35,7 @@ syntax = "proto3";
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
+//   client_span: !context.reporter.local
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -109,4 +110,9 @@ message Template {
     // HTTP status code used to set the span status. If unset or set to 0, the
     // span status will be assumed to be successful.
     int64 httpStatusCode = 8;
+
+    // client_span indicates the span kind. True for client spans and False or
+    // not provided for server spans.
+    // Optional
+    bool client_span = 9;
 }

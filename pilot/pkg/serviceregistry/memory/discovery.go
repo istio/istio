@@ -186,9 +186,16 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return val, sd.GetServiceError
 }
 
-// GetServiceAttributes retrieves namespace of a service if it exists. Currently it only returns nil
-func (sd *ServiceDiscovery) GetServiceAttributes(service *model.Service) (*model.ServiceAttributes, error) {
-	return nil, nil
+// GetServiceAttributes retrieves namespace of a service if it exists.
+func (sd *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	svc, err := sd.GetService(hostname)
+	if svc != nil {
+		return &model.ServiceAttributes{
+			Name:      hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace,
+		}, nil
+	}
+	return nil, err
 }
 
 // Instances implements discovery interface
@@ -275,6 +282,11 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 		Port:     9999,
 		Protocol: model.ProtocolTCP,
 	}}
+}
+
+// WorkloadHealthCheckInfo implements discovery interface
+func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
