@@ -79,7 +79,6 @@ func TestServices(t *testing.T) {
 	test.Eventually(t, "successfully list services", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
-			log.Infoa(clientErr)
 			return false
 		}
 		log.Infof("Services: %#v", out)
@@ -90,24 +89,16 @@ func TestServices(t *testing.T) {
 				len(item.Ports) == 1 &&
 				item.Ports[0].Protocol == model.ProtocolHTTP {
 				serviceFound = true
-			} else {
-				log.Info("Item doesn't match:\n")
-				log.Infof("Expected: Hostname=%s, Protocol=%v", hostname, model.ProtocolHTTP)
-				log.Infof("Item: Hostname=%s, NumOfPorts=%d", item.Hostname, len(item.Ports))
-				if len(item.Ports) == 1 {
-					log.Infof("Item: 1st Port Protocol=%v", item.Ports[0].Protocol)
-				}
 			}
 		}
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
 		if anotherErr != nil {
-			log.Infof("error gettings instance by port: %v", anotherErr)
+			t.Errorf("error gettings instance by port: %v", anotherErr)
 			return false
 		}
 		if serviceFound && len(ep) == 2 {
 			return true
 		}
-		log.Infof("serviceFound=%v, len(ep)=%d", serviceFound, len(ep))
 		return false
 	})
 
