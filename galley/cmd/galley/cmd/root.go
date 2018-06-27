@@ -21,8 +21,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/pkg/collateral"
@@ -38,15 +36,6 @@ var (
 
 	loggingOptions = log.DefaultOptions()
 )
-
-// createInterface is a helper function to create Kubernetes interface
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(config)
-}
 
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
