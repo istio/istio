@@ -34,7 +34,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/common"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -279,7 +278,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				listenerOpts.filterChainOpts = []*filterChainOpts{
 					{
 						httpOpts:            httpOpts,
-						applicationProtocol: common.ALPNInMesh,
+						applicationProtocol: util.ALPNInMesh,
 					}, {
 						httpOpts: httpOpts,
 					},

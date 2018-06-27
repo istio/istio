@@ -32,7 +32,6 @@ import (
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/common"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
@@ -274,7 +273,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 				},
 			},
 			// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-			AlpnProtocols: []string{"h2", "http/1.1"},
+			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: &types.BoolValue{
 			Value: true,
@@ -282,7 +281,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 	}
 	// We already decide the purpose of the filter chain, ALPN istio traffic or legacy traffic.
 	if match != nil {
-		if reflect.DeepEqual(match.ApplicationProtocols, common.ALPNInMesh) {
+		if reflect.DeepEqual(match.ApplicationProtocols, util.ALPNInMesh) {
 			return tlsContext
 		}
 		return nil
