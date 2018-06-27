@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"sort"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -706,9 +705,9 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.SniDomains = chain.sniHosts
 			}
 		}
-		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
-			match = nil
-		}
+		// if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+		// 	match = nil
+		// }
 		filterChains = append(filterChains, listener.FilterChain{
 			FilterChainMatch: match,
 			TlsContext:       chain.tlsContext,
