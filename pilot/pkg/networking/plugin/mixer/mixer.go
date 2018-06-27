@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -65,6 +66,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	attrs := attributes{
 		"source.uid":             attrUID(in.Node),
+		"source.namespace":       attrNamespace(in.Node),
 		"context.reporter.uid":   attrUID(in.Node),
 		"context.reporter.local": attrBoolValue(false),
 	}
@@ -95,6 +97,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 	attrs := attributes{
 		"destination.uid":        attrUID(in.Node),
+		"destination.namespace":  attrNamespace(in.Node),
 		"context.reporter.uid":   attrUID(in.Node),
 		"context.reporter.local": attrBoolValue(true),
 	}
@@ -356,6 +359,14 @@ func attrStringValue(value string) attribute {
 
 func attrUID(node *model.Proxy) attribute {
 	return attrStringValue("kubernetes://" + node.ID)
+}
+
+func attrNamespace(node *model.Proxy) attribute {
+	parts := strings.Split(node.ID, ".")
+	if len(parts) >= 2 {
+		return attrStringValue(parts[1])
+	}
+	return attrStringValue("")
 }
 
 func attrBoolValue(value bool) attribute {

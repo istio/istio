@@ -80,6 +80,8 @@ static_resources:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
@@ -156,6 +158,8 @@ static_resources:
                         string_value: istio-policy.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
