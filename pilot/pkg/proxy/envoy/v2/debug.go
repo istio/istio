@@ -96,7 +96,7 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
-		con.mutex.RLock()
+		con.mu.RLock()
 		if con.modelNode != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
@@ -111,7 +111,7 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 				EndpointPercent: con.EndpointPercent,
 			})
 		}
-		con.mutex.RUnlock()
+		con.mu.RUnlock()
 	}
 	adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
