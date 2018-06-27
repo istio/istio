@@ -77,6 +77,8 @@ global:
     # destination rules or service annotations.
     enabled: false
 
+  nodePort: true
+
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
@@ -214,7 +216,7 @@ sidecarInjectorWebhook:
 # galley configuration
 #
 galley:
-  enabled: true
+  enabled: false
   replicaCount: 1
   image: galley
   resources: {}
@@ -375,6 +377,9 @@ servicegraph:
     #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: true
 
 tracing:
   enabled: false
