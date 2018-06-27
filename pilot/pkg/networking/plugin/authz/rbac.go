@@ -39,21 +39,100 @@ import (
 )
 
 const (
-	// RbacFilterName is the name of the RBAC filter in envoy.
-	RbacFilterName = "envoy.filters.http.rbac"
+	// rbacFilterName is the name of the RBAC filter in envoy.
+	rbacFilterName = "envoy.filters.http.rbac"
 
-	sourceIP        = "source.ip"
-	sourceService   = "source.service"
-	destinationIP   = "destination.ip"
-	destinationPort = "destination.port"
-	userHeader      = ":user"
-	methodHeader    = ":method"
-	pathHeader      = ":path"
-	//TODO(yangminzhu): Update the key after the final header name of service is decided.
-	serviceHeader       = ":service"
-	requestHeaderPrefix = "request.header["
-	requestHeaderSuffix = "]"
+	// attributes that could be used in both ServiceRoleBinding and ServiceRole.
+	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+
+	// attributes that could be used in a ServiceRoleBinding property.
+	attrSrcIP = "source.ip" // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+
+	// attributes that could be used in a ServiceRole constraint.
+	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
+	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[version]".
+	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
+	attrDestNamespace = "destination.namespace" // e.g. "default".
+	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage"
+
+	// TODO(yangminzhu): Add authn related attributes.
+
+	userHeader   = ":user"
+	methodHeader = ":method"
+	pathHeader   = ":path"
 )
+
+// serviceMetadata is a collection of different kind of information about a service.
+type serviceMetadata struct {
+	name       string            // full qualified service name, e.g. "productpage.default.svc.cluster.local
+	labels     map[string]string // labels of the service instance
+	attributes map[string]string // additional attributes of the service
+}
+
+func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
+	return &serviceMetadata{
+		name:   in.Service.Hostname.String(),
+		labels: in.Labels,
+		attributes: map[string]string{
+			attrDestName:      attr.Name,
+			attrDestNamespace: attr.Namespace,
+			attrDestUser:      in.ServiceAccount,
+		},
+	}
+}
+
+// attributesEnforcedInPlugin returns true if the given attribute should be enforced in the plugin.
+// This is because we already have enough information to do this in the plugin.
+func attributesEnforcedInPlugin(attr string) bool {
+	switch attr {
+	case attrDestName, attrDestNamespace, attrDestUser:
+		return true
+	}
+	return strings.HasPrefix(attr, attrDestLabel)
+}
+
+// match checks if the service is matched to the given rbac access rule.
+// It returns true if the service is matched to the service name and constraints specified in the
+// access rule.
+func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
+	if rule == nil {
+		return true
+	}
+
+	// Check if the service name is matched.
+	if !stringMatch(service.name, rule.Services) {
+		return false
+	}
+
+	// Check if the constraints are matched.
+	for _, constraint := range rule.Constraints {
+		if !attributesEnforcedInPlugin(constraint.Key) {
+			continue
+		}
+
+		var actualValue string
+		var present bool
+		if strings.HasPrefix(constraint.Key, attrDestLabel) {
+			consLabel, err := extractNameInBrackets(strings.TrimPrefix(constraint.Key, attrDestLabel))
+			if err != nil {
+				log.Errorf("rbac plugin: ignored invalid %s: %v", attrDestLabel, err)
+				continue
+			}
+			actualValue, present = service.labels[consLabel]
+		} else {
+			actualValue, present = service.attributes[constraint.Key]
+		}
+		// The constraint is not matched if any of the follow condition is true:
+		// a) the constraint is specified but not found in the serviceMetadata;
+		// b) the constraint value is not matched to the actual value;
+		if !present || !stringMatch(actualValue, constraint.Values) {
+			return false
+		}
+	}
+
+	return true
+}
 
 // Plugin implements Istio RBAC authz
 type Plugin struct{}
@@ -88,8 +167,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	filter := buildHTTPFilter(svc.String(), attr.Namespace, in.Env.IstioConfigStore)
+	service := createServiceMetadata(attr, in.ServiceInstance)
+	log.Debugf("rbac plugin: building filter config for %v", *service)
+	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
 	if filter != nil {
+		log.Infof("rbac plugin: built filter config for %s", service.name)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
@@ -138,7 +220,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		log.Debugf("rbac plugin disabled: no RbacConfig found")
+		log.Infof("rbac plugin: disabled, no RbacConfig")
 		return false
 	}
 
@@ -157,18 +239,26 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 
 // buildHTTPFilter builds the RBAC http filter that enforces the access control to the specified
 // service which is co-located with the sidecar proxy.
-func buildHTTPFilter(svc string, namespace string, store model.IstioConfigStore) *http_conn.HttpFilter {
+func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
+	namespace, present := service.attributes[attrDestNamespace]
+	if !present {
+		log.Errorf("rbac plugin: no namespace for service %v", service)
+		return nil
+	}
+
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
-		log.Debugf("no service role found for %s in namespace %s", svc, namespace)
+		log.Infof("rbac plugin: no service role in namespace %s", namespace)
 	}
 	bindings := store.ServiceRoleBindings(namespace)
 	if bindings == nil {
-		log.Debugf("no service role binding found for %s in namespace %s", svc, namespace)
+		log.Infof("rbac plugin: no service role binding in namespace %s", namespace)
 	}
-	config := convertRbacRulesToFilterConfig(svc, roles, bindings)
+
+	config := convertRbacRulesToFilterConfig(service, roles, bindings)
+	log.Debugf("rbac plugin: generated filter config: %v", *config)
 	return &http_conn.HttpFilter{
-		Name:   RbacFilterName,
+		Name:   rbacFilterName,
 		Config: util.MessageToStruct(config),
 	}
 }
@@ -176,14 +266,16 @@ func buildHTTPFilter(svc string, namespace string, store model.IstioConfigStore)
 // convertRbacRulesToFilterConfig converts the current RBAC rules (ServiceRole and ServiceRoleBindings)
 // in service mesh to the corresponding proxy config for the specified service. The generated proxy config
 // will be consumed by envoy RBAC filter to enforce access control on the specified service.
-func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindings []model.Config) *rbacconfig.RBAC {
+func convertRbacRulesToFilterConfig(
+	service *serviceMetadata, roles []model.Config, bindings []model.Config) *rbacconfig.RBAC {
 	// roleToBinding maps ServiceRole name to a list of ServiceRoleBindings.
 	roleToBinding := map[string][]*rbacproto.ServiceRoleBinding{}
 	for _, binding := range bindings {
 		bindingProto := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		roleName := bindingProto.RoleRef.Name
 		if roleName == "" {
-			log.Errorf("ignored invalid binding with empty RoleRef.Name: %v", *bindingProto)
+			log.Errorf("rbac plugin: ignored invalid binding %s in %s with empty RoleRef.Name",
+				binding.Name, binding.Namespace)
 			continue
 		}
 		roleToBinding[roleName] = append(roleToBinding[roleName], bindingProto)
@@ -202,21 +294,21 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 	for _, role := range roles {
 		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
 		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
+			log.Debugf("rbac plugin: role skipped for no principals found")
 			continue
 		}
 
-		log.Debugf("checking role %v for service %v", role.Name, service)
+		log.Debugf("rbac plugin: checking role %v", role.Name)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
-			//TODO(yangminzhu): Also check the destination related properties.
-			if stringMatch(service, rule.Services) {
+			if service.match(rule) {
 				// Generate the policy if the service is matched to the services specified in ServiceRole.
-				log.Debugf("role %v matched by AccessRule %d", role.Name, i)
+				log.Debugf("rbac plugin: matched AccessRule[%d]", i)
 				permissions = append(permissions, convertToPermission(rule))
 			}
 		}
 		if len(permissions) == 0 {
-			log.Debugf("role %v skipped for no permissions found", role.Name)
+			log.Debugf("rbac plugin: role skipped for no AccessRule matched")
 			continue
 		}
 
@@ -225,7 +317,6 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				Permissions: permissions,
 				Principals:  enforcedPrincipals,
 			}
-			log.Debugf("role %v generated enforced policy: %v", role.Name, *rbac.Policies[role.Name])
 		}
 
 		if len(permissivePrincipals) != 0 {
@@ -233,7 +324,6 @@ func convertRbacRulesToFilterConfig(service string, roles []model.Config, bindin
 				Permissions: permissions,
 				Principals:  permissivePrincipals,
 			}
-			log.Debugf("role %v generated permissive policy: %v", role.Name, *permissiveRbac.Policies[role.Name])
 		}
 	}
 
@@ -315,7 +405,7 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.Group != "" {
-		log.Errorf("ignored Subject.group %s, not implemented", subject.Group)
+		log.Errorf("rbac plugin: ignored Subject.group %s, not implemented", subject.Group)
 	}
 
 	if len(subject.Properties) != 0 {
@@ -342,7 +432,7 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 func permissionForKeyValues(key string, values []string) *policyproto.Permission {
 	var converter func(string) (*policyproto.Permission, error)
 	switch {
-	case key == destinationIP:
+	case key == attrDestIP:
 		converter = func(v string) (*policyproto.Permission, error) {
 			cidr, err := convertToCidr(v)
 			if err != nil {
@@ -352,7 +442,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				Rule: &policyproto.Permission_DestinationIp{DestinationIp: cidr},
 			}, nil
 		}
-	case key == destinationPort:
+	case key == attrDestPort:
 		converter = func(v string) (*policyproto.Permission, error) {
 			port, err := convertToPort(v)
 			if err != nil {
@@ -370,8 +460,12 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 				},
 			}, nil
 		}
-	case strings.HasPrefix(key, requestHeaderPrefix) && strings.HasSuffix(key, requestHeaderSuffix):
-		header := strings.TrimSuffix(strings.TrimPrefix(key, requestHeaderPrefix), requestHeaderSuffix)
+	case strings.HasPrefix(key, attrRequestHeader):
+		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
+		if err != nil {
+			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
+			return nil
+		}
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Header{
@@ -380,7 +474,11 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 			}, nil
 		}
 	default:
-		log.Errorf("ignored unsupported constraint key: %s", key)
+		if !attributesEnforcedInPlugin(key) {
+			// The attribute is neither matched here nor in previous stage, this means it's something we
+			// don't understand, most likely a user typo.
+			log.Errorf("rbac plugin: ignored unsupported constraint key: %s", key)
+		}
 		return nil
 	}
 
@@ -391,7 +489,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	}
 	for _, v := range values {
 		if p, err := converter(v); err != nil {
-			log.Errorf("ignored invalid constraint value: %v", err)
+			log.Errorf("rbac plugin: ignored invalid constraint value: %v", err)
 		} else {
 			orRules.OrRules.Rules = append(orRules.OrRules.Rules, p)
 		}
@@ -403,32 +501,39 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
 	case key == userHeader:
+		if value == "*" {
+			// Generate an any rule to grant access permission to anyone if the value is "*". This is the
+			// only wildcard character we could support for principal.user.
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			}
+		}
 		return &policyproto.Principal{
 			Identifier: &policyproto.Principal_Authenticated_{
 				Authenticated: &policyproto.Principal_Authenticated{Name: value}},
 		}
-	case key == sourceIP:
+	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
 		if err != nil {
-			log.Errorf("ignored invalid source ip value: %v", err)
+			log.Errorf("rbac plugin: ignored invalid source ip value: %v", err)
 			return nil
 		}
 		return &policyproto.Principal{Identifier: &policyproto.Principal_SourceIp{SourceIp: cidr}}
-	case key == sourceService:
-		return &policyproto.Principal{
-			Identifier: &policyproto.Principal_Header{
-				Header: convertToHeaderMatcher(serviceHeader, value),
-			},
+	case strings.HasPrefix(key, attrRequestHeader):
+		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
+		if err != nil {
+			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
+			return nil
 		}
-	case strings.HasPrefix(key, requestHeaderPrefix) && strings.HasSuffix(key, requestHeaderSuffix):
-		header := strings.TrimSuffix(strings.TrimPrefix(key, requestHeaderPrefix), requestHeaderSuffix)
 		return &policyproto.Principal{
 			Identifier: &policyproto.Principal_Header{
 				Header: convertToHeaderMatcher(header, value),
 			},
 		}
 	default:
-		log.Errorf("ignored unsupported property key: %s", key)
+		log.Errorf("rbac plugin: ignored unsupported property key: %s", key)
 		return nil
 	}
 }
