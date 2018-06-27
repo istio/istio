@@ -18,6 +18,10 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -45,6 +49,34 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
 		hostname, port.Port, mesh.AuthPolicy)
 	return legacyAuthenticationPolicyToPolicy(mesh.AuthPolicy)
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Duration, sdsUdsPath string) *auth.SdsSecretConfig {
+	if serviceAccount == "" || sdsUdsPath == "" || refreshDuration == nil {
+		return nil
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: serviceAccount,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: &core.GrpcService_GoogleGrpc{
+									TargetUri: sdsUdsPath,
+								},
+							},
+						},
+					},
+					RefreshDelay: refreshDuration,
+				},
+			},
+		},
+	}
 }
 
 // If input legacy is MeshConfig_MUTUAL_TLS, return a authentication policy equivalent to it. Else,

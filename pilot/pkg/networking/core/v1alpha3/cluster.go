@@ -23,6 +23,7 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -84,6 +85,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environment, proxy model.Proxy,
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
+
 	for _, service := range services {
 		config := env.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
@@ -101,15 +103,15 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(destinationRule, upstreamServiceAccounts)
-				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
+				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env.Mesh)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(env, subsetCluster, service.Hostname)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
-					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
+					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port, env.Mesh)
+					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env.Mesh)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
@@ -117,9 +119,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 					clusters = append(clusters, subsetCluster)
 				}
 			} else {
+
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
 				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
-					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts))
+					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts), env.Mesh)
 				}
 			}
 
@@ -293,7 +296,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, meshConfig *meshconfig.MeshConfig) {
 	if policy == nil {
 		return
 	}
@@ -302,7 +305,7 @@ func applyTrafficPolicy(cluster *v2.Cluster, policy *networking.TrafficPolicy, p
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls)
+	applyUpstreamTLSSettings(cluster, tls, meshConfig)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -403,7 +406,7 @@ var ALPNInMeshH2 = []string{"istio", "h2"}
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 var ALPNInMesh = []string{"istio"}
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
+func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, meshConfig *meshconfig.MeshConfig) {
 	if tls == nil {
 		return
 	}
@@ -445,26 +448,38 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.ClientCertificate,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: tls.PrivateKey,
-							},
-						},
-					},
-				},
 				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
 					ValidationContext: certValidationContext,
 				},
 			},
 			Sni: tls.Sni,
 		}
+		if meshConfig.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.ClientCertificate,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: tls.PrivateKey,
+						},
+					},
+				},
+			}
+		} else {
+			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
+			// tls.SubjectAltNames is set to upstreamServiceAccount for mTLS case.
+			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
+			for _, sa := range tls.SubjectAltNames {
+				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs =
+					append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+						model.ConstructSdsSecretConfig(sa, &refreshDuration, meshConfig.SdsUdsPath))
+			}
+		}
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
@@ -516,7 +531,7 @@ func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cl
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil)
+	applyTrafficPolicy(cluster, defaultTrafficPolicy, nil, env.Mesh)
 	return cluster
 }
 
