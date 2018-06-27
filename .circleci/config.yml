@@ -545,6 +545,7 @@ jobs:
     environment:
       # Makefile overrides these if CIRCLE_TAG is set
       HUB: "quay.io/aspenmesh/jenkins-artifacts"
+      ISTIO_DOCKER_HUB: "quay.io/aspenmesh/jenkins-artifacts"
       TAG: "circle-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_BUILD_NUM}"
       HUB_IMG_DELIM: ":"
       IMG_TAG_DELIM: "-"
@@ -561,7 +562,7 @@ jobs:
             if [[ $CIRCLE_TAG != "" ]]; then
               VERSION=$CIRCLE_TAG make istio-archive
             else
-              make istio-archive
+              VERSION=$TAG make istio-archive
             fi
       # Build the docker+extra
       - run: make docker.basedebug
