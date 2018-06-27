@@ -1,8 +1,6 @@
 {{- define "policy_container" }}
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
-{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -77,9 +75,7 @@
 
 {{- define "telemetry_container" }}
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-mixer-service-account
-{{- end }}
       volumes:
       - name: istio-certs
         secret:

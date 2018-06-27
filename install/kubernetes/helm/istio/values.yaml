@@ -77,8 +77,7 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
+  nodePort: true
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
@@ -378,6 +377,9 @@ servicegraph:
     #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: true
 
 tracing:
   enabled: false

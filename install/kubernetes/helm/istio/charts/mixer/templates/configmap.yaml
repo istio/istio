@@ -26,3 +26,5 @@ metadata:
 data:
   custom-resources.yaml: |-
     {{- include "config.yaml.tpl" . | indent 4}}
+  run.sh: |-
+    {{- include "install-custom-resources.sh.tpl" . | indent 4}}

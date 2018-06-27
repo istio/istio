@@ -94,7 +94,9 @@ type SyncStatus struct {
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
 	syncz := []SyncStatus{}
+	adsClientsMutex.RLock()
 	for _, con := range adsClients {
+		con.mu.RLock()
 		if con.modelNode != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
@@ -109,7 +111,9 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 				EndpointPercent: con.EndpointPercent,
 			})
 		}
+		con.mu.RUnlock()
 	}
+	adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -523,7 +527,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				serverSideTLS, _ := authn_plugin.RequireTLS(policy)
+				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
 				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
 				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)

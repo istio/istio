@@ -1,6 +1,0 @@
-apiSpecs:
-- name: api-spec
-  namespace: default
-services:
-- name: hello
-  namespace: default
