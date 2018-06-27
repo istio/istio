@@ -369,10 +369,6 @@ func attrNamespace(node *model.Proxy) attribute {
 	return attrStringValue("")
 }
 
-func attrBoolValue(value bool) attribute {
-	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: value}}
-}
-
 func attrIntValue(value int64) attribute {
 	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_Int64Value{Int64Value: value}}
 }
