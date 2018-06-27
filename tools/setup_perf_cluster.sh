@@ -163,7 +163,7 @@ function install_istio_svc() {
  Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
 }
 
-function install_istio_ingress_rules() {
+function install_istio_traffic_rules() {
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
@@ -186,28 +186,55 @@ function get_fortio_k8s_ip() {
 
 function setup_istio_addons_ingress() {
   cat <<_EOF_ | kubectl apply -n istio-system -f -
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
 metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
-  name: istio-ingress
+  name: grafana-gateway
 spec:
-  rules:
-    - http:
-        paths:
-          - path: /d/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
-          - path: /public/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
-          - path: /api/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: grafana
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - grafana-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /d/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
+  - match:
+    - uri:
+        prefix: /public/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
+  - match:
+    - uri:
+        prefix: /api/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
 _EOF_
 }
 
@@ -260,17 +287,18 @@ function get_non_istio_ingress_ip() {
   echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
-function get_istio_ingress_ip() {
-  ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  while [[ -z "${ISTIO_INGRESS_IP}" ]]
+function get_istio_ingressgateway_ip() {
+  ISTIO_INGRESSGATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  ISTIO_INGRESSGATEWAY_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http")].port}')
+  while [[ -z "${ISTIO_INGRESSGATEWAY_IP}" ]]
   do
-    echo sleeping to get ISTIO_INGRESS_IP ${ISTIO_INGRESS_IP}
+    echo sleeping to get ISTIO_INGRESSGATEWAY_IP ${ISTIO_INGRESSGATEWAY_IP}
     sleep 5
-    ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+    ISTIO_INGRESSGATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   done
 
-  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
-  echo "+++ In k8s grafana: http://$ISTIO_INGRESS_IP/d/1/"
+  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/fortio/ and fortio2"
+  echo "+++ In k8s grafana: http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/d/1/"
 }
 
 # Set default QPS to max qps
@@ -327,22 +355,22 @@ function run_fortio_test2() {
 function run_fortio_test_istio_ingress1() {
   get_json_file_name "ingress to s1"
   echo "Using istio ingress to fortio1, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_ingress2() {
   get_json_file_name "ingress to s2"
   echo "Using istio ingress to fortio2, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   get_json_file_name "s1 to s2"
   echo "Using istio f1 to f2, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_2_1() {
   get_json_file_name "s2 to s1"
   echo "Using istio f2 to f1, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 
 # Run canonical perf tests.
@@ -380,10 +408,10 @@ function run_canonical_perf_test() {
     DURATION="${DURATION:-5m}"
     CLIENTS="${CLIENTS:-16}"
 
-    get_istio_ingress_ip
+    get_istio_ingressgateway_ip
 
-    FORTIO1_URL="http://${ISTIO_INGRESS_IP}/fortio1/fortio"
-    FORTIO2_URL="http://${ISTIO_INGRESS_IP}/fortio2/fortio"
+    FORTIO1_URL="http://${ISTIO_INGRESSGATEWAY_IP}:${ISTIO_INGRESSGATEWAY_PORT}/fortio1/fortio/"
+    FORTIO2_URL="http://${ISTIO_INGRESSGATEWAY_IP}:${ISTIO_INGRESSGATEWAY_PORT}/fortio2/fortio/"
     case "${DRIVER}" in
         "fortio1")
             DRIVER_URL="${FORTIO1_URL}"
@@ -446,7 +474,7 @@ function setup_istio_all() {
   update_gcp_opts
   install_istio
   install_istio_svc
-  install_istio_ingress_rules
+  install_istio_traffic_rules
   install_istio_cache_busting_rule
   install_istio_addons
   setup_istio_addons_ingress
@@ -481,7 +509,7 @@ function get_ips() {
   get_vm_ip
   get_fortio_k8s_ip
   get_non_istio_ingress_ip
-  get_istio_ingress_ip
+  get_istio_ingressgateway_ip
 }
 
 function run_4_tests() {
@@ -526,7 +554,7 @@ if [[ $SOURCED == 0 ]]; then
 #setup_istio_all
 #install_istio_svc
 #install_istio_ingress
-#install_istio_ingress_rules
+#install_istio_traffic_rules
 #setup_non_istio_ingress
 #install_istio
 #setup_vm_firewall
