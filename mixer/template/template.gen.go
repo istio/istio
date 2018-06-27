@@ -1933,12 +1933,12 @@ var (
 						}
 					}
 
-					if param.RewriteId != "" {
-						if t, e := tEvalFn(param.RewriteId); e != nil || t != istio_policy_v1beta1.BOOL {
+					if param.RewriteClientSpanId != "" {
+						if t, e := tEvalFn(param.RewriteClientSpanId); e != nil || t != istio_policy_v1beta1.BOOL {
 							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"RewriteId", e)
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"RewriteClientSpanId", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RewriteId", t, istio_policy_v1beta1.BOOL)
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RewriteClientSpanId", t, istio_policy_v1beta1.BOOL)
 						}
 					}
 
@@ -3919,9 +3919,9 @@ type builder_tracespan_Template struct {
 
 	bldClientSpan compiled.Expression
 
-	// builder for field rewrite_id: bool.
+	// builder for field rewrite_client_span_id: bool.
 
-	bldRewriteId compiled.Expression
+	bldRewriteClientSpanId compiled.Expression
 } // builder_tracespan_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -4065,17 +4065,17 @@ func newBuilder_tracespan_Template(
 
 	}
 
-	if param.RewriteId == "" {
-		b.bldRewriteId = nil
+	if param.RewriteClientSpanId == "" {
+		b.bldRewriteClientSpanId = nil
 	} else {
-		b.bldRewriteId, expType, err = expb.Compile(param.RewriteId)
+		b.bldRewriteClientSpanId, expType, err = expb.Compile(param.RewriteClientSpanId)
 		if err != nil {
-			return nil, template.NewErrorPath("RewriteId", err)
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
 		}
 
 		if expType != istio_policy_v1beta1.BOOL {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.RewriteId)
-			return nil, template.NewErrorPath("RewriteId", err)
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.RewriteClientSpanId)
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
 		}
 
 	}
@@ -4200,13 +4200,13 @@ func (b *builder_tracespan_Template) build(
 
 	}
 
-	if b.bldRewriteId != nil {
+	if b.bldRewriteClientSpanId != nil {
 
-		vBool, err = b.bldRewriteId.EvaluateBoolean(attrs)
+		vBool, err = b.bldRewriteClientSpanId.EvaluateBoolean(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("RewriteId", err)
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
 		}
-		r.RewriteId = vBool
+		r.RewriteClientSpanId = vBool
 
 	}
 

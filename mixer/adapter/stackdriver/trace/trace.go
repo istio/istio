@@ -190,10 +190,10 @@ func buildSpanData(val *tracespan.Instance, parentContext trace.SpanContext, spa
 		spanKind = trace.SpanKindClient
 		// If this is a client span and rewrite_id is true, deterministically create a new span ID and
 		// rewrite span id to that one. This id should also be used as server span's parent span id.
-		if val.RewriteId {
+		if val.RewriteClientSpanId {
 			spanID = rewriteSpanID(spanID)
 		}
-	} else if val.RewriteId {
+	} else if val.RewriteClientSpanId {
 		// If this is a server span and rewrite id is true, deterministically create a new span ID and
 		// rewrite parent id to that one, which makes this span attached to the client span as a child
 		// span.

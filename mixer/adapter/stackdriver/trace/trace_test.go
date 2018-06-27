@@ -213,14 +213,14 @@ func TestHandleTraceSpan(t *testing.T) {
 			name: "client span rewrite id",
 			vals: []*tracespan.Instance{
 				{
-					TraceId:    "463ac35c9f6413ad48485a3953bb6124",
-					SpanId:     "a2fb4a1d1a96d312",
-					Name:       "tracespan.test",
-					SpanName:   "/io.opencensus.Service.Method",
-					StartTime:  now.Add(-10 * time.Millisecond),
-					EndTime:    now,
-					ClientSpan: true,
-					RewriteId:  true,
+					TraceId:             "463ac35c9f6413ad48485a3953bb6124",
+					SpanId:              "a2fb4a1d1a96d312",
+					Name:                "tracespan.test",
+					SpanName:            "/io.opencensus.Service.Method",
+					StartTime:           now.Add(-10 * time.Millisecond),
+					EndTime:             now,
+					ClientSpan:          true,
+					RewriteClientSpanId: true,
 				},
 			},
 			spans: []*trace.SpanData{
@@ -249,13 +249,13 @@ func TestHandleTraceSpan(t *testing.T) {
 			name: "server span rewrite id",
 			vals: []*tracespan.Instance{
 				{
-					TraceId:   "463ac35c9f6413ad48485a3953bb6124",
-					SpanId:    "a2fb4a1d1a96d312",
-					Name:      "tracespan.test",
-					SpanName:  "/io.opencensus.Service.Method",
-					StartTime: now.Add(-10 * time.Millisecond),
-					EndTime:   now,
-					RewriteId: true,
+					TraceId:             "463ac35c9f6413ad48485a3953bb6124",
+					SpanId:              "a2fb4a1d1a96d312",
+					Name:                "tracespan.test",
+					SpanName:            "/io.opencensus.Service.Method",
+					StartTime:           now.Add(-10 * time.Millisecond),
+					EndTime:             now,
+					RewriteClientSpanId: true,
 				},
 			},
 			spans: []*trace.SpanData{

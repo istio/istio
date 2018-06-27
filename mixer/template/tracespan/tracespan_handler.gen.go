@@ -41,7 +41,7 @@ import (
 //   startTime: request.time
 //   endTime: response.time
 //   clientSpan: (context.reporter.local | true) == false
-//   rewriteId: false
+//   rewriteClientSpanId: false
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -120,16 +120,21 @@ type Instance struct {
 	HttpStatusCode int64
 
 	// client_span indicates the span kind. True for client spans and False or
-	// not provided for server spans.
+	// not provided for server spans. Using bool instead of enum is a temporary
+	// work around since mixer expression language does not yet support enum
+	// type.
+	//
 	// Optional
 	ClientSpan bool
 
-	// rewrite_id is used to indicate whether create a new client span id to
-	// accommodate shared span model used by Zipkin. Stackdriver separates a
-	// RPC into client span and server span. To solve this incompatibility,
-	// rewriting both span id of client span and parent span id of server span
-	// to the same newly generated id.
-	RewriteId bool
+	// rewrite_client_span_id is used to indicate whether to create a new client
+	// span id to accommodate Zipkin shared span model. Some tracing systems like
+	// Stackdriver separates a RPC into client span and server span. To solve this
+	// incompatibility, deterministically rewriting both span id of client span and
+	// parent span id of server span to the same newly generated id.
+	//
+	// Optional
+	RewriteClientSpanId bool
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
