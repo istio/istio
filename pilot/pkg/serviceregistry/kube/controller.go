@@ -438,6 +438,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
+	log.Infof("name=%s, namespace=%s", name, namespace)
 
 	item, exists := c.serviceByKey(name, namespace)
 	if !exists {
@@ -477,7 +478,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					}
 
 					// identify the port by name. K8S EndpointPort uses the service port name
+					log.Infof("ports=%v", ss.Ports)
 					for _, port := range ss.Ports {
+						log.Infof("port=%v", port)
 						if port.Name == "" || // 'name optional if single port is defined'
 							reqSvcPort == 0 || // return all ports (mostly used by tests/debug)
 							svcPortEntry.Name == port.Name {

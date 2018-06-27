@@ -107,7 +107,7 @@ func TestServices(t *testing.T) {
 		if serviceFound && len(ep) == 2 {
 			return true
 		}
-		log.Infof("serviceFound=%v, len(ep)=%d", serviceFound, len(ep))
+		log.Infof("serviceFound=%v, ep=%v", serviceFound, ep)
 		return false
 	})
 
