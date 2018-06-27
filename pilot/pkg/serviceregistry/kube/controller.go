@@ -459,10 +459,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
+		log.Infof("ep_item=%v, ep_name=%s, ep_ns=%s", ep, ep.Name, ep.Namespace)
 		if ep.Name == name && ep.Namespace == namespace {
 			var out []*model.ServiceInstance
 			for _, ss := range ep.Subsets {
+				log.Infof("ss==%v", ss)
 				for _, ea := range ss.Addresses {
+					log.Infof("ea==%v", ea)
 					labels, _ := c.pods.labelsByIP(ea.IP)
 					// check that one of the input labels is a subset of the labels
 					if !labelsList.HasSubsetOf(labels) {
