@@ -728,7 +728,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return crd.ParseInputs(string(input))
+	return crd.ParseInputsWithoutValidation(string(input))
 }
 
 // Print a simple list of names

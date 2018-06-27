@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -82,15 +83,20 @@ func TestServices(t *testing.T) {
 		}
 		log.Infof("Services: %#v", out)
 
+		serviceFound := false
 		for _, item := range out {
 			if item.Hostname == hostname &&
 				len(item.Ports) == 1 &&
 				item.Ports[0].Protocol == model.ProtocolHTTP {
-				return true
+				serviceFound = true
 			}
 		}
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil || len(ep) > 0 {
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if serviceFound && len(ep) == 2 {
 			return true
 		}
 		return false
@@ -149,7 +155,6 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_getPodAZ(t *testing.T) {
-
 	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
 	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"})
 	testCases := []struct {
@@ -343,6 +348,49 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 }
 
+func TestWorkloadHealthCheckInfo(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+
+	pods := []*v1.Pod{
+		generatePodWithProbes("pod1", "nsA", "", "node1", "/ready", intstr.Parse("8080"), "/live", intstr.Parse("9090")),
+	}
+	addPods(t, controller, pods...)
+
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+
+	expected := []*model.Probe{
+		{
+			Path: "/ready",
+			Port: &model.Port{
+				Name:     "mgmt-8080",
+				Port:     8080,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+		{
+			Path: "/live",
+			Port: &model.Port{
+				Name:     "mgmt-9090",
+				Port:     9090,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	}
+
+	if len(probes) != len(expected) {
+		t.Errorf("Expecting %d probes but got %d\r\n", len(expected), len(probes))
+	}
+
+	for i, exp := range expected {
+		if !reflect.DeepEqual(exp, probes[i]) {
+			t.Errorf("Port got: %#v  wanted %#v\r\n", probes[i].Port, exp.Port)
+			t.Errorf("Probe %d, got:\n%#v\nwanted:\n%#v\n", i, probes[i], exp)
+		}
+	}
+}
+
 func makeFakeKubeAPIController() *Controller {
 	clientSet := fake.NewSimpleClientset()
 	return NewController(clientSet, ControllerOptions{
@@ -425,6 +473,38 @@ func generatePod(name, namespace, saName, node string, labels map[string]string)
 		Spec: v1.PodSpec{
 			ServiceAccountName: saName,
 			NodeName:           node,
+		},
+	}
+}
+
+func generatePodWithProbes(name, namespace, saName, node string, readinessPath string, readinessPort intstr.IntOrString,
+	livenessPath string, livenessPort intstr.IntOrString) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: saName,
+			NodeName:           node,
+			Containers: []v1.Container{{
+				ReadinessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: readinessPath,
+							Port: readinessPort,
+						},
+					},
+				},
+				LivenessProbe: &v1.Probe{
+					Handler: v1.Handler{
+						HTTPGet: &v1.HTTPGetAction{
+							Path: livenessPath,
+							Port: livenessPort,
+						},
+					},
+				},
+			}},
 		},
 	}
 }
