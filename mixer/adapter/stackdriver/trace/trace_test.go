@@ -357,7 +357,7 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"zero", &config.Params_Trace{SampleProbability: 0}, false},
-		{"10%", &config.Params_Trace{SampleProbability: 0.1}, false},
+		{"10percent", &config.Params_Trace{SampleProbability: 0.1}, false},
 		{"negative", &config.Params_Trace{SampleProbability: -1}, true},
 		{"too big", &config.Params_Trace{SampleProbability: 100}, true},
 	}
