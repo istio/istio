@@ -283,8 +283,6 @@ func TestAdsMultiple(t *testing.T) {
 				errChan <- err
 			}
 
-			errChan <- nil
-
 			ep := cla.Endpoints
 			if len(ep) == 0 {
 				t.Fatal("No endpoints")
