@@ -1,7 +1,6 @@
 // Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
-
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -178,7 +177,7 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 	b.metricTypes = types
 }
 
-// metric.HandlerBuilder#SetTraceSpanTypes
+// tracespan.HandlerBuilder#SetTraceSpanTypes
 func (b *builder) SetTraceSpanTypes(entries map[string]*tracespan.Type) {
 	// We don't really care what the spans look like since we just convert
 	// everything to a string using adapter.Stringify, so we have no reason to

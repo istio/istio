@@ -118,9 +118,6 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 		kind = &clientKind
 	}
 
-	// Get rid of this tag since it is no longer needed
-	delete(istioSpan.SpanTags, "context.reporter.local")
-
 	tags := map[string]string{}
 
 	if labels, ok := istioSpan.SpanTags["destination.labels"].(map[string]string); ok {
@@ -142,7 +139,7 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 	}
 
 	for k, v := range istioSpan.SpanTags {
-		if s := adapter.Stringify(v); s != "" {
+		if s := adapter.Stringify(v); s != "" && k != "context.reporter.local" {
 			tags[k] = s
 		}
 	}

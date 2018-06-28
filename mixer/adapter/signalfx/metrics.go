@@ -27,6 +27,10 @@ import (
 	"istio.io/istio/mixer/template/metric"
 )
 
+// How long time series continue reporting from the registry since their last
+// update.
+const registryExpiry = 5 * time.Minute
+
 type metricshandler struct {
 	env                adapter.Env
 	ctx                context.Context
@@ -44,17 +48,17 @@ func (mh *metricshandler) InitMetrics() error {
 	mh.scheduler.ReportingDelay(time.Duration(mh.intervalSeconds) * time.Second)
 
 	mh.scheduler.ErrorHandler = func(err error) error {
-		return mh.env.Logger().Errorf("Error sending datapoints to SignalFx: %s", err.Error())
+		return mh.env.Logger().Errorf("Error sending datapoints: %s", err.Error())
 	}
 
-	mh.registry = newRegistry(5 * time.Minute)
+	mh.registry = newRegistry(registryExpiry)
 	mh.scheduler.AddCallback(mh.registry)
 
 	mh.env.ScheduleDaemon(func() {
 		err := mh.scheduler.Schedule(mh.ctx)
 		if err != nil {
 			if ec, ok := err.(*errors.ErrorChain); !ok || ec.Tail() != context.Canceled {
-				_ = mh.env.Logger().Errorf("SignalFx scheduler shutdown unexpectedly: %s", err.Error())
+				_ = mh.env.Logger().Errorf("Scheduler shutdown unexpectedly: %s", err.Error())
 			}
 		}
 	})
