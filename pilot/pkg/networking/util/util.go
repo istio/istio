@@ -15,7 +15,6 @@
 package util
 
 import (
-	base_json "encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -68,11 +67,6 @@ func BuildAddress(ip string, port uint32) core.Address {
 			},
 		},
 	}
-}
-
-// BuildPipeAddress returns a Pipe address with the given path.
-func BuildPipeAddress(path string) core.Address {
-	return core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: path}}}
 }
 
 // GetNetworkEndpointAddress returns an Envoy v2 API `Address` that represents this NetworkEndpoint
@@ -130,13 +124,4 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// PrettySprint pretty sprints v.
-func PrettySprint(v interface{}) string {
-	j, err := base_json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err.Error()
-	}
-	return string(j)
 }
