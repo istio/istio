@@ -22,9 +22,9 @@ import (
 
 	contextgraph "cloud.google.com/go/contextgraph/apiv1alpha1"
 	gax "github.com/googleapis/gax-go"
-
 	"google.golang.org/api/option"
 	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"

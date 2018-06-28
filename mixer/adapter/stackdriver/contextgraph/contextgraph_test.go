@@ -23,9 +23,10 @@ import (
 	gax "github.com/googleapis/gax-go"
 	"google.golang.org/api/option"
 	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
+
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
-	"istio.io/istio/mixer/pkg/adapter"
+	env "istio.io/istio/mixer/pkg/adapter/test"
 	edgepb "istio.io/istio/mixer/template/edge"
 )
 
@@ -83,25 +84,6 @@ func (m mockLogger) ErrorEnabled() bool { return false }
 
 func (m mockLogger) DebugEnabled() bool { return false }
 
-type mockEnv struct {
-	LCalled  bool
-	SWCalled bool
-	SDCalled bool
-}
-
-func (m *mockEnv) Logger() adapter.Logger {
-	m.LCalled = true
-	return mockLogger{}
-}
-
-func (m *mockEnv) ScheduleWork(fn adapter.WorkFunc) {
-	m.SWCalled = true
-}
-
-func (m *mockEnv) ScheduleDaemon(fn adapter.DaemonFunc) {
-	m.SDCalled = true
-}
-
 type mockNC struct {
 	NCCalled bool
 }
@@ -112,11 +94,6 @@ func (m *mockNC) NewClient(ctx context.Context, opts ...option.ClientOption) (*c
 }
 
 func TestBuild(t *testing.T) {
-	mEnv := &mockEnv{
-		LCalled:  false,
-		SWCalled: false,
-		SDCalled: false,
-	}
 	m := &mockNC{
 		NCCalled: false,
 	}
@@ -127,17 +104,33 @@ func TestBuild(t *testing.T) {
 		cluster:   "mycluster",
 	}
 
+	mEnv := env.NewEnv(t)
+
 	han, err := b.Build(nil, mEnv)
 	h := han.(*handler)
 	if err != nil {
 		t.Errorf("Build returned unexpected err: %v", err)
 	}
 
-	if m.NCCalled == false {
-		t.Error("Expected NewClient to be called, wasn't")
+	// ScheduleDaemon should have been called, need to signal
+	// h.cacheAndSend to exit
+	h.quit <- 0
+	done := mEnv.GetDoneChan()
+
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(1 * time.Second)
+		timeout <- true
+	}()
+
+	select {
+	case <-done:
+		// Good
+	case <-timeout:
+		t.Error("Builder did not correctly ScheduleDaemon, or h.cacheAndSend did not exit")
 	}
 
-	if mEnv.SDCalled == false {
+	if m.NCCalled == false {
 		t.Error("Expected NewClient to be called, wasn't")
 	}
 
@@ -200,7 +193,7 @@ func TestSend(t *testing.T) {
 			C: tChan,
 		},
 		quit:        make(chan int),
-		env:         &mockEnv{},
+		env:         env.NewEnv(t),
 		entityCache: newEntityCache(mockLogger{}),
 		edgeCache:   newEdgeCache(mockLogger{}),
 		assertBatch: m.fakeAssertBatch,
