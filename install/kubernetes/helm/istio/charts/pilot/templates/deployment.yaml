@@ -35,7 +35,9 @@ spec:
 {{- end }}
           ports:
           - containerPort: 8080
+          - containerPort: 9093
           - containerPort: 15010
+          - containerPort: 15011
           readinessProbe:
             httpGet:
               path: /v1/registration
