@@ -278,7 +278,6 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	sidecar.EnvoyParams = []string{
 		"--service-node", nodeIDSidecar,
 		"--service-cluster", "x",
-		"--v2-config-only",
 	}
 
 	t.Log("run sidecar envoy...")
