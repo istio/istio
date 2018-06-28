@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"18b508cbe6e9dcd4282067407e48cb4ba9c8343503bdd4f78c7c4dcad5653e1b","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"bb5ac76925b7e9886cb99489be54b026d7fc707933cb2c69a8f25f7b16715e09","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: traffic
@@ -67,7 +67,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxy:unittest
+        image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         resources:

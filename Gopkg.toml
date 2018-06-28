@@ -38,14 +38,11 @@ required = [
   name = "github.com/docker/distribution"
   branch = "master"
 
-# TODO: switch to 1.10 and newer client-go
-
-# client-go release-6.0 corresponds to k8s release-1.9 branch. See
-# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# https://github.com/kubernetes/client-go#compatibility-matrix
 # for details.
 [[override]]
   name = "k8s.io/client-go"
-  branch = "release-6.0"
+  branch = "release-7.0"	# For K8s 1.10.x
 
 # matching client-go 6 == k8s 1.9 == v9 (!)
 [[override]]
@@ -301,11 +298,15 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  version = "kubernetes-1.9.1"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
-  branch = "release-1.9"
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.10.4"
+
+[[constraint]]
   name = "k8s.io/apiextensions-apiserver"
+  version = "kubernetes-1.10.4"
 
 [[constraint]]
   name = "k8s.io/cluster-registry"
@@ -321,7 +322,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  branch = "release-1.9"
+  version = "v1.10.4"
 
 [prune]
   go-tests = true

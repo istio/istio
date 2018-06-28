@@ -221,7 +221,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 				Authority: createStringMatch(rule.Host),
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace)
+			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
 			if httpRoute == nil {
 				log.Infof("invalid ingress rule for host %q, no backend defined for path", rule.Host)
 				continue
@@ -232,7 +232,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 	}
 
 	if ingress.Spec.Backend != nil {
-		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend, ingress.Namespace))
+		httpRoutes = append(httpRoutes, ingressBackendToHTTPRoute(ingress.Spec.Backend, ingress.Namespace, domainSuffix))
 	}
 
 	virtualService.Http = httpRoutes
@@ -265,7 +265,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 
 }
 
-func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string) *networking.HTTPRoute {
+func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string) *networking.HTTPRoute {
 	if backend == nil {
 		return nil
 	}
@@ -287,7 +287,7 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 		Route: []*networking.DestinationWeight{
 			{
 				Destination: &networking.Destination{
-					Host: fmt.Sprintf("%s.%s.svc.cluster.local", backend.ServiceName, namespace),
+					Host: fmt.Sprintf("%s.%s.svc.%s", backend.ServiceName, namespace, domainSuffix),
 					Port: port,
 				},
 				Weight: 100,

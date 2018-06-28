@@ -28,6 +28,9 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 	if len(ingresses) == 0 {
 		return make([]model.Config, 0), nil
 	}
+	if len(domainSuffix) == 0 {
+		domainSuffix = "cluster.local"
+	}
 
 	gateways := make([]model.Config, 0)
 	virtualServices := make([]model.Config, 0)

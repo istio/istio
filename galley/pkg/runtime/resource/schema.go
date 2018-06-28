@@ -23,32 +23,33 @@ const BaseTypeURL = "types.googleapis.com"
 
 // Schema contains metadata about configuration resources.
 type Schema struct {
-	byKind map[Kind]Info
+	byName map[MessageName]Info
 	byURL  map[string]Info
 }
 
 // NewSchema returns a new instance of Schema.
 func NewSchema() *Schema {
 	return &Schema{
-		byKind: make(map[Kind]Info),
+		byName: make(map[MessageName]Info),
 		byURL:  make(map[string]Info),
 	}
 }
 
 // Register a proto into the schema.
-func (s *Schema) Register(protoMessageName string) {
+func (s *Schema) Register(protoMessageName string, isGogo bool) {
 	info := Info{
-		Kind:    Kind(protoMessageName),
-		TypeURL: fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
+		MessageName: MessageName(protoMessageName),
+		IsGogo:      isGogo,
+		TypeURL:     fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
 	}
 
-	s.byKind[info.Kind] = info
+	s.byName[info.MessageName] = info
 	s.byURL[info.TypeURL] = info
 }
 
-// LookupByKind looks up a resource.Info by its kind.
-func (s *Schema) LookupByKind(kind Kind) (Info, bool) {
-	i, ok := s.byKind[kind]
+// LookupByMessageName looks up a resource.Info by its message name.
+func (s *Schema) LookupByMessageName(name MessageName) (Info, bool) {
+	i, ok := s.byName[name]
 	return i, ok
 }
 
@@ -60,9 +61,9 @@ func (s *Schema) LookupByTypeURL(url string) (Info, bool) {
 
 // All returns all known info objects
 func (s *Schema) All() []Info {
-	result := make([]Info, 0, len(s.byKind))
+	result := make([]Info, 0, len(s.byName))
 
-	for _, info := range s.byKind {
+	for _, info := range s.byName {
 		result = append(result, info)
 	}
 
@@ -71,9 +72,9 @@ func (s *Schema) All() []Info {
 
 // TypeURLs returns all known type URLs.
 func (s *Schema) TypeURLs() []string {
-	result := make([]string, 0, len(s.byKind))
+	result := make([]string, 0, len(s.byName))
 
-	for _, info := range s.byKind {
+	for _, info := range s.byName {
 		result = append(result, info.TypeURL)
 	}
 

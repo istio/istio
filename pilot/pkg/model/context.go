@@ -45,9 +45,6 @@ type Environment struct {
 
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
-
-	// RDS flag. This is a temporary hack. Will be removed in few days
-	DisableRDS bool
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -177,8 +174,6 @@ const (
 	IngressKeyFilename = "tls.key"
 
 	// ConfigPathDir config directory for storing envoy json config files.
-	// It also stores core files as per
-	// https://github.com/istio/istio/blob/master/install/kubernetes/templates/istio-sidecar-injector-configmap-debug.yaml.tmpl#L27
 	ConfigPathDir = "/etc/istio/proxy"
 
 	// BinaryPathFilename envoy binary location
@@ -239,6 +234,8 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
+		SdsUdsPath:            "",
+		SdsRefreshDelay:       ptypes.DurationProto(15 * time.Second),
 	}
 }
 

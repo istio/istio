@@ -6,10 +6,10 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 import _ "github.com/gogo/googleapis/google/api"
-import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
 
 import context "golang.org/x/net/context"
@@ -41,7 +41,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*envoy_api_v2_core1.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each response
 	// that the connection manager encodes.
 	ResponseHeadersToRemove []string `protobuf:"bytes,5,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
@@ -51,7 +51,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*envoy_api_v2_core1.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
 	// An optional boolean that specifies whether the clusters that the route
 	// table refers to will be validated by the cluster manager. If set to true
 	// and a route refers to a non-existent cluster, the route table will not
@@ -65,7 +65,7 @@ type RouteConfiguration struct {
 	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.rds>`
 	// option. Users may which to override the default behavior in certain cases (for example when
 	// using CDS with a static route table).
-	ValidateClusters *google_protobuf.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
+	ValidateClusters *google_protobuf1.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
 }
 
 func (m *RouteConfiguration) Reset()                    { *m = RouteConfiguration{} }
@@ -94,7 +94,7 @@ func (m *RouteConfiguration) GetInternalOnlyHeaders() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetResponseHeadersToAdd() []*envoy_api_v2_core1.HeaderValueOption {
+func (m *RouteConfiguration) GetResponseHeadersToAdd() []*envoy_api_v2_core.HeaderValueOption {
 	if m != nil {
 		return m.ResponseHeadersToAdd
 	}
@@ -108,14 +108,14 @@ func (m *RouteConfiguration) GetResponseHeadersToRemove() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetRequestHeadersToAdd() []*envoy_api_v2_core1.HeaderValueOption {
+func (m *RouteConfiguration) GetRequestHeadersToAdd() []*envoy_api_v2_core.HeaderValueOption {
 	if m != nil {
 		return m.RequestHeadersToAdd
 	}
 	return nil
 }
 
-func (m *RouteConfiguration) GetValidateClusters() *google_protobuf.BoolValue {
+func (m *RouteConfiguration) GetValidateClusters() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.ValidateClusters
 	}
@@ -641,7 +641,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ResponseHeadersToAdd = append(m.ResponseHeadersToAdd, &envoy_api_v2_core1.HeaderValueOption{})
+			m.ResponseHeadersToAdd = append(m.ResponseHeadersToAdd, &envoy_api_v2_core.HeaderValueOption{})
 			if err := m.ResponseHeadersToAdd[len(m.ResponseHeadersToAdd)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -701,7 +701,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.RequestHeadersToAdd = append(m.RequestHeadersToAdd, &envoy_api_v2_core1.HeaderValueOption{})
+			m.RequestHeadersToAdd = append(m.RequestHeadersToAdd, &envoy_api_v2_core.HeaderValueOption{})
 			if err := m.RequestHeadersToAdd[len(m.RequestHeadersToAdd)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -733,7 +733,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ValidateClusters == nil {
-				m.ValidateClusters = &google_protobuf.BoolValue{}
+				m.ValidateClusters = &google_protobuf1.BoolValue{}
 			}
 			if err := m.ValidateClusters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

@@ -66,7 +66,7 @@ type listenFunc func(network string, address string) (net.Listener, error)
 // replaceable set of functions for fault injection
 type patchTable struct {
 	newRuntime func(s store.Store, templates map[string]*template.Info, adapters map[string]*adapter.Info,
-		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
+		defaultConfigNamespace string, executorPool *pool.GoroutinePool,
 		handlerPool *pool.GoroutinePool, enableTracing bool) *runtime.Runtime
 	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
 	startMonitor  func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error)
@@ -187,7 +187,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		templateMap[k] = &t
 	}
 
-	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace,
+	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
 	if err = p.runtimeListen(rt); err != nil {

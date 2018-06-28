@@ -95,6 +95,16 @@ func (m *BootstrapConfigDump) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BootstrapConfigDumpValidationError{
+				Field:  "LastUpdated",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -394,6 +404,69 @@ func (e RoutesConfigDumpValidationError) Error() string {
 
 var _ error = RoutesConfigDumpValidationError{}
 
+// Validate checks the field values on ListenersConfigDump_StaticListener with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *ListenersConfigDump_StaticListener) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetListener()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenersConfigDump_StaticListenerValidationError{
+				Field:  "Listener",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenersConfigDump_StaticListenerValidationError{
+				Field:  "LastUpdated",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// ListenersConfigDump_StaticListenerValidationError is the validation error
+// returned by ListenersConfigDump_StaticListener.Validate if the designated
+// constraints aren't met.
+type ListenersConfigDump_StaticListenerValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ListenersConfigDump_StaticListenerValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListenersConfigDump_StaticListener.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ListenersConfigDump_StaticListenerValidationError{}
+
 // Validate checks the field values on ListenersConfigDump_DynamicListener with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, an error is returned.
@@ -408,6 +481,16 @@ func (m *ListenersConfigDump_DynamicListener) Validate() error {
 		if err := v.Validate(); err != nil {
 			return ListenersConfigDump_DynamicListenerValidationError{
 				Field:  "Listener",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenersConfigDump_DynamicListenerValidationError{
+				Field:  "LastUpdated",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -449,6 +532,69 @@ func (e ListenersConfigDump_DynamicListenerValidationError) Error() string {
 
 var _ error = ListenersConfigDump_DynamicListenerValidationError{}
 
+// Validate checks the field values on ClustersConfigDump_StaticCluster with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *ClustersConfigDump_StaticCluster) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetCluster()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClustersConfigDump_StaticClusterValidationError{
+				Field:  "Cluster",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClustersConfigDump_StaticClusterValidationError{
+				Field:  "LastUpdated",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// ClustersConfigDump_StaticClusterValidationError is the validation error
+// returned by ClustersConfigDump_StaticCluster.Validate if the designated
+// constraints aren't met.
+type ClustersConfigDump_StaticClusterValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ClustersConfigDump_StaticClusterValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sClustersConfigDump_StaticCluster.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ClustersConfigDump_StaticClusterValidationError{}
+
 // Validate checks the field values on ClustersConfigDump_DynamicCluster with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, an error is returned.
@@ -463,6 +609,16 @@ func (m *ClustersConfigDump_DynamicCluster) Validate() error {
 		if err := v.Validate(); err != nil {
 			return ClustersConfigDump_DynamicClusterValidationError{
 				Field:  "Cluster",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClustersConfigDump_DynamicClusterValidationError{
+				Field:  "LastUpdated",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -504,6 +660,69 @@ func (e ClustersConfigDump_DynamicClusterValidationError) Error() string {
 
 var _ error = ClustersConfigDump_DynamicClusterValidationError{}
 
+// Validate checks the field values on RoutesConfigDump_StaticRouteConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, an error is returned.
+func (m *RoutesConfigDump_StaticRouteConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RoutesConfigDump_StaticRouteConfigValidationError{
+				Field:  "RouteConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RoutesConfigDump_StaticRouteConfigValidationError{
+				Field:  "LastUpdated",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// RoutesConfigDump_StaticRouteConfigValidationError is the validation error
+// returned by RoutesConfigDump_StaticRouteConfig.Validate if the designated
+// constraints aren't met.
+type RoutesConfigDump_StaticRouteConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RoutesConfigDump_StaticRouteConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRoutesConfigDump_StaticRouteConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RoutesConfigDump_StaticRouteConfigValidationError{}
+
 // Validate checks the field values on RoutesConfigDump_DynamicRouteConfig with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, an error is returned.
@@ -518,6 +737,16 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Validate() error {
 		if err := v.Validate(); err != nil {
 			return RoutesConfigDump_DynamicRouteConfigValidationError{
 				Field:  "RouteConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RoutesConfigDump_DynamicRouteConfigValidationError{
+				Field:  "LastUpdated",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}

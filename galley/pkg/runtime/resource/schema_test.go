@@ -20,32 +20,33 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	pgogo "github.com/gogo/protobuf/proto"
+	plang "github.com/golang/protobuf/proto"
 )
 
 func TestSchema_All(t *testing.T) {
 	// Test Schema.All in isolation, as the rest of the tests depend on it.
 	s := Schema{
-		byKind: make(map[Kind]Info),
+		byName: make(map[MessageName]Info),
 		byURL:  make(map[string]Info),
 	}
 
-	s.Register("bar")
-	s.Register("foo")
+	s.Register("bar", false)
+	s.Register("foo", false)
 
 	infos := s.All()
 	sort.Slice(infos, func(i, j int) bool {
-		return strings.Compare(string(infos[i].Kind), string(infos[j].Kind)) < 0
+		return strings.Compare(string(infos[i].MessageName), string(infos[j].MessageName)) < 0
 	})
 
 	expected := []Info{
 		{
-			Kind:    Kind("bar"),
-			TypeURL: BaseTypeURL + "/bar",
+			MessageName: MessageName("bar"),
+			TypeURL:     BaseTypeURL + "/bar",
 		},
 		{
-			Kind:    Kind("foo"),
-			TypeURL: BaseTypeURL + "/foo",
+			MessageName: MessageName("foo"),
+			TypeURL:     BaseTypeURL + "/foo",
 		},
 	}
 
@@ -57,16 +58,21 @@ func TestSchema_All(t *testing.T) {
 func TestSchema_NewProtoInstance(t *testing.T) {
 	for _, info := range Types.All() {
 		p := info.NewProtoInstance()
-		name := proto.MessageName(p)
-		if name != string(info.Kind) {
-			t.Fatalf("Name/Kind mismatch: Kind:%v, Name:%v", info.Kind, name)
+		var name string
+		if info.IsGogo {
+			name = pgogo.MessageName(p)
+		} else {
+			name = plang.MessageName(p)
+		}
+		if name != string(info.MessageName) {
+			t.Fatalf("Name/MessageName mismatch: MessageName:%v, Name:%v", info.MessageName, name)
 		}
 	}
 }
 
 func TestSchema_LookupByKind(t *testing.T) {
 	for _, info := range Types.All() {
-		i, found := Types.LookupByKind(info.Kind)
+		i, found := Types.LookupByMessageName(info.MessageName)
 
 		if !found {
 			t.Fatalf("Expected info not found: %v", info)

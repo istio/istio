@@ -24,13 +24,13 @@ import (
 
 func TestState_Apply_Add(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 
@@ -40,11 +40,11 @@ func TestState_Apply_Add(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
-	v := sn.Version("kind")
+	v := sn.Version("mn")
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -52,13 +52,13 @@ func TestState_Apply_Add(t *testing.T) {
 
 func TestState_Apply_Update(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 
@@ -69,7 +69,7 @@ func TestState_Apply_Update(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Updated,
-		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 	changed = s.apply(e)
@@ -78,11 +78,11 @@ func TestState_Apply_Update(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
-	v := sn.Version("kind")
+	v := sn.Version("mn")
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -90,13 +90,13 @@ func TestState_Apply_Update(t *testing.T) {
 
 func TestState_Apply_Update_SameVersion(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 
@@ -107,7 +107,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Updated,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 	s.apply(e)
@@ -120,13 +120,13 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 func TestState_Apply_Delete(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 
@@ -137,7 +137,7 @@ func TestState_Apply_Delete(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Deleted,
-		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 	}
 	s.apply(e)
 
@@ -147,7 +147,7 @@ func TestState_Apply_Delete(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -155,13 +155,13 @@ func TestState_Apply_Delete(t *testing.T) {
 
 func TestState_Apply_UnknownEventKind(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.EventKind(42),
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 	changed := s.apply(e)
@@ -170,7 +170,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -178,13 +178,13 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 
 func TestState_Apply_UnknownResourceKind(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "unknown", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "unknown", FullName: "fn"}},
 		Item: &types.Any{},
 	}
 	changed := s.apply(e)
@@ -193,7 +193,7 @@ func TestState_Apply_UnknownResourceKind(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -201,13 +201,13 @@ func TestState_Apply_UnknownResourceKind(t *testing.T) {
 
 func TestState_Apply_BrokenProto(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("kind")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Kind: "kind", FullName: "fn"}},
+		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{MessageName: "mn", FullName: "fn"}},
 		Item: nil,
 	}
 	changed := s.apply(e)
@@ -216,7 +216,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("kind")
+	r := sn.Resources("mn")
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
