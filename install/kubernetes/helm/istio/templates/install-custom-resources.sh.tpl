@@ -22,6 +22,7 @@ if [ "$?" -eq 0 ]; then
     done
     /kubectl -n {{ .Release.Namespace }} rollout status deployment istio-galley
     if [ "$?" -ne 0 ]; then
+        echo "istio-galley deployment rollout status check failed"
         exit 1
     fi
     echo "istio-galley deployment ready for configuration validation"
