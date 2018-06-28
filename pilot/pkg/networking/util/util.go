@@ -75,7 +75,7 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
 	case model.AddressFamilyTCP:
 		return BuildAddress(n.Address, uint32(n.Port))
 	case model.AddressFamilyUnix:
-		return BuildPipeAddress(n.Address)
+		return core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
