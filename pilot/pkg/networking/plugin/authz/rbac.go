@@ -16,13 +16,14 @@
 // to corresponding filter config that is used by the envoy RBAC filter to enforce access control to
 // the service co-located with envoy.
 // Currently the config is only generated for sidecar node on inbound HTTP listener. The generation
-// is controlled by RbacConfig (a singleton custom resource defined in istio-system namespace). User
-// could disable this by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
-// Note: This is still working in progress and by default no RbacConfig is created in the deployment
-// of Istio which means this plugin doesn't generate any RBAC config by default.
+// is controlled by RbacConfig (a singleton custom resource with cluster scope). User could disable
+// this plugin by either deleting the RbacConfig or set the RbacConfig.mode to OFF.
+// Note: no RbacConfig is created in the deployment of Istio which means this plugin doesn't generate
+// any RBAC config by default.
 package authz
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -30,10 +31,12 @@ import (
 	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -46,7 +49,14 @@ const (
 	attrRequestHeader = "request.headers" // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
 
 	// attributes that could be used in a ServiceRoleBinding property.
-	attrSrcIP = "source.ip" // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrSrcNamespace     = "source.namespace"       // e.g. "default".
+	attrSrcUser          = "source.user"            // source identity, e.g. "cluster.local/ns/default/sa/productpage".
+	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
+	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
+	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
+	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -54,9 +64,7 @@ const (
 	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[version]".
 	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
 	attrDestNamespace = "destination.namespace" // e.g. "default".
-	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage"
-
-	// TODO(yangminzhu): Add authn related attributes.
+	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 
 	userHeader   = ":user"
 	methodHeader = ":method"
@@ -77,7 +85,7 @@ func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInsta
 		attributes: map[string]string{
 			attrDestName:      attr.Name,
 			attrDestNamespace: attr.Namespace,
-			attrDestUser:      in.ServiceAccount,
+			attrDestUser:      extractActualServiceAccount(in.ServiceAccount),
 		},
 	}
 }
@@ -132,6 +140,89 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 	}
 
 	return true
+}
+
+// attributesEnforcedInDynamicMetadataMatcher returns true if the given attribute should be enforced
+// via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
+func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
+	switch k {
+	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
+		attrRequestPresenter:
+		return true
+	}
+	return strings.HasPrefix(k, attrRequestClaims)
+}
+
+func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *metadata.MetadataMatcher {
+	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
+	for _, k := range keys {
+		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
+		})
+	}
+	return &metadata.MetadataMatcher{
+		Filter: authn.AuthnFilterName,
+		Path:   paths,
+		Value: &metadata.MetadataMatcher_Value{
+			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+				StringMatch: v,
+			},
+		},
+	}
+}
+
+// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
+func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+	var keys []string
+	forceRegexPattern := false
+
+	if k == attrSrcNamespace {
+		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
+		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
+		// attrSrcPrincipal and change the value to a regular expression to match the namespace part.
+		keys = []string{attrSrcPrincipal}
+		v = fmt.Sprintf(`*/ns/%s/*`, v)
+		forceRegexPattern = true
+	} else if strings.HasPrefix(k, attrRequestClaims) {
+		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
+		if err != nil {
+			return nil
+		}
+		keys = []string{attrRequestClaims, claim}
+	} else {
+		keys = []string{k}
+	}
+
+	var stringMatcher *metadata.StringMatcher
+	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
+	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
+	if v == "*" || forceRegexPattern {
+		stringMatcher = &metadata.StringMatcher{
+			MatchPattern: &metadata.StringMatcher_Regex{
+				Regex: strings.Replace(v, "*", ".*", -1),
+			},
+		}
+	} else if strings.HasPrefix(v, "*") {
+		stringMatcher = &metadata.StringMatcher{
+			MatchPattern: &metadata.StringMatcher_Suffix{
+				Suffix: v[1:],
+			},
+		}
+	} else if strings.HasSuffix(v, "*") {
+		stringMatcher = &metadata.StringMatcher{
+			MatchPattern: &metadata.StringMatcher_Prefix{
+				Prefix: v[:len(v)-1],
+			},
+		}
+	} else {
+		stringMatcher = &metadata.StringMatcher{
+			MatchPattern: &metadata.StringMatcher_Exact{
+				Exact: v,
+			},
+		}
+	}
+
+	return generateMetadataStringMatcher(keys, stringMatcher)
 }
 
 // Plugin implements Istio RBAC authz
@@ -532,6 +623,16 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 				Header: convertToHeaderMatcher(header, value),
 			},
 		}
+	case attributesEnforcedInDynamicMetadataMatcher(key):
+		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
+			return &policyproto.Principal{
+				Identifier: &policyproto.Principal_Metadata{
+					Metadata: matcher,
+				},
+			}
+		}
+		log.Errorf("rbac plugin: ignored invalid dynamic metadata: %s", key)
+		return nil
 	default:
 		log.Errorf("rbac plugin: ignored unsupported property key: %s", key)
 		return nil
