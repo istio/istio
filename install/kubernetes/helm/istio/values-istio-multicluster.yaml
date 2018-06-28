@@ -22,7 +22,7 @@ global:
   multicluster:
     enabled: true
 
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
 ingress:

@@ -7,7 +7,7 @@ global:
   controlPlaneSecurityEnabled: false
   mtls:
     enabled: false
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
 ingress:

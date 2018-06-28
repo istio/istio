@@ -11,7 +11,7 @@ global:
   img_tag_delim: ":"
   nodePort: false
 
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
 ingress:

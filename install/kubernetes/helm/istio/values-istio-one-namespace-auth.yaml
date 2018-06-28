@@ -25,7 +25,7 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
 ingress:

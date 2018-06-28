@@ -16,7 +16,7 @@ global:
   proxy:
     image: proxy
 
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
 ingress:

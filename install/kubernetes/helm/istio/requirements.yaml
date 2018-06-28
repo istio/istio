@@ -48,4 +48,4 @@ dependencies:
     condition: galley.enabled
   - name: aspen-mesh-agent
     version: 0.8.0
-    condition: global.aspenMesh.enabled
+    condition: global.aspenMeshCloud.enabled

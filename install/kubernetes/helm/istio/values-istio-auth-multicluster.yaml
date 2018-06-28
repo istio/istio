@@ -12,7 +12,7 @@ global:
     # destination rules or service annotations.
     enabled: true
 
-  aspenMesh:
+  aspenMeshCloud:
     enabled: false
 
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.

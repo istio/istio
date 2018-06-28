@@ -13,7 +13,7 @@ data:
     global:
       scrape_interval: 15s
 
-    {{ if .Values.global.aspenMesh.enabled -}}
+    {{ if .Values.global.aspenMeshCloud.enabled -}}
     remote_write:
     - url: https://api.aspenmesh.io/v1/prom/<CLUSTER_NAME>/push
       basic_auth:
