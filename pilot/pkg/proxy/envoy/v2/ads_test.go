@@ -249,6 +249,7 @@ func TestAdsUpdate(t *testing.T) {
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 func TestAdsMultiple(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
+	errChan := make(chan error, 100)
 
 	wg := &sync.WaitGroup{}
 	wgConnect := &sync.WaitGroup{}
@@ -263,38 +264,41 @@ func TestAdsMultiple(t *testing.T) {
 		go func() {
 			edsstr, err := connectADS(util.MockPilotGrpcAddr)
 			if err != nil {
-				panic(err)
+				errChan <- err
 			}
 
 			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
 			if err != nil {
-				panic(err)
+				errChan <- err
 			}
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
-				t.Fatal("Recv failed", err)
+				errChan <- err
 			}
 			wgConnect.Done()
 
 			cla, err := getLoadAssignment(res1)
 			if err != nil {
-				t.Fatal("Invalid EDS response ", err)
+				errChan <- err
 			}
+
+			errChan <- nil
 
 			ep := cla.Endpoints
 			if len(ep) == 0 {
 				t.Fatal("No endpoints")
+				errChan <- fmt.Errorf("No endpoints received")
 			}
 			lbe := ep[0].LbEndpoints
 			if len(lbe) == 0 {
-				t.Fatal("No lb endpoints")
+				errChan <- fmt.Errorf("No lb endpoints received")
 			}
 
 			for j := 0; j < nPushes; j++ {
 				_, err = adsReceive(edsstr, 5*time.Second)
 				if err != nil {
-					t.Fatal("Recv2 failed", err)
+					errChan <- fmt.Errorf("Receive 2 failed: %s", err)
 				}
 			}
 			_ = edsstr.CloseSend()
@@ -318,5 +322,11 @@ func TestAdsMultiple(t *testing.T) {
 	ok = waitTimeout(wg, 20*time.Second)
 	if !ok {
 		t.Fatal("Failed to receive all responses")
+	}
+
+	close(errChan)
+
+	for e := range errChan {
+		t.Fatal(e)
 	}
 }
