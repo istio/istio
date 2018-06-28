@@ -198,9 +198,12 @@ func prometheusAPI(port int) (promv1.API, error) {
 func metrics(promAPI promv1.API, service string) (serviceMetrics, error) {
 	rpsQuery := fmt.Sprintf(`sum(rate(istio_requests_total{destination_service=~"%s.*"}[1m]))`, service)
 	errRPSQuery := fmt.Sprintf(`sum(rate(istio_requests_total{destination_service=~"%s.*",response_code!="200"}[1m]))`, service)
-	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.5, service)
-	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.9, service)
-	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.99, service)
+	p50LatencyQuery :=
+		fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.5, service)
+	p90LatencyQuery :=
+		fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.9, service)
+	p99LatencyQuery :=
+		fmt.Sprintf(`histogram_quantile(%f, sum(rate(istio_request_duration_seconds_bucket{destination_service=~"%s.*"}[1m])) by (le))`, 0.99, service)
 
 	var me *multierror.Error
 	var err error
