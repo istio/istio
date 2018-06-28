@@ -135,8 +135,14 @@ message Params {
     // be unless otherwise disabled).
     bool disable_tracing = 6;
 
-    // Optional.  The number of set of trace spans that the adapter will buffer
-    // before dropping them.  This defaults to 1000 spans but can be configured
-    // higher if needed.  An error message will be logged if spans are dropped.
+	// Optional.  The number of trace spans that the adapter will buffer before
+	// dropping them.  This defaults to 1000 spans but can be configured higher
+	// if needed.  An error message will be logged if spans are dropped.
     uint32 tracing_buffer_size = 7;
+
+    // Optional. The uniform probability ([0.0, 1.0]) that a given span gets
+    // sampled if its parent was not already sampled.  Child spans will always
+    // be sampled if their parent is.  If not provided, defaults to sending all
+    // spans.
+    double tracing_sample_probability = 8;
 }

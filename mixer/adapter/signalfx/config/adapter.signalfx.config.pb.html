@@ -135,9 +135,20 @@ be unless otherwise disabled).</p>
 <td><code>tracingBufferSize</code></td>
 <td><code>uint32</code></td>
 <td>
-<p>Optional.  The number of set of trace spans that the adapter will buffer
-before dropping them.  This defaults to 1000 spans but can be configured
-higher if needed.  An error message will be logged if spans are dropped.</p>
+<p>Optional.  The number of trace spans that the adapter will buffer before
+dropping them.  This defaults to 1000 spans but can be configured higher
+if needed.  An error message will be logged if spans are dropped.</p>
+
+</td>
+</tr>
+<tr id="Params-tracing_sample_probability">
+<td><code>tracingSampleProbability</code></td>
+<td><code>double</code></td>
+<td>
+<p>Optional. The uniform probability ([0.0, 1.0]) that a given span gets
+sampled if its parent was not already sampled.  Child spans will always
+be sampled if their parent is.  If not provided, defaults to sending all
+spans.</p>
 
 </td>
 </tr>

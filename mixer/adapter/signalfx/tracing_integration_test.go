@@ -40,6 +40,7 @@ spec:
   ingest_url: %s
   disable_metrics: true
   tracing_buffer_size: 1000
+  tracing_sample_probability: 1.0
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -153,7 +154,7 @@ func TestReportTraces(t *testing.T) {
 							"x-b3-spanid":       "abcdef0123456789",
 							"x-b3-parentspanid": "a2fb4a1d1a96d312",
 						},
-						"request.path":        "/bar/baz",
+						"request.path":        "/bar/baz?q=whatever",
 						"request.host":        "example.istio.com",
 						"request.useragent":   "xxx",
 						"request.size":        int64(128),
@@ -285,6 +286,7 @@ func TestReportTraces(t *testing.T) {
                     "destination.ip": "10.0.0.3",
                     "destination.name": "unknown",
                     "httpStatusCode": "500",
+                    "q": "whatever",
                     "source.ip": "10.0.0.2",
                     "source.name": "unknown"
                    },

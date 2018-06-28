@@ -100,7 +100,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			ctx:  ctx,
 		}
 
-		if err := h.tracinghandler.InitTracing(int(b.config.TracingBufferSize)); err != nil {
+		if err := h.tracinghandler.InitTracing(int(b.config.TracingBufferSize), b.config.TracingSampleProbability); err != nil {
 			resErr = me.Append(resErr, err)
 		}
 	}
@@ -165,6 +165,10 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		}
 	}
 
+	if b.config.TracingSampleProbability < 0 || b.config.TracingSampleProbability > 1.0 {
+		ce = ce.Appendf("tracing_sample_probability", "must be between 0.0 and 1.0 inclusive")
+	}
+
 	if b.config.TracingBufferSize <= 0 {
 		ce = ce.Appendf("tracing_buffer_size", "must be greater than 0")
 	}
@@ -207,8 +211,9 @@ func GetInfo() adapter.Info {
 		},
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{
-			DatapointInterval: 10 * time.Second,
-			TracingBufferSize: 1000,
+			DatapointInterval:        10 * time.Second,
+			TracingBufferSize:        1000,
+			TracingSampleProbability: 1.0,
 		},
 	}
 }
