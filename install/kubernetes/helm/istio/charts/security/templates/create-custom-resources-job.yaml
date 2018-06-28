@@ -26,6 +26,12 @@ rules:
 - apiGroups: ["networking.istio.io"] # needed to create security destination rules
   resources: ["*"]
   verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get"]
+- apiGroups: ["extensions"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -71,11 +77,7 @@ spec:
       containers:
         - name: hyperkube
           image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
-          command:
-            - ./kubectl
-            - apply
-            - -f
-            - /tmp/security/custom-resources.yaml
+          command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/security"
               name: tmp-configmap-security
@@ -83,5 +85,5 @@ spec:
         - name: tmp-configmap-security
           configMap:
             name: istio-security-custom-resources
-      restartPolicy: Never # CRD might take some time till they are available to consume
+      restartPolicy: OnFailure
 {{- end }}

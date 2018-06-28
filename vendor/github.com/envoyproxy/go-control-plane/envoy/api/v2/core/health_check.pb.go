@@ -6,9 +6,9 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -65,24 +65,24 @@ func (HealthStatus) EnumDescriptor() ([]byte, []int) { return fileDescriptorHeal
 type HealthCheck struct {
 	// The time to wait for a health check response. If the timeout is reached the
 	// health check attempt will be considered a failure.
-	Timeout *google_protobuf2.Duration `protobuf:"bytes,1,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout *google_protobuf3.Duration `protobuf:"bytes,1,opt,name=timeout" json:"timeout,omitempty"`
 	// The interval between health checks.
-	Interval *google_protobuf2.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval *google_protobuf3.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
 	// An optional jitter amount in millseconds. If specified, during every
 	// internal Envoy will add 0 to interval_jitter to the wait time.
-	IntervalJitter *google_protobuf2.Duration `protobuf:"bytes,3,opt,name=interval_jitter,json=intervalJitter" json:"interval_jitter,omitempty"`
+	IntervalJitter *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=interval_jitter,json=intervalJitter" json:"interval_jitter,omitempty"`
 	// The number of unhealthy health checks required before a host is marked
 	// unhealthy. Note that for *http* health checking if a host responds with 503
 	// this threshold is ignored and the host is considered unhealthy immediately.
-	UnhealthyThreshold *google_protobuf.UInt32Value `protobuf:"bytes,4,opt,name=unhealthy_threshold,json=unhealthyThreshold" json:"unhealthy_threshold,omitempty"`
+	UnhealthyThreshold *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=unhealthy_threshold,json=unhealthyThreshold" json:"unhealthy_threshold,omitempty"`
 	// The number of healthy health checks required before a host is marked
 	// healthy. Note that during startup, only a single successful health check is
 	// required to mark a host healthy.
-	HealthyThreshold *google_protobuf.UInt32Value `protobuf:"bytes,5,opt,name=healthy_threshold,json=healthyThreshold" json:"healthy_threshold,omitempty"`
+	HealthyThreshold *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=healthy_threshold,json=healthyThreshold" json:"healthy_threshold,omitempty"`
 	// [#not-implemented-hide:] Non-serving port for health checking.
-	AltPort *google_protobuf.UInt32Value `protobuf:"bytes,6,opt,name=alt_port,json=altPort" json:"alt_port,omitempty"`
+	AltPort *google_protobuf1.UInt32Value `protobuf:"bytes,6,opt,name=alt_port,json=altPort" json:"alt_port,omitempty"`
 	// Reuse health check connection between health checks. Default is true.
-	ReuseConnection *google_protobuf.BoolValue `protobuf:"bytes,7,opt,name=reuse_connection,json=reuseConnection" json:"reuse_connection,omitempty"`
+	ReuseConnection *google_protobuf1.BoolValue `protobuf:"bytes,7,opt,name=reuse_connection,json=reuseConnection" json:"reuse_connection,omitempty"`
 	// Types that are valid to be assigned to HealthChecker:
 	//	*HealthCheck_HttpHealthCheck_
 	//	*HealthCheck_TcpHealthCheck_
@@ -98,26 +98,26 @@ type HealthCheck struct {
 	// any other.
 	//
 	// The default value for "no traffic interval" is 60 seconds.
-	NoTrafficInterval *google_protobuf2.Duration `protobuf:"bytes,12,opt,name=no_traffic_interval,json=noTrafficInterval" json:"no_traffic_interval,omitempty"`
+	NoTrafficInterval *google_protobuf3.Duration `protobuf:"bytes,12,opt,name=no_traffic_interval,json=noTrafficInterval" json:"no_traffic_interval,omitempty"`
 	// The "unhealthy interval" is a health check interval that is used for hosts that are marked as
 	// unhealthy. As soon as the host is marked as healthy, Envoy will shift back to using the
 	// standard health check interval that is defined.
 	//
 	// The default value for "unhealthy interval" is the same as "interval".
-	UnhealthyInterval *google_protobuf2.Duration `protobuf:"bytes,14,opt,name=unhealthy_interval,json=unhealthyInterval" json:"unhealthy_interval,omitempty"`
+	UnhealthyInterval *google_protobuf3.Duration `protobuf:"bytes,14,opt,name=unhealthy_interval,json=unhealthyInterval" json:"unhealthy_interval,omitempty"`
 	// The "unhealthy edge interval" is a special health check interval that is used for the first
 	// health check right after a host is marked as unhealthy. For subsequent health checks
 	// Envoy will shift back to using either "unhealthy interval" if present or the standard health
 	// check interval that is defined.
 	//
 	// The default value for "unhealthy edge interval" is the same as "unhealthy interval".
-	UnhealthyEdgeInterval *google_protobuf2.Duration `protobuf:"bytes,15,opt,name=unhealthy_edge_interval,json=unhealthyEdgeInterval" json:"unhealthy_edge_interval,omitempty"`
+	UnhealthyEdgeInterval *google_protobuf3.Duration `protobuf:"bytes,15,opt,name=unhealthy_edge_interval,json=unhealthyEdgeInterval" json:"unhealthy_edge_interval,omitempty"`
 	// The "healthy edge interval" is a special health check interval that is used for the first
 	// health check right after a host is marked as healthy. For subsequent health checks
 	// Envoy will shift back to using the standard health check interval that is defined.
 	//
 	// The default value for "healthy edge interval" is the same as the default interval.
-	HealthyEdgeInterval *google_protobuf2.Duration `protobuf:"bytes,16,opt,name=healthy_edge_interval,json=healthyEdgeInterval" json:"healthy_edge_interval,omitempty"`
+	HealthyEdgeInterval *google_protobuf3.Duration `protobuf:"bytes,16,opt,name=healthy_edge_interval,json=healthyEdgeInterval" json:"healthy_edge_interval,omitempty"`
 }
 
 func (m *HealthCheck) Reset()                    { *m = HealthCheck{} }
@@ -161,49 +161,49 @@ func (m *HealthCheck) GetHealthChecker() isHealthCheck_HealthChecker {
 	return nil
 }
 
-func (m *HealthCheck) GetTimeout() *google_protobuf2.Duration {
+func (m *HealthCheck) GetTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Timeout
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetInterval() *google_protobuf2.Duration {
+func (m *HealthCheck) GetInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Interval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetIntervalJitter() *google_protobuf2.Duration {
+func (m *HealthCheck) GetIntervalJitter() *google_protobuf3.Duration {
 	if m != nil {
 		return m.IntervalJitter
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetUnhealthyThreshold() *google_protobuf.UInt32Value {
+func (m *HealthCheck) GetUnhealthyThreshold() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.UnhealthyThreshold
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetHealthyThreshold() *google_protobuf.UInt32Value {
+func (m *HealthCheck) GetHealthyThreshold() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.HealthyThreshold
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetAltPort() *google_protobuf.UInt32Value {
+func (m *HealthCheck) GetAltPort() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.AltPort
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetReuseConnection() *google_protobuf.BoolValue {
+func (m *HealthCheck) GetReuseConnection() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.ReuseConnection
 	}
@@ -245,28 +245,28 @@ func (m *HealthCheck) GetCustomHealthCheck() *HealthCheck_CustomHealthCheck {
 	return nil
 }
 
-func (m *HealthCheck) GetNoTrafficInterval() *google_protobuf2.Duration {
+func (m *HealthCheck) GetNoTrafficInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.NoTrafficInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetUnhealthyInterval() *google_protobuf2.Duration {
+func (m *HealthCheck) GetUnhealthyInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.UnhealthyInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetUnhealthyEdgeInterval() *google_protobuf2.Duration {
+func (m *HealthCheck) GetUnhealthyEdgeInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.UnhealthyEdgeInterval
 	}
 	return nil
 }
 
-func (m *HealthCheck) GetHealthyEdgeInterval() *google_protobuf2.Duration {
+func (m *HealthCheck) GetHealthyEdgeInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.HealthyEdgeInterval
 	}
@@ -687,7 +687,7 @@ type HealthCheck_CustomHealthCheck struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// A custom health checker specific configuration which depends on the custom health checker
 	// being instantiated. See :api:`envoy/config/health_checker` for reference.
-	Config *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *HealthCheck_CustomHealthCheck) Reset()         { *m = HealthCheck_CustomHealthCheck{} }
@@ -704,7 +704,7 @@ func (m *HealthCheck_CustomHealthCheck) GetName() string {
 	return ""
 }
 
-func (m *HealthCheck_CustomHealthCheck) GetConfig() *google_protobuf4.Struct {
+func (m *HealthCheck_CustomHealthCheck) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -1872,7 +1872,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Timeout == nil {
-				m.Timeout = &google_protobuf2.Duration{}
+				m.Timeout = &google_protobuf3.Duration{}
 			}
 			if err := m.Timeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1905,7 +1905,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Interval == nil {
-				m.Interval = &google_protobuf2.Duration{}
+				m.Interval = &google_protobuf3.Duration{}
 			}
 			if err := m.Interval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1938,7 +1938,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.IntervalJitter == nil {
-				m.IntervalJitter = &google_protobuf2.Duration{}
+				m.IntervalJitter = &google_protobuf3.Duration{}
 			}
 			if err := m.IntervalJitter.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1971,7 +1971,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UnhealthyThreshold == nil {
-				m.UnhealthyThreshold = &google_protobuf.UInt32Value{}
+				m.UnhealthyThreshold = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.UnhealthyThreshold.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2004,7 +2004,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.HealthyThreshold == nil {
-				m.HealthyThreshold = &google_protobuf.UInt32Value{}
+				m.HealthyThreshold = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.HealthyThreshold.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2037,7 +2037,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AltPort == nil {
-				m.AltPort = &google_protobuf.UInt32Value{}
+				m.AltPort = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.AltPort.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2070,7 +2070,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ReuseConnection == nil {
-				m.ReuseConnection = &google_protobuf.BoolValue{}
+				m.ReuseConnection = &google_protobuf1.BoolValue{}
 			}
 			if err := m.ReuseConnection.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2231,7 +2231,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.NoTrafficInterval == nil {
-				m.NoTrafficInterval = &google_protobuf2.Duration{}
+				m.NoTrafficInterval = &google_protobuf3.Duration{}
 			}
 			if err := m.NoTrafficInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2296,7 +2296,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UnhealthyInterval == nil {
-				m.UnhealthyInterval = &google_protobuf2.Duration{}
+				m.UnhealthyInterval = &google_protobuf3.Duration{}
 			}
 			if err := m.UnhealthyInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2329,7 +2329,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UnhealthyEdgeInterval == nil {
-				m.UnhealthyEdgeInterval = &google_protobuf2.Duration{}
+				m.UnhealthyEdgeInterval = &google_protobuf3.Duration{}
 			}
 			if err := m.UnhealthyEdgeInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2362,7 +2362,7 @@ func (m *HealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.HealthyEdgeInterval == nil {
-				m.HealthyEdgeInterval = &google_protobuf2.Duration{}
+				m.HealthyEdgeInterval = &google_protobuf3.Duration{}
 			}
 			if err := m.HealthyEdgeInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3109,7 +3109,7 @@ func (m *HealthCheck_CustomHealthCheck) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

@@ -189,6 +189,17 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return nil
 }
 
+// WorkloadHealthCheckInfo returne the health check information for IP addr
+// Return on the first hit.
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	for _, r := range c.GetRegistries() {
+		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
+			return probeList
+		}
+	}
+	return nil
+}
+
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) Instances(hostname model.Hostname, ports []string,

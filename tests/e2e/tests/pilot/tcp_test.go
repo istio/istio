@@ -16,8 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 )
 
@@ -43,15 +41,9 @@ func TestTcp(t *testing.T) {
 		dstPods = append(dstPods, "d")
 	}
 
-	image := os.Getenv("ISTIO_PROXY_IMAGE")
-
 	// Run all request tests.
 	t.Run("request", func(t *testing.T) {
 		for cluster := range tc.Kube.Clusters {
-			// TCP is not supported on remote cluster with envoy v1 proxy
-			if !strings.Contains(image, "v2") && cluster != primaryCluster {
-				continue
-			}
 			for _, src := range srcPods {
 				for _, dst := range dstPods {
 					if src == "t" && dst == "t" {

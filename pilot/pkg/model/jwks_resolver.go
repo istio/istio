@@ -64,6 +64,9 @@ const (
 var (
 	// PublicRootCABundlePath is the path of public root CA bundle in pilot container.
 	publicRootCABundlePath = "/cacert.pem"
+
+	// Close channel
+	close = make(chan bool)
 )
 
 // jwtPubKeyEntry is a single cached entry for jwt public key.
@@ -88,7 +91,6 @@ type jwksResolver struct {
 
 	secureHTTPClient *http.Client
 	httpClient       *http.Client
-	closing          chan bool
 	refreshTicker    *time.Ticker
 
 	expireDuration time.Duration
@@ -107,7 +109,6 @@ type jwksResolver struct {
 func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Duration) *jwksResolver {
 	ret := &jwksResolver{
 		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
-		closing:          make(chan bool, 1),
 		expireDuration:   expireDuration,
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,
@@ -278,14 +279,14 @@ func (r *jwksResolver) getRemoteContent(uri string) ([]byte, error) {
 
 func (r *jwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
+	//Write
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
 	for {
 		select {
 		case now := <-r.refreshTicker.C:
 			r.refresh(now)
-		case <-r.closing:
+		case <-close:
 			r.refreshTicker.Stop()
-			return
 		}
 	}
 }
@@ -352,5 +353,5 @@ func (r *jwksResolver) refresh(t time.Time) {
 // TODO: may need to figure out the right place to call this function.
 // (right now calls it from initDiscoveryService in pkg/bootstrap/server.go).
 func (r *jwksResolver) Close() {
-	r.closing <- true
+	close <- true
 }
