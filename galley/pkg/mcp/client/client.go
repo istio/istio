@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -129,29 +130,29 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 // Probe point for test code to determine when the client is finished processing responses.
 var handleResponseDoneProbe = func() {}
 
+func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) error {
+	log.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
+
+	errorDetails, _ := status.FromError(err)
+	req := &mcp.MeshConfigRequest{
+		Client:        c.clientInfo,
+		TypeUrl:       response.TypeUrl,
+		VersionInfo:   version,
+		ResponseNonce: response.Nonce,
+		ErrorDetail:   errorDetails.Proto(),
+	}
+	return c.stream.Send(req)
+}
+
 func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 	if handleResponseDoneProbe != nil {
 		defer handleResponseDoneProbe()
 	}
 
-	sendNACKRequest := func(version string, err error) error {
-		log.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
-
-		errorDetails, _ := status.FromError(err)
-		req := &mcp.MeshConfigRequest{
-			Client:        c.clientInfo,
-			TypeUrl:       response.TypeUrl,
-			VersionInfo:   version,
-			ResponseNonce: response.Nonce,
-			ErrorDetail:   errorDetails.Proto(),
-		}
-		return c.stream.Send(req)
-	}
-
 	state, ok := c.state[response.TypeUrl]
 	if !ok {
 		errDetails := status.Error(codes.Unimplemented, "unsupported type_url: %v")
-		return sendNACKRequest("", errDetails)
+		return c.sendNACKRequest(response, "", errDetails)
 	}
 
 	responseMessageName := response.TypeUrl
@@ -167,18 +168,25 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 	for _, envelope := range response.Envelopes {
 		var message proto.Message
 
+		// "istio.io/api" protobufs are compiled with a mix of
+		// golang/protobuf and gogo/protobuf (see
+		// https://github.com/istio/api/issues/543). gogo/protobuf
+		// packages can only decode gogo-compiled
+		// protots. golang/protobuf packages can only decode
+		// golang-compiled protos. Use the existence of the protobuf's
+		// via the message name to differentiate which is which.
 		if proto.MessageType(responseMessageName) != nil {
 			// gogo proto
 			var dynamicAny types.DynamicAny
 			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
-				return sendNACKRequest(state.version(), err)
+				return c.sendNACKRequest(response, state.version(), err)
 			}
 			message = dynamicAny.Message
 		} else {
 			// golang proto
 			var dynamicAny ptypes.DynamicAny
 			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
-				return sendNACKRequest(state.version(), err)
+				return c.sendNACKRequest(response, state.version(), err)
 			}
 			message = dynamicAny.Message
 		}
@@ -187,7 +195,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 			errDetails := status.Errorf(codes.InvalidArgument,
 				"response type_url(%v) does not match resource type_url(%v)",
 				response.TypeUrl, envelope.Resource.TypeUrl)
-			return sendNACKRequest(state.version(), errDetails)
+			return c.sendNACKRequest(response, state.version(), errDetails)
 		}
 
 		object := &Object{
@@ -201,7 +209,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 
 	if err := c.updater.Update(change); err != nil {
 		errDetails := status.Error(codes.InvalidArgument, err.Error())
-		return sendNACKRequest(state.version(), errDetails)
+		return c.sendNACKRequest(response, state.version(), errDetails)
 	}
 
 	// ACK
@@ -218,6 +226,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 	return nil
 }
 
+// openStream should only be called from `Run()` methods for/select loop.
 func (c *Client) openStream(ctx context.Context) error {
 	retry := time.After(time.Nanosecond)
 
@@ -227,11 +236,14 @@ tryAgain:
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-retry:
+			log.Info("Trying to establish new MCP stream")
 			stream, err := c.client.StreamAggregatedResources(ctx)
 			if err != nil {
+				log.Errorf("Failed to create a new MCP stream: %v", err)
 				retry = time.After(reestablishStreamDelay)
 				continue tryAgain
 			}
+			log.Info("New MCP stream created")
 			c.stream = stream
 
 			for typeURL, state := range c.state {
@@ -240,6 +252,24 @@ tryAgain:
 					TypeUrl: typeURL,
 				}
 				if err := c.stream.Send(req); err != nil {
+					log.Errorf("Failed to send initial MCP request for %q: %v", typeURL, err)
+
+					// Close the send-side of the stream on send errors and
+					// drain receive until we receive EOF.
+					//
+					// See RecvMsg and SendMsg grpc comments in Run() below for rationale.
+					if err := c.stream.CloseSend(); err != nil {
+						log.Errorf("Error closing MCP stream after initial send failure: %v", err)
+					}
+					for {
+						if _, err := c.stream.Recv(); err != nil {
+							if err == io.EOF {
+								break
+							}
+							log.Errorf("Recv() error while waiting for MCP stream to close: %v", err)
+						}
+					}
+					retry = time.After(reestablishStreamDelay)
 					continue tryAgain
 				}
 				state.setVersion("")
@@ -258,6 +288,15 @@ func (c *Client) Run(ctx context.Context) {
 	var responseError error
 	receive := func() {
 		for {
+			// On non-nil error the stream is closed or aborted. In either case,
+			// close the receive channel to signal to the for/select loop to re-establish
+			// the stream.
+			//
+			// (from https://godoc.org/google.golang.org/grpc#Stream)
+			//
+			// RecvMsg blocks until it receives a message or the stream is done. On
+			// client side, it returns io.EOF when the stream is done. On any other
+			// error, it aborts the stream and returns an RPC status.
 			response, err := c.stream.Recv()
 			if err != nil {
 				responseError = err
@@ -294,14 +333,19 @@ func (c *Client) Run(ctx context.Context) {
 			}
 
 			if err := c.handleResponse(response); err != nil {
-				// handleResponse only returns an error if it cannot
-				// send a DiscoveryRequest to the server.
-
-				// TODO(ayj) - do we need to discriminate transient vs. terminal send errors?
-				log.Errorf("Stream send error: %v", responseError)
-				if err := c.openStream(ctx); err != nil {
-					return
+				log.Errorf("Error sending MCP request: %v", err)
+				if err := c.stream.CloseSend(); err != nil {
+					log.Errorf("Error closing MCP stream after send failure: %v", err)
 				}
+
+				// Don't immediately reconnect - wait for stream.Recv() to indicate the stream is closed.
+				//
+				// (from https://godoc.org/google.golang.org/grpc#Stream)
+				//
+				// Stream.SendMsg() may return a non-nil error when something wrong happens sending
+				// the request. The returned error indicates the status of this sending, not the final
+				// status of the RPC. Always call Stream.RecvMsg() to drain the stream and get the final
+				// status, otherwise there could be leaked resources.
 			}
 		case <-ctx.Done():
 			return

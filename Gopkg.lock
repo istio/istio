@@ -366,6 +366,8 @@
   revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
   version = "v1.0.0"
 
+# Needed for `any.Any` type conversion workaround
+# (see https://github.com/gogo/status/pull/5)
 [[projects]]
   name = "github.com/gogo/status"
   packages = ["."]
