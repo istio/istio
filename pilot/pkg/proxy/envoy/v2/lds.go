@@ -20,10 +20,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 func (s *DiscoveryServer) pushLds(node model.Proxy, con *XdsConnection) error {
 	ls, err := s.ConfigGenerator.BuildListeners(s.env, node)
+	log.Infof("listener: %+v\n", ls)
 	if err != nil {
 		adsLog.Warnf("ADS: config failure, closing grpc %v", err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)

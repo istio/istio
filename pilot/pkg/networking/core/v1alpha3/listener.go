@@ -264,9 +264,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 		listenerType = plugin.ModelProtocolToListenerType(protocol)
 		switch listenerType {
 		case plugin.ListenerTypeHTTP:
+			routeConfig := configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance)
+			if protocol == model.ProtocolBOLT {
+				routeConfig = configgen.buildSidecarInboundBOLTRouteConfig(env, node, instance)
+			}
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
-					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
+					routeConfig:      routeConfig,
 					rds:              "",
 					useRemoteAddress: false,
 					direction:        http_conn.INGRESS,
@@ -733,11 +737,19 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		if opt.httpOpts != nil {
 			connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opt.httpOpts, chain.HTTP)
-			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   envoyHTTPConnectionManager,
-				Config: util.MessageToStruct(connectionManager),
-			})
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
+			if opts.protocol == model.ProtocolBOLT {
+				l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
+					Name:   "inbound_bolt",
+					Config: util.MessageToStruct(connectionManager),
+				})
+				log.Debugf("attached BOLT filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
+			} else {
+				l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
+					Name:   envoyHTTPConnectionManager,
+					Config: util.MessageToStruct(connectionManager),
+				})
+				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
+			}
 		}
 	}
 	return nil

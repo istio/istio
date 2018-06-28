@@ -64,6 +64,57 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 	return r
 }
 
+// buildSidecarInboundBOLTRouteConfig builds the route bolt service
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env model.Environment,
+	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
+		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+
+	serviceRoute := &route.Route{
+		Match: route.RouteMatch{
+			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
+				Name: "service",
+				Value: instance.Service.Hostname.String(),
+			}},
+		},
+		Decorator: &route.Decorator{
+			Operation: "service-route",
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
+
+	inboundVHost := route.VirtualHost{
+		Name:    fmt.Sprintf("%s|bolt|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),
+		Domains: []string{"*"},
+		Routes:  []route.Route{*serviceRoute},
+	}
+
+	r := &xdsapi.RouteConfiguration{
+		Name:             clusterName,
+		VirtualHosts:     []route.VirtualHost{inboundVHost},
+		ValidateClusters: &types.BoolValue{Value: false},
+	}
+
+	for _, p := range configgen.Plugins {
+		in := &plugin.InputParams{
+			ListenerType:    plugin.ListenerTypeHTTP,
+			Env:             &env,
+			Node:            &node,
+			ServiceInstance: instance,
+			Service:         instance.Service,
+		}
+		p.OnInboundRouteConfiguration(in, r)
+	}
+
+	return r
+}
+
+
 // BuildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
