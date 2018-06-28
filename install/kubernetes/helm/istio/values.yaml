@@ -102,6 +102,9 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # Whether to perform server-side validation of configuration.
+  configValidation: true
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
