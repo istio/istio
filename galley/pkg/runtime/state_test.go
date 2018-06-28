@@ -24,7 +24,7 @@ import (
 
 func TestState_Apply_Add(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -52,7 +52,7 @@ func TestState_Apply_Add(t *testing.T) {
 
 func TestState_Apply_Update(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -90,7 +90,7 @@ func TestState_Apply_Update(t *testing.T) {
 
 func TestState_Apply_Update_SameVersion(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -120,7 +120,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 func TestState_Apply_Delete(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -155,7 +155,7 @@ func TestState_Apply_Delete(t *testing.T) {
 
 func TestState_Apply_UnknownEventKind(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -178,7 +178,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 
 func TestState_Apply_UnknownResourceKind(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 
@@ -201,7 +201,7 @@ func TestState_Apply_UnknownResourceKind(t *testing.T) {
 
 func TestState_Apply_BrokenProto(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("mn")
+	schema.Register("mn", false)
 
 	s := newState(schema)
 

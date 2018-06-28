@@ -154,9 +154,12 @@ func TestResource_IsEmpty(t *testing.T) {
 
 func TestInfo_newProtoInstance_Success(t *testing.T) {
 	i := Info{}
-	p := i.newProtoInstance(func(_ string) reflect.Type {
-		return reflect.PtrTo(reflect.TypeOf(types.Empty{}))
-	})
+	p := i.newProtoInstance(
+		func(_ string) reflect.Type {
+			return reflect.PtrTo(reflect.TypeOf(types.Empty{}))
+		}, func(_ string) reflect.Type {
+			return reflect.PtrTo(reflect.TypeOf(types.Empty{}))
+		})
 
 	if p == nil || reflect.TypeOf(p) != reflect.PtrTo(reflect.TypeOf(types.Empty{})) {
 		t.Fatalf("Unexpected proto type returned: %v", p)
@@ -171,9 +174,12 @@ func TestInfo_newProtoInstance_PanicAtNil(t *testing.T) {
 	}()
 
 	i := Info{}
-	_ = i.newProtoInstance(func(_ string) reflect.Type {
-		return nil
-	})
+	_ = i.newProtoInstance(
+		func(_ string) reflect.Type {
+			return nil
+		}, func(_ string) reflect.Type {
+			return nil
+		})
 }
 
 func TestInfo_newProtoInstance_PanicAtNonPtr(t *testing.T) {
@@ -184,9 +190,12 @@ func TestInfo_newProtoInstance_PanicAtNonPtr(t *testing.T) {
 	}()
 
 	i := Info{}
-	_ = i.newProtoInstance(func(_ string) reflect.Type {
-		return reflect.TypeOf(types.Empty{})
-	})
+	_ = i.newProtoInstance(
+		func(_ string) reflect.Type {
+			return reflect.TypeOf(types.Empty{})
+		}, func(_ string) reflect.Type {
+			return reflect.TypeOf(types.Empty{})
+		})
 }
 
 func TestInfo_newProtoInstance_PanicAtNonProto(t *testing.T) {
@@ -197,9 +206,12 @@ func TestInfo_newProtoInstance_PanicAtNonProto(t *testing.T) {
 	}()
 
 	i := Info{}
-	_ = i.newProtoInstance(func(_ string) reflect.Type {
-		return reflect.PtrTo(reflect.TypeOf(Info{}))
-	})
+	_ = i.newProtoInstance(
+		func(_ string) reflect.Type {
+			return reflect.PtrTo(reflect.TypeOf(Info{}))
+		}, func(_ string) reflect.Type {
+			return reflect.PtrTo(reflect.TypeOf(Info{}))
+		})
 }
 
 func TestInfo_String(t *testing.T) {

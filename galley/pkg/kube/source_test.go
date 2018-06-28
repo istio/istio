@@ -20,12 +20,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
@@ -92,7 +94,9 @@ func TestSource_BasicEvents(t *testing.T) {
 			Plural:   "foos",
 			Target: resource.Info{
 				MessageName: "google.protobuf.Empty",
+				IsGogo:      true,
 			},
+			Converter: converter.Get("identity"),
 		},
 	}
 
@@ -157,6 +161,10 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Plural:   "foos",
 			Target: resource.Info{
 				MessageName: "google.protobuf.Empty",
+				IsGogo:      true,
+			},
+			Converter: func(info resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
+				return nil, fmt.Errorf("cant convert")
 			},
 		},
 	}
