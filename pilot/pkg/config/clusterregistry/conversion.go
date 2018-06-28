@@ -43,14 +43,10 @@ const (
 	ClusterAccessConfigSecretNamespace = "config.istio.io/accessConfigSecretNamespace"
 )
 
-// Metadata defines a struct used as a key
-type Metadata struct {
-	Name, Namespace string
-}
-
 // RemoteCluster defines cluster struct
 type RemoteCluster struct {
 	Cluster        *k8s_cr.Cluster
+	FromSecret     string
 	Client         *clientcmdapi.Config
 	ClusterStatus  string
 	Controller     *kube.Controller
@@ -59,13 +55,13 @@ type RemoteCluster struct {
 
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
-	rc        map[Metadata]*RemoteCluster
+	rc        map[string]*RemoteCluster
 	storeLock sync.RWMutex
 }
 
 // NewClustersStore initializes data struct to store clusters information
 func NewClustersStore() *ClusterStore {
-	rc := make(map[Metadata]*RemoteCluster)
+	rc := make(map[string]*RemoteCluster)
 	return &ClusterStore{
 		rc: rc,
 	}
@@ -81,8 +77,7 @@ func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientc
 	if cluster == nil {
 		return nil
 	}
-	key := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
-	clusterAccessConfig := cs.rc[key].Client
+	clusterAccessConfig := cs.rc[cluster.ObjectMeta.Name].Client
 	return clusterAccessConfig
 }
 
@@ -155,10 +150,9 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 				secretName, secretNamespace, key, err))
 			continue
 		}
-		s := Metadata{Name: cluster.ObjectMeta.Name, Namespace: cluster.ObjectMeta.Namespace}
-		cs.rc[s] = &RemoteCluster{}
-		cs.rc[s].Client = clientConfig
-		cs.rc[s].Cluster = &cluster
+		cs.rc[cluster.ObjectMeta.Name] = &RemoteCluster{}
+		cs.rc[cluster.ObjectMeta.Name].Client = clientConfig
+		cs.rc[cluster.ObjectMeta.Name].Cluster = &cluster
 	}
 
 	return
