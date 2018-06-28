@@ -323,6 +323,10 @@ type stats struct {
 
 // WaitEnvoyReady waits until envoy receives and applies all config
 func (s *TestSetup) WaitEnvoyReady() {
+	// Sometimes on circle CI, connection is refused even when envoy reports warm clusters and listeners...
+	// Inject a 1 second delay to force readiness
+	time.Sleep(1 * time.Second)
+
 	delay := 200 * time.Millisecond
 	total := 3 * time.Second
 	var stats map[string]int
