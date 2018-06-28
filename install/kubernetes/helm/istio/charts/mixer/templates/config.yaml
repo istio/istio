@@ -187,19 +187,25 @@ spec:
   severity: '"Info"'
   timestamp: request.time
   variables:
-    originIp: origin.ip | ip("0.0.0.0")
     sourceIp: source.ip | ip("0.0.0.0")
-    sourceUser: source.user | source.uid | ""
+    sourceApp: source.labels["app"] | ""
+    sourcePrincipal: source.principal | ""
+    sourceWorkload: source.workload.name | ""
     sourceNamespace: source.namespace | ""
+    sourceOwner: source.owner | ""
+    destinationApp: destination.labels["app"] | ""
     destinationIp: destination.ip | ip("0.0.0.0")
-    destinationService: destination.service | ""
+    destinationServiceHost: destination.service.host | ""
+    destinationWorkload: destination.workload.name | ""
     destinationNamespace: destination.namespace | ""
+    destinationOwner: destination.owner | ""
+    destinationPrincipal: destination.principal | ""
     apiName: api.service | ""
     apiVersion: api.version | ""
     apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
     apiKey: request.api_key | request.headers["x-api-key"] | ""
     requestOperation: api.operation | ""
-    protocol: request.scheme | "http"
+    protocol: request.scheme | context.protocol | "http"
     method: request.method | ""
     url: request.path | ""
     responseCode: response.code | 0
@@ -248,7 +254,8 @@ spec:
     destination_principal: destination.principal | "unknown"
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
@@ -277,7 +284,8 @@ spec:
     destination_principal: destination.principal | "unknown"
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
@@ -306,7 +314,8 @@ spec:
     destination_principal: destination.principal | "unknown"
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
@@ -335,7 +344,8 @@ spec:
     destination_principal: destination.principal | "unknown"
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
-    destination_service: destination.service.name | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
@@ -367,6 +377,7 @@ spec:
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
@@ -396,6 +407,7 @@ spec:
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
@@ -426,6 +438,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -449,6 +462,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -475,6 +489,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -503,6 +518,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -531,6 +547,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - connection_mtls
   - name: tcp_received_bytes_total
@@ -552,6 +569,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - connection_mtls
 ---

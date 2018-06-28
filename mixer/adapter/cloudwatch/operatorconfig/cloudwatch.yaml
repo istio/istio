@@ -21,7 +21,7 @@ metadata:
  name: hndlrTest
  namespace: istio-system
 spec:
- namespace: "mixer-CloudWatch"
+ namespace: "cloudwatch-istio"
  metricInfo:
    requestcount.metric.istio-system:
      unit: Count
