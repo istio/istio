@@ -263,6 +263,21 @@ func (m *BindConfig) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetSocketOptions() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return BindConfigValidationError{
+					Field:  fmt.Sprintf("SocketOptions[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	return nil
 }
 
