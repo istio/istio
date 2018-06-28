@@ -90,7 +90,6 @@ type testConfig struct {
 
 var (
 	tc        *testConfig
-	mp        *promProxy
 	testFlags = &framework.TestFlags{
 		V1alpha1: false, //implies envoyv1
 		V1alpha3: true,  //implies envoyv2
@@ -443,7 +442,7 @@ func setTestConfig() error {
 	for i := range demoApps {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
-	mp = newPromProxy(tc.Kube.Namespace)
+	mp := newPromProxy(tc.Kube.Namespace)
 	tc.Cleanup.RegisterCleanable(mp)
 	return nil
 }
@@ -1048,9 +1047,6 @@ func TestRedisQuota(t *testing.T) {
 
 	allowRuleSync()
 
-	log.Info("Setting up port forwarding for redis server")
-	mp.portForward("app=redis", "6379", "6379")
-
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
 	if err := applyMixerRule(redisQuotaRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
@@ -1167,6 +1163,7 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	}
 
 	value := val.(model.Vector)
+	valueCount := 0.0
 	for _, sample := range value {
 		metric := sample.Metric
 		nameCount := len(labels)
@@ -1176,8 +1173,11 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 			}
 		}
 		if nameCount == 0 {
-			return float64(sample.Value), nil
+			valueCount += float64(sample.Value)
 		}
+	}
+	if valueCount > 0.0 {
+		return valueCount, nil
 	}
 	return 0, fmt.Errorf("value not found for %#v", labels)
 }
