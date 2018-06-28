@@ -160,7 +160,6 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	gateway.EnvoyParams = []string{
 		"--service-node", nodeIDGateway,
 		"--service-cluster", "x",
-		"--v2-config-only",
 	}
 
 	t.Log("run edge router envoy...")
