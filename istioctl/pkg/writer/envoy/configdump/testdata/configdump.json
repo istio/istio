@@ -232,33 +232,35 @@
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "staticClusters": [
                 {
-                    "name": "xds-grpc",
-                    "type": "STRICT_DNS",
-                    "connectTimeout": "10s",
-                    "hosts": [
-                        {
-                            "socketAddress": {
-                                "address": "istio-pilot.istio-system",
-                                "portValue": 15010
-                            }
-                        }
-                    ],
-                    "circuitBreakers": {
-                        "thresholds": [
+                    "cluster": {
+                        "name": "xds-grpc",
+                        "type": "STRICT_DNS",
+                        "connectTimeout": "10s",
+                        "hosts": [
                             {
-                                "maxConnections": 100000,
-                                "maxPendingRequests": 100000,
-                                "maxRequests": 100000
-                            },
-                            {
-                                "priority": "HIGH",
-                                "maxConnections": 100000,
-                                "maxPendingRequests": 100000,
-                                "maxRequests": 100000
+                                "socketAddress": {
+                                    "address": "istio-pilot.istio-system",
+                                    "portValue": 15010
+                                }
                             }
-                        ]
-                    },
-                    "http2ProtocolOptions": {}
+                        ],
+                        "circuitBreakers": {
+                            "thresholds": [
+                                {
+                                    "maxConnections": 100000,
+                                    "maxPendingRequests": 100000,
+                                    "maxRequests": 100000
+                                },
+                                {
+                                    "priority": "HIGH",
+                                    "maxConnections": 100000,
+                                    "maxPendingRequests": 100000,
+                                    "maxRequests": 100000
+                                }
+                            ]
+                        },
+                        "http2ProtocolOptions": {}
+                    }
                 }
             ],
             "dynamicActiveClusters": [
@@ -406,54 +408,56 @@
             "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
             "staticRouteConfigs": [
                 {
-                    "name": "inbound|9080||productpage.default.svc.cluster.local",
-                    "virtualHosts": [
-                        {
-                            "name": "inbound|http|9080",
-                            "domains": [
-                                "*"
-                            ],
-                            "routes": [
-                                {
-                                    "match": {
-                                        "prefix": "/"
-                                    },
-                                    "route": {
-                                        "cluster": "inbound|9080||productpage.default.svc.cluster.local",
-                                        "timeout": "0s",
-                                        "useWebsocket": true
-                                    },
-                                    "decorator": {
-                                        "operation": "productpage.default.svc.cluster.local:9080/*"
-                                    },
-                                    "perFilterConfig": {
-                                        "mixer": {
-                                            "mixer_attributes": {
-                                                "attributes": {
-                                                    "destination.service.uid": {
-                                                        "string_value": "istio://default/services/productpage"
-                                                    },
-                                                    "destination.service.host": {
-                                                        "string_value": "productpage.default.svc.cluster.local"
-                                                    },
-                                                    "destination.service.name": {
-                                                        "string_value": "productpage"
-                                                    },
-                                                    "destination.service.namespace": {
-                                                        "string_value": "default"
-                                                    },
-                                                    "destination.service": {
-                                                        "string_value": "productpage.default.svc.cluster.local"
+                    "route_config": {
+                        "name": "inbound|9080||productpage.default.svc.cluster.local",
+                        "virtualHosts": [
+                            {
+                                "name": "inbound|http|9080",
+                                "domains": [
+                                    "*"
+                                ],
+                                "routes": [
+                                    {
+                                        "match": {
+                                            "prefix": "/"
+                                        },
+                                        "route": {
+                                            "cluster": "inbound|9080||productpage.default.svc.cluster.local",
+                                            "timeout": "0s",
+                                            "useWebsocket": true
+                                        },
+                                        "decorator": {
+                                            "operation": "productpage.default.svc.cluster.local:9080/*"
+                                        },
+                                        "perFilterConfig": {
+                                            "mixer": {
+                                                "mixer_attributes": {
+                                                    "attributes": {
+                                                        "destination.service.uid": {
+                                                            "string_value": "istio://default/services/productpage"
+                                                        },
+                                                        "destination.service.host": {
+                                                            "string_value": "productpage.default.svc.cluster.local"
+                                                        },
+                                                        "destination.service.name": {
+                                                            "string_value": "productpage"
+                                                        },
+                                                        "destination.service.namespace": {
+                                                            "string_value": "default"
+                                                        },
+                                                        "destination.service": {
+                                                            "string_value": "productpage.default.svc.cluster.local"
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            ]
-                        }
-                    ],
-                    "validateClusters": false
+                                ]
+                            }
+                        ],
+                        "validateClusters": false
+                    }
                 }
             ],
             "dynamicRouteConfigs": [

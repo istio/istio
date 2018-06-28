@@ -18,11 +18,11 @@ package listener
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf4 "github.com/gogo/protobuf/types"
+import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -54,7 +54,7 @@ type Filter struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter specific configuration which depends on the filter being
 	// instantiated. See the supported filters for further documentation.
-	Config *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
 	// [#not-implemented-hide:]
 	DeprecatedV1 *Filter_DeprecatedV1 `protobuf:"bytes,3,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
 }
@@ -71,7 +71,7 @@ func (m *Filter) GetName() string {
 	return ""
 }
 
-func (m *Filter) GetConfig() *google_protobuf4.Struct {
+func (m *Filter) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -130,28 +130,28 @@ type FilterChainMatch struct {
 	// If non-empty, an IP address and prefix length to match addresses when the
 	// listener is bound to 0.0.0.0/:: or when use_original_dst is specified.
 	// [#not-implemented-hide:]
-	PrefixRanges []*envoy_api_v2_core.CidrRange `protobuf:"bytes,3,rep,name=prefix_ranges,json=prefixRanges" json:"prefix_ranges,omitempty"`
+	PrefixRanges []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,3,rep,name=prefix_ranges,json=prefixRanges" json:"prefix_ranges,omitempty"`
 	// If non-empty, an IP address and suffix length to match addresses when the
 	// listener is bound to 0.0.0.0/:: or when use_original_dst is specified.
 	// [#not-implemented-hide:]
 	AddressSuffix string `protobuf:"bytes,4,opt,name=address_suffix,json=addressSuffix,proto3" json:"address_suffix,omitempty"`
 	// [#not-implemented-hide:]
-	SuffixLen *google_protobuf.UInt32Value `protobuf:"bytes,5,opt,name=suffix_len,json=suffixLen" json:"suffix_len,omitempty"`
+	SuffixLen *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=suffix_len,json=suffixLen" json:"suffix_len,omitempty"`
 	// The criteria is satisfied if the source IP address of the downstream
 	// connection is contained in at least one of the specified subnets. If the
 	// parameter is not specified or the list is empty, the source IP address is
 	// ignored.
 	// [#not-implemented-hide:]
-	SourcePrefixRanges []*envoy_api_v2_core.CidrRange `protobuf:"bytes,6,rep,name=source_prefix_ranges,json=sourcePrefixRanges" json:"source_prefix_ranges,omitempty"`
+	SourcePrefixRanges []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,6,rep,name=source_prefix_ranges,json=sourcePrefixRanges" json:"source_prefix_ranges,omitempty"`
 	// The criteria is satisfied if the source port of the downstream connection
 	// is contained in at least one of the specified ports. If the parameter is
 	// not specified, the source port is ignored.
 	// [#not-implemented-hide:]
-	SourcePorts []*google_protobuf.UInt32Value `protobuf:"bytes,7,rep,name=source_ports,json=sourcePorts" json:"source_ports,omitempty"`
+	SourcePorts []*google_protobuf1.UInt32Value `protobuf:"bytes,7,rep,name=source_ports,json=sourcePorts" json:"source_ports,omitempty"`
 	// Optional destination port to consider when use_original_dst is set on the
 	// listener in determining a filter chain match.
 	// [#not-implemented-hide:]
-	DestinationPort *google_protobuf.UInt32Value `protobuf:"bytes,8,opt,name=destination_port,json=destinationPort" json:"destination_port,omitempty"`
+	DestinationPort *google_protobuf1.UInt32Value `protobuf:"bytes,8,opt,name=destination_port,json=destinationPort" json:"destination_port,omitempty"`
 	// If non-empty, a list of server names (e.g. SNI for TLS protocol) to consider when determining
 	// a filter chain match. Those values will be compared against the server names of a new
 	// connection, when detected by one of the listener filters.
@@ -217,7 +217,7 @@ func (m *FilterChainMatch) String() string            { return proto.CompactText
 func (*FilterChainMatch) ProtoMessage()               {}
 func (*FilterChainMatch) Descriptor() ([]byte, []int) { return fileDescriptorListener, []int{1} }
 
-func (m *FilterChainMatch) GetPrefixRanges() []*envoy_api_v2_core.CidrRange {
+func (m *FilterChainMatch) GetPrefixRanges() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.PrefixRanges
 	}
@@ -231,28 +231,28 @@ func (m *FilterChainMatch) GetAddressSuffix() string {
 	return ""
 }
 
-func (m *FilterChainMatch) GetSuffixLen() *google_protobuf.UInt32Value {
+func (m *FilterChainMatch) GetSuffixLen() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.SuffixLen
 	}
 	return nil
 }
 
-func (m *FilterChainMatch) GetSourcePrefixRanges() []*envoy_api_v2_core.CidrRange {
+func (m *FilterChainMatch) GetSourcePrefixRanges() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.SourcePrefixRanges
 	}
 	return nil
 }
 
-func (m *FilterChainMatch) GetSourcePorts() []*google_protobuf.UInt32Value {
+func (m *FilterChainMatch) GetSourcePorts() []*google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.SourcePorts
 	}
 	return nil
 }
 
-func (m *FilterChainMatch) GetDestinationPort() *google_protobuf.UInt32Value {
+func (m *FilterChainMatch) GetDestinationPort() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.DestinationPort
 	}
@@ -305,11 +305,11 @@ type FilterChain struct {
 	// load balancers including the AWS ELB support this option. If the option is
 	// absent or set to false, Envoy will use the physical peer address of the
 	// connection as the remote address.
-	UseProxyProto *google_protobuf.BoolValue `protobuf:"bytes,4,opt,name=use_proxy_proto,json=useProxyProto" json:"use_proxy_proto,omitempty"`
+	UseProxyProto *google_protobuf1.BoolValue `protobuf:"bytes,4,opt,name=use_proxy_proto,json=useProxyProto" json:"use_proxy_proto,omitempty"`
 	// [#not-implemented-hide:] filter chain metadata.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,5,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,5,opt,name=metadata" json:"metadata,omitempty"`
 	// See :ref:`base.TransportSocket<envoy_api_msg_core.TransportSocket>` description.
-	TransportSocket *envoy_api_v2_core1.TransportSocket `protobuf:"bytes,6,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
+	TransportSocket *envoy_api_v2_core.TransportSocket `protobuf:"bytes,6,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
 }
 
 func (m *FilterChain) Reset()                    { *m = FilterChain{} }
@@ -338,21 +338,21 @@ func (m *FilterChain) GetFilters() []Filter {
 	return nil
 }
 
-func (m *FilterChain) GetUseProxyProto() *google_protobuf.BoolValue {
+func (m *FilterChain) GetUseProxyProto() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.UseProxyProto
 	}
 	return nil
 }
 
-func (m *FilterChain) GetMetadata() *envoy_api_v2_core1.Metadata {
+func (m *FilterChain) GetMetadata() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
 	return nil
 }
 
-func (m *FilterChain) GetTransportSocket() *envoy_api_v2_core1.TransportSocket {
+func (m *FilterChain) GetTransportSocket() *envoy_api_v2_core.TransportSocket {
 	if m != nil {
 		return m.TransportSocket
 	}
@@ -369,7 +369,7 @@ type ListenerFilter struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter specific configuration which depends on the filter being
 	// instantiated. See the supported filters for further documentation.
-	Config *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *ListenerFilter) Reset()                    { *m = ListenerFilter{} }
@@ -384,7 +384,7 @@ func (m *ListenerFilter) GetName() string {
 	return ""
 }
 
-func (m *ListenerFilter) GetConfig() *google_protobuf4.Struct {
+func (m *ListenerFilter) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -1156,7 +1156,7 @@ func (m *Filter) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1379,7 +1379,7 @@ func (m *FilterChainMatch) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.PrefixRanges = append(m.PrefixRanges, &envoy_api_v2_core.CidrRange{})
+			m.PrefixRanges = append(m.PrefixRanges, &envoy_api_v2_core1.CidrRange{})
 			if err := m.PrefixRanges[len(m.PrefixRanges)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1440,7 +1440,7 @@ func (m *FilterChainMatch) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SuffixLen == nil {
-				m.SuffixLen = &google_protobuf.UInt32Value{}
+				m.SuffixLen = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.SuffixLen.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1472,7 +1472,7 @@ func (m *FilterChainMatch) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SourcePrefixRanges = append(m.SourcePrefixRanges, &envoy_api_v2_core.CidrRange{})
+			m.SourcePrefixRanges = append(m.SourcePrefixRanges, &envoy_api_v2_core1.CidrRange{})
 			if err := m.SourcePrefixRanges[len(m.SourcePrefixRanges)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1503,7 +1503,7 @@ func (m *FilterChainMatch) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SourcePorts = append(m.SourcePorts, &google_protobuf.UInt32Value{})
+			m.SourcePorts = append(m.SourcePorts, &google_protobuf1.UInt32Value{})
 			if err := m.SourcePorts[len(m.SourcePorts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1535,7 +1535,7 @@ func (m *FilterChainMatch) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DestinationPort == nil {
-				m.DestinationPort = &google_protobuf.UInt32Value{}
+				m.DestinationPort = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.DestinationPort.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1802,7 +1802,7 @@ func (m *FilterChain) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UseProxyProto == nil {
-				m.UseProxyProto = &google_protobuf.BoolValue{}
+				m.UseProxyProto = &google_protobuf1.BoolValue{}
 			}
 			if err := m.UseProxyProto.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1835,7 +1835,7 @@ func (m *FilterChain) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
+				m.Metadata = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1868,7 +1868,7 @@ func (m *FilterChain) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransportSocket == nil {
-				m.TransportSocket = &envoy_api_v2_core1.TransportSocket{}
+				m.TransportSocket = &envoy_api_v2_core.TransportSocket{}
 			}
 			if err := m.TransportSocket.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1980,7 +1980,7 @@ func (m *ListenerFilter) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
