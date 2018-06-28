@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioAuthnPeerRejectNoJwt
+package client_test
 
 import (
 	"fmt"
@@ -23,10 +23,8 @@ import (
 
 // The Istio authn envoy config
 const authnConfig = `
-{
-  "type": "decoder",
-  "name": "istio_authn",
-  "config": {
+- name: istio_authn
+  config: {
     "policy": {
       "peers": [
         {
@@ -42,7 +40,6 @@ const authnConfig = `
       "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
-},
 `
 
 const respExpected = "Peer authentication failed."
