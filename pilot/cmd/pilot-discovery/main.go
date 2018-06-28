@@ -142,6 +142,9 @@ func init() {
 		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	// Deprecated flags.
+	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080,
+		"Discovery service port")
+	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
 		"Discovery service HTTP address")
 	discoveryCmd.PersistentFlags().MarkDeprecated("httpAddr", "Use --grpcAddr or -- secureGrpcAddr instead")
