@@ -27,7 +27,7 @@
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: uds-socket
@@ -71,7 +71,7 @@
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs
@@ -112,7 +112,7 @@
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: uds-socket
@@ -156,7 +156,7 @@
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs

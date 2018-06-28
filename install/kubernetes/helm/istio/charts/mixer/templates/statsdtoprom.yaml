@@ -62,7 +62,7 @@ spec:
 {{- if .Values.prometheusStatsdExporter.resources }}
 {{ toYaml .Values.prometheusStatsdExporter.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 10 }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: config-volume

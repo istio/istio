@@ -61,7 +61,7 @@ spec:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 12 }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
           - name: config-volume
@@ -110,7 +110,7 @@ spec:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultControlPlaneResources | indent 12 }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
           - name: istio-certs

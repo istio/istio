@@ -72,7 +72,7 @@ spec:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}
 {{- else }}
-{{ toYaml $.Values.global.defaultControlPlaneResources | indent 12 }}
+{{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
           - name: POD_NAME
