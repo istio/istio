@@ -68,7 +68,7 @@ const reportAttributesFailPost = `
   "context.protocol": "tcp",
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
-	"source.ip": "*",
+  "source.ip": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
