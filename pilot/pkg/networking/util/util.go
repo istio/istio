@@ -38,19 +38,6 @@ const (
 	BlackHoleCluster = "BlackHoleCluster"
 )
 
-//// convertAddressListToCidrList converts a list of IP addresses with cidr prefixes into envoy CIDR proto
-//func convertAddressListToCidrList(addresses []string) []*core.CidrRange {
-//	if addresses == nil {
-//		return nil
-//	}
-//
-//	cidrList := make([]*core.CidrRange, 0)
-//	for _, addr := range addresses {
-//		cidrList = append(cidrList, ConvertAddressToCidr(addr))
-//	}
-//	return cidrList
-//}
-
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
 	cidr := &core.CidrRange{
@@ -68,27 +55,6 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	}
 	return cidr
 }
-
-// NormalizeListeners sorts and de-duplicates listeners by address
-//func NormalizeListeners(listeners []*xdsapi.Listener) []*xdsapi.Listener {
-//	out := make([]*xdsapi.Listener, 0, len(listeners))
-//	set := make(map[string]bool)
-//	for _, listener := range listeners {
-//		if !set[listener.Address.String()] {
-//			set[listener.Address.String()] = true
-//			out = append(out, listener)
-//		} else {
-//			// we already have a listener on this address.
-//			// WE can merge the two listeners if and only if they are of the same type
-//			// i.e. both HTTP or both TCP.
-//			// for the moment, we handle HTTP only. Need to do TCP. or use filter chain match
-//			//existingListener := set[listener.Address.String()]
-//			//if listener.ListenerFilters[0].
-//		}
-//	}
-//	sort.Slice(out, func(i, j int) bool { return out[i].Address.String() < out[j].Address.String() })
-//	return out
-//}
 
 // BuildAddress returns a SocketAddress with the given ip and port.
 func BuildAddress(ip string, port uint32) core.Address {
@@ -131,34 +97,6 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	}
 	return nil
 }
-
-//// protoDurationToTimeDuration converts d to time.Duration format.
-//func protoDurationToTimeDuration(d *types.Duration) time.Duration { //nolint
-//	return time.Duration(d.Nanos) + time.Second*time.Duration(d.Seconds)
-//}
-//
-//// google_protobufToProto converts d to google protobuf Duration format.
-//func durationToProto(d time.Duration) *types.Duration { // nolint
-//	nanos := d.Nanoseconds()
-//	secs := nanos / 1e9
-//	nanos -= secs * 1e9
-//	return &types.Duration{
-//		Seconds: secs,
-//		Nanos:   int32(nanos),
-//	}
-//}
-
-//func buildProtoStruct(name, value string) *types.Struct {
-//	return &types.Struct{
-//		Fields: map[string]*types.Value{
-//			name: {
-//				Kind: &types.Value_StringValue{
-//					StringValue: value,
-//				},
-//			},
-//		},
-//	}
-//}
 
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *types.Struct {
