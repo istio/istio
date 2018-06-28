@@ -30,17 +30,33 @@ import (
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, _ := adsReceive(edsstr, 5*time.Second)
 
 	// closes old process
 	_ = edsstr.CloseSend()
 
-	edsstr = connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err = connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr.CloseSend()
-	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+
+	err = sendEDSReqReconnect([]string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, _ = adsReceive(edsstr, 5*time.Second)
 	_ = edsstr.CloseSend()
 
@@ -50,14 +66,27 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	_, _ = adsReceive(edsstr, 5*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2 := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr2, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr2.CloseSend()
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr2)
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _ = adsReceive(edsstr2, 5*time.Second)
 
 	// closes old process
@@ -78,10 +107,16 @@ func TestAdsReconnect(t *testing.T) {
 
 func TestTLS(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr := connectADSS(t, util.MockPilotSecureAddr)
+	edsstr, err := connectADSS(util.MockPilotSecureAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr.CloseSend()
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
-	_, err := adsReceive(edsstr, 3*time.Second)
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = adsReceive(edsstr, 3*time.Second)
 	if err != nil {
 		t.Error("Failed to receive with TLS connection ", err)
 	}
@@ -97,10 +132,16 @@ func TestTLS(t *testing.T) {
 
 func TestAdsClusterUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		sendEDSReq(t, []string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		res, err := adsReceive(edsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
@@ -138,7 +179,11 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 func TestAdsUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Old style cluster.
 	// TODO: convert tests (except eds) to new style.
 	server.EnvoyXdsServer.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
@@ -149,8 +194,10 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|http-main"},
-		sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"adsupdate.default.svc.cluster.local|http-main"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	res1, err := adsReceive(edsstr, 5*time.Second)
 	if err != nil {
@@ -214,8 +261,15 @@ func TestAdsMultiple(t *testing.T) {
 	for i := 0; i < n; i++ {
 		i := i
 		go func() {
-			edsstr := connectADS(t, util.MockPilotGrpcAddr)
-			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			edsstr, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				panic(err)
+			}
+
+			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			if err != nil {
+				panic(err)
+			}
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
