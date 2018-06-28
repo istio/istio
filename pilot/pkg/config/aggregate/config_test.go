@@ -14,54 +14,106 @@
 
 package aggregate_test
 
-//import (
-//	"testing"
-//
-//	"istio.io/istio/pilot/pkg/config/aggregate"
-//	"istio.io/istio/pilot/pkg/config/memory"
-//	"istio.io/istio/pilot/pkg/model"
-//	"istio.io/istio/pilot/test/mock"
-//)
+import (
+	"testing"
 
-const (
-	// TestNamespace for testing
-	TestNamespace = "test"
+	"github.com/onsi/gomega"
+	"istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
+	"istio.io/istio/pilot/pkg/model"
 )
 
-// FIXME: these tests do not work on a read-only store
-//func TestStoreInvariant(t *testing.T) {
-//	store, _ := makeCache(t)
-//	mock.CheckMapInvariant(store, t, "", 10)
-//}
-//
-//func makeCache(t *testing.T) (model.ConfigStore, model.ConfigStoreCache) {
-//	mockStore := memory.Make(mock.Types)
-//	mockStoreCache := memory.NewController(mockStore)
-//	istioStore := memory.Make(model.IstioConfigTypes)
-//	istioStoreCache := memory.NewController(istioStore)
-//
-//	store, err := aggregate.Make([]model.ConfigStore{mockStore, istioStore})
-//	if err != nil {
-//		t.Fatalf("unexpected error %v", err)
-//	}
-//	ctl, err := aggregate.MakeCache([]model.ConfigStoreCache{mockStoreCache, istioStoreCache})
-//	if err != nil {
-//		t.Fatalf("unexpected error %v", err)
-//	}
-//	return store, ctl
-//}
-//
-//func TestControllerCacheFreshness(t *testing.T) {
-//	_, ctl := makeCache(t)
-//	mock.CheckCacheFreshness(ctl, TestNamespace, t)
-//}
-//
-//func TestControllerEvents(t *testing.T) {
-//	_, ctl := makeCache(t)
-//	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
-//}
-//
-//func TestControllerClientSync(t *testing.T) {
-//	store, ctl := makeCache(t)
-//	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
-//}
+func TestAggregateStoreBasicMake(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeTwo := &fakes.ConfigStoreCache{}
+
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "istio.routing.v1alpha1.IngressRule",
+	}})
+
+	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "other-config",
+		Plural:      "other-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	stores := []model.ConfigStore{storeOne, storeTwo}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	descriptors := store.ConfigDescriptor()
+	g.Expect(descriptors).To(gomega.HaveLen(2))
+	g.Expect(descriptors).To(gomega.ConsistOf([]model.ProtoSchema{
+		{
+			Type:        "some-config",
+			Plural:      "some-configs",
+			MessageName: "istio.routing.v1alpha1.IngressRule",
+		},
+		{
+			Type:        "other-config",
+			Plural:      "other-configs",
+			MessageName: "istio.networking.v1alpha3.Gateway",
+		},
+	}))
+}
+
+func TestAggregateStoreMakeValidationFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "some-config",
+		Plural:      "some-configs",
+		MessageName: "broken message name",
+	}})
+
+	stores := []model.ConfigStore{storeOne}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("cannot discover proto message type")))
+	g.Expect(store).To(gomega.BeNil())
+}
+
+func TestAggregateStoreFails(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	storeOne := &fakes.ConfigStoreCache{}
+	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
+		Type:        "other-config",
+		Plural:      "other-configs",
+		MessageName: "istio.networking.v1alpha3.Gateway",
+	}})
+
+	stores := []model.ConfigStore{storeOne}
+
+	store, err := aggregate.Make(stores)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	t.Run("Fails to Delete", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		err = store.Delete("not", "gonna", "work")
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+	})
+
+	t.Run("Fails to Create", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		c, err := store.Create(model.Config{})
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+		g.Expect(c).To(gomega.BeEmpty())
+	})
+
+	t.Run("Fails to Update", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		c, err := store.Update(model.Config{})
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
+		g.Expect(c).To(gomega.BeEmpty())
+	})
+}
