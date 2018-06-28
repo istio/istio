@@ -12,32 +12,28 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package resource
 
 import (
-	"fmt"
+	"reflect"
 
-	"istio.io/istio/galley/pkg/runtime/resource"
+	prgogo "github.com/gogo/protobuf/proto"
+	prlang "github.com/golang/protobuf/proto"
 )
 
-// Schema represents a set of known Kubernetes resource types.
-type Schema struct {
-	entries []ResourceSpec
-}
+// getProtoMessageType returns the Go lang type of the proto with the specified name.
+func getProtoMessageType(protoMessageName string, isGogo bool) reflect.Type {
+	var t reflect.Type
 
-func (e *Schema) add(entry ResourceSpec) {
-	e.entries = append(e.entries, entry)
-}
-
-// All returns information about all known types.
-func (e *Schema) All() []ResourceSpec {
-	return e.entries
-}
-
-func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByMessageName(name)
-	if !ok {
-		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
+	if isGogo {
+		t = prgogo.MessageType(protoMessageName)
+	} else {
+		t = prlang.MessageType(protoMessageName)
 	}
-	return rInfo
+
+	if t == nil {
+		return nil
+	}
+
+	return t.Elem()
 }

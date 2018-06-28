@@ -65,6 +65,35 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 				},
 			},
 		},
+		// No probe port, so filter should be created
+		{
+			probes: model.ProbeList{
+				&model.Probe{
+					Path: "/health",
+				},
+			},
+			endpoint: &model.NetworkEndpoint{
+				Port: 8080,
+			},
+			expected: plugin.FilterChain{
+				HTTP: []*http_conn.HttpFilter{
+					{
+						Name: "envoy.health_check",
+						Config: util.MessageToStruct(&hcfilter.HealthCheck{
+							PassThroughMode: &types.BoolValue{
+								Value: true,
+							},
+							Headers: []*envoy_api_v2_route.HeaderMatcher{
+								{
+									Name:  ":path",
+									Value: "/health",
+								},
+							},
+						}),
+					},
+				},
+			},
+		},
 		{
 			probes: model.ProbeList{
 				&model.Probe{
