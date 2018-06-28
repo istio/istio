@@ -25,7 +25,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 
 	"github.com/gogo/googleapis/google/rpc"
@@ -135,7 +135,7 @@ func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClie
 func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl:       v2.EndpointType,
@@ -151,7 +151,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl:     v2.EndpointType,
@@ -169,7 +169,7 @@ func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryS
 // reconnect problems.
 func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
 		TypeUrl:       v2.EndpointType,
@@ -186,7 +186,7 @@ func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryServic
 func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl: v2.ListenerType})
@@ -200,7 +200,7 @@ func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggrega
 func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl:     v2.ListenerType,
@@ -215,7 +215,7 @@ func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggreg
 func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl:       v2.RouteType,
@@ -230,7 +230,7 @@ func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryServ
 func sendRDSNack(node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl:     v2.RouteType,
@@ -245,7 +245,7 @@ func sendRDSNack(node string, routes []string, rdsstr ads.AggregatedDiscoverySer
 func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		TypeUrl: v2.ClusterType})
@@ -259,7 +259,7 @@ func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggrega
 func sendCDSNack(node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
+		Node: &core.Node{
 			Id: node,
 		},
 		ErrorDetail: &rpc.Status{Message: "NOPE!"},
