@@ -17,6 +17,7 @@ package kube
 import (
 	"os"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -26,7 +27,7 @@ import (
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func BuildClientConfig(kubeconfig string, context string) (*rest.Config, error) {
+func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -46,4 +47,14 @@ func BuildClientConfig(kubeconfig string, context string) (*rest.Config, error) 
 	loadingRules.ExplicitPath = kubeconfig
 	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+}
+
+// CreateClientset is a helper function that builds a kubernetes Clienset from a kubeconfig
+// filepath. See `BuildClientConfig` for kubeconfig loading rules.
+func CreateClientset(kubeconfig, context string) (*kubernetes.Clientset, error) {
+	c, err := BuildClientConfig(kubeconfig, context)
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(c)
 }

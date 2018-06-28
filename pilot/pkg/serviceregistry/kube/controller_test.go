@@ -74,9 +74,8 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
 
-	test.Eventually(t, "successfully list services", func() bool {
+	test.Eventually(t, "successfully added a service", func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
@@ -90,8 +89,18 @@ func TestServices(t *testing.T) {
 				return true
 			}
 		}
+		return false
+	})
+
+	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.1.1.1", "10.1.1.2"}, t)
+
+	test.Eventually(t, "successfully created endpoints", func() bool {
 		ep, anotherErr := sds.InstancesByPort(hostname, 80, nil)
-		if anotherErr != nil || len(ep) > 0 {
+		if anotherErr != nil {
+			t.Errorf("error gettings instance by port: %v", anotherErr)
+			return false
+		}
+		if len(ep) == 2 {
 			return true
 		}
 		return false
