@@ -207,7 +207,7 @@ func buildClusters(env model.Environment, node model.Proxy) (Clusters, error) {
 
 	// apply custom policies for outbound clusters
 	for _, cluster := range clusters {
-		ApplyClusterPolicy(cluster, proxyInstances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts)
+		ApplyClusterPolicy(cluster, proxyInstances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts, node.Type)
 	}
 
 	// append Mixer service definition if necessary
@@ -407,7 +407,7 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 		filters = append([]HTTPFilter{filter}, filters...)
 	}
 
-	if filter := buildAuthnFilter(opts.authnPolicy); filter != nil {
+	if filter := buildAuthnFilter(opts.authnPolicy, opts.proxy.Type); filter != nil {
 		filters = append([]HTTPFilter{*filter}, filters...)
 	}
 
@@ -458,8 +458,8 @@ func buildHTTPListener(opts buildHTTPListenerOpts) *Listener {
 }
 
 // mayApplyInboundAuth adds ssl_context to the listener if the given authN policy require TLS.
-func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy) {
-	if ok, mltsParams := authn_plugin.RequireTLS(authenticationPolicy); ok {
+func mayApplyInboundAuth(listener *Listener, authenticationPolicy *authn.Policy, proxyType model.NodeType) {
+	if ok, mltsParams := authn_plugin.RequireTLS(authenticationPolicy, proxyType); ok {
 		listener.SSLContext = buildListenerSSLContext(model.AuthCertsPath, mltsParams)
 	}
 }
@@ -869,7 +869,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		}
 
 		if listener != nil {
-			mayApplyInboundAuth(listener, authenticationPolicy)
+			mayApplyInboundAuth(listener, authenticationPolicy, node.Type)
 			listeners = append(listeners, listener)
 		}
 	}

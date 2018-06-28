@@ -224,7 +224,7 @@ sidecarInjectorWebhook:
 # galley configuration
 #
 galley:
-  enabled: false
+  enabled: true
   replicaCount: 1
   image: galley
   # resources:
