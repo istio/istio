@@ -126,8 +126,6 @@ func init() {
 		"Interval (in seconds) for polling the Eureka service registry")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
-		"Discovery service HTTP address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",
 		"Discovery service grpc address")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.SecureGrpcAddr, "secureGrpcAddr", ":15011",
@@ -144,9 +142,9 @@ func init() {
 		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	// Deprecated flags.
-	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080,
-		"Discovery service port")
-	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
+		"Discovery service HTTP address")
+	discoveryCmd.PersistentFlags().MarkDeprecated("httpAddr", "Use --grpcAddr or -- secureGrpcAddr instead")
 	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
 		"HTTP port to use for the exposing pilot self-monitoring information")
 	discoveryCmd.PersistentFlags().MarkDeprecated("monitoringPort", "Use --monitoringAddr instead")
