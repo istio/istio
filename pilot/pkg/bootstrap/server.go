@@ -830,7 +830,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
 	s.addStartFunc(func(stop chan struct{}) error {
-		log.Infof("Discovery service started at http=%s grpc=%s secured_grpc=%s", listener.Addr().String(), grpcListener.Addr().String(), secureGrpcListener.Addr().String())
+		log.Infof("Discovery service started at http=%s grpc=%s secured_grpc=%s",
+			listener.Addr().String(), grpcListener.Addr().String(), secureGrpcListener.Addr().String())
 
 		go func() {
 			if err = s.httpServer.Serve(listener); err != nil {
