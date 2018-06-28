@@ -938,6 +938,17 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														TargetUri: "/tmp/sdsuds.sock",
+														ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+															CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+																SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
+																	CertChain: &core.DataSource{
+																		Specifier: &core.DataSource_Filename{
+																			Filename: model.SDSDummyCertPath,
+																		},
+																	},
+																},
+															},
+														},
 													},
 												},
 											},

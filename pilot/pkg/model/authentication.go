@@ -28,6 +28,9 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// SDSDummyCertPath is the path of dummy cert that envoy uses to communicate with SDS service through secure gPRC.
+const SDSDummyCertPath = "/etc/istio/nodeagent-sds-cert.pem"
+
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
@@ -68,6 +71,17 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
 									TargetUri: sdsUdsPath,
+									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+											SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
+												CertChain: &core.DataSource{
+													Specifier: &core.DataSource_Filename{
+														Filename: SDSDummyCertPath,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
