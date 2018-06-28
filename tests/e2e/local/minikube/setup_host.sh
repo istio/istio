@@ -44,8 +44,12 @@ done
 
 # Set up env ISTIO if not done yet
 if [[ -z "${ISTIO// }" ]]; then
-    export ISTIO=$GOPATH/src/istio.io
-    echo 'Set ISTIO to' $ISTIO
+  if [[ -z "${GOPATH// }" ]]; then 
+    echo GOPATH is not set. Please set and run script again.
+    exit
+  fi 
+  export ISTIO=$GOPATH/src/istio.io
+  echo 'Set ISTIO to' $ISTIO
 fi
 
 #Setup LocalRegistry
