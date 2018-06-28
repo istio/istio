@@ -36,9 +36,10 @@ func NewSchema() *Schema {
 }
 
 // Register a proto into the schema.
-func (s *Schema) Register(protoMessageName string) {
+func (s *Schema) Register(protoMessageName string, isGogo bool) {
 	info := Info{
 		MessageName: MessageName(protoMessageName),
+		IsGogo:      isGogo,
 		TypeURL:     fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
 	}
 

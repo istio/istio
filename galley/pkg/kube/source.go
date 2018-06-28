@@ -97,7 +97,7 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 		Kind: kind,
 	}
 	if u != nil {
-		item, err := toProto(l.spec, u)
+		item, err := l.spec.Converter(l.spec.Target, u)
 		if err != nil {
 			log.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
 			return

@@ -12,36 +12,26 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package converter
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 func TestToProto(t *testing.T) {
-	cr := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"name":            "foo",
-				"resourceVersion": "rv",
-			},
-			"spec": map[string]interface{}{},
-		},
+	spec := map[string]interface{}{}
+
+	i := resource.Info{
+		MessageName: "google.protobuf.Empty",
+		IsGogo:      true,
 	}
 
-	s := ResourceSpec{
-		Target: resource.Info{
-			MessageName: "google.protobuf.Empty",
-		},
-	}
-
-	p, err := toProto(s, cr)
+	p, err := toProto(i, spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
