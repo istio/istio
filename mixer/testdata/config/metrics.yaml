@@ -6,14 +6,12 @@ metadata:
 spec:
   value: "1"
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -36,14 +34,12 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -66,14 +62,12 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -96,14 +90,12 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"

@@ -190,6 +190,7 @@ spec:
     sourceIp: source.ip | ip("0.0.0.0")
     sourceApp: source.labels["app"] | ""
     sourcePrincipal: source.principal | ""
+    sourceName: source.name | ""
     sourceWorkload: source.workload.name | ""
     sourceNamespace: source.namespace | ""
     sourceOwner: source.owner | ""
@@ -197,6 +198,7 @@ spec:
     destinationIp: destination.ip | ip("0.0.0.0")
     destinationServiceHost: destination.service.host | ""
     destinationWorkload: destination.workload.name | ""
+    destinationName: destination.name | ""
     destinationNamespace: destination.namespace | ""
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
@@ -240,14 +242,12 @@ metadata:
 spec:
   value: "1"
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -270,14 +270,12 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -300,14 +298,12 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -330,14 +326,12 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -362,14 +356,12 @@ metadata:
 spec:
   value: connection.sent.bytes | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -392,14 +384,12 @@ metadata:
 spec:
   value: connection.received.bytes | 0
   dimensions:
-    source_name: source.name | "unknown"
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
     source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_name: destination.name | "unknown"
     destination_namespace: destination.namespace | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
@@ -424,14 +414,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -448,14 +436,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -475,14 +461,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -504,14 +488,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -533,14 +515,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -555,14 +535,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload

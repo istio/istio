@@ -10,14 +10,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -34,14 +32,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -61,14 +57,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -90,14 +84,12 @@ spec:
     kind: DISTRIBUTION
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -119,14 +111,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
@@ -141,14 +131,12 @@ spec:
     kind: COUNTER
     label_names:
     - source_app
-    - source_name
     - source_namespace
     - source_principal
     - source_workload
     - source_workload_namespace
     - source_version
     - destination_app
-    - destination_name
     - destination_namespace
     - destination_principal
     - destination_workload
