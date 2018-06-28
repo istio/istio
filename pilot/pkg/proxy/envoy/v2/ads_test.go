@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	pilotbootstrap "istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/bootstrap"
@@ -201,7 +200,7 @@ func TestAdsUpdate(t *testing.T) {
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func TestAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
+func TestAdsMultiple(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
 
 	wg := &sync.WaitGroup{}
