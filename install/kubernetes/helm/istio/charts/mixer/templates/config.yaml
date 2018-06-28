@@ -80,8 +80,11 @@ spec:
       valueType: TIMESTAMP
     context.time:
       valueType: TIMESTAMP
+    # Deprecated, kept for compatibility
     context.reporter.local:
       valueType: BOOL
+    context.reporter.type:
+      valueType: STRING
     context.reporter.uid:
       valueType: STRING
     api.service:
