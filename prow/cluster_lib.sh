@@ -66,7 +66,7 @@ function setup_clusterreg () {
     # setup cluster-registries dir setup by mason
     CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
 
-    SERVICE_ACCOUNT=istio-multi
+    SERVICE_ACCOUNT=istio-multi-test
 
     # mason dumps all the kubeconfigs into the same file but we need to use per cluster
     # files for the clusterregsitry config.  Create the separate files.
@@ -80,7 +80,7 @@ function setup_clusterreg () {
              
             kubectl create ns ${SA_NAMESPACE}
             kubectl create sa ${SERVICE_ACCOUNT} -n ${SA_NAMESPACE}
-            kubectl create clusterrolebinding istio-multi --clusterrole=cluster-admin --serviceaccount=${SA_NAMESPACE}:${SERVICE_ACCOUNT}
+            kubectl create clusterrolebinding istio-multi-test --clusterrole=cluster-admin --serviceaccount=${SA_NAMESPACE}:${SERVICE_ACCOUNT}
             CLUSTER_NAME=$(kubectl config view --minify=true -o "jsonpath={.clusters[].name}")
             if [[ "${CLUSTER_NAME}" =~ .*"_".* ]]; then
                 # if clustername has '_' set value to stuff after the last '_' due to k8s secret data name limitation
@@ -152,7 +152,7 @@ function unsetup_clusters() {
 
      kubectl delete clusterrolebinding prow-cluster-admin-binding 2>/dev/null
      if [[ "${SETUP_CLUSTERREG}" == "True" && "${PILOT_CLUSTER}" != "$context" ]]; then
-        kubectl delete clusterrolebinding istio-multi 2>/dev/null
+        kubectl delete clusterrolebinding istio-multi-test 2>/dev/null
         kubectl delete ns ${SA_NAMESPACE} 2>/dev/null
      fi
   done
