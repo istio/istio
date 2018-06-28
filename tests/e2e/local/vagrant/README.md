@@ -106,3 +106,6 @@ sh cleanup_host.sh
 
 # Troubleshooting
 Please refer [Troubleshooting](Troubleshooting.md) doc for information on this.
+
+# Tips
+Please refer [Tips](../Tips.md) doc for some suggestions that we have found useful for debugging with e2e tests.
