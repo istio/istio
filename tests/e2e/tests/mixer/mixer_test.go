@@ -537,7 +537,7 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_service=\"%s\"}", fqdn("mongodb"))
+	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -557,7 +557,7 @@ func TestTcpMetrics(t *testing.T) {
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_service=\"%s\"}", fqdn("mongodb"))
+	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
