@@ -20,7 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	pgogo "github.com/gogo/protobuf/proto"
+	plang "github.com/golang/protobuf/proto"
 )
 
 func TestSchema_All(t *testing.T) {
@@ -30,8 +31,8 @@ func TestSchema_All(t *testing.T) {
 		byURL:  make(map[string]Info),
 	}
 
-	s.Register("bar")
-	s.Register("foo")
+	s.Register("bar", false)
+	s.Register("foo", false)
 
 	infos := s.All()
 	sort.Slice(infos, func(i, j int) bool {
@@ -57,7 +58,12 @@ func TestSchema_All(t *testing.T) {
 func TestSchema_NewProtoInstance(t *testing.T) {
 	for _, info := range Types.All() {
 		p := info.NewProtoInstance()
-		name := proto.MessageName(p)
+		var name string
+		if info.IsGogo {
+			name = pgogo.MessageName(p)
+		} else {
+			name = plang.MessageName(p)
+		}
 		if name != string(info.MessageName) {
 			t.Fatalf("Name/MessageName mismatch: MessageName:%v, Name:%v", info.MessageName, name)
 		}
