@@ -37,9 +37,9 @@ func TestPodCache(t *testing.T) {
 		{
 			name: "Should find all addresses in the map",
 			pods: []*v1.Pod{
-				generatePod("pod1", "nsA", "", "", map[string]string{"app": "test-app"}),
-				generatePod("pod2", "nsA", "", "", map[string]string{"app": "prod-app-1"}),
-				generatePod("pod3", "nsB", "", "", map[string]string{"app": "prod-app-2"}),
+				generatePod("pod1", "nsA", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
+				generatePod("pod2", "nsA", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
+				generatePod("pod3", "nsB", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
 			},
 			keys: map[string]string{
 				"128.0.0.1": "nsA/pod1",
