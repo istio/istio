@@ -32,6 +32,14 @@ import (
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
+var emptyInfo resource.Info
+
+func init() {
+	schema := resource.NewSchema()
+	schema.Register("google.protobuf.Empty", true)
+	emptyInfo, _ = schema.LookupByMessageName("google.protobuf.Empty")
+}
+
 func TestNewSource(t *testing.T) {
 	k := &mock.Kube{}
 	for i := 0; i < 100; i++ {
@@ -89,13 +97,10 @@ func TestSource_BasicEvents(t *testing.T) {
 
 	entries := []ResourceSpec{
 		{
-			Kind:     "foo",
-			Singular: "foo",
-			Plural:   "foos",
-			Target: resource.Info{
-				MessageName: "google.protobuf.Empty",
-				IsGogo:      true,
-			},
+			Kind:      "foo",
+			Singular:  "foo",
+			Plural:    "foos",
+			Target:    emptyInfo,
 			Converter: converter.Get("identity"),
 		},
 	}
@@ -159,10 +164,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Kind:     "foo",
 			Singular: "foo",
 			Plural:   "foos",
-			Target: resource.Info{
-				MessageName: "google.protobuf.Empty",
-				IsGogo:      true,
-			},
+			Target:   emptyInfo,
 			Converter: func(info resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
 				return nil, fmt.Errorf("cant convert")
 			},
