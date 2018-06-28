@@ -17,7 +17,6 @@ package runtime
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -158,12 +157,6 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 // String implements fmt.Stringer
 func (s *State) String() string {
 	var b bytes.Buffer
-
-	var messages []string
-	for k := range s.entries {
-		messages = append(messages, k.String())
-	}
-	sort.Strings(messages)
 
 	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
 
