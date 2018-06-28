@@ -31,7 +31,7 @@ import (
 )
 
 const reqsFmt = "sum(rate(istio_requests_total[%s])) by (source_workload, destination_workload, source_app, destination_app)"
-const tcpFmt = "sum(rate(istio_tcp_received_bytes[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const tcpFmt = "sum(rate(istio_tcp_received_bytes_total[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 
 type genOpts struct {
