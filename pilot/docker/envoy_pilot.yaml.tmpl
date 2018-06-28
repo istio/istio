@@ -86,12 +86,14 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15003
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
@@ -164,12 +166,14 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15011
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
@@ -237,12 +241,14 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15005
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
@@ -310,12 +316,14 @@ static_resources:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
+                      destination.namespace:
+                        string_value: {{.PodNamespace }}
                       destination.ip:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15007
-                      context.reporter.local:
-                        bool_value: true
+                      context.reporter.type:
+                        string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
               transport:
