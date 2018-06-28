@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,6 +94,8 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -581,30 +582,33 @@ func ConfigDump(w http.ResponseWriter, req *http.Request) {
 		connections, ok := adsSidecarIDConnectionsMap[proxyID]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Proxy not connected to this Pilot instance"))
 			return
 		}
 
 		jsonm := &jsonpb.Marshaler{Indent: "    "}
-		buffer := &bytes.Buffer{}
-		// TODO: dump a map[connID]ConfigDump instead
-		for _, conn := range connections {
-			dump, err := conn.configDump()
-			handleIfError(w, http.StatusInternalServerError, err)
-			handleIfError(w, http.StatusInternalServerError, jsonm.Marshal(buffer, dump))
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		dump, err := connections[mostRecent].configDump()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		if err := jsonm.Marshal(w, dump); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(buffer.Bytes())
 		return
 	}
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("You must provide a proxyID in the query string"))
-}
-
-func handleIfError(w http.ResponseWriter, statusCode int, err error) {
-	if err != nil {
-		w.WriteHeader(statusCode)
-		w.Write([]byte(err.Error()))
-	}
 }
 
 func writeAllADS(w io.Writer) {
