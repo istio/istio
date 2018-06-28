@@ -16,7 +16,6 @@ package client
 
 import (
 	"context"
-	"io"
 	"strings"
 	"sync"
 	"time"
@@ -281,9 +280,6 @@ func (c *Client) Run(ctx context.Context) {
 		select {
 		case response, more := <-responseC:
 			if !more {
-				if responseError == io.EOF {
-					return
-				}
 				log.Errorf("Stream receive error: %v", responseError)
 
 				// re-establish the stream and start a new receive goroutine
