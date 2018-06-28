@@ -112,10 +112,21 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	lastClearCache     time.Time
+
+	// lastClearCache is the time we last pushed
+	lastClearCache time.Time
+
+	// lastClearCacheEvent is the time of the last config event
+	lastClearCacheEvent time.Time
+
+	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
-	clearCacheMutex    sync.Mutex
-	clearCacheTime     = 1
+
+	clearCacheMutex sync.Mutex
+
+	// clearCacheTime is the max time to squash a series of events.
+	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
+	clearCacheTime = 1
 
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
 	// avoid adding a circular dependency from v1 to v2.
@@ -359,7 +370,6 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 
 	if configCache != nil {
-		// FIXME: shouldn't listen to v1alpha3
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
@@ -432,23 +442,40 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	if time.Since(lastClearCache) < time.Duration(clearCacheTime)*time.Second {
-		if !clearCacheTimerSet {
-			clearCacheTimerSet = true
-			time.AfterFunc(time.Duration(clearCacheTime)*time.Second, func() {
-				clearCacheMutex.Lock()
-				clearCacheTimerSet = false
-				clearCacheMutex.Unlock()
-				ds.clearCache() // it's after time - so will clear the cache
-			})
-		}
+	// If last config change was > 1 second ago, push.
+	if time.Since(lastClearCacheEvent) > 1*time.Second {
+		lastClearCacheEvent = time.Now()
+		lastClearCache = time.Now()
+		log.Infof("Cleared discovery service cache after 1 sec of quiet")
+		V2ClearCache()
 		return
 	}
-	// TODO: clear the RDS few seconds after CDS !!
-	lastClearCache = time.Now()
-	log.Infof("Cleared discovery service cache")
-	ds.sdsCache.clear()
-	V2ClearCache()
+
+	lastClearCacheEvent = time.Now()
+
+	// If last config change was < 1 second ago, but last push is > clearCacheTime ago -
+	// also push
+
+	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
+		log.Infof("Cleared discovery service cache after %v", time.Since(lastClearCache))
+		lastClearCache = time.Now()
+		V2ClearCache()
+		return
+	}
+
+	// Last config change was < 1 second ago, and we're continuing to get changes.
+	// Set a timer 1 second in the future, to evaluate again.
+	// if a timer was already set, don't bother.
+	if !clearCacheTimerSet {
+		clearCacheTimerSet = true
+		time.AfterFunc(1*time.Second, func() {
+			clearCacheMutex.Lock()
+			clearCacheTimerSet = false
+			clearCacheMutex.Unlock()
+			ds.clearCache() // re-evaluate after 1 second. If no activity - push will happen
+		})
+	}
+
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key

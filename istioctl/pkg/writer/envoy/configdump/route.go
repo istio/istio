@@ -101,7 +101,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 		routes = append(routes, route.RouteConfig)
 	}
 	for _, route := range routeDump.StaticRouteConfigs {
-		routes = append(routes, &route)
+		routes = append(routes, route.RouteConfig)
 	}
 	if len(routes) == 0 {
 		return nil, fmt.Errorf("no routes found")

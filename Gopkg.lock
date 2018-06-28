@@ -276,9 +276,10 @@
     "pkg/cache",
     "pkg/log",
     "pkg/server",
+    "envoy/type/matcher",
     "pkg/util"
   ]
-  revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
+  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
