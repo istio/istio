@@ -24,6 +24,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -47,6 +48,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -73,6 +75,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -101,6 +104,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - request_protocol
     - response_code
@@ -129,6 +133,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - connection_mtls
   - name: tcp_received_bytes_total
@@ -150,35 +155,6 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
+    - destination_service_name
     - destination_service_namespace
     - connection_mtls
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promhttp
-  namespace: istio-system
-  labels:
-    istio-protocol: http
-spec:
-  actions:
-  - handler: handler.prometheus
-    instances:
-    - requestcount.metric.istio-system
-    - requestduration.metric.istio-system
-    - requestsize.metric.istio-system
-    - responsesize.metric.istio-system
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: promtcp
-  namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
-spec:
-  actions:
-  - handler: handler.prometheus
-    instances:
-    - tcpbytesent.metric.istio-system
-    - tcpbytereceived.metric.istio-system

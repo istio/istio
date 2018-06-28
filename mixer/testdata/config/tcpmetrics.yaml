@@ -23,6 +23,7 @@ spec:
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
@@ -52,7 +53,7 @@ spec:
     destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
----
