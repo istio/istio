@@ -167,7 +167,7 @@ func (s *State) String() string {
 
 	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
 
-	sn := s.buildSnapshot()
+	sn := s.buildSnapshot().(*snapshot.InMemory)
 	fmt.Fprintf(&b, "%v", sn)
 
 	return b.String()

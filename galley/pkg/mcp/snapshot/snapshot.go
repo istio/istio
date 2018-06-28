@@ -19,9 +19,11 @@ import (
 	"time"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
-	"istio.io/fortio/log"
 	"istio.io/istio/galley/pkg/mcp/server"
+	"istio.io/istio/pkg/log"
 )
+
+var scope = log.RegisterScope("snapshot", "mcp snapshot", 0)
 
 // Snapshot provides an immutable view of versioned envelopes.
 type Snapshot interface {
@@ -86,7 +88,10 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	// return an immediate response if a snapshot is available and the
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[nodeID]; ok {
-		if version := snapshot.Version(request.TypeUrl); version != request.VersionInfo {
+		version := snapshot.Version(request.TypeUrl)
+		scope.Debugf("Found snapshot for node: %q, with version: %q", nodeID, version)
+		if version != request.VersionInfo {
+			scope.Debugf("Responding to node %q with snapshot:\n%v\n", nodeID, snapshot)
 			response := &server.WatchResponse{
 				TypeURL:   request.TypeUrl,
 				Version:   version,
