@@ -14,8 +14,6 @@ spec:
     name: grpc-xds # direct
   - port: 15011
     name: secured-grpc-xds # mTLS
-  - port: 8080
-    name: http-legacy-discovery # direct
   - port: 9093
     name: http-monitoring
   selector:
