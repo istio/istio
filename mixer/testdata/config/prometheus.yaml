@@ -158,3 +158,33 @@ spec:
     - destination_service_name
     - destination_service_namespace
     - connection_mtls
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp
+  namespace: istio-system
+  labels:
+    istio-protocol: http
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.prometheus
+    instances:    
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
+---
