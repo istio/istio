@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: {{ template "certmanager.name" . }}
+  name: certmanager
   labels:
     app: {{ template "certmanager.name" . }}
     chart: {{ template "certmanager.chart" . }}
@@ -27,7 +27,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "certmanager.name" . }}
+  name: certmanager
   labels:
     app: {{ template "certmanager.name" . }}
     chart: {{ template "certmanager.chart" . }}
@@ -36,7 +36,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "certmanager.name" . }}
+  name: certmanager
 subjects:
   - name: {{ template "certmanager.serviceAccountName" . }}
     namespace: {{ .Release.Namespace | quote }}
