@@ -522,6 +522,7 @@ func writeActions(actions []dtesting.Action) string {
 }
 
 func check(t *testing.T, actual string, expected string) {
+	t.Helper()
 	if strings.TrimSpace(actual) != strings.TrimSpace(expected) {
 		t.Fatalf("mismatch.\nGot:\n%s\nWanted:\n%s\n", actual, expected)
 	}
