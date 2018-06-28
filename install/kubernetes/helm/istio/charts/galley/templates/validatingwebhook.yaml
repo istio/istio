@@ -39,12 +39,25 @@ webhooks:
         - CREATE
         - UPDATE
         apiGroups:
-        - networking.istio.io
         - authentication.istio.io
         apiVersions:
         - "*"
         resources:
         - "*"
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - networking.istio.io
+        apiVersions:
+        - "*"
+        resources:
+        - destinationrules
+        - envoyfilters
+        - gateways
+        # disabled per @costinm's request
+        # - serviceentries
+        - virtualservices
     failurePolicy: Fail
   - name: mixer.validation.istio.io
     clientConfig:
