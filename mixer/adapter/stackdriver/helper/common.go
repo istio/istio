@@ -31,12 +31,12 @@ type Metadata struct {
 	ClusterName string
 }
 
+// MetadataGenerator creates metadata based on the given metadata functions.
 type MetadataGenerator interface {
 	GenerateMetadata() Metadata
 }
 
-// MetadataGenerator creates metadata based on the given metadata functions.
-type MetadataGeneratorImpl struct {
+type metadataGeneratorImpl struct {
 	shouldFill    shouldFillFn
 	projectIDFn   metadataFn
 	locationFn    metadataFn
@@ -45,7 +45,7 @@ type MetadataGeneratorImpl struct {
 
 // NewMetadataGenerator creates a MetadataGenerator with the given functions.
 func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clusterNameFn metadataFn) MetadataGenerator {
-	return &MetadataGeneratorImpl{
+	return &metadataGeneratorImpl{
 		shouldFill:    shouldFill,
 		projectIDFn:   projectIDFn,
 		locationFn:    locationFn,
@@ -54,7 +54,7 @@ func NewMetadataGenerator(shouldFill shouldFillFn, projectIDFn, locationFn, clus
 }
 
 // GenerateMetadata generates a Metadata struct if the condition is fulfilled.
-func (mg *MetadataGeneratorImpl) GenerateMetadata() Metadata {
+func (mg *metadataGeneratorImpl) GenerateMetadata() Metadata {
 	var md Metadata
 	if !mg.shouldFill() {
 		return md

@@ -46,7 +46,7 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	clusterLocation := url.QueryEscape(wi.clusterLocation)
 	clusterName := url.QueryEscape(wi.clusterName)
 	uid := url.QueryEscape(wi.uid)
-	ownerUid := url.QueryEscape(wi.owner)
+	ownerUID := url.QueryEscape(wi.owner)
 	workloadName := url.QueryEscape(wi.workloadName)
 	workloadNamespace := url.QueryEscape(wi.workloadNamespace)
 	wiFullName := fmt.Sprintf(
@@ -62,14 +62,14 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	}
 	ownerFullName := fmt.Sprintf(
 		"%s/meshes/%s/clusterProjects/%s/locations/%s/clusters/%s/owners/%s",
-		istioContainer, meshUID, clusterProject, clusterLocation, clusterName, ownerUid,
+		istioContainer, meshUID, clusterProject, clusterLocation, clusterName, ownerUID,
 	)
 	owner := entity{
 		gcpContainer,
 		"io.istio.Owner",
 		ownerFullName,
 		clusterLocation,
-		[4]string{meshUID, clusterProject, clusterName, ownerUid},
+		[4]string{meshUID, clusterProject, clusterName, ownerUID},
 	}
 	workloadFullName := fmt.Sprintf(
 		"%s/meshes/%s/workloads/%s/%s",
@@ -90,7 +90,7 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	t := strings.Split(wi.owner, "/")
 	if len(t) >= 3 && t[0] == "kubernetes:" {
 		var name, namespace, typeName string
-		t = t[2:len(t)]
+		t = t[2:]
 		switch {
 		case len(t) >= 6 && t[0] == "apis" && t[1] == "v1":
 			// pods, RC
@@ -120,9 +120,9 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	var wiK8sFullName string
 	t = strings.Split(wi.uid, "/")
 	if len(t) == 3 && t[0] == "kubernetes:" {
-		name_ns := strings.Split(t[2], ".")
-		if len(name_ns) == 2 {
-			namespace, name := name_ns[1], name_ns[0]
+		nameNs := strings.Split(t[2], ".")
+		if len(nameNs) == 2 {
+			namespace, name := nameNs[1], nameNs[0]
 			wiK8sFullName = fmt.Sprintf("%s/k8s/namespaces/%s/pods/%s", clusterContainer, namespace, name)
 		} else {
 			logger.Warningf("Unknown workload instance type: %s", wi.uid)

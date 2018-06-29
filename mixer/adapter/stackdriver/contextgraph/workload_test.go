@@ -34,16 +34,23 @@ func TestWorkloadInstanceReify(t *testing.T) {
 		{
 			"//cloudresourcemanager.googleapis.com/projects/org:project",
 			"io.istio.WorkloadInstance",
-			"//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq",
+			"//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/" +
+				"global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq",
 			"pangea",
 			[4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq"},
 		},
 		{
 			"//cloudresourcemanager.googleapis.com/projects/org:project",
 			"io.istio.Owner",
-			"//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+			"//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/" +
+				"global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
 			"pangea",
-			[4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy"},
+			[4]string{
+				"mesh%2F1",
+				"org2:project2",
+				"global-mesh",
+				"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+			},
 		},
 		{
 			"//cloudresourcemanager.googleapis.com/projects/org:project",
@@ -64,17 +71,22 @@ func TestWorkloadInstanceReify(t *testing.T) {
 	}
 	wantEdges := []edge{
 		{
-			sourceFullName:      "//istio.io/projects/org:project/meshes/mesh%2F1/workloads/istio-system/istio-policy",
-			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
-			typeName:            "google.cloud.contextgraph.Membership",
+			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/workloads/istio-system/istio-policy",
+			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+			typeName: "google.cloud.contextgraph.Membership",
 		}, {
-			sourceFullName:      "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
-			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq",
-			typeName:            "google.cloud.contextgraph.Membership",
+			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+			destinationFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
+				"locations/pangea/clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-system%2Fistio-telemetry-65db5b46fc-r7qhq",
+			typeName: "google.cloud.contextgraph.Membership",
 		}, {
-			sourceFullName:      "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
-			destinationFullName: "//container.googleapis.com/projects/org2:project2/zones/pangea/clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-policy",
-			typeName:            "google.cloud.contextgraph.Membership",
+			sourceFullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/" +
+				"locations/pangea/clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+			destinationFullName: "//container.googleapis.com/projects/org2:project2/zones/pangea/clusters/global-mesh/" +
+				"k8s/namespaces/istio-system/extensions/deployments/istio-policy",
+			typeName: "google.cloud.contextgraph.Membership",
 		},
 	}
 	if got, want := len(edges), len(wantEdges); got != want {

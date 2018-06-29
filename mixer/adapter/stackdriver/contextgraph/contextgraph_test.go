@@ -148,7 +148,7 @@ func TestHandleEdge(t *testing.T) {
 		cluster:   "clus",
 	}
 	i := []*edgepb.Instance{
-		&edgepb.Instance{
+		{
 			SourceUid:                    "foo/ns/podname",
 			SourceOwner:                  "foo/ns/deploy/name",
 			SourceWorkloadName:           "name",
@@ -176,7 +176,10 @@ type mockClient struct {
 	ABCalled bool
 }
 
-func (m *mockClient) fakeAssertBatch(ctx context.Context, req *contextgraphpb.AssertBatchRequest, opts ...gax.CallOption) (*contextgraphpb.AssertBatchResponse, error) {
+func (m *mockClient) fakeAssertBatch(
+	ctx context.Context,
+	req *contextgraphpb.AssertBatchRequest,
+	opts ...gax.CallOption) (*contextgraphpb.AssertBatchResponse, error) {
 	m.Request = req
 	m.ABCalled = true
 	return nil, nil
@@ -209,6 +212,7 @@ func TestSend(t *testing.T) {
 	}
 
 	if m.Request.EntityPresentAssertions[0].Entity.ContainerFullName != "//cloudresourcemanager.googleapis.com/projects/" {
-		t.Errorf("ContainerFullName incorrect, want: //cloudresourcemanager.googleapis.com/projects/ got: %v", m.Request.EntityPresentAssertions[0].Entity.ContainerFullName)
+		t.Errorf("ContainerFullName incorrect, want: //cloudresourcemanager.googleapis.com/projects/ got: %v",
+			m.Request.EntityPresentAssertions[0].Entity.ContainerFullName)
 	}
 }

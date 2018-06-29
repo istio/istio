@@ -181,6 +181,7 @@ func (h *handler) Close() error {
 
 ////////////////// Bootstrap //////////////////////////
 
+// NewBuilder returns a builder implementing the edge.HandlerBuilder interface.
 func NewBuilder(mg helper.MetadataGenerator) edgepb.HandlerBuilder {
 	return &builder{
 		mg:        mg,
