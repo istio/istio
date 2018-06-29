@@ -366,8 +366,6 @@
   revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
   version = "v1.0.0"
 
-# Needed for `any.Any` type conversion workaround
-# (see https://github.com/gogo/status/pull/5)
 [[projects]]
   name = "github.com/gogo/status"
   packages = ["."]
@@ -1596,6 +1594,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0e3e9fcc9d7504defd0d51f36b5b3b1a6c59964c20d00b2223238f9e0d91f92a"
+  inputs-digest = "0f15e57a2ea9b81b001e754a444e3591f777f3a90009d951f3715c0a78a73a31"
   solver-name = "gps-cdcl"
   solver-version = 1
