@@ -203,7 +203,7 @@ func (t *Table) String() string {
 
 	for i, name := range names {
 		e := t.entries[name]
-		fmt.Fprintf(&b, "[%d] %s(%s) {%v}\n", i, e.Name, e.Adapter.Name, e.Signature)
+		fmt.Fprintf(&b, "[%d] %s(%s) {%v}\n", i, e.Name, e.AdapterName, e.Signature)
 	}
 
 	return b.String()
