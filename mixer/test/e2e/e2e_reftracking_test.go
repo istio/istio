@@ -98,7 +98,7 @@ func TestRefTracking(t *testing.T) {
 					condition: istio_mixer_v1.ABSENCE,
 				},
 				{
-					name:      "context.reporter.type",
+					name:      "context.reporter.kind",
 					condition: istio_mixer_v1.ABSENCE,
 				},
 				{

@@ -83,7 +83,7 @@ spec:
     # Deprecated, kept for compatibility
     context.reporter.local:
       valueType: BOOL
-    context.reporter.type:
+    context.reporter.kind:
       valueType: STRING
     context.reporter.uid:
       valueType: STRING

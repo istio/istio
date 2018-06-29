@@ -68,7 +68,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
-		"context.reporter.type": attrStringValue("outbound"),
+		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
 	switch in.ListenerProtocol {
@@ -99,7 +99,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.uid":       attrUID(in.Node),
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
-		"context.reporter.type": attrStringValue("inbound"),
+		"context.reporter.kind": attrStringValue("inbound"),
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
