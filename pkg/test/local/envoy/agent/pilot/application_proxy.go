@@ -27,11 +27,14 @@ import (
 	"strings"
 	"text/template"
 
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/local/envoy"
 	"istio.io/istio/pkg/test/local/envoy/agent"
+	"istio.io/istio/pkg/test/local/envoy/agent/pilot/reserveport"
 )
 
 const (
@@ -145,9 +148,14 @@ type Factory struct {
 
 // NewProxiedApplication is an agent.ApplicationProxyFactory function that creates new proxy instances which use Pilot for configuration
 func (f *Factory) NewProxiedApplication(serviceName string, app agent.Application) (agent.ApplicationProxy, agent.StopFunc, error) {
-	var err error
+	portMgr, err := reserveport.NewPortManager()
+	if err != nil {
+		return nil, nil, err
+	}
 
-	proxy := &applicationProxy{}
+	proxy := &applicationProxy{
+		portMgr: portMgr,
+	}
 	stopFunc := proxy.stop
 	defer func() {
 		if err != nil {
@@ -193,6 +201,7 @@ type applicationProxy struct {
 	yamlFile     string
 	ownedDir     string
 	serviceEntry model.Config
+	portMgr      reserveport.PortManager
 }
 
 // GetConfig implements the agent.ApplicationProxy interface.
@@ -219,7 +228,7 @@ func (p *applicationProxy) start(serviceName string, app agent.Application, f *F
 	}
 
 	// Generate the port mappings between Envoy and the backend service.
-	p.adminPort, p.ports, err = createPorts(app.GetPorts())
+	p.adminPort, p.ports, err = p.createPorts(app.GetPorts())
 	if err != nil {
 		return err
 	}
@@ -287,6 +296,10 @@ func (p *applicationProxy) stop() (err error) {
 	} else if p.yamlFile != "" {
 		_ = os.Remove(p.yamlFile)
 	}
+	// Free any reserved ports.
+	if e := p.portMgr.Close(); e != nil {
+		err = multierror.Append(err, e)
+	}
 	return
 }
 
@@ -346,22 +359,15 @@ func (p *applicationProxy) createYamlFile(serviceName, nodeID string, f *Factory
 	return nil
 }
 
-func randomBase64String(len int) string {
-	buff := make([]byte, len)
-	rand.Read(buff)
-	str := base64.URLEncoding.EncodeToString(buff)
-	return str[:len]
-}
-
-func createPorts(servicePorts model.PortList) (adminPort int, ports []agent.MappedPort, err error) {
-	if adminPort, err = findFreePort(); err != nil {
+func (p *applicationProxy) createPorts(servicePorts model.PortList) (adminPort int, ports []agent.MappedPort, err error) {
+	if adminPort, err = p.findFreePort(); err != nil {
 		return
 	}
 
 	ports = make([]agent.MappedPort, len(servicePorts))
 	for i, servicePort := range servicePorts {
 		var envoyPort int
-		envoyPort, err = findFreePort()
+		envoyPort, err = p.findFreePort()
 		if err != nil {
 			return
 		}
@@ -376,18 +382,21 @@ func createPorts(servicePorts model.PortList) (adminPort int, ports []agent.Mapp
 	return
 }
 
-func findFreePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+func (p *applicationProxy) findFreePort() (int, error) {
+	reservedPort, err := p.portMgr.ReservePort()
 	if err != nil {
 		return 0, err
 	}
+	defer reservedPort.Close()
 
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	return int(reservedPort.GetPort()), nil
+}
+
+func randomBase64String(len int) string {
+	buff := make([]byte, len)
+	rand.Read(buff)
+	str := base64.URLEncoding.EncodeToString(buff)
+	return str[:len]
 }
 
 func createTempDir() (string, error) {
