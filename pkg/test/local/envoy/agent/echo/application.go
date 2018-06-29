@@ -16,8 +16,8 @@ package echo
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/server/echo"
 	"istio.io/istio/pkg/test/local/envoy/agent"
+	"istio.io/istio/pkg/test/service/echo"
 )
 
 // Factory is a factory for echo applications.
