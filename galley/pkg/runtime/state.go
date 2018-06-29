@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -55,11 +56,6 @@ func newState(schema *resource.Schema) *State {
 }
 
 func (s *State) apply(event resource.Event) bool {
-	if _, ok := s.schema.LookupByMessageName(event.ID.MessageName); !ok {
-		scope.Errorf("Received an source event for unknown message name: %v", event)
-		return false
-	}
-
 	pks := s.getResourceTypeState(event.ID.MessageName)
 
 	switch event.Kind {
@@ -93,6 +89,8 @@ func (s *State) apply(event resource.Event) bool {
 	s.versionCounter++
 	pks.version = s.versionCounter
 
+	scope.Debugf("In-memory state has changed:\n%v\n", s)
+
 	return true
 }
 
@@ -125,7 +123,8 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(string(name), version, entries)
+		typeURL := s.schema.Info(name).TypeURL
+		sn.Set(typeURL, version, entries)
 	}
 
 	sn.Freeze()
@@ -134,7 +133,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	info, _ := s.schema.LookupByMessageName(event.ID.MessageName)
+	info := s.schema.Info(event.ID.MessageName)
 
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
@@ -153,4 +152,16 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 	}
 
 	return entry, true
+}
+
+// String implements fmt.Stringer
+func (s *State) String() string {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+
+	sn := s.buildSnapshot().(*snapshot.InMemory)
+	fmt.Fprintf(&b, "%v", sn)
+
+	return b.String()
 }

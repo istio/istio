@@ -12,27 +12,23 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package converter
 
 import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	yaml2 "gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// toProto reads a proto.Message from the given unstructured data.
-func toProto(s ResourceSpec, u *unstructured.Unstructured) (proto.Message, error) {
-	return specToProto(s, u.Object["spec"])
-}
-
-func specToProto(s ResourceSpec, spec interface{}) (proto.Message, error) {
+func toProto(info resource.Info, data interface{}) (proto.Message, error) {
 
 	var result proto.Message
-	js, err := toJSON(spec)
+	js, err := toJSON(data)
 	if err == nil {
-		pb := s.Target.NewProtoInstance()
+		pb := info.NewProtoInstance()
 		if err = jsonpb.UnmarshalString(js, pb); err == nil {
 			result = pb
 		}

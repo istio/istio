@@ -95,6 +95,9 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # Whether to perform server-side validation of configuration.
+  configValidation: true
+
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
   # Each component can overwrite these default values by adding its own resources
