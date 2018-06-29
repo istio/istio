@@ -39,8 +39,6 @@ const watchFlushDuration = time.Second
 // Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler
 // instances, creates the dispatch machinery and handles incoming requests.
 type Runtime struct {
-	identityAttribute string
-
 	defaultConfigNamespace string
 
 	ephemeral *config.Ephemeral
@@ -67,7 +65,6 @@ func New(
 	s store.Store,
 	templates map[string]*template.Info,
 	adapters map[string]*adapter.Info,
-	identityAttribute string,
 	defaultConfigNamespace string,
 	executorPool *pool.GoroutinePool,
 	handlerPool *pool.GoroutinePool,
@@ -77,12 +74,11 @@ func New(
 	// during snapshot creation the bad configuration errors are already logged.
 	e := config.NewEphemeral(templates, adapters)
 	rt := &Runtime{
-		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
 		ephemeral:              e,
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
-		dispatcher:             dispatcher.New(identityAttribute, executorPool, enableTracing),
+		dispatcher:             dispatcher.New(executorPool, enableTracing),
 		handlerPool:            handlerPool,
 		Probe:                  probe.NewProbe(),
 		store:                  s,

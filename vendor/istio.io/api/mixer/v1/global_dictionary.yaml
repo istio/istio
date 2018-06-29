@@ -283,3 +283,5 @@
 # gRPC trailer return status support
 - response.grpc_status
 - response.grpc_message
+
+- context.reporter.type
