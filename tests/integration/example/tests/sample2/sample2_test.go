@@ -64,7 +64,8 @@ func TestEcho(t *testing.T) {
 	log.Printf("%s echo test succeeded!", testEM.GetID())
 }
 
-func TestMetrics(t *testing.T) {
+// Disabled for being flaky in prow.
+func NoTestMetrics(t *testing.T) {
 	log.Printf("Running %s: metrics test", testEM.GetID())
 
 	mixerStatus, ok := testEM.GetEnv().GetComponents()[2].GetStatus().(mixer.LocalCompStatus)
