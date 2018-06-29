@@ -38,7 +38,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
+)
+
+var (
+	rbacLog = istiolog.RegisterScope("rbac", "rbac debugging", 0)
 )
 
 const (
@@ -124,7 +128,7 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 		if strings.HasPrefix(constraint.Key, attrDestLabel) {
 			consLabel, err := extractNameInBrackets(strings.TrimPrefix(constraint.Key, attrDestLabel))
 			if err != nil {
-				log.Errorf("rbac plugin: ignored invalid %s: %v", attrDestLabel, err)
+				rbacLog.Errorf("ignored invalid %s: %v", attrDestLabel, err)
 				continue
 			}
 			actualValue, present = service.labels[consLabel]
@@ -250,7 +254,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	svc := in.ServiceInstance.Service.Hostname
 	attr, err := in.Env.GetServiceAttributes(svc)
 	if attr == nil || err != nil {
-		log.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
+		rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
 		return nil
 	}
 
@@ -259,10 +263,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 	}
 
 	service := createServiceMetadata(attr, in.ServiceInstance)
-	log.Debugf("rbac plugin: building filter config for %v", *service)
+	rbacLog.Debugf("building filter config for %v", *service)
 	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
 	if filter != nil {
-		log.Infof("rbac plugin: built filter config for %s", service.name)
+		rbacLog.Infof("built filter config for %s", service.name)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
@@ -311,7 +315,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		log.Infof("rbac plugin: disabled, no RbacConfig")
+		rbacLog.Infof("disabled, no RbacConfig")
 		return false
 	}
 
@@ -323,7 +327,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 	case rbacproto.RbacConfig_ON_WITH_EXCLUSION:
 		return !isServiceInList(svc, ns, configProto.Exclusion)
 	default:
-		log.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
+		rbacLog.Debugf("rbac plugin disabled by RbacConfig: %v", *configProto)
 		return false
 	}
 }
@@ -333,21 +337,21 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 func buildHTTPFilter(service *serviceMetadata, store model.IstioConfigStore) *http_conn.HttpFilter {
 	namespace, present := service.attributes[attrDestNamespace]
 	if !present {
-		log.Errorf("rbac plugin: no namespace for service %v", service)
+		rbacLog.Errorf("no namespace for service %v", service)
 		return nil
 	}
 
 	roles := store.ServiceRoles(namespace)
 	if roles == nil {
-		log.Infof("rbac plugin: no service role in namespace %s", namespace)
+		rbacLog.Infof("no service role in namespace %s", namespace)
 	}
 	bindings := store.ServiceRoleBindings(namespace)
 	if bindings == nil {
-		log.Infof("rbac plugin: no service role binding in namespace %s", namespace)
+		rbacLog.Infof("no service role binding in namespace %s", namespace)
 	}
 
 	config := convertRbacRulesToFilterConfig(service, roles, bindings)
-	log.Debugf("rbac plugin: generated filter config: %v", *config)
+	rbacLog.Debugf("generated filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:   rbacFilterName,
 		Config: util.MessageToStruct(config),
@@ -365,7 +369,7 @@ func convertRbacRulesToFilterConfig(
 		bindingProto := binding.Spec.(*rbacproto.ServiceRoleBinding)
 		roleName := bindingProto.RoleRef.Name
 		if roleName == "" {
-			log.Errorf("rbac plugin: ignored invalid binding %s in %s with empty RoleRef.Name",
+			rbacLog.Errorf("ignored invalid binding %s in %s with empty RoleRef.Name",
 				binding.Name, binding.Namespace)
 			continue
 		}
@@ -385,21 +389,21 @@ func convertRbacRulesToFilterConfig(
 	for _, role := range roles {
 		enforcedPrincipals, permissivePrincipals := convertToPrincipals(roleToBinding[role.Name])
 		if len(enforcedPrincipals) == 0 && len(permissivePrincipals) == 0 {
-			log.Debugf("rbac plugin: role skipped for no principals found")
+			rbacLog.Debugf("role skipped for no principals found")
 			continue
 		}
 
-		log.Debugf("rbac plugin: checking role %v", role.Name)
+		rbacLog.Debugf("checking role %v", role.Name)
 		permissions := make([]*policyproto.Permission, 0)
 		for i, rule := range role.Spec.(*rbacproto.ServiceRole).Rules {
 			if service.match(rule) {
 				// Generate the policy if the service is matched to the services specified in ServiceRole.
-				log.Debugf("rbac plugin: matched AccessRule[%d]", i)
+				rbacLog.Debugf("matched AccessRule[%d]", i)
 				permissions = append(permissions, convertToPermission(rule))
 			}
 		}
 		if len(permissions) == 0 {
-			log.Debugf("rbac plugin: role skipped for no AccessRule matched")
+			rbacLog.Debugf("role skipped for no AccessRule matched")
 			continue
 		}
 
@@ -496,7 +500,7 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.Group != "" {
-		log.Errorf("rbac plugin: ignored Subject.group %s, not implemented", subject.Group)
+		rbacLog.Errorf("ignored Subject.group %s, not implemented", subject.Group)
 	}
 
 	if len(subject.Properties) != 0 {
@@ -554,7 +558,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	case strings.HasPrefix(key, attrRequestHeader):
 		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
 		if err != nil {
-			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
+			rbacLog.Errorf("ignored invalid %s: %v", attrRequestHeader, err)
 			return nil
 		}
 		converter = func(v string) (*policyproto.Permission, error) {
@@ -568,7 +572,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		if !attributesEnforcedInPlugin(key) {
 			// The attribute is neither matched here nor in previous stage, this means it's something we
 			// don't understand, most likely a user typo.
-			log.Errorf("rbac plugin: ignored unsupported constraint key: %s", key)
+			rbacLog.Errorf("ignored unsupported constraint key: %s", key)
 		}
 		return nil
 	}
@@ -580,7 +584,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	}
 	for _, v := range values {
 		if p, err := converter(v); err != nil {
-			log.Errorf("rbac plugin: ignored invalid constraint value: %v", err)
+			rbacLog.Errorf("ignored invalid constraint value: %v", err)
 		} else {
 			orRules.OrRules.Rules = append(orRules.OrRules.Rules, p)
 		}
@@ -608,14 +612,14 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
 		if err != nil {
-			log.Errorf("rbac plugin: ignored invalid source ip value: %v", err)
+			rbacLog.Errorf("ignored invalid source ip value: %v", err)
 			return nil
 		}
 		return &policyproto.Principal{Identifier: &policyproto.Principal_SourceIp{SourceIp: cidr}}
 	case strings.HasPrefix(key, attrRequestHeader):
 		header, err := extractNameInBrackets(strings.TrimPrefix(key, attrRequestHeader))
 		if err != nil {
-			log.Errorf("rbac plugin: ignored invalid %s: %v", attrRequestHeader, err)
+			rbacLog.Errorf("ignored invalid %s: %v", attrRequestHeader, err)
 			return nil
 		}
 		return &policyproto.Principal{
@@ -631,10 +635,10 @@ func principalForKeyValue(key, value string) *policyproto.Principal {
 				},
 			}
 		}
-		log.Errorf("rbac plugin: ignored invalid dynamic metadata: %s", key)
+		rbacLog.Errorf("ignored invalid dynamic metadata: %s", key)
 		return nil
 	default:
-		log.Errorf("rbac plugin: ignored unsupported property key: %s", key)
+		rbacLog.Errorf("ignored unsupported property key: %s", key)
 		return nil
 	}
 }
