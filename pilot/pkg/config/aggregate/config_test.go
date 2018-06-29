@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/aggregate/fakes"
 	"istio.io/istio/pilot/pkg/model"
