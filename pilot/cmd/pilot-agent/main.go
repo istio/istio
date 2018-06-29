@@ -241,7 +241,7 @@ var (
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
 
-			go func (){
+			go func() {
 				defer cancel()
 				stop := make(chan struct{})
 				cmd.WaitSignal(stop)

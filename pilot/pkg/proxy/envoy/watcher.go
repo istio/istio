@@ -347,7 +347,6 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		done <- cmd.Wait()
 	}()
 
-
 	select {
 	case err := <-abort:
 		log.Warnf("Aborting epoch %d", epoch)
