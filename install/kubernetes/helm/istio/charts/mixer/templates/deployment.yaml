@@ -167,6 +167,7 @@ spec:
   template:
     metadata:
       labels:
+        app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
       annotations:
