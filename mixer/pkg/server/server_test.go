@@ -196,6 +196,10 @@ func TestErrors(t *testing.T) {
 	if s != nil || err == nil {
 		t.Errorf("Got success, expecting error")
 	}
+	err = s.Close()
+	if err != nil {
+		t.Errorf("Got error during Close: %v", err)
+	}
 
 	a = defaultTestArgs()
 	a.APIPort = 0
@@ -263,6 +267,10 @@ func TestErrors(t *testing.T) {
 			s, err = newServer(a, pt)
 			if s != nil || err == nil {
 				t.Errorf("Got success, expecting error")
+			}
+			err = s.Close()
+			if err != nil {
+				t.Errorf("Got error during Close: %v", err)
 			}
 		})
 	}
