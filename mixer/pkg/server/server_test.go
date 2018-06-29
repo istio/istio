@@ -238,10 +238,10 @@ func TestErrors(t *testing.T) {
 					return net.Listen(network, address)
 				}
 			case 6:
-				a.MonitoringPort = 1234
+				a.MonitoringPort = 1235
 				pt.listen = func(network string, address string) (net.Listener, error) {
 					// fail the net.Listen call that's for the monitoring port.
-					if address == ":1234" {
+					if address == ":1235" {
 						return nil, errors.New("BAD")
 					}
 					return net.Listen(network, address)
