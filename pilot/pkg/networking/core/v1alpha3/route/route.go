@@ -192,7 +192,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName)
+		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, nil)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -242,26 +242,27 @@ func BuildHTTPRoutesForVirtualService(
 	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) ([]route.Route, error) {
+	gatewayNames map[string]bool,
+	configStore model.IstioConfigStore) ([]route.Route, error) {
 
-	rule, ok := virtualService.Spec.(*networking.VirtualService)
+	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
 	vsName := virtualService.ConfigMeta.Name
 
-	out := make([]route.Route, 0, len(rule.Http))
-	for _, http := range rule.Http {
+	out := make([]route.Route, 0, len(vs.Http))
+	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -301,7 +302,8 @@ func translateRoute(in *networking.HTTPRoute,
 	vsName string,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) *route.Route {
+	gatewayNames map[string]bool,
+	configStore model.IstioConfigStore) *route.Route {
 
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
@@ -386,11 +388,17 @@ func translateRoute(in *networking.HTTPRoute,
 				}
 			}
 
-			n := GetDestinationCluster(dst.Destination, serviceRegistry[model.Hostname(dst.Destination.Host)], port)
+			hostname := model.Hostname(dst.GetDestination().GetHost())
+			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 			weighted = append(weighted, &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
 			})
+
+			hashPolicy := getHashPolicy(configStore, hostname)
+			if hashPolicy != nil {
+				action.HashPolicy = append(action.HashPolicy, hashPolicy)
+			}
 		}
 
 		// rewrite to a single cluster if there is only weighted cluster
@@ -608,4 +616,29 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	return &out
+}
+
+func getHashPolicy(configStore model.IstioConfigStore, hostname model.Hostname) *route.RouteAction_HashPolicy {
+	if configStore == nil {
+		return nil
+	}
+
+	destinationRule := configStore.DestinationRule(hostname)
+	if destinationRule == nil {
+		return nil
+	}
+
+	rule := destinationRule.Spec.(*networking.DestinationRule)
+	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	if consistentHash == nil {
+		return nil
+	}
+
+	return &route.RouteAction_HashPolicy{
+		PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+			Cookie: &route.RouteAction_HashPolicy_Cookie{
+				Name: consistentHash.GetHttpHeader(),
+			},
+		},
+	}
 }
