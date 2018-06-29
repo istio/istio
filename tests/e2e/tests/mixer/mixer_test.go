@@ -1099,7 +1099,7 @@ func TestRedisQuota(t *testing.T) {
 	// then there is no way to determine if the rate limit was applied at all
 	// and for how much traffic. log all metrics and abort test.
 	if callsToRatings < want200s {
-		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "istio_requests_total"))
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
@@ -1108,7 +1108,7 @@ func TestRedisQuota(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
 	if err != nil {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find 429s: %v", err)
 		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
@@ -1121,13 +1121,13 @@ func TestRedisQuota(t *testing.T) {
 
 	// check resource exhausted
 	if got < want {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find successes value: %v", err)
 		got = 0
 	}
@@ -1143,13 +1143,13 @@ func TestRedisQuota(t *testing.T) {
 
 	// check successes
 	if got < want {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
 	want200s = math.Ceil(want200s * 1.5)
 	if got > want200s {
-		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
+		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
 }
