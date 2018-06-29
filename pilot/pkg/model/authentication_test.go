@@ -145,7 +145,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 													SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
 														CertChain: &core.DataSource{
 															Specifier: &core.DataSource_Filename{
-																Filename: SDSDummyCertPath,
+																Filename: SDSCertPath,
 															},
 														},
 													},

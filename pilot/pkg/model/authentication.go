@@ -29,11 +29,11 @@ import (
 )
 
 const (
-	// SDSDummyCertPath is the path of dummy cert that envoy uses to communicate with SDS service through secure gPRC.
-	SDSDummyCertPath = "/etc/istio/nodeagent-sds-cert.pem"
+	// SDSCertPath is the path of cert that envoy uses to communicate with SDS service through secure gPRC.
+	SDSCertPath = "/etc/certs/nodeagent-sds-cert.pem"
 
 	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
-	CARootCertPath = "/etc/istio/ca-root-cert.pem"
+	CARootCertPath = "/etc/certs/ca-root-cert.pem"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -81,7 +81,7 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 											SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
 												CertChain: &core.DataSource{
 													Specifier: &core.DataSource_Filename{
-														Filename: SDSDummyCertPath,
+														Filename: SDSCertPath,
 													},
 												},
 											},
