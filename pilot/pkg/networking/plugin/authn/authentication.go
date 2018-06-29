@@ -143,7 +143,7 @@ func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioCo
 			}
 			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
 				log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", hostname, port)
-				return []*ldsv2.FilterChainMatch{alpnIstioMatch, &ldsv2.FilterChainMatch{}},
+				return []*ldsv2.FilterChainMatch{alpnIstioMatch, {}},
 					[]*auth.DownstreamTlsContext{tls, nil}, true
 			}
 		default:

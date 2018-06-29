@@ -283,7 +283,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			if !found {
 				log.Errorf("Do not found authentication plugin!")
 				listenerOpts.filterChainOpts = []*filterChainOpts{
-					&filterChainOpts{httpOpts: httpOpts},
+					{httpOpts: httpOpts},
 				}
 			}
 		case plugin.ListenerProtocolTCP:
