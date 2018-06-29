@@ -26,21 +26,41 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-func Test_Syncz(t *testing.T) {
+func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
 		initLocalPilotTestEnv(t)
-		adsstr := connectADS(t, util.MockPilotGrpcAddr)
+		adsstr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer adsstr.CloseSend()
 
 		// Need to send two of each so that the second sends an Ack that is picked up
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr)
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+
 		for i := 0; i < 4; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
@@ -52,17 +72,36 @@ func Test_Syncz(t *testing.T) {
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
 		initLocalPilotTestEnv(t)
-		adsstr := connectADS(t, util.MockPilotGrpcAddr)
+		adsstr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer adsstr.CloseSend()
 
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendEDSNack(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendCDSNack(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendLDSNack(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr)
-		sendRDSNack(t, sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr)
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
 		for i := 0; i < 5; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {

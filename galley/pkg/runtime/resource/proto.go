@@ -12,31 +12,28 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package converter
+package resource
 
 import (
 	"reflect"
-	"testing"
 
-	"github.com/gogo/protobuf/types"
-
-	"istio.io/istio/galley/pkg/runtime/resource"
+	prgogo "github.com/gogo/protobuf/proto"
+	prlang "github.com/golang/protobuf/proto"
 )
 
-func TestToProto(t *testing.T) {
-	spec := map[string]interface{}{}
+// getProtoMessageType returns the Go lang type of the proto with the specified name.
+func getProtoMessageType(protoMessageName string, isGogo bool) reflect.Type {
+	var t reflect.Type
 
-	s := resource.NewSchema()
-	s.Register("google.protobuf.Empty", true)
-	i, _ := s.LookupByMessageName("google.protobuf.Empty")
-
-	p, err := toProto(i, spec)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if isGogo {
+		t = prgogo.MessageType(protoMessageName)
+	} else {
+		t = prlang.MessageType(protoMessageName)
 	}
 
-	var expected = &types.Empty{}
-	if !reflect.DeepEqual(p, expected) {
-		t.Fatalf("Mismatch\nExpected:\n%+v\nActual:\n%+v\n", expected, p)
+	if t == nil {
+		return nil
 	}
+
+	return t.Elem()
 }
