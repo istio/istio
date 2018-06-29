@@ -111,7 +111,7 @@ func addTypeToScheme(s *runtime.Scheme, gv schema.GroupVersion, kind, listKind s
 		}
 
 		c := &unstructured.UnstructuredList{}
-		o.SetAPIVersion(gv.Group)
+		o.SetAPIVersion(gv.Version)
 		o.SetKind(listKind)
 		s.AddKnownTypeWithName(gvk, c)
 

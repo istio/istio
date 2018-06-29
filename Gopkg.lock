@@ -273,9 +273,13 @@
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
+    "envoy/type/matcher",
+    "pkg/cache",
+    "pkg/log",
+    "pkg/server",
     "pkg/util"
   ]
-  revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
+  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -1287,7 +1291,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "1ab9532ecae5db039bd95ad0a3686ae74a7e0b70"
+  revision = "a4775f5339e9850aad1c8b07b859338878ad66b2"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1585,6 +1589,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "740f1664dbc3031eea3097fd27b90ce66ddc00a53607476b96a34f1dd46cd5b7"
+  inputs-digest = "0e3e9fcc9d7504defd0d51f36b5b3b1a6c59964c20d00b2223238f9e0d91f92a"
   solver-name = "gps-cdcl"
   solver-version = 1

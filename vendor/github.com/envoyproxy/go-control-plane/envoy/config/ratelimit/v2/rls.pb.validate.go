@@ -42,6 +42,8 @@ func (m *RateLimitServiceConfig) Validate() error {
 		return nil
 	}
 
+	// no validation rules for UseDataPlaneProto
+
 	switch m.ServiceSpecifier.(type) {
 
 	case *RateLimitServiceConfig_ClusterName:

@@ -129,7 +129,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 		clusters = append(clusters, cluster.Cluster)
 	}
 	for _, cluster := range clusterDump.StaticClusters {
-		clusters = append(clusters, &cluster)
+		clusters = append(clusters, cluster.Cluster)
 	}
 	if len(clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found")

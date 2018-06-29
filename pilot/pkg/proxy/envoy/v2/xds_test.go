@@ -77,7 +77,7 @@ func startEnvoy(t *testing.T) {
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
 	nodeId := sidecarId(app3Ip, "app3")
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId, "--v2-config-only"}
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId}
 	testEnv.EnvoyConfigOpt = map[string]interface{}{
 		"NodeID": nodeId,
 	}
