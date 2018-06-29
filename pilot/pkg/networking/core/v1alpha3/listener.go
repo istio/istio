@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"reflect"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -248,15 +249,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			protocol:       protocol,
 		}
 
-		for _, p := range configgen.Plugins {
-			if authnPolicy, ok := p.(authn.Plugin); ok {
-				if authnPolicy.AcceptIstioAndLegacy(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
-					listenerOpts.acceptIstioAndLegacy = true
-					log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
-				}
-			}
-		}
-
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if l, exists := listenerMap[listenerMapKey]; exists {
 			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
@@ -272,21 +264,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
-			if listenerOpts.acceptIstioAndLegacy {
-				// Allow both: istio mTLS ("istio" ALPN) and legacy clients.
-				listenerOpts.filterChainOpts = []*filterChainOpts{
-					{
-						httpOpts:            httpOpts,
-						applicationProtocol: util.ALPNInMesh,
-					}, {
-						httpOpts: httpOpts,
-					},
+			found := false
+			for _, p := range configgen.Plugins {
+				if authnPolicy, ok := p.(authn.Plugin); ok {
+					matches, tls := authnPolicy.SetupFilterChains(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
+					for i, match := range matches {
+						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+							httpOpts: httpOpts,
+							match:    match,
+							tlsContext: tls[i],
+						})
+					}
+					found = true
+					break
 				}
-			} else {
+			}
+			if !found {
+				log.Errorf("Do not found authentication plugin!")
 				listenerOpts.filterChainOpts = []*filterChainOpts{
-					{
-						httpOpts: httpOpts,
-					},
+					&filterChainOpts{httpOpts: httpOpts},
 				}
 			}
 		case plugin.ListenerProtocolTCP:
@@ -587,8 +583,9 @@ type filterChainOpts struct {
 	sniHosts   []string
 	tlsContext *auth.DownstreamTlsContext
 	httpOpts   *httpListenerOpts
-	// ALPN protocol used for the filter chain match.
-	applicationProtocol []string
+	match      *listener.FilterChainMatch
+	// // ALPN protocol used for the filter chain match.
+	// applicationProtocol []string
 	networkFilters      []listener.Filter
 }
 
@@ -688,9 +685,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	for _, chain := range opts.filterChainOpts {
-		match := &listener.FilterChainMatch{
-			ApplicationProtocols: chain.applicationProtocol,
-		}
 		if len(chain.sniHosts) > 0 {
 			fullWildcardFound := false
 			for _, h := range chain.sniHosts {
@@ -702,14 +696,17 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				}
 			}
 			if !fullWildcardFound {
-				match.SniDomains = chain.sniHosts
+				if chain.match == nil {
+					chain.match = &listener.FilterChainMatch{}
+				}
+				chain.match.SniDomains = chain.sniHosts
 			}
 		}
-		// if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
-		// 	match = nil
-		// }
+		if chain.match != nil && reflect.DeepEqual(*chain.match, listener.FilterChainMatch{}) {
+			chain.match = nil
+		}
 		filterChains = append(filterChains, listener.FilterChain{
-			FilterChainMatch: match,
+			FilterChainMatch: chain.match,
 			TlsContext:       chain.tlsContext,
 		})
 	}

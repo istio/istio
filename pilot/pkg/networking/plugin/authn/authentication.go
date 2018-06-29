@@ -86,6 +86,74 @@ func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	return false, nil
 }
 
+// SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain.
+// (*[]xdsapi.FilterChainMatch, *[]auth.DownstreamTlsContext).
+func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,
+	hostname model.Hostname, port *model.Port) ([]*ldsv2.FilterChainMatch, []*auth.DownstreamTlsContext) {
+	matches := []*ldsv2.FilterChainMatch{nil}
+	tlsSettings := []*auth.DownstreamTlsContext{nil}
+
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
+	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
+		return matches, tlsSettings
+	}
+	alpnIstioMatch := &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNHttp,
+	}
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.RootCertFilename,
+						},
+					},
+				},
+			},
+			// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
+			AlpnProtocols: util.ALPNHttp,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: true,
+		},
+	}
+	for _, method := range authnPolicy.Peers {
+		switch method.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Mtls:
+			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
+				log.Infof("Allow only istio mutual TLS traffic %v %v\n", hostname, port)
+				return []*ldsv2.FilterChainMatch{nil},
+							 []*auth.DownstreamTlsContext{tls}
+			}
+			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
+				log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", hostname, port)
+				return []*ldsv2.FilterChainMatch{alpnIstioMatch, nil},
+							 []*auth.DownstreamTlsContext{tls, nil}
+			}
+		default:
+			continue
+		}
+	}
+	// No peer authentication found.
+	return matches, tlsSettings
+}
+
+
 // JwksURIClusterName returns cluster name for the jwks URI. This should be used
 // to override the name for outbound cluster that are added for Jwks URI so that they
 // can be referred correctly in the JWT filter config.
@@ -314,8 +382,8 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
+		// chain := &mutable.Listener.FilterChains[i]
+		// chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch)
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
