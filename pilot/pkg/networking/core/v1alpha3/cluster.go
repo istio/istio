@@ -447,14 +447,14 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: certValidationContext,
-				},
-			},
-			Sni: tls.Sni,
+			CommonTlsContext: &auth.CommonTlsContext{},
+			Sni:              tls.Sni,
 		}
 		if meshConfig.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			}
+
 			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -470,6 +470,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 				},
 			}
 		} else {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath)
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
 			// tls.SubjectAltNames is set to upstreamServiceAccount for mTLS case.
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)

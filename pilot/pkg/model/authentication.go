@@ -28,6 +28,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	// SDSCertPath is the path of cert that envoy uses to communicate with SDS service through secure gPRC.
+	SDSCertPath = "/etc/certs/nodeagent-sds-cert.pem"
+
+	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
+	CARootCertPath = "/etc/certs/ca-root-cert.pem"
+)
+
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
@@ -68,11 +76,35 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
 									TargetUri: sdsUdsPath,
+									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+											SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
+												CertChain: &core.DataSource{
+													Specifier: &core.DataSource_Filename{
+														Filename: SDSCertPath,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
 					},
 					RefreshDelay: refreshDuration,
+				},
+			},
+		},
+	}
+}
+
+// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+func ConstructValidationContext(rootCAFilePath string) *auth.CommonTlsContext_ValidationContext {
+	return &auth.CommonTlsContext_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: rootCAFilePath,
 				},
 			},
 		},
