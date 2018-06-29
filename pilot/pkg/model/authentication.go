@@ -28,8 +28,13 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// SDSDummyCertPath is the path of dummy cert that envoy uses to communicate with SDS service through secure gPRC.
-const SDSDummyCertPath = "/etc/istio/nodeagent-sds-cert.pem"
+const (
+	// SDSDummyCertPath is the path of dummy cert that envoy uses to communicate with SDS service through secure gPRC.
+	SDSDummyCertPath = "/etc/istio/nodeagent-sds-cert.pem"
+
+	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
+	CARootCertPath = "/etc/istio/ca-root-cert.pem"
+)
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
@@ -87,6 +92,19 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 						},
 					},
 					RefreshDelay: refreshDuration,
+				},
+			},
+		},
+	}
+}
+
+// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+func ConstructValidationContext(rootCAFilePath string) *auth.CommonTlsContext_ValidationContext {
+	return &auth.CommonTlsContext_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: rootCAFilePath,
 				},
 			},
 		},

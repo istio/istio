@@ -254,15 +254,6 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy); requireTLS {
 		ret := &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.RootCertFilename,
-							},
-						},
-					},
-				},
 				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
 				AlpnProtocols: []string{"h2", "http/1.1"},
 			},
@@ -272,6 +263,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 		}
 
 		if meshConfig.SdsUdsPath == "" {
+			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath + model.RootCertFilename)
 			ret.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -287,6 +279,7 @@ func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *l
 				},
 			}
 		} else {
+			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath)
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
 			ret.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 				model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, meshConfig.SdsUdsPath),

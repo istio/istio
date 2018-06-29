@@ -963,7 +963,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 						ValidationContext: &auth.CertificateValidationContext{
 							TrustedCa: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
+									Filename: model.CARootCertPath,
 								},
 							},
 						},
