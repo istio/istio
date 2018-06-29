@@ -44,8 +44,9 @@ func (ta TestAgent) ScheduleConfigUpdate(config interface{}) {
 	ta.schedule(config)
 }
 
-func (ta TestAgent) Run(ctx context.Context) {
+func (ta TestAgent) Run(ctx context.Context) error {
 	<-ctx.Done()
+	return nil
 }
 
 func TestRunReload(t *testing.T) {
