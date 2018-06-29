@@ -16,17 +16,6 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{- end -}}
 
 {{/*
-Service account name.
-*/}}
-{{- define "istio.serviceAccountName" -}}
-{{- if .Values.global.rbacEnabled -}}
-{{- template "istio.fullname" . -}}
-{{- else }}
-{{- .Values.serviceAccountName | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Create a fully qualified configmap name.
 */}}
 {{- define "istio.configmap.fullname" -}}
