@@ -172,7 +172,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		// golang/protobuf and gogo/protobuf (see
 		// https://github.com/istio/api/issues/543). gogo/protobuf
 		// packages can only decode gogo-compiled
-		// protots. golang/protobuf packages can only decode
+		// protos. golang/protobuf packages can only decode
 		// golang-compiled protos. Use the existence of the protobuf's
 		// via the message name to differentiate which is which.
 		if proto.MessageType(responseMessageName) != nil {
