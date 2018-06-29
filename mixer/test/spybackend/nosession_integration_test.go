@@ -49,7 +49,7 @@ spec:
   params:
     value: request.size | 123
     dimensions:
-      destination_service: "\"myservice\""
+      destination_service: "\"unknown\""
       response_code: "200"
 ---
 `
@@ -92,7 +92,7 @@ spec:
   params:
     value: request.size | 456
     dimensions:
-      destination_service: "\"myservice2\""
+      destination_service: "\"unknown\""
       response_code: "400"
 ---
 `
@@ -209,7 +209,7 @@ func TestNoSessionBackend(t *testing.T) {
 		     "dimensions": {
 		      "destination_service": {
 		       "Value": {
-		        "StringValue": "myservice2"
+		        "StringValue": "unknown"
 		       }
 		      },
 		      "response_code": {
@@ -234,7 +234,7 @@ func TestNoSessionBackend(t *testing.T) {
 		     "dimensions": {
 		      "destination_service": {
 		       "Value": {
-		        "StringValue": "myservice"
+		        "StringValue": "unknown"
 		       }
 		      },
 		      "response_code": {
@@ -285,7 +285,7 @@ func TestNoSessionBackend(t *testing.T) {
 		     "dimensions": {
 		      "destination_service": {
 		       "Value": {
-		        "StringValue": "myservice2"
+		        "StringValue": "unknown"
 		       }
 		      },
 		      "response_code": {
@@ -310,7 +310,7 @@ func TestNoSessionBackend(t *testing.T) {
 		     "dimensions": {
 		      "destination_service": {
 		       "Value": {
-		        "StringValue": "myservice"
+		        "StringValue": "unknown"
 		       }
 		      },
 		      "response_code": {
@@ -437,7 +437,7 @@ func TestNoSessionBackend(t *testing.T) {
     		    "dimensions": {
     		     "destination": {
     		      "Value": {
-    		       "StringValue": "svc.cluster.local"
+    		       "StringValue": "unknown"
     		      }
     		     },
     		     "destinationVersion": {
@@ -515,7 +515,7 @@ func TestNoSessionBackend(t *testing.T) {
     		    "dimensions": {
     		     "destination": {
     		      "Value": {
-    		       "StringValue": "svc.cluster.local"
+    		       "StringValue": "unknown"
     		      }
     		     },
     		     "destinationVersion": {

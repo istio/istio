@@ -34,9 +34,9 @@ const (
 	batchcount = 10000
 
 	// A default template for log entries will be used if operator doesn't supply one
-	defaultTemplate = `{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}} ` +
+	defaultTemplate = `{{or (.source_ip) "-"}} - {{or (.source_user) "-"}} ` +
 		`[{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} ` +
-		`{{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
+		`{{or (.protocol) "-"}}" {{or (.response_code) "-"}} {{or (.response_size) "-"}}`
 )
 
 func (h *handler) generateLogEntryData(insts []*logentry.Instance) []*cloudwatchlogs.InputLogEvent {
@@ -75,9 +75,9 @@ func getMessageFromVariables(h *handler, inst *logentry.Instance) (string, error
 	data["timestamp"] = inst.Timestamp
 	data["severity"] = inst.Severity
 
-	ipval, ok := inst.Variables["sourceIp"].([]byte)
+	ipval, ok := inst.Variables["source_ip"].([]byte)
 	if ok {
-		inst.Variables["sourceIp"] = net.IP(ipval).String()
+		inst.Variables["source_ip"] = net.IP(ipval).String()
 	}
 
 	if err := tmpl.Execute(buf, data); err != nil {

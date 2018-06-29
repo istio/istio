@@ -561,7 +561,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 
 	authNPolicies := map[string]*authn.Policy{
-		"all": {},
+		model.DefaultAuthenticationPolicyName: {},
 		"hello": {
 			Targets: []*authn.TargetSelector{{
 				Name: "hello",
@@ -627,7 +627,7 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 		{
 			hostname: "world.default.svc.cluster.local",
 			port:     8080,
-			expected: "all",
+			expected: "default",
 		},
 		{
 			hostname: "world.another-galaxy.svc.cluster.local",
@@ -683,7 +683,7 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 			policy: &globalPolicy,
 		},
 		{
-			name:      "namespace-policy",
+			name:      model.DefaultAuthenticationPolicyName,
 			namespace: "default",
 			policy:    &namespacePolicy,
 		},
@@ -891,27 +891,10 @@ func TestServiceRoleBindings(t *testing.T) {
 
 func TestRbacConfig(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	addRbacConfigToStore(model.RbacConfig.Type, "rbac-config", "istio-system", store, t)
-	tests := []struct {
-		name      string
-		namespace string
-		expect    bool
-	}{
-		{name: "rbac-config", namespace: "istio-system", expect: true},
-		{name: "wrong", namespace: "istio-system", expect: false},
-		{name: "rbac-config", namespace: "wrong", expect: false},
-	}
-
-	for _, tt := range tests {
-		config := store.RbacConfig(tt.name, tt.namespace)
-		if tt.expect {
-			if config.Name != tt.name || config.Namespace != tt.namespace {
-				t.Errorf("model.RbacConfig: expecting rbacConfig(%s, %s), but got rbacConfig(%s, %s)",
-					config.Name, config.Namespace, tt.name, tt.namespace)
-			}
-		} else if config != nil {
-			t.Errorf("model.RbacConfig: expecting nil, but got rbacConfig(%s, %s)", tt.name, tt.namespace)
-		}
+	addRbacConfigToStore(model.RbacConfig.Type, model.DefaultRbacConfigName, "", store, t)
+	rbacConfig := store.RbacConfig()
+	if rbacConfig.Name != model.DefaultRbacConfigName {
+		t.Errorf("model.RbacConfig: expecting %s, but got %s", model.DefaultRbacConfigName, rbacConfig.Name)
 	}
 }
 

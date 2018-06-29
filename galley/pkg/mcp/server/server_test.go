@@ -24,9 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -47,7 +44,7 @@ type mockConfigWatcher struct {
 	closeWatch     bool
 }
 
-func (config *mockConfigWatcher) Watch(req *v2.DiscoveryRequest, out chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc) {
+func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, out chan<- *WatchResponse) (*WatchResponse, CancelWatchFunc) {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
@@ -57,7 +54,7 @@ func (config *mockConfigWatcher) Watch(req *v2.DiscoveryRequest, out chan<- *Wat
 		rsp.TypeURL = req.TypeUrl
 		return rsp, nil
 	} else if config.closeWatch {
-		close(out)
+		go func() { out <- nil }()
 	} else {
 		// save open watch channel for later
 		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], out)
@@ -96,15 +93,15 @@ func makeMockConfigWatcher() *mockConfigWatcher {
 
 type mockStream struct {
 	t         *testing.T
-	recv      chan *v2.DiscoveryRequest
-	sent      chan *v2.DiscoveryResponse
+	recv      chan *mcp.MeshConfigRequest
+	sent      chan *mcp.MeshConfigResponse
 	nonce     int
 	sendError bool
 	recvError error
 	grpc.ServerStream
 }
 
-func (stream *mockStream) Send(resp *v2.DiscoveryResponse) error {
+func (stream *mockStream) Send(resp *mcp.MeshConfigResponse) error {
 	// check that nonce is monotonically incrementing
 	stream.nonce++
 	if resp.Nonce != fmt.Sprintf("%d", stream.nonce) {
@@ -115,19 +112,14 @@ func (stream *mockStream) Send(resp *v2.DiscoveryResponse) error {
 		stream.t.Error("VersionInfo => got none, want non-empty")
 	}
 	// check resources are non-empty
-	if len(resp.Resources) == 0 {
-		stream.t.Error("Resources => got none, want non-empty")
+	if len(resp.Envelopes) == 0 {
+		stream.t.Error("Envelopes => got none, want non-empty")
 	}
 	// check that type URL matches in resources
 	if resp.TypeUrl == "" {
 		stream.t.Error("TypeUrl => got none, want non-empty")
 	}
-	for _, res := range resp.Resources {
-		var envelope mcp.Envelope
-		if err := types.UnmarshalAny(&res, &envelope); err != nil {
-			stream.t.Errorf("Failed to unmarshal envelope: %v", err)
-		}
-
+	for _, envelope := range resp.Envelopes {
 		got := envelope.Resource.TypeUrl
 		if got != resp.TypeUrl {
 			stream.t.Errorf("TypeUrl => got %q, want %q", got, resp.TypeUrl)
@@ -140,7 +132,7 @@ func (stream *mockStream) Send(resp *v2.DiscoveryResponse) error {
 	return nil
 }
 
-func (stream *mockStream) Recv() (*v2.DiscoveryRequest, error) {
+func (stream *mockStream) Recv() (*mcp.MeshConfigRequest, error) {
 	if stream.recvError != nil {
 		return nil, stream.recvError
 	}
@@ -159,8 +151,8 @@ func (stream *mockStream) Context() context.Context {
 func makeMockStream(t *testing.T) *mockStream {
 	return &mockStream{
 		t:    t,
-		sent: make(chan *v2.DiscoveryResponse, 10),
-		recv: make(chan *v2.DiscoveryRequest, 10),
+		sent: make(chan *mcp.MeshConfigResponse, 10),
+		recv: make(chan *mcp.MeshConfigRequest, 10),
 	}
 }
 
@@ -201,29 +193,28 @@ func init() {
 	proto.RegisterType((*fakeType1)(nil), fakeType1Prefix)
 	proto.RegisterType((*fakeType2)(nil), fakeType2Prefix)
 
-	fakeResource0 = &mcp.Envelope{
+	fakeEnvelope0 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f0"},
 		Resource: mustMarshalAny(&fakeType0{fakeTypeBase{"f0"}}),
 	}
-	fakeResource1 = &mcp.Envelope{
+	fakeEnvelope1 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f1"},
 		Resource: mustMarshalAny(&fakeType1{fakeTypeBase{"f1"}}),
 	}
-	fakeResource2 = &mcp.Envelope{
+	fakeEnvelope2 = &mcp.Envelope{
 		Metadata: &mcp.Metadata{Name: "f2"},
 		Resource: mustMarshalAny(&fakeType2{fakeTypeBase{"f2"}}),
 	}
 }
 
 var (
-	node = &core.Node{
-		Id:      "test-id",
-		Cluster: "test-cluster",
+	client = &mcp.Client{
+		Id: "test-id",
 	}
 
-	fakeResource0 *mcp.Envelope
-	fakeResource1 *mcp.Envelope
-	fakeResource2 *mcp.Envelope
+	fakeEnvelope0 *mcp.Envelope
+	fakeEnvelope1 *mcp.Envelope
+	fakeEnvelope2 *mcp.Envelope
 
 	WatchResponseTypes = []string{
 		fakeType0TypeURL,
@@ -237,13 +228,13 @@ func TestMultipleRequests(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 
@@ -254,7 +245,7 @@ func TestMultipleRequests(t *testing.T) {
 		}
 	}()
 
-	var rsp *xdsapi.DiscoveryResponse
+	var rsp *mcp.MeshConfigResponse
 
 	// check a response
 	select {
@@ -266,8 +257,8 @@ func TestMultipleRequests(t *testing.T) {
 		t.Fatalf("got no response")
 	}
 
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:          node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:        client,
 		TypeUrl:       fakeType0TypeURL,
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
@@ -290,8 +281,8 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 
 	// make a request
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 
@@ -306,7 +297,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	// check a response
@@ -327,8 +318,8 @@ func TestWatchClosed(t *testing.T) {
 
 	// make a request
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 
@@ -337,7 +328,6 @@ func TestWatchClosed(t *testing.T) {
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
-
 	close(stream.recv)
 }
 
@@ -346,14 +336,14 @@ func TestSendError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.sendError = true
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 
@@ -371,14 +361,14 @@ func TestReceiveError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recvError = status.Error(codes.Internal, "internal receive error")
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 
@@ -396,13 +386,13 @@ func TestUnsupportedTypeError(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   "unsupportedType",
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: "unsupportedtype",
 	}
 
@@ -420,12 +410,12 @@ func TestStaleNonce(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
 	stop := make(chan struct{})
@@ -443,15 +433,15 @@ func TestStaleNonce(t *testing.T) {
 	select {
 	case <-stream.sent:
 		// stale request
-		stream.recv <- &v2.DiscoveryRequest{
-			Node:          node,
+		stream.recv <- &mcp.MeshConfigRequest{
+			Client:        client,
 			TypeUrl:       fakeType0TypeURL,
 			ResponseNonce: "xyz",
 		}
 		// fresh request
-		stream.recv <- &v2.DiscoveryRequest{
+		stream.recv <- &mcp.MeshConfigRequest{
 			VersionInfo:   "1",
-			Node:          node,
+			Client:        client,
 			TypeUrl:       fakeType0TypeURL,
 			ResponseNonce: "1",
 		}
@@ -467,30 +457,30 @@ func TestAggregatedHandlers(t *testing.T) {
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType0TypeURL,
 		Version:   "1",
-		Resources: []*mcp.Envelope{fakeResource0},
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType1TypeURL,
 		Version:   "2",
-		Resources: []*mcp.Envelope{fakeResource1},
+		Envelopes: []*mcp.Envelope{fakeEnvelope1},
 	})
 	config.setResponse(&WatchResponse{
 		TypeURL:   fakeType2TypeURL,
 		Version:   "3",
-		Resources: []*mcp.Envelope{fakeResource2},
+		Envelopes: []*mcp.Envelope{fakeEnvelope2},
 	})
 
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType0TypeURL,
 	}
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType1TypeURL,
 	}
-	stream.recv <- &v2.DiscoveryRequest{
-		Node:    node,
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
 		TypeUrl: fakeType2TypeURL,
 	}
 
@@ -530,7 +520,7 @@ func TestAggregateRequestType(t *testing.T) {
 	config := makeMockConfigWatcher()
 
 	stream := makeMockStream(t)
-	stream.recv <- &v2.DiscoveryRequest{Node: node}
+	stream.recv <- &mcp.MeshConfigRequest{Client: client}
 
 	s := New(config, WatchResponseTypes)
 	if err := s.StreamAggregatedResources(stream); err == nil {

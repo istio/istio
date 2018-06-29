@@ -49,6 +49,7 @@ import (
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -74,9 +75,7 @@ const (
 var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
-)
 
-var (
 	// ConfigDescriptor describes all supported configuration kinds.
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	ConfigDescriptor = model.ConfigDescriptor{
@@ -87,6 +86,7 @@ var (
 		model.ServiceEntry,
 		model.DestinationPolicy,
 		model.DestinationRule,
+		model.EnvoyFilter,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
@@ -101,6 +101,16 @@ var (
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
+
+	// DefaultPlugins is the default list of plugins to enable, when no plugin(s)
+	// is specified through the command line
+	DefaultPlugins = []string{
+		plugin.Authn,
+		plugin.Authz,
+		plugin.Envoyfilter,
+		plugin.Health,
+		plugin.Mixer,
+	}
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -155,6 +165,7 @@ type PilotArgs struct {
 	Service          ServiceArgs
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
+	Plugins          []string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -196,6 +207,13 @@ func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
+	}
+	if args.Config.ClusterRegistriesNamespace == "" {
+		if args.Namespace != "" {
+			args.Config.ClusterRegistriesNamespace = args.Namespace
+		} else {
+			args.Config.ClusterRegistriesNamespace = "istio-system"
+		}
 	}
 
 	s := &Server{}
@@ -764,8 +782,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	environment.DisableRDS = os.Getenv("DISABLE_RDS") == "true"
-
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
 		s.ServiceController,
@@ -782,7 +798,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator())
+
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)

@@ -89,11 +89,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			bindToPort: true,
 			protocol:   protocol,
 		}
-		listenerType := plugin.ModelProtocolToListenerType(protocol)
+		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
-		case plugin.ListenerTypeHTTP:
+		case plugin.ListenerProtocolHTTP:
 			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(env, node, servers, merged.Names)
-		case plugin.ListenerTypeTCP:
+		case plugin.ListenerProtocolTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
@@ -107,12 +107,27 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			// this is for.
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
+
+		var si *model.ServiceInstance
+		for _, w := range workloadInstances {
+			if w.Endpoint.Port == int(portNumber) {
+				si = w
+				break
+			}
+		}
+
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
-				ListenerType:   listenerType,
-				Env:            &env,
-				Node:           &node,
-				ProxyInstances: workloadInstances,
+				ListenerProtocol: listenerType,
+				Env:              &env,
+				Node:             &node,
+				ProxyInstances:   workloadInstances,
+				ServiceInstance:  si,
+				Port: &model.Port{
+					Name:     servers[0].Port.Name,
+					Port:     int(portNumber),
+					Protocol: protocol,
+				},
 			}
 			if err = p.OnOutboundListener(params, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
@@ -380,9 +395,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	// call plugins
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerType: plugin.ListenerTypeHTTP,
-			Env:          &env,
-			Node:         &node,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
@@ -443,7 +458,7 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 	}
 
 	virtualServices := env.VirtualServices(gateways)
-	downstreams := make([]*networking.Destination, 0, len(virtualServices))
+	upstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
@@ -452,14 +467,23 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 			continue
 		}
 
-		// hosts match, now we ensure we satisfy the rule's l4 match conditions, if any exist
-		for _, tcp := range vsvc.Tcp {
-			if l4Match(tcp.Match, server, gateways) {
-				downstreams = append(downstreams, gatherDestinations(tcp.Route)...)
+		// ensure we satisfy the rule's tls match conditions, if any exist
+		for _, tls := range vsvc.Tls {
+			if tlsMatch(tls.Match, server, gateways) {
+				upstreams = append(upstreams, gatherDestinations(tls.Route)...)
 			}
 		}
+
+		// ensure we satisfy the rule's l4 match conditions, if any exist
+		for _, tcp := range vsvc.Tcp {
+			if l4Match(tcp.Match, server, gateways) {
+				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
+			}
+		}
+
+		// TODO: detect conflicting upstreams
 	}
-	return downstreams
+	return upstreams
 }
 
 func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
@@ -496,6 +520,45 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 		}
 
 		if portMatch && gatewayMatch {
+			return true
+		}
+	}
+	// If we had no predicates we match; otherwise we don't match since we'd have exited at the first match.
+	return len(predicates) == 0
+}
+
+// TODO: move up to more general location so this can be re-used in other service matching
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		gatewayHosts[model.Hostname(host)] = true
+	}
+
+	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
+	// This means we can return as soon as we get any match of an entire predicate.
+	for _, match := range predicates {
+		// TODO: implement more matches, like CIDR ranges, etc.
+		sniHostsMatch := len(match.SniHosts) == 0
+		if len(match.SniHosts) > 0 {
+			// the match's sni hosts includes hosts advertised by server
+			sniHostsMatch = len(pickMatchingGatewayHosts(gatewayHosts, match.SniHosts)) > 0
+		}
+
+		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
+		portMatch := match.Port == 0
+		if match.Port != 0 {
+			portMatch = server.Port.Number == match.Port
+		}
+
+		// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+		gatewayMatch := len(match.Gateways) == 0
+		if len(match.Gateways) > 0 {
+			for _, gateway := range match.Gateways {
+				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+			}
+		}
+
+		if sniHostsMatch && portMatch && gatewayMatch {
 			return true
 		}
 	}

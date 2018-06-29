@@ -24,7 +24,7 @@ import (
 // Request interface is the common interface for all different types of requests.
 type Request interface {
 	// createRequestProtos causes the request to create one-or-more API request protos.
-	createRequestProtos(c Config) []interface{}
+	createRequestProtos() []interface{}
 }
 
 // BasicReport is an implementation of Request that is used to explicitly specify a Report request.
@@ -43,9 +43,8 @@ type BasicCheck struct {
 var _ Request = &BasicCheck{}
 
 // CreateRequest creates a request proto.
-func (r BasicReport) createRequestProtos(c Config) []interface{} {
+func (r BasicReport) createRequestProtos() []interface{} {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(c.IdentityAttribute, c.IdentityAttributeDomain)
 	for k, v := range r.Attributes {
 		requestBag.Set(k, v)
 	}
@@ -76,9 +75,8 @@ func (r BasicReport) MarshalJSON() ([]byte, error) {
 }
 
 // CreateRequest creates a request proto.
-func (c BasicCheck) createRequestProtos(cfg Config) []interface{} {
+func (c BasicCheck) createRequestProtos() []interface{} {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(cfg.IdentityAttribute, cfg.IdentityAttributeDomain)
 	for k, v := range c.Attributes {
 		requestBag.Set(k, v)
 	}

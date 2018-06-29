@@ -195,7 +195,7 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			}
 
 			l.Write(name, "DispatchGenAttrs <= (SUCCESS)")
-			return attribute.GetFakeMutableBagForTesting(outputAttrs), nil
+			return attribute.GetMutableBagForTesting(outputAttrs), nil
 
 		},
 		CreateInstanceBuilder: func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {

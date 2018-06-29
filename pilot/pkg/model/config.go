@@ -280,6 +280,9 @@ type IstioConfigStore interface {
 	// SubsetToLabels returns the labels associated with a subset of a given service.
 	SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection
 
+	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
+	EnvoyFilter(workloadLabels LabelsCollection) *Config
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -302,8 +305,8 @@ type IstioConfigStore interface {
 	// ServiceRoleBindings selects ServiceRoleBindings in the specified namespace.
 	ServiceRoleBindings(namespace string) []Config
 
-	// RbacConfig selects the RbacConfig with the specified name in the specified namespace.
-	RbacConfig(name, namespace string) *Config
+	// RbacConfig selects the RbacConfig of name DefaultRbacConfigName.
+	RbacConfig() *Config
 }
 
 const (
@@ -444,6 +447,16 @@ var (
 		Validate:    ValidateDestinationRule,
 	}
 
+	// EnvoyFilter describes additional envoy filters to be inserted by Pilot
+	EnvoyFilter = ProtoSchema{
+		Type:        "envoy-filter",
+		Plural:      "envoy-filters",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
+		Validate:    ValidateEnvoyFilter,
+	}
+
 	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
@@ -526,14 +539,15 @@ var (
 		Validate:      ValidateServiceRoleBinding,
 	}
 
-	// RbacConfig describes an global RBAC config.
+	// RbacConfig describes the mesh level RBAC config.
 	RbacConfig = ProtoSchema{
-		Type:        "rbac-config",
-		Plural:      "rbac-configs",
-		Group:       "config",
-		Version:     istioAPIVersion,
-		MessageName: "istio.rbac.v1alpha1.RbacConfig",
-		Validate:    ValidateRbacConfig,
+		ClusterScoped: true,
+		Type:          "rbac-config",
+		Plural:        "rbac-configs",
+		Group:         "config",
+		Version:       istioAPIVersion,
+		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
+		Validate:      ValidateRbacConfig,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -546,6 +560,7 @@ var (
 		ServiceEntry,
 		DestinationPolicy,
 		DestinationRule,
+		EnvoyFilter,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
 		QuotaSpec,
@@ -810,6 +825,19 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
 			}
 		}
+		//resolve host in tls route.destination
+		for _, tls := range rule.Tls {
+			for _, m := range tls.Match {
+				for i, g := range m.Gateways {
+					if g != IstioMeshGateway {
+						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+					}
+				}
+			}
+			for _, w := range tls.Route {
+				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
+			}
+		}
 	}
 
 	return out
@@ -835,6 +863,28 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 		}
 	}
 	return out
+}
+
+// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
+// is undefined.
+func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {
+	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		filter := config.Spec.(*networking.EnvoyFilter)
+		if filter.GetWorkloadLabels() == nil {
+			// no selector. Applies to all workloads asking for the gateway
+			return &config
+		}
+		workloadSelector := Labels(filter.GetWorkloadLabels())
+		if workloadLabels.IsSupersetOf(workloadSelector) {
+			return &config
+		}
+	}
+	return nil
 }
 
 func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination string, labels Labels) *Config {
@@ -1113,14 +1163,17 @@ func (store *istioConfigStore) ServiceRoleBindings(namespace string) []Config {
 	return bindings
 }
 
-func (store *istioConfigStore) RbacConfig(name, namespace string) *Config {
-	rbacConfigs, err := store.List(RbacConfig.Type, namespace)
+func (store *istioConfigStore) RbacConfig() *Config {
+	rbacConfigs, err := store.List(RbacConfig.Type, "")
 	if err != nil {
 		log.Errorf("failed to get rbacConfig: %v", err)
 		return nil
 	}
+	if len(rbacConfigs) > 1 {
+		log.Errorf("found %d RbacConfigs, expecting only 1.", len(rbacConfigs))
+	}
 	for _, rc := range rbacConfigs {
-		if rc.Name == name {
+		if rc.Name == DefaultRbacConfigName {
 			return &rc
 		}
 	}

@@ -61,6 +61,17 @@ func (sd *serviceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return service, nil
 }
 
+// GetServiceAttributes implements a service catalog operation.
+func (sd *serviceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	svc, err := sd.GetService(hostname)
+	if svc != nil {
+		return &model.ServiceAttributes{
+			Name:      hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace}, nil
+	}
+	return nil, err
+}
+
 // Instances implements a service catalog operation
 func (sd *serviceDiscovery) Instances(hostname model.Hostname, ports []string,
 	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -112,9 +123,16 @@ func (sd *serviceDiscovery) GetProxyServiceInstances(proxy *model.Proxy) ([]*mod
 	return out, nil
 }
 
-// ManagementPorts retries set of health check ports by instance IP.
+// ManagementPorts retrieves set of health check ports by instance IP.
 // This does not apply to Eureka service registry, as Eureka does not
 // manage the service instances.
 func (sd *serviceDiscovery) ManagementPorts(addr string) model.PortList {
+	return nil
+}
+
+// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
+// This does not apply to Eureka service registry, as Eureka does not
+// manage the service instances.
+func (sd *serviceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }

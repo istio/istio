@@ -15,6 +15,7 @@
 package external
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -132,6 +133,22 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 	return nil, nil
 }
 
+// GetServiceAttributes retrieves the custom attributes of a service if it exists.
+func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	for _, config := range d.store.ServiceEntries() {
+		serviceEntry := config.Spec.(*networking.ServiceEntry)
+		svcs := convertServices(serviceEntry)
+		for _, s := range svcs {
+			if s.Hostname == hostname {
+				return &model.ServiceAttributes{
+					Name:      hostname.String(),
+					Namespace: config.Namespace}, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("service not found")
+}
+
 func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
@@ -141,10 +158,17 @@ func (d *ServiceEntryStore) getServices() []*model.Service {
 	return services
 }
 
-// ManagementPorts retries set of health check ports by instance IP.
+// ManagementPorts retrieves set of health check ports by instance IP.
 // This does not apply to Service Entry registry, as Service entries do not
 // manage the service instances.
 func (d *ServiceEntryStore) ManagementPorts(addr string) model.PortList {
+	return nil
+}
+
+// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
+// This does not apply to Service Entry registry, as Service entries do not
+// manage the service instances.
+func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 

@@ -67,12 +67,21 @@ func GetMutableBag(parent Bag) *MutableBag {
 	return mb
 }
 
-// GetFakeMutableBagForTesting returns a Mutable bag based on the specified map
+// GetMutableBagForTesting returns a Mutable bag based on the specified map
 // Use this function only for testing purposes.
-func GetFakeMutableBagForTesting(v map[string]interface{}) *MutableBag {
+func GetMutableBagForTesting(v map[string]interface{}) *MutableBag {
 	m := GetMutableBag(nil)
 	m.values = v
 	return m
+}
+
+// GetProtoForTesting returns a CompressedAttributes struct based on the specified map
+// Use this function only for testing purposes.
+func GetProtoForTesting(v map[string]interface{}) *mixerpb.CompressedAttributes {
+	b := GetMutableBagForTesting(v)
+	var ca mixerpb.CompressedAttributes
+	b.ToProto(&ca, nil, 0)
+	return &ca
 }
 
 // CopyBag makes a deep copy of a bag.

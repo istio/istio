@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,6 +43,14 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
+	PrometheusScrape = "prometheus.io/scrape"
+	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
+	PrometheusPort = "prometheus.io/port"
+	// PrometheusPath is the annotation used to specify a path for scraping metrics. Default is "/metrics"
+	PrometheusPath = "prometheus.io/path"
+	// PrometheusPathDefault is the default value for the PrometheusPath annotation
+	PrometheusPathDefault = "/metrics"
 )
 
 var (
@@ -249,6 +258,23 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
+// GetServiceAttributes returns istio attributes for a service in the registry if it is present
+func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		log.Infof("GetServiceAttributes() => error %v", err)
+		return nil, err
+	}
+	if _, exists := c.serviceByKey(name, namespace); exists {
+		return &model.ServiceAttributes{
+			Name:      name,
+			Namespace: namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+		}, nil
+	}
+	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
+}
+
 // serviceByKey retrieves a service by name and namespace
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
@@ -306,6 +332,65 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	return managementPorts
 }
 
+// WorkloadHealthCheckInfo implements a service catalog operation
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return nil
+	}
+
+	probes := make([]*model.Probe, 0)
+
+	// Obtain probes from the readiness and liveness probes
+	for _, container := range pod.Spec.Containers {
+		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing readiness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
+			})
+		}
+		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing liveness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.LivenessProbe.Handler.HTTPGet.Path,
+			})
+		}
+	}
+
+	// Obtain probe from prometheus scrape
+	if scrape := pod.Annotations[PrometheusScrape]; scrape == "true" {
+		var port *model.Port
+		path := PrometheusPathDefault
+		if portstr := pod.Annotations[PrometheusPort]; portstr != "" {
+			portnum, err := strconv.Atoi(portstr)
+			if err != nil {
+				log.Warna(err)
+			} else {
+				port = &model.Port{
+					Port: portnum,
+				}
+			}
+		}
+		if pod.Annotations[PrometheusPath] != "" {
+			path = pod.Annotations[PrometheusPath]
+		}
+		probes = append(probes, &model.Probe{
+			Port: port,
+			Path: path,
+		})
+	}
+
+	return probes
+}
+
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname model.Hostname, ports []string,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -347,10 +432,11 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 					}
 
 					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa := "", ""
+					az, sa, uid := "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
 					// identify the port by name
@@ -361,6 +447,7 @@ func (c *Controller) Instances(hostname model.Hostname, ports []string,
 									Address:     ea.IP,
 									Port:        int(port.Port),
 									ServicePort: svcPort,
+									UID:         uid,
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -417,10 +504,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					}
 
 					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa := "", ""
+					az, sa, uid := "", "", ""
 					if exists {
 						az, _ = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
 					// identify the port by name. K8S EndpointPort uses the service port name
@@ -433,6 +521,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Address:     ea.IP,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
+									UID:         uid,
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -452,19 +541,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
-	kubeNodes := make(map[string]*kubeServiceNode)
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
 				if proxy.IPAddress == ea.IP {
-					if kubeNodes[ea.IP] == nil {
-						err := parseKubeServiceNode(ea.IP, proxy, kubeNodes)
-						if err != nil {
-							log.Errorf("invalid service node %v %v %v", proxy.IPAddress, proxy.ID, err)
-							return out, err
-						}
-					}
 					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
 					if !exists {
 						continue
@@ -484,13 +565,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 						if exists {
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-							if kubeNodes[ea.IP].PodName != pod.GetName() || kubeNodes[ea.IP].Namespace != pod.GetNamespace() {
-								log.Warnf("Endpoint %v with pod %v in namespace %v is inconsistent "+
-									"with the query for pod %v in namespace %v",
-									ea.IP, pod.GetName(), pod.GetNamespace(),
-									kubeNodes[ea.IP].PodName, kubeNodes[ea.IP].Namespace)
-								continue
-							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{

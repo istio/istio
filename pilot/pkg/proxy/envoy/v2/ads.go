@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
+	"sort"
 	"sync"
 	"time"
 
@@ -148,6 +150,9 @@ type DiscoveryStream interface {
 
 // XdsConnection is a listener connection type.
 type XdsConnection struct {
+	// Mutex to protect changes to this XDS connection
+	mu sync.RWMutex
+
 	// PeerAddr is the address of the client envoy, from network layer
 	PeerAddr string
 
@@ -176,7 +181,11 @@ type XdsConnection struct {
 	HTTPClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
-	NonceSent, NonceAcked string
+	ClusterNonceSent, ClusterNonceAcked   string
+	ListenerNonceSent, ListenerNonceAcked string
+	RouteNonceSent, RouteNonceAcked       string
+	EndpointNonceSent, EndpointNonceAcked string
+	RoutePercent, EndpointPercent         int
 
 	// current list of clusters monitored by the client
 	Clusters []string
@@ -291,13 +300,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			con.mu.Lock()
 			con.modelNode = &nt
+			con.mu.Unlock()
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
-			}
-			if discReq.ResponseNonce != "" {
-				con.NonceAcked = discReq.ResponseNonce
 			}
 
 			switch discReq.TypeUrl {
@@ -307,13 +315,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:CDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 						cdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					} else if discReq.ResponseNonce != "" {
+						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
 					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -324,13 +334,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					if discReq.ErrorDetail != nil {
 						adsLog.Warnf("ADS:LDS: ACK ERROR %v %s %v", peerAddr, con.modelNode.ID, discReq.String())
 						ldsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					} else if discReq.ResponseNonce != "" {
+						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
 					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}
@@ -346,6 +358,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
 					if len(con.Routes) > 0 {
 						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
+						}
 						continue
 					}
 				}
@@ -358,24 +375,34 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case EndpointType:
 				clusters := discReq.GetResourceNames()
-				if len(clusters) == len(con.Clusters) || len(clusters) == 0 {
-					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
-						edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-					}
-					if len(con.Clusters) > 0 {
-						// Already got a list of clusters to watch and has same length as the request, this is an ack
-						continue
-					}
+				if discReq.ErrorDetail != nil {
+					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
+					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 				}
-				// It appears current envoy keeps repeating the request with one more
-				// clusters. This result in verbose messages if a lot of clusters and
-				// endpoints are used. Not clear why envoy can't batch, it gets all CDS
-				// in one shot.
+
+				sort.Strings(clusters)
+				sort.Strings(con.Clusters)
+
+				// Already got a list of endpoints to watch and it is the same as the request, this is an ack
+				if reflect.DeepEqual(con.Clusters, clusters) {
+					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						con.EndpointNonceAcked = discReq.ResponseNonce
+						if len(edsClusters) != 0 {
+							con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
+						}
+					}
+					continue
+				}
+
+				for _, cn := range con.Clusters {
+					s.removeEdsCon(cn, con.ConID, con)
+				}
+
+				for _, cn := range clusters {
+					s.addEdsCon(cn, con.ConID, con)
+				}
+
 				con.Clusters = clusters
-				for _, c := range con.Clusters {
-					s.addEdsCon(c, con.ConID, con)
-				}
 				adsLog.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(con)
 				if err != nil {
@@ -396,7 +423,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
 			if con.CDSWatch {
-				err := s.pushCds(*con.modelNode, con)
+				err := s.pushCds(con)
 				if err != nil {
 					return err
 				}
@@ -414,7 +441,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 			}
 			if con.LDSWatch {
-				err := s.pushLds(*con.modelNode, con)
+				err := s.pushLds(con)
 				if err != nil {
 					return err
 				}
@@ -574,6 +601,16 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 			continue
 		}
 
+		if err = r.Validate(); err != nil {
+			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
+			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
+			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
+			// Generating invalid routes is a bug.
+			// Panic instead of trying to recover from that, since we can't
+			// assume anything about the state.
+			panic(retErr.Error())
+		}
+
 		rc = append(rc, r)
 		con.RouteConfigs[routeName] = r
 		resp, _ := model.ToJSONWithIndent(r, " ")
@@ -614,9 +651,20 @@ func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	go func() {
 		err := con.stream.Send(res)
 		done <- err
+		con.mu.Lock()
 		if res.Nonce != "" {
-			con.NonceSent = res.Nonce
+			switch res.TypeUrl {
+			case ClusterType:
+				con.ClusterNonceSent = res.Nonce
+			case ListenerType:
+				con.ListenerNonceSent = res.Nonce
+			case RouteType:
+				con.RouteNonceSent = res.Nonce
+			case EndpointType:
+				con.EndpointNonceSent = res.Nonce
+			}
 		}
+		con.mu.Unlock()
 	}()
 	select {
 	case <-t.C:

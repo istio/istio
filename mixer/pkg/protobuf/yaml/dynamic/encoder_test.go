@@ -771,7 +771,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 	t.Logf("ba1 = [%d] %v", len(ba), ba)
 
 	ba = make([]byte, 0, 30)
-	bag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{
+	bag := attribute.GetMutableBagForTesting(map[string]interface{}{
 		"request.reason":        "TWO",
 		"response.size":         int64(200),
 		"response.code":         int64(662),

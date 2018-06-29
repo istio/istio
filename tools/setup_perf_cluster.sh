@@ -285,7 +285,7 @@ if [ -z ${DUR+x} ] || [ $DUR == "" ]; then
 fi
 
 function get_istio_version() {
-  kubectl describe pods -n istio|grep /proxy:|head -1 | awk -F: '{print $3}'
+  kubectl describe pods -n istio|grep /proxyv2:|head -1 | awk -F: '{print $3}'
 }
 
 function get_json_file_name() {

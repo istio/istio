@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: servicegraph
   namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   labels:
     app: servicegraph
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

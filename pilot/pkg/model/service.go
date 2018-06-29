@@ -99,8 +99,13 @@ const (
 	Passthrough
 )
 
-// UnspecifiedIP constant for empty IP address
-const UnspecifiedIP = "0.0.0.0"
+const (
+	// UnspecifiedIP constant for empty IP address
+	UnspecifiedIP = "0.0.0.0"
+
+	// IstioDefaultConfigNamespace constant for default namespace
+	IstioDefaultConfigNamespace = "default"
+)
 
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
@@ -286,6 +291,9 @@ type NetworkEndpoint struct {
 	// the service associated with this instance (e.g.,
 	// catalog.mystore.com)
 	ServicePort *Port
+
+	// Defines a platform-specific workload instance identifier (optional).
+	UID string
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -299,6 +307,15 @@ type Labels map[string]string
 // LabelsCollection is a collection of labels used for comparing labels against a
 // collection of labels
 type LabelsCollection []Labels
+
+// Probe represents a health probe associated with an instance of service.
+type Probe struct {
+	Port *Port  `json:"port,omitempty"`
+	Path string `json:"path,omitempty"`
+}
+
+// ProbeList is a set of probes
+type ProbeList []*Probe
 
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
@@ -344,6 +361,16 @@ func (si *ServiceInstance) GetAZ() string {
 	return si.Labels[AZLabel]
 }
 
+// ServiceAttributes represents a group of custom attributes of the service.
+type ServiceAttributes struct {
+	// Name is "destination.service.name" attribute
+	Name string
+	// Namespace is "destination.service.namespace" attribute
+	Namespace string
+	// UID is "destination.service.uid" attribute
+	UID string
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
@@ -351,6 +378,9 @@ type ServiceDiscovery interface {
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
+
+	// GetServiceAttributes retrieves the custom attributes of a service
+	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -422,6 +452,11 @@ type ServiceDiscovery interface {
 	// the configuration generated for the proxy will not manipulate traffic destined for
 	// the management ports
 	ManagementPorts(addr string) PortList
+
+	// WorkloadHealthCheckInfo lists set of probes associated with an IPv4 address.
+	// These probes are used by the platform to identify requests that are performing
+	// health checks.
+	WorkloadHealthCheckInfo(addr string) ProbeList
 }
 
 // ServiceAccounts exposes Istio service accounts

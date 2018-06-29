@@ -615,20 +615,6 @@ ident                         : dest.istio-system
 	},
 
 	{
-		name: "ErrorExtractingIdentityAttribute",
-		config: []string{
-			data.HandlerACheck1,
-			data.InstanceCheck1,
-			data.RuleCheck1,
-		},
-		attr: map[string]interface{}{
-			"ident": 23,
-		},
-		variety: tpb.TEMPLATE_VARIETY_CHECK,
-		err:     "identity parameter is not a string: 'ident'",
-	},
-
-	{
 		name: "InputSetDoesNotMatch",
 		config: []string{
 			data.HandlerACheck1,
@@ -702,7 +688,7 @@ func TestDispatcher(t *testing.T) {
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {
 
-			dispatcher := New("ident", gp, true)
+			dispatcher := New(gp, true)
 
 			l := &data.Logger{}
 
@@ -728,9 +714,9 @@ func TestDispatcher(t *testing.T) {
 					"ident": "dest.istio-system",
 				}
 			}
-			bag := attribute.GetFakeMutableBagForTesting(attr)
+			bag := attribute.GetMutableBagForTesting(attr)
 
-			responseBag := attribute.GetFakeMutableBagForTesting(make(map[string]interface{}))
+			responseBag := attribute.GetMutableBagForTesting(make(map[string]interface{}))
 
 			var err error
 			switch tst.variety {
@@ -773,7 +759,7 @@ func TestDispatcher(t *testing.T) {
 			case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 				err = dispatcher.Preprocess(context.TODO(), bag, responseBag)
 
-				expectedBag := attribute.GetFakeMutableBagForTesting(tst.responseAttrs)
+				expectedBag := attribute.GetMutableBagForTesting(tst.responseAttrs)
 				if strings.TrimSpace(responseBag.String()) != strings.TrimSpace(expectedBag.String()) {
 					tt.Fatalf("Output attributes mismatch: \n%s\n!=\n%s\n", responseBag.String(), expectedBag.String())
 				}
@@ -801,7 +787,7 @@ func TestDispatcher(t *testing.T) {
 }
 
 func TestRefCount(t *testing.T) {
-	d := New("ident", gp, true)
+	d := New(gp, true)
 	old := d.ChangeRoute(routing.Empty())
 	if old.GetRefs() != 0 {
 		t.Fatalf("%d != 0", old.GetRefs())
