@@ -104,6 +104,7 @@ func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string, port 
 	return tcpFilter, nil
 }
 
+// TODO: can deprecated TCP proxy filter be removed?
 // buildOutboundNetworkFilters generates TCP proxy network filter for outbound connections. In addition, it generates
 // protocol specific filters (e.g., Mongo filter)
 // this function constructs deprecated_v1 routes, until the filter chain match is ready

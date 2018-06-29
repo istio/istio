@@ -539,7 +539,7 @@ func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-// SubsetOf is true if the tag has identical values for the keys
+// SubsetOf is true if the label has identical values for the keys
 func (l Labels) SubsetOf(that Labels) bool {
 	for k, v := range l {
 		if that[k] != v {

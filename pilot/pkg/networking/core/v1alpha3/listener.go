@@ -20,6 +20,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -353,7 +354,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	sniRoutes := buildSNIRoutes(env.VirtualServices(meshGateway), proxyLabels, meshGateway)
+	configs := env.VirtualServices(meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
@@ -365,7 +366,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				service.Hostname, servicePort.Port)
 
 			listenAddress := WildcardAddress
-			var addresses []string
+			//var addresses []string
 			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
 				env:            env,
@@ -413,7 +414,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			case plugin.ListenerProtocolTCP:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
-					addresses = []string{listenAddress}
+					//addresses = []string{listenAddress}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
@@ -432,21 +433,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 				// FIXME: doc this
 				// TODO: passthrough?
-				sniKey := hostPortKey{Host: service.Hostname, Port: servicePort.Port}
-				if routes := sniRoutes[sniKey]; len(routes) > 0 {
-					for _, route := range routes {
-						targetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound,
-							route.Subset, route.Host, route.Port)
-						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-							sniHosts:       route.ServerNames,
-							networkFilters: buildOutboundNetworkFilters(targetClusterName, nil, servicePort),
-						})
-					}
-				} else {
-					listenerOpts.filterChainOpts = []*filterChainOpts{{
-						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, servicePort),
-					}}
-				}
+				// FIXME: duplicates
+				// FIXME: handle conflicts of tls without sni. if there are multiple https/tls services
+				// on the same port without sni, this is a conflict because they are treated as regular tcp.
+				// we need to be careful not to generate both filterchains, because envoy will reject them
+				// and send the proxy into a restart loop.
+				// envoy rejects listeners with identical filter chain matches.
+				// we need to ensure each filter chain match for a given listener is unique.
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, service.Hostname, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -462,7 +456,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				Listener:     l,
 				FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 			}
-
 
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
@@ -522,7 +515,33 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 		}
 	}
 
-	return append(tcpListeners, httpListeners...)
+	listeners := append(tcpListeners, httpListeners...)
+
+	// trim conflicting filterchains
+	// FIXME: ugly hack
+	for _, l := range listeners {
+		filterChainMatches := make(map[string]bool)
+
+		trimmedFilterChains := make([]listener.FilterChain, 0, len(l.FilterChains))
+		for _, filterChain := range l.FilterChains {
+			var key string
+			if filterChain.FilterChainMatch != nil {
+				sniDomains := make([]string, len(filterChain.FilterChainMatch.SniDomains))
+				copy(sniDomains, filterChain.FilterChainMatch.SniDomains)
+				sort.Strings(sniDomains)
+				key = strings.Join(sniDomains, ",") // sni domains is the only thing set in filterchainmatch rn
+			}
+			if !filterChainMatches[key] {
+				trimmedFilterChains = append(trimmedFilterChains, filterChain)
+				filterChainMatches[key] = true
+			} else {
+				log.Warnf("omitting filterchain with duplicate filterchainmatch: %v", key)
+			}
+		}
+		l.FilterChains = trimmedFilterChains
+	}
+
+	return listeners
 }
 
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
