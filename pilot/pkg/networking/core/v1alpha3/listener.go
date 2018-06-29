@@ -15,10 +15,10 @@
 package v1alpha3
 
 import (
-	"reflect"
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -267,11 +267,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			found := false
 			for _, p := range configgen.Plugins {
 				if authnPolicy, ok := p.(authn.Plugin); ok {
-					matches, tls := authnPolicy.SetupFilterChains(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
+					matches, tls, requireTLSInspector := authnPolicy.SetupFilterChains(
+						env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
+					listenerOpts.requireTLSInspector = requireTLSInspector
 					for i, match := range matches {
 						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-							httpOpts: httpOpts,
-							match:    match,
+							httpOpts:   httpOpts,
+							match:      match,
 							tlsContext: tls[i],
 						})
 					}
@@ -586,21 +588,21 @@ type filterChainOpts struct {
 	match      *listener.FilterChainMatch
 	// // ALPN protocol used for the filter chain match.
 	// applicationProtocol []string
-	networkFilters      []listener.Filter
+	networkFilters []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env                  model.Environment
-	proxy                model.Proxy
-	proxyInstances       []*model.ServiceInstance
-	ip                   string
-	port                 int
-	protocol             model.Protocol
-	bindToPort           bool
-	filterChainOpts      []*filterChainOpts
-	acceptIstioAndLegacy bool
+	env                 model.Environment
+	proxy               model.Proxy
+	proxyInstances      []*model.ServiceInstance
+	ip                  string
+	port                int
+	protocol            model.Protocol
+	bindToPort          bool
+	filterChainOpts     []*filterChainOpts
+	requireTLSInspector bool
 }
 
 func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
@@ -675,7 +677,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 
 	var listenerFilters []listener.ListenerFilter
-	if opts.acceptIstioAndLegacy {
+	if opts.requireTLSInspector {
 		listenerFilters = []listener.ListenerFilter{
 			{
 				Name:   authn.EnvoyTLSInspectorFilterName,

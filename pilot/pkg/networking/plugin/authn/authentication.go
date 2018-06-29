@@ -86,16 +86,17 @@ func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	return false, nil
 }
 
-// SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain.
+// SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain, and a bool
+// to indicate whether the `tls_inspector` listener filter is needed.
 // (*[]xdsapi.FilterChainMatch, *[]auth.DownstreamTlsContext).
 func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,
-	hostname model.Hostname, port *model.Port) ([]*ldsv2.FilterChainMatch, []*auth.DownstreamTlsContext) {
+	hostname model.Hostname, port *model.Port) ([]*ldsv2.FilterChainMatch, []*auth.DownstreamTlsContext, bool) {
 	matches := []*ldsv2.FilterChainMatch{nil}
 	tlsSettings := []*auth.DownstreamTlsContext{nil}
 
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return matches, tlsSettings
+		return matches, tlsSettings, false
 	}
 	alpnIstioMatch := &ldsv2.FilterChainMatch{
 		ApplicationProtocols: util.ALPNHttp,
@@ -138,21 +139,20 @@ func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioCo
 			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
 				log.Infof("Allow only istio mutual TLS traffic %v %v\n", hostname, port)
 				return []*ldsv2.FilterChainMatch{nil},
-							 []*auth.DownstreamTlsContext{tls}
+					[]*auth.DownstreamTlsContext{tls}, false
 			}
 			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
 				log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", hostname, port)
 				return []*ldsv2.FilterChainMatch{alpnIstioMatch, nil},
-							 []*auth.DownstreamTlsContext{tls, nil}
+					[]*auth.DownstreamTlsContext{tls, nil}, true
 			}
 		default:
 			continue
 		}
 	}
 	// No peer authentication found.
-	return matches, tlsSettings
+	return matches, tlsSettings, false
 }
-
 
 // JwksURIClusterName returns cluster name for the jwks URI. This should be used
 // to override the name for outbound cluster that are added for Jwks URI so that they
