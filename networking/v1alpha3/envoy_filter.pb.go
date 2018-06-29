@@ -158,23 +158,24 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 // inbound calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: EnvoyFilter
-//     metadata:
-//       name: reviews-lua
-//     spec:
-//       workloadLabels:
-//         app: reviews
-//       filters:
-//       - listenerMatch:
-//           portNumber: 8080
-//           listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
-//         filterName: envoy.lua
-//         filterType: HTTP
-//         filterConfig:
-//           inlineCode: |
-//             ... lua code ...
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: EnvoyFilter
+// metadata:
+//   name: reviews-lua
+// spec:
+//   workloadLabels:
+//     app: reviews
+//   filters:
+//   - listenerMatch:
+//       portNumber: 8080
+//       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
+//     filterName: envoy.lua
+//     filterType: HTTP
+//     filterConfig:
+//       inlineCode: |
+//         ... lua code ...
+// ```
 type EnvoyFilter struct {
 	// One or more labels that indicate a specific set of pods/VMs whose
 	// proxies should be configured to use these additional filters.  The

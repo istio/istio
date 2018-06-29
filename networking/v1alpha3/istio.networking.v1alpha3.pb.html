@@ -692,7 +692,7 @@ specified for the same workload.</p>
 inbound calls arriving at service port 8080 of the reviews service pod with
 labels &ldquo;app: reviews&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: reviews-lua
@@ -701,7 +701,7 @@ spec:
     app: reviews
   filters:
   - listenerMatch:
-      portNumber: 8080 
+      portNumber: 8080
       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
     filterName: envoy.lua
     filterType: HTTP
@@ -2584,7 +2584,7 @@ spec:
   resolution: DNS
 </code></pre>
 
-<p>Define a gateway to to handle all egress traffic.</p>
+<p>Define a gateway to handle all egress traffic.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -2600,13 +2600,13 @@ spec:
      protocol: HTTP
    hosts:
    - &quot;*&quot;
+</code></pre>
 
-And the associated VirtualService to route from the sidecar to the
+<p>And the associated VirtualService to route from the sidecar to the
 gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
-well as route from the gateway to the external service.
+well as route from the gateway to the external service.</p>
 
-```yaml
-apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-routing
@@ -2657,7 +2657,7 @@ spec:
 Unix Domain Socket on the host of the client. The resolution must be
 set to STATIC to use unix address endpoints.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: unix-domain-socket-example
