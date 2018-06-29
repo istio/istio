@@ -33,21 +33,22 @@ import (
 
 // Externs contains the list of standard external functions used during evaluation.
 var Externs = map[string]interpreter.Extern{
-	"ip":              interpreter.ExternFromFn("ip", externIP),
-	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIPEqual),
-	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
-	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
-	"dnsName":         interpreter.ExternFromFn("dnsName", externDNSName),
-	"dnsName_equal":   interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
-	"email":           interpreter.ExternFromFn("email", externEmail),
-	"email_equal":     interpreter.ExternFromFn("email_equal", externEmailEqual),
-	"uri":             interpreter.ExternFromFn("uri", externURI),
-	"uri_equal":       interpreter.ExternFromFn("uri_equal", externURIEqual),
-	"match":           interpreter.ExternFromFn("match", externMatch),
-	"matches":         interpreter.ExternFromFn("matches", externMatches),
-	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
-	"endsWith":        interpreter.ExternFromFn("endsWith", externEndsWith),
-	"emptyStringMap":  interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
+	"ip":                interpreter.ExternFromFn("ip", externIP),
+	"ip_equal":          interpreter.ExternFromFn("ip_equal", externIPEqual),
+	"timestamp":         interpreter.ExternFromFn("timestamp", externTimestamp),
+	"timestamp_equal":   interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
+	"dnsName":           interpreter.ExternFromFn("dnsName", externDNSName),
+	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
+	"email":             interpreter.ExternFromFn("email", externEmail),
+	"email_equal":       interpreter.ExternFromFn("email_equal", externEmailEqual),
+	"uri":               interpreter.ExternFromFn("uri", externURI),
+	"uri_equal":         interpreter.ExternFromFn("uri_equal", externURIEqual),
+	"match":             interpreter.ExternFromFn("match", externMatch),
+	"matches":           interpreter.ExternFromFn("matches", externMatches),
+	"startsWith":        interpreter.ExternFromFn("startsWith", externStartsWith),
+	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
+	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
+	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -107,6 +108,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "emptyStringMap",
 		ReturnType:    config.STRING_MAP,
 		ArgumentTypes: []config.ValueType{},
+	},
+	{
+		Name:          "conditionalString",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.BOOL, config.STRING, config.STRING},
 	},
 }
 
@@ -320,4 +326,11 @@ func externEndsWith(str string, suffix string) bool {
 
 func externEmptyStringMap() map[string]string {
 	return map[string]string{}
+}
+
+func externConditionalString(condition bool, trueStr, falseStr string) string {
+	if condition {
+		return trueStr
+	}
+	return falseStr
 }

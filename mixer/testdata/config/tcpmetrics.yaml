@@ -8,6 +8,7 @@ metadata:
 spec:
   value: connection.sent.bytes | 0
   dimensions:
+    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -36,6 +37,7 @@ metadata:
 spec:
   value: connection.received.bytes | 0
   dimensions:
+    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
