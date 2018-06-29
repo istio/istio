@@ -167,7 +167,6 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 				tags["destination.labels."+k] = v
 			}
 		}
-		delete(istioSpan.SpanTags, "destination.labels")
 	}
 
 	if labels, ok := istioSpan.SpanTags["source.labels"].(map[string]string); ok {
@@ -176,7 +175,6 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 				tags["source.labels."+k] = v
 			}
 		}
-		delete(istioSpan.SpanTags, "source.labels")
 	}
 
 	// Special handling for the span name since the Istio attribute that is the
@@ -196,7 +194,11 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 	}
 
 	for k, v := range istioSpan.SpanTags {
-		if s := adapter.Stringify(v); s != "" && k != "context.reporter.local" {
+		shouldSet := k != "context.reporter.local" &&
+			k != "source.labels" &&
+			k != "destination.labels"
+
+		if s := adapter.Stringify(v); s != "" && shouldSet {
 			tags[k] = s
 		}
 	}
