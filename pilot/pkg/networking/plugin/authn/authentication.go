@@ -99,7 +99,7 @@ func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioCo
 		return matches, tlsSettings, false
 	}
 	alpnIstioMatch := &ldsv2.FilterChainMatch{
-		ApplicationProtocols: util.ALPNHttp,
+		ApplicationProtocols: util.ALPNInMesh,
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
@@ -143,7 +143,7 @@ func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioCo
 			}
 			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
 				log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", hostname, port)
-				return []*ldsv2.FilterChainMatch{alpnIstioMatch, nil},
+				return []*ldsv2.FilterChainMatch{alpnIstioMatch, &ldsv2.FilterChainMatch{}},
 					[]*auth.DownstreamTlsContext{tls, nil}, true
 			}
 		default:
