@@ -99,6 +99,17 @@ type ServiceDiscovery struct {
 	managementPortsReturnsOnCall map[int]struct {
 		result1 model.PortList
 	}
+	WorkloadHealthCheckInfoStub        func(addr string) model.ProbeList
+	workloadHealthCheckInfoMutex       sync.RWMutex
+	workloadHealthCheckInfoArgsForCall []struct {
+		addr string
+	}
+	workloadHealthCheckInfoReturns struct {
+		result1 model.ProbeList
+	}
+	workloadHealthCheckInfoReturnsOnCall map[int]struct {
+		result1 model.ProbeList
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -458,6 +469,54 @@ func (fake *ServiceDiscovery) ManagementPortsReturnsOnCall(i int, result1 model.
 	}{result1}
 }
 
+func (fake *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	fake.workloadHealthCheckInfoMutex.Lock()
+	ret, specificReturn := fake.workloadHealthCheckInfoReturnsOnCall[len(fake.workloadHealthCheckInfoArgsForCall)]
+	fake.workloadHealthCheckInfoArgsForCall = append(fake.workloadHealthCheckInfoArgsForCall, struct {
+		addr string
+	}{addr})
+	fake.recordInvocation("WorkloadHealthCheckInfo", []interface{}{addr})
+	fake.workloadHealthCheckInfoMutex.Unlock()
+	if fake.WorkloadHealthCheckInfoStub != nil {
+		return fake.WorkloadHealthCheckInfoStub(addr)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.workloadHealthCheckInfoReturns.result1
+}
+
+func (fake *ServiceDiscovery) WorkloadHealthCheckInfoCallCount() int {
+	fake.workloadHealthCheckInfoMutex.RLock()
+	defer fake.workloadHealthCheckInfoMutex.RUnlock()
+	return len(fake.workloadHealthCheckInfoArgsForCall)
+}
+
+func (fake *ServiceDiscovery) WorkloadHealthCheckInfoArgsForCall(i int) string {
+	fake.workloadHealthCheckInfoMutex.RLock()
+	defer fake.workloadHealthCheckInfoMutex.RUnlock()
+	return fake.workloadHealthCheckInfoArgsForCall[i].addr
+}
+
+func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturns(result1 model.ProbeList) {
+	fake.WorkloadHealthCheckInfoStub = nil
+	fake.workloadHealthCheckInfoReturns = struct {
+		result1 model.ProbeList
+	}{result1}
+}
+
+func (fake *ServiceDiscovery) WorkloadHealthCheckInfoReturnsOnCall(i int, result1 model.ProbeList) {
+	fake.WorkloadHealthCheckInfoStub = nil
+	if fake.workloadHealthCheckInfoReturnsOnCall == nil {
+		fake.workloadHealthCheckInfoReturnsOnCall = make(map[int]struct {
+			result1 model.ProbeList
+		})
+	}
+	fake.workloadHealthCheckInfoReturnsOnCall[i] = struct {
+		result1 model.ProbeList
+	}{result1}
+}
+
 func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -475,6 +534,8 @@ func (fake *ServiceDiscovery) Invocations() map[string][][]interface{} {
 	defer fake.getProxyServiceInstancesMutex.RUnlock()
 	fake.managementPortsMutex.RLock()
 	defer fake.managementPortsMutex.RUnlock()
+	fake.workloadHealthCheckInfoMutex.RLock()
+	defer fake.workloadHealthCheckInfoMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

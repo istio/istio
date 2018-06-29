@@ -112,7 +112,6 @@ func buildEnv() model.Environment {
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
-		DisableRDS:       false,
 	}
 
 	return env
