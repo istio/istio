@@ -17,14 +17,13 @@ package route_test
 import (
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
+	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/onsi/gomega"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-
-	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/onsi/gomega"
 )
 
 func TestBuildHTTPRouteForVirtualService(t *testing.T) {
@@ -60,7 +59,7 @@ func TestBuildHTTPRouteForVirtualService(t *testing.T) {
 	}
 
 	serviceRegistry := map[model.Hostname]*model.Service{
-		"*.example.org": &model.Service{
+		"*.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
 			ClusterVIPs: make(map[string]string),
@@ -132,7 +131,7 @@ func TestBuildHTTPRouteWithRingHashForVirtualService(t *testing.T) {
 	}
 
 	serviceRegistry := map[model.Hostname]*model.Service{
-		"acme.example.org": &model.Service{
+		"acme.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
 			ClusterVIPs: make(map[string]string),
@@ -151,9 +150,9 @@ func TestBuildHTTPRouteWithRingHashForVirtualService(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(routes)).To(gomega.Equal(1))
 
-	hashPolicy := &envoy_api_v2_route.RouteAction_HashPolicy{
-		PolicySpecifier: &envoy_api_v2_route.RouteAction_HashPolicy_Cookie_{
-			Cookie: &envoy_api_v2_route.RouteAction_HashPolicy_Cookie{
+	hashPolicy := &envoyroute.RouteAction_HashPolicy{
+		PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+			Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 				Name: "some-header",
 			},
 		},
