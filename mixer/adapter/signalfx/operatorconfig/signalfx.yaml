@@ -24,9 +24,8 @@ kind: rule
 metadata:
   name: signalfxhttp
   namespace: istio-system
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http"
   actions:
   - handler: handler.signalfx
     instances:

@@ -152,9 +152,8 @@ kind: rule
 metadata:
   name: promhttp
   namespace: istio-system
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http"
   actions:
   - handler: handler.prometheus
     instances:

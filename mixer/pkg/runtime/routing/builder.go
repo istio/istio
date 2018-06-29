@@ -182,7 +182,7 @@ func (b *builder) build(config *config.Snapshot) {
 				}
 
 				b.add(rule.Namespace, buildTemplateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+					entry.Name, instance.Name, rule.Match)
 			}
 		}
 
@@ -212,7 +212,7 @@ func (b *builder) build(config *config.Snapshot) {
 				}
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match, rule.ResourceType)
+					entry.Name, instance.Name, rule.Match)
 			}
 		}
 	}
@@ -315,8 +315,7 @@ func (b *builder) add(
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string,
-	resourceType config.ResourceType) {
+	matchText string) {
 
 	// Find or create the variety entry.
 	byVariety, found := b.table.entries[t.Variety]
@@ -367,7 +366,7 @@ func (b *builder) add(
 		// Try to find an input set to place the entry by comparing the compiled expression and resource type.
 		// This doesn't flatten across all actions, but only for actions coming from the same rule. We can
 		// flatten based on the expression text as well.
-		if set.Condition == condition && set.ResourceType == resourceType {
+		if set.Condition == condition {
 			instanceGroup = set
 			break
 		}
@@ -377,7 +376,6 @@ func (b *builder) add(
 		instanceGroup = &InstanceGroup{
 			id:           b.nextID(),
 			Condition:    condition,
-			ResourceType: resourceType,
 			Builders:     []NamedBuilder{},
 			Mappers:      []template.OutputMapperFn{},
 		}

@@ -57,9 +57,8 @@ kind: rule
 metadata:
   name: solarwindshttp
   namespace: istio-system
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http"
   actions:
   - handler: handler.solarwinds
     instances:
@@ -74,9 +73,8 @@ kind: rule
 metadata:
   name: solarwindstcp
   namespace: istio-system
-  labels:
-    istio-protocol: tcp
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.solarwinds
     instances:
