@@ -13,11 +13,7 @@ roleRef:
   name: istio-citadel-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-{{- if .Values.global.rbacEnabled }}
     name: istio-citadel-service-account
-{{- else }}
-    name: default
-{{- end }}
     namespace: {{ .Release.Namespace }}
 
 {{- if $.Values.cleanUpOldCA }}
@@ -38,9 +34,6 @@ roleRef:
   name: istio-cleanup-old-ca-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-{{- if .Values.global.rbacEnabled }}
     name: istio-cleanup-old-ca-service-account
-{{- else }}
-    name: default
-{{- end }}
     namespace: {{ .Release.Namespace }}
+{{- end }}
