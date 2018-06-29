@@ -556,7 +556,7 @@ metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
 spec:
-  match: context.protocol == "http"
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.prometheus
     instances:

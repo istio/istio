@@ -37,7 +37,7 @@ metadata:
   name: doghttp
   namespace: istio-system
 spec:
-  match: context.protocol == "http"
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.dogstatsd
     instances:

@@ -58,7 +58,7 @@ metadata:
   name: solarwindshttp
   namespace: istio-system
 spec:
-  match: context.protocol == "http"
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.solarwinds
     instances:
