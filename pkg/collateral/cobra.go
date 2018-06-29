@@ -38,7 +38,7 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 				c.EmitBashCompletion = true
 				c.EmitManPages = true
 				c.EmitMarkdown = true
-				c.EmitJekyllHTML = true
+				c.EmitHTMLFragmentWithFrontMatter = true
 			}
 
 			return EmitCollateral(root, &c)
@@ -51,7 +51,8 @@ func CobraCommand(root *cobra.Command, hdr *doc.GenManHeader) *cobra.Command {
 	cmd.Flags().BoolVarP(&c.EmitManPages, "man", "", c.EmitManPages, "Produce man pages")
 	cmd.Flags().BoolVarP(&c.EmitBashCompletion, "bash", "", c.EmitBashCompletion, "Produce bash completion files")
 	cmd.Flags().BoolVarP(&c.EmitYAML, "yaml", "", c.EmitYAML, "Produce YAML documentation files")
-	cmd.Flags().BoolVarP(&c.EmitJekyllHTML, "jekyll_html", "", c.EmitJekyllHTML, "Produce a Jekyll-friendly HTML documentation file")
+	cmd.Flags().BoolVarP(&c.EmitHTMLFragmentWithFrontMatter, "html_fragment_with_front_matter",
+		"", c.EmitHTMLFragmentWithFrontMatter, "Produce an HTML documentation file with Hugo/Jekyll-compatible front matter.")
 
 	return cmd
 }
