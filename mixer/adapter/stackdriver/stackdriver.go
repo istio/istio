@@ -77,7 +77,14 @@ func GetInfo() adapter.Info {
 		}
 		return cn, nil
 	}
-	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, md.Zone, clusterNameFn)
+	clusterLocationFn := func() (string, error) {
+		cl, err := md.InstanceAttributeValue("cluster-location")
+		if err == nil {
+			return cl, nil
+		}
+		return md.Zone()
+	}
+	mg := helper.NewMetadataGenerator(md.OnGCE, md.ProjectID, clusterLocationFn, clusterNameFn)
 	return adapter.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/istio/mixer/adapter/stackdriver",
