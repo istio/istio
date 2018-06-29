@@ -116,7 +116,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "round(sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])), 0.001)",
+          "expr": "round(sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m])), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -198,7 +198,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{destination_workload=~\"$workload\"}[1m]))",
+          "expr": "sum(rate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m]))",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -281,7 +281,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\", response_code=~\"4.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\", response_code=~\"4.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -363,7 +363,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\", response_code=~\"5.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\", response_code=~\"5.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -422,7 +422,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "round(sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, response_code), 0.001)",
+          "expr": "round(sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, response_code), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ source_workload }} -> {{destination_workload}} : {{ response_code }}",
@@ -507,7 +507,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) by (source_workload, destination_workload) / sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload)",
+          "expr": "sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) by (source_workload, destination_workload) / sum(irate(istio_requests_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -593,7 +593,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.50, sum(irate(istio_request_duration_seconds_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -602,7 +602,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -611,7 +611,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.95, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.95, sum(irate(istio_request_duration_seconds_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -620,7 +620,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.99, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.99, sum(irate(istio_request_duration_seconds_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -705,7 +705,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.50, sum(irate(istio_response_bytes_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -714,7 +714,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.90, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.90, sum(irate(istio_response_bytes_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -723,7 +723,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.95, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.95, sum(irate(istio_response_bytes_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
@@ -732,7 +732,7 @@
           "step": 2
         },
         {
-          "expr": "histogram_quantile(0.99, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
+          "expr": "histogram_quantile(0.99, sum(irate(istio_response_bytes_bucket{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
