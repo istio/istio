@@ -209,6 +209,13 @@ test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
 	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
 	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
+test/integration-example:
+	./tests/integration/example/integration.sh
+
+test/security-integration:
+	CERT_DIR=$($(MAKE) where-is-docker-temp) \
+	./security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"
+
 junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 	${ISTIO_BIN}/go-junit-report < $(OUT_DIR)/tests/build-log.txt > $(OUT_DIR)/tests/junit.xml
 
