@@ -9,6 +9,7 @@ spec:
     instance_name: requestcount.metric.istio-system
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -31,6 +32,7 @@ spec:
     instance_name: requestduration.metric.istio-system
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -56,6 +58,7 @@ spec:
     instance_name: requestsize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -83,6 +86,7 @@ spec:
     instance_name: responsesize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -110,6 +114,7 @@ spec:
     instance_name: tcpbytesent.metric.istio-system
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -130,6 +135,7 @@ spec:
     instance_name: tcpbytereceived.metric.istio-system
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
