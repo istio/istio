@@ -273,10 +273,10 @@
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
+    "envoy/type/matcher",
     "pkg/cache",
     "pkg/log",
     "pkg/server",
-    "envoy/type/matcher",
     "pkg/util"
   ]
   revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
@@ -1278,7 +1278,6 @@
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "broker/dev",
     "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
@@ -1589,6 +1588,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f63c021ef6669cfc784723c46a26533edcd1fe57276a95a9dae05331a410f224"
+  inputs-digest = "65f46ef295df87a81904446c583d66012d54cc9b21f6909123a24c4e0c6e47c1"
   solver-name = "gps-cdcl"
   solver-version = 1
