@@ -3,4 +3,6 @@ kind: RbacConfig
 metadata:
   name: default
 spec:
-  mode: 'ON'
+  mode: 'ON_WITH_INCLUSION'
+  inclusion:
+    namespaces: ["default"]
