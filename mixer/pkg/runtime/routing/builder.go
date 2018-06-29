@@ -374,10 +374,10 @@ func (b *builder) add(
 
 	if instanceGroup == nil {
 		instanceGroup = &InstanceGroup{
-			id:           b.nextID(),
-			Condition:    condition,
-			Builders:     []NamedBuilder{},
-			Mappers:      []template.OutputMapperFn{},
+			id:        b.nextID(),
+			Condition: condition,
+			Builders:  []NamedBuilder{},
+			Mappers:   []template.OutputMapperFn{},
 		}
 		byHandler.InstanceGroups = append(byHandler.InstanceGroups, instanceGroup)
 
