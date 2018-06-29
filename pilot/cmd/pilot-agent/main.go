@@ -240,12 +240,15 @@ var (
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
-			go watcher.Run(ctx)
 
-			stop := make(chan struct{})
-			cmd.WaitSignal(stop)
-			<-stop
-			cancel()
+			go func (){
+				defer cancel()
+				stop := make(chan struct{})
+				cmd.WaitSignal(stop)
+				<-stop
+			}()
+
+			watcher.Run(ctx)
 			return nil
 		},
 	}

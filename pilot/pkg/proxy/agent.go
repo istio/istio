@@ -66,7 +66,7 @@ type Agent interface {
 
 	// Run starts the agent control loop and awaits for a signal on the input
 	// channel to exit the loop.
-	Run(ctx context.Context)
+	Run(ctx context.Context) error
 }
 
 var (
@@ -161,7 +161,7 @@ func (a *agent) ScheduleConfigUpdate(config interface{}) {
 	a.configCh <- config
 }
 
-func (a *agent) Run(ctx context.Context) {
+func (a *agent) Run(ctx context.Context) error {
 	log.Info("Starting proxy agent")
 
 	// Throttle processing up to smoothed 1 qps with bursts up to 10 qps.
@@ -172,7 +172,7 @@ func (a *agent) Run(ctx context.Context) {
 		err := rateLimiter.Wait(ctx)
 		if err != nil {
 			a.terminate()
-			return
+			return err
 		}
 
 		// maximum duration or duration till next restart
@@ -231,11 +231,15 @@ func (a *agent) Run(ctx context.Context) {
 					} else {
 						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
 						a.proxy.Panic(a.desiredConfig)
-						return
+						return nil
 					}
 				} else {
 					log.Debugf("Epoch %d: restart already scheduled", status.epoch)
 				}
+			} else if len(a.epochs) == 0 {
+				// terminate when the epoch is normally terminated w/o leftover epoch
+				a.terminate()
+				return nil
 			}
 
 		case <-time.After(delay):
@@ -244,7 +248,7 @@ func (a *agent) Run(ctx context.Context) {
 		case _, more := <-ctx.Done():
 			if !more {
 				a.terminate()
-				return
+				return nil
 			}
 		}
 	}
