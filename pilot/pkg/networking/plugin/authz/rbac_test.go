@@ -22,6 +22,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
@@ -253,8 +254,10 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"request.headers[key]": "value",
-							"source.ip":            "192.1.2.0/24",
+							"request.auth.claims[iss]": "test-iss",
+							"request.headers[key]":     "value",
+							"source.ip":                "192.1.2.0/24",
+							"source.namespace":         "test-ns",
 						},
 					},
 				},
@@ -480,6 +483,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataStringMatcher(
+									[]string{"request.auth.claims", "iss"}, &metadata.StringMatcher{
+										MatchPattern: &metadata.StringMatcher_Exact{Exact: "test-iss"}}),
+							},
+						},
+						{
 							Identifier: &policy.Principal_Header{
 								Header: &route.HeaderMatcher{
 									Name: "key",
@@ -495,6 +505,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 									AddressPrefix: "192.1.2.0",
 									PrefixLen:     &types.UInt32Value{Value: 24},
 								},
+							},
+						},
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataStringMatcher(
+									[]string{"source.principal"}, &metadata.StringMatcher{
+										MatchPattern: &metadata.StringMatcher_Regex{Regex: `.*/ns/test-ns/.*`}}),
 							},
 						},
 					},
@@ -674,6 +691,31 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 	}
 }
 
+func TestCreateServiceMetadata(t *testing.T) {
+	expect := &serviceMetadata{
+		name:   "svc-name.test-ns",
+		labels: map[string]string{"version": "v1"},
+		attributes: map[string]string{
+			attrDestName:      "svc-name",
+			attrDestNamespace: "test-ns",
+			attrDestUser:      "service-account",
+		},
+	}
+	actual := createServiceMetadata(
+		&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"},
+		&model.ServiceInstance{
+			Service: &model.Service{
+				Hostname: model.Hostname("svc-name.test-ns"),
+			},
+			Labels:         model.Labels{"version": "v1"},
+			ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
+		})
+
+	if !reflect.DeepEqual(*actual, *expect) {
+		t.Errorf("expecting %v, but got %v", *expect, *actual)
+	}
+}
+
 func TestServiceMetadataMatch(t *testing.T) {
 	cases := []struct {
 		Name    string
@@ -754,6 +796,88 @@ func TestServiceMetadataMatch(t *testing.T) {
 		if tc.Service.match(tc.Rule) != tc.Expect {
 			t.Errorf("%s: expecting %v for service %v and rule %v",
 				tc.Name, tc.Expect, tc.Service, tc.Rule)
+		}
+	}
+}
+
+func TestGenerateMetadataStringMatcher(t *testing.T) {
+	actual := generateMetadataStringMatcher(
+		[]string{"aa", "bb"},
+		&metadata.StringMatcher{MatchPattern: &metadata.StringMatcher_Regex{Regex: "regex"}})
+	expect := &metadata.MetadataMatcher{
+		Filter: "istio_authn",
+		Path: []*metadata.MetadataMatcher_PathSegment{
+			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "aa"}},
+			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "bb"}},
+		},
+		Value: &metadata.MetadataMatcher_Value{
+			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+				StringMatch: &metadata.StringMatcher{
+					MatchPattern: &metadata.StringMatcher_Regex{
+						Regex: "regex",
+					},
+				},
+			},
+		},
+	}
+
+	if !reflect.DeepEqual(*actual, *expect) {
+		t.Errorf("expecting %v, but got %v", *expect, *actual)
+	}
+}
+
+func TestCreateDynamicMetadataMatcher(t *testing.T) {
+	cases := []struct {
+		k      string
+		v      string
+		expect *metadata.MetadataMatcher
+	}{
+		{
+			k: attrSrcNamespace, v: "test-ns*",
+			expect: generateMetadataStringMatcher([]string{attrSrcPrincipal}, &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Regex{
+					Regex: `.*/ns/test-ns.*/.*`,
+				},
+			}),
+		},
+		{
+			k: "request.auth.claims[iss]", v: "test-iss*",
+			expect: generateMetadataStringMatcher([]string{attrRequestClaims, "iss"}, &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Prefix{
+					Prefix: "test-iss",
+				},
+			}),
+		},
+		{
+			k: attrSrcUser, v: "*test-user",
+			expect: generateMetadataStringMatcher([]string{attrSrcUser}, &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Suffix{
+					Suffix: "test-user",
+				},
+			}),
+		},
+		{
+			k: attrRequestAudiences, v: "test-audiences",
+			expect: generateMetadataStringMatcher([]string{attrRequestAudiences}, &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Exact{
+					Exact: "test-audiences",
+				},
+			}),
+		},
+		{
+			k: attrRequestPresenter, v: "*",
+			expect: generateMetadataStringMatcher([]string{attrRequestPresenter}, &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Regex{
+					Regex: ".*",
+				},
+			}),
+		},
+	}
+
+	for _, tc := range cases {
+		actual := createDynamicMetadataMatcher(tc.k, tc.v)
+		if !reflect.DeepEqual(*actual, *tc.expect) {
+			t.Errorf("(%s, %v): expecting %v, but got %v", tc.k, tc.v, *tc.expect, *actual)
 		}
 	}
 }

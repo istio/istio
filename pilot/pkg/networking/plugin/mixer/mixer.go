@@ -189,6 +189,8 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
+		// TODO(yangminzhu): Make this configurable in mesh config.
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 	}
 }
 

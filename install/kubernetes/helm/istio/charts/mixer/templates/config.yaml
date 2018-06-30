@@ -358,8 +358,6 @@ kind: metric
 metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -387,8 +385,6 @@ kind: metric
 metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -571,9 +567,8 @@ kind: rule
 metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.prometheus
     instances:
@@ -587,9 +582,8 @@ kind: rule
 metadata:
   name: promtcp
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.prometheus
     instances:
