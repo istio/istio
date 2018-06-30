@@ -26,9 +26,9 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core3 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core4 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core5 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -37,8 +37,8 @@ import envoy_api_v2_cluster1 "github.com/envoyproxy/go-control-plane/envoy/api/v
 import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
 import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
 
@@ -278,7 +278,7 @@ type Cluster struct {
 	ConnectTimeout time.Duration `protobuf:"bytes,4,opt,name=connect_timeout,json=connectTimeout,stdduration" json:"connect_timeout"`
 	// Soft limit on size of the cluster’s connections read and write buffers. If
 	// unspecified, an implementation defined default is applied (1MiB).
-	PerConnectionBufferLimitBytes *google_protobuf.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes" json:"per_connection_buffer_limit_bytes,omitempty"`
+	PerConnectionBufferLimitBytes *google_protobuf1.UInt32Value `protobuf:"bytes,5,opt,name=per_connection_buffer_limit_bytes,json=perConnectionBufferLimitBytes" json:"per_connection_buffer_limit_bytes,omitempty"`
 	// The :ref:`load balancer type <arch_overview_load_balancing_types>` to use
 	// when picking a host in the cluster.
 	LbPolicy Cluster_LbPolicy `protobuf:"varint,6,opt,name=lb_policy,json=lbPolicy,proto3,enum=envoy.api.v2.Cluster_LbPolicy" json:"lb_policy,omitempty"`
@@ -287,7 +287,7 @@ type Cluster struct {
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
 	// or :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>`,
 	// then hosts is required.
-	Hosts []*envoy_api_v2_core.Address `protobuf:"bytes,7,rep,name=hosts" json:"hosts,omitempty"`
+	Hosts []*envoy_api_v2_core1.Address `protobuf:"bytes,7,rep,name=hosts" json:"hosts,omitempty"`
 	// Setting this is required for specifying members of
 	// :ref:`STATIC<envoy_api_enum_value_Cluster.DiscoveryType.STATIC>`,
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
@@ -313,7 +313,7 @@ type Cluster struct {
 	// is respected by both the HTTP/1.1 and HTTP/2 connection pool
 	// implementations. If not specified, there is no limit. Setting this
 	// parameter to 1 will effectively disable keep alive.
-	MaxRequestsPerConnection *google_protobuf.UInt32Value `protobuf:"bytes,9,opt,name=max_requests_per_connection,json=maxRequestsPerConnection" json:"max_requests_per_connection,omitempty"`
+	MaxRequestsPerConnection *google_protobuf1.UInt32Value `protobuf:"bytes,9,opt,name=max_requests_per_connection,json=maxRequestsPerConnection" json:"max_requests_per_connection,omitempty"`
 	// Optional :ref:`circuit breaking <arch_overview_circuit_break>` for the cluster.
 	CircuitBreakers *envoy_api_v2_cluster.CircuitBreakers `protobuf:"bytes,10,opt,name=circuit_breakers,json=circuitBreakers" json:"circuit_breakers,omitempty"`
 	// The TLS configuration for connections to the upstream cluster. If no TLS
@@ -361,7 +361,7 @@ type Cluster struct {
 	// :ref:`STRICT_DNS<envoy_api_enum_value_Cluster.DiscoveryType.STRICT_DNS>`
 	// and :ref:`LOGICAL_DNS<envoy_api_enum_value_Cluster.DiscoveryType.LOGICAL_DNS>`
 	// this setting is ignored.
-	DnsResolvers []*envoy_api_v2_core.Address `protobuf:"bytes,18,rep,name=dns_resolvers,json=dnsResolvers" json:"dns_resolvers,omitempty"`
+	DnsResolvers []*envoy_api_v2_core1.Address `protobuf:"bytes,18,rep,name=dns_resolvers,json=dnsResolvers" json:"dns_resolvers,omitempty"`
 	// If specified, outlier detection will be enabled for this upstream cluster.
 	// Each of the configuration values can be overridden via
 	// :ref:`runtime values <config_cluster_manager_cluster_runtime_outlier_detection>`.
@@ -383,7 +383,7 @@ type Cluster struct {
 	// Optional configuration used to bind newly established upstream connections.
 	// This overrides any bind_config specified in the bootstrap proto.
 	// If the address and port are empty, no bind will be performed.
-	UpstreamBindConfig *envoy_api_v2_core.BindConfig `protobuf:"bytes,21,opt,name=upstream_bind_config,json=upstreamBindConfig" json:"upstream_bind_config,omitempty"`
+	UpstreamBindConfig *envoy_api_v2_core1.BindConfig `protobuf:"bytes,21,opt,name=upstream_bind_config,json=upstreamBindConfig" json:"upstream_bind_config,omitempty"`
 	// Configuration for load balancing subsetting.
 	LbSubsetConfig *Cluster_LbSubsetConfig `protobuf:"bytes,22,opt,name=lb_subset_config,json=lbSubsetConfig" json:"lb_subset_config,omitempty"`
 	// Optional configuration for the load balancing algorithm selected by
@@ -400,13 +400,13 @@ type Cluster struct {
 	// Common configuration for all load balancer implementations.
 	CommonLbConfig *Cluster_CommonLbConfig `protobuf:"bytes,27,opt,name=common_lb_config,json=commonLbConfig" json:"common_lb_config,omitempty"`
 	// Optional custom transport socket implementation to use for upstream connections.
-	TransportSocket *envoy_api_v2_core1.TransportSocket `protobuf:"bytes,24,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
+	TransportSocket *envoy_api_v2_core.TransportSocket `protobuf:"bytes,24,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
 	// The Metadata field can be used to provide additional information about the
 	// cluster. It can be used for stats, logging, and varying filter behavior.
 	// Fields should use reverse DNS notation to denote which entity within Envoy
 	// will need the information. For instance, if the metadata is intended for
 	// the Router filter, the filter name should be specified as *envoy.router*.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,25,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,25,opt,name=metadata" json:"metadata,omitempty"`
 	// Determines how Envoy selects the protocol used to speak to upstream hosts.
 	ProtocolSelection Cluster_ClusterProtocolSelection `protobuf:"varint,26,opt,name=protocol_selection,json=protocolSelection,proto3,enum=envoy.api.v2.Cluster_ClusterProtocolSelection" json:"protocol_selection,omitempty"`
 	// Optional options for upstream connections.
@@ -494,7 +494,7 @@ func (m *Cluster) GetConnectTimeout() time.Duration {
 	return 0
 }
 
-func (m *Cluster) GetPerConnectionBufferLimitBytes() *google_protobuf.UInt32Value {
+func (m *Cluster) GetPerConnectionBufferLimitBytes() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.PerConnectionBufferLimitBytes
 	}
@@ -508,7 +508,7 @@ func (m *Cluster) GetLbPolicy() Cluster_LbPolicy {
 	return Cluster_ROUND_ROBIN
 }
 
-func (m *Cluster) GetHosts() []*envoy_api_v2_core.Address {
+func (m *Cluster) GetHosts() []*envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.Hosts
 	}
@@ -529,7 +529,7 @@ func (m *Cluster) GetHealthChecks() []*envoy_api_v2_core4.HealthCheck {
 	return nil
 }
 
-func (m *Cluster) GetMaxRequestsPerConnection() *google_protobuf.UInt32Value {
+func (m *Cluster) GetMaxRequestsPerConnection() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxRequestsPerConnection
 	}
@@ -585,7 +585,7 @@ func (m *Cluster) GetDnsLookupFamily() Cluster_DnsLookupFamily {
 	return Cluster_AUTO
 }
 
-func (m *Cluster) GetDnsResolvers() []*envoy_api_v2_core.Address {
+func (m *Cluster) GetDnsResolvers() []*envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.DnsResolvers
 	}
@@ -606,7 +606,7 @@ func (m *Cluster) GetCleanupInterval() *time.Duration {
 	return nil
 }
 
-func (m *Cluster) GetUpstreamBindConfig() *envoy_api_v2_core.BindConfig {
+func (m *Cluster) GetUpstreamBindConfig() *envoy_api_v2_core1.BindConfig {
 	if m != nil {
 		return m.UpstreamBindConfig
 	}
@@ -634,14 +634,14 @@ func (m *Cluster) GetCommonLbConfig() *Cluster_CommonLbConfig {
 	return nil
 }
 
-func (m *Cluster) GetTransportSocket() *envoy_api_v2_core1.TransportSocket {
+func (m *Cluster) GetTransportSocket() *envoy_api_v2_core.TransportSocket {
 	if m != nil {
 		return m.TransportSocket
 	}
 	return nil
 }
 
-func (m *Cluster) GetMetadata() *envoy_api_v2_core1.Metadata {
+func (m *Cluster) GetMetadata() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
@@ -775,7 +775,7 @@ type Cluster_LbSubsetConfig struct {
 	// namespace. It is valid for no hosts to match, in which case the behavior
 	// is the same as a fallback_policy of
 	// :ref:`NO_FALLBACK<envoy_api_enum_value_Cluster.LbSubsetConfig.LbSubsetFallbackPolicy.NO_FALLBACK>`.
-	DefaultSubset *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=default_subset,json=defaultSubset" json:"default_subset,omitempty"`
+	DefaultSubset *google_protobuf.Struct `protobuf:"bytes,2,opt,name=default_subset,json=defaultSubset" json:"default_subset,omitempty"`
 	// For each entry, LbEndpoint.Metadata's
 	// *envoy.lb* namespace is traversed and a subset is created for each unique
 	// combination of key and value. For example:
@@ -805,7 +805,7 @@ func (m *Cluster_LbSubsetConfig) GetFallbackPolicy() Cluster_LbSubsetConfig_LbSu
 	return Cluster_LbSubsetConfig_NO_FALLBACK
 }
 
-func (m *Cluster_LbSubsetConfig) GetDefaultSubset() *google_protobuf4.Struct {
+func (m *Cluster_LbSubsetConfig) GetDefaultSubset() *google_protobuf.Struct {
 	if m != nil {
 		return m.DefaultSubset
 	}
@@ -850,7 +850,7 @@ type Cluster_RingHashLbConfig struct {
 	// that total number of hosts is greater than the minimum, each host will
 	// be allocated a single virtual node. This field is limited to 8M to bound
 	// resource use.
-	MinimumRingSize *google_protobuf.UInt64Value `protobuf:"bytes,1,opt,name=minimum_ring_size,json=minimumRingSize" json:"minimum_ring_size,omitempty"`
+	MinimumRingSize *google_protobuf1.UInt64Value `protobuf:"bytes,1,opt,name=minimum_ring_size,json=minimumRingSize" json:"minimum_ring_size,omitempty"`
 	// Deprecated settings from v1 config.
 	// [#not-implemented-hide:] Hide from docs.
 	DeprecatedV1 *Cluster_RingHashLbConfig_DeprecatedV1 `protobuf:"bytes,2,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"`
@@ -861,7 +861,7 @@ func (m *Cluster_RingHashLbConfig) String() string            { return proto.Com
 func (*Cluster_RingHashLbConfig) ProtoMessage()               {}
 func (*Cluster_RingHashLbConfig) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{0, 2} }
 
-func (m *Cluster_RingHashLbConfig) GetMinimumRingSize() *google_protobuf.UInt64Value {
+func (m *Cluster_RingHashLbConfig) GetMinimumRingSize() *google_protobuf1.UInt64Value {
 	if m != nil {
 		return m.MinimumRingSize
 	}
@@ -883,7 +883,7 @@ type Cluster_RingHashLbConfig_DeprecatedV1 struct {
 	// by default. This field exists for
 	// migration purposes and will eventually be deprecated. Set it to false
 	// to use `xxHash <https://github.com/Cyan4973/xxHash>`_ now.
-	UseStdHash *google_protobuf.BoolValue `protobuf:"bytes,1,opt,name=use_std_hash,json=useStdHash" json:"use_std_hash,omitempty"`
+	UseStdHash *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=use_std_hash,json=useStdHash" json:"use_std_hash,omitempty"`
 }
 
 func (m *Cluster_RingHashLbConfig_DeprecatedV1) Reset()         { *m = Cluster_RingHashLbConfig_DeprecatedV1{} }
@@ -893,7 +893,7 @@ func (*Cluster_RingHashLbConfig_DeprecatedV1) Descriptor() ([]byte, []int) {
 	return fileDescriptorCds, []int{0, 2, 0}
 }
 
-func (m *Cluster_RingHashLbConfig_DeprecatedV1) GetUseStdHash() *google_protobuf.BoolValue {
+func (m *Cluster_RingHashLbConfig_DeprecatedV1) GetUseStdHash() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.UseStdHash
 	}
@@ -1052,7 +1052,7 @@ type Cluster_CommonLbConfig_ZoneAwareLbConfig struct {
 	// even if zone aware routing is configured. If not specified, the default is 6.
 	// * :ref:`runtime values <config_cluster_manager_cluster_runtime_zone_routing>`.
 	// * :ref:`Zone aware routing support <arch_overview_load_balancing_zone_aware_routing>`.
-	MinClusterSize *google_protobuf.UInt64Value `protobuf:"bytes,2,opt,name=min_cluster_size,json=minClusterSize" json:"min_cluster_size,omitempty"`
+	MinClusterSize *google_protobuf1.UInt64Value `protobuf:"bytes,2,opt,name=min_cluster_size,json=minClusterSize" json:"min_cluster_size,omitempty"`
 }
 
 func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Reset() {
@@ -1071,7 +1071,7 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetRoutingEnabled() *envoy_ty
 	return nil
 }
 
-func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetMinClusterSize() *google_protobuf.UInt64Value {
+func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) GetMinClusterSize() *google_protobuf1.UInt64Value {
 	if m != nil {
 		return m.MinClusterSize
 	}
@@ -1098,7 +1098,7 @@ func (*Cluster_CommonLbConfig_LocalityWeightedLbConfig) Descriptor() ([]byte, []
 // establishing upstream connections.
 type UpstreamBindConfig struct {
 	// The address Envoy should bind to when establishing upstream connections.
-	SourceAddress *envoy_api_v2_core.Address `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address,omitempty"`
+	SourceAddress *envoy_api_v2_core1.Address `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address,omitempty"`
 }
 
 func (m *UpstreamBindConfig) Reset()                    { *m = UpstreamBindConfig{} }
@@ -1106,7 +1106,7 @@ func (m *UpstreamBindConfig) String() string            { return proto.CompactTe
 func (*UpstreamBindConfig) ProtoMessage()               {}
 func (*UpstreamBindConfig) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{1} }
 
-func (m *UpstreamBindConfig) GetSourceAddress() *envoy_api_v2_core.Address {
+func (m *UpstreamBindConfig) GetSourceAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.SourceAddress
 	}
@@ -1115,7 +1115,7 @@ func (m *UpstreamBindConfig) GetSourceAddress() *envoy_api_v2_core.Address {
 
 type UpstreamConnectionOptions struct {
 	// If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
-	TcpKeepalive *envoy_api_v2_core.TcpKeepalive `protobuf:"bytes,1,opt,name=tcp_keepalive,json=tcpKeepalive" json:"tcp_keepalive,omitempty"`
+	TcpKeepalive *envoy_api_v2_core1.TcpKeepalive `protobuf:"bytes,1,opt,name=tcp_keepalive,json=tcpKeepalive" json:"tcp_keepalive,omitempty"`
 }
 
 func (m *UpstreamConnectionOptions) Reset()                    { *m = UpstreamConnectionOptions{} }
@@ -1123,7 +1123,7 @@ func (m *UpstreamConnectionOptions) String() string            { return proto.Co
 func (*UpstreamConnectionOptions) ProtoMessage()               {}
 func (*UpstreamConnectionOptions) Descriptor() ([]byte, []int) { return fileDescriptorCds, []int{2} }
 
-func (m *UpstreamConnectionOptions) GetTcpKeepalive() *envoy_api_v2_core.TcpKeepalive {
+func (m *UpstreamConnectionOptions) GetTcpKeepalive() *envoy_api_v2_core1.TcpKeepalive {
 	if m != nil {
 		return m.TcpKeepalive
 	}
@@ -2946,7 +2946,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PerConnectionBufferLimitBytes == nil {
-				m.PerConnectionBufferLimitBytes = &google_protobuf.UInt32Value{}
+				m.PerConnectionBufferLimitBytes = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.PerConnectionBufferLimitBytes.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2997,7 +2997,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Hosts = append(m.Hosts, &envoy_api_v2_core.Address{})
+			m.Hosts = append(m.Hosts, &envoy_api_v2_core1.Address{})
 			if err := m.Hosts[len(m.Hosts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -3060,7 +3060,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxRequestsPerConnection == nil {
-				m.MaxRequestsPerConnection = &google_protobuf.UInt32Value{}
+				m.MaxRequestsPerConnection = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.MaxRequestsPerConnection.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3276,7 +3276,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DnsResolvers = append(m.DnsResolvers, &envoy_api_v2_core.Address{})
+			m.DnsResolvers = append(m.DnsResolvers, &envoy_api_v2_core1.Address{})
 			if err := m.DnsResolvers[len(m.DnsResolvers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -3374,7 +3374,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UpstreamBindConfig == nil {
-				m.UpstreamBindConfig = &envoy_api_v2_core.BindConfig{}
+				m.UpstreamBindConfig = &envoy_api_v2_core1.BindConfig{}
 			}
 			if err := m.UpstreamBindConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3472,7 +3472,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TransportSocket == nil {
-				m.TransportSocket = &envoy_api_v2_core1.TransportSocket{}
+				m.TransportSocket = &envoy_api_v2_core.TransportSocket{}
 			}
 			if err := m.TransportSocket.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3505,7 +3505,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
+				m.Metadata = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3939,7 +3939,7 @@ func (m *Cluster_LbSubsetConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DefaultSubset == nil {
-				m.DefaultSubset = &google_protobuf4.Struct{}
+				m.DefaultSubset = &google_protobuf.Struct{}
 			}
 			if err := m.DefaultSubset.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4132,7 +4132,7 @@ func (m *Cluster_RingHashLbConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MinimumRingSize == nil {
-				m.MinimumRingSize = &google_protobuf.UInt64Value{}
+				m.MinimumRingSize = &google_protobuf1.UInt64Value{}
 			}
 			if err := m.MinimumRingSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4248,7 +4248,7 @@ func (m *Cluster_RingHashLbConfig_DeprecatedV1) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UseStdHash == nil {
-				m.UseStdHash = &google_protobuf.BoolValue{}
+				m.UseStdHash = &google_protobuf1.BoolValue{}
 			}
 			if err := m.UseStdHash.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4511,7 +4511,7 @@ func (m *Cluster_CommonLbConfig_ZoneAwareLbConfig) Unmarshal(dAtA []byte) error 
 				return io.ErrUnexpectedEOF
 			}
 			if m.MinClusterSize == nil {
-				m.MinClusterSize = &google_protobuf.UInt64Value{}
+				m.MinClusterSize = &google_protobuf1.UInt64Value{}
 			}
 			if err := m.MinClusterSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4644,7 +4644,7 @@ func (m *UpstreamBindConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.SourceAddress == nil {
-				m.SourceAddress = &envoy_api_v2_core.Address{}
+				m.SourceAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.SourceAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -4727,7 +4727,7 @@ func (m *UpstreamConnectionOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TcpKeepalive == nil {
-				m.TcpKeepalive = &envoy_api_v2_core.TcpKeepalive{}
+				m.TcpKeepalive = &envoy_api_v2_core1.TcpKeepalive{}
 			}
 			if err := m.TcpKeepalive.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,6 +43,14 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
+	PrometheusScrape = "prometheus.io/scrape"
+	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
+	PrometheusPort = "prometheus.io/port"
+	// PrometheusPath is the annotation used to specify a path for scraping metrics. Default is "/metrics"
+	PrometheusPath = "prometheus.io/path"
+	// PrometheusPathDefault is the default value for the PrometheusPath annotation
+	PrometheusPathDefault = "/metrics"
 )
 
 var (
@@ -321,6 +330,65 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 	// We continue despite the error because healthCheckPorts could return a partial
 	// list of management ports
 	return managementPorts
+}
+
+// WorkloadHealthCheckInfo implements a service catalog operation
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	pod, exists := c.pods.getPodByIP(addr)
+	if !exists {
+		return nil
+	}
+
+	probes := make([]*model.Probe, 0)
+
+	// Obtain probes from the readiness and liveness probes
+	for _, container := range pod.Spec.Containers {
+		if container.ReadinessProbe != nil && container.ReadinessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.ReadinessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing readiness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.ReadinessProbe.Handler.HTTPGet.Path,
+			})
+		}
+		if container.LivenessProbe != nil && container.LivenessProbe.Handler.HTTPGet != nil {
+			p, err := convertProbePort(container, &container.LivenessProbe.Handler)
+			if err != nil {
+				log.Infof("Error while parsing liveness probe port =%v", err)
+			}
+			probes = append(probes, &model.Probe{
+				Port: p,
+				Path: container.LivenessProbe.Handler.HTTPGet.Path,
+			})
+		}
+	}
+
+	// Obtain probe from prometheus scrape
+	if scrape := pod.Annotations[PrometheusScrape]; scrape == "true" {
+		var port *model.Port
+		path := PrometheusPathDefault
+		if portstr := pod.Annotations[PrometheusPort]; portstr != "" {
+			portnum, err := strconv.Atoi(portstr)
+			if err != nil {
+				log.Warna(err)
+			} else {
+				port = &model.Port{
+					Port: portnum,
+				}
+			}
+		}
+		if pod.Annotations[PrometheusPath] != "" {
+			path = pod.Annotations[PrometheusPath]
+		}
+		probes = append(probes, &model.Probe{
+			Port: port,
+			Path: path,
+		})
+	}
+
+	return probes
 }
 
 // Instances implements a service catalog operation

@@ -1924,6 +1924,24 @@ var (
 						}
 					}
 
+					if param.ClientSpan != "" {
+						if t, e := tEvalFn(param.ClientSpan); e != nil || t != istio_policy_v1beta1.BOOL {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"ClientSpan", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ClientSpan", t, istio_policy_v1beta1.BOOL)
+						}
+					}
+
+					if param.RewriteClientSpanId != "" {
+						if t, e := tEvalFn(param.RewriteClientSpanId); e != nil || t != istio_policy_v1beta1.BOOL {
+							if e != nil {
+								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"RewriteClientSpanId", e)
+							}
+							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RewriteClientSpanId", t, istio_policy_v1beta1.BOOL)
+						}
+					}
+
 					return infrdType, err
 
 				}
@@ -3896,6 +3914,14 @@ type builder_tracespan_Template struct {
 	// builder for field httpStatusCode: int64.
 
 	bldHttpStatusCode compiled.Expression
+
+	// builder for field client_span: bool.
+
+	bldClientSpan compiled.Expression
+
+	// builder for field rewrite_client_span_id: bool.
+
+	bldRewriteClientSpanId compiled.Expression
 } // builder_tracespan_Template
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
@@ -4024,6 +4050,36 @@ func newBuilder_tracespan_Template(
 
 	}
 
+	if param.ClientSpan == "" {
+		b.bldClientSpan = nil
+	} else {
+		b.bldClientSpan, expType, err = expb.Compile(param.ClientSpan)
+		if err != nil {
+			return nil, template.NewErrorPath("ClientSpan", err)
+		}
+
+		if expType != istio_policy_v1beta1.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.ClientSpan)
+			return nil, template.NewErrorPath("ClientSpan", err)
+		}
+
+	}
+
+	if param.RewriteClientSpanId == "" {
+		b.bldRewriteClientSpanId = nil
+	} else {
+		b.bldRewriteClientSpanId, expType, err = expb.Compile(param.RewriteClientSpanId)
+		if err != nil {
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
+		}
+
+		if expType != istio_policy_v1beta1.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.BOOL, expType, param.RewriteClientSpanId)
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
+		}
+
+	}
+
 	return b, template.ErrorPath{}
 }
 
@@ -4131,6 +4187,26 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("HttpStatusCode", err)
 		}
 		r.HttpStatusCode = vInt
+
+	}
+
+	if b.bldClientSpan != nil {
+
+		vBool, err = b.bldClientSpan.EvaluateBoolean(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("ClientSpan", err)
+		}
+		r.ClientSpan = vBool
+
+	}
+
+	if b.bldRewriteClientSpanId != nil {
+
+		vBool, err = b.bldRewriteClientSpanId.EvaluateBoolean(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("RewriteClientSpanId", err)
+		}
+		r.RewriteClientSpanId = vBool
 
 	}
 

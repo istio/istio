@@ -22,14 +22,25 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/plugin/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 )
 
+var availablePlugins = map[string]plugin.Plugin{
+	plugin.Authn:       authn.NewPlugin(),
+	plugin.Authz:       authz.NewPlugin(),
+	plugin.Envoyfilter: envoyfilter.NewPlugin(),
+	plugin.Health:      health.NewPlugin(),
+	plugin.Mixer:       mixer.NewPlugin(),
+}
+
 // NewPlugins returns a slice of default Plugins.
-func NewPlugins() []plugin.Plugin {
-	return []plugin.Plugin{
-		authn.NewPlugin(),
-		authz.NewPlugin(),
-		mixer.NewPlugin(),
-		envoyfilter.NewPlugin()}
+func NewPlugins(in []string) []plugin.Plugin {
+	var plugins []plugin.Plugin
+	for _, pl := range in {
+		if p, exist := availablePlugins[pl]; exist {
+			plugins = append(plugins, p)
+		}
+	}
+	return plugins
 }

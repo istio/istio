@@ -87,8 +87,6 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 	args.Adapters = adapters
 	args.ConfigStoreURL = `fs://` + serverDir
 	args.ConfigDefaultNamespace = "istio-system"
-	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
-	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
 	args.SingleThreaded = setup.Config.SingleThreaded
 
 	if setup.Config.EnableDebugLog {

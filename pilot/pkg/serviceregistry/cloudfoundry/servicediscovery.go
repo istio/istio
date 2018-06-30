@@ -212,6 +212,11 @@ func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
 }
 
+// WorkloadHealthCheckInfo is not currently implemented for Cloud Foundry
+func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList {
+	return nil
+}
+
 // all CF apps listen on the same port (for now)
 func (sd *ServiceDiscovery) servicePort() *model.Port {
 	return &model.Port{
