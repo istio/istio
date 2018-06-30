@@ -55,6 +55,8 @@ type entry struct {
 	expiration int64 // nanoseconds
 }
 
+// EvictionCallback is a function that will be called on entry eviction
+// from an ExpiringCache.
 type EvictionCallback func(key, value interface{})
 
 // NewTTL creates a new cache with a time-based eviction model.
@@ -78,6 +80,8 @@ func NewTTL(defaultExpiration time.Duration, evictionInterval time.Duration) Exp
 	return NewTTLWithCallback(defaultExpiration, evictionInterval, func(key, value interface{}) {})
 }
 
+// NewTTLWithCallback creates a new cache with a time-based eviction model that will invoke the supplied
+// callback on all evictions. See also: NewTTL.
 func NewTTLWithCallback(defaultExpiration time.Duration, evictionInterval time.Duration, callback EvictionCallback) ExpiringCache {
 	c := &ttlCache{
 		defaultExpiration: defaultExpiration,
