@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values -}}
-{{- if and (ne $key "global") (ne $key "enabled") -}}
-{{- if $spec.enabled -}}
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -102,7 +102,7 @@ spec:
       volumes:
       - name: istio-certs
         secret:
-          secretName: "istio.default"
+          secretName: istio.{{ $key }}-service-account
           optional: true
       {{- range $spec.secretVolumes }}
       - name: {{ .name }}
@@ -113,6 +113,6 @@ spec:
       affinity:
       {{- include "nodeaffinity" $ | indent 6 }}
 ---
-{{ end }}
-{{ end }}
-{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

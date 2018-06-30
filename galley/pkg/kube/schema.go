@@ -34,12 +34,10 @@ func (e *Schema) All() []ResourceSpec {
 	return e.entries
 }
 
-// TODO: Remove nolint: This gets used in the next CL
-// nolint: deadcode
 func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
+	rInfo, ok := resource.Types.LookupByMessageName(name)
 	if !ok {
-		panic(fmt.Sprintf("Corresponding resource info not found for: %s", name))
+		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
 	}
 	return rInfo
 }

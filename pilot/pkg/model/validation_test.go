@@ -2489,6 +2489,15 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
+		{name: "FQDN for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"gateway.example.com"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.DestinationWeight{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
@@ -3701,37 +3710,37 @@ func TestValidateNetworkEndpointAddress(t *testing.T) {
 
 func TestValidateRbacConfig(t *testing.T) {
 	cases := []struct {
+		caseName     string
 		name         string
+		namespace    string
 		in           proto.Message
 		expectErrMsg string
 	}{
 		{
-			name:         "invalid proto",
+			caseName:     "invalid proto",
 			expectErrMsg: "cannot cast to RbacConfig",
 		},
 		{
-			name:         "unsupported mode ON_WITH_INCLUSION",
-			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
-			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
+			caseName: "invalid name",
+			name:     "Rbac-config",
+			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: fmt.Sprintf("rbacConfig has invalid name(Rbac-config), name must be %s",
+				DefaultRbacConfigName),
 		},
 		{
-			name:         "unsupported mode ON_WITH_EXCLUSION",
-			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
-			expectErrMsg: "rbac mode not implemented, currently only supports ON/OFF",
-		},
-		{
-			name: "success proto",
-			in:   &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+			caseName: "success proto",
+			name:     DefaultRbacConfigName,
+			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
 	}
 	for _, c := range cases {
-		err := ValidateRbacConfig(someName, someNamespace, c.in)
+		err := ValidateRbacConfig(c.name, c.namespace, c.in)
 		if err == nil {
 			if len(c.expectErrMsg) != 0 {
-				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.name, c.expectErrMsg)
+				t.Errorf("ValidateRbacConfig(%v): got nil but want %q\n", c.caseName, c.expectErrMsg)
 			}
 		} else if err.Error() != c.expectErrMsg {
-			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.name, err.Error(), c.expectErrMsg)
+			t.Errorf("ValidateRbacConfig(%v): got %q but want %q\n", c.caseName, err.Error(), c.expectErrMsg)
 		}
 	}
 }

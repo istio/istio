@@ -96,7 +96,7 @@ func convertToCidr(v string) (*core.CidrRange, error) {
 // convertToPort converts a port string to a uint32.
 func convertToPort(v string) (uint32, error) {
 	p, err := strconv.ParseUint(v, 10, 32)
-	if err != nil || p < 0 || p > 65535 {
+	if err != nil || p > 65535 {
 		return 0, fmt.Errorf("invalid port %s: %v", v, err)
 	}
 	return uint32(p), nil
@@ -104,12 +104,27 @@ func convertToPort(v string) (uint32, error) {
 
 // convertToHeaderMatcher converts a key, value string pair to a corresponding HeaderMatcher.
 func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
-	//TODO(yangminzhu): Update the HeaderMatcher to support prefix and suffix match.
-	if strings.Contains(v, "*") {
+	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
+	// Empty prefix/suffix value is invalid in HeaderMatcher.
+	if v == "*" {
 		return &route.HeaderMatcher{
 			Name: k,
-			HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-				RegexMatch: "^" + strings.Replace(v, "*", ".*", -1) + "$",
+			HeaderMatchSpecifier: &route.HeaderMatcher_PresentMatch{
+				PresentMatch: true,
+			},
+		}
+	} else if strings.HasPrefix(v, "*") {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+				SuffixMatch: v[1:],
+			},
+		}
+	} else if strings.HasSuffix(v, "*") {
+		return &route.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &route.HeaderMatcher_PrefixMatch{
+				PrefixMatch: v[:len(v)-1],
 			},
 		}
 	}
@@ -119,4 +134,30 @@ func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 			ExactMatch: v,
 		},
 	}
+}
+
+func extractNameInBrackets(s string) (string, error) {
+	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
+		return "", fmt.Errorf("expecting format [<NAME>], but found %s", s)
+	}
+	return strings.TrimPrefix(strings.TrimSuffix(s, "]"), "["), nil
+}
+
+// extractActualServiceAccount extracts the actual service account from the Istio service account if
+// found any, otherwise it returns the Istio service account itself without any change.
+// Istio service account has the format: "spiffe://<domain>/ns/<namespace>/sa/<service-account>"
+func extractActualServiceAccount(istioServiceAccount string) string {
+	actualSA := istioServiceAccount
+	beginName, optionalEndName := "sa/", "/"
+	beginIndex := strings.Index(actualSA, beginName)
+	if beginIndex != -1 {
+		beginIndex += len(beginName)
+		length := strings.Index(actualSA[beginIndex:], optionalEndName)
+		if length == -1 {
+			actualSA = actualSA[beginIndex:]
+		} else {
+			actualSA = actualSA[beginIndex : beginIndex+length]
+		}
+	}
+	return actualSA
 }

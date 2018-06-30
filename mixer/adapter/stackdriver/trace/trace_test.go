@@ -209,6 +209,78 @@ func TestHandleTraceSpan(t *testing.T) {
 			sampler: trace.ProbabilitySampler(1.0),
 			flushes: 1,
 		},
+		{
+			name: "client span rewrite id",
+			vals: []*tracespan.Instance{
+				{
+					TraceId:             "463ac35c9f6413ad48485a3953bb6124",
+					SpanId:              "a2fb4a1d1a96d312",
+					Name:                "tracespan.test",
+					SpanName:            "/io.opencensus.Service.Method",
+					StartTime:           now.Add(-10 * time.Millisecond),
+					EndTime:             now,
+					ClientSpan:          true,
+					RewriteClientSpanId: true,
+				},
+			},
+			spans: []*trace.SpanData{
+				{
+					SpanContext: trace.SpanContext{
+						TraceID:      trace.TraceID{0x46, 0x3a, 0xc3, 0x5c, 0x9f, 0x64, 0x13, 0xad, 0x48, 0x48, 0x5a, 0x39, 0x53, 0xbb, 0x61, 0x24},
+						SpanID:       trace.SpanID{0x9d, 0x91, 0x64, 0xde, 0xd2, 0x86, 0x11, 0xb9},
+						TraceOptions: 0x1,
+					},
+					SpanKind:        trace.SpanKindClient,
+					Name:            "/io.opencensus.Service.Method",
+					StartTime:       now.Add(-10 * time.Millisecond),
+					EndTime:         now,
+					Attributes:      map[string]interface{}{},
+					Annotations:     nil,
+					MessageEvents:   nil,
+					Status:          trace.Status{Code: 0, Message: ""},
+					Links:           nil,
+					HasRemoteParent: true,
+				},
+			},
+			sampler: trace.ProbabilitySampler(1.0),
+			flushes: 1,
+		},
+		{
+			name: "server span rewrite id",
+			vals: []*tracespan.Instance{
+				{
+					TraceId:             "463ac35c9f6413ad48485a3953bb6124",
+					SpanId:              "a2fb4a1d1a96d312",
+					Name:                "tracespan.test",
+					SpanName:            "/io.opencensus.Service.Method",
+					StartTime:           now.Add(-10 * time.Millisecond),
+					EndTime:             now,
+					RewriteClientSpanId: true,
+				},
+			},
+			spans: []*trace.SpanData{
+				{
+					SpanContext: trace.SpanContext{
+						TraceID:      trace.TraceID{0x46, 0x3a, 0xc3, 0x5c, 0x9f, 0x64, 0x13, 0xad, 0x48, 0x48, 0x5a, 0x39, 0x53, 0xbb, 0x61, 0x24},
+						SpanID:       trace.SpanID{0xa2, 0xfb, 0x4a, 0x1d, 0x1a, 0x96, 0xd3, 0x12},
+						TraceOptions: 0x1,
+					},
+					ParentSpanID:    trace.SpanID{0x9d, 0x91, 0x64, 0xde, 0xd2, 0x86, 0x11, 0xb9},
+					SpanKind:        trace.SpanKindServer,
+					Name:            "/io.opencensus.Service.Method",
+					StartTime:       now.Add(-10 * time.Millisecond),
+					EndTime:         now,
+					Attributes:      map[string]interface{}{},
+					Annotations:     nil,
+					MessageEvents:   nil,
+					Status:          trace.Status{Code: 0, Message: ""},
+					Links:           nil,
+					HasRemoteParent: true,
+				},
+			},
+			sampler: trace.ProbabilitySampler(1.0),
+			flushes: 1,
+		},
 	}
 
 	for idx, tt := range tests {
@@ -357,7 +429,7 @@ func TestValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"zero", &config.Params_Trace{SampleProbability: 0}, false},
-		{"10%", &config.Params_Trace{SampleProbability: 0.1}, false},
+		{"10percent", &config.Params_Trace{SampleProbability: 0.1}, false},
 		{"negative", &config.Params_Trace{SampleProbability: -1}, true},
 		{"too big", &config.Params_Trace{SampleProbability: 100}, true},
 	}

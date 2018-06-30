@@ -713,6 +713,16 @@ func (m *RouteAction) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetMaxGrpcTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteActionValidationError{
+				Field:  "MaxGrpcTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.ClusterSpecifier.(type) {
 
 	case *RouteAction_Cluster:

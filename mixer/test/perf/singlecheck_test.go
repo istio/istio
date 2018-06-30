@@ -28,11 +28,9 @@ import (
 // include any expression evaluation.
 var baseSingleCheckSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i2CheckNothing, r2UsingH1AndI2),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i2CheckNothing, r2UsingH1AndI2),
+		SingleThreaded: true,
 	},
 
 	Loads: []perf.Load{{

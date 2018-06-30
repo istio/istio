@@ -45,12 +45,6 @@ const (
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
 
-	// HTTPStatPrefix indicates envoy stat prefix for http listeners
-	HTTPStatPrefix = "http"
-
-	// RDSName is the name of route-discovery-service (RDS) cluster
-	//RDSName = "rds"
-
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -584,6 +578,9 @@ type httpListenerOpts struct {
 	direction        http_conn.HttpConnectionManager_Tracing_OperationName
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
+	// stat prefix for the http connection manager
+	// DO not set this field. Will be overridden by marshalFilters
+	statPrefix string
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -624,10 +621,10 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 	connectionManager.CodecType = http_conn.AUTO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
-	connectionManager.StatPrefix = HTTPStatPrefix
+	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
-	if httpOpts.rds != "" && !env.DisableRDS {
+	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
 				ConfigSource: core.ConfigSource{
@@ -760,6 +757,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 		}
 
 		if opt.httpOpts != nil {
+			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,

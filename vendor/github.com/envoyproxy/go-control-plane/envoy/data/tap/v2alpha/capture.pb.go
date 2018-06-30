@@ -17,8 +17,8 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import google_protobuf3 "github.com/gogo/protobuf/types"
+import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf4 "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -39,9 +39,9 @@ type Connection struct {
 	// in Envoy logs.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Local address.
-	LocalAddress *envoy_api_v2_core.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress" json:"local_address,omitempty"`
+	LocalAddress *envoy_api_v2_core1.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress" json:"local_address,omitempty"`
 	// Remote address.
-	RemoteAddress *envoy_api_v2_core.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress" json:"remote_address,omitempty"`
+	RemoteAddress *envoy_api_v2_core1.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress" json:"remote_address,omitempty"`
 }
 
 func (m *Connection) Reset()                    { *m = Connection{} }
@@ -56,14 +56,14 @@ func (m *Connection) GetId() uint64 {
 	return 0
 }
 
-func (m *Connection) GetLocalAddress() *envoy_api_v2_core.Address {
+func (m *Connection) GetLocalAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.LocalAddress
 	}
 	return nil
 }
 
-func (m *Connection) GetRemoteAddress() *envoy_api_v2_core.Address {
+func (m *Connection) GetRemoteAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.RemoteAddress
 	}
@@ -73,7 +73,7 @@ func (m *Connection) GetRemoteAddress() *envoy_api_v2_core.Address {
 // Event in a capture trace.
 type Event struct {
 	// Timestamp for event.
-	Timestamp *google_protobuf3.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp *google_protobuf4.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
 	// Read or write with content as bytes string.
 	//
 	// Types that are valid to be assigned to EventSelector:
@@ -110,7 +110,7 @@ func (m *Event) GetEventSelector() isEvent_EventSelector {
 	return nil
 }
 
-func (m *Event) GetTimestamp() *google_protobuf3.Timestamp {
+func (m *Event) GetTimestamp() *google_protobuf4.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -674,7 +674,7 @@ func (m *Connection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.LocalAddress == nil {
-				m.LocalAddress = &envoy_api_v2_core.Address{}
+				m.LocalAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.LocalAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -707,7 +707,7 @@ func (m *Connection) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RemoteAddress == nil {
-				m.RemoteAddress = &envoy_api_v2_core.Address{}
+				m.RemoteAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.RemoteAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -790,7 +790,7 @@ func (m *Event) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Timestamp == nil {
-				m.Timestamp = &google_protobuf3.Timestamp{}
+				m.Timestamp = &google_protobuf4.Timestamp{}
 			}
 			if err := m.Timestamp.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

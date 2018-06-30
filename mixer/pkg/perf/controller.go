@@ -81,8 +81,7 @@ func (c *Controller) initializeClients(address string, setup *Setup) error {
 		if err != nil {
 			return err
 		}
-		params := ClientServerInitParams{Address: address, Load: bytes,
-			IdentityAttribute: setup.Config.IdentityAttribute, IdentityAttributeDomain: setup.Config.IdentityAttributeDomain}
+		params := ClientServerInitParams{Address: address, Load: bytes}
 		e := conn.Call("ClientServer.InitializeClient", params, nil)
 		if e != nil && err == nil {
 			// Capture the first error

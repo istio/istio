@@ -1447,7 +1447,11 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
-		errs = multierror.Append(errs, multierror.Prefix(err, "invalid refresh delay:"))
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
+	}
+
+	if err := ValidateRefreshDelay(mesh.SdsRefreshDelay); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid sds refresh delay:"))
 	}
 
 	if mesh.DefaultConfig == nil {
@@ -1842,14 +1846,12 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
+	if _, ok := msg.(*rbac.RbacConfig); !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
-	switch in.Mode {
-	case rbac.RbacConfig_ON_WITH_EXCLUSION, rbac.RbacConfig_ON_WITH_INCLUSION:
-		return errors.New("rbac mode not implemented, currently only supports ON/OFF")
+	if name != DefaultRbacConfigName {
+		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
 	}
 
 	return nil
@@ -1918,8 +1920,8 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	}
 
 	for _, gateway := range virtualService.Gateways {
-		if !IsDNS1123Label(gateway) {
-			errs = appendErrors(errs, fmt.Errorf("gateway is not a valid DNS1123 label: %v", gateway))
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
 		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
@@ -1933,7 +1935,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := validateHost(host); err != nil {
-			errs = appendErrors(errs, validateHost(host))
+			errs = appendErrors(errs, err)
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))

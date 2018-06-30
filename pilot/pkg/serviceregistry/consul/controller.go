@@ -109,11 +109,19 @@ func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api
 	return endpoints, nil
 }
 
-// ManagementPorts retries set of health check ports by instance IP.
+// ManagementPorts retrieves set of health check ports by instance IP.
 // This does not apply to Consul service registry, as Consul does not
 // manage the service instances. In future, when we integrate Nomad, we
 // might revisit this function.
 func (c *Controller) ManagementPorts(addr string) model.PortList {
+	return nil
+}
+
+// WorkloadHealthCheckInfo retrieves set of health check info by instance IP.
+// This does not apply to Consul service registry, as Consul does not
+// manage the service instances. In future, when we integrate Nomad, we
+// might revisit this function.
+func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 

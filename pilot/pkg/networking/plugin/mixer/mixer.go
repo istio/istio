@@ -65,9 +65,10 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	}
 
 	attrs := attributes{
-		"source.uid":             attrUID(in.Node),
-		"context.reporter.uid":   attrUID(in.Node),
-		"context.reporter.local": attrBoolValue(false),
+		"source.uid":            attrUID(in.Node),
+		"source.namespace":      attrNamespace(in.Node),
+		"context.reporter.uid":  attrUID(in.Node),
+		"context.reporter.type": attrStringValue("outbound"),
 	}
 
 	switch in.ListenerProtocol {
@@ -78,7 +79,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service)
+		filter := buildOutboundTCPFilter(in.Env.Mesh, attrs, in.Node, in.Service, in.Env.ServiceDiscovery)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -95,9 +96,10 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 	}
 
 	attrs := attributes{
-		"destination.uid":        attrUID(in.Node),
-		"context.reporter.uid":   attrUID(in.Node),
-		"context.reporter.local": attrBoolValue(true),
+		"destination.uid":       attrUID(in.Node),
+		"destination.namespace": attrNamespace(in.Node),
+		"context.reporter.uid":  attrUID(in.Node),
+		"context.reporter.type": attrStringValue("inbound"),
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -187,6 +189,8 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
+		// TODO(yangminzhu): Make this configurable in mesh config.
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 	}
 }
 
@@ -230,8 +234,7 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := make(attributes)
-			addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
+			attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, hostname)
 			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
 				DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -240,8 +243,7 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				attrs := make(attributes)
-				addDestinationServiceAttributes(attrs, hostname.String(), in.Node.Domain)
+				attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, hostname)
 				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
 					DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -262,9 +264,7 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
-	attrs := make(attributes)
-	addDestinationServiceAttributes(attrs, instance.Service.Hostname.String(), in.Node.Domain)
-
+	attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, instance.Service.Hostname)
 	out := &mccpb.ServiceConfig{
 		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -285,10 +285,11 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 	return out
 }
 
-func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service) listener.Filter {
+func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service,
+	discovery model.ServiceDiscovery) listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
-		addDestinationServiceAttributes(attrs, string(destination.Hostname), node.Domain)
+		attrs = addDestinationServiceAttributes(attrs, discovery, destination.Hostname)
 	}
 	return listener.Filter{
 		Name: mixer,
@@ -319,32 +320,26 @@ func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.Serv
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, destinationHostname, domain string) {
+func addDestinationServiceAttributes(attrs attributes, discovery model.ServiceDiscovery, destinationHostname model.Hostname) attributes {
 	if destinationHostname == "" {
-		return
+		return attrs
 	}
-	svcName, svcNamespace := nameAndNamespace(destinationHostname, domain)
-	attrs["destination.service"] = attrStringValue(destinationHostname) // DEPRECATED. Remove when fully out of use.
-	attrs["destination.service.host"] = attrStringValue(destinationHostname)
-	attrs["destination.service.uid"] = attrStringValue(fmt.Sprintf("istio://%s/services/%s", svcNamespace, svcName))
-	attrs["destination.service.name"] = attrStringValue(svcName)
-	if len(svcNamespace) > 0 {
-		attrs["destination.service.namespace"] = attrStringValue(svcNamespace)
-	}
-}
+	attrs["destination.service"] = attrStringValue(destinationHostname.String()) // DEPRECATED. Remove when fully out of use.
+	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
-func nameAndNamespace(serviceHostname, proxyDomain string) (name, namespace string) {
-	domainParts := strings.SplitN(proxyDomain, ".", 2)
-	if !strings.HasSuffix(serviceHostname, domainParts[1]) {
-		return serviceHostname, ""
+	serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
+	if err != nil && serviceAttributes != nil {
+		if serviceAttributes.Name != "" {
+			attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
+		}
+		if serviceAttributes.Namespace != "" {
+			attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
+		}
+		if serviceAttributes.UID != "" {
+			attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
+		}
 	}
-
-	parts := strings.Split(serviceHostname, ".")
-	if len(parts) > 1 {
-		return parts[0], parts[1]
-	}
-
-	return serviceHostname, ""
+	return attrs
 }
 
 func disableClientPolicyChecks(mesh *meshconfig.MeshConfig, node *model.Proxy) bool {
@@ -368,8 +363,12 @@ func attrUID(node *model.Proxy) attribute {
 	return attrStringValue("kubernetes://" + node.ID)
 }
 
-func attrBoolValue(value bool) attribute {
-	return &mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BoolValue{BoolValue: value}}
+func attrNamespace(node *model.Proxy) attribute {
+	parts := strings.Split(node.ID, ".")
+	if len(parts) >= 2 {
+		return attrStringValue(parts[1])
+	}
+	return attrStringValue("")
 }
 
 func attrIntValue(value int64) attribute {
