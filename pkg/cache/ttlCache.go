@@ -46,6 +46,7 @@ type ttlCache struct {
 	stopEvicter       chan bool
 	baseTimeNanos     int64
 	evicterTerminated sync.WaitGroup // used by unit tests to verify the finalizer ran
+	callback          EvictionCallback
 }
 
 // A single cache entry. This is the values we use in our storage map
@@ -53,6 +54,8 @@ type entry struct {
 	value      interface{}
 	expiration int64 // nanoseconds
 }
+
+type EvictionCallback func(key, value interface{})
 
 // NewTTL creates a new cache with a time-based eviction model.
 //
@@ -72,8 +75,13 @@ type entry struct {
 // use up all available memory by continuing to add entries to the cache with a
 // long enough expiration time. Don't do that.
 func NewTTL(defaultExpiration time.Duration, evictionInterval time.Duration) ExpiringCache {
+	return NewTTLWithCallback(defaultExpiration, evictionInterval, func(key, value interface{}) {})
+}
+
+func NewTTLWithCallback(defaultExpiration time.Duration, evictionInterval time.Duration, callback EvictionCallback) ExpiringCache {
 	c := &ttlCache{
 		defaultExpiration: defaultExpiration,
+		callback:          callback,
 	}
 
 	if evictionInterval > 0 {
@@ -130,12 +138,11 @@ func (c *ttlCache) evictExpired(t time.Time) {
 	// This is a cache, not a map. So we're OK with this extremely rare
 	// situation. So long as the cache never lies, it's OK if it spuriously
 	// forgets.
-
 	c.entries.Range(func(key interface{}, value interface{}) bool {
 		e := value.(*entry)
 		if e.expiration <= n {
 			c.entries.Delete(key)
-
+			c.callback(key, value.(*entry).value)
 			// Note: can miscount if the key was removed before it was evicted
 			atomic.AddUint64(&c.stats.Evictions, 1)
 		}
