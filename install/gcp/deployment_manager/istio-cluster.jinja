@@ -8,7 +8,7 @@ resources:
     zone: {{ properties['zone'] }}
     cluster:
       name: {{ properties['gkeClusterName'] }}
-      initialClusterVersion: latest
+      initialClusterVersion: 1.9
       legacyAbac:
         enabled: false
       initialNodeCount: {{ properties['initialNodeCount'] }}
