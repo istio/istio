@@ -32,7 +32,7 @@ import (
 type (
 	builder struct {
 		types map[string]*tracespan.Type
-		mg    *helper.MetadataGenerator
+		mg    helper.MetadataGenerator
 		cfg   *config.Params
 	}
 
@@ -53,7 +53,7 @@ var (
 const attrHTTPStatusCode = "http.status_code"
 
 // NewBuilder returns a builder implementing the tracespan.HandlerBuilder interface.
-func NewBuilder(mg *helper.MetadataGenerator) tracespan.HandlerBuilder {
+func NewBuilder(mg helper.MetadataGenerator) tracespan.HandlerBuilder {
 	return &builder{mg: mg}
 }
 
