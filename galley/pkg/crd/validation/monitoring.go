@@ -38,6 +38,7 @@ var (
 		Name: "galley_validation_failed",
 		Help: "Resource validation failed",
 	}, []string{"group", "version", "resource", "reason"})
+	metricValidationHTTPError = prometheus.NewGaugeVec(prometheus.GaugeOpts{}, []string{"status"})
 )
 
 func init() {
@@ -45,7 +46,8 @@ func init() {
 		metricCertKeyUpdate,
 		metricCertKeyUpdateError,
 		metricValidationPassed,
-		metricValidationFailed)
+		metricValidationFailed,
+		metricValidationHTTPError)
 }
 
 func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
@@ -66,7 +68,7 @@ func reportValidationPass(request *admissionv1beta1.AdmissionRequest) {
 }
 
 func reportValidationHTTPError(status int) {
-	metricValidationPassed.With(prometheus.Labels{
+	metricValidationHTTPError.With(prometheus.Labels{
 		"status": strconv.Itoa(status),
 	}).Add(1)
 }
