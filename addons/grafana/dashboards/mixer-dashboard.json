@@ -1638,6 +1638,6 @@
   },
   "timezone": "",
   "title": "Mixer Dashboard",
-  "uid": "2",
+  "uid": "istio-mixer",
   "version": 3
 }

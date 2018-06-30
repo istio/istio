@@ -789,6 +789,6 @@
   },
   "timezone": "browser",
   "title": "Pilot Dashboard",
-  "uid": "3",
+  "uid": "istio-pilot",
   "version": 3
 }

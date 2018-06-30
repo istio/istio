@@ -840,6 +840,6 @@
   },
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
-  "uid": "1",
+  "uid": "istio-mesh",
   "version": 9
 }
