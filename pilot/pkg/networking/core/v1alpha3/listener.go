@@ -581,12 +581,10 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts   []string
-	tlsContext *auth.DownstreamTlsContext
-	httpOpts   *httpListenerOpts
-	match      *listener.FilterChainMatch
-	// // ALPN protocol used for the filter chain match.
-	// applicationProtocol []string
+	sniHosts       []string
+	tlsContext     *auth.DownstreamTlsContext
+	httpOpts       *httpListenerOpts
+	match          *listener.FilterChainMatch
 	networkFilters []listener.Filter
 }
 

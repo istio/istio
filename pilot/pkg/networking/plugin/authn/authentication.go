@@ -17,7 +17,6 @@ package authn
 import (
 	"crypto/sha1"
 	"fmt"
-	"reflect"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -69,6 +68,7 @@ func NewPlugin() plugin.Plugin {
 
 // RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
+// TODO(incfly): delete this since we now we setup filter chain match and tls context all together.
 func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 	if policy == nil {
 		return false, nil
@@ -88,7 +88,6 @@ func RequireTLS(policy *authn.Policy) (bool, *authn.MutualTls) {
 
 // SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain, and a bool
 // to indicate whether the `tls_inspector` listener filter is needed.
-// (*[]xdsapi.FilterChainMatch, *[]auth.DownstreamTlsContext).
 func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,
 	hostname model.Hostname, port *model.Port) ([]*ldsv2.FilterChainMatch, []*auth.DownstreamTlsContext, bool) {
 	matches := []*ldsv2.FilterChainMatch{nil}
@@ -126,7 +125,6 @@ func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioCo
 					},
 				},
 			},
-			// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: &types.BoolValue{
@@ -313,53 +311,6 @@ func BuildAuthNFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 }
 
-// buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch) *auth.DownstreamTlsContext {
-	tlsContext := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
-						},
-					},
-				},
-			},
-			// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-			AlpnProtocols: util.ALPNHttp,
-		},
-		RequireClientCertificate: &types.BoolValue{
-			Value: true,
-		},
-	}
-	// We already decide the purpose of the filter chain, ALPN istio traffic or legacy traffic.
-	if match != nil {
-		if reflect.DeepEqual(match.ApplicationProtocols, util.ALPNInMesh) {
-			return tlsContext
-		}
-		return nil
-	}
-	if requireTLS, _ := RequireTLS(authenticationPolicy); requireTLS {
-		return tlsContext
-	}
-	return nil
-}
-
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
@@ -395,26 +346,6 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		}
 	}
 	return nil
-}
-
-// AcceptIstioAndLegacy returns true if any one of MTLS mode is `PERMISSIVE`, which indicates the
-// listener needs to accept both Istio and legacy traffic.
-func (Plugin) AcceptIstioAndLegacy(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
-	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return false
-	}
-	for _, method := range authnPolicy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
-				return true
-			}
-		default:
-			continue
-		}
-	}
-	return false
 }
 
 // OnInboundCluster implements the Plugin interface method.
