@@ -41,58 +41,6 @@ import (
 )
 
 var (
-	metricCertKeyUpdate = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "galley_validation_cert_key_updates",
-		Help: "Galley validation webhook certiticate updates",
-	})
-	metricCertKeyUpdateError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "galley_validation_cert_key_update_errors",
-		Help: "Galley validation webhook certiticate updates errors",
-	}, []string{"error"})
-	metricValidationPassed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "galley_validation_passed",
-		Help: "Resource is valid",
-	}, []string{"group", "version", "resource"})
-	metricValidationFailed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "galley_validation_failed",
-		Help: "Resource validation failed",
-	}, []string{"group", "version", "resource", "reason"})
-)
-
-func init() {
-	prometheus.MustRegister(
-		metricCertKeyUpdate,
-		metricCertKeyUpdateError,
-		metricValidationPassed,
-		metricValidationFailed)
-}
-
-func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
-	metricValidationFailed.With(prometheus.Labels{
-		"group":    request.Resource.Group,
-		"version":  request.Resource.Version,
-		"resource": request.Resource.Resource,
-		"reason":   reason,
-	}).Add(1)
-}
-
-func reportValidationPass(request *admissionv1beta1.AdmissionRequest) {
-	metricValidationPassed.With(prometheus.Labels{
-		"group":    request.Resource.Group,
-		"version":  request.Resource.Version,
-		"resource": request.Resource.Resource,
-	}).Add(1)
-}
-
-const (
-	reasonUnsupportedOperation = "unsupported_operation"
-	reasonYamlDecodeError      = "yaml_decode_error"
-	reasonUnknownType          = "unknown_type"
-	reasonCRDConversionError   = "crd_conversion_error"
-	reasonInvalidConfig        = "invalid_resource"
-)
-
-var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
@@ -273,6 +221,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		}
 	}
 	if len(body) == 0 {
+		reportValidationHTTPError(http.StatusBadRequest)
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -280,6 +229,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
+		reportValidationHTTPError(http.StatusUnsupportedMediaType)
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -302,9 +252,12 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 
 	resp, err := json.Marshal(response)
 	if err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		return
 	}
 	if _, err := w.Write(resp); err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
 }
@@ -365,24 +318,29 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		ev.Type = store.Update
 		var obj unstructured.Unstructured
 		if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+			reportValidationFailed(request, reasonYamlDecodeError)
 			return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 		}
 		ev.Value = mixerCrd.ToBackEndResource(&obj)
 		ev.Key.Name = ev.Value.Metadata.Name
 	case admissionv1beta1.Delete:
 		if request.Name == "" {
+			reportValidationFailed(request, reasonUnknownType)
 			return toAdmissionResponse(fmt.Errorf("illformed request: name not found on delete request"))
 		}
 		ev.Type = store.Delete
 		ev.Key.Name = request.Name
 	default:
 		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	if err := wh.validator.Validate(ev); err != nil {
+		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(err)
 	}
 
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }
