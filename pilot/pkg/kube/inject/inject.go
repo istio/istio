@@ -118,14 +118,10 @@ func InitImageName(hub string, tag string, _ bool) string {
 // proxy image given a docker hub and tag and whether to use debug or not.
 func ProxyImageName(hub string, tag string, debug bool) string {
 	// Allow overriding the proxy image.
-	image := os.Getenv("ISTIO_PROXY_IMAGE")
-	if image != "" {
-		return hub + "/" + image + ":" + tag
-	}
 	if debug {
 		return hub + "/proxy_debug:" + tag
 	}
-	return hub + "/proxy:" + tag
+	return hub + "/proxyv2:" + tag
 }
 
 // Params describes configurable parameters for injecting istio proxy

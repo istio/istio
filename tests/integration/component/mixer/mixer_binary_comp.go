@@ -18,7 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -119,10 +118,6 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	mixerTestConfig := util.GetResourcePath(testConfigPath)
 	if _, err = util.Shell("cp %s/* %s", mixerTestConfig, mixerConfig); err != nil {
 		log.Printf("Failed to copy config for test: %v", err)
-		return
-	}
-	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
-		log.Printf("Failed to remove stackdriver.yaml: %v", err)
 		return
 	}
 

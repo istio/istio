@@ -23,7 +23,7 @@ spec:
       labels:
         app: alpha1
       annotations:
-        sidecar.istio.io/proxyImage: istionightly/proxy:nightly-release-0.8
+        sidecar.istio.io/proxyImage: istionightly/proxyv2:nightly-release-0.8
     spec:
       containers:
       - name: echosrv

@@ -77,8 +77,7 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
+  nodePort: true
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
@@ -102,6 +101,9 @@ global:
   # Whether to restrict the applications namespace the controller manages;
   # If not set, controller watches all namespaces
   oneNamespace: false
+
+  # Whether to perform server-side validation of configuration.
+  configValidation: true
 
 # Any customization for istio testing should be here
 istiotesting:
@@ -378,6 +380,9 @@ servicegraph:
     #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
+
+zipkin:
+  enabled: true
 
 tracing:
   enabled: false
