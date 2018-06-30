@@ -303,7 +303,6 @@ func deleteOldMetrics(key, value interface{}) {
 	if entry, ok := value.(*cacheEntry); ok {
 		switch v := entry.vec.(type) {
 		case *prometheus.CounterVec:
-			fmt.Printf("deleting: %#v\n", entry.labels)
 			v.Delete(entry.labels)
 		case *prometheus.GaugeVec:
 			v.Delete(entry.labels)
