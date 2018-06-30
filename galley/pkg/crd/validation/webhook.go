@@ -26,6 +26,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,6 +38,58 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+)
+
+var (
+	metricCertKeyUpdate = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "galley_validation_cert_key_updates",
+		Help: "Galley validation webhook certiticate updates",
+	})
+	metricCertKeyUpdateError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "galley_validation_cert_key_update_errors",
+		Help: "Galley validation webhook certiticate updates errors",
+	}, []string{"error"})
+	metricValidationPassed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "galley_validation_passed",
+		Help: "Resource is valid",
+	}, []string{"group", "version", "resource"})
+	metricValidationFailed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "galley_validation_failed",
+		Help: "Resource validation failed",
+	}, []string{"group", "version", "resource", "reason"})
+)
+
+func init() {
+	prometheus.MustRegister(
+		metricCertKeyUpdate,
+		metricCertKeyUpdateError,
+		metricValidationPassed,
+		metricValidationFailed)
+}
+
+func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
+	metricValidationFailed.With(prometheus.Labels{
+		"group":    request.Resource.Group,
+		"version":  request.Resource.Version,
+		"resource": request.Resource.Resource,
+		"reason":   reason,
+	}).Add(1)
+}
+
+func reportValidationPass(request *admissionv1beta1.AdmissionRequest) {
+	metricValidationPassed.With(prometheus.Labels{
+		"group":    request.Resource.Group,
+		"version":  request.Resource.Version,
+		"resource": request.Resource.Resource,
+	}).Add(1)
+}
+
+const (
+	reasonUnsupportedOperation = "unsupported_operation"
+	reasonYamlDecodeError      = "yaml_decode_error"
+	reasonUnknownType          = "unknown_type"
+	reasonCRDConversionError   = "crd_conversion_error"
+	reasonInvalidConfig        = "invalid_resource"
 )
 
 var (
@@ -172,12 +225,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			timerC = nil
 			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 			if err != nil {
-				log.Errorf("reload cert error: %v", err)
+				metricCertKeyUpdateError.With(prometheus.Labels{"error": err.Error()}).Add(1)
+				log.Errorf("Cert/Key reload error: %v", err)
 				break
 			}
 			wh.mu.Lock()
 			wh.cert = &pair
 			wh.mu.Unlock()
+
+			metricCertKeyUpdate.Add(1)
+			log.Error("Cert and Key reloaded")
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce cert updates
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
@@ -265,28 +322,34 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
 		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
 	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+		reportValidationFailed(request, reasonYamlDecodeError)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
 	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
 	if !exists {
+		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
 	out, err := crd.ConvertObject(schema, &obj, wh.domainSuffix)
 	if err != nil {
+		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
 	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }
 
