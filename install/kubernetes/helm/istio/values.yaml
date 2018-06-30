@@ -203,6 +203,7 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
+  enableNamespacesByDefault: false
 
 #
 # galley configuration
@@ -358,7 +359,7 @@ kiali:
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.1.Alpha
+    tag: v0.4.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.

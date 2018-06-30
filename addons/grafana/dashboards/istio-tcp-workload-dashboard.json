@@ -86,7 +86,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "round(sum(irate(istio_tcp_received_bytes_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
+          "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ source_workload }} -> {{ destination_workload }}",
@@ -167,7 +167,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "round(sum(irate(istio_tcp_sent_bytes_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
+          "expr": "round(sum(irate(istio_tcp_sent_bytes_total{reporter=\"server\", destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ destination_workload }} -> {{ source_workload }} ",
