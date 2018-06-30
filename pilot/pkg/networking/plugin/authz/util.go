@@ -142,3 +142,22 @@ func extractNameInBrackets(s string) (string, error) {
 	}
 	return strings.TrimPrefix(strings.TrimSuffix(s, "]"), "["), nil
 }
+
+// extractActualServiceAccount extracts the actual service account from the Istio service account if
+// found any, otherwise it returns the Istio service account itself without any change.
+// Istio service account has the format: "spiffe://<domain>/ns/<namespace>/sa/<service-account>"
+func extractActualServiceAccount(istioServiceAccount string) string {
+	actualSA := istioServiceAccount
+	beginName, optionalEndName := "sa/", "/"
+	beginIndex := strings.Index(actualSA, beginName)
+	if beginIndex != -1 {
+		beginIndex += len(beginName)
+		length := strings.Index(actualSA[beginIndex:], optionalEndName)
+		if length == -1 {
+			actualSA = actualSA[beginIndex:]
+		} else {
+			actualSA = actualSA[beginIndex : beginIndex+length]
+		}
+	}
+	return actualSA
+}
