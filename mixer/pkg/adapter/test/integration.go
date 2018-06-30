@@ -222,9 +222,9 @@ func RunTest(
 	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
 	for i, call := range scenario.ParallelCalls {
 		if scenario.SingleThreaded {
-			execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+			execute(call, client, got.Returns, i, &wg)
 		} else {
-			go execute(call, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, client, got.Returns, i, &wg)
+			go execute(call, client, got.Returns, i, &wg)
 		}
 	}
 	// wait for calls to finish
@@ -283,15 +283,13 @@ func RunTest(
 	}
 }
 
-func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.MixerClient, returns []Return, i int, wg *sync.WaitGroup) {
+func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int, wg *sync.WaitGroup) {
 	ret := Return{}
 	switch c.CallKind {
 	case CHECK:
 		req := istio_mixer_v1.CheckRequest{
-			Attributes: getAttrBag(c.Attrs,
-				idAttr,
-				idAttrDomain),
-			Quotas: c.Quotas,
+			Attributes: getAttrBag(c.Attrs),
+			Quotas:     c.Quotas,
 		}
 
 		result, resultErr := client.Check(context.Background(), &req)
@@ -313,9 +311,7 @@ func execute(c Call, idAttr string, idAttrDomain string, client istio_mixer_v1.M
 	case REPORT:
 		req := istio_mixer_v1.ReportRequest{
 			Attributes: []istio_mixer_v1.CompressedAttributes{
-				getAttrBag(c.Attrs,
-					idAttr,
-					idAttrDomain)},
+				getAttrBag(c.Attrs)},
 		}
 		_, responseErr := client.Report(context.Background(), &req)
 		ret.Error = responseErr
@@ -371,9 +367,8 @@ func getServerArgs(
 	return args, err
 }
 
-func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attrs {
 		switch v.(type) {
 		case map[string]interface{}:

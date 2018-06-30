@@ -127,7 +127,7 @@ func getValidatorForTest() (*Validator, error) {
 		},
 	}
 
-	v, err := NewValidator(tc, "destination.service", s, adapterInfo, templateInfo)
+	v, err := NewValidator(tc, s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}
