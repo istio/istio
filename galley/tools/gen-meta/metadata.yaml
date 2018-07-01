@@ -175,7 +175,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "adapter"
     singular:    "adapter"
@@ -184,7 +184,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
 ## Mixer Adapter Types
 
@@ -195,7 +195,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "circonus"
     singular:    "circonus"
@@ -204,7 +204,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "denier"
     singular:    "denier"
@@ -213,7 +213,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "fluentd"
     singular:    "fluentd"
@@ -222,7 +222,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "kubernetesenv"
     singular:    "kubernetesenv"
@@ -231,7 +231,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "listchecker"
     singular:    "listchecker"
@@ -240,7 +240,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "memquota"
     singular:    "memquota"
@@ -249,7 +249,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "noop"
     singular:    "noop"
@@ -258,7 +258,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "opa"
     singular:    "opa"
@@ -267,7 +267,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "prometheus"
     singular:    "prometheus"
@@ -276,7 +276,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "servicecontrol"
     singular:    "servicecontrol"
@@ -285,7 +285,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "signalfx"
     group:       "config.istio.io"
@@ -294,7 +294,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "solarwinds"
     singular:    "solarwinds"
@@ -303,7 +303,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "stackdriver"
     singular:    "stackdriver"
@@ -312,7 +312,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "statsd"
     singular:    "statsd"
@@ -321,7 +321,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "stdio"
     singular:    "stdio"
@@ -330,7 +330,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Info"
     gogo:        true
-    converter:   "old-mixer-adapter"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "apikey"
     singular:    "apikey"
@@ -339,7 +339,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "authorization"
     singular:    "authorization"
@@ -348,7 +348,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "checknothing"
     singular:    "checknothing"
@@ -357,7 +357,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "kubernetes"
     singular:    "kubernetes"
@@ -366,7 +366,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "listentry"
     singular:    "listentry"
@@ -375,7 +375,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "logentry"
     singular:    "logentry"
@@ -384,7 +384,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "metric"
     singular:    "metric"
@@ -393,7 +393,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "quota"
     singular:    "quota"
@@ -402,7 +402,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "reportnothing"
     singular:    "reportnothing"
@@ -411,7 +411,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "servicecontrolreport"
     singular:    "servicecontrolreport"
@@ -420,7 +420,7 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
 
   - kind:        "tracespan"
     singular:    "tracespan"
@@ -429,4 +429,4 @@ items:
     version:     "v1alpha2"
     proto:       "istio.mixer.adapter.model.v1beta1.Template"
     gogo:        true
-    converter:   "old-mixer-template"
+    converter:   "legacy-mixer-resource"
