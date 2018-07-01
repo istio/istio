@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-security-custom-resources
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: security
+data:
+  custom-resources.yaml: |-
+    {{- include "security-default.yaml.tpl" . | indent 4}}
+  run.sh: |-
+    {{- include "install-custom-resources.sh.tpl" . | indent 4}}
