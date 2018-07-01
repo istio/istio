@@ -1,3 +1,4 @@
+{{- if .Values.global.pilotEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -22,6 +23,8 @@ subsets:
   - port: 9093
     name: http-monitoring
 ---
+{{- end }}
+{{- if .Values.global.policyEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -47,6 +50,8 @@ subsets:
   - name: prometheus
     port: 42422
 ---
+{{- end }}
+{{- if .Values.global.statsdEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -62,6 +67,8 @@ subsets:
     port: 9125
     protocol: UDP
 ---
+{{- end }}
+{{- if .Values.global.telemetryEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -84,6 +91,8 @@ subsets:
     port: 15004
     protocol: TCP
 ---
+{{- end }}
+{{- if .Values.global.ingressEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -100,6 +109,8 @@ subsets:
     port: 443
     protocol: TCP
 ---
+{{- end }}
+{{- if .Values.global.zipkinEndpoint }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -111,3 +122,4 @@ subsets:
   ports:
   - name: http-zipkin
     port: 9411
+{{- end }}

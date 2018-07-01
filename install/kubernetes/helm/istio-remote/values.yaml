@@ -4,22 +4,22 @@
 
 global:
   # The Istio control plane Pilot endpoint
-  pilotEndpoint: istio-pilot.istio-system
+  pilotEndpoint:
 
   # The Istio control plane Policy endpoint
-  policyEndpoint: istio-policy.istio-system
+  policyEndpoint:
 
   # The Istio control plane statsd endpoint
-  statsdEndpoint: istio-statsd-prom-bridge.istio-system
+  statsdEndpoint:
 
   # The Istio control plane ingress endpoint
-  ingressEndpoint: istio-ingress.istio-system
+  ingressEndpoint:
 
   # The Istio control plane telemetry endpoint
-  telemetryEndpoint: istio-telemetry.istio-system
+  telemetryEndpoint:
 
   # The Istio control plane zipkin endpoint
-  zipkinEndpoint: zipkin.istio-system
+  zipkinEndpoint:
 
   # Default tag for Istio images.
   hub: docker.io/istionightly

@@ -1,4 +1,4 @@
-
+{{- if .Values.global.pilotEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -22,6 +22,8 @@ spec:
     name: http-monitoring
   clusterIP: None
 ---
+{{- end }}
+{{- if .Values.global.policyEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -46,6 +48,8 @@ spec:
     port: 42422
   clusterIP: None
 ---
+{{- end }}
+{{- if .Values.global.statsdEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -60,6 +64,8 @@ spec:
     protocol: UDP
   clusterIP: None
 ---
+{{- end }}
+{{- if .Values.global.telemetryEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -85,6 +91,8 @@ spec:
     targetPort: 42422
   clusterIP: None
 ---
+{{- end }}
+{{- if .Values.global.ingressEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -100,6 +108,8 @@ spec:
     protocol: TCP
   clusterIP: None
 ---
+{{- end }}
+{{- if .Values.global.zipkinEndpoint }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -111,3 +121,4 @@ spec:
     port: 9411
   clusterIP: None
 ---
+{{- end }}
