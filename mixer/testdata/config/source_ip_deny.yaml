@@ -6,10 +6,8 @@ kind: rule
 metadata:
   name: mixerdenyip
   namespace: istio-system
-  labels:
-    istio-protocol: tcp
 spec:
-  match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13")
+  match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13") && context.protocol == "tcp"
   actions:
   - handler: denyall.denier
     instances:
