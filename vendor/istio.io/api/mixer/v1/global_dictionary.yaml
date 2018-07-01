@@ -285,3 +285,4 @@
 - response.grpc_message
 
 - context.reporter.type
+- context.reporter.kind
