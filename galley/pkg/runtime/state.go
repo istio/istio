@@ -36,7 +36,7 @@ type State struct {
 
 	// entries for per-message-type State.
 	entriesLock sync.Mutex
-	entries     map[resource.MessageName]*resourceTypeState
+	entries     map[resource.TypeURL]*resourceTypeState
 }
 
 // per-resource-type State.
@@ -51,12 +51,12 @@ type resourceTypeState struct {
 func newState(schema *resource.Schema) *State {
 	return &State{
 		schema:  schema,
-		entries: make(map[resource.MessageName]*resourceTypeState),
+		entries: make(map[resource.TypeURL]*resourceTypeState),
 	}
 }
 
 func (s *State) apply(event resource.Event) bool {
-	pks := s.getResourceTypeState(event.ID.MessageName)
+	pks := s.getResourceTypeState(event.ID.TypeURL)
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
@@ -94,7 +94,7 @@ func (s *State) apply(event resource.Event) bool {
 	return true
 }
 
-func (s *State) getResourceTypeState(name resource.MessageName) *resourceTypeState {
+func (s *State) getResourceTypeState(name resource.TypeURL) *resourceTypeState {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -116,15 +116,14 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 
 	sn := snapshot.NewInMemory()
 
-	for name, state := range s.entries {
+	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		typeURL := s.schema.Info(name).TypeURL
-		sn.Set(typeURL, version, entries)
+		sn.Set(typeURL.String(), version, entries)
 	}
 
 	sn.Freeze()
@@ -133,8 +132,6 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	info := s.schema.Info(event.ID.MessageName)
-
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source event: %v", event)
@@ -146,7 +143,7 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 			Name: event.ID.FullName,
 		},
 		Resource: &types.Any{
-			TypeUrl: info.TypeURL,
+			TypeUrl: event.ID.TypeURL.String(),
 			Value:   serialized,
 		},
 	}

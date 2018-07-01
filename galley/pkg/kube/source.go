@@ -29,7 +29,7 @@ type sourceImpl struct {
 	ifaces Interfaces
 	ch     chan resource.Event
 
-	listeners map[resource.MessageName]*listener
+	listeners map[resource.TypeURL]*listener
 }
 
 var _ runtime.Source = &sourceImpl{}
@@ -42,7 +42,7 @@ func NewSource(k Interfaces, resyncPeriod time.Duration) (runtime.Source, error)
 func newSource(k Interfaces, resyncPeriod time.Duration, specs []ResourceSpec) (runtime.Source, error) {
 	s := &sourceImpl{
 		ifaces:    k,
-		listeners: make(map[resource.MessageName]*listener),
+		listeners: make(map[resource.TypeURL]*listener),
 	}
 
 	for _, spec := range specs {
@@ -51,7 +51,7 @@ func newSource(k Interfaces, resyncPeriod time.Duration, specs []ResourceSpec) (
 			return nil, err
 		}
 
-		s.listeners[spec.Target.MessageName] = l
+		s.listeners[spec.Target.TypeURL] = l
 	}
 
 	return s, nil
@@ -86,8 +86,8 @@ func (s *sourceImpl) Stop() {
 func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version string, u *unstructured.Unstructured) {
 	rid := resource.VersionedKey{
 		Key: resource.Key{
-			MessageName: l.spec.Target.MessageName,
-			FullName:    key,
+			TypeURL:  l.spec.Target.TypeURL,
+			FullName: key,
 		},
 		Version: resource.Version(version),
 	}
