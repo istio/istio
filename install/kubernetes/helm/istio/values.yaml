@@ -8,12 +8,13 @@ global:
   # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on
-  # docker.io/istionightly
-  hub: docker.io/istio
+  hub: docker.io/istionightly
+  #hub: docker.io/istio
 
   # Default tag for Istio images.
-  # Should track latest released version in the branch.
-  tag: 0.8.latest
+  tag: nightly-master
+  #tag: 1.0.latest
+
   proxy:
     image: proxyv2
     resources:
@@ -24,10 +25,12 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
-    # istio-sidecar-injector configmap stores configuration for sidecar injection.
-    # This config map is used by istioctl kube-inject and the injector webhook.
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
-    replicaCount: 1
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -44,7 +47,9 @@ global:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     includeInboundPorts: "*"
     excludeInboundPorts: ""
-    policy: enabled
+
+    # This controls the 'policy' in the sidecar injector.
+    autoinject: enabled
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
@@ -70,6 +75,13 @@ global:
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -153,8 +165,15 @@ gateways:
       istio: ingressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
