@@ -1,40 +1,93 @@
-# Use --set to specify the endpoints of the main Istio control plane
-# NB: These defaults do not work properly - they must be overriden with
-# IP addresses
-
+# Common settings.
 global:
-  # The Istio control plane Pilot endpoint
-  pilotEndpoint: istio-pilot.istio-system
-
-  # The Istio control plane Policy endpoint
-  policyEndpoint: istio-policy.istio-system
-
-  # The Istio control plane statsd endpoint
-  statsdEndpoint: istio-statsd-prom-bridge.istio-system
-
-  # The Istio control plane ingress endpoint
-  ingressEndpoint: istio-ingress.istio-system
-
-  # The Istio control plane telemetry endpoint
-  telemetryEndpoint: istio-telemetry.istio-system
-
-  # The Istio control plane zipkin endpoint
-  zipkinEndpoint: zipkin.istio-system
-
+  # Default repository for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on
+  # docker.io/istionightly
+  hub: gcr.io/istio-release
   # Default tag for Istio images.
-  hub: docker.io/istionightly
+  # Should track latest released version in the branch.
+  tag: 0.8.latest
+  proxy:
+    image: proxyv2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
-  # Default tag for Istio images.
-  # Should track latest released version.
-  # Currently using nightly build, for testing
-  tag: circleci-nightly
+    # istio-sidecar-injector configmap stores configuration for sidecar injection.
+    # This config map is used by istioctl kube-inject and the injector webhook.
+    enableCoreDump: false
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    policy: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    # For remote clusters the host should be the statsd prom bridge in the primary control plane cluster.
+    envoyStatsd:
+      enabled: false
+      host: ""
+      port: 9125
+
+  proxy_init:
+    image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
   ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
     # - private-registry-key
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: quay.io/coreos/hyperkube
+    tag: v1.7.6_coreos.0
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: false
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
+
+  # create RBAC resources. Must be set for any cluster configured with rbac.
+  rbacEnabled: true
+
+  # Default is 1 second
+  refreshInterval: 10s
+
+  # Remote Istio endpoints. Can be hostnames or IP addresses
+  # The Pilot address is required. The others are optional.
+  remotePilotAddress: ""
+  remotePolicyAddress: ""
+  remoteTelemetryAddress: ""
+  remoteZipkinAddress: ""
+
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -47,11 +100,12 @@ global:
     ppc64le: 2
 
 #
-# security configuration
+# sidecar-injector webhook configuration
 #
-security:
+sidecarInjectorWebhook:
+  enabled: true
   replicaCount: 1
-  image: citadel
+  image: sidecar_injector
   resources: {}
   # limits:
   #  cpu: 100m
@@ -59,4 +113,16 @@ security:
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-# Any customization for istio testing should be here
+
+security:
+  replicaCount: 1
+  image: citadel
+  resources: {}
+  selfSigned: true # indicate if self-signed CA is used.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  cleanUpOldCA: true

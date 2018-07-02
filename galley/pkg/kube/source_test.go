@@ -36,8 +36,8 @@ var emptyInfo resource.Info
 
 func init() {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty", true)
-	emptyInfo, _ = schema.LookupByMessageName("google.protobuf.Empty")
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 }
 
 func TestNewSource(t *testing.T) {
@@ -121,7 +121,7 @@ func TestSource_BasicEvents(t *testing.T) {
 
 	log := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](google.protobuf.Empty:ns/f1 @rv1))
+[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
 [Event](FullSync: [VKey](: @))
 `)
 	if log != expected {

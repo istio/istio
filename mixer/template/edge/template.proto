@@ -1,0 +1,75 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// The `edge` template represents an edge in the mesh graph.
+package edge;
+
+import "policy/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// The `edge` template represents an edge in the mesh graph
+//
+// When writing the configuration, the value for the fields associated
+// with this template can either be a literal or an
+// [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please
+// note that if the datatype of a field is not
+// istio.mixer.adapter.model.v1beta1.Value, then the expression's
+// [inferred
+// type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking)
+// must match the datatype of the field.
+//
+// Example config:
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: edge
+// metadata:
+//   name: default
+//   namespace: istio-system
+// spec:
+//   timestamp: request.time
+//   sourceUid: source.uid | "Unknown"
+//   sourceOwner: source.owner | "Unknown"
+//   sourceWorkloadName: source.workload.name | "Unknown"
+//   sourceWorkloadNamespace: source.workload.namespace | "Unknown"
+//   destinationUid: destination.uid | "Unknown"
+//   destinationOwner: destination.owner | "Unknown"
+//   destinationWorkloadName: destination.workload.name | "Unknown"
+//   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+//   apiProtocol: api.protocol | "Unknown"
+//   contextProtocol: context.protocol | "Unknown"
+// ```
+message Template {
+  // Timestamp
+  istio.policy.v1beta1.TimeStamp timestamp = 1;
+
+  // Source of edge.
+  string source_workload_namespace = 10;
+  string source_workload_name = 11;
+  string source_owner = 12;
+  string source_uid = 13;
+
+  // Destination of edge
+  string destination_workload_namespace = 20;
+  string destination_workload_name = 21;
+  string destination_owner = 22;
+  string destination_uid = 23;
+
+  // Protocol used
+  string context_protocol = 30;
+  string api_protocol = 31;
+}

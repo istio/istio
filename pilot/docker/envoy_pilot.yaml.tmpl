@@ -92,7 +92,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15003
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -172,7 +172,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15011
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -247,7 +247,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15005
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -322,7 +322,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15007
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}

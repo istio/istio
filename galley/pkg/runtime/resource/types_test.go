@@ -18,26 +18,20 @@ import "testing"
 
 func TestTypes_Info(t *testing.T) {
 	for _, info := range Types.All() {
-		i := Types.Info(info.MessageName)
-
+		i, found := Types.Lookup(info.TypeURL.String())
+		if !found {
+			t.Fatalf("Unable to find by lookup: %q", info.TypeURL.String())
+		}
 		if i != info {
 			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
 		}
 	}
 }
 
-func TestTypes_LookupByMessageName(t *testing.T) {
+func TestTypes_Lookup(t *testing.T) {
 	for _, info := range Types.All() {
-		if _, found := Types.LookupByMessageName(info.MessageName.string); !found {
-			t.Fatalf("expected info not found for: %s", info.MessageName.string)
-		}
-	}
-}
-
-func TestTypes_LookupByTypeURL(t *testing.T) {
-	for _, info := range Types.All() {
-		if _, found := Types.LookupByTypeURL(info.TypeURL); !found {
-			t.Fatalf("expected info not found for: %s", info.MessageName.string)
+		if _, found := Types.Lookup(info.TypeURL.string); !found {
+			t.Fatalf("expected info not found for: %s", info.TypeURL.string)
 		}
 	}
 }
