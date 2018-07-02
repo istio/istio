@@ -197,6 +197,10 @@ func TestErrors(t *testing.T) {
 		t.Errorf("Got success, expecting error")
 	}
 
+	a = defaultTestArgs()
+	a.APIPort = 0
+	a.TracingOptions.LogTraceSpans = true
+
 	// This test is designed to exercise the many failure paths in the server creation
 	// code. This is mostly about replacing methods in the patch table with methods that
 	// return failures in order to make sure the failure recovery code is working right.
@@ -205,13 +209,6 @@ func TestErrors(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			a = defaultTestArgs()
-			a.APIPort = 0
-			a.TracingOptions.LogTraceSpans = true
-			configStore, cerr := storetest.SetupStoreForTest(globalCfg, serviceCfg)
-			if cerr != nil {
-				t.Fatal(cerr)
-			}
 			a.ConfigStore = configStore
 			a.ConfigStoreURL = ""
 			a.MonitoringPort = 0
