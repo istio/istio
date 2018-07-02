@@ -3697,23 +3697,9 @@ end
 `,
 	},
 	{
-		E:    `as | "unknown" + "b"`,
+		E:    `as | "a" + "b"`,
 		Type: descriptor.STRING,
 		R:    "ab",
-		I: map[string]interface{}{
-			"as": "a",
-		},
-		IL: `
-fn eval() string
-  tresolve_s "as"
-  jnz L0
-  apush_s "unknown"
-L0:
-  apush_s "b"
-  add_s
-  ret
-end
-`,
 	},
 	{
 		E:    `as | "a" + bs + "c"`,
