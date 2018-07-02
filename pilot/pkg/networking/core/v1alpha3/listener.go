@@ -414,7 +414,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				if currentListener, exists = listenerMap[listenerMapKey]; exists {
-					// Check for port collisions between TCP/TLS and other port types.
+					// Check for port collisions between TCP/TLS and HTTP.
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision for TCP/TLS.
 					if !listenerTypeMap[listenerMapKey].IsTCP() {
@@ -424,8 +424,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 						continue
 					}
 				}
-				// FIXME: doc this
-				// TODO: resolution passthrough
+
 				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
@@ -474,17 +473,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMap[listenerMapKey] = mutable.Listener
 				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
-
-			// TODO: remove this?
-			//if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
-			//	var numChains int
-			//	if currentListener != nil {
-			//		numChains = len(currentListener.FilterChains)
-			//	} else {
-			//		numChains = len(mutable.Listener.FilterChains)
-			//	}
-			//	log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
-			//}
 		}
 	}
 
