@@ -138,6 +138,6 @@ func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service
 }
 
 // OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin)OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }

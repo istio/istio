@@ -176,7 +176,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 }
 
 // OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (mixerplugin)OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (mixerplugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
 

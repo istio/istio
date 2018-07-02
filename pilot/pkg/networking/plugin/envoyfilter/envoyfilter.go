@@ -74,7 +74,7 @@ func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, rou
 }
 
 // OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (envoyfilterplugin)OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (envoyfilterplugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	return nil
 }
 

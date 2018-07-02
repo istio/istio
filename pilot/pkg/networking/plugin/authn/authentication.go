@@ -92,6 +92,11 @@ func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.Mu
 
 // OnFilterChains does something awesome.
 func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(
+		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+	if authnPolicy == nil {
+		return nil
+	}
 	return nil
 }
 
