@@ -189,13 +189,15 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
 	}
+	// TODO(yangminzhu): remove this after the default on client code is changed.
+	// So far there is no use case I know where policy check would fail open
+	res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
+
 	// Those settings are not backward compatible.
 	// For testing you can enable them using env - but can't be enabled in 1.0 unless fixed.
 	if os.Getenv("MIXER_NEW_ATTRIBUTES") != "" {
 		// internal telemetry forwarding
 		res.AttributesForMixerProxy = &mpb.Attributes{Attributes: attributes{"source.uid": uid}}
-		// TODO(yangminzhu): Make this configurable in mesh config.
-		res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
 	}
 
 	return res
