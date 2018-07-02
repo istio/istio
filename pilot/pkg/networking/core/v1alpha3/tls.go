@@ -88,23 +88,10 @@ func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, c
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
-
-			if len(tls.Match) == 0 { // implicit match
-				out = append(out, &filterChainOpts{
-					sniHosts:       []string{"*"},
-					networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
-				})
-				break // this matches everything, so short-circuit (anything beyond this can never be reached)
-			}
 			for _, match := range tls.Match {
 				if sourceMatchTLS(match, proxyLabels, gateways, listenPort.Port) {
-					sniHosts := match.SniHosts
-					if len(sniHosts) == 0 {
-						sniHosts = []string{"*"}
-					}
-
 					out = append(out, &filterChainOpts{
-						sniHosts:       sniHosts,
+						sniHosts:       match.SniHosts,
 						networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
 					})
 				}
@@ -112,34 +99,31 @@ func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, c
 		}
 
 		// very basic TCP (no L4 matching)
-		// only add if we don't have any network filters
 		// break as soon as we add one network filter
-		if len(out) == 0 {
-		TcpLoop:
-			for _, tcp := range virtualService.Tcp {
-				// since we don't support weighted destinations yet there can only be exactly 1 destination
-				dest := tcp.Route[0].Destination
-				destSvc, err := env.GetService(model.Hostname(dest.Host))
-				if err != nil {
-					log.Debugf("failed to retrieve service for destination %q: %v", host, err)
-					continue
-				}
-				clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
-				addresses = []string{destSvc.GetServiceAddressForProxy(&proxy)}
+	TcpLoop:
+		for _, tcp := range virtualService.Tcp {
+			// since we don't support weighted destinations yet there can only be exactly 1 destination
+			dest := tcp.Route[0].Destination
+			destSvc, err := env.GetService(model.Hostname(dest.Host))
+			if err != nil {
+				log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+				continue
+			}
+			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			addresses = []string{destSvc.GetServiceAddressForProxy(&proxy)}
 
-				if len(tcp.Match) == 0 { // implicit match
+			if len(tcp.Match) == 0 { // implicit match
+				out = []*filterChainOpts{{
+					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+				}}
+				break TcpLoop
+			}
+			for _, match := range tcp.Match {
+				if sourceMatchTCP(match, proxyLabels, gateways, listenPort.Port) {
 					out = []*filterChainOpts{{
 						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 					}}
 					break TcpLoop
-				}
-				for _, match := range tcp.Match {
-					if sourceMatchTCP(match, proxyLabels, gateways, listenPort.Port) {
-						out = []*filterChainOpts{{
-							networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
-						}}
-						break TcpLoop
-					}
 				}
 			}
 		}
