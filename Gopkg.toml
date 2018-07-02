@@ -32,6 +32,11 @@ required = [
   "istio.io/fortio",
 ]
 
+ignored = [
+  # Context Graph depends on a locally vendored library that isn't (yet) available upstream.
+  "istio.io/istio/mixer/adapter/stackdriver/contextgraph",
+]
+
 # To use reference package:
 #   vendor/k8s.io/kubernetes/pkg/util/parsers/parsers.go:36:16: undefined: reference.ParseNormalizedNamed
 [[override]]
