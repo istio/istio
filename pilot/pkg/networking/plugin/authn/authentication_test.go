@@ -21,6 +21,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
@@ -29,8 +30,8 @@ import (
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -788,117 +789,138 @@ func TestBuildAuthNFilter(t *testing.T) {
 }
 
 func TestBuildFilterChains(t *testing.T) {
+	tlsContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: &types.BoolValue{Value: true},
+	}
 	cases := []struct {
-		name   string
+		name     string
 		in       *authn.Policy
 		expected []plugin.FilterChain
-	} {
+	}{
 		{
 			name: "NoAuthnPolicy",
-			in: nil,
-			expected: []plugin.FilterChain{},
+			in:   nil,
+			// No need to set up filter chain, default one is okay.
+			expected: nil,
+		},
+		{
+			name: "NonMTLSPolicy",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Jwt{
+							Jwt: &authn.Jwt{
+								Issuer: "foo",
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "mTLSWithNilParamMode",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
+				},
+			},
 		},
 		{
 			name: "StrictMTLS",
-			in: &authn.Policy {
-			},
-			expected: []plugin.FilterChain{
-				plugin.FilterChain{
-					TLSContext: &auth.DownstreamTlsContext{},
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
+							},
+						},
+					},
 				},
-				plugin.FilterChain{},
+			},
+			// Only one filter chain with mTLS settings should be generated.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
+				},
 			},
 		},
 		{
 			name: "PermissiveMTLS",
-			in: &authn.Policy {
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
 			},
+			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
-
+				{
+					TLSContext: tlsContext,
+					FilterChainMatch: &listener.FilterChainMatch{
+						ApplicationProtocols: []string{"istio"},
+					},
+					RequiredListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:   "envoy.listener.tls_inspector",
+							Config: &types.Struct{},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+					RequiredListenerFilters: []*listener.ListenerFilter{
+						{
+							Name:   "envoy.listener.tls_inspector",
+							Config: &types.Struct{},
+						},
+					},
+				},
 			},
 		},
 	}
 	for _, c := range cases {
 		if got := setupFilterChains(c.in); !reflect.DeepEqual(got, c.expected) {
-			t.Errorf("unexpected filter chains, got %v, want %v", got, c.expected)
+			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}
 }
-
-// func TestBuildListenerTLSContex(t *testing.T) {
-// 	cases := []struct {
-// 		name     string
-// 		in       *authn.Policy
-// 		expected *auth.DownstreamTlsContext
-// 	}{
-// 		{
-// 			name:     "nil policy",
-// 			in:       nil,
-// 			expected: nil,
-// 		},
-// 		{
-// 			name:     "empty policy",
-// 			in:       &authn.Policy{},
-// 			expected: nil,
-// 		},
-// 		{
-// 			name: "non-mTLS policy",
-// 			in: &authn.Policy{
-// 				Peers: []*authn.PeerAuthenticationMethod{
-// 					{
-// 						Params: &authn.PeerAuthenticationMethod_Jwt{
-// 							Jwt: &authn.Jwt{
-// 								Issuer: "foo",
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 			expected: nil,
-// 		},
-// 		{
-// 			name: "mTLS policy with nil param",
-// 			in: &authn.Policy{
-// 				Peers: []*authn.PeerAuthenticationMethod{
-// 					{
-// 						Params: &authn.PeerAuthenticationMethod_Mtls{},
-// 					},
-// 				},
-// 			},
-// 			expected: &auth.DownstreamTlsContext{
-// 				CommonTlsContext: &auth.CommonTlsContext{
-// 					TlsCertificates: []*auth.TlsCertificate{
-// 						{
-// 							CertificateChain: &core.DataSource{
-// 								Specifier: &core.DataSource_Filename{
-// 									Filename: "/etc/certs/cert-chain.pem",
-// 								},
-// 							},
-// 							PrivateKey: &core.DataSource{
-// 								Specifier: &core.DataSource_Filename{
-// 									Filename: "/etc/certs/key.pem",
-// 								},
-// 							},
-// 						},
-// 					},
-// 					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-// 						ValidationContext: &auth.CertificateValidationContext{
-// 							TrustedCa: &core.DataSource{
-// 								Specifier: &core.DataSource_Filename{
-// 									Filename: "/etc/certs/root-cert.pem",
-// 								},
-// 							},
-// 						},
-// 					},
-// 					AlpnProtocols: []string{"h2", "http/1.1"},
-// 				},
-// 				RequireClientCertificate: &types.BoolValue{true},
-// 			},
-// 		},
-// 	}
-// 	for _, c := range cases {
-// 		if got := buildListenerTLSContext(c.in, nil, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
-// 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
-// 		}
-// 	}
-// }

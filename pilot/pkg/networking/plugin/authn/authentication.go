@@ -135,20 +135,31 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
 				log.Infof("Allow only istio mutual TLS traffic")
 				return []plugin.FilterChain{
-					plugin.FilterChain{
-					FilterChainMatch: &ldsv2.FilterChainMatch{},
-					TLSContext:       tls,
-				}}
+					{
+						TLSContext: tls,
+					}}
 			}
 			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
 				log.Infof("Allow both, ALPN istio and legacy traffic")
 				return []plugin.FilterChain{
-					plugin.FilterChain{
+					{
 						FilterChainMatch: alpnIstioMatch,
 						TLSContext:       tls,
+						RequiredListenerFilters: []*ldsv2.ListenerFilter{
+							{
+								Name:   EnvoyTLSInspectorFilterName,
+								Config: &types.Struct{},
+							},
+						},
 					},
-					plugin.FilterChain{
+					{
 						FilterChainMatch: &ldsv2.FilterChainMatch{},
+						RequiredListenerFilters: []*ldsv2.ListenerFilter{
+							{
+								Name:   EnvoyTLSInspectorFilterName,
+								Config: &types.Struct{},
+							},
+						},
 					},
 				}
 			}
@@ -165,7 +176,7 @@ func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObje
 	hostname := in.ServiceInstance.Service.Hostname
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)
-	mutable.FilterChains = append(mutable.FilterChains, setupFilterChains(authnPolicy))
+	mutable.FilterChains = append(mutable.FilterChains, setupFilterChains(authnPolicy)...)
 	return nil
 }
 
