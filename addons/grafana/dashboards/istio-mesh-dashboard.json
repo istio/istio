@@ -439,10 +439,10 @@
           ],
           "dateFormat": "YYYY-MM-DD HH:mm:ss",
           "decimals": 2,
-          "link": true,
+          "link": false,
           "linkTargetBlank": false,
           "linkTooltip": "Workload dashboard",
-          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=$__cell_2&var-workload=$__cell",
+          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-namespace=$__cell_2&var-workload=$__cell_",
           "pattern": "destination_workload",
           "preserveFormat": false,
           "sanitize": false,
@@ -571,7 +571,7 @@
           "decimals": 2,
           "link": true,
           "linkTooltip": "$__cell dashboard",
-          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-workload=$__cell&var-namespace=$__cell_3",
+          "linkUrl": "/dashboard/db/istio-workload-dashboard?var-workload=$__cell_2&var-namespace=$__cell_3",
           "pattern": "destination_workload_var",
           "thresholds": [],
           "type": "number",
@@ -873,5 +873,5 @@
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
   "uid": "1",
-  "version": 5
+  "version": 3
 }
