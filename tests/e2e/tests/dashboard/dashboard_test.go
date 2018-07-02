@@ -53,14 +53,20 @@ const (
 var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
+		"$service", "echosrv.*",
+		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
 		`connection_mtls=\"true\"`, "",
 		`connection_mtls=\"false\"`, "",
+		`source_workload_namespace=~"$srcns"`, "",
+		`destination_workload_namespace=~"$dstns"`, "",
+		//		"$dstwl", "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
+		"istio-ingressgateway", "netcat-client",
 	)
 
 	tc *testConfig
@@ -90,7 +96,7 @@ func TestDashboards(t *testing.T) {
 		metricPort int
 	}{
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
