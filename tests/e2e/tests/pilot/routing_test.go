@@ -169,6 +169,30 @@ func TestRoutes(t *testing.T) {
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
 			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
+		{
+			testName:      "a->c[v2=100]",
+			description:   "routing tcp traffic from a to c-v2",
+			config:        "virtualservice-route-tcp-a.yaml",
+			scheme:        "http",
+			src:           "a",
+			dst:           "c:9090",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 0, "v2": 100},
+			operation:     "",
+		},
+		{
+			testName:      "b->c[v1=100]",
+			description:   "routing tcp traffic from a to c-v2",
+			config:        "virtualservice-route-tcp-a.yaml",
+			scheme:        "http",
+			src:           "b",
+			dst:           "c:9090",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 100, "v2": 0},
+			operation:     "",
+		},
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {
