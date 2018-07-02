@@ -24,6 +24,14 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
+var emptyInfo resource.Info
+
+func init() {
+	schema := resource.NewSchema()
+	schema.Register("google.protobuf.Empty", true)
+	emptyInfo, _ = schema.LookupByMessageName("google.protobuf.Empty")
+}
+
 func TestInMemory_Start_Empty(t *testing.T) {
 	i := NewInMemorySource()
 	ch, err := i.Start()
@@ -42,7 +50,7 @@ func TestInMemory_Start_Empty(t *testing.T) {
 
 func TestInMemory_Start_WithItem(t *testing.T) {
 	i := NewInMemorySource()
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"}, &types.Empty{})
 
 	ch, err := i.Start()
 	if err != nil {
@@ -51,7 +59,7 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 
 	actual := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](foo:n1/f1 @v1))
+[Event](Added: [VKey](google.protobuf.Empty:n1/f1 @v1))
 [Event](FullSync: [VKey](: @))`)
 	if actual != expected {
 		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
@@ -83,14 +91,14 @@ func TestInMemory_Set(t *testing.T) {
 	}
 
 	// One Register one update
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"}, &types.Empty{})
 
 	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync: [VKey](: @))
-[Event](Added: [VKey](foo:n1/f1 @v1))
-[Event](Updated: [VKey](foo:n1/f1 @v2))`)
+[Event](Added: [VKey](google.protobuf.Empty:n1/f1 @v1))
+[Event](Updated: [VKey](google.protobuf.Empty:n1/f1 @v2))`)
 	if actual != expected {
 		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
@@ -103,16 +111,16 @@ func TestInMemory_Delete(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"}, &types.Empty{})
 	// Two deletes
-	i.Delete(resource.Key{Kind: "foo", FullName: "n1/f1"})
-	i.Delete(resource.Key{Kind: "foo", FullName: "n1/f1"})
+	i.Delete(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"})
+	i.Delete(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"})
 
 	actual := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync: [VKey](: @))
-[Event](Added: [VKey](foo:n1/f1 @v1))
-[Event](Deleted: [VKey](foo:n1/f1 @v2))`)
+[Event](Added: [VKey](google.protobuf.Empty:n1/f1 @v1))
+[Event](Deleted: [VKey](google.protobuf.Empty:n1/f1 @v2))`)
 	if actual != expected {
 		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
@@ -120,14 +128,14 @@ func TestInMemory_Delete(t *testing.T) {
 
 func TestInMemory_Get(t *testing.T) {
 	i := NewInMemorySource()
-	i.Set(resource.Key{Kind: "foo", FullName: "n1/f1"}, &types.Empty{})
+	i.Set(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"}, &types.Empty{})
 
-	r, _ := i.Get(resource.Key{Kind: "foo", FullName: "n1/f1"})
+	r, _ := i.Get(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f1"})
 	if r.IsEmpty() {
 		t.Fatal("Get should have been non empty")
 	}
 
-	r, _ = i.Get(resource.Key{Kind: "foo", FullName: "n1/f2"})
+	r, _ = i.Get(resource.Key{MessageName: emptyInfo.MessageName, FullName: "n1/f2"})
 	if !r.IsEmpty() {
 		t.Fatalf("Get should have been empty: %v", r)
 	}

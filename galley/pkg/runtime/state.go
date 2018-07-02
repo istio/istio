@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -33,13 +34,13 @@ type State struct {
 	// version counter is a nonce that generates unique ids for each updated view of State.
 	versionCounter int64
 
-	// entries for per-kind State.
+	// entries for per-message-type State.
 	entriesLock sync.Mutex
-	entries     map[resource.Kind]*kindState
+	entries     map[resource.MessageName]*resourceTypeState
 }
 
-// per-kind State.
-type kindState struct {
+// per-resource-type State.
+type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
@@ -50,17 +51,12 @@ type kindState struct {
 func newState(schema *resource.Schema) *State {
 	return &State{
 		schema:  schema,
-		entries: make(map[resource.Kind]*kindState),
+		entries: make(map[resource.MessageName]*resourceTypeState),
 	}
 }
 
 func (s *State) apply(event resource.Event) bool {
-	if _, ok := s.schema.LookupByKind(event.ID.Kind); !ok {
-		scope.Errorf("Received an source event for unknown kind: %v", event)
-		return false
-	}
-
-	pks := s.getKindState(event.ID.Kind)
+	pks := s.getResourceTypeState(event.ID.MessageName)
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
@@ -93,20 +89,22 @@ func (s *State) apply(event resource.Event) bool {
 	s.versionCounter++
 	pks.version = s.versionCounter
 
+	scope.Debugf("In-memory state has changed:\n%v\n", s)
+
 	return true
 }
 
-func (s *State) getKindState(kind resource.Kind) *kindState {
+func (s *State) getResourceTypeState(name resource.MessageName) *resourceTypeState {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	pks, found := s.entries[kind]
+	pks, found := s.entries[name]
 	if !found {
-		pks = &kindState{
+		pks = &resourceTypeState{
 			entries:  make(map[string]*mcp.Envelope),
 			versions: make(map[string]resource.Version),
 		}
-		s.entries[kind] = pks
+		s.entries[name] = pks
 	}
 
 	return pks
@@ -118,14 +116,15 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 
 	sn := snapshot.NewInMemory()
 
-	for kind, state := range s.entries {
+	for name, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(string(kind), version, entries)
+		typeURL := s.schema.Info(name).TypeURL
+		sn.Set(typeURL, version, entries)
 	}
 
 	sn.Freeze()
@@ -134,7 +133,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	info, _ := s.schema.LookupByKind(event.ID.Kind)
+	info := s.schema.Info(event.ID.MessageName)
 
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
@@ -153,4 +152,16 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 	}
 
 	return entry, true
+}
+
+// String implements fmt.Stringer
+func (s *State) String() string {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+
+	sn := s.buildSnapshot().(*snapshot.InMemory)
+	fmt.Fprintf(&b, "%v", sn)
+
+	return b.String()
 }

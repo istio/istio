@@ -35,7 +35,7 @@ func (e *Schema) All() []ResourceSpec {
 }
 
 func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
+	rInfo, ok := resource.Types.LookupByMessageName(name)
 	if !ok {
 		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
 	}
