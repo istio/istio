@@ -2000,7 +2000,7 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
 	}
 	if match.Port != 0 {
-		errs = appendErrors(errs, ValidatePort(match.Port))
+		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
 	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
@@ -2029,7 +2029,7 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
-		errs = appendErrors(errs, ValidatePort(match.Port))
+		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
 	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
