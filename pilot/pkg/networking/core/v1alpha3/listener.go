@@ -426,13 +426,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 				// FIXME: doc this
 				// TODO: resolution passthrough
-				// FIXME: duplicates
-				// FIXME: handle conflicts of tls without sni. if there are multiple https/tls services
-				// on the same port without sni, this is a conflict because they are treated as regular tcp.
-				// we need to be careful not to generate both filterchains, because envoy will reject them
-				// and send the proxy into a restart loop.
-				// envoy rejects listeners with identical filter chain matches.
-				// we need to ensure each filter chain match for a given listener is unique.
 				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
