@@ -83,7 +83,7 @@ spec:
     # Deprecated, kept for compatibility
     context.reporter.local:
       valueType: BOOL
-    context.reporter.type:
+    context.reporter.kind:
       valueType: STRING
     context.reporter.uid:
       valueType: STRING
@@ -245,6 +245,7 @@ metadata:
 spec:
   value: "1"
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -273,6 +274,7 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -301,6 +303,7 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -329,6 +332,7 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -354,11 +358,10 @@ kind: metric
 metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.sent.bytes | 0
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -382,11 +385,10 @@ kind: metric
 metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
+    reporter: conditionalString((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -416,6 +418,7 @@ spec:
     instance_name: requestcount.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -438,6 +441,7 @@ spec:
     instance_name: requestduration.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -463,6 +467,7 @@ spec:
     instance_name: requestsize.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -490,6 +495,7 @@ spec:
     instance_name: responsesize.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -517,6 +523,7 @@ spec:
     instance_name: tcpbytesent.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -537,6 +544,7 @@ spec:
     instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
     kind: COUNTER
     label_names:
+    - reporter
     - source_app
     - source_namespace
     - source_principal
@@ -559,9 +567,8 @@ kind: rule
 metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.prometheus
     instances:
@@ -575,9 +582,8 @@ kind: rule
 metadata:
   name: promtcp
   namespace: {{ .Release.Namespace }}
-  labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.prometheus
     instances:

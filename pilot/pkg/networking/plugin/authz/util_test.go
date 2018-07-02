@@ -233,3 +233,23 @@ func TestExtractNameInBrackets(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractActualServiceAccount(t *testing.T) {
+	cases := []struct {
+		in     string
+		expect string
+	}{
+		{in: "service-account", expect: "service-account"},
+		{in: "spiffe://xyz.com/sa/test-sa/ns/default", expect: "test-sa"},
+		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa/ns/default", expect: "test-sa"},
+		{in: "spiffe://xyz.com/sa/test-sa/", expect: "test-sa"},
+		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa", expect: "test-sa"},
+	}
+
+	for _, c := range cases {
+		actual := extractActualServiceAccount(c.in)
+		if actual != c.expect {
+			t.Errorf("%s: expecting %s, but got %s", c.in, c.expect, actual)
+		}
+	}
+}

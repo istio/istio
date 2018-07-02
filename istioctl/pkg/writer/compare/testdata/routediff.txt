@@ -1,0 +1,19 @@
+--- Pilot Routes
++++ Envoy Routes
+@@ -9,16 +9,14 @@
+                   "domains": [
+                      "istio-policy.istio-system.svc.cluster.local",
+                      "istio-policy.istio-system.svc.cluster.local:15004",
+                      "istio-policy.istio-system",
+                      "istio-policy.istio-system:15004",
+                      "istio-policy.istio-system.svc.cluster",
+                      "istio-policy.istio-system.svc.cluster:15004",
+-                     "istio-policy.istio-system.svc",
+-                     "istio-policy.istio-system.svc:15004",
+                      "172.21.193.112",
+                      "172.21.193.112:15004"
+                   ],
+                   "routes": [
+                      {
+                         "match": {
+                            "prefix": "/"
