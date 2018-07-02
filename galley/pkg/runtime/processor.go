@@ -166,6 +166,7 @@ func (p *Processor) processEvent(e resource.Event) bool {
 	scope.Debugf("Incoming source event: %v", e)
 
 	if e.Kind == resource.FullSync {
+		scope.Infof("Synchronization is complete, starting distribution.")
 		p.distribute = true
 		return true
 	}
@@ -175,6 +176,6 @@ func (p *Processor) processEvent(e resource.Event) bool {
 
 func (p *Processor) publish() {
 	sn := p.state.buildSnapshot()
-	// TODO: The appropriate name for publishing
+	// TODO: Set the appropriate name for publishing
 	p.distributor.SetSnapshot("", sn)
 }

@@ -92,10 +92,8 @@ func TestGetPilotClusters(t *testing.T) {
 		{
 			testName: "3 out of 3 Pilot in the store",
 			cs: &ClusterStore{
-				rc: map[Metadata]*RemoteCluster{
-					{
-						Name:      "cluster1",
-						Namespace: "istio-testing"}: {
+				rc: map[string]*RemoteCluster{
+					"cluster1": {
 						Cluster: &k8s_cr.Cluster{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "fakePilot1",
@@ -103,9 +101,7 @@ func TestGetPilotClusters(t *testing.T) {
 						},
 						Client: &clientcmdapi.Config{},
 					},
-					{
-						Name:      "cluster2",
-						Namespace: "istio-testing"}: {
+					"cluster2": {
 						Cluster: &k8s_cr.Cluster{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "fakePilot2",
@@ -113,9 +109,7 @@ func TestGetPilotClusters(t *testing.T) {
 						},
 						Client: &clientcmdapi.Config{},
 					},
-					{
-						Name:      "cluster3",
-						Namespace: "istio-testing"}: {
+					"cluster3": {
 						Cluster: &k8s_cr.Cluster{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "fakePilot3",

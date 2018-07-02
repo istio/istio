@@ -62,7 +62,7 @@ func TestProcessor_Start_Error(t *testing.T) {
 
 func TestProcessor_Stop(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty", false)
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
 
 	src := NewInMemorySource()
 	distributor := snapshot.New()
@@ -83,8 +83,8 @@ func TestProcessor_Stop(t *testing.T) {
 
 func TestProcessor_EventAccumulation(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty", false)
-	emptyMessageName := resource.MessageName("google.protobuf.Empty")
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -97,7 +97,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
+	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -110,8 +110,8 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 
 func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty", false)
-	emptyMessageName := resource.MessageName("google.protobuf.Empty")
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -124,7 +124,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
+	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -137,8 +137,8 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 
 func TestProcessor_Publishing(t *testing.T) {
 	schema := resource.NewSchema()
-	schema.Register("google.protobuf.Empty", false)
-	emptyMessageName := resource.MessageName("google.protobuf.Empty")
+	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -156,7 +156,7 @@ func TestProcessor_Publishing(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{MessageName: emptyMessageName, FullName: "r1"}
+	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	processCallCount.Wait()

@@ -50,6 +50,14 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-telemetry
+                      destination.service.name:
+                        string_value: istio-telemetry
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -58,7 +66,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -124,6 +132,14 @@ static_resources:
                     attributes:
                       destination.service:
                         string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.host:
+                        string_value: istio-telemetry.{{ .PodNamespace }}.svc.cluster.local
+                      destination.service.uid:
+                        string_value: istio://{{ .PodNamespace }}/services/istio-telemetry
+                      destination.service.name:
+                        string_value: istio-telemetry
+                      destination.service.namespace:
+                        string_value: {{ .PodNamespace }}
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
                       destination.namespace:
@@ -132,7 +148,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}

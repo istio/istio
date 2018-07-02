@@ -26,10 +26,9 @@ import (
 func TestToProto(t *testing.T) {
 	spec := map[string]interface{}{}
 
-	i := resource.Info{
-		MessageName: "google.protobuf.Empty",
-		IsGogo:      true,
-	}
+	s := resource.NewSchema()
+	s.Register("type.googleapis.com/google.protobuf.Empty", true)
+	i, _ := s.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	p, err := toProto(i, spec)
 	if err != nil {

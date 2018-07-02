@@ -469,8 +469,6 @@ kind: samplereport
 metadata:
   name: tcpbytesent
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -485,8 +483,6 @@ kind: samplereport
 metadata:
   name: tcpbytereceived
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -523,8 +519,6 @@ kind: rule
 metadata:
   name: promtcp
   namespace: istio-system
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   match: context.protocol == "tcp"
   actions:

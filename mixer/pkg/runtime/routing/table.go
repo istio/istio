@@ -19,7 +19,6 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -119,10 +118,6 @@ type InstanceGroup struct {
 
 	// Condition for applying this instance group.
 	Condition compiled.Expression
-
-	// TODO(Issue #2139): This should be removed when we stop doing resource-type based checks.
-	// ResourceType is the resource type condition for this instance group.
-	ResourceType config.ResourceType
 
 	// Builders for the instances in this group for each instance that should be applied.
 	Builders []NamedBuilder
