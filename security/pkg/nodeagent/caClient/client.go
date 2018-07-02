@@ -28,8 +28,8 @@ import (
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
 type Client interface {
-	CSRSign(ctx context.Context, csrPEM []byte, /*PEM-encoded certificate request*/
-		subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
+	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+		certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
 }
 
 type caClient struct {
@@ -49,8 +49,8 @@ func NewCAClient(addr string, dialOptions []grpc.DialOption) (Client, error) {
 	}, nil
 }
 
-func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, /*PEM-encoded certificate request*/
-	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
 	req := &capb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		SubjectId:        subjectID,
@@ -70,5 +70,10 @@ func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, /*PEM-encoded ce
 	}
 
 	// Returns the leaf cert(Leaf cert is element '0', Root cert is element 'n').
-	return []byte(resp.CertChain[0]), nil
+	ret := []byte{}
+	for _, c := range resp.CertChain {
+		ret = append(ret, []byte(c)...)
+	}
+
+	return ret, nil
 }

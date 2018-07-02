@@ -46,7 +46,7 @@ func TestGetSecret(t *testing.T) {
 
 	proxyID := "proxy1-id"
 	ctx := context.Background()
-	gotSecret, err := sc.GetSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
+	gotSecret, err := sc.GetSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestGetSecret(t *testing.T) {
 	}
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GetSecret(ctx, proxyID, fakeSpiffeID, "newToken" /*jwtToken*/)
+	gotSecret, err = sc.GetSecret(ctx, proxyID, fakeSpiffeID, "newToken")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestRefreshSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	_, err := sc.GetSecret(context.Background(), "proxy1-id" /*proxyID*/, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
+	_, err := sc.GetSecret(context.Background(), "proxy1-id" /*proxyID*/, fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}

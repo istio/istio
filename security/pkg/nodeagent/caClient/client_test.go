@@ -43,14 +43,14 @@ func TestCAClient(t *testing.T) {
 	defer s.Stop()
 	lis, err := net.Listen("tcp", mockServerAddress)
 	if err != nil {
-		t.Errorf("failed to listen: %v", err)
+		t.Fatalf("failed to listen: %v", err)
 	}
 	serv := mockCAServer{}
 
 	go func() {
 		capb.RegisterIstioCertificateServiceServer(s, &serv)
 		if err := s.Serve(lis); err != nil {
-			t.Errorf("failed to serve: %v", err)
+			t.Fatalf("failed to serve: %v", err)
 		}
 	}()
 
