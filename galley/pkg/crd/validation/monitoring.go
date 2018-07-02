@@ -38,7 +38,10 @@ var (
 		Name: "galley_validation_failed",
 		Help: "Resource validation failed",
 	}, []string{"group", "version", "resource", "reason"})
-	metricValidationHTTPError = prometheus.NewGaugeVec(prometheus.GaugeOpts{}, []string{"status"})
+	metricValidationHTTPError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "galley_validation_http_error",
+		Help: "Resource validation http serve errors",
+	}, []string{"status"})
 )
 
 func init() {
