@@ -513,23 +513,9 @@ func (e *Ephemeral) processRuleConfigs(
 
 		log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg)
 
-		// TODO(Issue #2139): resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
-		// Once that issue is resolved, the following block should be removed.
-		rt := resourceType(resource.Metadata.Labels)
 		if cfg.Match != "" {
 			if err := e.tc.AssertType(cfg.Match, attributes, config.BOOL); err != nil {
 				appendErr(errs, fmt.Sprintf("rule='%s'.Match", ruleName), counters.ruleConfigError, err.Error())
-			}
-
-			if m, err := ast.ExtractEQMatches(cfg.Match); err != nil {
-				appendErr(errs, fmt.Sprintf("rule='%s'", ruleName), counters.ruleConfigError,
-					"Unable to extract resource type from rule")
-				// instead of skipping the rule, add it to the list. This ensures that the behavior will
-				// stay the same when this block is removed.
-			} else {
-				if constant.ContextProtocolTCP == m[constant.ContextProtocolAttributeName] {
-					rt.protocol = protocolTCP
-				}
 			}
 		}
 
@@ -696,7 +682,6 @@ func (e *Ephemeral) processRuleConfigs(
 			Namespace:      ruleKey.Namespace,
 			ActionsStatic:  actionsStat,
 			ActionsDynamic: actionsDynamic,
-			ResourceType:   rt,
 			Match:          cfg.Match,
 		}
 
@@ -751,15 +736,6 @@ func appendErr(errs *multierror.Error, field string, counter prometheus.Counter,
 	log.Error(err.Error())
 	counter.Inc()
 	_ = multierror.Append(errs, adapter.ConfigError{Field: field, Underlying: err})
-}
-
-// resourceType maps labels to rule types.
-func resourceType(labels map[string]string) ResourceType {
-	rt := defaultResourcetype()
-	if constant.ContextProtocolTCP == labels[constant.IstioProtocol] {
-		rt.protocol = protocolTCP
-	}
-	return rt
 }
 
 // GetSnapshotForTest creates a config.Snapshot for testing purposes, based on the supplied configuration.

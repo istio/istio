@@ -16,53 +16,69 @@ package resource
 
 import (
 	"fmt"
+	"reflect"
 )
 
-// BaseTypeURL contains the common scheme & domain parts of all type urls.
-const BaseTypeURL = "types.googleapis.com"
+// injectable function for overriding proto.MessageType, for testing purposes.
+type messageTypeFn func(name string, isGogo bool) reflect.Type
 
 // Schema contains metadata about configuration resources.
 type Schema struct {
-	byKind map[Kind]Info
-	byURL  map[string]Info
+	byURL map[string]Info
+
+	messageTypeFn messageTypeFn
 }
 
 // NewSchema returns a new instance of Schema.
 func NewSchema() *Schema {
+	return newSchema(getProtoMessageType)
+}
+
+// NewSchema returns a new instance of Schema.
+func newSchema(messageTypeFn messageTypeFn) *Schema {
 	return &Schema{
-		byKind: make(map[Kind]Info),
-		byURL:  make(map[string]Info),
+		byURL:         make(map[string]Info),
+		messageTypeFn: messageTypeFn,
 	}
 }
 
 // Register a proto into the schema.
-func (s *Schema) Register(protoMessageName string) {
-	info := Info{
-		Kind:    Kind(protoMessageName),
-		TypeURL: fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
+func (s *Schema) Register(typeURL string, isGogo bool) {
+	if _, found := s.byURL[typeURL]; found {
+		panic(fmt.Sprintf("Schema.Register: Proto type is registered multiple times: %q", typeURL))
 	}
 
-	s.byKind[info.Kind] = info
-	s.byURL[info.TypeURL] = info
+	// Before registering, ensure that the proto type is actually reachable.
+	url, err := newTypeURL(typeURL)
+	if err != nil {
+		panic(err)
+	}
+
+	goType := s.messageTypeFn(url.messageName(), isGogo)
+	if goType == nil {
+		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q, isGogo: %v", url.messageName(), isGogo))
+	}
+
+	info := Info{
+		TypeURL: url,
+		IsGogo:  isGogo,
+		goType:  goType,
+	}
+
+	s.byURL[info.TypeURL.String()] = info
 }
 
-// LookupByKind looks up a resource.Info by its kind.
-func (s *Schema) LookupByKind(kind Kind) (Info, bool) {
-	i, ok := s.byKind[kind]
-	return i, ok
-}
-
-// LookupByTypeURL looks up a resource.Info by its type url.
-func (s *Schema) LookupByTypeURL(url string) (Info, bool) {
+// Lookup looks up a resource.Info by its type url.
+func (s *Schema) Lookup(url string) (Info, bool) {
 	i, ok := s.byURL[url]
 	return i, ok
 }
 
 // All returns all known info objects
 func (s *Schema) All() []Info {
-	result := make([]Info, 0, len(s.byKind))
+	result := make([]Info, 0, len(s.byURL))
 
-	for _, info := range s.byKind {
+	for _, info := range s.byURL {
 		result = append(result, info)
 	}
 
@@ -71,10 +87,10 @@ func (s *Schema) All() []Info {
 
 // TypeURLs returns all known type URLs.
 func (s *Schema) TypeURLs() []string {
-	result := make([]string, 0, len(s.byKind))
+	result := make([]string, 0, len(s.byURL))
 
-	for _, info := range s.byKind {
-		result = append(result, info.TypeURL)
+	for _, info := range s.byURL {
+		result = append(result, info.TypeURL.string)
 	}
 
 	return result

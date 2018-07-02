@@ -32,6 +32,17 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+
+	// Authn is the name of the authentication plugin passed through the command line
+	Authn = "authn"
+	// Authz is the name of the rbac plugin passed through the command line
+	Authz = "authz"
+	// Envoyfilter is the name of the envoyfilter plugin passed through the command line
+	Envoyfilter = "envoyfilter"
+	// Health is the name of the health plugin passed through the command line
+	Health = "health"
+	// Mixer is the name of the mixer plugin passed through the command line
+	Mixer = "mixer"
 )
 
 // ModelProtocolToListenerProtocol converts from a model.Protocol to its corresponding plugin.ListenerProtocol

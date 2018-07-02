@@ -76,8 +76,34 @@ Writing new tests doesn't require knowledge of the framework.
 - framework.go: `Cleanable` is a interface defined with setup() and teardown(). While initialization, framework calls setup() from all registered cleanable
 structures and calls teardown() while framework cleanup. The cleanable register works like a stack, first setup, last teardown.
 
-- kubernetes.go: `KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in store at
-[install/kubernetes/templates](../../install/kubernetes/templates) and will finally use all-in-one yaml [istio.yaml](../../install/kubernetes/istio.yaml)
+- kubernetes.go: `KubeInfo` handles interactions between tests and kubectl, installs istioctl and apply istio module. Module yaml files are in Helm charts
+[install/kubernetes/helm](../../install/kubernetes/helm) and will finally use all-in-one yaml [istio.yaml](../../install/kubernetes/istio.yaml)
 
 - appManager.go: gather apps required for test into a array and deploy them while setup()
+
+# Options For E2E Tests
+
+E2E tests have multiple options available while running them as follows:
+
+* `--skip_cleanup` - to skip cleanup steps
+* `--namespace <namespace>` : If you don't specify `namespace`, a random namespace is generated for each test.
+* `--verbose <debug level noise from proxies>`
+* `--istioctl <local istioctl path>`: Use local istioctl binary (i.e. `${GOPATH}/out/linux_amd64/release/istioctl`).
+* `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location.
+* `--use_local_cluster`: If running on minikube, this should be set to true.
+* `--auth_enable` - if you want to include auth
+* `--cluster_wide` - if you want to run the cluster wide installation and tests
+* `--use_automatic_injection` - if you want to do transparent sidecar injection
+* `--use_galley_config_validator` - if you want to enable automatic configuration validation
+* `--mixer_hub <mixer image hub>`
+* `--mixer_tag <mixer image tag>`
+* `--pilot_hub <pilot image hub>`
+* `--pilot_tag <pilot image tag>`
+* `--proxy_hub <proxy image hub>`
+* `--proxy_tag <proxy image tag>`
+* `--ca_hub <CA image hub>`
+* `--ca_tag <CA image tag>`
+* `--galley_hub <galley image hub>`
+* `--galley_tag <galley image tag>`
+
 

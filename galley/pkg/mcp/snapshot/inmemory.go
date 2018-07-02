@@ -14,7 +14,14 @@
 
 package snapshot
 
-import mcp "istio.io/api/config/mcp/v1alpha1"
+import (
+	"bytes"
+	"fmt"
+	"sort"
+	"strings"
+
+	mcp "istio.io/api/config/mcp/v1alpha1"
+)
 
 // InMemory Snapshot implementation
 type InMemory struct {
@@ -57,4 +64,33 @@ func (s *InMemory) Set(typ string, version string, resources []*mcp.Envelope) {
 // Freeze the snapshot, so that it won't get mutated anymore.
 func (s *InMemory) Freeze() {
 	s.frozen = true
+}
+
+func (s *InMemory) String() string {
+	var b bytes.Buffer
+
+	var messages []string
+	for message := range s.envelopes {
+		messages = append(messages, message)
+	}
+	sort.Strings(messages)
+
+	for i, n := range messages {
+		fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
+
+		envs := s.envelopes[n]
+
+		// Avoid mutating the original data
+		entries := make([]*mcp.Envelope, len(envs))
+		copy(entries, envs)
+		sort.Slice(entries, func(i, j int) bool {
+			return strings.Compare(entries[i].Metadata.Name, entries[j].Metadata.Name) == -1
+		})
+
+		for j, entry := range entries {
+			fmt.Fprintf(&b, "  [%d] (%s)\n", j, entry.Metadata.Name)
+		}
+	}
+
+	return b.String()
 }

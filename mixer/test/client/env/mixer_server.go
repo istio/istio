@@ -86,6 +86,8 @@ type MixerServer struct {
 
 	checkReferenced *mixerpb.ReferencedAttributes
 	quotaReferenced *mixerpb.ReferencedAttributes
+
+	directive *mixerpb.RouteDirective
 }
 
 // Check is called by the mock mixer api
@@ -95,6 +97,7 @@ func (ts *MixerServer) Check(bag attribute.Bag) mixerpb.CheckResponse_Preconditi
 		ValidDuration:        mockapi.DefaultValidDuration,
 		ValidUseCount:        mockapi.DefaultValidUseCount,
 		ReferencedAttributes: ts.checkReferenced,
+		RouteDirective:       ts.directive,
 	}
 }
 

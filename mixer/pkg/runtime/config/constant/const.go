@@ -36,13 +36,4 @@ const (
 
 	// AttributeManifestKind define the config kind Name of attribute manifests.
 	AttributeManifestKind = "attributemanifest"
-
-	// ContextProtocolTCP defines constant for tcp protocol.
-	ContextProtocolTCP = "tcp"
-
-	// ContextProtocolAttributeName is the attribute that defines the protocol context.
-	ContextProtocolAttributeName = "context.protocol"
-
-	// IstioProtocol denotes if the protocol is tcp or http
-	IstioProtocol = "istio-protocol"
 )

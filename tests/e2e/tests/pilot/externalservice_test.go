@@ -22,9 +22,6 @@ import (
 )
 
 func TestServiceEntry(t *testing.T) {
-	if !tc.V1alpha3 {
-		t.Skipf("Skipping %s: v1alpha3=false", t.Name())
-	}
 	if !tc.Egress {
 		t.Skipf("Skipping %s: egress=false", t.Name())
 	}

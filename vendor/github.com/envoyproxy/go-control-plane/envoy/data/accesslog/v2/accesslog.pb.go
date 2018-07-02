@@ -21,11 +21,11 @@ package envoy_data_accesslog_v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/types"
-import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
@@ -205,9 +205,9 @@ type AccessLogCommon struct {
 	// This field is the remote/origin address on which the request from the user was received.
 	// Note: This may not be the physical peer. E.g, if the remote address is inferred from for
 	// example the x-forwarder-for header, proxy protocol, etc.
-	DownstreamRemoteAddress *envoy_api_v2_core.Address `protobuf:"bytes,2,opt,name=downstream_remote_address,json=downstreamRemoteAddress" json:"downstream_remote_address,omitempty"`
+	DownstreamRemoteAddress *envoy_api_v2_core1.Address `protobuf:"bytes,2,opt,name=downstream_remote_address,json=downstreamRemoteAddress" json:"downstream_remote_address,omitempty"`
 	// This field is the local/destination address on which the request from the user was received.
-	DownstreamLocalAddress *envoy_api_v2_core.Address `protobuf:"bytes,3,opt,name=downstream_local_address,json=downstreamLocalAddress" json:"downstream_local_address,omitempty"`
+	DownstreamLocalAddress *envoy_api_v2_core1.Address `protobuf:"bytes,3,opt,name=downstream_local_address,json=downstreamLocalAddress" json:"downstream_local_address,omitempty"`
 	// [#not-implemented-hide:]
 	// If the connection is secure,S this field will contain TLS properties.
 	TlsProperties *TLSProperties `protobuf:"bytes,4,opt,name=tls_properties,json=tlsProperties" json:"tls_properties,omitempty"`
@@ -247,9 +247,9 @@ type AccessLogCommon struct {
 	TimeToLastDownstreamTxByte *time.Duration `protobuf:"bytes,12,opt,name=time_to_last_downstream_tx_byte,json=timeToLastDownstreamTxByte,stdduration" json:"time_to_last_downstream_tx_byte,omitempty"`
 	// The upstream remote/destination address that handles this exchange. This does not include
 	// retries.
-	UpstreamRemoteAddress *envoy_api_v2_core.Address `protobuf:"bytes,13,opt,name=upstream_remote_address,json=upstreamRemoteAddress" json:"upstream_remote_address,omitempty"`
+	UpstreamRemoteAddress *envoy_api_v2_core1.Address `protobuf:"bytes,13,opt,name=upstream_remote_address,json=upstreamRemoteAddress" json:"upstream_remote_address,omitempty"`
 	// The upstream local/origin address that handles this exchange. This does not include retries.
-	UpstreamLocalAddress *envoy_api_v2_core.Address `protobuf:"bytes,14,opt,name=upstream_local_address,json=upstreamLocalAddress" json:"upstream_local_address,omitempty"`
+	UpstreamLocalAddress *envoy_api_v2_core1.Address `protobuf:"bytes,14,opt,name=upstream_local_address,json=upstreamLocalAddress" json:"upstream_local_address,omitempty"`
 	// The upstream cluster that *upstream_remote_address* belongs to.
 	UpstreamCluster string `protobuf:"bytes,15,opt,name=upstream_cluster,json=upstreamCluster,proto3" json:"upstream_cluster,omitempty"`
 	// Flags indicating occurrences during request/response processing.
@@ -262,7 +262,7 @@ type AccessLogCommon struct {
 	// route created from a higher level forwarding rule with some ID can place
 	// that ID in this field and cross reference later. It can also be used to
 	// determine if a canary endpoint was used or not.
-	Metadata *envoy_api_v2_core1.Metadata `protobuf:"bytes,17,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *envoy_api_v2_core.Metadata `protobuf:"bytes,17,opt,name=metadata" json:"metadata,omitempty"`
 }
 
 func (m *AccessLogCommon) Reset()                    { *m = AccessLogCommon{} }
@@ -277,14 +277,14 @@ func (m *AccessLogCommon) GetSampleRate() float64 {
 	return 0
 }
 
-func (m *AccessLogCommon) GetDownstreamRemoteAddress() *envoy_api_v2_core.Address {
+func (m *AccessLogCommon) GetDownstreamRemoteAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.DownstreamRemoteAddress
 	}
 	return nil
 }
 
-func (m *AccessLogCommon) GetDownstreamLocalAddress() *envoy_api_v2_core.Address {
+func (m *AccessLogCommon) GetDownstreamLocalAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.DownstreamLocalAddress
 	}
@@ -354,14 +354,14 @@ func (m *AccessLogCommon) GetTimeToLastDownstreamTxByte() *time.Duration {
 	return nil
 }
 
-func (m *AccessLogCommon) GetUpstreamRemoteAddress() *envoy_api_v2_core.Address {
+func (m *AccessLogCommon) GetUpstreamRemoteAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.UpstreamRemoteAddress
 	}
 	return nil
 }
 
-func (m *AccessLogCommon) GetUpstreamLocalAddress() *envoy_api_v2_core.Address {
+func (m *AccessLogCommon) GetUpstreamLocalAddress() *envoy_api_v2_core1.Address {
 	if m != nil {
 		return m.UpstreamLocalAddress
 	}
@@ -382,7 +382,7 @@ func (m *AccessLogCommon) GetResponseFlags() *ResponseFlags {
 	return nil
 }
 
-func (m *AccessLogCommon) GetMetadata() *envoy_api_v2_core1.Metadata {
+func (m *AccessLogCommon) GetMetadata() *envoy_api_v2_core.Metadata {
 	if m != nil {
 		return m.Metadata
 	}
@@ -543,7 +543,7 @@ type TLSProperties struct {
 	// (e.g. ``009C`` for ``TLS_RSA_WITH_AES_128_GCM_SHA256``).
 	//
 	// Here it is expressed as an integer.
-	TlsCipherSuite *google_protobuf.UInt32Value `protobuf:"bytes,2,opt,name=tls_cipher_suite,json=tlsCipherSuite" json:"tls_cipher_suite,omitempty"`
+	TlsCipherSuite *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=tls_cipher_suite,json=tlsCipherSuite" json:"tls_cipher_suite,omitempty"`
 	// SNI hostname from handshake.
 	TlsSniHostname string `protobuf:"bytes,3,opt,name=tls_sni_hostname,json=tlsSniHostname,proto3" json:"tls_sni_hostname,omitempty"`
 }
@@ -560,7 +560,7 @@ func (m *TLSProperties) GetTlsVersion() TLSProperties_TLSVersion {
 	return TLSProperties_VERSION_UNSPECIFIED
 }
 
-func (m *TLSProperties) GetTlsCipherSuite() *google_protobuf.UInt32Value {
+func (m *TLSProperties) GetTlsCipherSuite() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.TlsCipherSuite
 	}
@@ -578,14 +578,14 @@ type HTTPRequestProperties struct {
 	// The request method (RFC 7231/2616).
 	// [#comment:TODO(htuch): add (validate.rules).enum.defined_only = true once
 	// https://github.com/lyft/protoc-gen-validate/issues/42 is resolved.]
-	RequestMethod envoy_api_v2_core1.RequestMethod `protobuf:"varint,1,opt,name=request_method,json=requestMethod,proto3,enum=envoy.api.v2.core.RequestMethod" json:"request_method,omitempty"`
+	RequestMethod envoy_api_v2_core.RequestMethod `protobuf:"varint,1,opt,name=request_method,json=requestMethod,proto3,enum=envoy.api.v2.core.RequestMethod" json:"request_method,omitempty"`
 	// The scheme portion of the incoming request URI.
 	Scheme string `protobuf:"bytes,2,opt,name=scheme,proto3" json:"scheme,omitempty"`
 	// HTTP/2 ``:authority`` or HTTP/1.1 ``Host`` header value.
 	Authority string `protobuf:"bytes,3,opt,name=authority,proto3" json:"authority,omitempty"`
 	// The port of the incoming request URI
 	// (unused currently, as port is composed onto authority).
-	Port *google_protobuf.UInt32Value `protobuf:"bytes,4,opt,name=port" json:"port,omitempty"`
+	Port *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=port" json:"port,omitempty"`
 	// The path portion from the incoming request URI.
 	Path string `protobuf:"bytes,5,opt,name=path,proto3" json:"path,omitempty"`
 	// Value of the ``User-Agent`` request header.
@@ -621,11 +621,11 @@ func (m *HTTPRequestProperties) String() string            { return proto.Compac
 func (*HTTPRequestProperties) ProtoMessage()               {}
 func (*HTTPRequestProperties) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{5} }
 
-func (m *HTTPRequestProperties) GetRequestMethod() envoy_api_v2_core1.RequestMethod {
+func (m *HTTPRequestProperties) GetRequestMethod() envoy_api_v2_core.RequestMethod {
 	if m != nil {
 		return m.RequestMethod
 	}
-	return envoy_api_v2_core1.METHOD_UNSPECIFIED
+	return envoy_api_v2_core.METHOD_UNSPECIFIED
 }
 
 func (m *HTTPRequestProperties) GetScheme() string {
@@ -642,7 +642,7 @@ func (m *HTTPRequestProperties) GetAuthority() string {
 	return ""
 }
 
-func (m *HTTPRequestProperties) GetPort() *google_protobuf.UInt32Value {
+func (m *HTTPRequestProperties) GetPort() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.Port
 	}
@@ -714,7 +714,7 @@ func (m *HTTPRequestProperties) GetRequestHeaders() map[string]string {
 
 type HTTPResponseProperties struct {
 	// The HTTP response code returned by Envoy.
-	ResponseCode *google_protobuf.UInt32Value `protobuf:"bytes,1,opt,name=response_code,json=responseCode" json:"response_code,omitempty"`
+	ResponseCode *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=response_code,json=responseCode" json:"response_code,omitempty"`
 	// Size of the HTTP response headers in bytes.
 	//
 	// This value is captured from the OSI layer 7 perspective, i.e. it does not
@@ -736,7 +736,7 @@ func (m *HTTPResponseProperties) String() string            { return proto.Compa
 func (*HTTPResponseProperties) ProtoMessage()               {}
 func (*HTTPResponseProperties) Descriptor() ([]byte, []int) { return fileDescriptorAccesslog, []int{6} }
 
-func (m *HTTPResponseProperties) GetResponseCode() *google_protobuf.UInt32Value {
+func (m *HTTPResponseProperties) GetResponseCode() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.ResponseCode
 	}
@@ -2046,7 +2046,7 @@ func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DownstreamRemoteAddress == nil {
-				m.DownstreamRemoteAddress = &envoy_api_v2_core.Address{}
+				m.DownstreamRemoteAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.DownstreamRemoteAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2079,7 +2079,7 @@ func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.DownstreamLocalAddress == nil {
-				m.DownstreamLocalAddress = &envoy_api_v2_core.Address{}
+				m.DownstreamLocalAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.DownstreamLocalAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2409,7 +2409,7 @@ func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UpstreamRemoteAddress == nil {
-				m.UpstreamRemoteAddress = &envoy_api_v2_core.Address{}
+				m.UpstreamRemoteAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.UpstreamRemoteAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2442,7 +2442,7 @@ func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UpstreamLocalAddress == nil {
-				m.UpstreamLocalAddress = &envoy_api_v2_core.Address{}
+				m.UpstreamLocalAddress = &envoy_api_v2_core1.Address{}
 			}
 			if err := m.UpstreamLocalAddress.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2537,7 +2537,7 @@ func (m *AccessLogCommon) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &envoy_api_v2_core1.Metadata{}
+				m.Metadata = &envoy_api_v2_core.Metadata{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3031,7 +3031,7 @@ func (m *TLSProperties) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TlsCipherSuite == nil {
-				m.TlsCipherSuite = &google_protobuf.UInt32Value{}
+				m.TlsCipherSuite = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.TlsCipherSuite.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3130,7 +3130,7 @@ func (m *HTTPRequestProperties) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.RequestMethod |= (envoy_api_v2_core1.RequestMethod(b) & 0x7F) << shift
+				m.RequestMethod |= (envoy_api_v2_core.RequestMethod(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -3220,7 +3220,7 @@ func (m *HTTPRequestProperties) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Port == nil {
-				m.Port = &google_protobuf.UInt32Value{}
+				m.Port = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.Port.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3633,7 +3633,7 @@ func (m *HTTPResponseProperties) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ResponseCode == nil {
-				m.ResponseCode = &google_protobuf.UInt32Value{}
+				m.ResponseCode = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.ResponseCode.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

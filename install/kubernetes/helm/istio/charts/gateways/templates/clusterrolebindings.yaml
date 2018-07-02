@@ -1,20 +1,19 @@
-{{- range $key, $spec := .Values -}}
-{{- if and (ne $key "global") (ne $key "enabled") -}}
-{{- if $spec.enabled -}}
-{{- if $.Values.global.rbacEnabled }}
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-ingressgateway-{{ $.Release.Namespace }}
+  name: {{ $key }}-{{ $.Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-{{ $key }}-{{ $.Release.Namespace }}
+  name: {{ $key }}-{{ $.Release.Namespace }}
 subjects:
   - kind: ServiceAccount
-    name: istio-{{ $key }}-service-account
+    name: {{ $key }}-service-account
     namespace: {{ $.Release.Namespace }}
-{{- end }}
+---
 {{- end }}
 {{- end }}
 {{- end }}
