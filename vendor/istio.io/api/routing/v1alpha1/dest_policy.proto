@@ -46,6 +46,7 @@ option go_package = "istio.io/api/routing/v1alpha1";
 // applies to version v1 of the ratings service running in the prod
 // environment but only when called from version v2 of the reviews service:
 //
+//
 //     metadata:
 //       name: ratings-lb-policy
 //       namespace: default
@@ -90,15 +91,16 @@ message DestinationPolicy {
 // types](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing)
 // supported by Envoy. Example,
 //
-//     metadata:
-//       name: reviews-lb-policy
-//       namespace: default
-//     spec:
-//       destination:
-//         name: reviews
-//       loadBalancing:
-//         name: RANDOM
-//
+// ```yaml
+// metadata:
+//   name: reviews-lb-policy
+//   namespace: default
+// spec:
+//   destination:
+//     name: reviews
+//   loadBalancing:
+//     name: RANDOM
+// ```
 message LoadBalancing {
   // Load balancing algorithms supported by Envoy.
   enum SimpleLBPolicy {
@@ -139,17 +141,19 @@ message CircuitBreaker {
   // policy sets a limit of 100 connections to "reviews" service version
   // "v1" backends.
   //
-  //     metadata:
-  //       name: reviews-cb-policy
-  //       namespace: default
-  //     spec:
-  //       destination:
-  //         name: reviews
-  //         labels:
-  //           version: v1
-  //       circuitBreaker:
-  //         simpleCb:
-  //           maxConnections: 100
+  // ```yaml
+  // metadata:
+  //   name: reviews-cb-policy
+  //   namespace: default
+  // spec:
+  //   destination:
+  //     name: reviews
+  //     labels:
+  //       version: v1
+  //   circuitBreaker:
+  //     simpleCb:
+  //       maxConnections: 100
+  // ```
   //
   // The following destination policy sets a limit of 100 connections and
   // 1000 concurrent requests, with no more than 10 req/connection to
@@ -157,23 +161,24 @@ message CircuitBreaker {
   // hosts to be scanned every 5 mins, such that any host that fails 7
   // consecutive times with 5XX error code will be ejected for 15 minutes.
   //
-  //     metadata:
-  //       name: reviews-cb-policy
-  //       namespace: default
-  //     spec:
-  //       destination:
-  //         name: reviews
-  //         labels:
-  //           version: v1
-  //       circuitBreaker:
-  //         simpleCb:
-  //           maxConnections: 100
-  //           httpMaxRequests: 1000
-  //           httpMaxRequestsPerConnection: 10
-  //           httpConsecutiveErrors: 7
-  //           sleepWindow: 15m
-  //           httpDetectionInterval: 5m
-  //
+  // ```yaml
+  // metadata:
+  //   name: reviews-cb-policy
+  //   namespace: default
+  // spec:
+  //   destination:
+  //     name: reviews
+  //     labels:
+  //       version: v1
+  //   circuitBreaker:
+  //     simpleCb:
+  //       maxConnections: 100
+  //       httpMaxRequests: 1000
+  //       httpMaxRequestsPerConnection: 10
+  //       httpConsecutiveErrors: 7
+  //       sleepWindow: 15m
+  //       httpDetectionInterval: 5m
+  // ```
   message SimpleCircuitBreakerPolicy {
     // Maximum number of connections to a backend.
     int32 max_connections = 1;
