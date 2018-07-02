@@ -94,7 +94,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 15004
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -180,7 +180,7 @@ static_resources:
                         bytes_value: {{ .PodIP }}
                       destination.port:
                         int64_value: 9091
-                      context.reporter.type:
+                      context.reporter.kind:
                         string_value: inbound
                       context.reporter.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
