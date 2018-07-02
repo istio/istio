@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -33,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"os"
 )
 
 type mixerplugin struct{}
