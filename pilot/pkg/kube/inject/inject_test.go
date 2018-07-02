@@ -78,6 +78,13 @@ func TestIntoResourceFile(t *testing.T) {
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
+			in:                  "testdata/hello-pod.yaml",
+			want:                "testdata/hello-pod.yaml.injected",
+			debugMode:           true,
+			includeIPRanges:     DefaultIncludeIPRanges,
+			includeInboundPorts: DefaultIncludeInboundPorts,
+		},
+		{
 			in:                  "testdata/hello-proxy-override.yaml",
 			want:                "testdata/hello-proxy-override.yaml.injected",
 			debugMode:           true,
