@@ -19,12 +19,8 @@ cd $ROOTDIR
 export GOPATH=$(cd $ROOTDIR/../../..; pwd)
 export PATH=$GOPATH/bin:$PATH
 
-if which goimports; then
-  goimports=`which goimports`
-else
-  go get golang.org/x/tools/cmd/goimports
-  goimports=${GOPATH}/bin/goimports
-fi
+go get -u golang.org/x/tools/cmd/goimports
+goimports=${GOPATH}/bin/goimports
 
 PKGS=${PKGS:-"."}
 if [[ -z ${GO_FILES} ]];then
