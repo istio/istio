@@ -26,14 +26,28 @@ func sourceMatchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.Labels
 		return true
 	}
 
-	gatewayMatch := len(gateways) == 0
-	if len(gateways) > 0 {
-		for _, gateway := range match.Gateways {
-			gatewayMatch = gatewayMatch || gateways[gateway]
-		}
+	gatewayMatch := len(match.Gateways) == 0
+	for _, gateway := range match.Gateways {
+		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	// FIXME: double-check
+	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+
+	portMatch := match.Port == 0 || match.Port == uint32(port)
+
+	return gatewayMatch && labelMatch && portMatch
+}
+
+func sourceMatchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+	if match == nil {
+		return true
+	}
+
+	gatewayMatch := len(match.Gateways) == 0
+	for _, gateway := range match.Gateways {
+		gatewayMatch = gatewayMatch || gateways[gateway]
+	}
+
 	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
@@ -47,7 +61,6 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	for _, config := range configs {
 		virtualService := config.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
-			// TODO: IP vs wildcard DNS
 			if model.Hostname(vsHost).Matches(host) {
 				return virtualService
 			}
@@ -57,14 +70,15 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 }
 
 // TODO: check port protocol?
-// FIXME: need TLS Inspector. we are relying on Envoy graciously detecting we need it and injecting it at runtime
-func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Config,
+func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, configs []model.Config, addresses []string,
 	host model.Hostname, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
 
 	virtualService := getVirtualServiceForHost(host, configs)
 	if virtualService != nil {
+		// TODO: Make SNI compatible with RBAC. Deprecated tcp route configs are incompatible with SNI.
+		// RBAC requires deprecated tcp route configs, so RBAC is incompatible with SNI.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
@@ -97,15 +111,44 @@ func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Conf
 			}
 		}
 
-		// TODO: very basic TCP (no L4 matching)
+		// very basic TCP (no L4 matching)
 		// only add if we don't have any network filters
-		// break as soon as we add one networkfilter
+		// break as soon as we add one network filter
+		if len(out) == 0 {
+		TcpLoop:
+			for _, tcp := range virtualService.Tcp {
+				// since we don't support weighted destinations yet there can only be exactly 1 destination
+				dest := tcp.Route[0].Destination
+				destSvc, err := env.GetService(model.Hostname(dest.Host))
+				if err != nil {
+					log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+					continue
+				}
+				clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+				addresses = []string{destSvc.GetServiceAddressForProxy(&proxy)}
+
+				if len(tcp.Match) == 0 { // implicit match
+					out = []*filterChainOpts{{
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+					}}
+					break TcpLoop
+				}
+				for _, match := range tcp.Match {
+					if sourceMatchTCP(match, proxyLabels, gateways, listenPort.Port) {
+						out = []*filterChainOpts{{
+							networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+						}}
+						break TcpLoop
+					}
+				}
+			}
+		}
 	}
 
 	if len(out) == 0 { // FIXME:
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host, int(listenPort.Port))
 		out = []*filterChainOpts{{
-			networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
+			networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 		}}
 	}
 

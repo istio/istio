@@ -366,7 +366,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				service.Hostname, servicePort.Port)
 
 			listenAddress := WildcardAddress
-			//var addresses []string
+			var addresses []string
 			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
 				env:            env,
@@ -395,12 +395,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				operation := http_conn.EGRESS
 				useRemoteAddress := false
 
-				if node.Type == model.Router {
-					// if this is in Router mode, then use ingress style trace operation, and remote address settings
-					useRemoteAddress = true
-					operation = http_conn.INGRESS
-				}
-
 				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
@@ -414,25 +408,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			case plugin.ListenerProtocolTCP:
 				if service.Resolution != model.Passthrough {
 					listenAddress = service.GetServiceAddressForProxy(&node)
-					//addresses = []string{listenAddress}
+					addresses = []string{listenAddress}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				if currentListener, exists = listenerMap[listenerMapKey]; exists {
-					// Check if this is HTTPS port collision for external service. If so, we can use SNI to differentiate
-					// Internal TCP services will never hit this issue because they are bound by specific IP_port, while
-					// external service listeners are typically bound to 0.0.0.0
-					if !listenerTypeMap[listenerMapKey].IsTCP() || !servicePort.Protocol.IsTLS() || !service.MeshExternal {
+					// Check for port collisions between TCP/TLS and other port types.
+					// If configured correctly, TCP/TLS ports may not collide.
+					// We'll need to do additional work to find out if there is a collision for TCP/TLS.
+					if !listenerTypeMap[listenerMapKey].IsTCP() {
 						conflictingOutbound.Add(1)
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
 						continue
 					}
 				}
-
 				// FIXME: doc this
-				// TODO: passthrough?
+				// TODO: resolution passthrough
 				// FIXME: duplicates
 				// FIXME: handle conflicts of tls without sni. if there are multiple https/tls services
 				// on the same port without sni, this is a conflict because they are treated as regular tcp.
@@ -440,7 +433,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				// and send the proxy into a restart loop.
 				// envoy rejects listeners with identical filter chain matches.
 				// we need to ensure each filter chain match for a given listener is unique.
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, service.Hostname, servicePort, proxyLabels, meshGateway)
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -489,15 +482,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
 
-			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
-				var numChains int
-				if currentListener != nil {
-					numChains = len(currentListener.FilterChains)
-				} else {
-					numChains = len(mutable.Listener.FilterChains)
-				}
-				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
-			}
+			// TODO: remove this?
+			//if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
+			//	var numChains int
+			//	if currentListener != nil {
+			//		numChains = len(currentListener.FilterChains)
+			//	} else {
+			//		numChains = len(mutable.Listener.FilterChains)
+			//	}
+			//	log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
+			//}
 		}
 	}
 
@@ -518,7 +512,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	listeners := append(tcpListeners, httpListeners...)
 
 	// trim conflicting filterchains
-	// FIXME: ugly hack
+	// FIXME: ugly hack. we should only be generating unique filterchainmatches.
 	for _, l := range listeners {
 		filterChainMatches := make(map[string]bool)
 
