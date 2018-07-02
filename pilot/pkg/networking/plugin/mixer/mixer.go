@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -184,14 +185,22 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		port = mixerMTLSPortNumber
 	}
 
-	return &mccpb.TransportConfig{
+	res := &mccpb.TransportConfig{
 		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
-		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
-		// TODO(yangminzhu): Make this configurable in mesh config.
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 	}
+	// TODO(yangminzhu): remove this after the default on client code is changed.
+	// So far there is no use case I know where policy check would fail open
+	res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
+
+	// Those settings are not backward compatible.
+	// For testing you can enable them using env - but can't be enabled in 1.0 unless fixed.
+	if os.Getenv("MIXER_NEW_ATTRIBUTES") != "" {
+		// internal telemetry forwarding
+		res.AttributesForMixerProxy = &mpb.Attributes{Attributes: attributes{"source.uid": uid}}
+	}
+
+	return res
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
