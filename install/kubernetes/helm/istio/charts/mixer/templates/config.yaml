@@ -558,7 +558,7 @@ spec:
     - destination_workload_namespace
     - destination_version
     - destination_service
-    - destination_service_nam e
+    - destination_service_name
     - destination_service_namespace
     - connection_mtls
 ---
