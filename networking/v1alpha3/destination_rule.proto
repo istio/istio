@@ -310,7 +310,7 @@ message LoadBalancerSettings {
     // load distributions. If the number of hosts in the load balancing
     // pool is larger than the ring size, each host will be assigned a
     // single virtual node.
-    uint32 minimum_ring_size = 4;
+    uint64 minimum_ring_size = 4;
   };
 
   // (-- TODO: Enable Subset load balancing after moving to v2 API Also
