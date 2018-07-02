@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"os"
 )
 
 type mixerplugin struct{}
@@ -184,14 +185,20 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		port = mixerMTLSPortNumber
 	}
 
-	return &mccpb.TransportConfig{
+	res := &mccpb.TransportConfig{
 		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
-		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
-		// TODO(yangminzhu): Make this configurable in mesh config.
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 	}
+	// Those settings are not backward compatible.
+	// For testing you can enable them using env - but can't be enabled in 1.0 unless fixed.
+	if os.Getenv("MIXER_NEW_ATTRIBUTES") != "" {
+		// internal telemetry forwarding
+		res.AttributesForMixerProxy = &mpb.Attributes{Attributes: attributes{"source.uid": uid}}
+		// TODO(yangminzhu): Make this configurable in mesh config.
+		res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
+	}
+
+	return res
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
