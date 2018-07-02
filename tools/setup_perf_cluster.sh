@@ -33,17 +33,41 @@ function Usage() {
     exit 1
 }
 
+function abspath() {
+# Source https://stackoverflow.com/questions/3915040/bash-fish-command-to-print-absolute-path-to-a-file
+# Thanks to Alexander Klimetschek
+
+    # generate absolute path from relative path
+    # $1     : relative filename
+    # return : absolute path
+    if [ -d "$1" ]; then
+        # dir
+        (cd "$1"; pwd)
+    elif [ -f "$1" ]; then
+        # file
+        if [[ $1 = /* ]]; then
+            echo "$1"
+        elif [[ $1 == */* ]]; then
+            echo "$(cd "${1%/*}"; pwd)/${1##*/}"
+        else
+            echo "$(pwd)/$1"
+        fi
+    fi
+}
+
 function List_functions() {
   egrep "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
+  TOOLS_ABSPATH=$(abspath ${BASH_SOURCE[0]})
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
   List_functions
   SOURCED=1
 else
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
+  TOOLS_ABSPATH=$(abspath ${0})
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   echo "In case of errors, retry at the failed step (readyness checks missing)"
   set -e
@@ -163,7 +187,8 @@ function install_istio_svc() {
  Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
 }
 
-function install_istio_traffic_rules() {
+function install_istio_ingress_rules() {
+  # perf istio rules installs rules for both fortio and grafana
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
@@ -182,60 +207,6 @@ function get_fortio_k8s_ip() {
     FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   done
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
-}
-
-function setup_istio_addons_ingress() {
-  cat <<_EOF_ | kubectl apply -n istio-system -f -
-apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: grafana-gateway
-spec:
-  selector:
-    istio: ingressgateway # use istio default controller
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: grafana
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - grafana-gateway
-  http:
-  - match:
-    - uri:
-        prefix: /d/
-    route:
-    - destination:
-        host: grafana.istio-system.svc.cluster.local
-        port:
-          number: 3000
-  - match:
-    - uri:
-        prefix: /public/
-    route:
-    - destination:
-        host: grafana.istio-system.svc.cluster.local
-        port:
-          number: 3000
-  - match:
-    - uri:
-        prefix: /api/
-    route:
-    - destination:
-        host: grafana.istio-system.svc.cluster.local
-        port:
-          number: 3000
-_EOF_
 }
 
 # Doesn't work somehow...
@@ -461,6 +432,14 @@ function run_canonical_perf_test() {
     curl -s "${URL}" -o "${OUT_FILE}"
 }
 
+function wait_istio_up() {
+  for namespace in $(kubectl get namespaces --no-headers -o name); do
+    for name in $(kubectl get deployment -o name -n ${namespace}); do
+      kubectl -n ${namespace} rollout status ${name} -w;
+    done
+  done
+}
+
 function setup_vm_all() {
   update_gcp_opts
   create_vm
@@ -475,9 +454,11 @@ function setup_istio_all() {
   install_istio
   install_istio_svc
   install_istio_traffic_rules
+  wait_istio_up #wait
+
   install_istio_cache_busting_rule
   install_istio_addons
-  setup_istio_addons_ingress
+  wait_istio_up #wait
 }
 
 function setup_cluster_all() {

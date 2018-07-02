@@ -42,4 +42,54 @@ spec:
         port:
           number: 8080
     rewrite:
-      uri: / # drop the /fortio2 prefix when talking to fortio such as /fortio2/fortio -> /fortio
+      uri: / # drop the /fortio2 prefix when talking to fortio such as /fortio2/debug -> /debug
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: grafana-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http-grafana
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: grafana
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - grafana-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /d/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
+  - match:
+    - uri:
+        prefix: /public/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
+  - match:
+    - uri:
+        prefix: /api/
+    route:
+    - destination:
+        host: grafana.istio-system.svc.cluster.local
+        port:
+          number: 3000
