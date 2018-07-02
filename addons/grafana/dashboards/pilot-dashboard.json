@@ -754,7 +754,7 @@
   "refresh": "5s",
   "schemaVersion": 16,
   "style": "dark",
-  "tags": [],
+  "tags": ["istio"],
   "templating": {
     "list": []
   },
@@ -789,6 +789,6 @@
   },
   "timezone": "browser",
   "title": "Pilot Dashboard",
-  "uid": "3",
+  "uid": "istio-pilot",
   "version": 3
 }

@@ -43,6 +43,10 @@ spec:
           volumeMounts:
           - name: data
             mountPath: /data/grafana
+      securityContext:
+        fsGroup: 472
+        runAsNonRoot: true
+        runAsUser: 472
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:

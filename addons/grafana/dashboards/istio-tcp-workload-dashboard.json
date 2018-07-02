@@ -212,10 +212,10 @@
       ]
     }
   ],
-  "refresh": "10s",
+  "refresh": "5s",
   "schemaVersion": 16,
   "style": "dark",
-  "tags": [],
+  "tags": ["istio"],
   "templating": {
     "list": [
       {
@@ -291,6 +291,6 @@
   },
   "timezone": "",
   "title": "Istio TCP Workload Dashboard",
-  "uid": "0G9AS34ik",
+  "uid": "istio-tcp-workload",
   "version": 6
 }

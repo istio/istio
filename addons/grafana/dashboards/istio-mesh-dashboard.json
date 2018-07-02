@@ -805,7 +805,7 @@
   "refresh": "5s",
   "schemaVersion": 16,
   "style": "dark",
-  "tags": [],
+  "tags": ["istio"],
   "templating": {
     "list": []
   },
@@ -840,6 +840,6 @@
   },
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
-  "uid": "1",
+  "uid": "istio-mesh",
   "version": 9
 }

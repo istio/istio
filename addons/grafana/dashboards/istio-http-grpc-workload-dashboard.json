@@ -781,7 +781,7 @@
   "refresh": "5s",
   "schemaVersion": 16,
   "style": "dark",
-  "tags": [],
+  "tags": ["istio"],
   "templating": {
     "list": [
       {
@@ -857,6 +857,6 @@
   },
   "timezone": "",
   "title": "Istio HTTP/GRPC Workload Dashboard",
-  "uid": "95DgGEWmz",
+  "uid": "istio-http-grpc-workload",
   "version": 4
 }

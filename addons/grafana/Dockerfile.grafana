@@ -1,13 +1,15 @@
-from grafana/grafana:5.0.4
+FROM grafana/grafana:5.2.1
 
-COPY grafana.ini /etc/grafana/
-RUN chmod 777 -R /etc/grafana/
+COPY --chown=grafana grafana.ini /etc/grafana/
+COPY --chown=grafana dashboards.yaml /etc/grafana/provisioning/dashboards/
+COPY --chown=grafana datasources.yaml /etc/grafana/provisioning/datasources/
 
-COPY dashboards.yaml /etc/grafana/provisioning/dashboards/
-RUN chmod 777 -R /etc/grafana/provisioning/dashboards/
+USER root
+RUN mkdir -p /var/lib/grafana/dashboards && \
+    chown grafana /var/lib/grafana/dashboards
 
-COPY datasources.yaml /etc/grafana/provisioning/datasources/
-RUN chmod 777 -R /etc/grafana/provisioning/datasources/
+RUN mkdir -p /data/grafana
+RUN chown grafana /data/grafana
+USER grafana
 
-COPY dashboards /var/lib/grafana/dashboards/
-RUN chmod 777 -R /var/lib/grafana/dashboards/
+COPY --chown=grafana dashboards /var/lib/grafana/dashboards/

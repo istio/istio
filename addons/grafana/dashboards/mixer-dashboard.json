@@ -1582,7 +1582,7 @@
   "refresh": "5s",
   "schemaVersion": 16,
   "style": "dark",
-  "tags": [],
+  "tags": ["istio"],
   "templating": {
     "list": [
       {
@@ -1638,6 +1638,6 @@
   },
   "timezone": "",
   "title": "Mixer Dashboard",
-  "uid": "2",
+  "uid": "istio-mixer",
   "version": 3
 }
