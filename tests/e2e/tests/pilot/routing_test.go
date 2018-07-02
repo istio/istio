@@ -183,7 +183,7 @@ func TestRoutes(t *testing.T) {
 		},
 		{
 			testName:      "b->c[v1=100]",
-			description:   "routing tcp traffic from a to c-v2",
+			description:   "routing tcp traffic from b to c-v1",
 			config:        "virtualservice-route-tcp-a.yaml",
 			scheme:        "http",
 			src:           "b",
