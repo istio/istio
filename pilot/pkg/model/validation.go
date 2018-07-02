@@ -1967,10 +1967,9 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	for _, tlsRoute := range virtualService.Tls {
 		errs = appendErrors(errs, validateTLSRoute(tlsRoute))
 	}
-	// TODO: validate tcp
-	//for _, tcpRoute := range virtualService.Tcp {
-	//	errs = appendErrors(errs, validateTCPRoute(tcpRoute))
-	//}
+	for _, tcpRoute := range virtualService.Tcp {
+		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
+	}
 
 	return
 }
@@ -1993,8 +1992,48 @@ func validateTLSRoute(tls *networking.TLSRoute) (errs error) {
 	return
 }
 
-func validateTLSMatch(match *networking.TLSMatchAttributes) error {
-	return nil // TODO
+func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
+	if len(match.SniHosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
+	}
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	}
+	if match.Port != 0 {
+		errs = appendErrors(errs, ValidatePort(match.Port))
+	}
+	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	return
+}
+
+func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
+	if tcp == nil {
+		return nil
+	}
+	for _, match := range tcp.Match {
+		errs = appendErrors(errs, validateTCPMatch(match))
+	}
+	if len(tcp.Route) != 1 {
+		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
+	}
+	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
+	return
+}
+
+func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	}
+	if match.SourceSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
+	}
+	if match.Port != 0 {
+		errs = appendErrors(errs, ValidatePort(match.Port))
+	}
+	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	return
 }
 
 func validateHost(host string) error {
@@ -2041,8 +2080,11 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
 
-		// TODO: validate match.Port
+		if match.Port != 0 {
+			errs = appendErrors(errs, ValidatePort(int(match.Port)))
+		}
 		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+		errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	}
 	errs = appendErrors(errs, validateDestination(http.Mirror))
 	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
@@ -2053,6 +2095,15 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
 	}
 
+	return
+}
+
+func validateGatewayNames(gateways []string) (errs error) {
+	for _, gateway := range gateways {
+		if err := ValidateFQDN(gateway); err != nil {
+			errs = appendErrors(errs, err)
+		}
+	}
 	return
 }
 
