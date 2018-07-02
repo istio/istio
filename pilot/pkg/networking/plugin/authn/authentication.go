@@ -90,6 +90,11 @@ func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.Mu
 	return false, nil
 }
 
+// OnFilterChains does something awesome.
+func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
 // SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain, and a bool
 // to indicate whether the `tls_inspector` listener filter is needed.
 func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,

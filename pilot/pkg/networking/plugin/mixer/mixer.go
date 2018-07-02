@@ -175,6 +175,11 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
+// OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (mixerplugin)OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	return nil
+}
+
 func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.TransportConfig {
 	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
