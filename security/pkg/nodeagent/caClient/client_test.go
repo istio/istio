@@ -26,15 +26,14 @@ import (
 	capb "istio.io/istio/security/proto/ca/v1alpha1"
 )
 
-const (
-	mockServerAddress = "localhost:0"
-	fakeCert          = "foo"
-)
+const mockServerAddress = "localhost:0"
+
+var fakeCert = []string{"foo", "bar"}
 
 type mockCAServer struct{}
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *capb.IstioCertificateRequest) (*capb.IstioCertificateResponse, error) {
-	return &capb.IstioCertificateResponse{CertChain: []string{fakeCert}}, nil
+	return &capb.IstioCertificateResponse{CertChain: fakeCert}, nil
 }
 
 func TestCAClient(t *testing.T) {
@@ -68,7 +67,12 @@ func TestCAClient(t *testing.T) {
 		t.Fatalf("failed to call CSR sign: %v", err)
 	}
 
-	if !reflect.DeepEqual(resp, []byte(fakeCert)) {
-		t.Errorf("resp: got %+v, expected %q", resp, []byte(fakeCert))
+	expected := []byte{}
+	for _, c := range fakeCert {
+		expected = append(expected, []byte(c)...)
+	}
+
+	if !reflect.DeepEqual(resp, expected) {
+		t.Errorf("resp: got %+v, expected %q", resp, expected)
 	}
 }

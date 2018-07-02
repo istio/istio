@@ -103,7 +103,7 @@ func TestRefreshSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	_, err := sc.GetSecret(context.Background(), "proxy1-id" /*proxyID*/, fakeSpiffeID, "jwtToken1")
+	_, err := sc.GetSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -136,8 +136,8 @@ func newMockCAClient() *mockCAClient {
 	return &cl
 }
 
-func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, /*PEM-encoded certificate request*/
-	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
 	atomic.AddUint64(&c.signInvokeCount, 1)
 
 	if atomic.LoadUint64(&c.signInvokeCount) == 1 {

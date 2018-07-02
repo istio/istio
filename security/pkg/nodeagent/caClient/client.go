@@ -64,9 +64,9 @@ func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string
 		return nil, err
 	}
 
-	if len(resp.CertChain) == 0 {
-		log.Errorf("Got empty cert chain")
-		return nil, errors.New("empty cert chain")
+	if len(resp.CertChain) <= 1 {
+		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
+		return nil, errors.New("invalid response cert chain")
 	}
 
 	// Returns the leaf cert(Leaf cert is element '0', Root cert is element 'n').
