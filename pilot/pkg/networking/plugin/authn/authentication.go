@@ -90,13 +90,82 @@ func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.Mu
 	return false, nil
 }
 
-// OnFilterChains does something awesome.
-func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
-	if authnPolicy == nil {
+// setupFilterChains sets up filter chains based on authentication policy.
+func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
+	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return nil
 	}
+	alpnIstioMatch := &ldsv2.FilterChainMatch{
+		ApplicationProtocols: util.ALPNInMesh,
+	}
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.CertChainFilename,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.KeyFilename,
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: model.AuthCertsPath + model.RootCertFilename,
+						},
+					},
+				},
+			},
+			AlpnProtocols: util.ALPNHttp,
+		},
+		RequireClientCertificate: &types.BoolValue{
+			Value: true,
+		},
+	}
+	for _, method := range authnPolicy.Peers {
+		switch method.GetParams().(type) {
+		case *authn.PeerAuthenticationMethod_Mtls:
+			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
+				log.Infof("Allow only istio mutual TLS traffic")
+				return []plugin.FilterChain{
+					plugin.FilterChain{
+					FilterChainMatch: &ldsv2.FilterChainMatch{},
+					TLSContext:       tls,
+				}}
+			}
+			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
+				log.Infof("Allow both, ALPN istio and legacy traffic")
+				return []plugin.FilterChain{
+					plugin.FilterChain{
+						FilterChainMatch: alpnIstioMatch,
+						TLSContext:       tls,
+					},
+					plugin.FilterChain{
+						FilterChainMatch: &ldsv2.FilterChainMatch{},
+					},
+				}
+			}
+		default:
+			continue
+		}
+	}
+	// No peer authentication found.
+	return nil
+}
+
+// OnFilterChains setups filter chains based on the authentication policy.
+func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+	hostname := in.ServiceInstance.Service.Hostname
+	port := in.ServiceInstance.Endpoint.ServicePort
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)
+	mutable.FilterChains = append(mutable.FilterChains, setupFilterChains(authnPolicy))
 	return nil
 }
 

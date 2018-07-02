@@ -87,7 +87,7 @@ type FilterChain struct {
 	// FilterChainMatch is the match used to select the filter chain.
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
-	TLSContext       *auth.DownstreamTlsContext
+	TLSContext *auth.DownstreamTlsContext
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
