@@ -96,7 +96,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	virtualServices := configStore.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildVirtualHostsForVirtualService(configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -165,9 +165,11 @@ func separateVSHostsAndServices(virtualService model.Config,
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildVirtualHostsForVirtualService(
-	virtualService model.Config, serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection, gatewayName map[string]bool) []VirtualHostWrapper {
-
+	configStore model.IstioConfigStore,
+	virtualService model.Config,
+	serviceRegistry map[model.Hostname]*model.Service,
+	proxyLabels model.LabelsCollection,
+	gatewayName map[string]bool) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
@@ -194,7 +196,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, nil)
+		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
