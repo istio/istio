@@ -97,7 +97,7 @@ func TestDashboards(t *testing.T) {
 	}{
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 	}
