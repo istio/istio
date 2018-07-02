@@ -19,7 +19,6 @@ import (
 	"errors"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -295,139 +294,69 @@ func TestStoreFailToInit(t *testing.T) {
 	s.Stop()
 }
 
-func TestCrdsAreNotReady(t *testing.T) {
-	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
-	s, _, _ := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return emptyDiscovery, nil
-	}
-	start := time.Now()
-	err := s.Init([]string{"Handler", "Action"})
-	d := time.Since(start)
+func TestStoreShouldCacheRegisteredKinds(t *testing.T) {
+	store, _, _ := getTempClient()
+	kinds := []string{"Handler", "Action"}
+	err := store.Init(kinds)
 	if err != nil {
-		t.Errorf("Got %v, Want nil", err)
+		t.Fatal(err)
 	}
-	if d < testingRetryTimeout {
-		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
+	store.Stop()
+
+	expectedCacheKeys := kinds
+	actualCacheKeys := make([]string, 0, len(store.caches))
+	for cachedKind := range store.caches {
+		actualCacheKeys = append(actualCacheKeys, cachedKind)
 	}
-	s.Stop()
+	if !reflect.DeepEqual(expectedCacheKeys, actualCacheKeys) {
+		t.Errorf("Expected each of %v to be cached.", expectedCacheKeys)
+	}
 }
 
-func TestCrdsRetryMakeSucceed(t *testing.T) {
-	fakeDiscovery := &fake.FakeDiscovery{
-		Fake: &k8stesting.Fake{
-			Resources: []*metav1.APIResourceList{
-				{GroupVersion: apiGroupVersion},
-			},
-		},
-	}
-	callCount := 0
-	// Gradually increase the number of API resources.
-	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
-		if callCount == 2 {
-			fakeDiscovery.Resources[0].APIResources = append(
-				fakeDiscovery.Resources[0].APIResources,
-				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
-			)
-		} else if callCount == 3 {
-			fakeDiscovery.Resources[0].APIResources = append(
-				fakeDiscovery.Resources[0].APIResources,
-				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
-			)
-		}
-		return true, nil, nil
-	})
-
-	s, _, _ := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return fakeDiscovery, nil
-	}
-	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
-	s.retryTimeout = 2 * time.Second
-	err := s.Init([]string{"Handler", "Action"})
+func TestStoreShouldNotCacheUnregisteredKinds(t *testing.T) {
+	store, _, _ := getTempClient()
+	err := store.Init([]string{"Handler", "Action", "cloudwatch"})
 	if err != nil {
-		t.Errorf("Got %v, Want nil", err)
+		t.Fatal(err)
 	}
-	if callCount != 3 {
-		t.Errorf("Got %d, Want 3", callCount)
+	if _, ok := store.caches["cloudwatch"]; ok {
+		t.Error("Expected cloudwatch NOT to be cached.")
 	}
-	s.Stop()
 }
 
-func TestCrdsRetryAsynchronously(t *testing.T) {
+func TestStoreShouldAsynchronouslyWaitForNewKinds(t *testing.T) {
+	resources := []metav1.APIResource{
+		{Kind: "Handler", Namespaced: true},
+		{Kind: "Action", Namespaced: true},
+	}
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
 				{
 					GroupVersion: apiGroupVersion,
-					APIResources: []metav1.APIResource{
-						{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
-					},
+					APIResources: resources,
 				},
 			},
 		},
 	}
-	var count int32
-	// Gradually increase the number of API resources.
-	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		if atomic.LoadInt32(&count) != 0 {
-			fakeDiscovery.Resources[0].APIResources = append(
-				fakeDiscovery.Resources[0].APIResources,
-				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
-			)
+	s, _, _ := getTempClient()
+	s.discoveryBuilder =
+		func(*rest.Config) (discovery.DiscoveryInterface, error) {
+			return fakeDiscovery, nil
 		}
-		return true, nil, nil
-	})
-	s, ns, lw := getTempClient()
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return fakeDiscovery, nil
-	}
-	k1 := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
-	if err := lw.put(k1, map[string]interface{}{"adapter": "noop"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Init([]string{"Handler", "Action"}); err != nil {
-		t.Fatal(err)
-	}
-	defer s.Stop()
-	s.cacheMutex.Lock()
-	ncaches := len(s.caches)
-	s.cacheMutex.Unlock()
-	if ncaches != 1 {
-		t.Errorf("Has %d caches, Want 1 caches", ncaches)
-	}
-	wch, err := s.Watch()
+	err := s.Init([]string{"Handler", "Action", "cloudwatch"})
 	if err != nil {
-		t.Fatal(err)
-	}
-	atomic.StoreInt32(&count, 1)
-
-	after := time.After(time.Second / 10)
-	tick := time.Tick(time.Millisecond)
-loop:
-	for {
-		select {
-		case <-after:
-			break loop
-		case <-tick:
-			s.cacheMutex.Lock()
-			ncaches = len(s.caches)
-			s.cacheMutex.Unlock()
-			if ncaches > 1 {
-				break loop
-			}
-		}
-	}
-	if ncaches != 2 {
-		t.Fatalf("Has %d caches, Want 2 caches", ncaches)
-	}
-
-	k2 := store.Key{Kind: "Action", Namespace: ns, Name: "default"}
-	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
 		t.Error(err)
 	}
-	if err = waitFor(wch, store.Update, k2); err != nil {
-		t.Errorf("Got %v, Want nil", err)
+	if len(s.caches) != 2 {
+		t.Errorf("Expected two kinds [Handler Action] to be cached.")
+	}
+
+	fakeDiscovery.Resources[0].APIResources = append(
+		resources,
+		metav1.APIResource{Kind: "cloudwatch", Namespaced: true})
+	time.Sleep(5 * time.Second)
+	if _, ok := s.caches["cloudwatch"]; !ok && len(s.caches) != 3 {
+		t.Errorf("Expected kinds [cloudwatch Handler Action] to be cached.")
 	}
 }

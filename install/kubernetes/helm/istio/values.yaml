@@ -239,6 +239,9 @@ mixer:
   replicaCount: 1
   image: mixer
   resources: {}
+  # TODO: Enable livenessProbe and readinessProbe in 0.9.0.
+  livenessProbeEnabled: false
+  readinessProbeEnabled: false
   # limits:
   #  cpu: 100m
   #  memory: 128Mi
