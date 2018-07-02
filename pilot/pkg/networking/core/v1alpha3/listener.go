@@ -425,7 +425,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					}
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -499,12 +499,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 		trimmedFilterChains := make([]listener.FilterChain, 0, len(l.FilterChains))
 		for _, filterChain := range l.FilterChains {
-			var key string
+			key := "" // for filter chains without matches or SNI domains
 			if filterChain.FilterChainMatch != nil {
 				sniDomains := make([]string, len(filterChain.FilterChainMatch.SniDomains))
 				copy(sniDomains, filterChain.FilterChainMatch.SniDomains)
 				sort.Strings(sniDomains)
-				key = strings.Join(sniDomains, ",") // sni domains is the only thing set in filterchainmatch rn
+				key = strings.Join(sniDomains, ",") // sni domains is the only thing set in FilterChainMatch right now
 			}
 			if !filterChainMatches[key] {
 				trimmedFilterChains = append(trimmedFilterChains, filterChain)

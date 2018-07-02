@@ -70,7 +70,7 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 }
 
 // TODO: check port protocol?
-func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, configs []model.Config, addresses []string,
+func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Config, addresses []string,
 	host model.Hostname, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
@@ -100,6 +100,7 @@ func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, c
 
 		// very basic TCP (no L4 matching)
 		// break as soon as we add one network filter
+		// TODO: rbac
 	TcpLoop:
 		for _, tcp := range virtualService.Tcp {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
@@ -110,18 +111,16 @@ func buildOutboundTCPFilterChainOpts(proxy model.Proxy, env model.Environment, c
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
-			addresses = []string{destSvc.GetServiceAddressForProxy(&proxy)}
-
 			if len(tcp.Match) == 0 { // implicit match
 				out = []*filterChainOpts{{
-					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+					networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
 				}}
 				break TcpLoop
 			}
 			for _, match := range tcp.Match {
 				if sourceMatchTCP(match, proxyLabels, gateways, listenPort.Port) {
 					out = []*filterChainOpts{{
-						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+						networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
 					}}
 					break TcpLoop
 				}
