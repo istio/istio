@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
@@ -212,6 +213,52 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (conn *XdsConnection) configDump() (*adminapi.ConfigDump, error) {
+	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
+
+	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
+	for _, cs := range conn.HTTPClusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["clusters"] = *clustersAny
+
+	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
+	for _, cs := range conn.HTTPListeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["listeners"] = *listenersAny
+
+	if len(conn.RouteConfigs) > 0 {
+		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range conn.RouteConfigs {
+			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+		configDump.Configs["routes"] = *routeConfigAny
+	}
+
+	return configDump, nil
 }
 
 // XdsEvent represents a config or registry event that results in a push.
@@ -644,32 +691,32 @@ func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *
 }
 
 // Send with timeout
-func (con *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
+func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
 	go func() {
-		err := con.stream.Send(res)
+		err := conn.stream.Send(res)
 		done <- err
-		con.mu.Lock()
+		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
 			case ClusterType:
-				con.ClusterNonceSent = res.Nonce
+				conn.ClusterNonceSent = res.Nonce
 			case ListenerType:
-				con.ListenerNonceSent = res.Nonce
+				conn.ListenerNonceSent = res.Nonce
 			case RouteType:
-				con.RouteNonceSent = res.Nonce
+				conn.RouteNonceSent = res.Nonce
 			case EndpointType:
-				con.EndpointNonceSent = res.Nonce
+				conn.EndpointNonceSent = res.Nonce
 			}
 		}
-		con.mu.Unlock()
+		conn.mu.Unlock()
 	}()
 	select {
 	case <-t.C:
 		// TODO: wait for ACK
-		adsLog.Infof("Timeout writing %s", con.ConID)
+		adsLog.Infof("Timeout writing %s", conn.ConID)
 		writeTimeout.Add(1)
 		return errors.New("timeout sending")
 	case err, _ := <-done:
