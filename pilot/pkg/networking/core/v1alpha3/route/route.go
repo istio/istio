@@ -86,15 +86,17 @@ type VirtualHostWrapper struct {
 // BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
 // services from the service registry. Services are indexed by FQDN hostnames.
 func BuildVirtualHostsFromConfigAndRegistry(
-	virtualServices []model.Config, serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
-	gatewayNames map[string]bool) []VirtualHostWrapper {
+	configStore model.IstioConfigStore,
+	serviceRegistry map[model.Hostname]*model.Service,
+	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	virtualServices := configStore.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(virtualService, serviceRegistry, proxyLabels, gatewayNames)
+		wrappers := buildVirtualHostsForVirtualService(virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -634,10 +636,13 @@ func getHashPolicy(configStore model.IstioConfigStore, hostname model.Hostname) 
 		return nil
 	}
 
+	cookie := consistentHash.GetHttpCookie()
 	return &route.RouteAction_HashPolicy{
 		PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
 			Cookie: &route.RouteAction_HashPolicy_Cookie{
-				Name: consistentHash.GetHttpHeader(),
+				Name: cookie.GetName(),
+				Ttl:  cookie.GetTtl(),
+				Path: cookie.GetPath(),
 			},
 		},
 	}

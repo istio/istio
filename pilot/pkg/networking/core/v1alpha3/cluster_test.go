@@ -82,6 +82,7 @@ func buildEnv() model.Environment {
 		},
 	}
 
+	ttl := time.Duration(time.Nanosecond * 100)
 	configStore := &fakes.IstioConfigStore{}
 	configStore.DestinationRuleReturns(
 		&model.Config{
@@ -96,8 +97,13 @@ func buildEnv() model.Environment {
 					LoadBalancer: &networking.LoadBalancerSettings{
 						LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 							ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
-								HttpHeader:      "some-header",
-								MinimumRingSize: 2,
+								MinimumRingSize: uint64(2),
+								HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+									HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+										Name: "hash-cookie",
+										Ttl:  &ttl,
+									},
+								},
 							},
 						},
 					},
