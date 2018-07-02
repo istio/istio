@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
@@ -1232,6 +1233,45 @@ func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
 		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
 	}
 
+	return nil
+}
+
+func isExperimentValid(exp *aspenmeshconfig.ExperimentSpec) (bool, error) {
+	token := exp.GetToken()
+	id := exp.GetToken()
+	spec := exp.GetSpec()
+	if len(token) == 0 || len(id) == 0 || spec == nil {
+		return false, errors.New("empty token, id or spec is not allowed in Aspen Mesh experiment")
+	}
+	if spec.GetServices() == nil {
+		return false, errors.New("empty service list is not allowed for Aspen Mesh experiment")
+	}
+	for _, ss := range spec.GetServices() {
+		os := ss.GetOriginal()
+		ds := ss.GetExperiment()
+		if os == nil || ds == nil {
+			return false, errors.New("original and experiment services must be specified in Aspen Mesh experiment")
+		}
+		if len(os.GetName()) == 0 ||
+			len(os.GetNamespace()) == 0 ||
+			len(ds.GetName()) == 0 ||
+			len(ds.GetNamespace()) == 0 {
+			return false, errors.New("name and namespace must be specified in Aspen Mesh experiment")
+		}
+	}
+	return true, nil
+}
+
+// ValidateExperiment checks that AspenMeshExperiment is well-formed.
+func ValidateExperiment(msg proto.Message) error {
+	exp, ok := msg.(*aspenmeshconfig.ExperimentSpec)
+	if !ok {
+		return errors.New("cannot cast to Aspen Mesh Experiment")
+	}
+	valid, err := isExperimentValid(exp)
+	if !valid {
+		return err
+	}
 	return nil
 }
 
