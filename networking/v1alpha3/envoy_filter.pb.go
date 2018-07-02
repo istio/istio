@@ -6,7 +6,7 @@ package v1alpha3
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -327,7 +327,7 @@ type EnvoyFilter_Filter struct {
 	FilterName string `protobuf:"bytes,4,opt,name=filter_name,json=filterName,proto3" json:"filter_name,omitempty"`
 	// REQUIRED: Filter specific configuration which depends on the filter being
 	// instantiated.
-	FilterConfig *google_protobuf2.Struct `protobuf:"bytes,5,opt,name=filter_config,json=filterConfig" json:"filter_config,omitempty"`
+	FilterConfig *google_protobuf3.Struct `protobuf:"bytes,5,opt,name=filter_config,json=filterConfig" json:"filter_config,omitempty"`
 }
 
 func (m *EnvoyFilter_Filter) Reset()                    { *m = EnvoyFilter_Filter{} }
@@ -363,7 +363,7 @@ func (m *EnvoyFilter_Filter) GetFilterName() string {
 	return ""
 }
 
-func (m *EnvoyFilter_Filter) GetFilterConfig() *google_protobuf2.Struct {
+func (m *EnvoyFilter_Filter) GetFilterConfig() *google_protobuf3.Struct {
 	if m != nil {
 		return m.FilterConfig
 	}
@@ -1306,7 +1306,7 @@ func (m *EnvoyFilter_Filter) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.FilterConfig == nil {
-				m.FilterConfig = &google_protobuf2.Struct{}
+				m.FilterConfig = &google_protobuf3.Struct{}
 			}
 			if err := m.FilterConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err

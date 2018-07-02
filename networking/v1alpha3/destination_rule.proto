@@ -15,6 +15,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
+import "gogoproto/gogo.proto";
 
 package istio.networking.v1alpha3;
 
@@ -289,7 +290,7 @@ message LoadBalancerSettings {
       // Path to set for the cookie.
       string path = 2;
       // REQUIRED. Lifetime of the cookie.
-      google.protobuf.Duration ttl = 3;
+      google.protobuf.Duration ttl = 3 [(gogoproto.stdduration) = true];
     };
 
     // REQUIRED: The hash key to use.
