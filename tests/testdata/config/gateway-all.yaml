@@ -30,16 +30,3 @@ spec:
 #      number: 9080
 #      name: http-wildcard
       # no hosts implies wildcard match
-  - port:
-      number: 31400
-      protocol: TCP
-      name: tcp1
-    hosts:
-    # Gateway doesn't generate anything if host is explicit.
-    - "*"
-  - port:
-      number: 31401
-      protocol: TCP
-      name: tcp2
-    hosts:
-    - "*"

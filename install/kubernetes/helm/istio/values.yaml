@@ -40,7 +40,7 @@ global:
     excludeInboundPorts: ""
 
     # This controls the 'policy' in the sidecar injector.
-    autoinject: enabled
+    autoInject: enabled
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).

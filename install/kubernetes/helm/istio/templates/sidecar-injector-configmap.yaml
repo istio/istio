@@ -11,7 +11,7 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: {{ .Values.global.proxy.autoinject }}
+    policy: {{ .Values.global.proxy.autoInject }}
     template: |-
       initContainers:
       - name: istio-init
