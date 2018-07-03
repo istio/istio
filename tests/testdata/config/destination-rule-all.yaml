@@ -56,6 +56,7 @@ spec:
           consistentHash:
             httpCookie:
               name: Cookie
-              ttl: 30
+              ttl: 30s
             minimumRingSize: 42
+
 ---
