@@ -218,13 +218,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: rbacs.config.istio.io
+  name: rbacs.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: rbac
     istio: mixer-adapter
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: rbac
     plural: rbacs
@@ -561,13 +561,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: serviceroles.config.istio.io
+  name: serviceroles.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: ServiceRole
     plural: serviceroles
@@ -579,13 +579,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: servicerolebindings.config.istio.io
+  name: servicerolebindings.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: ServiceRoleBinding
     plural: servicerolebindings
