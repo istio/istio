@@ -22,23 +22,23 @@ import (
 )
 
 var (
-	metricCertKeyUpdate = prometheus.NewGauge(prometheus.GaugeOpts{
+	metricCertKeyUpdate = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "galley_validation_cert_key_updates",
 		Help: "Galley validation webhook certiticate updates",
 	})
-	metricCertKeyUpdateError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metricCertKeyUpdateError = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_cert_key_update_errors",
 		Help: "Galley validation webhook certiticate updates errors",
 	}, []string{"error"})
-	metricValidationPassed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metricValidationPassed = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_passed",
 		Help: "Resource is valid",
 	}, []string{"group", "version", "resource"})
-	metricValidationFailed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metricValidationFailed = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_failed",
 		Help: "Resource validation failed",
 	}, []string{"group", "version", "resource", "reason"})
-	metricValidationHTTPError = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	metricValidationHTTPError = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "galley_validation_http_error",
 		Help: "Resource validation http serve errors",
 	}, []string{"status"})
