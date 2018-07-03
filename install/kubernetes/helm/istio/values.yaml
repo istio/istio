@@ -1,13 +1,8 @@
-# Use --set or additional values.yaml file to configure settings.
-# This file no longer uses sed, updateVersions.sh or istio.VERSIONS
-# TODO: evaluate if we need individual overrides for each component version, istio
-# is not typically tested with a mix of versions. Only supported case is version upgrade.
-
 # Common settings.
 global:
   # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io, and nightly builds from circle on
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
   hub: docker.io/istionightly
 
   # Default tag for Istio images.
@@ -15,6 +10,18 @@ global:
 
   proxy:
     image: proxyv2
+
+    # A minimal set of requested resources to applied to all deployments so that
+    # Horizontal Pod Autoscaler will be able to function (if set).
+    # Each component can overwrite these default values by adding its own resources
+    # block in the relevant section below and setting the desired resources values.
+    resources: 
+      requests:
+        cpu: 100m
+      #  memory: 128Mi
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
 
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
@@ -51,6 +58,7 @@ global:
       port: 9125
 
   proxy_init:
+    # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
@@ -80,16 +88,11 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  nodePort: true
-
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
     # - private-registry-key
-
-  # Default is 1 second
-  refreshInterval: 10s
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -258,7 +261,6 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
-  cleanUpOldCA: true
 
 #
 # addons configuration

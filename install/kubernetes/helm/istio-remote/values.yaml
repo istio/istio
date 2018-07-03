@@ -2,24 +2,32 @@
 global:
   # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io, and nightly builds from circle on
-  # docker.io/istionightly
-  hub: gcr.io/istio-release
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+  hub: docker.io/istionightly
+
   # Default tag for Istio images.
-  # Should track latest released version in the branch.
-  tag: 0.8.latest
+  tag: nightly-master
+
   proxy:
     image: proxyv2
-    resources:
+
+    # A minimal set of requested resources to applied to all deployments so that
+    # Horizontal Pod Autoscaler will be able to function (if set).
+    # Each component can overwrite these default values by adding its own resources
+    # block in the relevant section below and setting the desired resources values.
+    resources: 
       requests:
         cpu: 100m
-        memory: 128Mi
+      #  memory: 128Mi
       # limits:
       #   cpu: 100m
       #   memory: 128Mi
 
-    # istio-sidecar-injector configmap stores configuration for sidecar injection.
-    # This config map is used by istioctl kube-inject and the injector webhook.
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
     # istio egress capture whitelist
@@ -51,16 +59,13 @@ global:
       port: 9125
 
   proxy_init:
+    # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
-
-  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
-  imagePullSecrets:
-    # - private-registry-key
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
@@ -71,17 +76,25 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
+
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
-  # Default is 1 second
-  refreshInterval: 10s
 
   # Remote Istio endpoints. Can be hostnames or IP addresses
   # The Pilot address is required. The others are optional.
@@ -101,6 +114,18 @@ global:
     s390x: 2
     ppc64le: 2
 
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
 #
 # sidecar-injector webhook configuration
 #
@@ -108,23 +133,10 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  enableNamespacesByDefault: false
 
 security:
   replicaCount: 1
   image: citadel
-  resources: {}
   selfSigned: true # indicate if self-signed CA is used.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  cleanUpOldCA: true
+
