@@ -9,11 +9,9 @@ global:
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on
   hub: docker.io/istionightly
-  #hub: docker.io/istio
 
   # Default tag for Istio images.
   tag: nightly-master
-  #tag: 1.0.latest
 
   proxy:
     image: proxyv2

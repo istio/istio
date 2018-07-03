@@ -1,18 +1,72 @@
-# Routes TCP traffic through the ingressgateway Gateway to service A.
+
+---
 apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
+kind: VirtualService
 metadata:
-  name: gateway-a
+  name: gateway-a-1
 spec:
-  selector:
-    # DO NOT CHANGE THESE LABELS
-    # The ingressgateway is defined in install/kubernetes/helm/istio/values.yaml
-    # with these labels
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 31400
-      protocol: TCP
-      name: tcp
-    hosts:
-    - a.istio-system.svc.cluster.local
+  gateways:
+  - my-gateway
+  hosts:
+  - tcp1
+  tcp:
+  - match:
+    - port: 31401
+    route:
+    - destination:
+        port:
+          number: 31401
+        host: tcp1.extsvc.com
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcp1
+spec:
+   hosts:
+   - tcp1.extsvc.com
+   ports:
+   - number: 31401
+     name: extsvc-tcp
+     protocol: TCP
+   resolution: STATIC
+   endpoints:
+    - address: 127.0.0.2
+      ports:
+        extsvc-tcp: 31401
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: gateway-a-2
+spec:
+  gateways:
+  - my-gateway
+  hosts:
+  - tcp2.extsvc.com
+  tcp:
+  - match:
+    - port: 31400
+    route:
+    - destination:
+        host: tcp2.extsvc.com
+        port:
+          number: 31400
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcp2
+spec:
+   hosts:
+   - tcp2.extsvc.com
+   ports:
+   - number: 31400
+     name: extsvc-tcp
+     protocol: TCP
+   resolution: STATIC
+   endpoints:
+    - address: 127.0.0.2
+      ports:
+        extsvc-tcp: 31400
+---
