@@ -399,7 +399,7 @@ func translateRoute(in *networking.HTTPRoute,
 				Weight: weight,
 			})
 
-			hashPolicy := getHashPolicy(configStore, hostname)
+			hashPolicy := getHashPolicy(configStore, dst)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -621,30 +621,59 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
-func getHashPolicy(configStore model.IstioConfigStore, hostname model.Hostname) *route.RouteAction_HashPolicy {
+func getHashPolicy(configStore model.IstioConfigStore, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
 	if configStore == nil {
 		return nil
 	}
 
-	destinationRule := configStore.DestinationRule(hostname)
+	destination := dst.GetDestination()
+	subsetName := destination.GetSubset()
+	destinationRule := configStore.DestinationRule(model.Hostname(destination.GetHost()))
 	if destinationRule == nil {
 		return nil
 	}
 
 	rule := destinationRule.Spec.(*networking.DestinationRule)
-	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+
+	var consistentHash *networking.LoadBalancerSettings_ConsistentHashLB
+
+	subsets := rule.GetSubsets()
+	for _, subset := range subsets {
+		if subset.GetName() == subsetName {
+			consistentHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+			break
+		}
+	}
+
+	if consistentHash == nil {
+		consistentHash = rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	}
+
 	if consistentHash == nil {
 		return nil
 	}
 
-	cookie := consistentHash.GetHttpCookie()
-	return &route.RouteAction_HashPolicy{
-		PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+	hashPolicy := &route.RouteAction_HashPolicy{}
+	switch consistentHash.GetHashKey().(type) {
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_Header_{
+			Header: &route.RouteAction_HashPolicy_Header{
+				HeaderName: consistentHash.GetHttpHeaderName(),
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		cookie := consistentHash.GetHttpCookie()
+
+		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_Cookie_{
 			Cookie: &route.RouteAction_HashPolicy_Cookie{
 				Name: cookie.GetName(),
 				Ttl:  cookie.GetTtl(),
 				Path: cookie.GetPath(),
 			},
-		},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_SourceIp:
+		log.Debuga("source ip not implemented")
 	}
+
+	return hashPolicy
 }
