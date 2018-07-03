@@ -192,7 +192,7 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			initLocalPilotTestEnv(t)
+			s := initLocalPilotTestEnv(t)
 			for i := 0; i < 2; i++ {
 				envoy, err := connectADS(util.MockPilotGrpcAddr)
 				if err != nil {
@@ -222,7 +222,7 @@ func TestConfigDump(t *testing.T) {
 					}
 				}
 			}
-			wrapper := getConfigDump(t, tt.proxyID, tt.wantCode)
+			wrapper := getConfigDump(t, s.EnvoyXdsServer, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
 					t.Errorf("routes were present, must have received an older connection's dump")
@@ -234,7 +234,7 @@ func TestConfigDump(t *testing.T) {
 	}
 }
 
-func getConfigDump(t *testing.T, proxyID string, wantCode int) *configdump.Wrapper {
+func getConfigDump(t *testing.T, s *v2.DiscoveryServer, proxyID string, wantCode int) *configdump.Wrapper {
 	path := "/config_dump"
 	if proxyID != "" {
 		path += fmt.Sprintf("?proxyID=%v", proxyID)
@@ -244,7 +244,7 @@ func getConfigDump(t *testing.T, proxyID string, wantCode int) *configdump.Wrapp
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	syncz := http.HandlerFunc(v2.ConfigDump)
+	syncz := http.HandlerFunc(s.ConfigDump)
 	syncz.ServeHTTP(rr, req)
 	if rr.Code != wantCode {
 		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
