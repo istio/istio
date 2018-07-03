@@ -21,7 +21,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func sourceMatchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+// Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
+// bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
+// with predefined labels, on a specific port.
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -38,7 +41,10 @@ func sourceMatchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.Labels
 	return gatewayMatch && labelMatch && portMatch
 }
 
-func sourceMatchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+// Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
+// bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
+// with predefined labels, on a specific port.
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
 	if match == nil {
 		return true
 	}
@@ -55,8 +61,7 @@ func sourceMatchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsC
 	return gatewayMatch && labelMatch && portMatch
 }
 
-// TODO: very inefficient
-// TODO: result is not guaranteed for overlapping hosts (e.g. "dog.ceo" matches both "*.ceo" and "*")
+// Select the virtual service pertaining to the service being processed.
 func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1alpha3.VirtualService {
 	for _, config := range configs {
 		virtualService := config.Spec.(*v1alpha3.VirtualService)
@@ -69,13 +74,16 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	return nil
 }
 
-// TODO: check port protocol?
 func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Config, addresses []string,
-	host model.Hostname, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
-
-	virtualService := getVirtualServiceForHost(host, configs)
+	defaultRouteAdded := false
+	virtualService := getVirtualServiceForHost(service.Hostname, configs)
+	// Ports marked as TLS will have SNI routing if and only if they have an accompanying
+	// virtual service for the same host, and the said virtual service has a TLS route block.
+	// Otherwise we treat ports marked as TLS as opaque TCP services, subject to same port
+	// collision handling.
 	if virtualService != nil {
 		// TODO: Make SNI compatible with RBAC. Deprecated tcp route configs are incompatible with SNI.
 		// RBAC requires deprecated tcp route configs, so RBAC is incompatible with SNI.
@@ -84,22 +92,26 @@ func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Conf
 			dest := tls.Route[0].Destination
 			destSvc, err := env.GetService(model.Hostname(dest.Host))
 			if err != nil {
-				log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
 			for _, match := range tls.Match {
-				if sourceMatchTLS(match, proxyLabels, gateways, listenPort.Port) {
+				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
 					out = append(out, &filterChainOpts{
-						sniHosts:       match.SniHosts,
-						networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
+						sniHosts: match.SniHosts,
+						// Do not add addresses here. Since we do filter chain match based on SNI
+						// and have multiple filter chains on a wildcard listener, each with
+						// a SNI match
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 					})
 				}
 			}
 		}
 
 		// very basic TCP (no L4 matching)
-		// break as soon as we add one network filter
+		// break as soon as we add one network filter with no SNI match.
+		// This is the terminating condition in the filter chain match list
 		// TODO: rbac
 	TcpLoop:
 		for _, tcp := range virtualService.Tcp {
@@ -107,32 +119,36 @@ func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Conf
 			dest := tcp.Route[0].Destination
 			destSvc, err := env.GetService(model.Hostname(dest.Host))
 			if err != nil {
-				log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
 			if len(tcp.Match) == 0 { // implicit match
-				out = []*filterChainOpts{{
-					networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
-				}}
+				out = append(out, &filterChainOpts{
+					networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+				})
+				defaultRouteAdded = true
 				break TcpLoop
 			}
 			for _, match := range tcp.Match {
-				if sourceMatchTCP(match, proxyLabels, gateways, listenPort.Port) {
-					out = []*filterChainOpts{{
-						networkFilters: buildOutboundNetworkFilters(clusterName, nil, listenPort),
-					}}
+				// In future, when we add proper support for src/dst IP matching in listener,
+				// we won't break out of the loop here.
+				if matchTCP(match, proxyLabels, gateways, listenPort.Port) {
+					out = append(out, &filterChainOpts{
+						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
+					})
 					break TcpLoop
 				}
 			}
 		}
 	}
 
-	if len(out) == 0 { // FIXME:
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host, int(listenPort.Port))
-		out = []*filterChainOpts{{
+	// Add a default TCP route
+	if !defaultRouteAdded {
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
+		out = append(out, &filterChainOpts{
 			networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
-		}}
+		})
 	}
 
 	return out

@@ -75,11 +75,16 @@ var (
 		Name: "pilot_invalid_out_listeners",
 		Help: "Number of invalid outbound listeners.",
 	})
+	filterChainsConflict = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "pilot_conf_filter_chains",
+		Help: "Number of conflicting filter chains.",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(conflictingOutbound)
 	prometheus.MustRegister(invalidOutboundListeners)
+	prometheus.MustRegister(filterChainsConflict)
 }
 
 // ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
@@ -416,7 +421,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				if currentListener, exists = listenerMap[listenerMapKey]; exists {
 					// Check for port collisions between TCP/TLS and HTTP.
 					// If configured correctly, TCP/TLS ports may not collide.
-					// We'll need to do additional work to find out if there is a collision for TCP/TLS.
+					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !listenerTypeMap[listenerMapKey].IsTCP() {
 						conflictingOutbound.Add(1)
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
@@ -425,7 +430,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					}
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, addresses, service.Hostname, servicePort, proxyLabels, meshGateway)
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, addresses, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -473,6 +478,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMap[listenerMapKey] = mutable.Listener
 				listenerTypeMap[listenerMapKey] = servicePort.Protocol
 			}
+
+			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
+				var numChains int
+				if currentListener != nil {
+					numChains = len(currentListener.FilterChains)
+				} else {
+					numChains = len(mutable.Listener.FilterChains)
+				}
+				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
+			}
 		}
 	}
 
@@ -492,8 +507,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	listeners := append(tcpListeners, httpListeners...)
 
-	// trim conflicting filterchains
-	// FIXME: ugly hack. we should only be generating unique filterchainmatches.
+	// trim conflicting filter chains
+	// If there are two headless services on the same port, this loop will
+	// detect it and remove one of the listeners. This is fine because headless
+	// services (resolution NONE) are typically established with original dst clusters
+	// So, even though there is only one listener shared across two headless services,
+	// traffic will continue to go to the requested destination. The only problem here
+	// is that stats will end up being attributed to the incorrect service.
 	for _, l := range listeners {
 		filterChainMatches := make(map[string]bool)
 
@@ -501,8 +521,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 		for _, filterChain := range l.FilterChains {
 			key := "" // for filter chains without matches or SNI domains
 			if filterChain.FilterChainMatch != nil {
-				sniDomains := make([]string, len(filterChain.FilterChainMatch.SniDomains))
-				copy(sniDomains, filterChain.FilterChainMatch.SniDomains)
+				sniDomains := make([]string, len(filterChain.FilterChainMatch.ServerNames))
+				copy(sniDomains, filterChain.FilterChainMatch.ServerNames)
 				sort.Strings(sniDomains)
 				key = strings.Join(sniDomains, ",") // sni domains is the only thing set in FilterChainMatch right now
 			}
@@ -511,6 +531,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				filterChainMatches[key] = true
 			} else {
 				log.Warnf("omitting filterchain with duplicate filterchainmatch: %v", key)
+				filterChainsConflict.Add(1)
 			}
 		}
 		l.FilterChains = trimmedFilterChains
@@ -706,7 +727,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				}
 			}
 			if !fullWildcardFound {
-				match.SniDomains = chain.sniHosts
+				match.ServerNames = chain.sniHosts
 			}
 		}
 		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {

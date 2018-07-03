@@ -47,7 +47,7 @@ func buildInboundNetworkFilters(instance *model.ServiceInstance) []listener.Filt
 	}
 }
 
-func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string, port *model.Port) (*listener.Filter, error) {
+func buildDeprecatedTCPProxyFilter(clusterName string, addresses []string) (*listener.Filter, error) {
 	route := &DeprecatedTCPRoute{
 		Cluster: clusterName,
 	}
@@ -112,7 +112,7 @@ func buildOutboundNetworkFilters(clusterName string, addresses []string, port *m
 	var tcpFilter *listener.Filter
 	var err error
 	if len(addresses) > 0 {
-		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, addresses, port); err != nil {
+		if tcpFilter, err = buildDeprecatedTCPProxyFilter(clusterName, addresses); err != nil {
 			return nil
 		}
 	} else {
