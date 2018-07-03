@@ -147,42 +147,6 @@ func TestGateway_TCPIngress(t *testing.T) {
 	}
 }
 
-func TestGateway_TLSIngress(t *testing.T) {
-	istioNamespace := tc.Kube.IstioSystemNamespace()
-	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
-
-	// Configure a route from us.bookinfo.com to "c-v2" only
-	cfgs := &deployableConfig{
-		Namespace: tc.Kube.Namespace,
-		YamlFiles: []string{
-			"testdata/networking/v1alpha3/ingressgateway.yaml",
-			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
-			"testdata/networking/v1alpha3/rule-ingressgateway.yaml",
-			"testdata/networking/v1alpha3/service-entry-google.yaml"},
-		kubeconfig: tc.Kube.KubeConfig,
-	}
-	if err := cfgs.Setup(); err != nil {
-		t.Fatal(err)
-	}
-	defer cfgs.Teardown()
-
-	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "TLSIngressGateway", defaultRetryBudget, func() error {
-			reqURL := fmt.Sprintf("https://%s.%s/", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val google.com")
-			count := make(map[string]int)
-			for _, elt := range resp.Code {
-				count[elt] = count[elt] + 1
-			}
-			log.Infof("request counts %v", count)
-			if count["200"] >= 95 {
-				return nil
-			}
-			return errAgain
-		})
-	}
-}
-
 func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	istioNamespace := tc.Kube.IstioSystemNamespace()
 	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()

@@ -4,8 +4,9 @@ metadata:
   name: service-entry-google
 spec:
   hosts:
-    - "google.com"
+    - www.google.com
   ports:
   - number: 443
     name: https
     protocol: TLS
+  resolution: DNS

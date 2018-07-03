@@ -38,7 +38,8 @@ func TestEgressGateway(t *testing.T) {
 		YamlFiles: []string{
 			"testdata/networking/v1alpha3/disable-mtls-egressgateway.yaml",
 			"testdata/networking/v1alpha3/egressgateway.yaml",
-			"testdata/networking/v1alpha3/service-entry.yaml",
+			"testdata/networking/v1alpha3/service-entry-bookinfo.yaml",
+			"testdata/networking/v1alpha3/service-entry-google.yaml",
 			"testdata/networking/v1alpha3/rule-route-via-egressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
@@ -48,7 +49,7 @@ func TestEgressGateway(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "RouteViaEgressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, cluster, "HTTPRouteViaEgressGateway", defaultRetryBudget, func() error {
 			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 			reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
 			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
@@ -62,6 +63,21 @@ func TestEgressGateway(t *testing.T) {
 			handledByEgress := strings.Count(resp.Body, "Handled-By-Egress-Gateway=true")
 			log.Infof("request counts %v", count)
 			if count["scooby.eu.bookinfo.com"] >= 95 && count[httpOK] >= 95 && handledByEgress >= 95 {
+				return nil
+			}
+			return errAgain
+		})
+
+		runRetriableTest(t, cluster, "SNIRouteViaEgressGateway", defaultRetryBudget, func() error {
+			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
+			reqURL := fmt.Sprintf("https://www.google.com")
+			resp := ClientRequest(cluster, "a", reqURL, 100, "")
+			count := make(map[string]int)
+			for _, elt := range resp.Code {
+				count[elt]++
+			}
+			log.Infof("request counts %v", count)
+			if count[httpOK] >= 95 {
 				return nil
 			}
 			return errAgain

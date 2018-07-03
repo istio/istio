@@ -26,14 +26,4 @@ spec:
         subset: v1
         port:
            number: 90
-  tls:
-  - match:
-    - sniHosts:
-      - google.com
-      port: 443
-    route:
-    - destination:
-        host: google.com
-        port:
-           number: 443
 
