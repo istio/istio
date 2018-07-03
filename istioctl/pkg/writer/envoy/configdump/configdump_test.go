@@ -48,7 +48,11 @@ func TestConfigWriter_Prime(t *testing.T) {
 			cw := &ConfigWriter{}
 			cd, _ := ioutil.ReadFile(tt.inputFile)
 			err := cw.Prime(cd)
-			if len(cw.configDump.Configs) != tt.wantConfigs {
+			if cw.configDump == nil {
+				if tt.wantConfigs != 0 {
+					t.Errorf("wanted some configs loaded but config dump was nil")
+				}
+			} else if len(cw.configDump.Configs) != tt.wantConfigs {
 				t.Errorf("wanted %v configs loaded in got %v", tt.wantConfigs, len(cw.configDump.Configs))
 			}
 			if tt.wantErr {

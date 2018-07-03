@@ -16,13 +16,6 @@ global:
   tag: 0.8.latest
   proxy:
     image: proxyv2
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
 
     # istio-sidecar-injector configmap stores configuration for sidecar injection.
     # This config map is used by istioctl kube-inject and the injector webhook.
@@ -105,6 +98,18 @@ global:
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -117,13 +122,6 @@ ingress:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
   service:
     annotations: {}
     loadBalancerIP: ""
@@ -154,7 +152,6 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
-    resources: {}
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -184,7 +181,6 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
-    resources: {}
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
@@ -207,13 +203,7 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  enableNamespacesByDefault: false
 
 #
 # galley configuration
@@ -222,13 +212,6 @@ galley:
   enabled: true
   replicaCount: 1
   image: galley
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # mixer configuration
@@ -237,18 +220,10 @@ mixer:
   enabled: true
   replicaCount: 1
   image: mixer
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
     tag: latest
-    resources: {}
 
 #
 # pilot configuration
@@ -257,13 +232,6 @@ pilot:
   enabled: true
   replicaCount: 1
   image: pilot
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # security configuration
@@ -271,14 +239,7 @@ pilot:
 security:
   replicaCount: 1
   image: citadel
-  resources: {}
   selfSigned: true # indicate if self-signed CA is used.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
   cleanUpOldCA: true
 
 #
@@ -308,14 +269,6 @@ grafana:
       #   hosts:
       #     - grafana.local
 
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-
 prometheus:
   enabled: true
   replicaCount: 1
@@ -335,13 +288,6 @@ prometheus:
       # - secretName: prometheus-tls
       #   hosts:
       #     - prometheus.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   service:
     annotations: {}
     nodePort:
@@ -371,13 +317,6 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -414,20 +353,13 @@ tracing:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
 
 kiali:
   enabled: false
   replicaCount: 1
   image:
     repository: kiali/kiali
-    tag: 0.3.1.Alpha
+    tag: v0.4.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -441,13 +373,6 @@ kiali:
       # - secretName: kiali-tls
       #   hosts:
       #     - kiali.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   dashboard:
     username: admin
     password: admin

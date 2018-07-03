@@ -77,7 +77,7 @@ spec:
         valueType: TIMESTAMP
       context.time:
         valueType: TIMESTAMP
-      context.reporter.type:
+      context.reporter.kind:
         valueType: STRING
       context.reporter.uid:
         valueType: STRING

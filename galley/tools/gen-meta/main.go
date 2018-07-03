@@ -199,7 +199,7 @@ import (
 var Types = NewSchema()
 
 func init() {
-{{range .ProtoDefs}}	Types.Register("{{.MessageName}}", {{.Gogo}})
+{{range .ProtoDefs}}	Types.Register("type.googleapis.com/{{.MessageName}}", {{.Gogo}})
 {{end}}}
 `
 
@@ -223,7 +223,7 @@ func init() {
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
-		Target:     getTargetFor("{{.Proto}}"),
+		Target:     getTargetFor("type.googleapis.com/{{.Proto}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
 {{end}}

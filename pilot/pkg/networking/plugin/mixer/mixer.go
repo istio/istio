@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -68,7 +69,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 		"source.uid":            attrUID(in.Node),
 		"source.namespace":      attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
-		"context.reporter.type": attrStringValue("outbound"),
+		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
 	switch in.ListenerProtocol {
@@ -99,7 +100,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		"destination.uid":       attrUID(in.Node),
 		"destination.namespace": attrNamespace(in.Node),
 		"context.reporter.uid":  attrUID(in.Node),
-		"context.reporter.type": attrStringValue("inbound"),
+		"context.reporter.kind": attrStringValue("inbound"),
 	}
 
 	switch address := mutable.Listener.Address.Address.(type) {
@@ -184,12 +185,22 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 		port = mixerMTLSPortNumber
 	}
 
-	return &mccpb.TransportConfig{
+	res := &mccpb.TransportConfig{
 		CheckCluster:  model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
 		ReportCluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
-		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": uid}},
 	}
+	// TODO(yangminzhu): remove this after the default on client code is changed.
+	// So far there is no use case I know where policy check would fail open
+	res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
+
+	// Those settings are not backward compatible.
+	// For testing you can enable them using env - but can't be enabled in 1.0 unless fixed.
+	if os.Getenv("MIXER_NEW_ATTRIBUTES") != "" {
+		// internal telemetry forwarding
+		res.AttributesForMixerProxy = &mpb.Attributes{Attributes: attributes{"source.uid": uid}}
+	}
+
+	return res
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
@@ -326,7 +337,7 @@ func addDestinationServiceAttributes(attrs attributes, discovery model.ServiceDi
 	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
 	serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
-	if err != nil && serviceAttributes != nil {
+	if err == nil && serviceAttributes != nil {
 		if serviceAttributes.Name != "" {
 			attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
 		}

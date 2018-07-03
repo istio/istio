@@ -34,11 +34,25 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: SERVER_CREDENTIALS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kiali
+              key: username
+        - name: SERVER_CREDENTIALS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kiali
+              key: password
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
         resources:
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
       volumes:
       - name: kiali-configuration
         configMap:
