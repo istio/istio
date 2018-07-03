@@ -64,8 +64,7 @@ spec:
     name: istio-proxy
     resources:
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 10m
     securityContext:
       privileged: true
       readOnlyRootFilesystem: false
