@@ -33,17 +33,41 @@ function Usage() {
     exit 1
 }
 
+function abspath() {
+# Source https://stackoverflow.com/questions/3915040/bash-fish-command-to-print-absolute-path-to-a-file
+# Thanks to Alexander Klimetschek
+
+    # generate absolute path from relative path
+    # $1     : relative filename
+    # return : absolute path
+    if [ -d "$1" ]; then
+        # dir
+        (cd "$1"; pwd)
+    elif [ -f "$1" ]; then
+        # file
+        if [[ $1 = /* ]]; then
+            echo "$1"
+        elif [[ $1 == */* ]]; then
+            echo "$(cd "${1%/*}"; pwd)/${1##*/}"
+        else
+            echo "$(pwd)/$1"
+        fi
+    fi
+}
+
 function List_functions() {
   egrep "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
+  TOOLS_ABSPATH=$(abspath ${BASH_SOURCE[0]})
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
   List_functions
   SOURCED=1
 else
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
+  TOOLS_ABSPATH=$(abspath ${0})
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${TOOLS_ABSPATH})}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   echo "In case of errors, retry at the failed step (readyness checks missing)"
   set -e
@@ -164,6 +188,7 @@ function install_istio_svc() {
 }
 
 function install_istio_ingress_rules() {
+  # perf istio rules installs rules for both fortio and grafana
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
@@ -182,33 +207,6 @@ function get_fortio_k8s_ip() {
     FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   done
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
-}
-
-function setup_istio_addons_ingress() {
-  cat <<_EOF_ | kubectl apply -n istio-system -f -
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  annotations:
-    kubernetes.io/ingress.class: istio
-  name: istio-ingress
-spec:
-  rules:
-    - http:
-        paths:
-          - path: /d/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
-          - path: /public/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
-          - path: /api/.*
-            backend:
-              serviceName: grafana
-              servicePort: http
-_EOF_
 }
 
 # Doesn't work somehow...
@@ -260,17 +258,18 @@ function get_non_istio_ingress_ip() {
   echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
-function get_istio_ingress_ip() {
-  ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  while [[ -z "${ISTIO_INGRESS_IP}" ]]
+function get_istio_ingressgateway_ip() {
+  ISTIO_INGRESSGATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  ISTIO_INGRESSGATEWAY_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http")].port}')
+  while [[ -z "${ISTIO_INGRESSGATEWAY_IP}" ]]
   do
-    echo sleeping to get ISTIO_INGRESS_IP ${ISTIO_INGRESS_IP}
+    echo sleeping to get ISTIO_INGRESSGATEWAY_IP ${ISTIO_INGRESSGATEWAY_IP}
     sleep 5
-    ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+    ISTIO_INGRESSGATEWAY_IP=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   done
 
-  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
-  echo "+++ In k8s grafana: http://$ISTIO_INGRESS_IP/d/1/"
+  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/fortio/ and fortio2"
+  echo "+++ In k8s grafana: http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/d/1/"
 }
 
 # Set default QPS to max qps
@@ -327,22 +326,22 @@ function run_fortio_test2() {
 function run_fortio_test_istio_ingress1() {
   get_json_file_name "ingress to s1"
   echo "Using istio ingress to fortio1, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_ingress2() {
   get_json_file_name "ingress to s2"
   echo "Using istio ingress to fortio2, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   get_json_file_name "s1 to s2"
   echo "Using istio f1 to f2, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_2_1() {
   get_json_file_name "s2 to s1"
   echo "Using istio f2 to f1, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESSGATEWAY_IP:$ISTIO_INGRESSGATEWAY_PORT/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 
 # Run canonical perf tests.
@@ -380,10 +379,10 @@ function run_canonical_perf_test() {
     DURATION="${DURATION:-5m}"
     CLIENTS="${CLIENTS:-16}"
 
-    get_istio_ingress_ip
+    get_istio_ingressgateway_ip
 
-    FORTIO1_URL="http://${ISTIO_INGRESS_IP}/fortio1/fortio"
-    FORTIO2_URL="http://${ISTIO_INGRESS_IP}/fortio2/fortio"
+    FORTIO1_URL="http://${ISTIO_INGRESSGATEWAY_IP}:${ISTIO_INGRESSGATEWAY_PORT}/fortio1/fortio/"
+    FORTIO2_URL="http://${ISTIO_INGRESSGATEWAY_IP}:${ISTIO_INGRESSGATEWAY_PORT}/fortio2/fortio/"
     case "${DRIVER}" in
         "fortio1")
             DRIVER_URL="${FORTIO1_URL}"
@@ -433,6 +432,14 @@ function run_canonical_perf_test() {
     curl -s "${URL}" -o "${OUT_FILE}"
 }
 
+function wait_istio_up() {
+  for namespace in $(kubectl get namespaces --no-headers -o name); do
+    for name in $(kubectl get deployment -o name -n ${namespace}); do
+      kubectl -n ${namespace} rollout status ${name} -w;
+    done
+  done
+}
+
 function setup_vm_all() {
   update_gcp_opts
   create_vm
@@ -446,10 +453,12 @@ function setup_istio_all() {
   update_gcp_opts
   install_istio
   install_istio_svc
-  install_istio_ingress_rules
+  install_istio_traffic_rules
+  wait_istio_up #wait
+
   install_istio_cache_busting_rule
   install_istio_addons
-  setup_istio_addons_ingress
+  wait_istio_up #wait
 }
 
 function setup_cluster_all() {
@@ -481,7 +490,7 @@ function get_ips() {
   get_vm_ip
   get_fortio_k8s_ip
   get_non_istio_ingress_ip
-  get_istio_ingress_ip
+  get_istio_ingressgateway_ip
 }
 
 function run_4_tests() {
@@ -526,7 +535,7 @@ if [[ $SOURCED == 0 ]]; then
 #setup_istio_all
 #install_istio_svc
 #install_istio_ingress
-#install_istio_ingress_rules
+#install_istio_traffic_rules
 #setup_non_istio_ingress
 #install_istio
 #setup_vm_firewall
