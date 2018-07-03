@@ -34,7 +34,6 @@ rules:
   - memquotas
   - opas
   - prometheuses
-  - rbacs
   - servicecontrols
   - solarwindses
   - stackdrivers
@@ -60,6 +59,13 @@ rules:
   - destinationrules
   - serviceentries
   - gateways
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["rbac.istio.io"]
+  resources:
+  - rbacs
   verbs:
   - get
   - list
