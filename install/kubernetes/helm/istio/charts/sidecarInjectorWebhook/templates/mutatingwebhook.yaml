@@ -1,10 +1,8 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-sidecar-injector-pre-instanll
+  name: istio-sidecar-injector-pre-install
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
