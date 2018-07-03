@@ -12,14 +12,17 @@ data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+
     # Set enableTracing to false to disable request tracing.
-    enableTracing: true
+    enableTracing: {{ .Values.global.enableTracing }}
+
     # Set accessLogFile to empty string to disable access log.
-    accessLogFile: "/dev/stdout"
+    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
+    # Deprecated: mixer is using EDS
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
     # This is the ingress service name, update if you used a different name
@@ -30,6 +33,7 @@ data:
     # from istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
+    # Deprecated: using push.
     rdsRefreshDelay: {{ .Values.global.refreshInterval }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
@@ -44,6 +48,7 @@ data:
       # NOTE: If you change any values in this section, make sure to make
       # the same changes in start up args in istio-ingress pods.
       # See rdsRefreshDelay for explanation about this setting.
+      # Deprecated: using push.
       discoveryRefreshDelay: {{ .Values.global.refreshInterval }}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
