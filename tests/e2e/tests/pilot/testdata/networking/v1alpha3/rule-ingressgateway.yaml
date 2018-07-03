@@ -8,7 +8,10 @@ spec:
   gateways:
   - istio-ingressgateway # pinned to ingress gateway only
   http:
-  - route:
+  - match:
+    - port: 80
+    - port: 443
+    route:
     - destination:
         host: c
         subset: v2
@@ -27,6 +30,7 @@ spec:
   - match:
     - sniHosts:
       - google.com
+      port: 443
     route:
     - destination:
         host: google.com
