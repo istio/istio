@@ -366,14 +366,14 @@ generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_gos): $(envoy_protos)
-  ## Generate envoy/*/*.pb.go
+	## Generate envoy/*/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $^
 
 generate-envoy-python: $(envoy_pb_pythons)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_pythons): $(envoy_protos)
-  ## Generate envoy/*/*_pb2.py
+	## Generate envoy/*/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-envoy:
