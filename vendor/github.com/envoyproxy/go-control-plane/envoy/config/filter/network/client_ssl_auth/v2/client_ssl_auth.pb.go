@@ -15,7 +15,7 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
@@ -55,7 +55,7 @@ type ClientSSLAuth struct {
 	// An optional list of IP address and subnet masks that should be white
 	// listed for access by the filter. If no list is provided, there is no
 	// IP white list.
-	IpWhiteList []*envoy_api_v2_core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
+	IpWhiteList []*envoy_api_v2_core1.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
 }
 
 func (m *ClientSSLAuth) Reset()                    { *m = ClientSSLAuth{} }
@@ -84,7 +84,7 @@ func (m *ClientSSLAuth) GetRefreshDelay() *time.Duration {
 	return nil
 }
 
-func (m *ClientSSLAuth) GetIpWhiteList() []*envoy_api_v2_core.CidrRange {
+func (m *ClientSSLAuth) GetIpWhiteList() []*envoy_api_v2_core1.CidrRange {
 	if m != nil {
 		return m.IpWhiteList
 	}
@@ -338,7 +338,7 @@ func (m *ClientSSLAuth) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IpWhiteList = append(m.IpWhiteList, &envoy_api_v2_core.CidrRange{})
+			m.IpWhiteList = append(m.IpWhiteList, &envoy_api_v2_core1.CidrRange{})
 			if err := m.IpWhiteList[len(m.IpWhiteList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

@@ -50,13 +50,13 @@ func (s *StatusWriter) PrintAll(statuses map[string][]byte) error {
 }
 
 // PrintSingle takes a slice of Pilot syncz responses and outputs them using a tabwriter filtering for a specific pod
-func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) error {
+func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string) error {
 	w, fullStatus, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
 	}
 	for _, status := range fullStatus {
-		if strings.Contains(status.ProxyID, podName) {
+		if strings.Contains(status.ProxyID, proxyName) {
 			if err := statusPrintln(w, status); err != nil {
 				return err
 			}
@@ -66,8 +66,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, podName string) e
 }
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
-	w := new(tabwriter.Writer)
-	w.Init(s.Writer, 0, 8, 4, '\t', 0)
+	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {

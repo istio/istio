@@ -15,54 +15,30 @@
 package dispatcher
 
 import (
-	"fmt"
-
 	"istio.io/istio/mixer/pkg/attribute"
 )
 
-// getIdentityAttributeValue from the attribute bag, based on the id attribute.
-func getIdentityAttributeValue(attrs attribute.Bag, idAttribute string) (string, error) {
-
-	v, ok := attrs.Get(idAttribute)
-	if !ok {
-		return "", fmt.Errorf("identity parameter not found: '%s'", idAttribute)
-	}
-
-	var destination string
-	if destination, ok = v.(string); !ok {
-		return "", fmt.Errorf("identity parameter is not a string: '%s'", idAttribute)
-	}
-
-	return destination, nil
-}
-
-// getNamespace returns the namespace portion of a given fully qualified destination name. If the destination
-// namespace cannot be deduced, then empty string is returned.
-func getNamespace(destination string) string {
-	l := len(destination)
-
-	idx1 := -1
-	for i := 0; i < l; i++ {
-		if destination[i] == '.' {
-			idx1 = i
-			break
+// getIdentityNamespace returns the namespace scope for the attribute bag
+func getIdentityNamespace(attrs attribute.Bag) (namespace string, err error) {
+	reporterType := "inbound"
+	if typeValue, ok := attrs.Get("context.reporter.kind"); ok {
+		if v, isString := typeValue.(string); isString {
+			reporterType = v
 		}
 	}
-	if idx1 == -1 {
-		return ""
-	}
-
-	idx2 := -1
-	for i := idx1 + 1; i < l; i++ {
-		if destination[i] == '.' {
-			idx2 = i
-			break
+	// use destination.namespace for inbound, source.namespace for outbound
+	switch reporterType {
+	case "inbound":
+		destinationNamespace, ok := attrs.Get("destination.namespace")
+		if ok {
+			namespace, _ = destinationNamespace.(string)
+		}
+	case "outbound":
+		sourceNamespace, ok := attrs.Get("source.namespace")
+		if ok {
+			namespace, _ = sourceNamespace.(string)
 		}
 	}
 
-	if idx2 == -1 {
-		idx2 = len(destination)
-	}
-
-	return destination[idx1+1 : idx2]
+	return
 }

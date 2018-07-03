@@ -34,10 +34,10 @@ func (e *Schema) All() []ResourceSpec {
 	return e.entries
 }
 
-func getTargetFor(name string) resource.Info {
-	rInfo, ok := resource.Types.LookupByKind(resource.Kind(name))
+func getTargetFor(typeURL string) resource.Info {
+	rInfo, ok := resource.Types.Lookup(typeURL)
 	if !ok {
-		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", name))
+		panic(fmt.Sprintf("Corresponding resource spec not found for: %s", typeURL))
 	}
 	return rInfo
 }

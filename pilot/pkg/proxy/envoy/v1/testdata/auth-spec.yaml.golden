@@ -1,8 +1,0 @@
-jwts:
-- issuer: 1234567-compute@developer.gserviceaccount.com
-  audiences:
-  - bookstore_android.apps.googleusercontent.com
-  - bookstore_web.apps.googleusercontent.com
-  jwksUri: https://www.googleapis.com/oauth2/v1/certs
-  locations:
-  - header: x-goog-iap-jwt-assertion

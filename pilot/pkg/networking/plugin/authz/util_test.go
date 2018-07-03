@@ -189,13 +189,13 @@ func TestConvertToHeaderMatcher(t *testing.T) {
 			},
 		},
 		{
-			Name: "regex match",
+			Name: "suffix match",
 			K:    ":path",
 			V:    "*/productpage*",
 			Expect: &route.HeaderMatcher{
 				Name: ":path",
-				HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-					RegexMatch: "^.*/productpage.*$",
+				HeaderMatchSpecifier: &route.HeaderMatcher_SuffixMatch{
+					SuffixMatch: "/productpage*",
 				},
 			},
 		},
@@ -205,6 +205,51 @@ func TestConvertToHeaderMatcher(t *testing.T) {
 		actual := convertToHeaderMatcher(tc.K, tc.V)
 		if !reflect.DeepEqual(*tc.Expect, *actual) {
 			t.Errorf("%s: expecting %v, but got %v", tc.Name, *tc.Expect, *actual)
+		}
+	}
+}
+
+func TestExtractNameInBrackets(t *testing.T) {
+	cases := []struct {
+		s      string
+		expect string
+		err    bool
+	}{
+		{s: "[good]", expect: "good", err: false},
+		{s: "[[good]]", expect: "[good]", err: false},
+		{s: "[]", expect: "", err: false},
+		{s: "[bad", expect: "", err: true},
+		{s: "bad]", expect: "", err: true},
+		{s: "bad", expect: "", err: true},
+	}
+
+	for _, c := range cases {
+		s, err := extractNameInBrackets(c.s)
+		if s != c.expect {
+			t.Errorf("expecting [good] but found %s", s)
+		}
+		if c.err != (err != nil) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+}
+
+func TestExtractActualServiceAccount(t *testing.T) {
+	cases := []struct {
+		in     string
+		expect string
+	}{
+		{in: "service-account", expect: "service-account"},
+		{in: "spiffe://xyz.com/sa/test-sa/ns/default", expect: "test-sa"},
+		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa/ns/default", expect: "test-sa"},
+		{in: "spiffe://xyz.com/sa/test-sa/", expect: "test-sa"},
+		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa", expect: "test-sa"},
+	}
+
+	for _, c := range cases {
+		actual := extractActualServiceAccount(c.in)
+		if actual != c.expect {
+			t.Errorf("%s: expecting %s, but got %s", c.in, c.expect, actual)
 		}
 	}
 }

@@ -121,7 +121,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			} else {
 
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
-				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
+				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal && proxy.Type == model.Sidecar {
 					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts), env.Mesh)
 				}
 			}
@@ -492,12 +492,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	switch port.Protocol {
-	case model.ProtocolHTTP:
-		cluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
-	case model.ProtocolGRPC:
-		fallthrough
-	case model.ProtocolHTTP2:
+	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{

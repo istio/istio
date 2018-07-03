@@ -7,6 +7,88 @@
                 {
                     "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
                     "listener": {
+                        "name": "172.21.134.116_443",
+                        "address": {
+                            "socketAddress": {
+                                "address": "172.21.134.116",
+                                "portValue": 443
+                            }
+                        },
+                        "filterChains": [
+                            {
+                                "filters": [
+                                    {
+                                        "name": "mixer",
+                                        "config": {
+                                            "disable_check_calls": true,
+                                            "mixer_attributes": {
+                                                "attributes": {
+                                                    "context.reporter.local": {
+                                                        "bool_value": false
+                                                    },
+                                                    "context.reporter.uid": {
+                                                        "string_value": "kubernetes://productpage-v1-5fcc7488f8-54g7q.default"
+                                                    },
+                                                    "destination.service": {
+                                                        "string_value": "unknown"
+                                                    },
+                                                    "destination.service.host": {
+                                                        "string_value": "unknown"
+                                                    },
+                                                    "destination.service.name": {
+                                                        "string_value": "unknown"
+                                                    },
+                                                    "destination.service.uid": {
+                                                        "string_value": "istio:///services/unknown"
+                                                    },
+                                                    "source.uid": {
+                                                        "string_value": "kubernetes://productpage-v1-5fcc7488f8-54g7q.default"
+                                                    }
+                                                }
+                                            },
+                                            "transport": {
+                                                "attributes_for_mixer_proxy": {
+                                                    "attributes": {
+                                                        "source.uid": {
+                                                            "string_value": "kubernetes://productpage-v1-5fcc7488f8-54g7q.default"
+                                                        }
+                                                    }
+                                                },
+                                                "check_cluster": "outbound|9091||istio-policy.istio-system.svc.cluster.local",
+                                                "report_cluster": "outbound|9091||istio-telemetry.istio-system.svc.cluster.local"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "envoy.tcp_proxy",
+                                        "config": {
+                                            "deprecated_v1": true,
+                                            "value": {
+                                                "route_config": {
+                                                    "routes": [
+                                                        {
+                                                            "cluster": "outbound|443||istio-galley.istio-system.svc.cluster.local",
+                                                            "destination_ip_list": [
+                                                                "172.21.134.116/32"
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "stat_prefix": "outbound|tcp|443"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        "deprecatedV1": {
+                            "bindToPort": false
+                        }
+                    }
+                },
+                {
+                    "versionInfo": "2018-05-29 20:34:55.438944238 +0000 UTC m=+600.424148258",
+                    "listener": {
                         "name": "0.0.0.0_8080",
                         "address": {
                             "socketAddress": {
@@ -20,7 +102,7 @@
                                     {
                                         "name": "envoy.http_connection_manager",
                                         "config": {
-                                            "stat_prefix": "0.0.0.0_8080",
+                                            "stat_prefix": "http",
                                             "use_remote_address": false,
                                             "generate_request_id": true,
                                             "access_log": [
@@ -150,33 +232,35 @@
             "versionInfo": "2018-05-29 20:35:10.051043472 +0000 UTC m=+615.036247510",
             "staticClusters": [
                 {
-                    "name": "xds-grpc",
-                    "type": "STRICT_DNS",
-                    "connectTimeout": "10s",
-                    "hosts": [
-                        {
-                            "socketAddress": {
-                                "address": "istio-pilot.istio-system",
-                                "portValue": 15010
-                            }
-                        }
-                    ],
-                    "circuitBreakers": {
-                        "thresholds": [
+                    "cluster": {
+                        "name": "xds-grpc",
+                        "type": "STRICT_DNS",
+                        "connectTimeout": "10s",
+                        "hosts": [
                             {
-                                "maxConnections": 100000,
-                                "maxPendingRequests": 100000,
-                                "maxRequests": 100000
-                            },
-                            {
-                                "priority": "HIGH",
-                                "maxConnections": 100000,
-                                "maxPendingRequests": 100000,
-                                "maxRequests": 100000
+                                "socketAddress": {
+                                    "address": "istio-pilot.istio-system",
+                                    "portValue": 15010
+                                }
                             }
-                        ]
-                    },
-                    "http2ProtocolOptions": {}
+                        ],
+                        "circuitBreakers": {
+                            "thresholds": [
+                                {
+                                    "maxConnections": 100000,
+                                    "maxPendingRequests": 100000,
+                                    "maxRequests": 100000
+                                },
+                                {
+                                    "priority": "HIGH",
+                                    "maxConnections": 100000,
+                                    "maxPendingRequests": 100000,
+                                    "maxRequests": 100000
+                                }
+                            ]
+                        },
+                        "http2ProtocolOptions": {}
+                    }
                 }
             ],
             "dynamicActiveClusters": [
@@ -324,46 +408,125 @@
             "@type": "type.googleapis.com/envoy.admin.v2alpha.RoutesConfigDump",
             "staticRouteConfigs": [
                 {
-                    "name": "inbound|9080||details.default.svc.cluster.local",
-                    "virtualHosts": [
-                        {
-                            "name": "inbound|http|9080",
-                            "domains": [
-                                "*"
-                            ],
-                            "routes": [
-                                {
-                                    "match": {
-                                        "prefix": "/"
-                                    },
-                                    "route": {
-                                        "cluster": "inbound|9080||details.default.svc.cluster.local"
-                                    },
-                                    "decorator": {
-                                        "operation": "default-route"
-                                    },
-                                    "perFilterConfig": {
-                                        "mixer": {
-                                            "mixer_attributes": {
-                                                "attributes": {
-                                                    "destination.service": {
-                                                        "string_value": "details.default.svc.cluster.local"
-                                                    },
-                                                    "destination.ip": {
-                                                        "bytes_value": "AAAAAAAAAAAAAP//rB5N8w=="
-                                                    },
-                                                    "destination.uid": {
-                                                        "string_value": "kubernetes://details-v1-9cb87c69-t2fdz.default"
+                    "route_config": {
+                        "name": "inbound|9080||productpage.default.svc.cluster.local",
+                        "virtualHosts": [
+                            {
+                                "name": "inbound|http|9080",
+                                "domains": [
+                                    "*"
+                                ],
+                                "routes": [
+                                    {
+                                        "match": {
+                                            "prefix": "/"
+                                        },
+                                        "route": {
+                                            "cluster": "inbound|9080||productpage.default.svc.cluster.local",
+                                            "timeout": "0s",
+                                            "useWebsocket": true
+                                        },
+                                        "decorator": {
+                                            "operation": "productpage.default.svc.cluster.local:9080/*"
+                                        },
+                                        "perFilterConfig": {
+                                            "mixer": {
+                                                "mixer_attributes": {
+                                                    "attributes": {
+                                                        "destination.service.uid": {
+                                                            "string_value": "istio://default/services/productpage"
+                                                        },
+                                                        "destination.service.host": {
+                                                            "string_value": "productpage.default.svc.cluster.local"
+                                                        },
+                                                        "destination.service.name": {
+                                                            "string_value": "productpage"
+                                                        },
+                                                        "destination.service.namespace": {
+                                                            "string_value": "default"
+                                                        },
+                                                        "destination.service": {
+                                                            "string_value": "productpage.default.svc.cluster.local"
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            ]
-                        }
-                    ],
-                    "validateClusters": false
+                                ]
+                            }
+                        ],
+                        "validateClusters": false
+                    }
+                }
+            ],
+            "dynamicRouteConfigs": [
+                {
+                    "versionInfo": "2018-06-19 06:21:16.597131985 +0000 UTC m=+38444.053119011",
+                    "routeConfig": {
+                        "name": "15004",
+                        "virtualHosts": [
+                            {
+                                "name": "istio-policy.istio-system.svc.cluster.local:15004",
+                                "domains": [
+                                    "istio-policy.istio-system.svc.cluster.local",
+                                    "istio-policy.istio-system.svc.cluster.local:15004",
+                                    "istio-policy.istio-system",
+                                    "istio-policy.istio-system:15004",
+                                    "istio-policy.istio-system.svc.cluster",
+                                    "istio-policy.istio-system.svc.cluster:15004",
+                                    "istio-policy.istio-system.svc",
+                                    "istio-policy.istio-system.svc:15004",
+                                    "172.21.193.112",
+                                    "172.21.193.112:15004"
+                                ],
+                                "routes": [
+                                    {
+                                        "match": {
+                                            "prefix": "/"
+                                        },
+                                        "route": {
+                                            "cluster": "outbound|15004||istio-policy.istio-system.svc.cluster.local",
+                                            "timeout": "0s"
+                                        },
+                                        "decorator": {
+                                            "operation": "istio-policy.istio-system.svc.cluster.local:15004/*"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "istio-telemetry.istio-system.svc.cluster.local:15004",
+                                "domains": [
+                                    "istio-telemetry.istio-system.svc.cluster.local",
+                                    "istio-telemetry.istio-system.svc.cluster.local:15004",
+                                    "istio-telemetry.istio-system",
+                                    "istio-telemetry.istio-system:15004",
+                                    "istio-telemetry.istio-system.svc.cluster",
+                                    "istio-telemetry.istio-system.svc.cluster:15004",
+                                    "istio-telemetry.istio-system.svc",
+                                    "istio-telemetry.istio-system.svc:15004",
+                                    "172.21.41.196",
+                                    "172.21.41.196:15004"
+                                ],
+                                "routes": [
+                                    {
+                                        "match": {
+                                            "prefix": "/"
+                                        },
+                                        "route": {
+                                            "cluster": "outbound|15004||istio-telemetry.istio-system.svc.cluster.local",
+                                            "timeout": "0s"
+                                        },
+                                        "decorator": {
+                                            "operation": "istio-telemetry.istio-system.svc.cluster.local:15004/*"
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        "validateClusters": false
+                    }
                 }
             ]
         }
