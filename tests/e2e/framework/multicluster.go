@@ -82,15 +82,15 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	return
 }
 
-func (k *KubeInfo) generateRemoteIstio(dst string) (err error) {
+func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub, proxyTag string) (err error) {
 	svcToHelmVal := map[string]string{
-		"istio-pilot":              "pilotEndpoint",
-		"istio-policy":             "policyEndpoint",
-		"istio-statsd-prom-bridge": "statsdEndpoint",
+		"istio-pilot":              "remotePilotAddress",
+		"istio-policy":             "remotePolicyAddress",
+		"istio-statsd-prom-bridge": "proxy.envoyStatsd.host",
 		"istio-ingress":            "ingressEndpoint",
 		"istio-ingressgateway":     "ingressGatewayEndpoint",
-		"istio-telemetry":          "telemetryEndpoint",
-		"zipkin":                   "zipkinEndpoint",
+		"istio-telemetry":          "remoteTelemetryAddress",
+		"zipkin":                   "remoteZipkinAddress",
 	}
 	var helmSetContent string
 	for svc, helmVal := range svcToHelmVal {
@@ -99,9 +99,22 @@ func (k *KubeInfo) generateRemoteIstio(dst string) (err error) {
 		if err == nil {
 			helmSetContent += " --set global." + helmVal + "=" + ip
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
+			if svc == "istio-statsd-prom-bridge" {
+				helmSetContent += " --set global.proxy.envoyStatsd.enabled=true"
+			}
 		} else {
 			log.Infof("Endpoint for service %s not found", svc)
 		}
+	}
+	if !useAutoInject {
+		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
+		log.Infof("Remote cluster auto-sidecar injection disabled")
+	} else {
+		helmSetContent += " --set sidecarInjectorWebhook.enabled=true"
+		log.Infof("Remote cluster auto-sidecar injection enabled")
+	}
+	if proxyHub != "" && proxyTag != "" {
+		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
 	}
 	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
 	util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
