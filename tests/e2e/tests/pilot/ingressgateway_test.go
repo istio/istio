@@ -206,7 +206,6 @@ func TestGateway_TCP(t *testing.T) {
 		Namespace: istioNamespace,
 		YamlFiles: []string{
 			"testdata/v1alpha3/rule-force-a-through-ingress-gateway.yaml",
-			"testdata/v1alpha3/rule-gateway-a.yaml",
 			"testdata/v1alpha3/gateway-tcp-a.yaml",
 		},
 		kubeconfig: tc.Kube.KubeConfig,
@@ -216,27 +215,16 @@ func TestGateway_TCP(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	cases := []struct {
-		// empty destination to expect 404
-		dst string
-		url string
-	}{
-		{
-			dst: "a",
-			url: fmt.Sprintf("http://%s.%s:%d", "a", istioNamespace, 9090),
-		},
-	}
+	url := fmt.Sprintf("http://%s.%s:%d", "a", istioNamespace, 9090)
 	t.Run("tcp_requests", func(t *testing.T) {
-		for _, c := range cases {
-			for cluster := range tc.Kube.Clusters {
-				runRetriableTest(t, cluster, c.url, defaultRetryBudget, func() error {
-					resp := ClientRequest(cluster, "b", c.url, 1, "")
-					if resp.IsHTTPOk() {
-						return nil
-					}
-					return errAgain
-				})
-			}
+		for cluster := range tc.Kube.Clusters {
+			runRetriableTest(t, cluster, url, defaultRetryBudget, func() error {
+				resp := ClientRequest(cluster, "b", url, 1, "")
+				if resp.IsHTTPOk() {
+					return nil
+				}
+				return errAgain
+			})
 		}
 	})
 }

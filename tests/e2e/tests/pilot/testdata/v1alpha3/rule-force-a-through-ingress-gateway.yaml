@@ -4,16 +4,26 @@ metadata:
   name: force-a-through-ingress-gateway
 spec:
   hosts:
-  - a
+  - a.istio-system.svc.cluster.local
+  gateways:
+  - gateway-a
+  - mesh
   tcp:
   - match:
       # only match the TCP port so we don't affect HTTP traffic
     - port: 9090
-      # TODO: is this always safe for our tests?
-      sourceSubnet: "10.0.0.0/8"
+      gateways:
+      - mesh
     route:
     - destination:
-        # use the shortname so the test doesn't depend on istio-system namespace
-        host: istio-ingressgateway
+        host: istio-ingressgateway.istio-system.svc.cluster.local
         port:
           number: 31400
+  - match:
+    - gateways:
+      - gateway-a
+    route:
+    - destination:
+        host: a.istio-system.svc.cluster.local
+        port:
+          number: 90
