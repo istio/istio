@@ -16,7 +16,6 @@ package v2
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -217,11 +216,15 @@ type XdsConnection struct {
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
-func (conn *XdsConnection) configDump() (*adminapi.ConfigDump, error) {
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	for _, cs := range conn.HTTPClusters {
+	clusters, err := s.generateRawClusters(conn)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
 	}
 	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
@@ -234,7 +237,11 @@ func (conn *XdsConnection) configDump() (*adminapi.ConfigDump, error) {
 	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	for _, cs := range conn.HTTPListeners {
+	listeners, err := s.generateRawListeners(conn)
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range listeners {
 		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
 	}
 	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
@@ -246,9 +253,13 @@ func (conn *XdsConnection) configDump() (*adminapi.ConfigDump, error) {
 	}
 	configDump.Configs["listeners"] = *listenersAny
 
-	if len(conn.RouteConfigs) > 0 {
+	routes, err := s.generateRawRoutes(conn)
+	if err != nil {
+		return nil, err
+	}
+	if len(routes) > 0 {
 		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
-		for _, rs := range conn.RouteConfigs {
+		for _, rs := range routes {
 			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
 		}
 		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
@@ -616,79 +627,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 //	proxyInstances, err := s.env.GetProxyServiceInstances(node)
 //	return proxyInstances, err
 //}
-
-func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rc := make([]*xdsapi.RouteConfiguration, 0)
-	// TODO: Follow this logic for other xDS resources as well
-	// And cache/retrieve this info on-demand, not for every request from every proxy
-	//var services []*model.Service
-	//s.modelMutex.RLock()
-	//services = s.services
-	//s.modelMutex.RUnlock()
-	//
-	//proxyInstances, err := s.getServicesForEndpoint(con.modelNode)
-	//if err != nil {
-	//	adsLog.Warnf("ADS: RDS: Failed to retrieve proxy service instances %v", err)
-	//	pushes.With(prometheus.Labels{"type": "rds_conferr"}).Add(1)
-	//	return err
-	//}
-
-	// TODO: once per config update
-	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, *con.modelNode, routeName)
-		if err != nil {
-			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %s: %v", routeName, con.modelNode, err)
-			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %s: %v", routeName, con.modelNode, err)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			return retErr
-		}
-
-		if r == nil {
-			adsLog.Warnf("RDS: got nil value for route %s for node %s: %v", routeName, con.modelNode, err)
-			continue
-		}
-
-		if err = r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
-			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
-			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
-			// Generating invalid routes is a bug.
-			// Panic instead of trying to recover from that, since we can't
-			// assume anything about the state.
-			panic(retErr.Error())
-		}
-
-		rc = append(rc, r)
-		con.RouteConfigs[routeName] = r
-		resp, _ := model.ToJSONWithIndent(r, " ")
-		adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
-	}
-	response := routeDiscoveryResponse(rc, *con.modelNode)
-	err := con.send(response)
-	if err != nil {
-		adsLog.Warnf("ADS: RDS: Send failure for %s, closing grpc %v", con.modelNode, err)
-		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
-		return err
-	}
-	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
-
-	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode, con.PeerAddr, len(rc))
-	return nil
-}
-
-func routeDiscoveryResponse(ls []*xdsapi.RouteConfiguration, node model.Proxy) *xdsapi.DiscoveryResponse {
-	resp := &xdsapi.DiscoveryResponse{
-		TypeUrl:     RouteType,
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-	}
-	for _, ll := range ls {
-		lr, _ := types.MarshalAny(ll)
-		resp.Resources = append(resp.Resources, *lr)
-	}
-
-	return resp
-}
 
 // Send with timeout
 func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {

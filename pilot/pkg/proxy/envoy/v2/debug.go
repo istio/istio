@@ -63,7 +63,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
-	mux.HandleFunc("/debug/config_dump", ConfigDump)
+	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -575,7 +575,7 @@ func adsz(w http.ResponseWriter, req *http.Request) {
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
-func ConfigDump(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		adsClientsMutex.RLock()
 		defer adsClientsMutex.RUnlock()
@@ -593,7 +593,7 @@ func ConfigDump(w http.ResponseWriter, req *http.Request) {
 				mostRecent = key
 			}
 		}
-		dump, err := connections[mostRecent].configDump()
+		dump, err := s.configDump(connections[mostRecent])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
