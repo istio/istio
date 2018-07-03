@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
+	prlang "github.com/golang/protobuf/proto"
 )
 
 // MessageName is the proto message name of a resource.
-type MessageName string
+type MessageName struct{ string }
 
 // Version is the version identifier of a resource.
 type Version string
@@ -47,7 +47,7 @@ type VersionedKey struct {
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
 	ID   VersionedKey
-	Item proto.Message
+	Item prlang.Message
 }
 
 // Info is the type metadata for an Entry.
@@ -55,8 +55,18 @@ type Info struct {
 	// The message name of the resource that this info is about
 	MessageName MessageName
 
+	// Indicates whether the proto is defined as Gogo.
+	IsGogo bool
+
 	// The Type URL to use, when encoding as Any
 	TypeURL string
+
+	goType reflect.Type
+}
+
+// String interface method implementation.
+func (m MessageName) String() string {
+	return m.string
 }
 
 // String interface method implementation.
@@ -80,27 +90,14 @@ func (i *Info) String() string {
 }
 
 // NewProtoInstance returns a new instance of the underlying proto for this resource.
-func (i *Info) NewProtoInstance() proto.Message {
-	return i.newProtoInstance(proto.MessageType)
-}
+func (i *Info) NewProtoInstance() prlang.Message {
 
-func (i *Info) newProtoInstance(fn func(string) reflect.Type) proto.Message {
-	t := fn(string(i.MessageName))
-	if t == nil {
-		panic(fmt.Sprintf("NewProtoInstance: unable to instantiate proto instance: %s", i.MessageName))
-	}
+	instance := reflect.New(i.goType).Interface()
 
-	if t.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("NewProtoInstance: type is not pointer: kind:%s, type:%v", i.MessageName, t))
-	}
-	t = t.Elem()
-
-	instance := reflect.New(t).Interface()
-
-	if p, ok := instance.(proto.Message); !ok {
+	if p, ok := instance.(prlang.Message); !ok {
 		panic(fmt.Sprintf(
 			"NewProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
-			i.MessageName, t, instance))
+			i.MessageName, i.goType, instance))
 	} else {
 		return p
 	}

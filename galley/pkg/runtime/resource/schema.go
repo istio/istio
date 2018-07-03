@@ -16,38 +16,71 @@ package resource
 
 import (
 	"fmt"
+	"reflect"
 )
 
 // BaseTypeURL contains the common scheme & domain parts of all type urls.
 const BaseTypeURL = "types.googleapis.com"
 
+// injectable function for overriding proto.MessageType, for testing purposes.
+type messageTypeFn func(name string, isGogo bool) reflect.Type
+
 // Schema contains metadata about configuration resources.
 type Schema struct {
-	byName map[MessageName]Info
+	byName map[string]Info
 	byURL  map[string]Info
+
+	messageTypeFn messageTypeFn
 }
 
 // NewSchema returns a new instance of Schema.
 func NewSchema() *Schema {
+	return newSchema(getProtoMessageType)
+}
+
+// NewSchema returns a new instance of Schema.
+func newSchema(messageTypeFn messageTypeFn) *Schema {
 	return &Schema{
-		byName: make(map[MessageName]Info),
-		byURL:  make(map[string]Info),
+		byName:        make(map[string]Info),
+		byURL:         make(map[string]Info),
+		messageTypeFn: messageTypeFn,
 	}
 }
 
 // Register a proto into the schema.
-func (s *Schema) Register(protoMessageName string) {
-	info := Info{
-		MessageName: MessageName(protoMessageName),
-		TypeURL:     fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
+func (s *Schema) Register(protoMessageName string, isGogo bool) {
+	if _, found := s.byName[protoMessageName]; found {
+		panic(fmt.Sprintf("Schema.Register: Proto type is registered multiple times: %q", protoMessageName))
 	}
 
-	s.byName[info.MessageName] = info
+	// Before registering, ensure that the proto type is actually reachable.
+	goType := s.messageTypeFn(protoMessageName, isGogo)
+	if goType == nil {
+		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q, isGogo: %v", protoMessageName, isGogo))
+	}
+
+	info := Info{
+		MessageName: MessageName{protoMessageName},
+		IsGogo:      isGogo,
+		TypeURL:     fmt.Sprintf("%s/%s", BaseTypeURL, protoMessageName),
+		goType:      goType,
+	}
+
+	s.byName[info.MessageName.string] = info
 	s.byURL[info.TypeURL] = info
 }
 
+// Info looks up a resource.Info by its message name. It panics if the expected entry not found.
+func (s *Schema) Info(name MessageName) Info {
+	i, ok := s.byName[name.string]
+	if !ok {
+		panic(fmt.Sprintf("Schema.Info: MessageName %q not found", name))
+	}
+	return i
+}
+
 // LookupByMessageName looks up a resource.Info by its message name.
-func (s *Schema) LookupByMessageName(name MessageName) (Info, bool) {
+func (s *Schema) LookupByMessageName(name string) (Info, bool) {
 	i, ok := s.byName[name]
 	return i, ok
 }

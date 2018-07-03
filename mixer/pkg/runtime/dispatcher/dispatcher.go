@@ -70,8 +70,6 @@ type QuotaMethodArgs struct {
 
 // Impl is the runtime implementation of the Dispatcher interface.
 type Impl struct {
-	identityAttribute string
-
 	// Current routing context.
 	rc *RoutingContext
 
@@ -96,11 +94,10 @@ type Impl struct {
 var _ Dispatcher = &Impl{}
 
 // New returns a new Impl instance. The Impl instance is initialized with an empty routing table.
-func New(identityAttribute string, handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
+func New(handlerGP *pool.GoroutinePool, enableTracing bool) *Impl {
 	d := &Impl{
-		identityAttribute: identityAttribute,
-		gp:                handlerGP,
-		enableTracing:     enableTracing,
+		gp:            handlerGP,
+		enableTracing: enableTracing,
 		rc: &RoutingContext{
 			Routes: routing.Empty(),
 		},

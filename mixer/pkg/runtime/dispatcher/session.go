@@ -103,18 +103,27 @@ func (s *session) ensureParallelism(minParallelism int) {
 }
 
 func (s *session) dispatch() error {
-	// Lookup the value of the identity attribute, so that we can extract the namespace to use for route
-	// lookup.
-	identityAttributeValue, err := getIdentityAttributeValue(s.bag, s.impl.identityAttribute)
+	// Determine namespace to scope config resolution
+	namespace, err := getIdentityNamespace(s.bag)
 	if err != nil {
 		// early return.
 		updateRequestCounters(0, 0)
-		log.Warnf("unable to determine identity attribute value: '%v', operation='%d'", err, s.variety)
+		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
 		return err
 	}
-	namespace := getNamespace(identityAttributeValue)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
-	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{adapter.Service{identityAttributeValue}})
+
+	// TODO: some adapters assume destination service existence, pass via context
+	destinationService := ""
+	v, ok := s.bag.Get("destination.service")
+	if ok {
+		destinationService = v.(string)
+	}
+	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{
+		DestinationService: adapter.Service{
+			FullName: destinationService,
+		},
+	})
 
 	// TODO(Issue #2139): This is for old-style metadata based policy decisions. This should be eventually removed.
 	ctxProtocol, _ := s.bag.Get(constant.ContextProtocolAttributeName)

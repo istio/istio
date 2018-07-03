@@ -52,7 +52,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1527789668280,
+  "iteration": 1530133280258,
   "links": [],
   "panels": [
     {
@@ -116,7 +116,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "round(sum(irate(istio_request_count{destination_service=~\"$service\"}[1m])), 0.001)",
+          "expr": "round(sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -198,7 +198,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(rate(istio_request_count{destination_service=~\"$service\",response_code!~\"5.*\"}[1m])) / sum(rate(istio_request_count{destination_service=~\"$service\"}[1m]))",
+          "expr": "sum(rate(istio_requests_total{destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) / sum(rate(istio_requests_total{destination_workload=~\"$workload\"}[1m]))",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -281,7 +281,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_request_count{destination_service=~\"$service\", response_code=~\"4.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\", response_code=~\"4.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -363,7 +363,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(irate(istio_request_count{destination_service=~\"$service\", response_code=~\"5.*\"}[1m])) ",
+          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\", response_code=~\"5.*\"}[1m])) ",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A",
@@ -422,10 +422,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(round(sum(irate(istio_request_count{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, response_code), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "round(sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, response_code), 0.001)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version}} -> {{destination_version}} : {{ response_code }}",
+          "legendFormat": "{{ source_workload }} -> {{destination_workload}} : {{ response_code }}",
           "refId": "B",
           "step": 2
         }
@@ -433,7 +433,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Requests by Source, Version, and Response Code",
+      "title": "Requests by Source and Response Code",
       "tooltip": {
         "shared": false,
         "sort": 0,
@@ -507,11 +507,11 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(sum(irate(istio_request_count{destination_service=~\"$service\",response_code!~\"5.*\"}[1m])) by (source_service, source_version, destination_version) / sum(irate(istio_request_count{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "sum(irate(istio_requests_total{destination_workload=~\"$workload\",response_code!~\"5.*\"}[1m])) by (source_workload, destination_workload) / sum(irate(istio_requests_total{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload)",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{source_service}}-{{source_version}} -> {{destination_version}}",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }}",
           "refId": "A",
           "step": 2
         }
@@ -519,7 +519,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Success Rate by Source and Version (non-5xx responses)",
+      "title": "Success Rate by Source  (non-5xx responses)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -593,38 +593,38 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(histogram_quantile(0.50, sum(irate(istio_request_duration_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.50, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p50)",
           "refId": "D",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.90, sum(irate(istio_request_duration_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.90, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p90)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p90)",
           "refId": "A",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.95, sum(irate(istio_request_duration_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.95, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p95)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p95)",
           "refId": "B",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.99, sum(irate(istio_request_duration_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.99, sum(irate(istio_request_duration_seconds_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p99)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p99)",
           "refId": "C",
           "step": 2
         }
@@ -632,7 +632,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Response Time by Source and Version",
+      "title": "Response Time by Source",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -705,38 +705,38 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(histogram_quantile(0.50, sum(irate(istio_response_size_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.50, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p50)",
           "refId": "D",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.90, sum(irate(istio_response_size_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.90, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p90)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p90)",
           "refId": "A",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.95, sum(irate(istio_response_size_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.95, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p95)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p95)",
           "refId": "B",
           "step": 2
         },
         {
-          "expr": "label_replace(histogram_quantile(0.99, sum(irate(istio_response_size_bucket{destination_service=~\"$service\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+          "expr": "histogram_quantile(0.99, sum(irate(istio_response_bytes_bucket{destination_workload=~\"$workload\"}[1m])) by (source_workload, destination_workload, le))",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
-          "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p99)",
+          "legendFormat": "{{ source_workload }} -> {{ destination_workload }} (p99)",
           "refId": "C",
           "step": 2
         }
@@ -744,7 +744,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Response Size by Source and Version",
+      "title": "Response Size by Source",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -790,11 +790,31 @@
         "datasource": "Prometheus",
         "hide": 0,
         "includeAll": false,
-        "label": "Service",
+        "label": "Namespace",
         "multi": false,
-        "name": "service",
+        "name": "namespace",
         "options": [],
-        "query": "label_values(istio_request_count, destination_service)",
+        "query": "label_values(istio_requests_total, destination_namespace)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "Prometheus",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Workload",
+        "multi": false,
+        "name": "workload",
+        "options": [],
+        "query": "label_values(istio_requests_total{destination_namespace=~\"$namespace\"}, destination_workload)",
         "refresh": 1,
         "regex": "",
         "sort": 0,
@@ -836,7 +856,7 @@
     ]
   },
   "timezone": "",
-  "title": "Istio HTTP/GRPC Service Dashboard",
+  "title": "Istio HTTP/GRPC Workload Dashboard",
   "uid": "95DgGEWmz",
-  "version": 16
+  "version": 4
 }
