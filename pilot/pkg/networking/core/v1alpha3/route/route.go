@@ -671,8 +671,12 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 				Path: cookie.GetPath(),
 			},
 		}
-	case *networking.LoadBalancerSettings_ConsistentHashLB_SourceIp:
-		log.Debuga("source ip not implemented")
+	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_ConnectionProperties_{
+			ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
+				SourceIp: consistentHash.GetUseSourceIp(),
+			},
+		}
 	}
 
 	return hashPolicy
