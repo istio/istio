@@ -5,6 +5,7 @@ metadata:
 spec:
   hosts:
     - "*.bookinfo.com"
+    - www.google.com
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
   - istio-egressgateway
