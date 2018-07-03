@@ -343,7 +343,9 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	}
 	for i := range mutable.Listener.FilterChains {
 		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
+		if chain.TlsContext == nil {
+			chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
+		}
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
