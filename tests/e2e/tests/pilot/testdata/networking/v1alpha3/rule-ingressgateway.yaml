@@ -15,3 +15,22 @@ spec:
           port:
             number: 80
         weight: 100
+  tcp:
+  - match:
+      port: 31400
+    route:
+    - destination:
+        host: c
+        subset: v1
+        port:
+           number: 90
+  tls:
+  - match:
+      sniHosts:
+      - google.com
+    route:
+    - destination:
+        host: google.com
+        port:
+           number: 443
+
