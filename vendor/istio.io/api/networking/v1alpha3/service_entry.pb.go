@@ -230,7 +230,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   resolution: DNS
 // ```
 //
-// Define a gateway to to handle all egress traffic.
+// Define a gateway to handle all egress traffic.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -247,6 +247,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //      protocol: HTTP
 //    hosts:
 //    - "*"
+// ```
 //
 // And the associated VirtualService to route from the sidecar to the
 // gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
@@ -301,26 +302,27 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   resolution: NONE
 // ```
 //
-//
 // The following example demonstrates a service that is available via a
 // Unix Domain Socket on the host of the client. The resolution must be
 // set to STATIC to use unix address endpoints.
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: ServiceEntry
-//     metadata:
-//       name: unix-domain-socket-example
-//     spec:
-//       hosts:
-//       - "example.unix.local"
-//       location: MESH_EXTERNAL
-//       ports:
-//       - number: 80
-//         name: http
-//         protocol: HTTP
-//       resolution: STATIC
-//       endpoints:
-//       - address: unix:///var/run/example/socket
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: ServiceEntry
+// metadata:
+//   name: unix-domain-socket-example
+// spec:
+//   hosts:
+//   - "example.unix.local"
+//   location: MESH_EXTERNAL
+//   ports:
+//   - number: 80
+//     name: http
+//     protocol: HTTP
+//   resolution: STATIC
+//   endpoints:
+//   - address: unix:///var/run/example/socket
+// ```
 //
 // For HTTP based services, it is possible to create a VirtualService
 // backed by multiple DNS addressable endpoints. In such a scenario, the
