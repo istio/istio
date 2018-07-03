@@ -83,11 +83,13 @@ func makeHTTPRequest(client *http.Client) job {
 				log.Printf("[%d] Header=%s:%s\n", i, headerKey, headerVal)
 			}
 
-			// Set SNI value to be same as the request Host
-			// For use with SNI routing tests
-			var httpTransport *http.Transport
-			httpTransport = client.Transport.(*http.Transport)
-			httpTransport.TLSClientConfig.ServerName = req.Host
+			if strings.HasPrefix(url, "https://") {
+				// Set SNI value to be same as the request Host
+				// For use with SNI routing tests
+				var httpTransport *http.Transport
+				httpTransport = client.Transport.(*http.Transport)
+				httpTransport.TLSClientConfig.ServerName = req.Host
+			}
 
 			resp, err := client.Do(req)
 			if err != nil {
