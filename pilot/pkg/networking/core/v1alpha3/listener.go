@@ -263,6 +263,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
+			for _, p := range configgen.Plugins {
+				params := &plugin.InputParams{
+					ListenerProtocol: listenerType,
+					Env:              &env,
+					Node:             &node,
+					ProxyInstances:   proxyInstances,
+					ServiceInstance:  instance,
+					Port:             endpoint.ServicePort,
+				}
+				chains := p.OnFilterChains(params)
+				if len(chains) != 0 {
+				}
+			}
 			found := false
 			for _, p := range configgen.Plugins {
 				if authnPolicy, ok := p.(authn.Plugin); ok {

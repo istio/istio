@@ -172,12 +172,11 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 }
 
 // OnFilterChains setups filter chains based on the authentication policy.
-func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	hostname := in.ServiceInstance.Service.Hostname
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)
-	mutable.FilterChains = append(mutable.FilterChains, setupFilterChains(authnPolicy)...)
-	return nil
+	return setupFilterChains(authnPolicy)
 }
 
 // SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain, and a bool

@@ -138,5 +138,5 @@ type Plugin interface {
 
 	// OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
-	OnFilterChains(in *InputParams, mutable *MutableObjects) error
+	OnFilterChains(in *InputParams) []FilterChain
 }
