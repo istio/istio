@@ -44,9 +44,9 @@ spec:
         - www.google.com
       route:
       - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
-        port:
-           number: 443
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 443
     - match:
       - gateways:
         - istio-egressgateway
@@ -55,6 +55,6 @@ spec:
         - www.google.com
       route:
       - destination:
-        host: www.google.com
-        port:
-           number: 443
+          host: www.google.com
+          port:
+            number: 443
