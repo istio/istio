@@ -65,9 +65,10 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(conflictingOutbound)
-	prometheus.MustRegister(invalidOutboundListeners)
-	prometheus.MustRegister(filterChainsConflict)
+	prometheus.MustRegister(serviceRegistryFailure)
+	prometheus.MustRegister(unknownProtocols)
+	prometheus.MustRegister(marshallingErrors)
+	prometheus.MustRegister(validationErrors)
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
