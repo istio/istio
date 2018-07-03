@@ -373,6 +373,11 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/gogo/status"
+  packages = ["."]
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/glog"
   packages = ["."]
@@ -1303,7 +1308,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "2d8fbdb9495e737b10f6ac5f64e344517b0e7b10"
+  revision = "2d182f5d150eaa9ac276347df8f0154f209973dc"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1601,6 +1606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d3a0e94945e5776554479ff58203892f3907384726292f083994255840f26eea"
+  inputs-digest = "70f66277068be52e07b9b2e40c6959ddae2b8708745af55a9a22cac843b99210"
   solver-name = "gps-cdcl"
   solver-version = 1
