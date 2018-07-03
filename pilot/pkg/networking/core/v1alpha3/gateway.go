@@ -25,7 +25,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -41,35 +40,6 @@ var (
 		Value: false,
 	}
 )
-
-var (
-	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-	// than nothing.
-	// TODO: add dimensions - namespace of rule, service, rule name
-	serviceRegistryFailure = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_gateway_service_registry_fetch_fail",
-		Help: "Failures when querying service registry.",
-	})
-	unknownProtocols = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_gateway_unknown_protocol",
-		Help: "Number of invalid servers with unknown protocols.",
-	})
-	marshallingErrors = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_gateway_filter_marshalling_error",
-		Help: "Failures when marshalling filters.",
-	})
-	validationErrors = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_gateway_listener_validation_error",
-		Help: "Failures when validating the generated listeners.",
-	})
-)
-
-func init() {
-	prometheus.MustRegister(serviceRegistryFailure)
-	prometheus.MustRegister(unknownProtocols)
-	prometheus.MustRegister(marshallingErrors)
-	prometheus.MustRegister(validationErrors)
-}
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	// collect workload labels
@@ -127,16 +97,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
-			unknownProtocols.Add(1)
 			continue
-		}
-
-		// Should this go after plugins?
-		// We have no routes to anything in the mesh or out of mesh. So don't bother constructing
-		// listeners
-		if len(opts.filterChainOpts) == 0 {
-			log.Debugf("buildGatewayListeners: Skipping gateway listener %d as there are no virtual services", portNumber)
-			return []*xdsapi.Listener{}, nil
 		}
 
 		l := buildListener(opts)
@@ -176,13 +137,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
-			marshallingErrors.Add(1)
 			continue
 		}
 
 		if err = mutable.Listener.Validate(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
-			validationErrors.Add(1)
 			continue
 		}
 
@@ -195,9 +154,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		if err != nil {
-			log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
-		}
+		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
 		return []*xdsapi.Listener{}, nil
 	}
 
@@ -250,8 +207,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
 	if err != nil {
 		log.Errora("Failed to get services from registry")
-		serviceRegistryFailure.Add(1)
-		return nil
+		return []*filterChainOpts{}
 	}
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
@@ -265,10 +221,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	if model.ParseProtocol(servers[0].Port.Protocol) == model.ProtocolHTTP {
 		rdsName := model.GatewayRDSRouteName(servers[0])
 		routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, gatewayNames, servers, rdsName)
-		if routeCfg == nil {
-			log.Debugf("omitting HTTP listeners for port %d filter chain due to no routes", servers[0].Port)
-			return nil
-		}
 		o := &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
 			// and that no two non-HTTPS servers can be on same port or share port names.
@@ -386,10 +338,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices(gateways)
-	if len(virtualServices) == 0 {
-		log.Debugf("Skipping HTTP route generation for Gateway as there are no virtual services yet")
-		return nil
-	}
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	for _, v := range virtualServices {
 		vs := v.Spec.(*networking.VirtualService)
@@ -398,7 +346,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
 			continue
 		}
-
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
 			log.Debugf("omitting routes for service %v due to error: %v", v, err)
@@ -419,24 +366,25 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 		}
 	}
 
-	//if len(virtualHosts) == 0 {
-	//virtualHosts = append(virtualHosts, route.VirtualHost{
-	//	Name:    fmt.Sprintf("blackhole:%d", port),
-	//	Domains: []string{"*"},
-	//	Routes: []route.Route{
-	//		{
-	//			Match: route.RouteMatch{
-	//				PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-	//			},
-	//			Action: &route.Route_DirectResponse{
-	//				DirectResponse: &route.DirectResponseAction{
-	//					Status: 404,
-	//				},
-	//			},
-	//		},
-	//	},
-	//})
-	//}
+	if len(virtualHosts) == 0 {
+		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		virtualHosts = append(virtualHosts, route.VirtualHost{
+			Name:    fmt.Sprintf("blackhole:%d", port),
+			Domains: []string{"*"},
+			Routes: []route.Route{
+				{
+					Match: route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 404,
+						},
+					},
+				},
+			},
+		})
+	}
 	util.SortVirtualHosts(virtualHosts)
 
 	out := &xdsapi.RouteConfiguration{
@@ -462,15 +410,11 @@ func createGatewayTCPFilterChainOpts(
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		filterChainOpts := &filterChainOpts{
+		opts = append(opts, &filterChainOpts{
 			sniHosts:       getSNIHosts(server),
 			tlsContext:     buildGatewayListenerTLSContext(server),
 			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
-		}
-		if len(filterChainOpts.networkFilters) == 0 {
-			continue
-		}
-		opts = append(opts, filterChainOpts)
+		})
 	}
 	return opts
 }
@@ -485,10 +429,6 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 	}
 
 	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames)
-	if len(dests) == 0 {
-		return nil
-	}
-
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
@@ -518,9 +458,6 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 	}
 
 	virtualServices := env.VirtualServices(gateways)
-	if len(virtualServices) == 0 {
-		return nil
-	}
 	upstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
