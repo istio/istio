@@ -8,10 +8,19 @@ spec:
   gateways:
   - istio-ingressgateway # pinned to ingress gateway only
   http:
-    - route:
+    - match:
+      - port: 80
+      route:
+      - destination:
+          host: c
+          subset: v1
+          port:
+            number: 80
+        weight: 50
       - destination:
           host: c
           subset: v2
           port:
             number: 80
-        weight: 100
+        weight: 50
+

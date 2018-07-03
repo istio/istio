@@ -50,7 +50,7 @@ func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 		return ListenerProtocolHTTP
-	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTCPTLS,
+	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLS,
 		model.ProtocolMongo, model.ProtocolRedis:
 		return ListenerProtocolTCP
 	default:

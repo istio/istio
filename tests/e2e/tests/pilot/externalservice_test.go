@@ -36,44 +36,44 @@ func TestServiceEntry(t *testing.T) {
 	}{
 		{
 			name:              "REACHABLE_httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
 			url:               "http://httpbin.org/headers",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_httpbin.org_443",
-			config:            "testdata/v1alpha3/serviceentry-httpbin.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
 			url:               "https://httpbin.org:443/headers",
 			shouldBeReachable: false,
 		},
 		{
 			name:              "REACHABLE_www.httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-wildcard-httpbin.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
 			url:               "http://www.httpbin.org/headers",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_httpbin.org",
-			config:            "testdata/v1alpha3/serviceentry-wildcard-httpbin.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
 			url:               "http://httpbin.org/headers",
 			shouldBeReachable: false,
 		},
 		{
 			name:              "REACHABLE_wikipedia_sni",
-			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
 		// FIXME: re-enable once we get this working
 		//{
 		//	name:              "REACHABLE_wikipedia_range",
-		//	config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
+		//	config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
 		//	url:               "https://www.wikipedia.org",
 		//	shouldBeReachable: true,
 		//},
 		{
 			name:              "UNREACHABLE_cnn",
-			config:            "testdata/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
+			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
 			url:               "https://cnn.com",
 			shouldBeReachable: false,
 		},
