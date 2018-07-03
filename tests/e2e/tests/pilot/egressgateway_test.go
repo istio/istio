@@ -36,10 +36,10 @@ func TestEgressGateway(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha3/disable-mtls-egressgateway.yaml",
-			"testdata/v1alpha3/egressgateway.yaml",
-			"testdata/v1alpha3/service-entry.yaml",
-			"testdata/v1alpha3/rule-route-via-egressgateway.yaml"},
+			"testdata/networking/v1alpha3/disable-mtls-egressgateway.yaml",
+			"testdata/networking/v1alpha3/egressgateway.yaml",
+			"testdata/networking/v1alpha3/service-entry.yaml",
+			"testdata/networking/v1alpha3/rule-route-via-egressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {
