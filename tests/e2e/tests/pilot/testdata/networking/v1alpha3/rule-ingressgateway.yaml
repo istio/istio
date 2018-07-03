@@ -4,20 +4,19 @@ metadata:
   name: gateway-bound-route
 spec:
   hosts:
-    - uk.bookinfo.com
+  - uk.bookinfo.com
   gateways:
   - istio-ingressgateway # pinned to ingress gateway only
   http:
-    - route:
-      - destination:
-          host: c
-          subset: v2
-          port:
-            number: 80
-        weight: 100
+  - route:
+    - destination:
+        host: c
+        subset: v2
+        port:
+          number: 80
   tcp:
   - match:
-      port: 31400
+    - port: 31400
     route:
     - destination:
         host: c
@@ -26,7 +25,7 @@ spec:
            number: 90
   tls:
   - match:
-      sniHosts:
+    - sniHosts:
       - google.com
     route:
     - destination:
