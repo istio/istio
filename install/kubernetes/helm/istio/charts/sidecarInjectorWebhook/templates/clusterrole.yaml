@@ -14,3 +14,7 @@ rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations"]
   verbs: ["get", "list", "watch", "patch"]
+- apiGroups: [ ""]
+  resources: ["namespaces"]
+  resourceNames: [ "kube-system", {{ .Release.Namespace | quote }} ]
+  verbs: ["get", "patch" ]
