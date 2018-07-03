@@ -337,7 +337,7 @@ func addDestinationServiceAttributes(attrs attributes, discovery model.ServiceDi
 	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
 	serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
-	if err != nil && serviceAttributes != nil {
+	if err == nil && serviceAttributes != nil {
 		if serviceAttributes.Name != "" {
 			attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
 		}
