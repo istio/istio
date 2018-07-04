@@ -33,3 +33,6 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
+        env:
+        - name: DO_NOT_USE_TLS_FOR_EXTERNAL_SERVICE_CALLS
+          value: "true"
