@@ -37,7 +37,9 @@ global:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     includeInboundPorts: "*"
     excludeInboundPorts: ""
-    policy: enabled
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).

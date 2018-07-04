@@ -2,7 +2,7 @@ healthPort: true
 testHub: docker.io/istionightly
 testTag: nightly-release-0.8
 
-domain: v08.istio.webinf.info
+domain: v10.istio.webinf.info
 
 # Namespace where istio control plane is installed.
 istioNamespace: istio-system
