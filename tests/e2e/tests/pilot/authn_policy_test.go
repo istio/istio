@@ -172,9 +172,9 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
-			"testdata/v1alpha3/ingressgateway.yaml",
-			maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml"),
-			"testdata/v1alpha3/rule-ingressgateway.yaml",
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-ingressgateway.yaml",
 			"testdata/authn/v1alpha1/authn-policy-ingressgateway-jwt.yaml"},
 	}
 
