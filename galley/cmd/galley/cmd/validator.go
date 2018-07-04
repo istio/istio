@@ -214,7 +214,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	validatorCmd.PersistentFlags().StringVar(&caFile, "caCertFile", "/etc/istio/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	validatorCmd.PersistentFlags().DurationVar(&healthCheckInterval, "healthCheckInterval", 0,
-		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
+		"Configure how frequently the health check file specified by --healthCheckFile should be updated")
 	validatorCmd.PersistentFlags().StringVar(&healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
 	validatorCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
