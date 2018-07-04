@@ -627,26 +627,44 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 	}
 
 	destination := dst.GetDestination()
-	subsetName := destination.GetSubset()
 	destinationRule := configStore.DestinationRule(model.Hostname(destination.GetHost()))
 	if destinationRule == nil {
 		return nil
 	}
-
 	rule := destinationRule.Spec.(*networking.DestinationRule)
 
-	var consistentHash *networking.LoadBalancerSettings_ConsistentHashLB
-
-	subsets := rule.GetSubsets()
-	for _, subset := range subsets {
+	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	subsetName := destination.GetSubset()
+	for _, subset := range rule.GetSubsets() {
 		if subset.GetName() == subsetName {
 			consistentHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
 			break
 		}
 	}
 
-	if consistentHash == nil {
-		consistentHash = rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	settings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	if destination.Port != nil {
+		switch destination.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			portName := destination.GetPort().GetName()
+			for _, setting := range settings {
+				name := setting.GetPort().GetName()
+				if name == portName {
+					consistentHash = setting.GetLoadBalancer().GetConsistentHash()
+					break
+				}
+			}
+		case *networking.PortSelector_Number:
+			// TODO: Add test for this
+			portNumber := destination.GetPort().GetNumber()
+			for _, setting := range settings {
+				number := setting.GetPort().GetNumber()
+				if number == portNumber {
+					consistentHash = setting.GetLoadBalancer().GetConsistentHash()
+					break
+				}
+			}
+		}
 	}
 
 	if consistentHash == nil {
