@@ -220,7 +220,7 @@ func init() {
 		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identites.")
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identities.")
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
