@@ -14,14 +14,14 @@
 
 syntax = "proto3";
 
-package istio.config.mcp.v1alpha1;
+package istio.mcp.v1alpha1;
 
 import "google/protobuf/struct.proto";
 import "google/rpc/status.proto";
 import "gogoproto/gogo.proto";
-import "config/mcp/v1alpha1/envelope.proto";
+import "mcp/v1alpha1/envelope.proto";
 
-option go_package="istio.io/api/config/mcp/v1alpha1";
+option go_package="istio.io/api/mcp/v1alpha1";
 option (gogoproto.equal_all) = true;
 
 // Identifies a specific MCP client instance. The client identifier is
