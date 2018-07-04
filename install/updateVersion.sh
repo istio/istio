@@ -178,6 +178,48 @@ function gen_istio_files() {
     fi
 }
 
+function update_istio_install_docker() {
+  pushd $TEMP_DIR/templates
+  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  popd
+}
+
+# Generated merge yaml files for easy installation
+function merge_files_docker() {
+  TYPE=$1
+  SRC=$TEMP_DIR/templates
+
+  # Merge istio.yaml install file
+  INSTALL_DEST=$DEST_DIR/install/$TYPE
+  ISTIO=${INSTALL_DEST}/istio.yaml
+
+  mkdir -p $INSTALL_DEST
+  echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $ISTIO
+  echo "# TO UPDATE, modify files in install/${TYPE}/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+
+  # Merge bookinfo.sidecars.yaml sample file
+  SAMPLES_DEST=$DEST_DIR/samples/bookinfo/$TYPE
+  BOOKINFO=${SAMPLES_DEST}/bookinfo.sidecars.yaml
+
+  mkdir -p $SAMPLES_DEST
+  echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $BOOKINFO
+  echo "# TO UPDATE, modify files in samples/bookinfo/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
+  cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
+}
+
+function gen_platforms_files() {
+    for platform in consul eureka
+    do
+        cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
+        cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+        update_istio_install_docker
+        merge_files_docker $platform
+        rm -R $TEMP_DIR/templates
+    done
+}
+
 #
 # Script work begins here
 #
@@ -205,3 +247,6 @@ update_istio_addons
 
 # Generate the istio*.yaml files
 gen_istio_files
+
+# Generate platform files (consul and eureka)
+gen_platforms_files

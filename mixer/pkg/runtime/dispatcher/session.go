@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
-	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
@@ -125,10 +124,6 @@ func (s *session) dispatch() error {
 		},
 	})
 
-	// TODO(Issue #2139): This is for old-style metadata based policy decisions. This should be eventually removed.
-	ctxProtocol, _ := s.bag.Get(constant.ContextProtocolAttributeName)
-	tcp := ctxProtocol == constant.ContextProtocolTCP
-
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
 
@@ -148,7 +143,7 @@ func (s *session) dispatch() error {
 		}
 
 		for _, group := range destination.InstanceGroups {
-			if !group.Matches(s.bag) || group.ResourceType.IsTCP() != tcp {
+			if !group.Matches(s.bag) {
 				continue
 			}
 			ndestinations++
