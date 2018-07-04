@@ -34,6 +34,6 @@ spec:
         ports:
         - containerPort: 9080
         env:
-        - name: DO_NOT_USE_TLS_FOR_EXTERNAL_SERVICE_CALLS
+        - name: DO_NOT_ENCRYPT
           value: "true"
 ---
