@@ -105,7 +105,7 @@ message RouteRule {
   // unspecified.
   int32 precedence = 2;
 
-  // Match condtions to be satisfied for the route rule to be
+  // Match conditions to be satisfied for the route rule to be
   // activated. If match is omitted, the route rule applies only to HTTP
   // traffic.
   MatchCondition match = 3;
@@ -158,7 +158,7 @@ message RouteRule {
   CorsPolicy cors_policy = 13;
 
   // Additional HTTP headers to add before forwarding a request to the
-  // destnation service.
+  // destination service.
   map<string, string> append_headers = 14;
 }
 
