@@ -82,15 +82,13 @@ def fetch_details_from_external_service(isbn, id, headers)
     http = Net::HTTP.new(uri.host, uri.port)
     http.read_timeout = 5 # seconds
 
-    # WITH_ISTIO means that the details app runs with an Istio sidecar injected.
+    # DO_NOT_USE_TLS_FOR_EXTERNAL_SERVICE_CALLS means that the app must access external services
+    # without TLS, using unencrypted traffic protocols like HTTP. The TLS origination will be
+    # performed if needed, elsewhere, e.g. by a sidecar proxy.
     #
-    # With the Istio sidecar injected, the requests must be sent by HTTP protocol (without TLS),
-    # while the sidecar proxy will perform TLS origination. An Egress Rule
-    # must be defined to enable the trafic to www.googleapis.com and to perform the TLS origination.
-    #
-    # Without the Istio sidecar injected, the TLS origination must be performed by the `http` object,
-    # by setting `use_ssl` field to true.
-    unless ENV['WITH_ISTIO'] === 'true' then
+    # If this environment variable is false, the app must use TLS, e.g. HTTPS, to access
+    # external services.
+    unless ENV['DO_NOT_USE_TLS_FOR_EXTERNAL_SERVICE_CALLS'] === 'true' then
       http.use_ssl = true
     end
 
