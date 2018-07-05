@@ -27,6 +27,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/api/networking/v1alpha3"
 )
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
@@ -129,22 +130,7 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 		}
 	}
 
-	nameToServiceMap := make(map[model.Hostname]*model.Service)
-	for _, svc := range services {
-		if port == 0 {
-			nameToServiceMap[svc.Hostname] = svc
-		} else {
-			if svcPort, exists := svc.Ports.GetByPort(port); exists {
-				nameToServiceMap[svc.Hostname] = &model.Service{
-					Hostname:     svc.Hostname,
-					Address:      svc.Address,
-					ClusterVIPs:  svc.ClusterVIPs,
-					MeshExternal: svc.MeshExternal,
-					Ports:        []*model.Port{svcPort},
-				}
-			}
-		}
-	}
+	nameToServiceMap := makeServiceIndex(services, port)
 
 	// Collect all proxy labels for source match
 	var proxyLabels model.LabelsCollection
@@ -209,6 +195,123 @@ func (configgen *ConfigGeneratorImpl) BuildSidecarOutboundHTTPRouteConfig(env mo
 	}
 
 	return out
+}
+
+// buildSidecarOutboundBOLTRouteConfig builds the route bolt service
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env model.Environment, node model.Proxy,
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+
+	port, err := strconv.Atoi(routeName)
+	if err != nil {
+		return nil
+	}
+
+	nameToServiceMap := makeServiceIndex(services, port)
+
+	// Collect all proxy labels for source match
+	var proxyLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		proxyLabels = append(proxyLabels, w.Labels)
+	}
+
+	// Get list of virtual services bound to the mesh gateway
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	virtualServices := env.VirtualServices(meshGateway)
+	guardedHosts := istio_route.TranslateVirtualHosts(virtualServices, nameToServiceMap, proxyLabels, meshGateway)
+
+	virtualHosts := make([]route.VirtualHost, 0)
+	defaultVirtualHost := route.VirtualHost{
+		Name:    fmt.Sprintf("rpc_proxy"),
+		Domains: []string{"*"},
+		Routes:  make([]route.Route, 0, len(guardedHosts)),
+	}
+	for _, guardedHost := range guardedHosts {
+		// if port not match, skip this guarded host
+		if guardedHost.Port != port {
+			continue
+		}
+		// If none of the routes matched by source, skip this guarded host
+		if len(guardedHost.Routes) == 0 {
+			continue
+		}
+
+		for _, host := range guardedHost.Hosts {
+			virtualHosts = append(virtualHosts, route.VirtualHost{
+				Name:    fmt.Sprintf("%s:%d", host, guardedHost.Port),
+				Domains: []string{host},
+				Routes:  guardedHost.Routes,
+			})
+		}
+
+		defaultVirtualHost.Routes = append(defaultVirtualHost.Routes, guardedHost.Routes...)
+	}
+	virtualHosts = append(virtualHosts, defaultVirtualHost)
+
+	util.SortVirtualHosts(virtualHosts)
+	out := &xdsapi.RouteConfiguration{
+		Name:             fmt.Sprintf("%d", port),
+		VirtualHosts:     virtualHosts,
+		ValidateClusters: &types.BoolValue{Value: false},
+	}
+
+	// call plugins
+	for _, p := range configgen.Plugins {
+		in := &plugin.InputParams{
+			ListenerType: plugin.ListenerTypeHTTP,
+			Env:          &env,
+			Node:         &node,
+		}
+		p.OnOutboundRouteConfiguration(in, out)
+	}
+
+	return out
+}
+
+func makeServiceIndex(services []*model.Service, port int) map[model.Hostname]*model.Service {
+	nameToServiceMap := make(map[model.Hostname]*model.Service)
+	for _, svc := range services {
+		if port == 0 {
+			nameToServiceMap[svc.Hostname] = svc
+		} else {
+			if svcPort, exists := svc.Ports.GetByPort(port); exists {
+				nameToServiceMap[svc.Hostname] = &model.Service{
+					Hostname:     svc.Hostname,
+					Address:      svc.Address,
+					ClusterVIPs:  svc.ClusterVIPs,
+					MeshExternal: svc.MeshExternal,
+					Ports:        []*model.Port{svcPort},
+				}
+			}
+		}
+	}
+	return nameToServiceMap
+}
+
+func buildDefaultVirtualService(serviceIndex map[model.Hostname]*model.Service, port int) []model.Config {
+	virtualServices := make([]model.Config, 0)
+	for hostname := range serviceIndex {
+		destination := &v1alpha3.DestinationWeight{
+			Destination: &v1alpha3.Destination{
+				Host: string(hostname),
+			},
+		}
+		match := &v1alpha3.HTTPMatchRequest{
+			Port: uint32(port),
+		}
+		route := &v1alpha3.HTTPRoute{
+			Match: []*v1alpha3.HTTPMatchRequest{match},
+			Route: []*v1alpha3.DestinationWeight{destination},
+		}
+		spec := &v1alpha3.VirtualService{
+			Hosts: []string{"*"},
+			Http: []*v1alpha3.HTTPRoute{route},
+		}
+		virtualService := model.Config{
+			Spec: spec,
+		}
+		virtualServices = append(virtualServices, virtualService)
+	}
+	return virtualServices
 }
 
 // buildVirtualHostDomains generates the set of domain matches for a service being accessed from

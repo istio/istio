@@ -115,11 +115,37 @@ func TranslateVirtualHosts(
 					Services: []*model.Service{svc},
 					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster)},
 				})
+			} else if port.Protocol.IsRPC() {
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				out = append(out, GuardedHost{
+					Port:     port.Port,
+					Services: []*model.Service{svc},
+					Routes:   []route.Route{*buildDefaultRPCRoute(svc, cluster)},
+				})
 			}
 		}
 	}
 
 	return out
+}
+
+func buildDefaultRPCRoute(service *model.Service, clusterName string) *route.Route {
+	return &route.Route{
+		Match: route.RouteMatch{
+			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
+				Name: "service",
+				Value: service.Hostname.String(),
+			}},
+		},
+		Decorator: &route.Decorator{
+			Operation: "service-route",
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
 }
 
 // matchServiceHosts splits the virtual service hosts into services and literal hosts
@@ -157,7 +183,7 @@ func translateVirtualHost(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range services {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() {
+			if port.Protocol.IsHTTP() || port.Protocol.IsRPC() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}

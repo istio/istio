@@ -230,6 +230,15 @@ func (p Protocol) IsHTTP() bool {
 	}
 }
 
+func (p Protocol) IsRPC() bool {
+	switch p {
+	case ProtocolBOLT:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {

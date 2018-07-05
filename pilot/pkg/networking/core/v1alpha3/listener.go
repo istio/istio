@@ -251,13 +251,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			ip:             endpoint.Address,
-			port:           endpoint.Port,
+			port:           12222,
+			bindToPort:     true,
 			protocol:       protocol,
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if l, exists := listenerMap[listenerMapKey]; exists {
-			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+			if protocol != model.ProtocolBOLT {
+				log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+			}
 			// Skip building listener for the same ip port
 			continue
 		}
@@ -349,7 +352,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				proxy:          node,
 				proxyInstances: proxyInstances,
 				ip:             WildcardAddress,
-				port:           servicePort.Port,
+				port:           12223,
+				bindToPort:		true,
 				protocol:       servicePort.Protocol,
 			}
 
@@ -377,12 +381,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					operation = http_conn.INGRESS
 				}
 
+				var routeConfig *xdsapi.RouteConfiguration
+
+				if servicePort.Protocol == model.ProtocolBOLT {
+					routeConfig = configgen.buildSidecarOutboundBOLTRouteConfig(
+						env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port))
+				} else {
+					routeConfig = configgen.BuildSidecarOutboundHTTPRouteConfig(
+						env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port))
+				}
+
 				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
 						//rds:              fmt.Sprintf("%d", servicePort.Port),
-						routeConfig: configgen.BuildSidecarOutboundHTTPRouteConfig(
-							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
+						routeConfig: routeConfig,
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
 					},
@@ -739,7 +752,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 			connectionManager := buildHTTPConnectionManager(opts.env.Mesh, opt.httpOpts, chain.HTTP)
 			if opts.protocol == model.ProtocolBOLT {
 				l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-					Name:   "inbound_bolt",
+					Name:   "rpc_proxy",
 					Config: util.MessageToStruct(connectionManager),
 				})
 				log.Debugf("attached BOLT filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)

@@ -4,6 +4,7 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 	"path"
 	"net/url"
+	"strings"
 )
 
 type Client struct {
@@ -157,7 +158,9 @@ func (c *Client) deleteInstance(hostname string, rawUrl string) {
 		return
 	}
 
-	if s, ok := c.services[hostname]; ok {
+	h := makeHostname(hostname, i)
+
+	if s, ok := c.services[h]; ok {
 		delete(s.instances, rawUrl)
 		go c.notify(ServiceEvent{
 			EventType: ServiceInstanceDeleted,
@@ -187,14 +190,15 @@ func (c *Client) addInstance(hostname string, rawUrl string) {
 }
 
 func (c *Client) addService(hostname string, instance *Instance) *Service {
-	s, ok := c.services[hostname]
+	h := makeHostname(hostname, instance)
+	s, ok := c.services[h]
 	if !ok {
 		s = &Service{
-			name:      hostname,
+			name:      h,
 			ports:     make([]*Port, 0),
 			instances: make(map[string]*Instance),
 		}
-		c.services[hostname] = s
+		c.services[h] = s
 		s.AddPort(instance.Port)
 		go c.notify(ServiceEvent{
 			EventType: ServiceAdded,
@@ -205,21 +209,26 @@ func (c *Client) addService(hostname string, instance *Instance) *Service {
 }
 
 func (c *Client) deleteService(hostname string) {
-	s, exist := c.services[hostname]
-	if !exist {
-		return
-	}
-	delete(c.services, hostname)
 	cache, ok := c.pcaches[hostname]
 	if ok {
 		cache.stop()
 	}
-	go c.notify(ServiceEvent{
-		EventType: ServiceDeleted,
-		Service:   s,
-	})
+
+	for h, s := range c.services {
+		if strings.HasSuffix(h, hostname) {
+			delete(c.services, h)
+			go c.notify(ServiceEvent{
+				EventType: ServiceDeleted,
+				Service:   s,
+			})
+		}
+	}
 }
 
 func (c *Client) notify(event ServiceEvent) {
 	c.out <- event
+}
+
+func makeHostname(hostname string, instance *Instance) string {
+	return hostname + ":" + instance.Labels["version"]
 }
