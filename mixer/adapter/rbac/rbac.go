@@ -61,9 +61,8 @@ type (
 
 const (
 	// API group / version for istio config.
-	apiGroup        = "rbac.istio.io"
-	apiVersion      = "v1alpha2"
-	apiGroupVersion = apiGroup + "/" + apiVersion
+	apiGroup   = "rbac.istio.io"
+	apiVersion = "v1alpha2"
 
 	// ServiceRoleKind defines the config kind name of ServiceRole.
 	serviceRoleKind = "ServiceRole"
