@@ -13,9 +13,29 @@ To use it:
    ```bash
    kubectl apply -f <(istioctl kube-inject -f httpbin.yaml)
    ```
- 
-Because the httpbin service is not exposed outside of the cluster
-we cannot _curl_ it directly, however we can verify that it is working correctly using
+
+3. You can test the httpbin service by
+   [creating an ingress resource](https://istio.io/docs/tasks/traffic-management/ingress.html):
+
+   ```bash
+   kubectl apply -f <(istioctl kube-inject -f httpbin-gateway.yaml)
+   ```
+
+4. Test the Ingress:
+
+   ```bash
+   $ curl -I http://${INGRESS_IP}/html
+   HTTP/1.1 200 OK
+   server: envoy
+   date: Wed, 06 Jun 2018 18:34:43 GMT
+   content-type: text/html; charset=utf-8
+   content-length: 3741
+   access-control-allow-origin: *
+   access-control-allow-credentials: true
+   x-envoy-upstream-service-time: 10
+   ```
+
+Alternatively, you can verify that it is working correctly using
 a _curl_ command against `httpbin:8000` *from inside the cluster* using the public _dockerqa/curl_
 image from the Docker hub:
 
@@ -24,7 +44,3 @@ kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trusty --
 kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trusty --command -- curl --silent httpbin:8000/status/500
 time kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trusty --command -- curl --silent httpbin:8000/delay/5
 ```
-
-Alternatively, you can test the httpbin service by
-[configuring an ingress resource](https://istio.io/docs/tasks/traffic-management/ingress.html) or
-by starting the [sleep service](../sleep) and calling httpbin from it.
