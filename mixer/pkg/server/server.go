@@ -79,9 +79,8 @@ type patchTable struct {
 
 const (
 	// API group / version for istio config.
-	apiGroup        = "config.istio.io"
-	apiVersion      = "v1alpha2"
-	apiGroupVersion = apiGroup + "/" + apiVersion
+	apiGroup   = "config.istio.io"
+	apiVersion = "v1alpha2"
 )
 
 // New instantiates a fully functional Mixer server, ready for traffic.
