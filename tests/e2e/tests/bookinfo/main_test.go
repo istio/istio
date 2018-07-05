@@ -49,6 +49,8 @@ const (
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
+	destRule                           = routeRulesDir + "/" + "destination-rule-all"
+	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
 	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
 	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
 	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
@@ -157,12 +159,14 @@ func preprocessRule(t *testConfig, version, rule string) error {
 func (t *testConfig) Setup() error {
 	//generate rule yaml files, replace "jason" with actual user
 	if tc.Kube.AuthEnabled {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1-mtls")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all-mtls")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all-mtls")
 	} else {
-		allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
-		defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all")
+		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all")
 	}
+	allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
+	defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
 	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
