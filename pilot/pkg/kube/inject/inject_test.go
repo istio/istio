@@ -315,6 +315,7 @@ func TestIntoResourceFile(t *testing.T) {
 				InitImage:           InitImageName(unitTestHub, unitTestTag, c.debugMode),
 				ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
 				ImagePullPolicy:     "IfNotPresent",
+				IstioProxyVersion:   unitTestTag,
 				Verbosity:           DefaultVerbosity,
 				SidecarProxyUID:     DefaultSidecarProxyUID,
 				Version:             "12345678",
