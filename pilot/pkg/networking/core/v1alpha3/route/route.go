@@ -621,6 +621,26 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
+func portLevelSettingsConsistentHash(dst *networking.Destination,
+	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
+	if dst.Port != nil {
+		switch dst.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			log.Warnf("using deprecated name on port selector - ignoring")
+		case *networking.PortSelector_Number:
+			portNumber := dst.GetPort().GetNumber()
+			for _, setting := range pls {
+				number := setting.GetPort().GetNumber()
+				if number == portNumber {
+					return setting.GetLoadBalancer().GetConsistentHash()
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func getHashPolicy(configStore model.IstioConfigStore, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
 	if configStore == nil {
 		return nil
@@ -634,29 +654,24 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 	rule := destinationRule.Spec.(*networking.DestinationRule)
 
 	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
-	subsetName := destination.GetSubset()
+
 	for _, subset := range rule.GetSubsets() {
-		if subset.GetName() == subsetName {
+		if subset.GetName() == destination.GetSubset() {
+			subsetPortLevelSettings := subset.GetTrafficPolicy().GetPortLevelSettings()
 			consistentHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+			settingsHash := portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
+			if settingsHash != nil {
+				consistentHash = settingsHash
+			}
+
 			break
 		}
 	}
 
-	settings := rule.GetTrafficPolicy().GetPortLevelSettings()
-	if destination.Port != nil {
-		switch destination.Port.Port.(type) {
-		case *networking.PortSelector_Name:
-			log.Warnf("using deprecated name on port selector - ignoring")
-		case *networking.PortSelector_Number:
-			portNumber := destination.GetPort().GetNumber()
-			for _, setting := range settings {
-				number := setting.GetPort().GetNumber()
-				if number == portNumber {
-					consistentHash = setting.GetLoadBalancer().GetConsistentHash()
-					break
-				}
-			}
-		}
+	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	settingsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
+	if settingsHash != nil {
+		consistentHash = settingsHash
 	}
 
 	if consistentHash == nil {

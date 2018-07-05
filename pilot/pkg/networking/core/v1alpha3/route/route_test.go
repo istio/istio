@@ -45,7 +45,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	gatewayNames := map[string]bool{"wotan": true}
 
-	t.Run("ForVirtualService", func(t *testing.T) {
+	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
@@ -74,7 +74,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
-	t.Run("ForVirtualServiceWithRingHash", func(t *testing.T) {
+	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Duration(time.Nanosecond * 100)
@@ -121,7 +121,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
 	})
 
-	t.Run("ForVirtualServiceWithSubsetsWithRingHash", func(t *testing.T) {
+	t.Run("for virtual service with subsets with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		virtualService := model.Config{
@@ -155,6 +155,45 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "other-cookie",
+					Ttl:  nil,
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
+	})
+
+	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		virtualService := model.Config{ConfigMeta: model.ConfigMeta{Type: model.VirtualService.Type,
+			Version: model.VirtualService.Version,
+			Name:    "acme",
+		},
+			Spec: virtualServiceWithSubsetWithPortLevelSettings,
+		}
+
+		configStore := &fakes.IstioConfigStore{}
+		configStore.DestinationRuleReturns(
+			&model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:    model.DestinationRule.Type,
+					Version: model.DestinationRule.Version,
+					Name:    "acme",
+				},
+				Spec: &networking.DestinationRule{
+					Host:    "*.example.org",
+					Subsets: []*networking.Subset{networkingSubsetWithPortLevelSettings},
+				},
+			})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+					Name: "port-level-settings-cookie",
 					Ttl:  nil,
 				},
 			},
@@ -256,6 +295,29 @@ var virtualServiceWithSubset = &networking.VirtualService{
 	},
 }
 
+var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
+	Hosts:    []string{},
+	Gateways: []string{"wotan"},
+	Http: []*networking.HTTPRoute{
+		{
+			Route: []*networking.DestinationWeight{
+				{
+					Destination: &networking.Destination{
+						Subset: "port-level-settings-subset",
+						Host:   "*.example.org",
+						Port: &networking.PortSelector{
+							Port: &networking.PortSelector_Number{
+								Number: 8484,
+							},
+						},
+					},
+					Weight: 100,
+				},
+			},
+		},
+	},
+}
+
 var virtualServicePlain = model.Config{
 	ConfigMeta: model.ConfigMeta{
 		Type:    model.VirtualService.Type,
@@ -292,7 +354,7 @@ var portLevelDestinationRule = &networking.DestinationRule{
 		PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 			{
 				LoadBalancer: &networking.LoadBalancerSettings{
-					LbPolicy: loadBalancerPolicy,
+					LbPolicy: loadBalancerPolicy("hash-cookie"),
 				},
 				Port: &networking.PortSelector{
 					Port: &networking.PortSelector_Number{
@@ -304,14 +366,16 @@ var portLevelDestinationRule = &networking.DestinationRule{
 	},
 }
 
-var loadBalancerPolicy = &networking.LoadBalancerSettings_ConsistentHash{
-	ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
-		HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-			HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
-				Name: "hash-cookie",
+func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {
+	return &networking.LoadBalancerSettings_ConsistentHash{
+		ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+			HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+				HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					Name: name,
+				},
 			},
 		},
-	},
+	}
 }
 
 var networkingDestinationRule = &networking.DestinationRule{
@@ -319,7 +383,7 @@ var networkingDestinationRule = &networking.DestinationRule{
 	Subsets: []*networking.Subset{},
 	TrafficPolicy: &networking.TrafficPolicy{
 		LoadBalancer: &networking.LoadBalancerSettings{
-			LbPolicy: loadBalancerPolicy,
+			LbPolicy: loadBalancerPolicy("hash-cookie"),
 		},
 	},
 }
@@ -335,6 +399,25 @@ var networkingSubset = &networking.Subset{
 						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 							Name: "other-cookie",
 						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var networkingSubsetWithPortLevelSettings = &networking.Subset{
+	Name:   "port-level-settings-subset",
+	Labels: map[string]string{},
+	TrafficPolicy: &networking.TrafficPolicy{
+		PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+			{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: loadBalancerPolicy("port-level-settings-cookie"),
+				},
+				Port: &networking.PortSelector{
+					Port: &networking.PortSelector_Number{
+						Number: 8484,
 					},
 				},
 			},
