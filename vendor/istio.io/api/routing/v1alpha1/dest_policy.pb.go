@@ -51,7 +51,7 @@ func (x LoadBalancing_SimpleLBPolicy) String() string {
 	return proto.EnumName(LoadBalancing_SimpleLBPolicy_name, int32(x))
 }
 func (LoadBalancing_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_dest_policy_d1e7ee48abd3e92c, []int{1, 0}
+	return fileDescriptor_dest_policy_101b2e64e366bbad, []int{1, 0}
 }
 
 // DestinationPolicy defines client/caller-side policies that determine how
@@ -78,6 +78,7 @@ func (LoadBalancing_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
 // a particular source. For example, the following load balancing policy
 // applies to version v1 of the ratings service running in the prod
 // environment but only when called from version v2 of the reviews service:
+//
 //
 //     metadata:
 //       name: ratings-lb-policy
@@ -121,7 +122,7 @@ func (m *DestinationPolicy) Reset()         { *m = DestinationPolicy{} }
 func (m *DestinationPolicy) String() string { return proto.CompactTextString(m) }
 func (*DestinationPolicy) ProtoMessage()    {}
 func (*DestinationPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dest_policy_d1e7ee48abd3e92c, []int{0}
+	return fileDescriptor_dest_policy_101b2e64e366bbad, []int{0}
 }
 func (m *DestinationPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DestinationPolicy.Unmarshal(m, b)
@@ -181,15 +182,16 @@ func (m *DestinationPolicy) GetCustom() *any.Any {
 // types](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing)
 // supported by Envoy. Example,
 //
-//     metadata:
-//       name: reviews-lb-policy
-//       namespace: default
-//     spec:
-//       destination:
-//         name: reviews
-//       loadBalancing:
-//         name: RANDOM
-//
+// ```yaml
+// metadata:
+//   name: reviews-lb-policy
+//   namespace: default
+// spec:
+//   destination:
+//     name: reviews
+//   loadBalancing:
+//     name: RANDOM
+// ```
 type LoadBalancing struct {
 	// Types that are valid to be assigned to LbPolicy:
 	//	*LoadBalancing_Name
@@ -204,7 +206,7 @@ func (m *LoadBalancing) Reset()         { *m = LoadBalancing{} }
 func (m *LoadBalancing) String() string { return proto.CompactTextString(m) }
 func (*LoadBalancing) ProtoMessage()    {}
 func (*LoadBalancing) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dest_policy_d1e7ee48abd3e92c, []int{1}
+	return fileDescriptor_dest_policy_101b2e64e366bbad, []int{1}
 }
 func (m *LoadBalancing) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LoadBalancing.Unmarshal(m, b)
@@ -351,7 +353,7 @@ func (m *CircuitBreaker) Reset()         { *m = CircuitBreaker{} }
 func (m *CircuitBreaker) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreaker) ProtoMessage()    {}
 func (*CircuitBreaker) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dest_policy_d1e7ee48abd3e92c, []int{2}
+	return fileDescriptor_dest_policy_101b2e64e366bbad, []int{2}
 }
 func (m *CircuitBreaker) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CircuitBreaker.Unmarshal(m, b)
@@ -485,17 +487,19 @@ func _CircuitBreaker_OneofSizer(msg proto.Message) (n int) {
 // policy sets a limit of 100 connections to "reviews" service version
 // "v1" backends.
 //
-//     metadata:
-//       name: reviews-cb-policy
-//       namespace: default
-//     spec:
-//       destination:
-//         name: reviews
-//         labels:
-//           version: v1
-//       circuitBreaker:
-//         simpleCb:
-//           maxConnections: 100
+// ```yaml
+// metadata:
+//   name: reviews-cb-policy
+//   namespace: default
+// spec:
+//   destination:
+//     name: reviews
+//     labels:
+//       version: v1
+//   circuitBreaker:
+//     simpleCb:
+//       maxConnections: 100
+// ```
 //
 // The following destination policy sets a limit of 100 connections and
 // 1000 concurrent requests, with no more than 10 req/connection to
@@ -503,23 +507,24 @@ func _CircuitBreaker_OneofSizer(msg proto.Message) (n int) {
 // hosts to be scanned every 5 mins, such that any host that fails 7
 // consecutive times with 5XX error code will be ejected for 15 minutes.
 //
-//     metadata:
-//       name: reviews-cb-policy
-//       namespace: default
-//     spec:
-//       destination:
-//         name: reviews
-//         labels:
-//           version: v1
-//       circuitBreaker:
-//         simpleCb:
-//           maxConnections: 100
-//           httpMaxRequests: 1000
-//           httpMaxRequestsPerConnection: 10
-//           httpConsecutiveErrors: 7
-//           sleepWindow: 15m
-//           httpDetectionInterval: 5m
-//
+// ```yaml
+// metadata:
+//   name: reviews-cb-policy
+//   namespace: default
+// spec:
+//   destination:
+//     name: reviews
+//     labels:
+//       version: v1
+//   circuitBreaker:
+//     simpleCb:
+//       maxConnections: 100
+//       httpMaxRequests: 1000
+//       httpMaxRequestsPerConnection: 10
+//       httpConsecutiveErrors: 7
+//       sleepWindow: 15m
+//       httpDetectionInterval: 5m
+// ```
 type CircuitBreaker_SimpleCircuitBreakerPolicy struct {
 	// Maximum number of connections to a backend.
 	MaxConnections int32 `protobuf:"varint,1,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
@@ -556,7 +561,7 @@ func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) Reset() {
 func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreaker_SimpleCircuitBreakerPolicy) ProtoMessage()    {}
 func (*CircuitBreaker_SimpleCircuitBreakerPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dest_policy_d1e7ee48abd3e92c, []int{2, 0}
+	return fileDescriptor_dest_policy_101b2e64e366bbad, []int{2, 0}
 }
 func (m *CircuitBreaker_SimpleCircuitBreakerPolicy) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CircuitBreaker_SimpleCircuitBreakerPolicy.Unmarshal(m, b)
@@ -648,10 +653,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("routing/v1alpha1/dest_policy.proto", fileDescriptor_dest_policy_d1e7ee48abd3e92c)
+	proto.RegisterFile("routing/v1alpha1/dest_policy.proto", fileDescriptor_dest_policy_101b2e64e366bbad)
 }
 
-var fileDescriptor_dest_policy_d1e7ee48abd3e92c = []byte{
+var fileDescriptor_dest_policy_101b2e64e366bbad = []byte{
 	// 667 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x6d, 0x4f, 0x13, 0x4b,
 	0x14, 0xa6, 0x85, 0xf6, 0xc2, 0xf4, 0xd2, 0x96, 0xc9, 0xbd, 0xdc, 0xa5, 0xb9, 0x2a, 0x36, 0xbe,

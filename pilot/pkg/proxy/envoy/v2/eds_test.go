@@ -218,8 +218,15 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 
 	// Bad client - will not read any response. This triggers Write to block, which should
 	// be detected
-	ads := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(testIp(0x0a120001), "app3"), ads)
+	ads, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = sendCDSReq(sidecarId(testIp(0x0a120001), "app3"), ads)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// 1000 clients * 100 pushes = ~4 sec
 	n := 10 // clients

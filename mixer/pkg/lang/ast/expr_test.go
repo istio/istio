@@ -330,6 +330,20 @@ func TestInternalTypeCheck(t *testing.T) {
 				}},
 			},
 			success},
+		{`conditional(true, "abc", "cba")`, dpb.STRING, []*ad{},
+			[]FunctionMetadata{
+				{Name: "conditional", Instance: false, ReturnType: dpb.VALUE_TYPE_UNSPECIFIED, ArgumentTypes: []dpb.ValueType{
+					dpb.BOOL, dpb.VALUE_TYPE_UNSPECIFIED, dpb.VALUE_TYPE_UNSPECIFIED,
+				}},
+			},
+			success},
+		{`conditional(false, 23, 42)`, dpb.INT64, []*ad{},
+			[]FunctionMetadata{
+				{Name: "conditional", Instance: false, TargetType: dpb.INT64, ReturnType: dpb.VALUE_TYPE_UNSPECIFIED, ArgumentTypes: []dpb.ValueType{
+					dpb.BOOL, dpb.VALUE_TYPE_UNSPECIFIED, dpb.VALUE_TYPE_UNSPECIFIED,
+				}},
+			},
+			success},
 	}
 	for idx, c := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {

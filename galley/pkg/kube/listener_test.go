@@ -398,6 +398,7 @@ func TestListener_Tombstone(t *testing.T) {
 	defer a.stop()
 
 	a.start()
+	a.waitForCacheSync()
 
 	t2 := template.DeepCopy()
 	item := cache.DeletedFinalStateUnknown{Key: "foo", Obj: t2}
@@ -412,8 +413,8 @@ watch plural
 	check(t, writeActions(cl.Fake.Actions()), expected)
 
 	expected = `
-Deleted key=foo
-Added key=foo`
+Added key=foo
+Deleted key=foo`
 
 	check(t, processorLog.String(), expected)
 }
@@ -448,6 +449,7 @@ func TestListener_TombstoneDecodeError(t *testing.T) {
 	defer a.stop()
 
 	a.start()
+	a.waitForCacheSync()
 
 	a.handleEvent(resource.Deleted, struct{}{})
 
@@ -522,6 +524,7 @@ func writeActions(actions []dtesting.Action) string {
 }
 
 func check(t *testing.T, actual string, expected string) {
+	t.Helper()
 	if strings.TrimSpace(actual) != strings.TrimSpace(expected) {
 		t.Fatalf("mismatch.\nGot:\n%s\nWanted:\n%s\n", actual, expected)
 	}

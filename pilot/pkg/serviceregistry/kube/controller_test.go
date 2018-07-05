@@ -159,8 +159,8 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 }
 
 func TestController_getPodAZ(t *testing.T) {
-	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
-	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"})
+	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 	testCases := []struct {
 		name   string
 		pods   []*v1.Pod
@@ -301,9 +301,9 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	canonicalSaOnVM := "acctvm@gserviceaccount.com"
 
 	pods := []*v1.Pod{
-		generatePod("pod1", "nsA", sa1, "node1", map[string]string{"app": "test-app"}),
-		generatePod("pod2", "nsA", sa2, "node2", map[string]string{"app": "prod-app"}),
-		generatePod("pod3", "nsB", sa3, "node1", map[string]string{"app": "prod-app"}),
+		generatePod("pod1", "nsA", sa1, "node1", map[string]string{"app": "test-app"}, map[string]string{}),
+		generatePod("pod2", "nsA", sa2, "node2", map[string]string{"app": "prod-app"}, map[string]string{}),
+		generatePod("pod3", "nsB", sa3, "node1", map[string]string{"app": "prod-app"}, map[string]string{}),
 	}
 	addPods(t, controller, pods...)
 
@@ -389,9 +389,83 @@ func TestWorkloadHealthCheckInfo(t *testing.T) {
 
 	for i, exp := range expected {
 		if !reflect.DeepEqual(exp, probes[i]) {
-			t.Errorf("Port got: %#v  wanted %#v\r\n", probes[i].Port, exp.Port)
 			t.Errorf("Probe %d, got:\n%#v\nwanted:\n%#v\n", i, probes[i], exp)
 		}
+	}
+}
+
+func TestWorkloadHealthCheckInfoPrometheusScrape(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+
+	pods := []*v1.Pod{
+		generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+			map[string]string{PrometheusScrape: "true"}),
+	}
+	addPods(t, controller, pods...)
+
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+
+	expected := &model.Probe{
+		Path: PrometheusPathDefault,
+	}
+
+	if len(probes) != 1 {
+		t.Errorf("Expecting 1 probe but got %d\r\n", len(probes))
+	} else if !reflect.DeepEqual(expected, probes[0]) {
+		t.Errorf("Probe got:\n%#v\nwanted:\n%#v\n", probes[0], expected)
+	}
+}
+
+func TestWorkloadHealthCheckInfoPrometheusPath(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+
+	pods := []*v1.Pod{
+		generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+			map[string]string{PrometheusScrape: "true", PrometheusPath: "/other"}),
+	}
+	addPods(t, controller, pods...)
+
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+
+	expected := &model.Probe{
+		Path: "/other",
+	}
+
+	if len(probes) != 1 {
+		t.Errorf("Expecting 1 probe but got %d\r\n", len(probes))
+	} else if !reflect.DeepEqual(expected, probes[0]) {
+		t.Errorf("Probe got:\n%#v\nwanted:\n%#v\n", probes[0], expected)
+	}
+}
+
+func TestWorkloadHealthCheckInfoPrometheusPort(t *testing.T) {
+	controller := makeFakeKubeAPIController()
+
+	pods := []*v1.Pod{
+		generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "test-app"},
+			map[string]string{PrometheusScrape: "true", PrometheusPort: "3210"}),
+	}
+	addPods(t, controller, pods...)
+
+	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
+
+	probes := controller.WorkloadHealthCheckInfo("128.0.0.1")
+
+	expected := &model.Probe{
+		Port: &model.Port{
+			Port: 3210,
+		},
+		Path: PrometheusPathDefault,
+	}
+
+	if len(probes) != 1 {
+		t.Errorf("Expecting 1 probe but got %d\r\n", len(probes))
+	} else if !reflect.DeepEqual(expected, probes[0]) {
+		t.Errorf("Probe got:\n%#v\nwanted:\n%#v\n", probes[0], expected)
 	}
 }
 
@@ -467,12 +541,13 @@ func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
 	}
 }
 
-func generatePod(name, namespace, saName, node string, labels map[string]string) *v1.Pod {
+func generatePod(name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *v1.Pod {
 	return &v1.Pod{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      name,
-			Labels:    labels,
-			Namespace: namespace,
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+			Namespace:   namespace,
 		},
 		Spec: v1.PodSpec{
 			ServiceAccountName: saName,
