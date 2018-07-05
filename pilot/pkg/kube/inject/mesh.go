@@ -134,11 +134,7 @@ containers:
       fieldRef:
         fieldPath: status.podIP
   - name: ISTIO_META_ISTIO_PROXY_VERSION
-    {{ if eq .IstioProxyVersion "" -}}
-    value: "0.8.0"
-    {{ else -}}
     value: {{ .IstioProxyVersion }}
-    {{ end -}}
   - name: ISTIO_META_POD_NAME
     valueFrom:
       fieldRef:

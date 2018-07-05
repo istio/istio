@@ -1058,6 +1058,7 @@ func BenchmarkInjectServe(b *testing.B) {
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
 		ImagePullPolicy:     "IfNotPresent",
+		IstioProxyVersion:   unitTestTag,
 		Verbosity:           DefaultVerbosity,
 		SidecarProxyUID:     DefaultSidecarProxyUID,
 		Version:             "12345678",
