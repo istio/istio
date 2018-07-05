@@ -8,11 +8,15 @@ spec:
   traceId: request.headers["x-b3-traceid"] | ""
   spanId: request.headers["x-b3-spanid"] | ""
   parentSpanId: request.headers["x-b3-parentspanid"] | ""
+  # If the path contains query parameters, they will be split off and put into
+  # tags such that the span name sent to SignalFx will consist only of the path
+  # itself.
   spanName: request.path | "/"
   startTime: request.time
   endTime: response.time
   # If this is >=500, the span will get an 'error' tag
   httpStatusCode: response.code | 0
+  clientSpan: context.reporter.kind == "outbound"
   # Span tags below that do not have comments are useful but optional and will
   # be passed to SignalFx unmodified. The tags that have comments are interpreted
   # in a special manner, but are still optional.

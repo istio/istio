@@ -155,7 +155,7 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 
 	kind := &serverKind
 	// ClientSpan doesn't seem to populate reliably yet so fall back on a tag
-	if isLocal, ok := istioSpan.SpanTags["context.reporter.local"].(bool); istioSpan.ClientSpan || (ok && !isLocal) {
+	if istioSpan.ClientSpan {
 		kind = &clientKind
 	}
 
@@ -194,7 +194,7 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 	}
 
 	for k, v := range istioSpan.SpanTags {
-		shouldSet := k != "context.reporter.local" &&
+		shouldSet := k != "context.reporter.type" &&
 			k != "source.labels" &&
 			k != "destination.labels"
 

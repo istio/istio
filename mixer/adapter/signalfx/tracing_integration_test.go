@@ -66,9 +66,8 @@ spec:
   startTime: request.time
   endTime: response.time
   httpStatusCode: response.code | 0
-  client_span: '!context.reporter.local'
+  clientSpan: context.reporter.kind == "outbound"
   spanTags:
-    context.reporter.local: context.reporter.local
     destination.ip: destination.ip | ip("0.0.0.0")
     destination.name: destination.name | "unknown"
     source.ip: source.ip | ip("0.0.0.0")
@@ -93,9 +92,9 @@ func TestReportTraces(t *testing.T) {
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs: map[string]interface{}{
-						"request.time":           start,
-						"response.time":          end,
-						"context.reporter.local": false,
+						"request.time":          start,
+						"response.time":         end,
+						"context.reporter.kind": "outbound",
 						"request.headers": map[string]string{
 							"x-b3-traceid": "463ac35c9f6413ad48485a3953bb6124",
 							"x-b3-spanid":  "a2fb4a1d1a96d312",
@@ -120,9 +119,9 @@ func TestReportTraces(t *testing.T) {
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs: map[string]interface{}{
-						"request.time":           start.Add(5 * time.Millisecond),
-						"response.time":          end.Add(10 * time.Millisecond),
-						"context.reporter.local": true,
+						"request.time":          start.Add(5 * time.Millisecond),
+						"response.time":         end.Add(10 * time.Millisecond),
+						"context.reporter.kind": "inbound",
 						"request.headers": map[string]string{
 							"x-b3-traceid":      "463ac35c9f6413ad48485a3953bb6124",
 							"x-b3-spanid":       "b3a9b83bb2b3098f",
@@ -146,9 +145,9 @@ func TestReportTraces(t *testing.T) {
 				{
 					CallKind: adapter_integration.REPORT,
 					Attrs: map[string]interface{}{
-						"request.time":           start.Add(6 * time.Millisecond),
-						"response.time":          end.Add(11 * time.Millisecond),
-						"context.reporter.local": false,
+						"request.time":          start.Add(6 * time.Millisecond),
+						"response.time":         end.Add(11 * time.Millisecond),
+						"context.reporter.kind": "outbound",
 						"request.headers": map[string]string{
 							"x-b3-traceid":      "463ac35c9f6413ad48485a3953bb6124",
 							"x-b3-spanid":       "abcdef0123456789",
