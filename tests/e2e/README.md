@@ -22,6 +22,8 @@ All local testing options requires the `--use_local_cluster` flag so the framewo
 ## Using GKE
 Optionally, you can set up a GKE environment to run the E2E tests. See [instructions](UsingGKE.md).
 
+## Using IBM Bluemix
+Setup a Kubernetes cluster on IBM Cloud to run the E2E tests. See [instructions](UsingBluemix.md).
 
 ## Using CI (PR pre-submit stage)
 You can send a PR to trigger all E2E tests in CI, but you should run these tests locally before sending it out to avoid wasting valuable and shared CI resources.
