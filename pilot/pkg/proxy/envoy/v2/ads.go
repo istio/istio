@@ -358,6 +358,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			if nt.Metadata != nil {
+				nt.Version = model.ParseProxyVersion(nt.Metadata["ISTIO_PROXY_VERSION"])
+			}
 			con.mu.Lock()
 			con.modelNode = &nt
 			con.mu.Unlock()

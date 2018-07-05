@@ -66,9 +66,35 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	Domain string
 
+	// Version represents the binary version of the proxy
+	// e.g., 0.8.0
+	Version ProxyVersion
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 }
+
+// ProxyVersion indicates the version of the data plane proxy we are talking to.
+// Has major, minor, patch and a tag. If the version does not exist, we fall back
+// to 0.8.0. If version exists, but is not in the x.y.z format, we treat it as
+// the latest version (e.g., nightly-release, unittest, etc.)
+type ProxyVersion struct {
+	// Major version
+	Major uint64
+
+	// Minor version
+	Minor uint64
+
+	// Patch version
+	Patch uint64
+}
+
+// MAX_VERSION_VALUE is simply uint64(-1) to represent undefined major/minor/patch
+const MAX_VERSION_VALUE = (1 << 64) - 1
+
+// UndefinedVersion represents proxies using undefined version strings
+// such as nightly, unittest, or custom tags.
+var UndefinedVersion = ProxyVersion{MAX_VERSION_VALUE, MAX_VERSION_VALUE, MAX_VERSION_VALUE}
 
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
@@ -83,6 +109,38 @@ const (
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
 )
+
+// ParseProxyVersion converts the ISTIO_PROXY_VERSION metadata
+// supplied by the proxy into a major.minor.patch version
+func ParseProxyVersion(version string) ProxyVersion {
+	elements := strings.Split(version, ".")
+	retVal := UndefinedVersion
+
+	// parse major
+	if major, err := strconv.Atoi(elements[0]); err != nil {
+		return retVal
+	} else {
+		retVal.Major = uint64(major)
+	}
+
+	if len(elements) > 1 {
+		if minor, err := strconv.Atoi(elements[1]); err != nil {
+			return retVal
+		} else {
+			retVal.Minor = uint64(minor)
+		}
+	}
+
+	if len(elements) > 2 {
+		if patch, err := strconv.Atoi(elements[2]); err != nil {
+			return retVal
+		} else {
+			retVal.Patch = uint64(patch)
+		}
+	}
+
+	return retVal
+}
 
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {

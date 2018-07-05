@@ -98,3 +98,42 @@ defaultConfig:
 		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
 	}
 }
+
+func TestParseProxyVersion(t *testing.T) {
+	cases := []struct {
+		in   string
+		want model.ProxyVersion
+	}{
+		{
+			in:   "0.8.0",
+			want: model.ProxyVersion{Minor: 8},
+		},
+		{
+			in:   "0.8",
+			want: model.ProxyVersion{Minor: 8, Patch: model.MAX_VERSION_VALUE},
+		},
+		{
+			in:   "1",
+			want: model.ProxyVersion{Major: 1, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+		},
+		{
+			in:   "1.nightly",
+			want: model.ProxyVersion{Major: 1, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+		},
+		{
+			in:   "1.1.nightly",
+			want: model.ProxyVersion{Major: 1, Minor: 1, Patch: model.MAX_VERSION_VALUE},
+		},
+		{
+			in:   "something",
+			want: model.ProxyVersion{Major: model.MAX_VERSION_VALUE, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+		},
+	}
+
+	for _, c := range cases {
+		out := model.ParseProxyVersion(c.in)
+		if !reflect.DeepEqual(out, c.want) {
+			t.Errorf("ParseProxyVersion(%q) => Got %#v, want %#v", c.in, out, c.want)
+		}
+	}
+}
