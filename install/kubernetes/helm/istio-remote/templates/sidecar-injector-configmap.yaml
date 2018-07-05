@@ -124,7 +124,7 @@ data:
             fieldRef:
               fieldPath: metadata.name
         - name: ISTIO_META_ISTIO_PROXY_VERSION
-          value: {{ .Values.global.istioProxyVersion }}
+          value: {{ .Values.global.tag }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
