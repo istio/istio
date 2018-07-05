@@ -110,23 +110,23 @@ func TestParseProxyVersion(t *testing.T) {
 		},
 		{
 			in:   "0.8",
-			want: model.ProxyVersion{Minor: 8, Patch: model.MAX_VERSION_VALUE},
+			want: model.ProxyVersion{Minor: 8, Patch: model.MaxVersionValue},
 		},
 		{
 			in:   "1",
-			want: model.ProxyVersion{Major: 1, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+			want: model.ProxyVersion{Major: 1, Minor: model.MaxVersionValue, Patch: model.MaxVersionValue},
 		},
 		{
 			in:   "1.nightly",
-			want: model.ProxyVersion{Major: 1, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+			want: model.ProxyVersion{Major: 1, Minor: model.MaxVersionValue, Patch: model.MaxVersionValue},
 		},
 		{
 			in:   "1.1.nightly",
-			want: model.ProxyVersion{Major: 1, Minor: 1, Patch: model.MAX_VERSION_VALUE},
+			want: model.ProxyVersion{Major: 1, Minor: 1, Patch: model.MaxVersionValue},
 		},
 		{
 			in:   "something",
-			want: model.ProxyVersion{Major: model.MAX_VERSION_VALUE, Minor: model.MAX_VERSION_VALUE, Patch: model.MAX_VERSION_VALUE},
+			want: model.ProxyVersion{Major: model.MaxVersionValue, Minor: model.MaxVersionValue, Patch: model.MaxVersionValue},
 		},
 	}
 

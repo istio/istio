@@ -89,12 +89,12 @@ type ProxyVersion struct {
 	Patch uint64
 }
 
-// MAX_VERSION_VALUE is simply uint64(-1) to represent undefined major/minor/patch
-const MAX_VERSION_VALUE = (1 << 64) - 1
+// MaxVersionValue is simply uint64(-1) to represent undefined major/minor/patch
+const MaxVersionValue = (1 << 64) - 1
 
 // UndefinedVersion represents proxies using undefined version strings
 // such as nightly, unittest, or custom tags.
-var UndefinedVersion = ProxyVersion{MAX_VERSION_VALUE, MAX_VERSION_VALUE, MAX_VERSION_VALUE}
+var UndefinedVersion = ProxyVersion{MaxVersionValue, MaxVersionValue, MaxVersionValue}
 
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
@@ -117,24 +117,18 @@ func ParseProxyVersion(version string) ProxyVersion {
 	retVal := UndefinedVersion
 
 	// parse major
-	if major, err := strconv.Atoi(elements[0]); err != nil {
-		return retVal
-	} else {
+	if major, err := strconv.Atoi(elements[0]); err == nil {
 		retVal.Major = uint64(major)
 	}
 
 	if len(elements) > 1 {
-		if minor, err := strconv.Atoi(elements[1]); err != nil {
-			return retVal
-		} else {
+		if minor, err := strconv.Atoi(elements[1]); err == nil {
 			retVal.Minor = uint64(minor)
 		}
 	}
 
 	if len(elements) > 2 {
-		if patch, err := strconv.Atoi(elements[2]); err != nil {
-			return retVal
-		} else {
+		if patch, err := strconv.Atoi(elements[2]); err == nil {
 			retVal.Patch = uint64(patch)
 		}
 	}
