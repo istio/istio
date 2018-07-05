@@ -90,6 +90,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
+          - name: ISTIO_META_ISTIO_PROXY_VERSION
+            value: {{ .Values.global.istioProxyVersion }}
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
