@@ -20,9 +20,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	proto "github.com/gogo/protobuf/types"
+
+	protio "istio.io/istio/istioctl/pkg/util/proto"
 )
 
 const (
@@ -102,7 +102,7 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredListeners := protoMessageSlice{}
+	filteredListeners := protio.MessageSlice{}
 	for _, listener := range listeners {
 		if filter.Verify(listener) {
 			filteredListeners = append(filteredListeners, listener)
@@ -129,13 +129,9 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
-	listenerDumpAny, ok := c.configDump.Configs[listenersKey]
-	if !ok {
-		return nil, fmt.Errorf("unable to find %v in Envoy config dump", listenersKey)
-	}
-	listenerDump := &adminapi.ListenersConfigDump{}
-	if err := proto.UnmarshalAny(&listenerDumpAny, listenerDump); err != nil {
-		return nil, fmt.Errorf("unable to unmarshalAny/assert listeners dump: %v", err)
+	listenerDump, err := c.configDump.GetListenerConfigDump()
+	if err != nil {
+		return nil, err
 	}
 	listeners := []*xdsapi.Listener{}
 	for _, listener := range listenerDump.DynamicActiveListeners {

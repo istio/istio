@@ -3,7 +3,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio08-gateway
+  name: istio-gateway
 spec:
   selector:
     istio: ingressgateway
@@ -18,22 +18,26 @@ spec:
     - "pilot.{{ .Values.domain }}"
     - "fortio.{{ .Values.domain }}"
     - "fortio2.{{ .Values.domain }}"
-    - "fortioraw.{{ .Values.domain }}"
+    - "fortiotls.{{ .Values.domain }}"
+    - "fortionoistio.{{ .Values.domain }}"
     - "bookinfo.{{ .Values.domain }}"
     - "httpbin.{{ .Values.domain }}"
+    - "fortio080.{{ .Values.domain }}"
+    - "fortio10rc1.{{ .Values.domain }}"
+    - "fortiomaster.{{ .Values.domain }}"
+    - "fortiocli.{{ .Values.domain }}"
+  - port:
+      number: 5201
+      protocol: TCP
+      name: tcp-iperf3
+    hosts:
+    - "*"
   - port:
       number: 5203
       protocol: TCP
-      name: tcp-iperf
+      name: tcp-iperf-tls
     hosts:
     - "*"
-  - port:
-      number: 5202
-      protocol: TCP
-      name: tcp-iperfraw
-    hosts:
-    - "*"
-
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -44,7 +48,7 @@ spec:
   hosts:
   - "pilot.{{ .Values.domain }}"
   gateways:
-  - istio08-gateway
+  - istio-gateway
   http:
   - route:
     - destination:
@@ -62,7 +66,7 @@ spec:
   hosts:
   - "httpbin.{{ .Values.domain }}"
   gateways:
-  - istio08-gateway
+  - istio-gateway
   http:
   - route:
     - destination:
@@ -79,7 +83,7 @@ spec:
   hosts:
   - "grafana.{{ .Values.domain }}"
   gateways:
-  - istio08-gateway
+  - istio-gateway
   http:
   - route:
     - destination:
@@ -98,7 +102,7 @@ spec:
   hosts:
   - "prom.{{ .Values.domain }}"
   gateways:
-  - istio08-gateway
+  - istio-gateway
   http:
   - route:
     - destination:
@@ -115,85 +119,12 @@ spec:
   hosts:
   - "bookinfo.{{ .Values.domain }}"
   gateways:
-  - istio08-gateway
+  - istio-gateway
   http:
   - route:
     - destination:
         host: productpage.bookinfo.svc.cluster.local
         port:
           number: 9080
-
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortio
-spec:
-  hosts:
-  - "fortioraw.{{.Values.domain}}"
-  gateways:
-  - istio08-gateway
-  http:
-  - route:
-    - destination:
-        host: fortio-noistio.test.svc.cluster.local
-        port:
-          number: 8080
-
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortioistio
-spec:
-  hosts:
-  - "fortio.{{ .Values.domain }}"
-  gateways:
-  - istio08-gateway
-  http:
-  - route:
-    - destination:
-        host: fortiov1.test.svc.cluster.local
-        port:
-          number: 8080
-
-
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: fortio2istio
-spec:
-  hosts:
-  - "fortio2.{{ .Values.domain }}"
-  gateways:
-  - istio08-gateway
-  http:
-  - route:
-    - destination:
-        host: fortio-tls.test.svc.cluster.local
-        port:
-          number: 8080
-
----
-
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: iperf
-spec:
-  hosts:
-  - "iperf.{{ .Values.domain }}"
-  gateways:
-  - istio08-gateway
-  tcp:
-  - route:
-    - destination:
-        host: iperf3.test.svc.cluster.local
-        port:
-          number: 5202
 
 ---

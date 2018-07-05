@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,11 +67,6 @@ func NewClustersStore() *ClusterStore {
 	}
 }
 
-// GetClientAccessConfigs returns map of collected client configs
-//func (cs *ClusterStore) GetClientAccessConfigs() map[string]clientcmdapi.Config {
-//	return cs.clientConfigs
-//}
-
 // GetClusterAccessConfig returns the access config file of a cluster
 func (cs *ClusterStore) GetClusterAccessConfig(cluster *k8s_cr.Cluster) *clientcmdapi.Config {
 	if cluster == nil {
@@ -90,8 +85,7 @@ func GetClusterID(cluster *k8s_cr.Cluster) string {
 }
 
 // ReadClusters reads multiple clusters from a ConfigMap
-func ReadClusters(k8s kubernetes.Interface, configMapName string,
-	configMapNamespace string, cs *ClusterStore) error {
+func ReadClusters(k8s kubernetes.Interface, configMapName string, configMapNamespace string, cs *ClusterStore) error {
 
 	// getClustersConfigs populates Cluster Store with valid entries found in
 	// the configmap. Partial success is possible when some entries in the configmap
@@ -159,10 +153,7 @@ func getClustersConfigs(k8s kubernetes.Interface, configMapName, configMapNamesp
 }
 
 // Read a kubeconfig fragment from the secret.
-func getClusterConfigFromSecret(k8s kubernetes.Interface,
-	secretName string,
-	secretNamespace string,
-	clusterName string) ([]byte, error) {
+func getClusterConfigFromSecret(k8s kubernetes.Interface, secretName string, secretNamespace string, clusterName string) ([]byte, error) {
 
 	secret, err := k8s.CoreV1().Secrets(secretNamespace).Get(secretName, metav1.GetOptions{})
 	if err == nil {

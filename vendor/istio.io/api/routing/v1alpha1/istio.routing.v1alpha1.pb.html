@@ -86,7 +86,7 @@ connection and request limits. For example, the following destination
 policy sets a limit of 100 connections to &ldquo;reviews&rdquo; service version
 &ldquo;v1&rdquo; backends.</p>
 
-<pre><code>metadata:
+<pre><code class="language-yaml">metadata:
   name: reviews-cb-policy
   namespace: default
 spec:
@@ -105,7 +105,7 @@ spec:
 hosts to be scanned every 5 mins, such that any host that fails 7
 consecutive times with 5XX error code will be ejected for 15 minutes.</p>
 
-<pre><code>metadata:
+<pre><code class="language-yaml">metadata:
   name: reviews-cb-policy
   namespace: default
 spec:
@@ -1416,7 +1416,7 @@ directly correlate to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro
 types</a>
 supported by Envoy. Example,</p>
 
-<pre><code>metadata:
+<pre><code class="language-yaml">metadata:
   name: reviews-lb-policy
   namespace: default
 spec:
