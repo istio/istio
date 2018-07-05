@@ -28,35 +28,6 @@ import (
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
-	virtualService := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:    model.VirtualService.Type,
-			Version: model.VirtualService.Version,
-			Name:    "acme",
-		},
-		Spec: &networking.VirtualService{
-			Hosts:    []string{},
-			Gateways: []string{"wotan"},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.DestinationWeight{
-						{
-							Destination: &networking.Destination{
-								Host: "*.example.org",
-								Port: &networking.PortSelector{
-									Port: &networking.PortSelector_Name{
-										Name: "foo",
-									},
-								},
-							},
-							Weight: 100,
-						},
-					},
-				},
-			},
-		},
-	}
-
 	serviceRegistry := map[model.Hostname]*model.Service{
 		"*.example.org": {
 			Hostname:    "*.example.org",
@@ -72,13 +43,35 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		},
 	}
 
+	gatewayNames := map[string]bool{"wotan": true}
+
 	t.Run("ForVirtualService", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		gatewayNames := map[string]bool{"wotan": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+	})
+
+	t.Run("destination rule nil traffic policy", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		configStore := &fakes.IstioConfigStore{}
+		rule := networkingDestinationRule
+		rule.TrafficPolicy = nil
+		cnfg := &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    "acme",
+			},
+			Spec: rule,
+		}
+
+		configStore.DestinationRuleReturns(cnfg)
+
+		_, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, nil)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	t.Run("ForVirtualServiceWithRingHash", func(t *testing.T) {
@@ -113,8 +106,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		)
 
-		gatewayNames := map[string]bool{"wotan": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -155,7 +147,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				},
 			})
 
-		gatewayNames := map[string]bool{"wotan": true}
 		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -196,7 +187,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cnfg.Spec = networkingDestinationRule
 		configStore.DestinationRuleReturns(cnfg)
 
-		gatewayNames := map[string]bool{"wotan": true}
 		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -227,7 +217,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		configStore.DestinationRuleReturns(cnfg)
 
 		gatewayNames := map[string]bool{"wotan": true}
-		routes, err := route.BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
+		routes, err := route.BuildHTTPRoutesForVirtualService(virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames, configStore)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -266,6 +256,35 @@ var virtualServiceWithSubset = &networking.VirtualService{
 	},
 }
 
+var virtualServicePlain = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		Type:    model.VirtualService.Type,
+		Version: model.VirtualService.Version,
+		Name:    "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"wotan"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 8484,
+								},
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
 var portLevelDestinationRule = &networking.DestinationRule{
 	Host:    "*.example.org",
 	Subsets: []*networking.Subset{},
@@ -276,8 +295,8 @@ var portLevelDestinationRule = &networking.DestinationRule{
 					LbPolicy: loadBalancerPolicy,
 				},
 				Port: &networking.PortSelector{
-					Port: &networking.PortSelector_Name{
-						Name: "foo",
+					Port: &networking.PortSelector_Number{
+						Number: 8484,
 					},
 				},
 			},

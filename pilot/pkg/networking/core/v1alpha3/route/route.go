@@ -646,16 +646,8 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 	if destination.Port != nil {
 		switch destination.Port.Port.(type) {
 		case *networking.PortSelector_Name:
-			portName := destination.GetPort().GetName()
-			for _, setting := range settings {
-				name := setting.GetPort().GetName()
-				if name == portName {
-					consistentHash = setting.GetLoadBalancer().GetConsistentHash()
-					break
-				}
-			}
+			log.Warnf("using deprecated name on port selector - ignoring")
 		case *networking.PortSelector_Number:
-			// TODO: Add test for this
 			portNumber := destination.GetPort().GetNumber()
 			for _, setting := range settings {
 				number := setting.GetPort().GetNumber()
