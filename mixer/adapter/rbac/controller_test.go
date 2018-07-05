@@ -25,7 +25,7 @@ import (
 
 func TestController_processRBACRoles(t *testing.T) {
 	configState := map[store.Key]*store.Resource{
-		{serviceRoleKind, "ns1", "role1"}: {Spec: &rbacproto.ServiceRole{
+		{Kind: serviceRoleKind, Namespace: "ns1", Name: "role1"}: {Spec: &rbacproto.ServiceRole{
 			Rules: []*rbacproto.AccessRule{
 				{
 					Services: []string{"bookstore"},
@@ -40,7 +40,7 @@ func TestController_processRBACRoles(t *testing.T) {
 				},
 			},
 		}},
-		{serviceRoleBindingKind, "ns1", "binding1"}: {Spec: &rbacproto.ServiceRoleBinding{
+		{Kind: serviceRoleBindingKind, Namespace: "ns1", Name: "binding1"}: {Spec: &rbacproto.ServiceRoleBinding{
 			Subjects: []*rbacproto.Subject{
 				{
 					User: "alice@yahoo.com",

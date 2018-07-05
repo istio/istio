@@ -85,15 +85,23 @@ func TestValidation(t *testing.T) {
 					},
 				},
 			}, nil},
-		{"No access token", metrics, config.Params{}, &adapter.ConfigError{"access_token", nil}},
+		{
+			"No access token",
+			metrics,
+			config.Params{},
+			&adapter.ConfigError{Field: "access_token", Underlying: nil}},
 		{
 			"Malformed ingest URI",
 			metrics,
 			config.Params{
 				IngestUrl: "a;//asdf$%^:abb",
 			},
-			&adapter.ConfigError{"ingest_url", nil}},
-		{"No metrics", metrics, config.Params{}, &adapter.ConfigError{"metrics", nil}},
+			&adapter.ConfigError{Field: "ingest_url", Underlying: nil}},
+		{
+			"No metrics",
+			metrics,
+			config.Params{},
+			&adapter.ConfigError{Field: "metrics", Underlying: nil}},
 		{
 			"Unknown Istio metric",
 			metrics,
@@ -105,7 +113,7 @@ func TestValidation(t *testing.T) {
 						Type: config.COUNTER,
 					},
 				},
-			}, &adapter.ConfigError{"metrics[0].name", nil}},
+			}, &adapter.ConfigError{Field: "metrics[0].name", Underlying: nil}},
 		{
 			"Omitted Istio metric",
 			metrics,
@@ -117,7 +125,7 @@ func TestValidation(t *testing.T) {
 						Type: config.COUNTER,
 					},
 				},
-			}, &adapter.ConfigError{"metrics", nil}},
+			}, &adapter.ConfigError{Field: "metrics", Underlying: nil}},
 		{
 			"Non-numeric Istio metric value",
 			badMetrics,
@@ -129,7 +137,7 @@ func TestValidation(t *testing.T) {
 						Type: config.COUNTER,
 					},
 				},
-			}, &adapter.ConfigError{"metrics[0]", errors.New("istio metric's value should be numeric but is STRING")}},
+			}, &adapter.ConfigError{Field: "metrics[0]", Underlying: errors.New("istio metric's value should be numeric but is STRING")}},
 		{
 			"Unknown SignalFx type",
 			metrics,
@@ -141,7 +149,7 @@ func TestValidation(t *testing.T) {
 						Type: config.NONE,
 					},
 				},
-			}, &adapter.ConfigError{"metrics[0].type", nil}},
+			}, &adapter.ConfigError{Field: "metrics[0].type", Underlying: nil}},
 	}
 
 	for _, v := range tests {

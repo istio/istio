@@ -109,7 +109,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 	}
 	for k, v := range metadata {
 		clientInfo.Metadata.Fields[k] = &types.Value{
-			&types.Value_StringValue{v},
+			Kind: &types.Value_StringValue{StringValue: v},
 		}
 	}
 

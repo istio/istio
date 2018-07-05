@@ -21,13 +21,14 @@ type ServicePlan struct {
 	Name        string      `json:"name"`
 	ID          string      `json:"id"`
 	Description string      `json:"description"`
-	Metadata    interface{} `json:"metadata, omitempty"`
-	Free        bool        `json:"free, omitempty"`
+	Metadata    interface{} `json:"metadata,omitempty"`
+	Free        bool        `json:"free,omitempty"`
 }
 
 // NewServicePlan creates a service plan from service plan config proto.
 func NewServicePlan(sp *brokerconfig.ServicePlan) *ServicePlan {
 	cp := sp.GetPlan()
+
 	s := new(ServicePlan)
 	s.Name = cp.GetName()
 	s.ID = cp.GetId()

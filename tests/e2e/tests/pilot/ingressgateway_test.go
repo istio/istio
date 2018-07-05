@@ -215,12 +215,12 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	var wg sync.WaitGroup
 	for cluster := range tc.Kube.Clusters {
 		wg.Add(1)
-		go func() {
+		go func(cluster string) {
 			defer wg.Done()
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			// 500 requests @20 qps = 25s. This is the minimum required to cover all rule changes below.
 			resp = ClientRequest(cluster, "t", reqURL, 500, "-key Host -val uk.bookinfo.com -qps 20")
-		}()
+		}(cluster)
 	}
 
 	log.Infof("Adding new subsets v3,v4")

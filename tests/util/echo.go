@@ -535,7 +535,7 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 			<-throttle
 			wg.Add(1)
 
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 				e := j(i, w)
 				if e != nil {
@@ -543,7 +543,7 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 					err = e
 					m.Unlock()
 				}
-			}()
+			}(i)
 		}
 		wg.Wait()
 	}

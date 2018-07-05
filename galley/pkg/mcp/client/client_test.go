@@ -222,7 +222,9 @@ func init() {
 		Metadata: &types.Struct{Fields: map[string]*types.Value{}},
 	}
 	for k, v := range metadata {
-		client.Metadata.Fields[k] = &types.Value{&types.Value_StringValue{v}}
+		client.Metadata.Fields[k] = &types.Value{
+			Kind: &types.Value_StringValue{StringValue: v},
+		}
 	}
 }
 

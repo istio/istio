@@ -92,7 +92,7 @@ var (
 		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
-				new(networking.LoadBalancerSettings_Simple),
+				LbPolicy: new(networking.LoadBalancerSettings_Simple),
 			},
 		},
 	}
@@ -129,13 +129,13 @@ var (
 	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
 		Attributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "petstore"}},
 			},
 		},
 		Patterns: []*mccpb.HTTPAPISpecPattern{{
 			Attributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "getPet"}},
 				},
 			},
 			HttpMethod: "GET",
@@ -575,7 +575,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			log.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key())
 			close(stop)
 			done <- true
 		}
