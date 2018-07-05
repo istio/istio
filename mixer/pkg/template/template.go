@@ -210,7 +210,7 @@ func NewRepository(templateInfos map[string]Info) Repository {
 		}
 	}
 
-	allSupportedTmpls := make([]string, len(templateInfos))
+	allSupportedTmpls := make([]string, 0, len(templateInfos))
 	tmplToBuilderNames := make(map[string]string)
 
 	for t, v := range templateInfos {
