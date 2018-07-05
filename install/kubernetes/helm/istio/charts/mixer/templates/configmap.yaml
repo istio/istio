@@ -11,6 +11,160 @@ metadata:
     istio: mixer
 data:
   mapping.conf: |-
+    mappings:
+    ### BEGIN General
+    - match: envoy\.cluster\.(.*)\.upstream_cx_total
+      match_type: regex
+      name: envoy_upstream_cx_total
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.upstream_cx_active
+      match_type: regex
+      name: envoy_upstream_cx_active
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.upstream_connect_fail
+      match_type: regex
+      name: envoy_upstream_connect_fail
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.membership_healthy
+      match_type: regex
+      name: envoy_membership_healthy
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.membership_change
+      match_type: regex
+      name: envoy_membership_change
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.membership_total
+      match_type: regex
+      name: envoy_membership_total
+      labels:
+        cluster: "$1"
+    ### END General
+    ### BEGIN Health check statistics
+    - match: envoy\.cluster\.(.*)\.health_check\.attempt
+      match_type: regex
+      name: envoy_health_check_attempt
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.health_check\.success
+      match_type: regex
+      name: envoy_health_check_success
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*).health_check\.failure
+      match_type: regex
+      name: envoy_health_check_failure
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.health_check\.passive_failure
+      match_type: regex
+      name: envoy_health_check_passive_failure
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.health_check\.network_failure
+      match_type: regex
+      name: envoy_health_check_network_failure
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.health_check\.verify_cluster
+      match_type: regex
+      name: envoy_health_check_verify_cluster
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.health_check\.healthy
+      match_type: regex
+      name: envoy_health_check_healthy
+      labels:
+        cluster: "$1"
+    ### END Health check statistics
+    ### BEGIN Dynamic HTTP statistics
+    - match: envoy\.cluster\.(.*)\.upstream_rq_(\d{3})$
+      match_type: regex
+      name: "envoy_upstream_rq_count"
+      labels:
+        cluster: "$1"
+        status: "$2"
+    - match: envoy\.cluster\.(.*)\.upstream_rq_total
+      match_type: regex
+      name: "envoy_upstream_rq_count_sum"
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.upstream_rq_time
+      match_type: regex
+      name: envoy_upstream_rq_time
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.canary\.upstream_rq_time
+      match_type: regex
+      name: envoy_canary_upstream_rq_time
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.internal\.upstream_rq_time
+      match_type: regex
+      name: envoy_canary_internal_upstream_rq_time
+      labels:
+        cluster: "$1"
+    - match: envoy\.cluster\.(.*)\.external\.upstream_rq_time
+      match_type: regex
+      name: envoy_external_upstream_rq_time
+      labels:
+        cluster: "$1"
+    ### END Dynamic HTTP statistics
+    ### BEGIN listener
+    - match: envoy.listener.(.*)\.downstream_cx_length_ms
+      match_type: regex
+      name: envoy_listener_downstream_cx_length_ms
+      labels:
+        listener: $1
+    - match: envoy.listener.(.*)\.downstream_cx_active
+      match_type: regex
+      name: envoy_listener_downstream_cx_active
+      labels:
+        listener: $1
+    - match: envoy.listener.(.*)\.downstream_cx_proxy_proto_error
+      match_type: regex
+      name: envoy_listener_downstream_cx_proxy_proto_error
+      labels:
+        listener: $1
+    - match: envoy.listener.(.*)\.downstream_cx_destroy
+      match_type: regex
+      name: envoy_listener_downstream_cx_destroy
+      labels:
+        listener: $1
+    - match: envoy.listener.(.*)\.downstream_cx_total
+      match_type: regex
+      name: envoy_listener_downstream_cx_total
+      labels:
+        listener: $1
+    - match: envoy.listener\.(.*)\.(.*)\.(.*)\.(.*)\.downstream_cx_length_ms
+      match_type: regex
+      name: envoy_listener_downstream_cx_length_ms
+      labels:
+        listener: "$1.$2.$3.$4"
+    - match: envoy.listener\.(.*)\.(.*)\.(.*)\.(.*)\.downstream_cx_active
+      match_type: regex
+      name: envoy_listener_downstream_cx_active
+      labels:
+        listener: "$1.$2.$3.$4"
+    - match: envoy.listener\.(.*)\.(.*)\.(.*)\.(.*)\.downstream_cx_proxy_proto_error
+      match_type: regex
+      name: envoy_listener_downstream_cx_proxy_proto_error
+      labels:
+        listener: "$1.$2.$3.$4"
+    - match: envoy.listener\.(.*)\.(.*)\.(.*)\.(.*)\.downstream_cx_destroy
+      match_type: regex
+      name: envoy_listener_downstream_cx_destroy
+      labels:
+        listener: "$1.$2.$3.$4"
+    - match: envoy.listener\.(.*)\.(.*)\.(.*)\.(.*)\.downstream_cx_total
+      match_type: regex
+      name: envoy_listener_downstream_cx_total
+      labels:
+        listener: "$1.$2.$3.$4"
 ---
 apiVersion: v1
 kind: ConfigMap
