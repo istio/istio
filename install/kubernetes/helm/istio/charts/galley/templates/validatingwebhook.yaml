@@ -110,14 +110,6 @@ webhooks:
         - reportnothings
         - servicecontrolreports
         - tracespans
-      - operations:
-        - CREATE
-        - UPDATE
-        apiGroups:
-        - rbac.istio.io
-        apiVersions:
-        - v1alpha2
-        resources:
         - rbacs
     failurePolicy: Fail
 {{- end }}

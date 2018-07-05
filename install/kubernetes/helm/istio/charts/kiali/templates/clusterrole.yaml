@@ -49,6 +49,7 @@ rules:
   - quotas
   - reportnothings
   - servicecontrolreports
+  - rbacs
   verbs:
   - get
   - list
@@ -63,10 +64,4 @@ rules:
   - get
   - list
   - watch
-- apiGroups: ["rbac.istio.io"]
-  resources:
-  - rbacs
-  verbs:
-  - get
-  - list
-  - watch
+  

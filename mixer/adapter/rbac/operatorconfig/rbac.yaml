@@ -18,7 +18,7 @@ spec:
     properties:
       version: request.headers["version"] | ""
 ---
-apiVersion: "rbac.istio.io/v1alpha2"
+apiVersion: "config.istio.io/v1alpha2"
 kind: rbac
 metadata:
  name: handler
