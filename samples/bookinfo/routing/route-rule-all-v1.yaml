@@ -7,7 +7,6 @@ spec:
   - productpage
   gateways:
   - bookinfo
-  - mesh #TODO remove this if not needed
   http:
   - route:
     - destination:
