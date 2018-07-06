@@ -17,10 +17,13 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"path/filepath"
 	"time"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/cmd/shared"
@@ -36,6 +39,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
+	"istio.io/istio/pkg/version"
 )
 
 // createMixerValidator creates a mixer backend validator.
@@ -101,6 +105,42 @@ func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, w
 	return nil
 }
 
+const (
+	metricsPath = "/metrics"
+	versionPath = "/version"
+)
+
+func startSelfMonitoring(stop <-chan struct{}, port uint) {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
+	if err != nil {
+		log.Errorf("Unable to listen on monitoring port %v: %v", port, err)
+		return
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle(metricsPath, promhttp.Handler())
+	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
+		if _, err := out.Write([]byte(version.Info.String())); err != nil {
+			log.Errorf("Unable to write version string: %v", err)
+		}
+	})
+
+	server := &http.Server{
+		Handler: mux,
+	}
+
+	go func() {
+		if err := server.Serve(lis); err != nil {
+			log.Errorf("Monitoring http server failed: %v", err)
+			return
+		}
+	}()
+
+	<-stop
+	err = server.Close()
+	log.Debugf("Monitoring server terminated: %v", err)
+}
+
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	var (
 		webhookConfigName   string
@@ -113,6 +153,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		caFile              string
 		healthCheckInterval time.Duration
 		healthCheckFile     string
+		monitoringPort      uint
 	)
 
 	validatorCmd := &cobra.Command{
@@ -150,6 +191,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			}
 
 			go wh.Run(stop)
+			go startSelfMonitoring(stop, monitoringPort)
 			cmd.WaitSignal(stop)
 		},
 	}
@@ -175,6 +217,8 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
 	validatorCmd.PersistentFlags().StringVar(&healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
+	validatorCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
+		"Port to use for the exposing self-monitoring information")
 
 	return validatorCmd
 }

@@ -312,6 +312,7 @@ mixs:
 $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ ./mixer/cmd/$(@F)
 
+.PHONY: galley
 GALLEY_GO_BINS:=${ISTIO_OUT}/galley
 galley:
 	bin/gobuild.sh ${ISTIO_OUT}/galley ./galley/cmd/galley
