@@ -32,6 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"strings"
+	"sort"
 )
 
 var (
@@ -410,25 +412,38 @@ func createGatewayTCPFilterChainOpts(
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		opts = append(opts, &filterChainOpts{
-			sniHosts:       getSNIHosts(server),
-			tlsContext:     buildGatewayListenerTLSContext(server),
-			networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames),
-		})
+		sniHostSets := getSNIHostSets(env, server, gatewayNames)
+		// FIXME: len(sniHostSets) == 0?
+		if filters := buildGatewayNetworkFilters(env, server, gatewayNames, ""); len(filters) > 0 {
+			opts = append(opts, &filterChainOpts{
+				sniHosts:       nil,
+				tlsContext:     buildGatewayListenerTLSContext(server),
+				networkFilters: filters,
+			})
+		}
+		for sniHostSet := range sniHostSets {
+			if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       strings.Split(sniHostSet, ","), // FIXME: oh god
+					tlsContext:     buildGatewayListenerTLSContext(server),
+					networkFilters: filters,
+				})
+			}
+		}
 	}
 	return opts
 }
 
 // buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool) []listener.Filter {
+func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool, sniHostsSet string) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames)
+	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames, sniHostsSet)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
@@ -451,7 +466,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 
 // getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool, sniHostsSet string) []*networking.Destination {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
@@ -469,7 +484,7 @@ func getVirtualServiceTCPDestinations(env model.Environment, server *networking.
 
 		// ensure we satisfy the rule's tls match conditions, if any exist
 		for _, tls := range vsvc.Tls {
-			if tlsMatch(tls.Match, server, gateways) {
+			if tlsMatch(tls.Match, server, gateways, sniHostsSet) {
 				upstreams = append(upstreams, gatherDestinations(tls.Route)...)
 			}
 		}
@@ -528,7 +543,7 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool, sniHostsSet string) bool {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
@@ -538,11 +553,9 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
-		sniHostsMatch := len(match.SniHosts) == 0
-		if len(match.SniHosts) > 0 {
-			// the match's sni hosts includes hosts advertised by server
-			sniHostsMatch = len(pickMatchingGatewayHosts(gatewayHosts, match.SniHosts)) > 0
-		}
+
+		// the match's sni hosts includes hosts advertised by server
+		sniHostsMatch := sniHostsKey(match.SniHosts) == sniHostsSet
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
@@ -579,4 +592,41 @@ func getSNIHosts(server *networking.Server) []string {
 		return nil
 	}
 	return server.Hosts
+}
+
+func sniHostsKey(sniHosts []string) string {
+	sort.Strings(sniHosts)
+	return strings.Join(sniHosts, ",")
+}
+
+func getSNIHostSets(env model.Environment, server *networking.Server, gateways map[string]bool) map[string]bool {
+	if server.Tls == nil {
+		return nil
+	}
+
+	out := make(map[string]bool)
+
+	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		gatewayHosts[model.Hostname(host)] = true
+	}
+
+	virtualServices := env.VirtualServices(gateways)
+	for _, spec := range virtualServices {
+		vsvc := spec.Spec.(*networking.VirtualService)
+		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
+		if len(matchingHosts) == 0 {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
+
+		for _, tls := range vsvc.Tls {
+			for _, match := range tls.Match {
+				if matchTLS(match, nil, gateways, int(server.Port.Number)) { // FIXME: labels, ports
+					out[sniHostsKey(match.SniHosts)] = true
+				}
+			}
+		}
+	}
+	return out
 }

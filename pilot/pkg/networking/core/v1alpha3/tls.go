@@ -25,10 +25,6 @@ import (
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
 func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
-	if match == nil {
-		return true
-	}
-
 	gatewayMatch := len(match.Gateways) == 0
 	for _, gateway := range match.Gateways {
 		gatewayMatch = gatewayMatch || gateways[gateway]
@@ -85,8 +81,6 @@ func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Conf
 	// Otherwise we treat ports marked as TLS as opaque TCP services, subject to same port
 	// collision handling.
 	if virtualService != nil {
-		// TODO: Make SNI compatible with RBAC. Deprecated tcp route configs are incompatible with SNI.
-		// RBAC requires deprecated tcp route configs, so RBAC is incompatible with SNI.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
@@ -99,10 +93,7 @@ func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Conf
 			for _, match := range tls.Match {
 				if matchTLS(match, proxyLabels, gateways, listenPort.Port) {
 					out = append(out, &filterChainOpts{
-						sniHosts: match.SniHosts,
-						// Do not add addresses here. Since we do filter chain match based on SNI
-						// and have multiple filter chains on a wildcard listener, each with
-						// a SNI match
+						sniHosts:       match.SniHosts,
 						networkFilters: buildOutboundNetworkFilters(clusterName, addresses, listenPort),
 					})
 				}
