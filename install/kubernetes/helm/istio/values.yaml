@@ -185,7 +185,7 @@ gateways:
       ## You can add custom gateway ports
     - port: 80
       targetPort: 80
-      name: http
+      name: http2
       nodePort: 31380
     - port: 443
       name: https
@@ -211,7 +211,7 @@ gateways:
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
-        name: http
+        name: http2
       - port: 443
         name: https
     secretVolumes:
