@@ -73,7 +73,7 @@ message EnvoyFilter {
   // to be applied to a listener.
   message ListenerMatch {
     // The service port/gateway port to which traffic is being
-    // sent/received. If not specified, matches all listeners. Eventhough
+    // sent/received. If not specified, matches all listeners. Even though
     // inbound listeners are generated for the instance/pod ports, only
     // service ports should be used to match listeners.
     uint32 port_number = 1;
@@ -119,7 +119,7 @@ message EnvoyFilter {
     ListenerProtocol listener_protocol = 4;
 
     // One or more IP addresses to which the listener is bound. If
-    // specified, should match atleast one address in the list.
+    // specified, should match at least one address in the list.
     repeated string address = 5;
   };
 
@@ -150,7 +150,7 @@ message EnvoyFilter {
 
   // Envoy filters to be added to a network or http filter chain.
   message Filter {
-    // Filter will be added to the listner only if the match conditions are true.
+    // Filter will be added to the listener only if the match conditions are true.
     // If not specified, the filters will be applied to all listeners.
     ListenerMatch listener_match = 1;
 
