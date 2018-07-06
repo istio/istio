@@ -24,14 +24,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-var emptyInfo resource.Info
-
-func init() {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
-	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
-}
-
 func TestInMemory_Start_Empty(t *testing.T) {
 	i := NewInMemorySource()
 	ch, err := i.Start()

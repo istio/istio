@@ -26,8 +26,9 @@ import (
 func TestToProto(t *testing.T) {
 	spec := map[string]interface{}{}
 
-	s := resource.NewSchema()
-	s.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	s := b.Build()
 	i, _ := s.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	p, err := toProto(i, spec)

@@ -82,8 +82,8 @@ func newTypeURL(rawurl string) (TypeURL, error) {
 	return TypeURL{rawurl}, nil
 }
 
-// messageName portion of the type URL.
-func (t TypeURL) messageName() string {
+// MessageName portion of the type URL.
+func (t TypeURL) MessageName() string {
 	parts := strings.Split(t.string, "/")
 	return parts[len(parts)-1]
 }
