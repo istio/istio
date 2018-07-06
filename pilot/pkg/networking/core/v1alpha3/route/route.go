@@ -654,28 +654,27 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 	rule := destinationRule.Spec.(*networking.DestinationRule)
 
 	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	plsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
 
+	var subsetHash, subsetPLSHash *networking.LoadBalancerSettings_ConsistentHashLB
 	for _, subset := range rule.GetSubsets() {
 		if subset.GetName() == destination.GetSubset() {
 			subsetPortLevelSettings := subset.GetTrafficPolicy().GetPortLevelSettings()
-			consistentHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
-			settingsHash := portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
-			if settingsHash != nil {
-				consistentHash = settingsHash
-			}
+			subsetHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+			subsetPLSHash = portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
 
 			break
 		}
 	}
 
-	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
-	settingsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
-	if settingsHash != nil {
-		consistentHash = settingsHash
-	}
-
-	if consistentHash == nil {
-		return nil
+	switch {
+	case subsetPLSHash != nil:
+		consistentHash = subsetPLSHash
+	case subsetHash != nil:
+		consistentHash = subsetHash
+	case plsHash != nil:
+		consistentHash = plsHash
 	}
 
 	hashPolicy := &route.RouteAction_HashPolicy{}
