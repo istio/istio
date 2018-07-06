@@ -14,11 +14,14 @@
 
 package sds
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
-	GetSecret(proxyID, spiffeID, token string) (*SecretItem, error)
+	GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*SecretItem, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

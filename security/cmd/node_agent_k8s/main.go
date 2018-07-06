@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -75,7 +76,7 @@ func main() {
 type mockCAClient struct {
 }
 
-func (c *mockCAClient) CSRSign(csrPEM []byte, /*PEM-encoded certificate request*/
-	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
 	return csrPEM, nil
 }
