@@ -15,4 +15,11 @@ spec:
       protocol: HTTP
     hosts:
     - "*.bookinfo.com"
-
+  - port:
+      number: 443
+      name: sni
+      protocol: TLS
+    hosts:
+    - www.google.com
+    tls:
+      mode: PASSTHROUGH
