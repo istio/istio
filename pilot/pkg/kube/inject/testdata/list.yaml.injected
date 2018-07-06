@@ -11,7 +11,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"4a44c5d536283648d4d8256fe1f3ca8e1302c9c1831c88f82ff8e7e447157f06","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"952f371be783f0cee3a452d7be4a6246c97be92ca10c0b400bce80dd313faa47","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
@@ -67,7 +67,7 @@ items:
               fieldRef:
                 fieldPath: status.podIP
           - name: ISTIO_META_ISTIO_PROXY_VERSION
-            value: unittest
+            value: 0.8.0
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
@@ -134,7 +134,7 @@ items:
     template:
       metadata:
         annotations:
-          sidecar.istio.io/status: '{"version":"4a44c5d536283648d4d8256fe1f3ca8e1302c9c1831c88f82ff8e7e447157f06","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+          sidecar.istio.io/status: '{"version":"952f371be783f0cee3a452d7be4a6246c97be92ca10c0b400bce80dd313faa47","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
           app: hello
@@ -190,7 +190,7 @@ items:
               fieldRef:
                 fieldPath: status.podIP
           - name: ISTIO_META_ISTIO_PROXY_VERSION
-            value: unittest
+            value: 0.8.0
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:

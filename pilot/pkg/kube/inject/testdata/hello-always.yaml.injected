@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"780b3847fdf712a67cb456e068f84caa51ae77f6d0ad853235097b61016a19b5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"69bb9a0b0ef7caca5cad264dafa5a04c61337bedfce2eeb21cf284e49205759e","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -64,7 +64,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         - name: ISTIO_META_ISTIO_PROXY_VERSION
-          value: unittest
+          value: 0.8.0
         - name: ISTIO_META_POD_NAME
           valueFrom:
             fieldRef:

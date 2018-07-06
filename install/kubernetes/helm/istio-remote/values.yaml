@@ -8,6 +8,10 @@ global:
   # Default tag for Istio images.
   # Should track latest released version in the branch.
   tag: 0.8.latest
+
+  # git SHA or git tag from istio/proxy repo
+  istioProxyVersion: 0.8.0
+
   proxy:
     image: proxyv2
     resources:
