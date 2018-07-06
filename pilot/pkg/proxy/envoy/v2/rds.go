@@ -68,7 +68,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection) ([]*xdsapi.Route
 	for _, routeName := range con.Routes {
 		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, *con.modelNode, routeName)
 		if err != nil {
-			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %s: %v", routeName, con.modelNode, err)
+			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %s: %v", routeName, con.modelNode, err)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
 			return nil, retErr
@@ -80,7 +80,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection) ([]*xdsapi.Route
 		}
 
 		if err = r.Validate(); err != nil {
-			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %s: %v", routeName, con.modelNode, err)
+			retErr := fmt.Errorf("RDS: Generated invalid route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Errorf("RDS: Generated invalid routes for route %s for node %s: %v, %v", routeName, con.modelNode, err, r)
 			pushes.With(prometheus.Labels{"type": "rds_builderr"}).Add(1)
 			// Generating invalid routes is a bug.
