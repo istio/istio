@@ -1,0 +1,22 @@
+{{- if .Values.global.meshExpansion }}
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-pilot
+spec:
+  hosts:
+  - "pilot.istio-system"
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15005
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 15005
+
+
+{{- end }}

@@ -48,7 +48,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         imagePullPolicy: Always
         args:
           - server

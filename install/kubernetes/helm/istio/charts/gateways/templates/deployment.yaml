@@ -19,6 +19,9 @@ spec:
   template:
     metadata:
       labels:
+        ver: ingress10
+        app: istio-ingressgateway
+        name: gateway
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}

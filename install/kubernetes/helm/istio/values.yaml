@@ -111,6 +111,10 @@ global:
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # If set to true, the pilot and citadel mtls will be exposed on the ingress gateway
+  # Note that one or more of the gateways must have this setting as well for Service configuration.
+  meshExpansion: false
+
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
   # Each component can overwrite these default values by adding its own resources
@@ -176,6 +180,10 @@ gateways:
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
+    # If set to true, the pilot and citadel mtls ports will be exposed on the ingress gateway
+    meshExpansion: false
+
     ports:
       ## You can add custom gateway ports
     - port: 80

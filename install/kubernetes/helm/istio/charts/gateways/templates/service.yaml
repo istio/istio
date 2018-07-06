@@ -27,6 +27,15 @@ spec:
     {{ $key }}: {{ $val }}
     {{- end }}
   ports:
+{{- if $spec.meshExpansion }}
+    - port: 15005
+      targetPort: 15005
+      name: tcp-pilot
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel
+{{- end }}
+
     {{- range $key, $val := $spec.ports }}
     -
       {{- range $pkey, $pval := $val }}

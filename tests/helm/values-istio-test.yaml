@@ -13,8 +13,8 @@ global:
         memory: 1024Mi
 
 gateways:
-  enabled: true
   istio-ingressgateway:
+    meshExpansion: true
     enabled: true
     labels:
       istio: ingressgateway
@@ -22,11 +22,11 @@ gateways:
     autoscaleMax: 4
     resources:
       limits:
-        cpu: 1000m
-        memory: 128Mi
+        cpu: 4000m
+        memory: 512Mi
       requests:
-        cpu: 1000m
-        memory: 128Mi
+        cpu: 2500m
+        memory: 512Mi
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
     - port: 80
@@ -44,6 +44,11 @@ gateways:
     - port: 5204
       name: tcp-iperf-tls
 
+pilot:
+  replicaCount: 2
+  # Override for 0.8 upgrade
+  image: costinm/pilot:costin-dev
+
 ingress:
   enabled: false
 
@@ -55,6 +60,8 @@ sidecar-injector:
 
 grafana:
   enabled: true
+  # Temp: release 1.0 not working
+  #image: costinm/grafana:costin-dev2
 
 zipkin:
   enabled: true
