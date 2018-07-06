@@ -54,7 +54,7 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection) ([]*xdsapi.Li
 
 	for _, l := range rawListeners {
 		if err = l.Validate(); err != nil {
-			retErr := fmt.Errorf("LDS: Generated invalid listener for node %s: %v", con.modelNode, err)
+			retErr := fmt.Errorf("LDS: Generated invalid listener for node %v: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node %s: %v, %v", con.modelNode, err, l)
 			pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
 			// Generating invalid listeners is a bug.
