@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -160,7 +159,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
+		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
 			HTTPAddr:        ":18080", // An unused port will be chosen
 			GrpcAddr:        ":0",
 			EnableCaching:   true,
