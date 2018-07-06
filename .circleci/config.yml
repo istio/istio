@@ -446,7 +446,7 @@ jobs:
       - deploy:
           name: Deploy
           command: |
-            export SOURCE_BRANCH=patch-1
+            export SOURCE_BRANCH=master
             export TARGET_BRANCH=gh-pages
             export GH_EMAIL=deploy@istio.io
             export GH_NAME="Istio Deployer"
