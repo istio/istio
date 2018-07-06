@@ -69,7 +69,6 @@ fi
 # Ideally we should generate ufw (and similar) configs as well, in case user already has an iptables solution.
 
 PROXY_PORT=${ENVOY_PORT:-15001}
-PROXY_PPORT=${ENVOY_PORT:-15001}
 PROXY_UID=
 PROXY_GID=
 INBOUND_INTERCEPTION_MODE=${ISTIO_INBOUND_INTERCEPTION_MODE}
@@ -264,6 +263,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     # User has specified a non-empty list of ports to be redirected to Envoy.
     for port in ${INBOUND_PORTS_INCLUDE}; do
       if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT || echo "No socket match support"
         iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT || echo "No socket match support"
         iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_TPROXY
       else
