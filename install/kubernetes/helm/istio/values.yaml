@@ -14,7 +14,7 @@ global:
     # Resources for the sidecar.
     resources: 
       requests:
-        cpu: 100m
+        cpu: 10m
       #  memory: 128Mi
       # limits:
       #   cpu: 100m
