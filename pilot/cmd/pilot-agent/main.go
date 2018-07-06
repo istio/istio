@@ -50,7 +50,7 @@ var (
 	configPath               string
 	binaryPath               string
 	serviceCluster           string
-	availabilityZone         string
+	availabilityZone         string // TODO: remove me?
 	drainDuration            time.Duration
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string

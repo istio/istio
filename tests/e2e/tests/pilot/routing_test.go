@@ -169,10 +169,34 @@ func TestRoutes(t *testing.T) {
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
 			operation:     "c.istio-system.svc.cluster.local:80/*",
 		},
+		{
+			testName:      "a->c[v2=100]",
+			description:   "routing tcp traffic from a to c-v2",
+			config:        "virtualservice-route-tcp-a.yaml",
+			scheme:        "http",
+			src:           "a",
+			dst:           "c:9090",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 0, "v2": 100},
+			operation:     "",
+		},
+		{
+			testName:      "b->c[v1=100]",
+			description:   "routing tcp traffic from b to c-v1",
+			config:        "virtualservice-route-tcp-a.yaml",
+			scheme:        "http",
+			src:           "b",
+			dst:           "c:9090",
+			headerKey:     "",
+			headerVal:     "",
+			expectedCount: map[string]int{"v1": 100, "v2": 0},
+			operation:     "",
+		},
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {
-		destRule := maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml")
+		destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
 		cfgs := &deployableConfig{
 			Namespace:  tc.Kube.Namespace,
 			YamlFiles:  []string{destRule},
@@ -188,7 +212,7 @@ func TestRoutes(t *testing.T) {
 		for _, c := range cases {
 			// Run each case in a function to scope the configuration's lifecycle.
 			func() {
-				ruleYaml := fmt.Sprintf("testdata/v1alpha3/%s", c.config)
+				ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.config)
 				applyRuleFunc(t, ruleYaml)
 
 				for cluster := range tc.Kube.Clusters {
@@ -238,7 +262,7 @@ func TestRoutes(t *testing.T) {
 }
 
 func TestRouteFaultInjection(t *testing.T) {
-	destRule := maybeAddTLSForDestinationRule(tc, "testdata/v1alpha3/destination-rule-c.yaml")
+	destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
 	dRule := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{destRule},
@@ -251,7 +275,7 @@ func TestRouteFaultInjection(t *testing.T) {
 	// Setup() or the Teardown() for the final rule.
 	defer dRule.TeardownNoDelay()
 
-	ruleYaml := fmt.Sprintf("testdata/v1alpha3/rule-fault-injection.yaml")
+	ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/rule-fault-injection.yaml")
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{ruleYaml},
@@ -290,7 +314,7 @@ func TestRouteFaultInjection(t *testing.T) {
 
 func TestRouteRedirectInjection(t *testing.T) {
 	// Push the rule config.
-	ruleYaml := fmt.Sprintf("testdata/v1alpha3/rule-redirect-injection.yaml")
+	ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/rule-redirect-injection.yaml")
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{ruleYaml},
@@ -340,7 +364,7 @@ func TestRouteMirroring(t *testing.T) {
 	t.Skipf("Skipping %s due to incomplete implementation", t.Name())
 	logs := newAccessLogs()
 	// Push the rule config.
-	ruleYaml := fmt.Sprintf("testdata/v1alpha3/rule-default-route-mirrored.yaml")
+	ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/rule-default-route-mirrored.yaml")
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{ruleYaml},
@@ -372,7 +396,7 @@ func TestRouteMirroring(t *testing.T) {
 func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
-		YamlFiles:  []string{"testdata/v1alpha3/envoyfilter-c.yaml"},
+		YamlFiles:  []string{"testdata/networking/v1alpha3/envoyfilter-c.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := cfgs.Setup(); err != nil {

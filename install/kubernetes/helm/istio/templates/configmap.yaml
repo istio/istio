@@ -23,8 +23,11 @@ data:
     # To disable the mixer completely (including metrics), comment out
     # the following lines
     # Deprecated: mixer is using EDS
+    {{- if .Values.mixer.enabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
+    {{- end }}
+
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
 

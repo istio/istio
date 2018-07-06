@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
 )
 
@@ -120,14 +119,6 @@ func TestTLS(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to receive with TLS connection ", err)
 	}
-
-	bootstrap.IstioCertDir = util.IstioSrc + "/tests/testdata/certs/default"
-	c, err := bootstrap.Checkin(true, util.MockPilotSecureAddr, "cluster", sidecarId(app3Ip, "app3"),
-		1*time.Second, 2)
-	if err != nil {
-		t.Fatal("Failed to checkin", err)
-	}
-	t.Log("AZ:", c.AvailabilityZone)
 }
 
 func TestAdsClusterUpdate(t *testing.T) {

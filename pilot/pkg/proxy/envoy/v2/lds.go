@@ -26,14 +26,33 @@ import (
 
 func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-	ls, err := s.ConfigGenerator.BuildListeners(s.env, *con.modelNode)
+	rawListeners, err := s.generateRawListeners(con)
+	if err != nil {
+		return err
+	}
+	con.HTTPListeners = rawListeners
+	response := ldsDiscoveryResponse(rawListeners, *con.modelNode)
+	err = con.send(response)
+	if err != nil {
+		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
+		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
+		return err
+	}
+	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
+
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode, con.PeerAddr, len(rawListeners))
+	return nil
+}
+
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection) ([]*xdsapi.Listener, error) {
+	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, *con.modelNode)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
-		return err
+		return nil, err
 	}
 
-	for _, l := range ls {
+	for _, l := range rawListeners {
 		if err = l.Validate(); err != nil {
 			retErr := fmt.Errorf("LDS: Generated invalid listener for node %s: %v", con.modelNode, err)
 			adsLog.Errorf("LDS: Generated invalid listener for node %s: %v, %v", con.modelNode, err, l)
@@ -44,19 +63,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 			panic(retErr.Error())
 		}
 	}
-
-	con.HTTPListeners = ls
-	response := ldsDiscoveryResponse(ls, *con.modelNode)
-	err = con.send(response)
-	if err != nil {
-		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
-		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
-		return err
-	}
-	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
-
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode, con.PeerAddr, len(ls))
-	return nil
+	return rawListeners, nil
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
