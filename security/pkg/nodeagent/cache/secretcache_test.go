@@ -16,6 +16,7 @@ package cache
 
 import (
 	"bytes"
+	"context"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -44,7 +45,8 @@ func TestGetSecret(t *testing.T) {
 	}()
 
 	proxyID := "proxy1-id"
-	gotSecret, err := sc.GetSecret(proxyID, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
+	ctx := context.Background()
+	gotSecret, err := sc.GetSecret(ctx, proxyID, fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -61,7 +63,7 @@ func TestGetSecret(t *testing.T) {
 	}
 
 	// Try to get secret again using different jwt token, verify secret is re-generated.
-	gotSecret, err = sc.GetSecret(proxyID, fakeSpiffeID, "newToken" /*jwtToken*/)
+	gotSecret, err = sc.GetSecret(ctx, proxyID, fakeSpiffeID, "newToken")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -101,7 +103,7 @@ func TestRefreshSecret(t *testing.T) {
 		skipTokenExpireCheck = true
 	}()
 
-	_, err := sc.GetSecret("proxy1-id" /*proxyID*/, fakeSpiffeID, "jwtToken1" /*jwtToken*/)
+	_, err := sc.GetSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -134,8 +136,8 @@ func newMockCAClient() *mockCAClient {
 	return &cl
 }
 
-func (c *mockCAClient) CSRSign(csrPEM []byte, /*PEM-encoded certificate request*/
-	subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
 	atomic.AddUint64(&c.signInvokeCount, 1)
 
 	if atomic.LoadUint64(&c.signInvokeCount) == 1 {

@@ -104,13 +104,14 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	token, err := getCredentialToken(stream.Context())
+	ctx := stream.Context()
+	token, err := getCredentialToken(ctx)
 	if err != nil {
 		return err
 	}
 
 	peerAddr := "Unknown peer address"
-	peerInfo, ok := peer.FromContext(stream.Context())
+	peerInfo, ok := peer.FromContext(ctx)
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
@@ -139,7 +140,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			con.proxy = proxy
 
-			secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
+			secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 				return err
@@ -179,7 +180,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	secret, err := s.st.GetSecret(discReq.Node.Id, spiffeID, token)
+	secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
 	if err != nil {
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err

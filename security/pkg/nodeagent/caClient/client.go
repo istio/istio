@@ -14,7 +14,66 @@
 
 package ca
 
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
+	"istio.io/istio/pkg/log"
+	capb "istio.io/istio/security/proto/ca/v1alpha1"
+)
+
 // Client interface defines the clients need to implement to talk to CA for CSR.
 type Client interface {
-	CSRSign(csrPEM []byte /*PEM-encoded certificate request*/, subjectID string, certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
+	CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+		certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error)
+}
+
+type caClient struct {
+	client capb.IstioCertificateServiceClient
+}
+
+// NewCAClient create an CA client.
+func NewCAClient(addr string, dialOptions []grpc.DialOption) (Client, error) {
+	conn, err := grpc.Dial(addr, dialOptions...)
+	if err != nil {
+		log.Errorf("Failed to connect to CA: %v", err)
+		return nil, err
+	}
+
+	return &caClient{
+		client: capb.NewIstioCertificateServiceClient(conn),
+	}, nil
+}
+
+func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+	req := &capb.IstioCertificateRequest{
+		Csr:              string(csrPEM),
+		SubjectId:        subjectID,
+		ValidityDuration: certValidTTLInSec,
+	}
+
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", fmt.Sprintf("Bearer %s", subjectID)))
+	resp, err := cl.client.CreateCertificate(ctx, req)
+	if err != nil {
+		log.Errorf("Failed to create certificate: %v", err)
+		return nil, err
+	}
+
+	if len(resp.CertChain) <= 1 {
+		log.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
+		return nil, errors.New("invalid response cert chain")
+	}
+
+	// Returns the leaf cert(Leaf cert is element '0', Root cert is element 'n').
+	ret := []byte{}
+	for _, c := range resp.CertChain {
+		ret = append(ret, []byte(c)...)
+	}
+
+	return ret, nil
 }
