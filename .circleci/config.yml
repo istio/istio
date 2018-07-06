@@ -432,6 +432,54 @@ jobs:
       - run:  make sidecar.deb
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
+          
+  build_helm_repo:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: make sync
+      - run: helm package install/kubernetes/helm/istio
+      - run: helm package install/kubernetes/helm/istio-remote
+      - run: helm repo index .
+      - persist_to_workspace:
+          root: /go/charts
+          paths:
+            - index.yaml
+            - istio-*.tgz
+
+  deploy_helm_repo:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: ls -la
+      - run: ls -la /go/charts
+      - deploy:
+          name: Deploy
+          command: |
+            export SOURCE_BRANCH=master
+            export TARGET_BRANCH=gh-pages
+            export GH_EMAIL=deploy@istio.io
+            export GH_NAME="Istio Deployer"
+            if [ $CIRCLE_BRANCH == $SOURCE_BRANCH ]; then
+              git config --global user.email $GH_EMAIL
+              git config --global user.name $GH_NAME
+
+              git clone $CIRCLE_REPOSITORY_URL out
+
+              cd out
+              git checkout $TARGET_BRANCH || git checkout --orphan $TARGET_BRANCH
+
+
+              cp -a charts/. out/.
+              git add -A
+              git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
+
+              git push origin $TARGET_BRANCH
+            fi
 
   lint:
     <<: *defaults
@@ -568,6 +616,8 @@ workflows:
     jobs:
       - lint
       - build
+      - build_helm_repo
+      - deploy_helm_repo
       - test
       - codecov:
           requires:
