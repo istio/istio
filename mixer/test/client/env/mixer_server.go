@@ -80,7 +80,6 @@ type MixerServer struct {
 	report *Handler
 	quota  *Handler
 
-	qma         mockapi.QuotaArgs
 	quotaAmount int64
 	quotaLimit  int64
 
@@ -88,6 +87,9 @@ type MixerServer struct {
 	quotaReferenced *mixerpb.ReferencedAttributes
 
 	directive *mixerpb.RouteDirective
+
+	sync.Mutex
+	qma mockapi.QuotaArgs
 }
 
 // Check is called by the mock mixer api
@@ -108,6 +110,9 @@ func (ts *MixerServer) Report(bag attribute.Bag) rpc.Status {
 
 // Quota is called by the mock mixer api
 func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.QuotaResponse, rpc.Status) {
+	ts.Lock()
+	defer ts.Unlock()
+
 	if !ts.quota.stress {
 		// In non-stress case, saved for test verification
 		ts.qma = qma
