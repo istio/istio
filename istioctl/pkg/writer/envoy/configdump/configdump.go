@@ -15,70 +15,44 @@
 package configdump
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
+
+	"istio.io/istio/istioctl/pkg/util/configdump"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
 type ConfigWriter struct {
 	Stdout     io.Writer
-	configDump *adminapi.ConfigDump
+	configDump *configdump.Wrapper
 }
-
-const (
-	clustersKey  = "clusters"
-	listenersKey = "listeners"
-	routesKey    = "routes"
-	bootstrapKey = "bootstrap"
-)
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	buffer := bytes.NewBuffer(b)
-	c.configDump = &adminapi.ConfigDump{}
-	jsonum := &jsonpb.Unmarshaler{}
-	err := jsonum.Unmarshal(buffer, c.configDump)
+	cd := configdump.Wrapper{}
+	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
+	c.configDump = &cd
 	return nil
-}
-
-// PrintClusterDump prints just the cluster config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintClusterDump() error {
-	return c.genericPrinter(clustersKey)
-}
-
-// PrintListenerDump prints just the listener config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintListenerDump() error {
-	return c.genericPrinter(listenersKey)
-}
-
-// PrintRoutesDump prints just the routes config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintRoutesDump() error {
-	return c.genericPrinter(routesKey)
 }
 
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintBootstrapDump() error {
-	return c.genericPrinter(bootstrapKey)
-}
-
-func (c *ConfigWriter) genericPrinter(configKey string) error {
 	if c.configDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
-	scopedDump, ok := c.configDump.Configs[configKey]
-	if !ok {
-		return fmt.Errorf("unable to find %v in Envoy config dump", configKey)
+	bootstrapDump, err := c.configDump.GetBootstrapConfigDump()
+	if err != nil {
+		return err
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	if err := jsonm.Marshal(c.Stdout, &scopedDump); err != nil {
-		return fmt.Errorf("unable to marshal %v in Envoy config dump", configKey)
+	if err := jsonm.Marshal(c.Stdout, bootstrapDump); err != nil {
+		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
 }

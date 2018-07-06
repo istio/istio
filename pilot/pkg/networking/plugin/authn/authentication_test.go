@@ -97,7 +97,7 @@ func TestRequireTls(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
+		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
 			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
 		}
 	}
@@ -714,7 +714,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -725,6 +725,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 		in                   *authn.Policy
 		expectedFilterConfig *authn_filter.FilterConfig
 	}{
+
 		{
 			in:                   nil,
 			expectedFilterConfig: nil,
@@ -765,7 +766,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in)
+		got := BuildAuthNFilter(c.in, model.Sidecar)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -788,7 +789,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 }
 
-func TestBuildSidecarListenerTLSContex(t *testing.T) {
+func TestBuildListenerTLSContex(t *testing.T) {
 	refreshDelay := 15 * time.Second
 
 	cases := []struct {
@@ -938,6 +939,17 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														TargetUri: "/tmp/sdsuds.sock",
+														ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+															CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
+																SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
+																	CertChain: &core.DataSource{
+																		Specifier: &core.DataSource_Filename{
+																			Filename: model.SDSCertPath,
+																		},
+																	},
+																},
+															},
+														},
 													},
 												},
 											},
@@ -952,7 +964,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 						ValidationContext: &auth.CertificateValidationContext{
 							TrustedCa: &core.DataSource{
 								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
+									Filename: model.CARootCertPath,
 								},
 							},
 						},
@@ -964,7 +976,7 @@ func TestBuildSidecarListenerTLSContex(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in, nil, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(c.expected, got) {
+		if got := buildSidecarListenerTLSContext(c.in, nil, model.Sidecar, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}

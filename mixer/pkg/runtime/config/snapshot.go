@@ -124,8 +124,6 @@ type (
 		ActionsDynamic []*ActionDynamic
 
 		ActionsStatic []*ActionStatic
-
-		ResourceType ResourceType
 	}
 
 	// ActionDynamic configuration. Fully resolved.

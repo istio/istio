@@ -211,5 +211,7 @@ var (
 		"context.reporter.uid",
 		"response.grpc_status",
 		"response.grpc_message",
+		"context.reporter.type",
+		"context.reporter.kind",
     }
 )

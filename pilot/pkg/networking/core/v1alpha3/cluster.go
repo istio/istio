@@ -121,7 +121,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environmen
 			} else {
 
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
-				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal {
+				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal && proxy.Type == model.Sidecar {
 					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts), env.Mesh)
 				}
 			}
@@ -447,14 +447,14 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		cluster.TlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: certValidationContext,
-				},
-			},
-			Sni: tls.Sni,
+			CommonTlsContext: &auth.CommonTlsContext{},
+			Sni:              tls.Sni,
 		}
 		if meshConfig.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: certValidationContext,
+			}
+
 			cluster.TlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -470,6 +470,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 				},
 			}
 		} else {
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath)
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
 			// tls.SubjectAltNames is set to upstreamServiceAccount for mTLS case.
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
@@ -491,12 +492,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 }
 
 func setUpstreamProtocol(cluster *v2.Cluster, port *model.Port) {
-	switch port.Protocol {
-	case model.ProtocolHTTP:
-		cluster.ProtocolSelection = v2.Cluster_USE_DOWNSTREAM_PROTOCOL
-	case model.ProtocolGRPC:
-		fallthrough
-	case model.ProtocolHTTP2:
+	if port.Protocol.IsHTTP2() {
 		cluster.Http2ProtocolOptions = &core.Http2ProtocolOptions{
 			// Envoy default value of 100 is too low for data path.
 			MaxConcurrentStreams: &types.UInt32Value{

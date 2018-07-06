@@ -6,8 +6,8 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf2 "github.com/gogo/protobuf/types"
-import google_protobuf4 "github.com/gogo/protobuf/types"
+import google_protobuf3 "github.com/gogo/protobuf/types"
+import google_protobuf "github.com/gogo/protobuf/types"
 import google_protobuf5 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
@@ -28,7 +28,7 @@ type GrpcService struct {
 	TargetSpecifier isGrpcService_TargetSpecifier `protobuf_oneof:"target_specifier"`
 	// The timeout for the gRPC request. This is the timeout for a specific
 	// request.
-	Timeout *google_protobuf2.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
+	Timeout *google_protobuf3.Duration `protobuf:"bytes,3,opt,name=timeout" json:"timeout,omitempty"`
 	// Additional metadata to include in streams initiated to the GrpcService.
 	// This can be used for scenarios in which additional ad hoc authorization
 	// headers (e.g. `x-foo-bar: baz-key`) are to be injected.
@@ -78,7 +78,7 @@ func (m *GrpcService) GetGoogleGrpc() *GrpcService_GoogleGrpc {
 	return nil
 }
 
-func (m *GrpcService) GetTimeout() *google_protobuf2.Duration {
+func (m *GrpcService) GetTimeout() *google_protobuf3.Duration {
 	if m != nil {
 		return m.Timeout
 	}
@@ -213,7 +213,7 @@ type GrpcService_GoogleGrpc struct {
 	CredentialsFactoryName string `protobuf:"bytes,5,opt,name=credentials_factory_name,json=credentialsFactoryName,proto3" json:"credentials_factory_name,omitempty"`
 	// Additional configuration for site-specific customizations of the Google
 	// gRPC library.
-	Config *google_protobuf4.Struct `protobuf:"bytes,6,opt,name=config" json:"config,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,6,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *GrpcService_GoogleGrpc) Reset()         { *m = GrpcService_GoogleGrpc{} }
@@ -258,7 +258,7 @@ func (m *GrpcService_GoogleGrpc) GetCredentialsFactoryName() string {
 	return ""
 }
 
-func (m *GrpcService_GoogleGrpc) GetConfig() *google_protobuf4.Struct {
+func (m *GrpcService_GoogleGrpc) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -746,8 +746,8 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) GetAuthori
 }
 
 type GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin struct {
-	Name   string                   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Config *google_protobuf4.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Name   string                  `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
 }
 
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Reset() {
@@ -768,7 +768,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) G
 	return ""
 }
 
-func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) GetConfig() *google_protobuf4.Struct {
+func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -2130,7 +2130,7 @@ func (m *GrpcService) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Timeout == nil {
-				m.Timeout = &google_protobuf2.Duration{}
+				m.Timeout = &google_protobuf3.Duration{}
 			}
 			if err := m.Timeout.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2474,7 +2474,7 @@ func (m *GrpcService_GoogleGrpc) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -3291,7 +3291,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) U
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf4.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
