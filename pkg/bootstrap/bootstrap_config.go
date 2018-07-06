@@ -177,11 +177,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["refresh_delay"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.DiscoveryRefreshDelay.Seconds, config.DiscoveryRefreshDelay.Nanos)
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)
 
-	// Failsafe for EDSv2. In case of bugs of problems, the injection template can be modified to
-	// add this env variable. This is short lived, EDSv1 will be deprecated/removed.
-	if os.Getenv("USE_EDS_V1") == "1" {
-		opts["edsv1"] = "1"
-	}
 	opts["cluster"] = config.ServiceCluster
 	opts["nodeID"] = node
 
