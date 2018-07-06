@@ -90,7 +90,10 @@ docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	# Not using $^ to avoid 2 copies of envoy
 	cp tools/deb/envoy_bootstrap_v2.json $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxy_debug $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
-		docker build -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
+		docker build \
+		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
+		  --build-arg istio_version=${VERSION} \
+		  -t $(HUB)/proxy_debug:$(TAG) -f Dockerfile.proxy_debug .)
 
 # The file must be named 'envoy', depends on the release.
 ${ISTIO_ENVOY_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_RELEASE_PATH}
@@ -112,7 +115,10 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
-		docker build -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
+		docker build \
+		  --build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} \
+		  --build-arg istio_version=${VERSION} \
+		  -t $(HUB)/proxyv2:$(TAG) -f Dockerfile.proxyv2 .)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery pilot/docker/certs/cacert.pem pilot/docker/Dockerfile.pilot
 	mkdir -p $(ISTIO_DOCKER)/pilot

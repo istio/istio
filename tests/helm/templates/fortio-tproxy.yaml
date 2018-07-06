@@ -22,8 +22,11 @@ spec:
     metadata:
       labels:
         app: fortio-tproxy
+        name: fortio-tproxy
+        version: tproxy
       annotations:
         sidecar.istio.io/interceptionMode: TPROXY
+        sidecar.istio.io/proxyImage: "costinm/proxytproxy:tproxy"
     spec:
       containers:
       - name: echosrv
