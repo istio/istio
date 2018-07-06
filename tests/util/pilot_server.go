@@ -133,11 +133,9 @@ func setup() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
-			HTTPAddr:        httpAddr,
-			GrpcAddr:        ":0",
-			SecureGrpcAddr:  ":0",
-			EnableCaching:   true,
-			EnableProfiling: true,
+			HTTPAddr:       httpAddr,
+			GrpcAddr:       ":0",
+			SecureGrpcAddr: ":0",
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{

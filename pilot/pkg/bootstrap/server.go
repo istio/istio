@@ -175,13 +175,6 @@ type DiscoveryServiceOptions struct {
 	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	MonitoringAddr string
-
-	// Deprecated
-	EnableProfiling bool
-	// Deprecated
-	EnableCaching bool
-	// Deprecated
-	WebhookEndpoint string
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.

@@ -142,17 +142,6 @@ func init() {
 	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
 		"HTTP port to use for the exposing pilot self-monitoring information")
 	discoveryCmd.PersistentFlags().MarkDeprecated("monitoringPort", "Use --monitoringAddr instead")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
-		"Enable profiling via web interface host:port/debug/pprof")
-	discoveryCmd.PersistentFlags().MarkDeprecated("profile", "")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discovery_cache", true,
-		"Enable caching discovery service responses")
-	discoveryCmd.PersistentFlags().MarkDeprecated("discovery_cache", "")
-	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
-	// enable webhook for specific xDS config (cds/lds/etc).
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.WebhookEndpoint, "webhookEndpoint", "",
-		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
-	discoveryCmd.PersistentFlags().MarkDeprecated("webhookEndpoint", "")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

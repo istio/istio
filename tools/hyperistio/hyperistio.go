@@ -147,11 +147,9 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
-			HTTPAddr:        ":15007",
-			GrpcAddr:        ":15010",
-			SecureGrpcAddr:  ":15011",
-			EnableCaching:   true,
-			EnableProfiling: true,
+			HTTPAddr:       ":15007",
+			GrpcAddr:       ":15010",
+			SecureGrpcAddr: ":15011",
 		},
 
 		Mesh: bootstrap.MeshArgs{
