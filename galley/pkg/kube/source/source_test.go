@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package source
 
 import (
 	errs "errors"
@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/galley/pkg/kube"
+
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
@@ -35,8 +37,9 @@ import (
 var emptyInfo resource.Info
 
 func init() {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	schema := b.Build()
 	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 }
 
@@ -49,7 +52,7 @@ func TestNewSource(t *testing.T) {
 		k.AddResponse(cl, nil)
 	}
 
-	p, err := NewSource(k, 0)
+	p, err := New(k, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -63,7 +66,7 @@ func TestNewSource_Error(t *testing.T) {
 	k := &mock.Kube{}
 	k.AddResponse(nil, errs.New("newDynamicClient error"))
 
-	_, err := NewSource(k, 0)
+	_, err := New(k, 0)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
 	}
@@ -95,7 +98,7 @@ func TestSource_BasicEvents(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []ResourceSpec{
+	entries := []kube.ResourceSpec{
 		{
 			Kind:      "foo",
 			Singular:  "foo",
@@ -159,7 +162,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []ResourceSpec{
+	entries := []kube.ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
