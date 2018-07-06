@@ -23,6 +23,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
+          - containerPort: 9093
           command:
           - /usr/local/bin/galley
           - validator
