@@ -253,6 +253,7 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
+		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
@@ -279,6 +280,24 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"healthPort":      healthPort,
+			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+		Template: map[string]string{
+			"Hub":             tc.Kube.PilotHub(),
+			"Tag":             tc.Kube.PilotTag(),
+			"service":         service,
+			"port":            strconv.Itoa(port),
+			"istioNamespace":  tc.Kube.Namespace,
+			"injectProxy":     strconv.FormatBool(injectProxy),
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},
 		KubeInject: injectProxy,

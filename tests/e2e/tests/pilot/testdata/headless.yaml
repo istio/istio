@@ -1,8 +1,8 @@
-# Test service without the proxy
+# To test non-headless to headless with/without istio auth
 apiVersion: v1
 kind: Service
 metadata:
-  name: headless
+  name: headless-b
   labels:
     app: b
 spec:
@@ -14,8 +14,6 @@ spec:
     name: http-two
   - port: 10090
     name: tcp
-  - port: 19090
-    name: https
   - port: 70
     name: http2-example
   - port: 7070

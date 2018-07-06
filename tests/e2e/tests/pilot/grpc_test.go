@@ -21,14 +21,12 @@ import (
 
 func TestGrpc(t *testing.T) {
 	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b"}
+	dstPods := []string{"a", "b", "headless-b"}
 	ports := []string{"70", "7070"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		srcPods = append(srcPods, "t")
 		dstPods = append(dstPods, "t")
-		// mTLS is not supported for headless services
-		dstPods = append(dstPods, "headless")
 	} else {
 		// Auth is enabled for d:7070 using per-service policy. We expect request
 		// from non-envoy client ("t") should fail all the time.
@@ -68,7 +66,7 @@ func TestGrpc(t *testing.T) {
 										logs.add(cluster, src, id, logEntry)
 									}
 									if dst != "t" {
-										if dst == "headless" { // headless points to b
+										if dst == "headless-b" { // headless-b points to b
 											if src != "b" {
 												logs.add(cluster, "b", id, logEntry)
 											}
