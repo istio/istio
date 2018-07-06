@@ -138,8 +138,10 @@ const (
 	ProtocolHTTP Protocol = "HTTP"
 	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
 	ProtocolHTTP2 Protocol = "HTTP2"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	// ProtocolHTTPS declares that the port carries HTTPS traffic (with HTTP/1.1)
 	ProtocolHTTPS Protocol = "HTTPS"
+	// ProtocolHTTP2TLS declares that the port carries HTTPS traffic (with HTTP/2)
+	ProtocolHTTP2TLS Protocol = "HTTP2TLS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
@@ -202,6 +204,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP
 	case "http2":
 		return ProtocolHTTP2
+	case "http2-tls":
+		return ProtocolHTTP2TLS
 	case "https":
 		return ProtocolHTTPS
 	case "tls":
@@ -218,7 +222,7 @@ func ParseProtocol(s string) Protocol {
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
 func (p Protocol) IsHTTP2() bool {
 	switch p {
-	case ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP2, ProtocolGRPC, ProtocolHTTP2TLS:
 		return true
 	default:
 		return false
@@ -238,17 +242,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsTLS is true for protocols on top of TLS (e.g. HTTPS)
-func (p Protocol) IsTLS() bool {
-	switch p {
-	case ProtocolHTTPS, ProtocolTLS:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis, ProtocolHTTP2TLS:
 		return true
 	default:
 		return false
