@@ -276,7 +276,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					EnableCoreDump:      enableCoreDump,
 					Mesh:                meshConfig,
 					ImagePullPolicy:     imagePullPolicy,
-					IstioProxyVersion:   tag, // proxy tag is git SHA/git tag
 					IncludeIPRanges:     includeIPRanges,
 					ExcludeIPRanges:     excludeIPRanges,
 					IncludeInboundPorts: includeInboundPorts,
