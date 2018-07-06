@@ -121,10 +121,10 @@ if [ -z "${PROXY_UID}" ]; then
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
   # for ca agent.
   PROXY_UID=${PROXY_UID},0
-  # for TPROXY as its uid and gid are same
-  if [ -z "${PROXY_GID}" ]; then
-    PROXY_GID=${PROXY_UID}
-  fi
+fi
+# for TPROXY as its uid and gid are same
+if [ -z "${PROXY_GID}" ]; then
+PROXY_GID=${PROXY_UID}
 fi
 
 
@@ -208,7 +208,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     ip -f inet rule add fwmark ${INBOUND_TPROXY_MARK} lookup ${INBOUND_TPROXY_ROUTE_TABLE}
     # In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
     # the loopback interface.
-    ip -f inet route add local default dev lo table ${INBOUND_TPROXY_ROUTE_TABLE}
+    ip -f inet route add local default dev lo table ${INBOUND_TPROXY_ROUTE_TABLE} || ip route show table all
 
     # Create a new chain for redirecting inbound traffic to the common Envoy
     # port.
