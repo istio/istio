@@ -23,7 +23,6 @@ import (
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -221,148 +220,148 @@ patterns:
 	}
 }
 
-func TestProtoSchemaConversions(t *testing.T) {
-	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
+// func TestProtoSchemaConversions(t *testing.T) {
+// 	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
 
-	msg := &routing.RouteRule{
-		Destination: &routing.IstioService{
-			Name: "foo",
-		},
-		Precedence: 5,
-		Route: []*routing.DestinationWeight{
-			{Destination: &routing.IstioService{Name: "bar"}, Weight: 75},
-			{Destination: &routing.IstioService{Name: "baz"}, Weight: 25},
-		},
-	}
+// 	msg := &routing.RouteRule{
+// 		Destination: &routing.IstioService{
+// 			Name: "foo",
+// 		},
+// 		Precedence: 5,
+// 		Route: []*routing.DestinationWeight{
+// 			{Destination: &routing.IstioService{Name: "bar"}, Weight: 75},
+// 			{Destination: &routing.IstioService{Name: "baz"}, Weight: 25},
+// 		},
+// 	}
 
-	wantJSON := `
-	{
-		"destination": {
-			"name": "foo"
-		},
-		"precedence": 5,
-		"route": [
-		{
-			"destination": {
-				"name" : "bar"
-			},
-			"weight": 75
-		},
-		{
-			"destination": {
-				"name" : "baz"
-			},
-			"weight": 25
-		}
-		]
-	}
-	`
+// 	wantJSON := `
+// 	{
+// 		"destination": {
+// 			"name": "foo"
+// 		},
+// 		"precedence": 5,
+// 		"route": [
+// 		{
+// 			"destination": {
+// 				"name" : "bar"
+// 			},
+// 			"weight": 75
+// 		},
+// 		{
+// 			"destination": {
+// 				"name" : "baz"
+// 			},
+// 			"weight": 25
+// 		}
+// 		]
+// 	}
+// 	`
 
-	wantYAML := "destination:\n" +
-		"  name: foo\n" +
-		"precedence: 5\n" +
-		"route:\n" +
-		"- destination:\n" +
-		"    name: bar\n" +
-		"  weight: 75\n" +
-		"- destination:\n" +
-		"    name: baz\n" +
-		"  weight: 25\n"
+// 	wantYAML := "destination:\n" +
+// 		"  name: foo\n" +
+// 		"precedence: 5\n" +
+// 		"route:\n" +
+// 		"- destination:\n" +
+// 		"    name: bar\n" +
+// 		"  weight: 75\n" +
+// 		"- destination:\n" +
+// 		"    name: baz\n" +
+// 		"  weight: 25\n"
 
-	wantJSONMap := map[string]interface{}{
-		"destination": map[string]interface{}{
-			"name": "foo",
-		},
-		"precedence": 5.0,
-		"route": []interface{}{
-			map[string]interface{}{
-				"destination": map[string]interface{}{
-					"name": "bar",
-				},
-				"weight": 75.0,
-			},
-			map[string]interface{}{
-				"destination": map[string]interface{}{
-					"name": "baz",
-				},
-				"weight": 25.0,
-			},
-		},
-	}
+// 	wantJSONMap := map[string]interface{}{
+// 		"destination": map[string]interface{}{
+// 			"name": "foo",
+// 		},
+// 		"precedence": 5.0,
+// 		"route": []interface{}{
+// 			map[string]interface{}{
+// 				"destination": map[string]interface{}{
+// 					"name": "bar",
+// 				},
+// 				"weight": 75.0,
+// 			},
+// 			map[string]interface{}{
+// 				"destination": map[string]interface{}{
+// 					"name": "baz",
+// 				},
+// 				"weight": 25.0,
+// 			},
+// 		},
+// 	}
 
-	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
-	if _, err := badSchema.FromYAML(wantYAML); err == nil {
-		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
-	}
+// 	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
+// 	if _, err := badSchema.FromYAML(wantYAML); err == nil {
+// 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
+// 	}
 
-	gotJSON, err := model.ToJSON(msg)
-	if err != nil {
-		t.Errorf("ToJSON failed: %v", err)
-	}
-	if gotJSON != strings.Join(strings.Fields(wantJSON), "") {
-		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
-	}
+// 	gotJSON, err := model.ToJSON(msg)
+// 	if err != nil {
+// 		t.Errorf("ToJSON failed: %v", err)
+// 	}
+// 	if gotJSON != strings.Join(strings.Fields(wantJSON), "") {
+// 		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
+// 	}
 
-	if _, err = model.ToJSON(nil); err == nil {
-		t.Error("should produce an error")
-	}
+// 	if _, err = model.ToJSON(nil); err == nil {
+// 		t.Error("should produce an error")
+// 	}
 
-	gotFromJSON, err := routeRuleSchema.FromJSON(wantJSON)
-	if err != nil {
-		t.Errorf("FromJSON failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotFromJSON, msg) {
-		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
-	}
+// 	gotFromJSON, err := routeRuleSchema.FromJSON(wantJSON)
+// 	if err != nil {
+// 		t.Errorf("FromJSON failed: %v", err)
+// 	}
+// 	if !reflect.DeepEqual(gotFromJSON, msg) {
+// 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
+// 	}
 
-	gotYAML, err := model.ToYAML(msg)
-	if err != nil {
-		t.Errorf("ToYAML failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotYAML, wantYAML) {
-		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
-	}
+// 	gotYAML, err := model.ToYAML(msg)
+// 	if err != nil {
+// 		t.Errorf("ToYAML failed: %v", err)
+// 	}
+// 	if !reflect.DeepEqual(gotYAML, wantYAML) {
+// 		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
+// 	}
 
-	if _, err = model.ToYAML(nil); err == nil {
-		t.Error("should produce an error")
-	}
+// 	if _, err = model.ToYAML(nil); err == nil {
+// 		t.Error("should produce an error")
+// 	}
 
-	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
-	if err != nil {
-		t.Errorf("FromYAML failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotFromYAML, msg) {
-		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
-	}
+// 	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
+// 	if err != nil {
+// 		t.Errorf("FromYAML failed: %v", err)
+// 	}
+// 	if !reflect.DeepEqual(gotFromYAML, msg) {
+// 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
+// 	}
 
-	if _, err = routeRuleSchema.FromYAML(":"); err == nil {
-		t.Errorf("should produce an error")
-	}
+// 	if _, err = routeRuleSchema.FromYAML(":"); err == nil {
+// 		t.Errorf("should produce an error")
+// 	}
 
-	gotJSONMap, err := model.ToJSONMap(msg)
-	if err != nil {
-		t.Errorf("ToJSONMap failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotJSONMap, wantJSONMap) {
-		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
-	}
+// 	gotJSONMap, err := model.ToJSONMap(msg)
+// 	if err != nil {
+// 		t.Errorf("ToJSONMap failed: %v", err)
+// 	}
+// 	if !reflect.DeepEqual(gotJSONMap, wantJSONMap) {
+// 		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
+// 	}
 
-	if _, err = model.ToJSONMap(nil); err == nil {
-		t.Error("should produce an error")
-	}
+// 	if _, err = model.ToJSONMap(nil); err == nil {
+// 		t.Error("should produce an error")
+// 	}
 
-	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
-	if err != nil {
-		t.Errorf("FromJSONMap failed: %v", err)
-	}
-	if !reflect.DeepEqual(gotFromJSONMap, msg) {
-		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
-	}
+// 	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
+// 	if err != nil {
+// 		t.Errorf("FromJSONMap failed: %v", err)
+// 	}
+// 	if !reflect.DeepEqual(gotFromJSONMap, msg) {
+// 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
+// 	}
 
-	if _, err = routeRuleSchema.FromJSONMap(1); err == nil {
-		t.Error("should produce an error")
-	}
-	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
-		t.Errorf("should produce an error")
-	}
-}
+// 	if _, err = routeRuleSchema.FromJSONMap(1); err == nil {
+// 		t.Error("should produce an error")
+// 	}
+// 	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
+// 		t.Errorf("should produce an error")
+// 	}
+// }
