@@ -461,7 +461,6 @@ jobs:
               mv ../istio-*.tgz ./.
               git add -A
               git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
-
               git push origin $TARGET_BRANCH
             fi
 
