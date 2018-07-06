@@ -439,24 +439,10 @@ jobs:
     steps:
       - checkout
       - run: make sync
+      - run: helm init --client-only
       - run: helm package install/kubernetes/helm/istio
       - run: helm package install/kubernetes/helm/istio-remote
       - run: helm repo index .
-      - persist_to_workspace:
-          root: /go/charts
-          paths:
-            - index.yaml
-            - istio-*.tgz
-
-  deploy_helm_repo:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - run: ls -la
-      - run: ls -la /go/charts
       - deploy:
           name: Deploy
           command: |
@@ -469,12 +455,10 @@ jobs:
               git config --global user.name $GH_NAME
 
               git clone $CIRCLE_REPOSITORY_URL out
-
               cd out
               git checkout $TARGET_BRANCH || git checkout --orphan $TARGET_BRANCH
-
-
-              cp -a charts/. out/.
+              cp -a index.yaml out/.
+              cp -a istio-*.tgz out/.
               git add -A
               git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
 
@@ -617,7 +601,6 @@ workflows:
       - lint
       - build
       - build_helm_repo
-      - deploy_helm_repo
       - test
       - codecov:
           requires:
