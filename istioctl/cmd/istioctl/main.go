@@ -163,7 +163,7 @@ var (
 	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
-	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
