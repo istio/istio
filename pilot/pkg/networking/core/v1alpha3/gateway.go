@@ -249,6 +249,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
 				sniHosts:   getSNIHosts(server),
+				alpnProtocols: ListenersALPNProtocols,
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					routeConfig:      routeCfg,

@@ -618,6 +618,7 @@ type httpListenerOpts struct {
 type filterChainOpts struct {
 	sniHosts          []string
 	transportProtocol string
+	alpnProtocols     []string
 	tlsContext        *auth.DownstreamTlsContext
 	httpOpts          *httpListenerOpts
 	networkFilters    []listener.Filter
@@ -730,6 +731,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.ServerNames = chain.sniHosts
 			}
 		}
+
+		match.ApplicationProtocols = chain.alpnProtocols
 		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
