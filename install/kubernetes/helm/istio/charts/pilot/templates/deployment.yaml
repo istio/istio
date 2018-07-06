@@ -59,7 +59,11 @@ spec:
           - name: PILOT_CACHE_SQUASH
             value: "5"
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -104,7 +108,11 @@ spec:
                 apiVersion: v1
                 fieldPath: status.podIP
           resources:
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs

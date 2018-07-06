@@ -11,7 +11,7 @@ metadata:
     istio: sidecar-injector
 data:
   config: |-
-    policy: {{ .Values.global.proxy.policy }}
+    policy: {{ .Values.global.proxy.autoInject }}
     template: |-
       initContainers:
       - name: istio-init
@@ -138,7 +138,11 @@ data:
             {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

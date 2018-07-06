@@ -976,7 +976,7 @@ func TestBuildListenerTLSContex(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := buildSidecarListenerTLSContext(c.in, nil, model.Sidecar, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(c.expected, got) {
+		if got := buildListenerTLSContext(c.in, nil, model.Sidecar, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
