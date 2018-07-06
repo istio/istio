@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/protocol"
 	"istio.io/istio/pkg/test/service/echo"
 )
 
@@ -72,6 +73,7 @@ func main() {
 		TLSCert: crt,
 		TLSCKey: key,
 		Version: version,
+		Client:  protocol.DefaultClient,
 	}
 
 	if err := s.Start(); err != nil {

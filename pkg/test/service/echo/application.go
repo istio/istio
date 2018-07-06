@@ -25,10 +25,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/protocol"
 	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
-// Application is a simple application than processes echo requetss via various transports.
+// Application is a simple application than processes echo requests via various transports.
 type Application struct {
 	// Ports are the ports that the application should listen on. If any port number is 0, an available port will be selected
 	// when the application is started.
@@ -39,11 +40,18 @@ type Application struct {
 	TLSCKey string
 	// Version string
 	Version string
+	// Client client for calling out to other services
+	Client protocol.Client
 
 	servers []serverInterface
 }
 
-// Start starts this application.
+// GetPorts returns the ports for this application.
+func (a *Application) GetPorts() model.PortList {
+	return a.Ports
+}
+
+// Start the application.
 func (a *Application) Start() (err error) {
 	defer func() {
 		if err != nil {
@@ -60,6 +68,7 @@ func (a *Application) Start() (err error) {
 		handler := &handler{
 			version: a.Version,
 			caFile:  a.TLSCert,
+			client:  a.Client,
 		}
 		switch p.Protocol {
 		case model.ProtocolHTTP:
