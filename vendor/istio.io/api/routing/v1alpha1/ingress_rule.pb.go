@@ -19,7 +19,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Ingress rules are routing rules applied to the ingress proxy pool. The
-// ingress proxes serve as the receiving edge proxy for the entire mesh, but
+// ingress proxies serve as the receiving edge proxy for the entire mesh, but
 // can also be addressed from inside the mesh.  Each ingress rule defines a
 // destination service and port. Rules that do not resolve to a service or a
 // port in the mesh should be ignored.
@@ -65,7 +65,7 @@ func (m *IngressRule) Reset()         { *m = IngressRule{} }
 func (m *IngressRule) String() string { return proto.CompactTextString(m) }
 func (*IngressRule) ProtoMessage()    {}
 func (*IngressRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ingress_rule_8f9675da753511eb, []int{0}
+	return fileDescriptor_ingress_rule_19cb6a21ccbedbb3, []int{0}
 }
 func (m *IngressRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IngressRule.Unmarshal(m, b)
@@ -225,10 +225,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("routing/v1alpha1/ingress_rule.proto", fileDescriptor_ingress_rule_8f9675da753511eb)
+	proto.RegisterFile("routing/v1alpha1/ingress_rule.proto", fileDescriptor_ingress_rule_19cb6a21ccbedbb3)
 }
 
-var fileDescriptor_ingress_rule_8f9675da753511eb = []byte{
+var fileDescriptor_ingress_rule_19cb6a21ccbedbb3 = []byte{
 	// 295 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0x5f, 0x4b, 0xf3, 0x30,
 	0x18, 0xc5, 0xd7, 0xbd, 0xdb, 0x5e, 0xf6, 0xec, 0x42, 0x89, 0x28, 0x61, 0x30, 0x9d, 0x7f, 0x90,
