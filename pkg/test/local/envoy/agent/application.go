@@ -14,13 +14,18 @@
 
 package agent
 
-import "istio.io/istio/pilot/pkg/model"
+import (
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/protocol"
+)
 
 // Application represents a locally running application with exposed ports.
 type Application interface {
 	// GetPorts provides a list of ports that are actively listening for the application.
 	GetPorts() model.PortList
+	// Stop the application.
+	Stop() error
 }
 
 // ApplicationFactory is a function that manufactures a running application.
-type ApplicationFactory func() (Application, StopFunc, error)
+type ApplicationFactory func(client protocol.Client) (Application, error)
