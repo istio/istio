@@ -13,9 +13,6 @@ global:
   # Default tag for Istio images.
   tag: nightly-master
 
-  # git SHA or git tag from istio/proxy repo
-  istioProxyVersion: 0.8.0
-
   proxy:
     image: proxyv2
 

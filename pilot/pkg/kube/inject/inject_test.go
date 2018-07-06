@@ -37,10 +37,6 @@ const (
 	// Tag name should be kept in sync with value in
 	// platform/kube/inject/refresh.sh
 	unitTestTag = "unittest"
-
-	// Proxy version value should be kept in sync with valid in
-	// install/kubernetes/helm/istio/values.yaml:istioProxyVersion
-	unitTestProxyVersion = "0.8.0"
 )
 
 func TestImageName(t *testing.T) {
@@ -319,7 +315,6 @@ func TestIntoResourceFile(t *testing.T) {
 				InitImage:           InitImageName(unitTestHub, unitTestTag, c.debugMode),
 				ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
 				ImagePullPolicy:     "IfNotPresent",
-				IstioProxyVersion:   unitTestProxyVersion,
 				Verbosity:           DefaultVerbosity,
 				SidecarProxyUID:     DefaultSidecarProxyUID,
 				Version:             "12345678",
@@ -449,7 +444,6 @@ func newTestParams() *Params {
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
 		ImagePullPolicy:     "IfNotPresent",
-		IstioProxyVersion:   unitTestProxyVersion,
 		Verbosity:           DefaultVerbosity,
 		SidecarProxyUID:     DefaultSidecarProxyUID,
 		Version:             "12345678",
