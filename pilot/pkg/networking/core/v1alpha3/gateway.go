@@ -248,9 +248,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
-				sniHosts:      getSNIHosts(server),
-				alpnProtocols: ListenersALPNProtocols,
-				tlsContext:    buildGatewayListenerTLSContext(server),
+				sniHosts:   getSNIHosts(server),
+				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					routeConfig:      routeCfg,
 					rds:              model.GatewayRDSRouteName(server),

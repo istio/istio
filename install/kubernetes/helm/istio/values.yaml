@@ -180,7 +180,7 @@ gateways:
       name: http2
       nodePort: 31380
     - port: 443
-      name: http2-tls
+      name: https
       nodePort: 31390
     - port: 31400
       name: tcp
@@ -205,7 +205,7 @@ gateways:
       - port: 80
         name: http2
       - port: 443
-        name: http2-tls
+        name: https
     secretVolumes:
       - name: egressgateway-certs
         secretName: istio-egressgateway-certs
