@@ -30,7 +30,7 @@ initWorkingDir: &initWorkingDir
   name: Initialize Working Directory
   pwd: /
   command: |
-    sudo mkdir -p /go/src/istio.io/istio 
+    sudo mkdir -p /go/src/istio.io/istio
     sudo chown -R circleci /go
     mkdir -p /go/out/tests
     mkdir -p /go/out/logs
