@@ -13,7 +13,7 @@ rules:
   verbs: ["create", "get", "list", "watch", "patch"]
 - apiGroups: ["rbac.istio.io"] # istio RBAC watcher
   resources: ["*"]
-  verbs: ["create", "get", "list", "watch", "patch"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["get", "list", "watch"]

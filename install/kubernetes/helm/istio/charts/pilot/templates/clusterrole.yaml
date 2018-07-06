@@ -13,7 +13,7 @@ rules:
   verbs: ["*"]
 - apiGroups: ["rbac.istio.io"]
   resources: ["*"]
-  verbs: ["*"]
+  verbs: ["get", "watch", "list"]
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]
   verbs: ["*"]
