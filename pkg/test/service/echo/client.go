@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/istio/pkg/test/protocol"
 	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
@@ -41,14 +42,15 @@ const (
 
 // batchOptions provides options to the batch processor.
 type batchOptions struct {
-	Count     int
-	QPS       int
-	Timeout   time.Duration
-	URL       string
-	HeaderKey string
-	HeaderVal string
-	Message   string
-	CAFile    string
+	client    protocol.Client
+	count     int
+	qps       int
+	timeout   time.Duration
+	url       string
+	headerKey string
+	headerVal string
+	message   string
+	caFile    string
 }
 
 // batch processes a batch of requests.
@@ -60,27 +62,27 @@ type batch struct {
 // run runs the batch and collects the results.
 func (b *batch) run() ([]string, error) {
 	g, _ := errgroup.WithContext(context.Background())
-	responses := make([]string, b.options.Count)
+	responses := make([]string, b.options.count)
 
 	var throttle <-chan time.Time
 
-	if b.options.QPS > 0 {
-		sleepTime := time.Second / time.Duration(b.options.QPS)
+	if b.options.qps > 0 {
+		sleepTime := time.Second / time.Duration(b.options.qps)
 		log.Printf("Sleeping %v between requests\n", sleepTime)
 		throttle = time.Tick(sleepTime)
 	}
 
-	for i := 0; i < b.options.Count; i++ {
+	for i := 0; i < b.options.count; i++ {
 		r := request{
 			RequestID: i,
-			URL:       b.options.URL,
-			Message:   b.options.Message,
-			HeaderKey: b.options.HeaderKey,
-			HeaderVal: b.options.HeaderVal,
+			URL:       b.options.url,
+			Message:   b.options.message,
+			HeaderKey: b.options.headerKey,
+			HeaderVal: b.options.headerVal,
 		}
 		r.RequestID = i
 
-		if b.options.QPS > 0 {
+		if b.options.qps > 0 {
 			<-throttle
 		}
 
@@ -116,10 +118,12 @@ func newBatch(ops batchOptions) (*batch, error) {
 		return nil, err
 	}
 
-	return &batch{
+	b := &batch{
 		client:  client,
 		options: ops,
-	}, nil
+	}
+
+	return b, nil
 }
 
 type request struct {
@@ -139,6 +143,7 @@ type client interface {
 
 type httpClient struct {
 	client *http.Client
+	do     protocol.HTTPDoFunc
 }
 
 func (c *httpClient) makeRequest(req *request) (response, error) {
@@ -158,7 +163,7 @@ func (c *httpClient) makeRequest(req *request) (response, error) {
 		outBuffer.WriteString(fmt.Sprintf("[%d] Header=%s:%s\n", req.RequestID, req.HeaderKey, req.HeaderVal))
 	}
 
-	httpResp, err := c.client.Do(httpReq)
+	httpResp, err := c.do(c.client, httpReq)
 	if err != nil {
 		return "", err
 	}
@@ -220,6 +225,7 @@ func (c *grpcClient) stop() error {
 
 type websocketClient struct {
 	dialer *websocket.Dialer
+	dial   protocol.WebsocketDialFunc
 }
 
 func (c *websocketClient) makeRequest(req *request) (response, error) {
@@ -239,7 +245,7 @@ func (c *websocketClient) makeRequest(req *request) (response, error) {
 		outBuffer.WriteString(fmt.Sprintf("[%d] Body=%s\n", req.RequestID, req.Message))
 	}
 
-	conn, _, err := c.dialer.Dial(req.URL, wsReq)
+	conn, _, err := c.dial(c.dialer, req.URL, wsReq)
 	if err != nil {
 		// timeout or bad handshake
 		return "", err
@@ -271,7 +277,7 @@ func (c *websocketClient) stop() error {
 }
 
 func newClient(ops batchOptions) (client, error) {
-	if strings.HasPrefix(ops.URL, "http://") || strings.HasPrefix(ops.URL, "https://") {
+	if strings.HasPrefix(ops.url, "http://") || strings.HasPrefix(ops.url, "https://") {
 		/* #nosec */
 		client := &http.Client{
 			Transport: &http.Transport{
@@ -279,41 +285,42 @@ func newClient(ops batchOptions) (client, error) {
 					InsecureSkipVerify: true,
 				},
 			},
-			Timeout: ops.Timeout,
+			Timeout: ops.timeout,
 		}
 		return &httpClient{
 			client: client,
+			do:     ops.client.HTTP.Do,
 		}, nil
-	} else if strings.HasPrefix(ops.URL, "grpc://") || strings.HasPrefix(ops.URL, "grpcs://") {
-		secure := strings.HasPrefix(ops.URL, "grpcs://")
+	} else if strings.HasPrefix(ops.url, "grpc://") || strings.HasPrefix(ops.url, "grpcs://") {
+		secure := strings.HasPrefix(ops.url, "grpcs://")
 		var address string
 		if secure {
-			address = ops.URL[len("grpcs://"):]
+			address = ops.url[len("grpcs://"):]
 		} else {
-			address = ops.URL[len("grpc://"):]
+			address = ops.url[len("grpc://"):]
 		}
 
 		// grpc-go sets incorrect authority header
 		authority := address
-		if ops.HeaderKey == hostKey {
-			authority = ops.HeaderVal
+		if ops.headerKey == hostKey {
+			authority = ops.headerVal
 		}
 
 		// transport security
 		security := grpc.WithInsecure()
 		if secure {
-			creds, err := credentials.NewClientTLSFromFile(ops.CAFile, authority)
+			creds, err := credentials.NewClientTLSFromFile(ops.caFile, authority)
 			if err != nil {
-				log.Fatalf("failed to load client certs %s %v", ops.CAFile, err)
+				log.Fatalf("failed to load client certs %s %v", ops.caFile, err)
 			}
 			security = grpc.WithTransportCredentials(creds)
 		}
 
-		grpcConn, err := grpc.Dial(address,
+		grpcConn, err := ops.client.GRPC.Dial(address,
 			security,
 			grpc.WithAuthority(authority),
 			grpc.WithBlock(),
-			grpc.WithTimeout(ops.Timeout))
+			grpc.WithTimeout(ops.timeout))
 		if err != nil {
 			return nil, err
 		}
@@ -322,18 +329,18 @@ func newClient(ops batchOptions) (client, error) {
 			conn:   grpcConn,
 			client: client,
 		}, nil
-	} else if strings.HasPrefix(ops.URL, "ws://") || strings.HasPrefix(ops.URL, "wss://") {
+	} else if strings.HasPrefix(ops.url, "ws://") || strings.HasPrefix(ops.url, "wss://") {
 		/* #nosec */
 		dialer := &websocket.Dialer{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
-			HandshakeTimeout: ops.Timeout,
+			HandshakeTimeout: ops.timeout,
 		}
 		return &websocketClient{
 			dialer: dialer,
 		}, nil
 	}
 
-	return nil, fmt.Errorf("unrecognized protocol %q", ops.URL)
+	return nil, fmt.Errorf("unrecognized protocol %q", ops.url)
 }
