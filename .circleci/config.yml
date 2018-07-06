@@ -453,12 +453,12 @@ jobs:
             if [ $CIRCLE_BRANCH == $SOURCE_BRANCH ]; then
               git config --global user.email $GH_EMAIL
               git config --global user.name $GH_NAME
-
               git clone $CIRCLE_REPOSITORY_URL out
               cd out
               git checkout $TARGET_BRANCH || git checkout --orphan $TARGET_BRANCH
-              cp -a index.yaml out/.
-              cp -a istio-*.tgz out/.
+              
+              mv ../index.yaml ./.
+              mv ../istio-*.tgz ./.
               git add -A
               git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
 
