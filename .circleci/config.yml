@@ -457,8 +457,9 @@ jobs:
               cd out
               git checkout $TARGET_BRANCH || git checkout --orphan $TARGET_BRANCH
               git rm -rf .
-              mv ../index.yaml ./.
-              mv ../istio-*.tgz ./.
+              mkdir -p ./charts
+              mv ../index.yaml ./charts
+              mv ../istio-*.tgz ./charts
               git add -A
               git commit -m "Automated deployment to GitHub Pages: ${CIRCLE_SHA1}" --allow-empty
               git push origin $TARGET_BRANCH
