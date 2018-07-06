@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/protocol"
 	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
@@ -36,6 +37,7 @@ type handler struct {
 	port    int
 	version string
 	caFile  string
+	client  protocol.Client
 }
 
 var upgrader = websocket.Upgrader{
@@ -133,16 +135,17 @@ func (h handler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest)
 
 func (h handler) newBatchOptions(req *proto.ForwardEchoRequest) batchOptions {
 	ops := batchOptions{
-		URL:     req.Url,
-		Timeout: time.Duration(req.TimeoutMicros) / time.Microsecond,
-		Count:   int(req.Count),
-		QPS:     int(req.Qps),
-		Message: req.Message,
-		CAFile:  h.caFile,
+		url:     req.Url,
+		timeout: time.Duration(req.TimeoutMicros) / time.Microsecond,
+		count:   int(req.Count),
+		qps:     int(req.Qps),
+		message: req.Message,
+		caFile:  h.caFile,
+		client:  h.client,
 	}
 	if req.Header != nil {
-		ops.HeaderKey = req.Header.Key
-		ops.HeaderVal = req.Header.Value
+		ops.headerKey = req.Header.Key
+		ops.headerVal = req.Header.Value
 	}
 	return ops
 }

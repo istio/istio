@@ -17,14 +17,14 @@ package reserveport
 import multierror "github.com/hashicorp/go-multierror"
 
 func allocatePool(size int) (pool []ReservedPort, err error) {
-	tempPool := make([]ReservedPort, poolSize)
+	tempPool := make([]ReservedPort, size)
 	defer func() {
 		if err != nil {
 			freePool(tempPool)
 		}
 	}()
 
-	for i := 0; i < poolSize; i++ {
+	for i := 0; i < size; i++ {
 		var err error
 		tempPool[i], err = newReservedPort()
 		if err != nil {

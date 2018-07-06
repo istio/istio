@@ -17,7 +17,7 @@ package echo
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/local/envoy/agent"
-	"istio.io/istio/pkg/test/service/echo"
+	"istio.io/istio/pkg/test/protocol"
 )
 
 // Factory is a factory for echo applications.
@@ -29,7 +29,7 @@ type Factory struct {
 }
 
 // NewApplication is an agent.ApplicationFactory function that manufactures echo applications.
-func (f *Factory) NewApplication() (agent.Application, agent.StopFunc, error) {
+func (f *Factory) NewApplication(client protocol.Client) (agent.Application, error) {
 
 	// Make a copy of the port list.
 	ports := make(model.PortList, len(f.Ports))
@@ -38,32 +38,16 @@ func (f *Factory) NewApplication() (agent.Application, agent.StopFunc, error) {
 		ports[i] = &tempP
 	}
 
-	app := &echo.Application{
+	app := &Application{
 		Ports:   ports,
 		TLSCert: f.TLSCert,
 		TLSCKey: f.TLSCKey,
 		Version: f.Version,
+		Client:  client,
 	}
 	if err := app.Start(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	stopFunc := func() error {
-		if app != nil {
-			return app.Stop()
-		}
-		return nil
-	}
-	return &wrapper{
-		app: app,
-	}, stopFunc, nil
-}
-
-type wrapper struct {
-	app *echo.Application
-}
-
-// GetPorts implements the agent.Application interface
-func (w *wrapper) GetPorts() model.PortList {
-	return w.app.Ports
+	return app, nil
 }

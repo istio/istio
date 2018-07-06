@@ -15,64 +15,40 @@
 package agent
 
 import (
-	multierror "github.com/hashicorp/go-multierror"
+	"fmt"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// Agent controls the startup of a local application and an Envoy proxy, thereby integrating the application into a local Istio service mesh.
-type Agent struct {
-	// ServiceName the name for the service represented by this Agent.
-	ServiceName string
-
-	// App is the Application for which a Service will be created. The lifecycle (start/stop) of the Application will be controlled by the Agent.
-	AppFactory ApplicationFactory
-
-	// ProxyFactory is function for creating ApplicationProxy instances.
-	ProxyFactory ApplicationProxyFactory
-
-	// ConfigStore will receive a service entry configuration when the agent is started.
-	ConfigStore model.ConfigStore
-
-	app         Application
-	appStopFunc StopFunc
-
-	proxy         ApplicationProxy
-	proxyStopFunc StopFunc
+// Agent is a wrapper around an Envoy proxy that has been configured for a particular backend Application.
+type Agent interface {
+	// GetConfig returns the ServiceEntry configuration for this agent.
+	GetConfig() model.Config
+	// GetAdminPort returns the Envoy administration port for this agent.
+	GetAdminPort() int
+	// GetPorts returns a list of port mappings between Envoy and the backend application.
+	GetPorts() []*MappedPort
+	// Stop the agent
+	Stop() error
 }
 
-// Start starts Envoy and the application.
-func (a *Agent) Start() (err error) {
-	// Create and start the backend application
-	a.app, a.appStopFunc, err = a.AppFactory()
-	if err != nil {
-		return err
-	}
-
-	// Create and start the proxy for the application.
-	a.proxy, a.proxyStopFunc, err = a.ProxyFactory(a.ServiceName, a.app)
-	if err != nil {
-		return err
-	}
-
-	// Now add a service entry for this agent.
-	_, err = a.ConfigStore.Create(a.proxy.GetConfig())
-	if err != nil {
-		return err
-	}
-	return nil
+// MappedPort provides a single port mapping between an Envoy proxy and its backend application.
+type MappedPort struct {
+	Name            string
+	Protocol        model.Protocol
+	ProxyPort       int
+	ApplicationPort int
 }
 
-// Stop stops Envoy and the application.
-func (a *Agent) Stop() (err error) {
-	if a.proxyStopFunc != nil {
-		err = a.proxyStopFunc()
+// Factory is a function that manufactures Agent instances.
+type Factory func(meta model.ConfigMeta, appFactory ApplicationFactory, configStore model.ConfigStore) (Agent, error)
+
+// FindFirstPortForProtocol is a utility method to simplify lookup of a port for a given protocol.
+func FindFirstPortForProtocol(a Agent, protocol model.Protocol) (*MappedPort, error) {
+	for _, port := range a.GetPorts() {
+		if port.Protocol == protocol {
+			return port, nil
+		}
 	}
-
-	return multierror.Append(err, a.appStopFunc()).ErrorOrNil()
-}
-
-// GetProxy returns the proxy for the backend Application. Only valid after the Agent has been started.
-func (a *Agent) GetProxy() ApplicationProxy {
-	return a.proxy
+	return nil, fmt.Errorf("no port found matching protocol %v", protocol)
 }

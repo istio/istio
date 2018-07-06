@@ -15,12 +15,15 @@
 package agent_test
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -29,8 +32,9 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/local/envoy"
 	"istio.io/istio/pkg/test/local/envoy/agent"
-	"istio.io/istio/pkg/test/local/envoy/agent/echo"
 	"istio.io/istio/pkg/test/local/envoy/agent/pilot"
+	"istio.io/istio/pkg/test/service/echo"
+	"istio.io/istio/pkg/test/service/echo/proto"
 )
 
 const (
@@ -49,59 +53,37 @@ func TestAgent(t *testing.T) {
 	defer pilotStopFn()
 
 	discoveryAddr := p.GRPCListeningAddr.(*net.TCPAddr)
-	agents := []*agent.Agent{
-		{
-			ServiceName: "A",
-			ConfigStore: configStore,
-			AppFactory: (&echo.Factory{
-				Ports: model.PortList{
-					{
-						Name:     "http-1",
-						Protocol: model.ProtocolHTTP,
-					},
-					{
-						Name:     "http-2",
-						Protocol: model.ProtocolHTTP,
-					},
-				},
-			}).NewApplication,
-			ProxyFactory: (&pilot.Factory{
-				Domain:           domain,
-				Namespace:        namespace,
-				DiscoveryAddress: discoveryAddr,
-			}).NewProxiedApplication,
-		},
-		{
-			ServiceName: "B",
-			ConfigStore: configStore,
-			AppFactory: (&echo.Factory{
-				Ports: model.PortList{
-					{
-						Name:     "http-1",
-						Protocol: model.ProtocolHTTP,
-					},
-					{
-						Name:     "http-2",
-						Protocol: model.ProtocolHTTP,
-					},
-				},
-			}).NewApplication,
-			ProxyFactory: (&pilot.Factory{
-				Domain:           domain,
-				Namespace:        namespace,
-				DiscoveryAddress: discoveryAddr,
-			}).NewProxiedApplication,
-		},
-	}
 
-	// Start the agents
-	for _, a := range agents {
-		// Start the agent
-		if err := a.Start(); err != nil {
-			t.Fatal(err)
-		}
-		defer a.Stop()
+	// Configure the agent factory with Pilot's discovery address
+	agentFactory := (&pilot.Factory{
+
+		DiscoveryAddress: discoveryAddr,
+	}).NewAgent
+
+	appFactory := (&echo.Factory{
+		Ports: model.PortList{
+			{
+				Name:     "http-1",
+				Protocol: model.ProtocolHTTP,
+			},
+			{
+				Name:     "command-interface",
+				Protocol: model.ProtocolGRPC,
+			},
+		},
+	}).NewApplication
+
+	// Create a few agents.
+	agents := []agent.Agent{
+		newAgent("A", agentFactory, appFactory, configStore, t),
+		newAgent("B", agentFactory, appFactory, configStore, t),
+		newAgent("C", agentFactory, appFactory, configStore, t),
 	}
+	defer func() {
+		for _, a := range agents {
+			a.Stop()
+		}
+	}()
 
 	// Wait for config for all services to be distributed to all Envoys.
 	endTime := time.Now().Add(timeout)
@@ -110,6 +92,7 @@ func TestAgent(t *testing.T) {
 			if src == target {
 				continue
 			}
+
 			for {
 				if isAgentConfiguredForService(src, target, t) {
 					break
@@ -123,30 +106,79 @@ func TestAgent(t *testing.T) {
 		}
 	}
 
-	// For now, just print the final configurations.
-	for _, a := range agents {
-		printConfig(a)
+	// Verify that we can send traffic between services.
+	for _, src := range agents {
+		for _, dst := range agents {
+			if src == dst {
+				continue
+			}
+
+			testName := fmt.Sprintf("%v_%s_%s", model.ProtocolHTTP, src.GetConfig().Name, dst.GetConfig().Name)
+			t.Run(testName, func(t *testing.T) {
+				makeRequest(src, dst, model.ProtocolHTTP, t)
+			})
+		}
 	}
 }
 
-func printConfig(a *agent.Agent) {
-	str, err := envoy.GetConfigDumpStr(a.GetProxy().GetAdminPort())
-	if err == nil {
-		fmt.Println(fmt.Sprintf("Agent Config for service %s: %s", a.GetProxy().GetConfig().Name, str))
+func newAgent(serviceName string, factory agent.Factory, appFactory agent.ApplicationFactory, configStore model.ConfigStore, t *testing.T) agent.Agent {
+	t.Helper()
+	a, err := factory(model.ConfigMeta{
+		Name:      serviceName,
+		Namespace: namespace,
+		Domain:    domain,
+	}, appFactory, configStore)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return a
 }
 
-func isAgentConfiguredForService(src *agent.Agent, target *agent.Agent, t *testing.T) bool {
+func makeRequest(src agent.Agent, dst agent.Agent, protocol model.Protocol, t *testing.T) {
 	t.Helper()
 
-	cfg, err := envoy.GetConfigDump(src.GetProxy().GetAdminPort())
+	// Get the port information for the desired protocol on the destination agent.
+	dstPort, err := agent.FindFirstPortForProtocol(dst, protocol)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, port := range target.GetProxy().GetPorts() {
+	serviceName := dst.GetConfig().Name
+
+	// Forward a request from the source service to the destination service.
+	parsedResponses, err := forwardRequestToAgent(src, &proto.ForwardEchoRequest{
+		Url:   fmt.Sprintf("http://%s:%d", serviceName, dstPort.ProxyPort),
+		Count: 1,
+		Header: &proto.Header{
+			Key:   "Host",
+			Value: serviceName,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !parsedResponses[0].IsOK() {
+		t.Fatalf("Unexpected response status code: %s", parsedResponses[0].Code)
+	}
+	if parsedResponses[0].Host != serviceName {
+		t.Fatalf("Unexpected host: %s", parsedResponses[0].Host)
+	}
+	if parsedResponses[0].Port != strconv.Itoa(dstPort.ApplicationPort) {
+		t.Fatalf("Unexpected port: %s", parsedResponses[0].Port)
+	}
+}
+
+func isAgentConfiguredForService(src agent.Agent, target agent.Agent, t *testing.T) bool {
+	t.Helper()
+
+	cfg, err := envoy.GetConfigDump(src.GetAdminPort())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, port := range target.GetPorts() {
 		// TODO(nmittler): Verify inbound/outbound listeners exist for the target service port
-		if !isClusterPresent(cfg, target.GetProxy().GetConfig().Name, fqd, uint32(port.ProxyPort), t) {
+		if !isClusterPresent(cfg, target.GetConfig().Name, fqd, uint32(port.ProxyPort), t) {
 			return false
 		}
 	}
@@ -214,4 +246,27 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 		stop <- struct{}{}
 	}
 	return server, configController, stopFn
+}
+
+func forwardRequestToAgent(a agent.Agent, req *proto.ForwardEchoRequest) ([]*echo.ParsedResponse, error) {
+	grpcPortA, err := agent.FindFirstPortForProtocol(a, model.ProtocolGRPC)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", grpcPortA.ApplicationPort), grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := proto.NewEchoTestServiceClient(conn)
+	resp, err := client.ForwardEcho(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	parsedResponses := echo.ParseForwardedResponse(resp)
+	if len(parsedResponses) != 1 {
+		return nil, fmt.Errorf("unexpected number of responses: %d", len(parsedResponses))
+	}
+	return parsedResponses, nil
 }

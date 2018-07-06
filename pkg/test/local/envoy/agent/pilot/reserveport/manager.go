@@ -16,14 +16,19 @@ package reserveport
 
 import (
 	"fmt"
+	"sync"
 )
 
 type managerImpl struct {
 	pool  []ReservedPort
 	index int
+	mutex sync.Mutex
 }
 
 func (m *managerImpl) ReservePort() (ReservedPort, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	if m.index >= len(m.pool) {
 		return nil, fmt.Errorf("no ports available")
 	}
@@ -37,6 +42,9 @@ func (m *managerImpl) ReservePort() (ReservedPort, error) {
 }
 
 func (m *managerImpl) Close() (err error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	pool := m.pool
 	m.pool = nil
 	m.index = 0
