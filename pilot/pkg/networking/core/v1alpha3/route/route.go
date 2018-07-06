@@ -677,31 +677,36 @@ func getHashPolicy(configStore model.IstioConfigStore, dst *networking.Destinati
 		consistentHash = plsHash
 	}
 
-	hashPolicy := &route.RouteAction_HashPolicy{}
 	switch consistentHash.GetHashKey().(type) {
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
-		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_Header_{
-			Header: &route.RouteAction_HashPolicy_Header{
-				HeaderName: consistentHash.GetHttpHeaderName(),
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Header_{
+				Header: &route.RouteAction_HashPolicy_Header{
+					HeaderName: consistentHash.GetHttpHeaderName(),
+				},
 			},
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
 		cookie := consistentHash.GetHttpCookie()
 
-		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_Cookie_{
-			Cookie: &route.RouteAction_HashPolicy_Cookie{
-				Name: cookie.GetName(),
-				Ttl:  cookie.GetTtl(),
-				Path: cookie.GetPath(),
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+				Cookie: &route.RouteAction_HashPolicy_Cookie{
+					Name: cookie.GetName(),
+					Ttl:  cookie.GetTtl(),
+					Path: cookie.GetPath(),
+				},
 			},
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
-		hashPolicy.PolicySpecifier = &route.RouteAction_HashPolicy_ConnectionProperties_{
-			ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
-				SourceIp: consistentHash.GetUseSourceIp(),
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
+				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
+					SourceIp: consistentHash.GetUseSourceIp(),
+				},
 			},
 		}
 	}
 
-	return hashPolicy
+	return nil
 }
