@@ -22,6 +22,9 @@ rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
   verbs: ["create", "get", "list", "watch", "patch"]
+- apiGroups: ["rbac.istio.io"] # istio RBAC watcher
+  resources: ["*"]
+  verbs: ["create", "get", "list", "watch", "patch"]
 - apiGroups: ["networking.istio.io"] # needed to create mixer destination rules
   resources: ["*"]
   verbs: ["*"]

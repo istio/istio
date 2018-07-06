@@ -33,6 +33,14 @@ webhooks:
         - httpapispecbindings
         - quotaspecs
         - quotaspecbindings
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - rbac.istio.io
+        apiVersions:
+        - v1alpha2
+        resources:
         - serviceroles
         - servicerolebindings
       - operations:
