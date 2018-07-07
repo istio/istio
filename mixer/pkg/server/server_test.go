@@ -197,6 +197,11 @@ func TestErrors(t *testing.T) {
 		t.Errorf("Got success, expecting error")
 	}
 
+	a = defaultTestArgs()
+	a.APIPort = 0
+	a.MonitoringPort = 0
+	a.TracingOptions.LogTraceSpans = true
+
 	// This test is designed to exercise the many failure paths in the server creation
 	// code. This is mostly about replacing methods in the patch table with methods that
 	// return failures in order to make sure the failure recovery code is working right.
@@ -205,10 +210,6 @@ func TestErrors(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			a := defaultTestArgs()
-			a.APIPort = 0
-			a.MonitoringPort = 0
-			a.TracingOptions.LogTraceSpans = true
 			a.ConfigStore = configStore
 			a.ConfigStoreURL = ""
 			pt := newPatchTable()
@@ -237,10 +238,10 @@ func TestErrors(t *testing.T) {
 					return net.Listen(network, address)
 				}
 			case 6:
-				a.MonitoringPort = 1235
+				a.MonitoringPort = 1234
 				pt.listen = func(network string, address string) (net.Listener, error) {
 					// fail the net.Listen call that's for the monitoring port.
-					if address == ":1235" {
+					if address == ":1234" {
 						return nil, errors.New("BAD")
 					}
 					return net.Listen(network, address)
