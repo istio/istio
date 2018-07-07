@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
-    sidecar.istio.io/status: '{"version":"d396445130be29fbad356be3fdaadb671eefa9b6fe45193025294c1e57b2b8ba","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+    sidecar.istio.io/status: '{"version":"c62757c15b560ddbb9ac3e8c1cbbcbce6bbc40ee79d1a4c9970fe27dc02434a6","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
   creationTimestamp: null
   name: hello
 spec:
@@ -59,16 +59,15 @@ spec:
           fieldPath: metadata.name
     - name: ISTIO_META_INTERCEPTION_MODE
       value: REDIRECT
-    image: docker.io/istio/proxy_debug:unittest
+    image: docker.io/istio/proxyv2:unittest
     imagePullPolicy: IfNotPresent
     name: istio-proxy
     resources:
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 10m
     securityContext:
-      privileged: true
-      readOnlyRootFilesystem: false
+      privileged: false
+      readOnlyRootFilesystem: true
       runAsUser: 1337
     volumeMounts:
     - mountPath: /etc/istio/proxy
@@ -100,7 +99,6 @@ spec:
       capabilities:
         add:
         - NET_ADMIN
-      privileged: true
   volumes:
   - emptyDir:
       medium: Memory
