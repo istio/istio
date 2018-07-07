@@ -266,8 +266,8 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn
 	}
 }
 
-// buildSidecarListenerTLSContext adds TLS to the listener if the policy requires one.
-func buildSidecarListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType,
+// buildListenerTLSContext adds TLS to the listener if the policy requires one.
+func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType,
 	serviceAccount string, meshConfig *meshconfig.MeshConfig) *auth.DownstreamTlsContext {
 	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
 		return nil
@@ -348,8 +348,11 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		chain := &mutable.Listener.FilterChains[i]
-		chain.TlsContext = buildSidecarListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type, in.ServiceInstance.ServiceAccount, in.Env.Mesh)
+		if in.Node.Type == model.Sidecar {
+			// Add TLS context only for sidecars. Not for gateways that already have TLS context
+			chain := &mutable.Listener.FilterChains[i]
+			chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type, in.ServiceInstance.ServiceAccount, in.Env.Mesh)
+		}
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {

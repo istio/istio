@@ -5,6 +5,7 @@ metadata:
 spec:
   hosts:
     - "*.bookinfo.com"
+    - www.google.com
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
   - istio-egressgateway
@@ -35,3 +36,26 @@ spec:
         weight: 100
       appendHeaders:
         handled-by-egress-gateway: "true"
+  tls:
+    - match:
+      - gateways:
+        - mesh
+        port: 443
+        sniHosts:
+        - www.google.com
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 443
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+        sniHosts:
+        - www.google.com
+      route:
+      - destination:
+          host: www.google.com
+          port:
+            number: 443
