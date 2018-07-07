@@ -183,9 +183,6 @@ gateways:
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
-    # If set to true, the pilot and citadel mtls ports will be exposed on the ingress gateway
-    meshExpansion: false
-
     ports:
       ## You can add custom gateway ports
     - port: 80
@@ -198,6 +195,14 @@ gateways:
     - port: 31400
       name: tcp
       nodePort: 31400
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -247,20 +252,17 @@ gateways:
       serviceAnnotations:
         cloud.google.com/load-balancer-type: "internal"
       type: LoadBalancer
-      # If set to true, the pilot and citadel mtls ports will be exposed on the ingress gateway
-      meshExpansion: true
-
       ports:
-        ## You can add custom gateway ports
-      - port: 80
-        targetPort: 80
-        name: http2
-      - port: 443
-        name: https
+      ## You can add custom gateway ports - google ILB default quota is 5 ports,
+      - port: 15011
+        name: grpc-pilot-mtls
+      # Insecure port - only for migration from 0.8. Will be removed in 1.1
       - port: 15010
         name: grpc-pilot
-      - port: 8080
-        name: debug-pilot
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      # Port 5353 is forwarded to kube-dns
       - port: 5353
         name: tcp-dns
       secretVolumes:
