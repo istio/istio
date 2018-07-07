@@ -22,12 +22,11 @@ items:
   spec:
     ports:
       - name: query-http
-        port: 80
+        port: {{ .Values.service.uiPort }}
         protocol: TCP
         targetPort: {{ .Values.service.uiPort }}
     selector:
       app: jaeger
-    type: LoadBalancer
 {{- end }}
 - apiVersion: v1
   kind: Service
