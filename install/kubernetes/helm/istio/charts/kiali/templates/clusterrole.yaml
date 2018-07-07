@@ -34,7 +34,6 @@ rules:
   - memquotas
   - opas
   - prometheuses
-  - rbacs
   - servicecontrols
   - solarwindses
   - stackdrivers
@@ -50,6 +49,7 @@ rules:
   - quotas
   - reportnothings
   - servicecontrolreports
+  - rbacs
   verbs:
   - get
   - list
@@ -64,3 +64,4 @@ rules:
   - get
   - list
   - watch
+  

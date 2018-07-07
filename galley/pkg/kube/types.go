@@ -502,7 +502,7 @@ func init() {
 		Singular:  "rbac",
 		Plural:    "rbacs",
 		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Group:     "rbac.istio.io",
 		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
 		Converter: converter.Get("identity"),
 	})
@@ -513,7 +513,7 @@ func init() {
 		Singular:  "servicerole",
 		Plural:    "serviceroles",
 		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Group:     "rbac.istio.io",
 		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole"),
 		Converter: converter.Get("identity"),
 	})
@@ -524,7 +524,7 @@ func init() {
 		Singular:  "servicerolebinding",
 		Plural:    "servicerolebindings",
 		Version:   "v1alpha2",
-		Group:     "config.istio.io",
+		Group:     "rbac.istio.io",
 		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding"),
 		Converter: converter.Get("identity"),
 	})

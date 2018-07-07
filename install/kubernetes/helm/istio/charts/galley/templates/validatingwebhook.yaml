@@ -33,8 +33,6 @@ webhooks:
         - httpapispecbindings
         - quotaspecs
         - quotaspecbindings
-        - serviceroles
-        - servicerolebindings
       - operations:
         - CREATE
         - UPDATE
@@ -58,6 +56,16 @@ webhooks:
         # disabled per @costinm's request
         # - serviceentries
         - virtualservices
+      - operations:
+        - CREATE
+        - UPDATE
+        apiGroups:
+        - rbac.istio.io
+        apiVersions:
+        - v1alpha2
+        resources:
+        - serviceroles
+        - servicerolebindings
     failurePolicy: Fail
   - name: mixer.validation.istio.io
     clientConfig:
@@ -86,7 +94,6 @@ webhooks:
         - noops
         - opas
         - prometheuses
-        - rbacs
         - servicecontrols
         - solarwindses
         - stackdrivers
@@ -103,5 +110,6 @@ webhooks:
         - reportnothings
         - servicecontrolreports
         - tracespans
+        - rbacs
     failurePolicy: Fail
 {{- end }}

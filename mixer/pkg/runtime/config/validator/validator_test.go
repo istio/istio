@@ -22,6 +22,8 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -79,7 +81,8 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://" + path)
+	groupVersion := &schema.GroupVersion{Group: "config.istio.io", Version: "v1alpha2"}
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://"+path, groupVersion)
 	if err != nil {
 		return nil, err
 	}

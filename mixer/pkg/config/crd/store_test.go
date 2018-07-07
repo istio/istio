@@ -43,6 +43,8 @@ const testingRetryTimeout = 10 * time.Millisecond
 // The timeout for "waitFor" function, waiting for the expected event to come.
 const waitForTimeout = time.Second
 
+const apiGroupVersion = "config.istio.io/v1alpha2"
+
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -137,6 +139,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
+		apiGroupVersion:  apiGroupVersion,
 		donec:            make(chan struct{}),
 		retryTimeout:     testingRetryTimeout,
 		discoveryBuilder: createFakeDiscovery,

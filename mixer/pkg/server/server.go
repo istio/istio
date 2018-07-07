@@ -20,6 +20,8 @@ import (
 	"net"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
@@ -74,6 +76,12 @@ type patchTable struct {
 	configLog     func(options *log.Options) error
 	runtimeListen func(runtime *runtime.Runtime) error
 }
+
+const (
+	// API group / version for istio config.
+	apiGroup   = "config.istio.io"
+	apiVersion = "v1alpha2"
+)
 
 // New instantiates a fully functional Mixer server, ready for traffic.
 func New(a *Args) (*Server, error) {
@@ -174,7 +182,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg := store.NewRegistry(config.StoreInventory()...)
-		if st, err = reg.NewStore(configStoreURL); err != nil {
+		groupVersion := &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
+		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}

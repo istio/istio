@@ -33,13 +33,6 @@ import (
 )
 
 const (
-	// API group / version for istio config.
-	apiGroup        = "config.istio.io"
-	apiVersion      = "v1alpha2"
-	apiGroupVersion = apiGroup + "/" + apiVersion
-)
-
-const (
 	// initWaiterInterval is the interval to check if the initial data is ready
 	// in the cache.
 	initWaiterInterval = time.Millisecond
@@ -85,10 +78,11 @@ func waitForSynced(donec chan struct{}, informers map[string]cache.SharedInforme
 
 // Store offers store.StoreBackend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf         *rest.Config
-	ns           map[string]bool
-	retryTimeout time.Duration
-	donec        chan struct{}
+	conf            *rest.Config
+	ns              map[string]bool
+	retryTimeout    time.Duration
+	donec           chan struct{}
+	apiGroupVersion string
 
 	cacheMutex sync.Mutex
 	caches     map[string]cache.Store
@@ -148,7 +142,7 @@ loop:
 			time.Sleep(s.retryInterval)
 		}
 		retryCount++
-		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+		resources, err := d.ServerResourcesForGroupVersion(s.apiGroupVersion)
 		if err != nil {
 			log.Debugf("Failed to obtain resources for CRD: %v", err)
 			continue
