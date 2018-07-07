@@ -45,7 +45,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -658,7 +657,6 @@ func init() {
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
 
-	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.
