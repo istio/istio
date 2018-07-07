@@ -28,12 +28,12 @@ spec:
     {{- end }}
   ports:
 {{- if $spec.meshExpansion }}
-    - port: 15005
-      targetPort: 15005
-      name: tcp-pilot
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
     - port: 8060
       targetPort: 8060
-      name: tcp-citadel
+      name: tcp-citadel-grpc-tls
 {{- end }}
 
     {{- range $key, $val := $spec.ports }}
