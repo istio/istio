@@ -216,6 +216,12 @@ func TestIntoResourceFile(t *testing.T) {
 			includeInboundPorts: DefaultIncludeInboundPorts,
 		},
 		{
+			in:                  "testdata/pod.yaml",
+			want:                "testdata/pod.yaml.injected",
+			includeIPRanges:     DefaultIncludeIPRanges,
+			includeInboundPorts: DefaultIncludeInboundPorts,
+		},
+		{
 			in:                  "testdata/hello-host-network.yaml",
 			want:                "testdata/hello-host-network.yaml.injected",
 			includeIPRanges:     DefaultIncludeIPRanges,
