@@ -507,6 +507,9 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if job, ok := out.(*v2alpha1.CronJob); ok {
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
+	} else if pod, ok := out.(*corev1.Pod); ok {
+		metadata = &pod.ObjectMeta
+		podSpec = &pod.Spec
 	} else {
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
