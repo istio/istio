@@ -1,0 +1,49 @@
+{{- if .Values.global.meshExpansion }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: meshexpansion-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15011
+      protocol: TCP
+      name: tcp-pilot
+    hosts:
+    - "*"
+  - port:
+      number: 8060
+      protocol: TCP
+      name: tcp-citadel
+    hosts:
+    - "*"
+---
+{{- end }}
+
+{{- if .Values.global.meshExpansionILB }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: meshexpansion-ilb-gatewa
+spec:
+  selector:
+    istio: ilbgateway
+  servers:
+  - port:
+      number: 15011
+      protocol: TCP
+      name: tcp-pilot
+    hosts:
+    - "*"
+  - port:
+      number: 8060
+      protocol: TCP
+      name: tcp-citadel
+    hosts:
+    - "*"
+
+
+
+{{- end }}
