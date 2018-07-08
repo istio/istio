@@ -209,65 +209,62 @@ func TestErrors(t *testing.T) {
 	// So for all these cases, we expect to get a failure when trying to create the server instance.
 
 	for i := 0; i < 20; i++ {
-		// Run each case in a function to scope the configuration
-		func() {
-			t.Run(strconv.Itoa(i), func(t *testing.T) {
-				a.ConfigStore = configStore
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			a.ConfigStore = configStore
+			a.ConfigStoreURL = ""
+			pt := newPatchTable()
+			switch i {
+			case 1:
+				a.ConfigStore = nil
 				a.ConfigStoreURL = ""
-				pt := newPatchTable()
-				switch i {
-				case 1:
-					a.ConfigStore = nil
-					a.ConfigStoreURL = ""
-				case 2:
-					a.ConfigStore = nil
-					a.ConfigStoreURL = "DEADBEEF"
-				case 3:
-					pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
-						return nil, errors.New("BAD")
-					}
-				case 4:
-					pt.startMonitor = func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error) {
-						return nil, errors.New("BAD")
-					}
-				case 5:
-					a.MonitoringPort = 1234
-					pt.listen = func(network string, address string) (net.Listener, error) {
-						// fail any net.Listen call that's not for the monitoring port.
-						if address != ":1234" {
-							return nil, errors.New("BAD")
-						}
-						return net.Listen(network, address)
-					}
-				case 6:
-					a.MonitoringPort = 1234
-					pt.listen = func(network string, address string) (net.Listener, error) {
-						// fail the net.Listen call that's for the monitoring port.
-						if address == ":1234" {
-							return nil, errors.New("BAD")
-						}
-						return net.Listen(network, address)
-					}
-				case 7:
-					a.ConfigStoreURL = "http://abogusurl.com"
-				case 8:
-					pt.configLog = func(options *log.Options) error {
-						return errors.New("BAD")
-					}
-				case 9:
-					pt.runtimeListen = func(rt *runtime.Runtime) error {
-						return errors.New("BAD")
-					}
-				default:
-					return
+			case 2:
+				a.ConfigStore = nil
+				a.ConfigStoreURL = "DEADBEEF"
+			case 3:
+				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
+					return nil, errors.New("BAD")
 				}
+			case 4:
+				pt.startMonitor = func(port uint16, enableProfiling bool, lf listenFunc) (*monitor, error) {
+					return nil, errors.New("BAD")
+				}
+			case 5:
+				a.MonitoringPort = 1234
+				pt.listen = func(network string, address string) (net.Listener, error) {
+					// fail any net.Listen call that's not for the monitoring port.
+					if address != ":1234" {
+						return nil, errors.New("BAD")
+					}
+					return net.Listen(network, address)
+				}
+			case 6:
+				a.MonitoringPort = 1234
+				pt.listen = func(network string, address string) (net.Listener, error) {
+					// fail the net.Listen call that's for the monitoring port.
+					if address == ":1234" {
+						return nil, errors.New("BAD")
+					}
+					return net.Listen(network, address)
+				}
+			case 7:
+				a.ConfigStoreURL = "http://abogusurl.com"
+			case 8:
+				pt.configLog = func(options *log.Options) error {
+					return errors.New("BAD")
+				}
+			case 9:
+				pt.runtimeListen = func(rt *runtime.Runtime) error {
+					return errors.New("BAD")
+				}
+			default:
+				return
+			}
 
-				s, err = newServer(a, pt)
-				if s != nil || err == nil {
-					t.Errorf("Got success, expecting error")
-				}
-			})
-		}()
+			s, err = newServer(a, pt)
+			if s != nil || err == nil {
+				t.Errorf("Got success, expecting error")
+			}
+		})
 	}
 }
 
