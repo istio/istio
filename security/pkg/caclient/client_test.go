@@ -35,7 +35,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		pltfmc            platform.Client
 		caResponse        *pb.CsrResponse
 		caError           string
-		keySize           int
 		ttl               time.Duration
 		maxRetries        int
 		interval          time.Duration
@@ -46,7 +45,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 	}{
 		"Success": {
 			pltfmc:            mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			keySize:           512,
 			caResponse:        &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
 			ttl:               time.Hour,
 			maxRetries:        0,
@@ -56,20 +54,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			expectedCertChain: certChain,
 			sendTimes:         1,
 		},
-		"Create CSR error": {
-			pltfmc:     mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			caResponse: &pb.CsrResponse{IsApproved: true, SignedCert: signedCert, CertChain: certChain},
-			// 128 is too small for a RSA private key. GenCSR will return error.
-			keySize:     128,
-			ttl:         time.Hour,
-			maxRetries:  0,
-			interval:    time.Second,
-			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
-			sendTimes:   0,
-		},
 		"Getting platform credential error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", nil, "Err1", true},
-			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  0,
 			interval:    time.Second,
@@ -78,7 +64,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		},
 		"SendCSR empty response error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
-			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  2,
 			interval:    time.Millisecond,
@@ -88,7 +73,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		"SendCSR returns error": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			caError:     "error returned from CA",
-			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  1,
 			interval:    time.Millisecond,
@@ -98,7 +82,6 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 		"SendCSR not approved": {
 			pltfmc:      mockpc.FakeClient{[]grpc.DialOption{grpc.WithInsecure()}, "", "service1", "", []byte{}, "", true},
 			caResponse:  &pb.CsrResponse{IsApproved: false},
-			keySize:     512,
 			ttl:         time.Hour,
 			maxRetries:  1,
 			interval:    time.Millisecond,
@@ -114,9 +97,8 @@ func TestRetrieveNewKeyCert(t *testing.T) {
 			t.Errorf("Test case [%s]: CA creation error: %v", id, err)
 		}
 		cert, certChain, _, err := client.Retrieve(&util.CertOptions{
-			Org:        "Org",
-			IsCA:       true,
-			RSAKeySize: c.keySize,
+			Org:  "Org",
+			IsCA: true,
 		})
 		if err == nil {
 			if len(c.expectedErr) != 0 {

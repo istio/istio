@@ -115,9 +115,8 @@ func (na *nodeAgentInternal) Start() error {
 
 func (na *nodeAgentInternal) createRequest() ([]byte, *pb.CsrRequest, error) {
 	csr, privKey, err := pkiutil.GenCSR(pkiutil.CertOptions{
-		Host:       na.identity,
-		Org:        na.config.CAClientConfig.Org,
-		RSAKeySize: na.config.CAClientConfig.RSAKeySize,
+		Host: na.identity,
+		Org:  na.config.CAClientConfig.Org,
 	})
 	if err != nil {
 		return nil, nil, err

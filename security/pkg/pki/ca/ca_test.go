@@ -236,10 +236,9 @@ func TestCreatePluggedCertCA(t *testing.T) {
 func TestSignCSRForWorkload(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
-		RSAKeySize: 2048,
-		IsCA:       false,
+		Host: host,
+		Org:  "istio.io",
+		IsCA: false,
 	}
 	csrPEM, keyPEM, err := util.GenCSR(opts)
 	if err != nil {
@@ -292,10 +291,9 @@ func TestSignCSRForWorkload(t *testing.T) {
 func TestSignCSRForCA(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/baz"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
-		RSAKeySize: 2048,
-		IsCA:       true,
+		Host: host,
+		Org:  "istio.io",
+		IsCA: true,
 	}
 	csrPEM, keyPEM, err := util.GenCSR(opts)
 	if err != nil {
@@ -347,9 +345,8 @@ func TestSignCSRForCA(t *testing.T) {
 func TestSignCSRTTLError(t *testing.T) {
 	host := "spiffe://example.com/ns/foo/sa/bar"
 	opts := util.CertOptions{
-		Host:       host,
-		Org:        "istio.io",
-		RSAKeySize: 2048,
+		Host: host,
+		Org:  "istio.io",
 	}
 	csrPEM, _, err := util.GenCSR(opts)
 	if err != nil {
@@ -380,7 +377,6 @@ func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 		IsSelfSigned: true,
 		TTL:          time.Hour,
 		Org:          "Root CA",
-		RSAKeySize:   2048,
 	}
 	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {
@@ -402,7 +398,6 @@ func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 		IsSelfSigned: false,
 		TTL:          time.Hour,
 		Org:          "Intermediate CA",
-		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
 	}

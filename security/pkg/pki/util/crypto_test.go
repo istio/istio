@@ -70,15 +70,15 @@ xGSDfnFvR13RCqeUdlQofVYpolqrSobOyOVfQv2ksnPPsC87NISM
 -----END RSA PRIVATE KEY-----`
 
 	keyECDSA = `
------BEGIN EC PARAMETERS-----
+-----BEGIN EC PRIVATE KEY-----
 MGgCAQEEHBMUyVWFKTW4TwtwCmIAxdpsBFn0MV7tGeSA32CgBwYFK4EEACGhPAM6
 AATCkAx7whb2k3xWm+UjlFWFiV11oYmIdYgXqiAQkiz7fEq6QFhsjjCizeGzAlhT
 TmngRSxv/dSvGA==
------END EC PARAMETERS-----`
+-----END EC PRIVATE KEY-----`
 
 	keyInvalidECDSA = `
------BEGIN EC PARAMETERS-----
------END EC PARAMETERS-----`
+-----BEGIN EC PRIVATE KEY-----
+-----END EC PRIVATE KEY-----`
 
 	keyPKCS8RSA = `
 -----BEGIN PRIVATE KEY-----
@@ -270,45 +270,6 @@ func TestParsePemEncodedKey(t *testing.T) {
 			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
 		} else if keyType := reflect.TypeOf(key); keyType != c.keyType {
 			t.Errorf(`%s: Unmatched key type: expected "%v" but got "%v"`, id, c.keyType, keyType)
-		}
-	}
-}
-func TestGetRSAKeySize(t *testing.T) {
-	testCases := map[string]struct {
-		pem    string
-		size   int
-		errMsg string
-	}{
-		"Success with RSA key": {
-			pem:  keyRSA,
-			size: 2048,
-		},
-		"Success with PKCS8RSA key": {
-			pem:  keyPKCS8RSA,
-			size: 2048,
-		},
-		"Failure with non-RSA key": {
-			pem:    keyECDSA,
-			errMsg: "key type is not RSA: *ecdsa.PrivateKey",
-		},
-	}
-
-	for id, c := range testCases {
-		key, err := ParsePemEncodedKey([]byte(c.pem))
-		if err != nil {
-			t.Errorf("%s: failed to parse the Pem key.", id)
-		}
-		size, err := GetRSAKeySize(key)
-		if c.errMsg != "" {
-			if err == nil {
-				t.Errorf(`%s: no error is returned, expected error: "%s"`, id, c.errMsg)
-			} else if c.errMsg != err.Error() {
-				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
-			}
-		} else if err != nil {
-			t.Errorf(`%s: Unexpected error: "%s"`, id, err)
-		} else if size != c.size {
-			t.Errorf(`%s: Unmatched key size: expected %v but got "%v"`, id, c.size, size)
 		}
 	}
 }

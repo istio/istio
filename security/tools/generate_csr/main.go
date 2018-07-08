@@ -31,7 +31,6 @@ var (
 	org     = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCsr  = flag.String("out-csr", "csr.pem", "Output csr file.")
 	outPriv = flag.String("out-priv", "priv.pem", "Output private key file.")
-	keySize = flag.Int("key-size", 2048, "Size of the generated private key")
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -55,9 +54,8 @@ func main() {
 	flag.Parse()
 
 	csrPem, privPem, err := util.GenCSR(util.CertOptions{
-		Host:       *host,
-		Org:        *org,
-		RSAKeySize: *keySize,
+		Host:    *host,
+		Org:     *org,
 	})
 
 	if err != nil {

@@ -45,7 +45,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		IsSelfSigned: true,
 		IsClient:     false,
 		IsServer:     true,
-		RSAKeySize:   512,
 	}
 
 	caCertPem, caPrivPem, err := GenCertKeyFromOptions(caCertOptions)
@@ -96,7 +95,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   512,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -120,7 +118,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -144,7 +141,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   512,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -168,7 +164,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     true,
 				IsServer:     true,
-				RSAKeySize:   512,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -192,7 +187,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				IsSelfSigned: false,
 				IsClient:     false,
 				IsServer:     true,
-				RSAKeySize:   2048,
 			},
 			verifyFields: &VerifyFields{
 				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -211,7 +205,6 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				TTL:        ttl,
 				SignerCert: caCert,
 				SignerPriv: caPriv,
-				RSAKeySize: 2048,
 			},
 			verifyFields: &VerifyFields{
 				IsCA:     false,

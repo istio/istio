@@ -35,7 +35,6 @@ func TestStartWithArgs(t *testing.T) {
 		CAClientConfig: caclient.Config{
 			CAAddress:  "ca_addr",
 			Org:        "Google Inc.",
-			RSAKeySize: 512,
 			Env:        "onprem",
 			CSRInitialRetrialInterval: time.Millisecond,
 			CSRMaxRetries:             3,
@@ -82,29 +81,6 @@ func TestStartWithArgs(t *testing.T) {
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", false},
 			caProtocol:  protocol.NewFakeProtocol(nil, ""),
 			expectedErr: "node Agent is not running on the right platform",
-			sendTimes:   0,
-		},
-		"Create CSR error": {
-			// 128 is too small for a RSA private key. GenCSR will return error.
-
-			config: &Config{
-				CAClientConfig: caclient.Config{
-					CAAddress:  "ca_addr",
-					Org:        "Google Inc.",
-					RSAKeySize: 128,
-					Env:        "onprem",
-					CSRInitialRetrialInterval: time.Millisecond,
-					CSRMaxRetries:             3,
-					CSRGracePeriodPercentage:  50,
-					RootCertFile:              "ca_file",
-					KeyFile:                   "pkey",
-					CertChainFile:             "cert_file",
-				},
-				LoggingOptions: log.DefaultOptions(),
-			},
-			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			caProtocol:  protocol.NewFakeProtocol(nil, ""),
-			expectedErr: "CSR creation failed (crypto/rsa: message too long for RSA public key size)",
 			sendTimes:   0,
 		},
 		"Getting agent credential error": {

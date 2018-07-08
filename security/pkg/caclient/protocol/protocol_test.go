@@ -114,9 +114,8 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 
 	for id, c := range testCases {
 		csr, _, err := util.GenCSR(util.CertOptions{
-			Host:       "service1",
-			Org:        "orgA",
-			RSAKeySize: 512,
+			Host: "service1",
+			Org:  "orgA",
 		})
 		if err != nil {
 			t.Errorf("CSR generation failure (%v)", err)

@@ -56,9 +56,6 @@ const (
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
 
-	// The size of a private key for a leaf certificate.
-	keySize = 2048
-
 	// The number of retries when requesting to create secret.
 	secretCreationRetry = 3
 )
@@ -312,8 +309,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 		}
 	}
 	options := util.CertOptions{
-		Host:       id,
-		RSAKeySize: keySize,
+		Host: id,
 	}
 
 	csrPEM, keyPEM, err := util.GenCSR(options)

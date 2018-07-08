@@ -124,11 +124,10 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 			certChainFile: "",
 			rootCertFile:  rootCertFile,
 			certOptions: &CertOptions{
-				Host:       "test_ca.com",
-				TTL:        time.Hour,
-				Org:        "MyOrg",
-				IsCA:       true,
-				RSAKeySize: 512,
+				Host: "test_ca.com",
+				TTL:  time.Hour,
+				Org:  "MyOrg",
+				IsCA: true,
 			},
 			expectedErr: "failed to extract id the SAN extension does not exist",
 		},
@@ -138,11 +137,10 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 			certChainFile: "",
 			rootCertFile:  rootCertFile1,
 			certOptions: &CertOptions{
-				Host:       "watt",
-				TTL:        100 * 365 * 24 * time.Hour,
-				Org:        "Juju org",
-				IsCA:       false,
-				RSAKeySize: 2048,
+				Host: "watt",
+				TTL:  100 * 365 * 24 * time.Hour,
+				Org:  "Juju org",
+				IsCA: false,
 			},
 			expectedErr: "",
 		},
@@ -179,9 +177,6 @@ func compareCertOptions(actual, expected *CertOptions, t *testing.T) {
 	}
 	if actual.IsCA != expected.IsCA {
 		t.Errorf("IsCA does not match")
-	}
-	if actual.RSAKeySize != expected.RSAKeySize {
-		t.Errorf("RSAKeySize does not match")
 	}
 }
 
