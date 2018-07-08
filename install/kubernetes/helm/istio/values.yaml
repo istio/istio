@@ -136,7 +136,6 @@ ingress:
     annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    annotations: {}
     ports:
     - port: 80
       name: http
