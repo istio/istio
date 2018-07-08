@@ -8,26 +8,20 @@ global:
   # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on
-  # docker.io/istionightly
-  hub: docker.io/istio
+  hub: docker.io/istionightly
 
   # Default tag for Istio images.
-  # Should track latest released version in the branch.
-  tag: 0.8.latest
+  tag: nightly-master
+
   proxy:
     image: proxyv2
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      # limits:
-      #   cpu: 100m
-      #   memory: 128Mi
 
-    # istio-sidecar-injector configmap stores configuration for sidecar injection.
-    # This config map is used by istioctl kube-inject and the injector webhook.
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
-    replicaCount: 1
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -44,7 +38,9 @@ global:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     includeInboundPorts: "*"
     excludeInboundPorts: ""
-    policy: enabled
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
@@ -70,6 +66,13 @@ global:
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -105,6 +108,18 @@ global:
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -117,13 +132,6 @@ ingress:
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
   service:
     annotations: {}
     loadBalancerIP: ""
@@ -153,8 +161,15 @@ gateways:
       istio: ingressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -162,7 +177,7 @@ gateways:
       ## You can add custom gateway ports
     - port: 80
       targetPort: 80
-      name: http
+      name: http2
       nodePort: 31380
     - port: 443
       name: https
@@ -184,12 +199,11 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 1
-    resources: {}
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
-        name: http
+        name: http2
       - port: 443
         name: https
     secretVolumes:
@@ -207,14 +221,7 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
-  resources: {}
   enableNamespacesByDefault: false
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # galley configuration
@@ -223,13 +230,6 @@ galley:
   enabled: true
   replicaCount: 1
   image: galley
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # mixer configuration
@@ -238,18 +238,10 @@ mixer:
   enabled: true
   replicaCount: 1
   image: mixer
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
     tag: latest
-    resources: {}
 
 #
 # pilot configuration
@@ -258,13 +250,6 @@ pilot:
   enabled: true
   replicaCount: 1
   image: pilot
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # security configuration
@@ -272,14 +257,7 @@ pilot:
 security:
   replicaCount: 1
   image: citadel
-  resources: {}
   selfSigned: true # indicate if self-signed CA is used.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
   cleanUpOldCA: true
 
 #
@@ -309,14 +287,6 @@ grafana:
       #   hosts:
       #     - grafana.local
 
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-
 prometheus:
   enabled: true
   replicaCount: 1
@@ -336,13 +306,6 @@ prometheus:
       # - secretName: prometheus-tls
       #   hosts:
       #     - prometheus.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   service:
     annotations: {}
     nodePort:
@@ -372,13 +335,6 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
@@ -415,13 +371,6 @@ tracing:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
 
 kiali:
   enabled: false
@@ -442,13 +391,6 @@ kiali:
       # - secretName: kiali-tls
       #   hosts:
       #     - kiali.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   dashboard:
     username: admin
     password: admin

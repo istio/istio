@@ -4,7 +4,7 @@ description: Configuration affecting traffic routing
 location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 48
+number_of_entries: 49
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -692,7 +692,7 @@ specified for the same workload.</p>
 inbound calls arriving at service port 8080 of the reviews service pod with
 labels &ldquo;app: reviews&rdquo;.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: reviews-lua
@@ -701,7 +701,7 @@ spec:
     app: reviews
   filters:
   - listenerMatch:
-      portNumber: 8080 
+      portNumber: 8080
       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
     filterName: envoy.lua
     filterType: HTTP
@@ -766,7 +766,7 @@ envoy.http<em>connection</em>manager.</p>
 <td><code>listenerMatch</code></td>
 <td><code><a href="#EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</a></code></td>
 <td>
-<p>Filter will be added to the listner only if the match conditions are true.
+<p>Filter will be added to the listener only if the match conditions are true.
 If not specified, the filters will be applied to all listeners.</p>
 
 </td>
@@ -938,7 +938,7 @@ to be applied to a listener.</p>
 <td><code>uint32</code></td>
 <td>
 <p>The service port/gateway port to which traffic is being
-sent/received. If not specified, matches all listeners. Eventhough
+sent/received. If not specified, matches all listeners. Even though
 inbound listeners are generated for the instance/pod ports, only
 service ports should be used to match listeners.</p>
 
@@ -981,7 +981,7 @@ passthrough using SNI).</p>
 <td><code>string[]</code></td>
 <td>
 <p>One or more IP addresses to which the listener is bound. If
-specified, should match atleast one address in the list.</p>
+specified, should match at least one address in the list.</p>
 
 </td>
 </tr>
@@ -1924,8 +1924,9 @@ spec:
       simple: ROUND_ROBIN
 </code></pre>
 
-<p>The following example uses the consistent hashing based load balancer
-for the same ratings service using the Cookie header as the hash key.</p>
+<p>The following example sets up sticky sessions for the ratings service
+hashing-based load balancer for the same ratings service using the
+the User cookie as the hash key.</p>
 
 <pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
  kind: DestinationRule
@@ -1936,7 +1937,9 @@ for the same ratings service using the Cookie header as the hash key.</p>
    trafficPolicy:
      loadBalancer:
        consistentHash:
-         http_header: Cookie
+         httpCookie:
+           name: user
+           ttl: 0s
 </code></pre>
 
 <table class="message-fields">
@@ -1958,6 +1961,105 @@ for the same ratings service using the Cookie header as the hash key.</p>
 <td><code>consistentHash</code></td>
 <td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB</h2>
+<section>
+<p>Consistent Hash-based load balancing can be used to provide soft
+session affinity based on HTTP headers, cookies or other
+properties. This load balancing policy is applicable only for HTTP
+connections. The affinity to a particular destination host will be
+lost when one or more hosts are added/removed from the destination
+service.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_header_name" class="oneof oneof-start">
+<td><code>httpHeaderName</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Hash based on a specific HTTP header.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-http_cookie" class="oneof">
+<td><code>httpCookie</code></td>
+<td><code><a href="#LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie (oneof)</a></code></td>
+<td>
+<p>Hash based on HTTP cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-use_source_ip" class="oneof">
+<td><code>useSourceIp</code></td>
+<td><code>bool (oneof)</code></td>
+<td>
+<p>Hash based on the source IP address.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-minimum_ring_size">
+<td><code>minimumRingSize</code></td>
+<td><code>uint64</code></td>
+<td>
+<p>The minimum number of virtual nodes to use for the hash
+ring. Defaults to 1024. Larger ring sizes result in more granular
+load distributions. If the number of hosts in the load balancing
+pool is larger than the ring size, each host will be assigned a
+single virtual node.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie">LoadBalancerSettings.ConsistentHashLB.HTTPCookie</h2>
+<section>
+<p>Describes a HTTP cookie that will be used as the hash key for the
+Consistent Hash load balancer. If the cookie is not present, it will
+be generated.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. Name of the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-path">
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>
+<p>Path to set for the cookie.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-ConsistentHashLB-HTTPCookie-ttl">
+<td><code>ttl</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>REQUIRED. Lifetime of the cookie.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2094,69 +2196,6 @@ servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
 </td>
 </tr>
 <tr id="OutlierDetection-max_ejection_percent">
-<td><code>maxEjectionPercent</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Maximum % of hosts in the load balancing pool for the upstream
-service that can be ejected. Defaults to 10%.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-http">
-<td><code>http</code></td>
-<td><code><a href="#OutlierDetection-HTTPSettings">OutlierDetection.HTTPSettings</a></code></td>
-<td>
-<p>DEPRECATED.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="OutlierDetection-HTTPSettings">OutlierDetection.HTTPSettings</h2>
-<section>
-<p>Outlier detection settings for HTTP1.1/HTTP2/GRPC connections.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="OutlierDetection-HTTPSettings-consecutive_errors">
-<td><code>consecutiveErrors</code></td>
-<td><code>int32</code></td>
-<td>
-<p>Number of 5XX errors before a host is ejected from the connection
-pool. Defaults to 5.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-interval">
-<td><code>interval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Time interval between ejection sweep analysis. format:
-1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 10s.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-base_ejection_time">
-<td><code>baseEjectionTime</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>Minimum ejection duration. A host will remain ejected for a period
-equal to the product of minimum ejection duration and the number of
-times the host has been ejected. This technique allows the system to
-automatically increase the ejection period for unhealthy upstream
-servers. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms. Default is 30s.</p>
-
-</td>
-</tr>
-<tr id="OutlierDetection-HTTPSettings-max_ejection_percent">
 <td><code>maxEjectionPercent</code></td>
 <td><code>int32</code></td>
 <td>
@@ -2584,7 +2623,7 @@ spec:
   resolution: DNS
 </code></pre>
 
-<p>Define a gateway to to handle all egress traffic.</p>
+<p>Define a gateway to handle all egress traffic.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -2600,13 +2639,13 @@ spec:
      protocol: HTTP
    hosts:
    - &quot;*&quot;
+</code></pre>
 
-And the associated VirtualService to route from the sidecar to the
+<p>And the associated VirtualService to route from the sidecar to the
 gateway service (istio-egressgateway.istio-system.svc.cluster.local), as
-well as route from the gateway to the external service.
+well as route from the gateway to the external service.</p>
 
-```yaml
-apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-routing
@@ -2657,7 +2696,7 @@ spec:
 Unix Domain Socket on the host of the client. The resolution must be
 set to STATIC to use unix address endpoints.</p>
 
-<pre><code>apiVersion: networking.istio.io/v1alpha3
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: unix-domain-socket-example
@@ -2743,7 +2782,7 @@ prefix.  For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
 header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
-the incoming traffic will be idenfified as belonging to this service
+the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
 field. If the Addresses field is empty, traffic will be identified
 solely based on the destination port. In such scenarios, the port on
@@ -3118,6 +3157,16 @@ with weights can be specified.</p>
 </tr>
 </thead>
 <tbody>
+<tr id="TLSMatchAttributes-sni_hosts">
+<td><code>sniHosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+can be used in the SNI value. E.g., *.com will match foo.example.com
+as well as example.com.</p>
+
+</td>
+</tr>
 <tr id="TLSMatchAttributes-destination_subnet">
 <td><code>destinationSubnet</code></td>
 <td><code>string</code></td>
@@ -3137,16 +3186,6 @@ specifies a particular IP.</p>
 only expose a single port or label ports with the protocols they
 support, in these cases it is not required to explicitly select the
 port.</p>
-
-</td>
-</tr>
-<tr id="TLSMatchAttributes-sni_hosts">
-<td><code>sniHosts</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>SNI (server name indicator) to match on. Wildcard prefixes can be used
-in the SNI value. E.g., *.com will match foo.example.com as well as
-example.com.</p>
 
 </td>
 </tr>
@@ -3220,10 +3259,10 @@ spec:
 <td><code>match</code></td>
 <td><code><a href="#TLSMatchAttributes">TLSMatchAttributes[]</a></code></td>
 <td>
-<p>Match conditions to be satisfied for the rule to be activated. All
-conditions inside a single match block have AND semantics, while the
-list of match blocks have OR semantics. The rule is matched if any one
-of the match blocks succeed.</p>
+<p>REQUIRED. Match conditions to be satisfied for the rule to be
+activated. All conditions inside a single match block have AND
+semantics, while the list of match blocks have OR semantics. The rule
+is matched if any one of the match blocks succeed.</p>
 
 </td>
 </tr>

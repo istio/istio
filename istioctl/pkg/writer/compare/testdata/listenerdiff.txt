@@ -1,0 +1,20 @@
+--- Pilot Listeners
++++ Envoy Listeners
+@@ -81,17 +81,14 @@
+                                                 "name": "mixer"
+                                              },
+                                        {
+                                                 "name": "envoy.cors"
+                                              },
+                                        {
+                                                 "name": "envoy.fault"
+-                                             },
+-                                       {
+-                                                "name": "envoy.router"
+                                              }
+                                     ],
+                               "route_config": {
+                                        "name": "8080",
+                                        "validate_clusters": false,
+                                        "virtual_hosts": [
+                                                 {

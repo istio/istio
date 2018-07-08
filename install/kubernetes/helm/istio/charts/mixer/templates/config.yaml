@@ -83,7 +83,7 @@ spec:
     # Deprecated, kept for compatibility
     context.reporter.local:
       valueType: BOOL
-    context.reporter.type:
+    context.reporter.kind:
       valueType: STRING
     context.reporter.uid:
       valueType: STRING
@@ -245,7 +245,7 @@ metadata:
 spec:
   value: "1"
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -274,7 +274,7 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -303,7 +303,7 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -332,7 +332,7 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -361,7 +361,7 @@ metadata:
 spec:
   value: connection.sent.bytes | 0
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
@@ -388,7 +388,7 @@ metadata:
 spec:
   value: connection.received.bytes | 0
   dimensions:
-    reporter: conditionalString((context.reporter.uid | "n/a") == (source.uid | ""), "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
     source_namespace: source.namespace | "unknown"
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"

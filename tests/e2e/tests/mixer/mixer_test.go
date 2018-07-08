@@ -102,6 +102,7 @@ var (
 	ingressDenialRule        = "mixer-rule-ingress-denial"
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
 	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
+	destinationRuleAll       = "destination-rule-all"
 	routeAllRule             = "route-rule-all-v1"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
 	routeReviewsV3Rule       = "route-rule-reviews-v3"
@@ -132,7 +133,7 @@ func (t *testConfig) Setup() (err error) {
 		rulesDir = "routing"
 		ingressName = "ingressgateway"
 	}
-	drs := []*string{&routeAllRule, &bookinfoGateway}
+	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
 	for _, dr := range drs {
@@ -260,14 +261,22 @@ func applyRules(ruleKeys []string) error {
 }
 
 func (t *testConfig) Teardown() error {
-	return deleteDefaultRoutingRules()
+	return deleteAllRoutingConfig()
 }
 
-func deleteDefaultRoutingRules() error {
-	if err := deleteRouteRule(routeAllRule); err != nil {
-		return fmt.Errorf("could not delete default routing rule: %v", err)
+func deleteAllRoutingConfig() error {
+
+	drs := []*string{&routeAllRule, &destinationRuleAll, &bookinfoGateway}
+
+	var err error
+	for _, dr := range drs {
+		if err = deleteRoutingConfig(*dr); err != nil {
+			log.Errorf("could not delete routing config: %v", err)
+		}
+
 	}
-	return nil
+
+	return err
 }
 
 type promProxy struct {
@@ -520,7 +529,7 @@ func TestTcpMetrics(t *testing.T) {
 		t.Fatalf("Could not update reviews routing rule: %v", err)
 	}
 	defer func() {
-		if err := deleteRouteRule(tcpDbRule); err != nil {
+		if err := deleteRoutingConfig(tcpDbRule); err != nil {
 			t.Fatalf("Could not delete reviews routing rule: %v", err)
 		}
 	}()
@@ -1284,7 +1293,7 @@ func replaceRouteRule(ruleName string) error {
 	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
-func deleteRouteRule(ruleName string) error {
+func deleteRoutingConfig(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }

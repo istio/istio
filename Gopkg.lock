@@ -151,6 +151,12 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/bradfitz/slice"
+  packages = ["."]
+  revision = "d9036e2120b5ddfa53f3ebccd618c4af275f47da"
+
+[[projects]]
   name = "github.com/cactus/go-statsd-client"
   packages = [
     "statsd",
@@ -365,6 +371,11 @@
   ]
   revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/gogo/status"
+  packages = ["."]
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
 
 [[projects]]
   branch = "master"
@@ -1015,6 +1026,12 @@
 
 [[projects]]
   branch = "master"
+  name = "go4.org"
+  packages = ["reflectutil"]
+  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "ed25519",
@@ -1274,14 +1291,14 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
     "broker/dev",
-    "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
+    "mcp/v1alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
@@ -1291,7 +1308,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "a4775f5339e9850aad1c8b07b859338878ad66b2"
+  revision = "702662575f7f31df86b34a474edf6bc597003881"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1589,6 +1606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f0aa65f28aa8143db262a75fca915060a3fb8fcb9f6d879fb1a775cf1fcc8f06"
+  inputs-digest = "ad523c6f8d7a2659cb97f0d6daf0b93da4107d4f340313d94115a6f5b70908fd"
   solver-name = "gps-cdcl"
   solver-version = 1

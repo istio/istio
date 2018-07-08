@@ -80,8 +80,8 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 generate: \
 	generate-broker-go \
 	generate-broker-python \
-	generate-config-mcp-go \
-	generate-config-mcp-python \
+	generate-mcp-go \
+	generate-mcp-python \
 	generate-mesh-go \
 	generate-mesh-python \
 	generate-mixer-go \
@@ -122,28 +122,28 @@ clean-broker:
 	rm -f $(broker_v1_pb_doc)
 
 #####################
-# config/mcp/...
+# mcp/...
 #####################
 
-config_mcp_path := config/mcp/v1alpha1
+config_mcp_path := mcp/v1alpha1
 config_mcp_protos := $(shell find $(config_mcp_path) -type f -name '*.proto' | sort)
 config_mcp_pb_gos := $(config_mcp_protos:.proto=.pb.go)
 config_mcp_pb_pythons := $(config_mcp_protos:.proto=_pb2.py)
-config_mcp_pb_doc := $(config_mcp_path)/istio.config.mcp.v1alpha1.pb.html
+config_mcp_pb_doc := $(config_mcp_path)/istio.mcp.v1alpha1.pb.html
 
-generate-config-mcp-go: $(config_mcp_pb_gos) $(config_mcp_pb_doc)
+generate-mcp-go: $(config_mcp_pb_gos) $(config_mcp_pb_doc)
 
 $(config_mcp_pb_gos) $(config_mcp_pb_doc): $(config_mcp_protos)
-	## Generate config/mcp/v1alpha1/*.pb.go + $(config_mcp_pb_doc)
+	## Generate mcp/v1alpha1/*.pb.go + $(config_mcp_pb_doc)
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(config_mcp_path) $^
 
-generate-config-mcp-python: $(config_mcp_pb_pythons)
+generate-mcp-python: $(config_mcp_pb_pythons)
 
 $(config_mcp_pb_pythons): $(config_mcp_protos)
-	## Generate python/istio_api/config/mcp/v1alpha1/*_pb2.py
+	## Generate python/istio_api/mcp/v1alpha1/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
-clean-config-mcp:
+clean-mcp:
 	rm -f $(config_mcp_pb_gos)
 	rm -f $(config_mcp_pb_doc)
 
@@ -366,14 +366,14 @@ generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_gos): $(envoy_protos)
-  ## Generate envoy/*/*.pb.go
+	## Generate envoy/*/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $^
 
 generate-envoy-python: $(envoy_pb_pythons)
 
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_pythons): $(envoy_protos)
-  ## Generate envoy/*/*_pb2.py
+	## Generate envoy/*/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-envoy:
@@ -387,7 +387,7 @@ clean-python:
 	rm -rf python/istio_api/*
 
 clean: clean-broker \
-	clean-config-mcp \
+	clean-mcp \
 	clean-mesh \
 	clean-mixer \
 	clean-routing \

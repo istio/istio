@@ -375,7 +375,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	if lb == nil {
 		return
 	}
-	// TODO: RING_HASH and MAGLEV
+	// TODO: MAGLEV
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN:
 		cluster.LbPolicy = v2.Cluster_LEAST_REQUEST
@@ -389,6 +389,16 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
+
+	consistentHash := lb.GetConsistentHash()
+	if consistentHash != nil {
+		cluster.LbPolicy = v2.Cluster_RING_HASH
+		cluster.LbConfig = &v2.Cluster_RingHashLbConfig_{
+			RingHashLbConfig: &v2.Cluster_RingHashLbConfig{
+				MinimumRingSize: &types.UInt64Value{Value: uint64(consistentHash.GetMinimumRingSize())},
+			},
+		}
+	}
 }
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
