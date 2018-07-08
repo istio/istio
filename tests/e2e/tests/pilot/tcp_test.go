@@ -104,8 +104,8 @@ func TestTCPNonIstioToIstioHeadlessPort(t *testing.T) {
 }
 
 func TestTcpStatefulSets(t *testing.T) {
-	srcPods := []string{"statefulset-1", "statefulset-2"}
-	dstPods := []string{"statefulset-1", "statefulset-2"}
+	srcPods := []string{"statefulset-0", "statefulset-1"}
+	dstPods := []string{"statefulset-0", "statefulset-1"}
 	dstService := "statefulset"
 	port := "19090"
 	// Run all request tests.
@@ -117,7 +117,7 @@ func TestTcpStatefulSets(t *testing.T) {
 						continue
 					}
 					// statefulset-1.statefulset.svc.cluster.local
-					fqdn := fmt.Sprintf("%s.%s.%s.svc.cluster.local", dst, dstService, tc.Kube.Namespace)
+					fqdn := fmt.Sprintf("%s.%s", dst, dstService)
 					testName := fmt.Sprintf("tcp: %s from %s cluster->%s_%s", src, cluster, fqdn, port)
 					runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
 						reqURL := fmt.Sprintf("http://%s:%s/%s", fqdn, port, src)
