@@ -198,12 +198,13 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		case model.Gateway.Type:
 			gateways, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
+		}
 	}
 
 	return out, nil
 }
 
-func (c *controller) Create (_ model.Config) (string, error) {
+func (c *controller) Create(_ model.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
