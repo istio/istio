@@ -45,7 +45,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/istioctl/cmd/istioctl/convert"
 	"istio.io/istio/istioctl/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -163,7 +162,7 @@ var (
 	}
 
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
-	// TODO(xiaolanz) legacy group exists until we find out a client for mixer/broker.
+	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
 		Group:   "config.istio.io",
 		Version: "v1alpha2",
@@ -658,7 +657,6 @@ func init() {
 		"If present, list the requested object(s) across all namespaces. Namespace in current "+
 			"context is ignored even if specified with --namespace.")
 
-	experimentalCmd.AddCommand(convert.Command())
 	experimentalCmd.AddCommand(Rbac())
 
 	// Attach the Istio logging options to the command.

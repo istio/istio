@@ -319,23 +319,11 @@ googleapis           *.googleapis.com   HTTP/443   default     <unknown>
 
 func TestCreate(t *testing.T) {
 	cases := []testCase{
-		{ // case 0 -- invalid doesn't provide -f filename
+		{ // invalid doesn't provide -f filename
 			configs:        []model.Config{},
 			args:           strings.Split("create routerules", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true,
-		},
-		{ // case 1
-			configs: []model.Config{},
-			args:    strings.Split("create -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
-			expectedRegexp: regexp.MustCompile("^Warning: route-rule is deprecated and will not be supported" +
-				" in future Istio versions \\(route-rule-80-20\\).\n" +
-				"Created config route-rule/default/route-rule-80-20.*"),
-		},
-		{ // case 2
-			configs:        []model.Config{},
-			args:           strings.Split("create -f convert/testdata/v1alpha3/route-rule-80-20.yaml.golden", " "),
-			expectedRegexp: regexp.MustCompile("^Created config virtual-service/default/helloworld-service.*"),
 		},
 	}
 
@@ -384,13 +372,7 @@ func TestDelete(t *testing.T) {
 Deleted config: routerule b
 `,
 		},
-		{ // case 3 - delete by filename of istio config which doesn't exist
-			configs:        testRouteRules,
-			args:           strings.Split("delete -f convert/testdata/v1alpha1/route-rule-80-20.yaml", " "),
-			expectedRegexp: regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete route-rule/default/route-rule-80-20: item not found\n$"),
-			wantException:  true,
-		},
-		{ // case 4 - "all" not valid for delete
+		{ // case 3 - "all" not valid for delete
 			configs:        []model.Config{},
 			args:           strings.Split("delete all foo", " "),
 			expectedRegexp: regexp.MustCompile("^Error: configuration type all not found"),
