@@ -239,15 +239,16 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 	}
 }
 
+// has10Config returns true if the sidecar has at least 1.0 config.
+// This will be removed after 1.0, and possibly replaced with a more fine-grained check to verify
+// sidecar capabilities. It is used to detect 0.8 sidecards and allow upgrades without breaking 0.8 workloads during
+// upgrade.
 func has10Config(node *model.Proxy) bool {
 	_, found := node.Metadata["ISTIO_PROXY_VERSION"]
 	return found
 }
 
 func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) route.Route {
-	if !has10Config(in.Node) {
-		return httpRoute
-	}
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
 		DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
@@ -258,20 +259,26 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
 			attrs := addDestinationServiceAttributes(in.Node, make(attributes), in.Env.ServiceDiscovery, hostname)
-			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			sc := &mccpb.ServiceConfig{
 				DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-			})
+			}
+			if has10Config(in.Node) {
+				sc.ForwardAttributes = &mpb.Attributes{Attributes: attrs}
+			}
+			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, sc)
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				attrs := addDestinationServiceAttributes(in.Node, make(attributes), in.Env.ServiceDiscovery, hostname)
-				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
+				sc := &mccpb.ServiceConfig{
 					DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
+				}
+				if has10Config(in.Node) {
+					sc.ForwardAttributes = &mpb.Attributes{Attributes: attrs}
+				}
+				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, sc)
 			}
 		case *route.RouteAction_ClusterHeader:
 		default:
