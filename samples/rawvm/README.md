@@ -71,7 +71,7 @@ kubectl apply -f bookinfo-mysql-istio.yaml
 ./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/bookinfo/kube/bookinfo-ratings-v2.yaml > bookinfo-ratings-v2-istio.yaml
 kubectl apply -f bookinfo-ratings-v2-istio.yaml
 # use it (ratings v2 and mysql)
-kubectl apply -f samples/bookinfo/kube/route-rule-ratings-mysql.yaml
+kubectl apply -f samples/bookinfo/networking/virtual-service-ratings-mysql.yaml
 # wait a bit / reload product page
 # see mysql in grafana and 5,6 stars
 kubectl port-forward mysqldb-v1-325529163-9x1r0 3306:3306 # use actual mysql pod
