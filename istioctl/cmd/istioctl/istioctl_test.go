@@ -99,17 +99,17 @@ var (
 						Match: []*networking.HTTPMatchRequest{
 							{
 								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Prefix: "/productpage"},
+									MatchType: &networking.StringMatch_Exact{Exact: "/productpage"},
 								},
 							},
 							{
 								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Prefix: "/login"},
+									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
 								},
 							},
 							{
 								Uri: &networking.StringMatch{
-									MatchType: &networking.StringMatch_Exact{Prefix: "/logout"},
+									MatchType: &networking.StringMatch_Exact{Exact: "/logout"},
 								},
 							},
 							{
