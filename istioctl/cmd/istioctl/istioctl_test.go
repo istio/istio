@@ -99,22 +99,22 @@ var (
 						Match: []*networking.HTTPMatchRequest{
 							{
 								Uri: &networking.StringMatch{
-									&networking.StringMatch_Exact{"/productpage"},
+									MatchType: &networking.StringMatch_Exact{Prefix: "/productpage"},
 								},
 							},
 							{
 								Uri: &networking.StringMatch{
-									&networking.StringMatch_Exact{"/login"},
+									MatchType: &networking.StringMatch_Exact{Prefix: "/login"},
 								},
 							},
 							{
 								Uri: &networking.StringMatch{
-									&networking.StringMatch_Exact{"/logout"},
+									MatchType: &networking.StringMatch_Exact{Prefix: "/logout"},
 								},
 							},
 							{
 								Uri: &networking.StringMatch{
-									&networking.StringMatch_Prefix{"/api/v1/products"},
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
 								},
 							},
 						},
@@ -123,7 +123,7 @@ var (
 								Destination: &networking.Destination{
 									Host: "productpage",
 									Port: &networking.PortSelector{
-										Port: &networking.PortSelector_Number{80},
+										Port: &networking.PortSelector_Number{Number: 80},
 									},
 								},
 							},
@@ -181,7 +181,7 @@ func TestGet(t *testing.T) {
 	cases := []testCase{
 		{
 			configs: []model.Config{},
-			args:    strings.Split("get routerules", " "),
+			args:    strings.Split("get destinationrules", " "),
 			expectedOutput: `No resources found.
 `,
 		},
@@ -217,7 +217,7 @@ bookinfo               bookinfo-gateway   *             1        0      default 
 googleapis              *.googleapis.com             default     <unknown>
 `,
 		},
-		{ // case 8
+		{
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries", " "),
 			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
@@ -237,7 +237,7 @@ func TestCreate(t *testing.T) {
 	cases := []testCase{
 		{ // invalid doesn't provide -f filename
 			configs:        []model.Config{},
-			args:           strings.Split("create routerules", " "),
+			args:           strings.Split("create virtualservice", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true,
 		},
@@ -252,9 +252,9 @@ func TestCreate(t *testing.T) {
 
 func TestReplace(t *testing.T) {
 	cases := []testCase{
-		{ // case 0 -- invalid doesn't provide -f
+		{ // invalid doesn't provide -f
 			configs:        []model.Config{},
-			args:           strings.Split("replace routerules", " "),
+			args:           strings.Split("replace virtualservice", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true,
 		},
@@ -271,7 +271,7 @@ func TestDelete(t *testing.T) {
 	cases := []testCase{
 		{
 			configs:        []model.Config{},
-			args:           strings.Split("delete routerule unknown", " "),
+			args:           strings.Split("delete destinationrule unknown", " "),
 			expectedRegexp: regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete unknown: item not found\n$"),
 			wantException:  true,
 		},
