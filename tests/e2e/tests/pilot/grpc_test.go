@@ -21,7 +21,7 @@ import (
 
 func TestGrpc(t *testing.T) {
 	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b", "headless-b"}
+	dstPods := []string{"a", "b", "headless"}
 	ports := []string{"70", "7070"}
 	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
@@ -66,13 +66,7 @@ func TestGrpc(t *testing.T) {
 										logs.add(cluster, src, id, logEntry)
 									}
 									if dst != "t" {
-										if dst == "headless-b" { // headless-b points to b
-											if src != "b" {
-												logs.add(cluster, "b", id, logEntry)
-											}
-										} else {
-											logs.add(cluster, dst, id, logEntry)
-										}
+										logs.add(cluster, dst, id, logEntry)
 									}
 									return nil
 								}

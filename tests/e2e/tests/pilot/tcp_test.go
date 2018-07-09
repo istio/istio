@@ -84,7 +84,7 @@ func TestTCPNonIstioToIstioHeadlessPort(t *testing.T) {
 	}
 
 	src := "t"
-	dstSvc := "headless-b" // headless B includes pod B
+	dstSvc := "headless"
 	port := "10090"
 
 	// Run all request tests.
