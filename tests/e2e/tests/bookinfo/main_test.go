@@ -40,7 +40,7 @@ const (
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
 	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
+	routeRulesDir                      = "networking"
 	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
@@ -65,8 +65,8 @@ const (
 var (
 	tc *testConfig
 	tf = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
+		V1alpha1: false, //implies envoyv1
+		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -114,15 +114,14 @@ func getPreprocessedRulePath(t *testConfig, version, rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 
-	return util.GetResourcePath(filepath.Join(t.rulesDir, "routing", version,
+	return util.GetResourcePath(filepath.Join(t.rulesDir, routeRulesDir, version,
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
 func getOriginalRulePath(version, rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
-	if version == "v1alpha3" {
-		parts[0] = "routing"
-	}
+
+	parts[0] = routeRulesDir
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
 		strings.Join(parts, string(os.PathSeparator))))
@@ -387,9 +386,9 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
 
-	if tf.V1alpha1 && tf.V1alpha3 {
-		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
-			"cannot test both v1alpha1 and alpha3 simultaneously")
+	if tf.V1alpha1 {
+		check(errors.New("Attempt to test deprecated v1alpha1"),
+			"Attempt to test deprecated v1alpha1")
 	}
 
 	check(setTestConfig(), "could not create TestConfig")
