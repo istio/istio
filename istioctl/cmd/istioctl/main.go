@@ -88,22 +88,10 @@ var (
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		model.Gateway.Type:           -10,
-		model.VirtualService.Type:    -5,
-		model.DestinationRule.Type:   -3,
-		model.ServiceEntry.Type:      -1,
-		model.IngressRule.Type:       1,
-		model.RouteRule.Type:         5,
-		model.DestinationPolicy.Type: 10,
-		model.EgressRule.Type:        20,
-	}
-
-	// deprecatedTypes tracks if a deprecation warning is needed
-	deprecatedTypes = map[string]bool{
-		model.RouteRule.Type:         true,
-		model.IngressRule.Type:       true,
-		model.DestinationPolicy.Type: true,
-		model.EgressRule.Type:        true,
+		model.Gateway.Type:         10,
+		model.VirtualService.Type:  5,
+		model.DestinationRule.Type: 3,
+		model.ServiceEntry.Type:    1,
 	}
 
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
@@ -198,9 +186,6 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 					return err
 				}
 				var rev string
-				if deprecated, _ := deprecatedTypes[config.Type]; deprecated {
-					c.Printf("Warning: %s is deprecated and will not be supported in future Istio versions (%s).\n", config.Type, config.Name)
-				}
 				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
