@@ -51,8 +51,7 @@ class Filter : public Network::Filter,
 
   // CheckData virtual functions.
   bool GetSourceIpPort(std::string* str_ip, int* port) const override;
-  bool GetPeerPrincipal(std::string* user) const override;
-  bool GetLocalPrincipal(std::string* user) const override;
+  bool GetPrincipal(bool peer, std::string* user) const override;
   bool IsMutualTLS() const override;
 
   // ReportData virtual functions.

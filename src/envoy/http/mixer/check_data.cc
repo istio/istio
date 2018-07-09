@@ -65,12 +65,8 @@ bool CheckData::GetSourceIpPort(std::string* ip, int* port) const {
   return false;
 }
 
-bool CheckData::GetPeerPrincipal(std::string* user) const {
-  return Utils::GetPeerPrincipal(connection_, user);
-}
-
-bool CheckData::GetLocalPrincipal(std::string* user) const {
-  return Utils::GetLocalPrincipal(connection_, user);
+bool CheckData::GetPrincipal(bool peer, std::string* user) const {
+  return Utils::GetPrincipal(connection_, peer, user);
 }
 
 std::map<std::string, std::string> CheckData::GetRequestHeaders() const {

@@ -38,11 +38,8 @@ class CheckData {
   // Get downstream tcp connection ip and port.
   virtual bool GetSourceIpPort(std::string *ip, int *port) const = 0;
 
-  // If SSL is used, get peer SAN URI.
-  virtual bool GetPeerPrincipal(std::string *user) const = 0;
-
-  // If SSL is used, get local SAN URI.
-  virtual bool GetLocalPrincipal(std::string *user) const = 0;
+  // If SSL is used, get certificate SAN URI.
+  virtual bool GetPrincipal(bool peer, std::string *user) const = 0;
 
   // Get request HTTP headers
   virtual std::map<std::string, std::string> GetRequestHeaders() const = 0;

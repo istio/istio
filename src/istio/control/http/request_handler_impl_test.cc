@@ -150,8 +150,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Not to extract attributes since both Check and Report are disabled.
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(0);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(0);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(0);
 
   // Check should NOT be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
@@ -174,8 +173,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Report is enabled so Attributes are extracted.
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should NOT be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
@@ -196,8 +194,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _))
@@ -225,8 +222,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _))
@@ -259,8 +255,7 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   ServiceConfig route_config;
   auto map3 = route_config.mutable_mixer_attributes()->mutable_attributes();
@@ -375,8 +370,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(1);
@@ -460,8 +454,7 @@ TEST_F(RequestHandlerImplTest, TestEmptyConfig) {
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Not to extract attributes since both Check and Report are disabled.
   EXPECT_CALL(mock_check, GetSourceIpPort(_, _)).Times(0);
-  EXPECT_CALL(mock_check, GetPeerPrincipal(_)).Times(0);
-  EXPECT_CALL(mock_check, GetLocalPrincipal(_)).Times(0);
+  EXPECT_CALL(mock_check, GetPrincipal(_, _)).Times(0);
 
   // Attributes is forwarded.
   EXPECT_CALL(mock_header, AddIstioAttributes(_))

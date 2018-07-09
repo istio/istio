@@ -284,14 +284,13 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
 
 TEST(AttributesBuilderTest, TestCheckAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, GetPeerPrincipal(_))
-      .WillOnce(Invoke([](std::string *user) -> bool {
-        *user = "test_user";
-        return true;
-      }));
-  EXPECT_CALL(mock_data, GetLocalPrincipal(_))
-      .WillOnce(Invoke([](std::string *user) -> bool {
-        *user = "destination_user";
+  EXPECT_CALL(mock_data, GetPrincipal(_, _))
+      .WillRepeatedly(Invoke([](bool peer, std::string *user) -> bool {
+        if (peer) {
+          *user = "test_user";
+        } else {
+          *user = "destination_user";
+        }
         return true;
       }));
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {

@@ -36,9 +36,7 @@ class CheckData : public ::istio::control::http::CheckData,
 
   bool GetSourceIpPort(std::string* ip, int* port) const override;
 
-  bool GetPeerPrincipal(std::string* user) const override;
-
-  bool GetLocalPrincipal(std::string* user) const override;
+  bool GetPrincipal(bool peer, std::string* user) const override;
 
   std::map<std::string, std::string> GetRequestHeaders() const override;
 
