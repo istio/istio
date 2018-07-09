@@ -1,0 +1,11 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-headless
+spec:
+  host: headless
+  {{if eq .globalMTlsEnable "true"}}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  {{end}}

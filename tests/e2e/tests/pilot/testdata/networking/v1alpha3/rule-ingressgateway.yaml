@@ -10,6 +10,12 @@ spec:
   http:
   - match:
     - port: 80
+    route:
+    - destination:
+        host: headless
+        port:
+          number: 80
+  - match:
     - port: 443
     route:
     - destination:
@@ -26,4 +32,3 @@ spec:
         subset: v1
         port:
            number: 90
-
