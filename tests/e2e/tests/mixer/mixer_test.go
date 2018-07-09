@@ -103,10 +103,10 @@ var (
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
 	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
 	destinationRuleAll       = "destination-rule-all"
-	routeAllRule             = "route-rule-all-v1"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
-	routeReviewsV3Rule       = "route-rule-reviews-v3"
-	tcpDbRule                = "route-rule-ratings-db"
+	routeAllRule             = "virtual-service-all-v1"
+	routeReviewsVersionsRule = "virtual-service-reviews-v2-v3"
+	routeReviewsV3Rule       = "virtual-service-reviews-v3"
+	tcpDbRule                = "virtual-service-ratings-db"
 	bookinfoGateway          = "bookinfo-gateway"
 
 	defaultRules []string

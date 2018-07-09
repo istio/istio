@@ -51,15 +51,15 @@ const (
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
 	destRule                           = routeRulesDir + "/" + "destination-rule-all"
 	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
-	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
-	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
-	twentyRule                         = routeRulesDir + "/" + "route-rule-reviews-80-20"
-	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
-	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
-	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	allRule                            = routeRulesDir + "/" + "virtual-service-all-v1"
+	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
+	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
+	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
+	fiftyRule                          = routeRulesDir + "/" + "virtual-service-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "virtual-service-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "virtual-service-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
 	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 )
@@ -111,8 +111,8 @@ func closeResponseBody(r *http.Response) {
 }
 
 func getPreprocessedRulePath(t *testConfig, version, rule string) string {
-	// transform, for example "routing/route-rule" into
-	// "{t.rulesDir}/routing/v1aplha3/route-rule.yaml"
+	// transform, for example "routing/virtual-service" into
+	// "{t.rulesDir}/routing/v1aplha3/virtual-service.yaml"
 	parts := strings.Split(rule, string(os.PathSeparator))
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 
@@ -164,8 +164,8 @@ func (t *testConfig) Setup() error {
 		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all")
 		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all")
 	}
-	allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
-	defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+	allRules = append(allRules, routeRulesDir+"/"+"virtual-service-all-v1")
+	defaultRules = append(defaultRules, routeRulesDir+"/"+"virtual-service-all-v1")
 	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
