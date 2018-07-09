@@ -51,7 +51,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 		Namespace: tc.Kube.Namespace,
 		YamlFiles: []string{
 			"testdata/networking/v1alpha3/ingressgateway.yaml",
-			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-headless.yaml"),
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
 			"testdata/networking/v1alpha3/rule-ingressgateway.yaml"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
@@ -65,11 +65,11 @@ func TestGateway_HTTPIngress(t *testing.T) {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
 			count := make(map[string]int)
-			for _, elt := range resp.Code {
+			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
 			log.Infof("request counts %v", count)
-			if count["200"] >= 95 {
+			if count["v2"] >= 95 {
 				return nil
 			}
 			return errAgain
