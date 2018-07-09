@@ -1295,7 +1295,6 @@
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "broker/dev",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1308,7 +1307,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "702662575f7f31df86b34a474edf6bc597003881"
+  revision = "76f27f20f13caf683e95ff80218a710ca1936285"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1328,7 +1327,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "release-1.10"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -1362,6 +1360,7 @@
     "storage/v1beta1"
   ]
   revision = "8b7507fac302640dd5f1efbf9643199952cc58db"
+  version = "kubernetes-1.10.4"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1606,6 +1605,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad523c6f8d7a2659cb97f0d6daf0b93da4107d4f340313d94115a6f5b70908fd"
+  inputs-digest = "b1b9b8e8b201a43956fc265f8a6bb4f6b020d0a3c5df3065c7f7df2901910b25"
   solver-name = "gps-cdcl"
   solver-version = 1
