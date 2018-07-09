@@ -391,8 +391,8 @@ func TestMain(m *testing.M) {
 	check(framework.InitLogging(), "cannot setup logging")
 
 	if tf.V1alpha1 {
-		check(errors.New("Attempt to test deprecated v1alpha1"),
-			"Attempt to test deprecated v1alpha1")
+		check(errors.New("attempt to test deprecated v1alpha1"),
+			"attempt to test deprecated v1alpha1")
 	}
 
 	check(setTestConfig(), "could not create TestConfig")
