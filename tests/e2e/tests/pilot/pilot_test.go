@@ -252,7 +252,7 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false),
-		getApp("headless", "headless", 80, 8080, 10090, 0, 70, 7070, "unversioned", true, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
