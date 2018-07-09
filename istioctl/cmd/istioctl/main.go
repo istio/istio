@@ -140,27 +140,6 @@ var (
 		"service-entry":    printShortServiceEntry,
 	}
 
-	// configTypes is the Istio types supported by the client
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	configTypes = model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
-
 	// all resources will be migrated out of config.istio.io to their own api group mapping to package path.
 	// TODO(xiaolanz) legacy group exists until we find out a client for mixer
 	legacyIstioAPIGroupVersion = schema.GroupVersion{
@@ -445,8 +424,8 @@ istioctl get virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	deleteCmd = &cobra.Command{
@@ -547,8 +526,8 @@ istioctl delete virtualservice bookinfo
 			return errs
 		},
 
-		ValidArgs:  configTypeResourceNames(configTypes),
-		ArgAliases: configTypePluralResourceNames(configTypes),
+		ValidArgs:  configTypeResourceNames(model.IstioConfigTypes),
+		ArgAliases: configTypePluralResourceNames(model.IstioConfigTypes),
 	}
 
 	contextCmd = &cobra.Command{
@@ -887,7 +866,7 @@ func printYamlOutput(writer io.Writer, configClient model.ConfigStore, configLis
 }
 
 func newClient() (model.ConfigStore, error) {
-	return crd.NewClient(kubeconfig, configContext, configTypes, "")
+	return crd.NewClient(kubeconfig, configContext, model.IstioConfigTypes, "")
 }
 
 func supportedTypes(configClient model.ConfigStore) []string {
