@@ -93,10 +93,10 @@ var (
 		Egress:   true,
 	}
 	configVersion      = ""
-	ingressName        = "ingress"
+	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 = "kube" // v1 rules directory by default
+	rulesDir                 = "policy"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
@@ -129,9 +129,8 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha3 {
-		rulesDir = "routing"
-		ingressName = "ingressgateway"
+	if testFlags.V1alpha1 {
+		return fmt.Errorf("Attempt to tests deprecated v1alpha1")
 	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
