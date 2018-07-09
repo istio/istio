@@ -429,6 +429,10 @@ func (k *KubeInfo) Teardown() error {
 		if err != nil {
 			return nil
 		}
+		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Failed to delete namespace %s", k.Namespace)
+			return err
+		}
 	} else {
 		if *useAutomaticInjection {
 			testSidecarInjectorYAML := filepath.Join(k.TmpDir, "yaml", *sidecarInjectorFile)
