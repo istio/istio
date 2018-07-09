@@ -15,3 +15,4 @@ istio_simple_samples:
     path: sleep/sleep.yaml
 
 istio_k8s_install_path: "install/kubernetes"
+kiali_version: v0.5.0
