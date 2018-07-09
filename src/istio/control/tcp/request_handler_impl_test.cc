@@ -67,6 +67,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
 
   // Check should not be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
@@ -82,6 +83,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPeerPrincipal(_)).Times(1);
+  EXPECT_CALL(mock_data, GetLocalPrincipal(_)).Times(1);
 
   // Check should be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _))
