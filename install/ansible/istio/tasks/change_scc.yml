@@ -8,7 +8,6 @@
     - istio-mixer-service-account
     - istio-mixer-post-install-account
     - istio-ca-service-account
-    - istio-cleanup-old-ca-service-account
     - istio-sidecar-injector-service-account
     - istio-citadel-service-account
     - prometheus
