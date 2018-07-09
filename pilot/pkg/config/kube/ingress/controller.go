@@ -142,6 +142,7 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return model.ConfigDescriptor{model.Gateway, model.VirtualService}
 }
 
+//TODO: we don't return out of this function now
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, false
@@ -161,15 +162,6 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	ingress := obj.(*v1beta1.Ingress)
 	if !shouldProcessIngress(c.mesh, ingress) {
 		return nil, false
-	}
-
-	if typ == model.IngressRule.Type {
-		rules := convertIngress(*ingress, c.domainSuffix)
-		for _, rule := range rules {
-			if rule.Name == name {
-				return &rule, true
-			}
-		}
 	}
 
 	return nil, false
