@@ -26,7 +26,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: meshexpansion-ilb-gatewa
+  name: meshexpansion-ilb-gateway
 spec:
   selector:
     istio: ilbgateway
