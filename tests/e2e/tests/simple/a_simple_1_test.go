@@ -61,8 +61,8 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 	versionSubdir = v1alpha3Subdir
 )

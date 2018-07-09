@@ -67,8 +67,8 @@ const (
 var (
 	tc *testConfig
 	tf = &framework.TestFlags{
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 	testRetryTimes = 5
 	defaultRules   = []string{bookinfoGateway}

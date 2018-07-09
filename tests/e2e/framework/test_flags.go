@@ -20,8 +20,8 @@ import (
 
 // TestFlags holds routing versions to test, and also if Ingress/Egress should be tested
 type TestFlags struct {
-	Ingress  bool
-	Egress   bool
+	Ingress bool
+	Egress  bool
 }
 
 // Init initializes golang "flags" with the flags of TestFlags

@@ -87,8 +87,8 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
 	configVersion      = "v1alpha3"
 	ingressName        = "ingressgateway"
