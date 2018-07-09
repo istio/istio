@@ -90,20 +90,43 @@ bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
   return true;
 }
 
-bool GetSourceUser(const Network::Connection* connection, std::string* user) {
+bool GetPeerPrincipal(const Network::Connection* connection,
+                      std::string* principal) {
   if (connection) {
     Ssl::Connection* ssl = const_cast<Ssl::Connection*>(connection->ssl());
     if (ssl != nullptr) {
       std::string result = ssl->uriSanPeerCertificate();
-      if (result.empty()) {  // empty source user is not allowed
+      if (result.empty()) {  // empty result is not allowed
         return false;
       }
       if (result.length() >= kSPIFFEPrefix.length() &&
           result.compare(0, kSPIFFEPrefix.length(), kSPIFFEPrefix) == 0) {
         // Strip out the prefix "spiffe://" in the identity.
-        *user = result.substr(kSPIFFEPrefix.size());
+        *principal = result.substr(kSPIFFEPrefix.size());
       } else {
-        *user = result;
+        *principal = result;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool GetLocalPrincipal(const Network::Connection* connection,
+                       std::string* principal) {
+  if (connection) {
+    Ssl::Connection* ssl = const_cast<Ssl::Connection*>(connection->ssl());
+    if (ssl != nullptr) {
+      std::string result = ssl->uriSanLocalCertificate();
+      if (result.empty()) {  // empty result is not allowed
+        return false;
+      }
+      if (result.length() >= kSPIFFEPrefix.length() &&
+          result.compare(0, kSPIFFEPrefix.length(), kSPIFFEPrefix) == 0) {
+        // Strip out the prefix "spiffe://" in the identity.
+        *principal = result.substr(kSPIFFEPrefix.size());
+      } else {
+        *principal = result;
       }
       return true;
     }

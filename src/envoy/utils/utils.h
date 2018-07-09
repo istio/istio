@@ -37,8 +37,13 @@ bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port);
 bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
                        std::string* uid);
 
-// Get user id from ssl.
-bool GetSourceUser(const Network::Connection* connection, std::string* user);
+// Get peer principal URI.
+bool GetPeerPrincipal(const Network::Connection* connection,
+                      std::string* principal);
+
+// Get local principal URI.
+bool GetLocalPrincipal(const Network::Connection* connection,
+                       std::string* principal);
 
 // Returns true if connection is mutual TLS enabled.
 bool IsMutualTLS(const Network::Connection* connection);

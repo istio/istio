@@ -27,6 +27,7 @@ struct AttributeName {
   // https://github.com/istio/istio/issues/4689
   static const char kSourceUser[];
   static const char kSourcePrincipal[];
+  static const char kDestinationPrincipal[];
 
   static const char kRequestHeaders[];
   static const char kRequestHost[];

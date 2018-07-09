@@ -31,8 +31,11 @@ class CheckData {
   // Get downstream tcp connection ip and port.
   virtual bool GetSourceIpPort(std::string* ip, int* port) const = 0;
 
-  // If SSL is used, get origin user name.
-  virtual bool GetSourceUser(std::string* user) const = 0;
+  // If SSL is used, get peer URI.
+  virtual bool GetPeerPrincipal(std::string* user) const = 0;
+
+  // If SSL is used, get local URI.
+  virtual bool GetLocalPrincipal(std::string* user) const = 0;
 
   // Returns true if connection is mutual TLS enabled.
   virtual bool IsMutualTLS() const = 0;
