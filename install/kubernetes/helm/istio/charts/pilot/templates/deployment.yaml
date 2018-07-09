@@ -38,7 +38,7 @@ spec:
           - containerPort: 15010
           readinessProbe:
             httpGet:
-              path: /v1/registration
+              path: /debug/adsz
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
