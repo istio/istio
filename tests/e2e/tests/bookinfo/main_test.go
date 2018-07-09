@@ -166,11 +166,9 @@ func (t *testConfig) Setup() error {
 	allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
 	defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
 	for _, rule := range allRules {
-		for _, configVersion := range tf.ConfigVersions() {
-			err := preprocessRule(t, configVersion, rule)
-			if err != nil {
-				return nil
-			}
+		err := preprocessRule(t, "v1alpha3", rule)
+		if err != nil {
+			return nil
 		}
 	}
 
@@ -202,47 +200,39 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	for _, configVersion := range tf.ConfigVersions() { // should be only one version applied, checked in TestMain
-		if err := applyRules(configVersion, defaultRules); err != nil {
-			return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
-		}
-		standby := 0
-		for i := 0; i <= testRetryTimes; i++ {
-			time.Sleep(time.Duration(standby) * time.Second)
-			var gateway string
-			var errGw error
-
-			if configVersion == "v1alpha3" {
-				gateway, errGw = tc.Kube.IngressGateway()
-			} else {
-				gateway, errGw = tc.Kube.Ingress()
-			}
-
-			if errGw != nil {
-				return errGw
-			}
-
-			resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
-			if err != nil {
-				log.Infof("Error talking to productpage: %s", err)
-			} else {
-				log.Infof("Get from page: %d", resp.StatusCode)
-				if resp.StatusCode == http.StatusOK {
-					log.Info("Get response from product page!")
-					break
-				}
-				closeResponseBody(resp)
-			}
-			if i == testRetryTimes {
-				return errors.New("unable to set default route")
-			}
-			standby += 5
-			log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
-		}
-
-		log.Info("Success! Default route got expected response")
-		return nil
+	if err := applyRules("v1alpha3", defaultRules); err != nil {
+		return fmt.Errorf("could not apply rules '%s': %v", defaultRules, err)
 	}
+	standby := 0
+	for i := 0; i <= testRetryTimes; i++ {
+		time.Sleep(time.Duration(standby) * time.Second)
+		var gateway string
+		var errGw error
+
+		gateway, errGw = tc.Kube.IngressGateway()
+		if errGw != nil {
+			return errGw
+		}
+
+		resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
+		if err != nil {
+			log.Infof("Error talking to productpage: %s", err)
+		} else {
+			log.Infof("Get from page: %d", resp.StatusCode)
+			if resp.StatusCode == http.StatusOK {
+				log.Info("Get response from product page!")
+				break
+			}
+			closeResponseBody(resp)
+		}
+		if i == testRetryTimes {
+			return errors.New("unable to set default route")
+		}
+		standby += 5
+		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+	}
+
+	log.Info("Success! Default route got expected response")
 	return nil
 }
 
