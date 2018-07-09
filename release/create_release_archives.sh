@@ -124,9 +124,6 @@ find samples install -type f \( \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-
-"${CP}" dump_kubernetes.sh "${BIN_DIR}"
-
 popd
 
 for unwanted_manifest in \
