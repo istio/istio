@@ -96,7 +96,8 @@ var (
 	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 = "policy"
+	networkingDir            = "networking"
+	policyDir                = "policy"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
@@ -133,14 +134,22 @@ func (t *testConfig) Setup() (err error) {
 		return fmt.Errorf("attempt to tests deprecated v1alpha1")
 	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
-	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+
 	for _, dr := range drs {
-		*dr = filepath.Join(rulesDir, *dr)
+		*dr = filepath.Join(networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
+
+	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
+		&kubeenvTelemetryRule}
 	for _, r := range rs {
-		*r = filepath.Join(rulesDir, *r)
+		*r = filepath.Join(policyDir, *r)
+		rules = append(rules, *r)
+	}
+
+	rs = []*string{&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	for _, r := range rs {
+		*r = filepath.Join(networkingDir, *r)
 		rules = append(rules, *r)
 	}
 
