@@ -130,16 +130,6 @@ func egressRulesSupportedTCPProtocols() string {
 	return protocolMapAsString(supportedTCPProtocols)
 }
 
-func egressRulesSupportedProtocols() string {
-	httpSupportedProtocols := egressRulesSupportedHTTPProtocols()
-	tcpSupportedProtocols := egressRulesSupportedTCPProtocols()
-	separator := ""
-	if httpSupportedProtocols != "" && tcpSupportedProtocols != "" {
-		separator = ","
-	}
-	return httpSupportedProtocols + separator + tcpSupportedProtocols
-}
-
 // rejectConflictingOnPortTCPEgressRules rejects rules that have conflicting protocols on the same port
 // E.g. Mongo and TCP, or TCP and HTTP. In the current implementation of egress rules support,
 // conflicts between TCP protocols and other TCP or HTTP protocols are not allowed.

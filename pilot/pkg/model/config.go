@@ -510,6 +510,8 @@ var (
 	}
 )
 
+// ResolveHostname produces a FQDN based on either the service or
+// a concat of the namespace + domain
 func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) Hostname {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
