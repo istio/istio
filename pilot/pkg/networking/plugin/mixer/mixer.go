@@ -65,12 +65,12 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	}
 
 	attrs := attributes{
-		"source.namespace":      attrNamespace(in.Node),
+		"source.namespace": attrNamespace(in.Node),
 	}
 
 	if has10Config(in.Node) {
 		attrs["source.uid"] = attrUID(in.Node)
-		attrs["context.reporter.uid"] =  attrUID(in.Node)
+		attrs["context.reporter.uid"] = attrUID(in.Node)
 		attrs["context.reporter.kind"] = attrStringValue("outbound")
 	}
 
@@ -207,7 +207,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy, uid attribut
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
 	hc := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{Attributes: attrs},
-		Transport: buildTransport(mesh, node, attrUID(node)),
+		Transport:       buildTransport(mesh, node, attrUID(node)),
 	}
 	if has10Config(node) {
 		hc.ForwardAttributes = &mpb.Attributes{Attributes: attributes{
@@ -215,7 +215,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 		}}
 	}
 	mix := &http_conn.HttpFilter{
-		Name: mixer,
+		Name:   mixer,
 		Config: util.MessageToStruct(hc),
 	}
 

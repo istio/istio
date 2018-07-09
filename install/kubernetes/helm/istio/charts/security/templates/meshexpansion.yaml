@@ -6,7 +6,7 @@ metadata:
   name: meshexpansion-citadel
 spec:
   hosts:
-  - "citadel.istio-system"
+  - "istio-citadel.istio-system"
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -30,7 +30,7 @@ metadata:
   name: meshexpansion-ilb-citadel
 spec:
   hosts:
-  - "citadel.istio-system"
+  - "istio-citadel.istio-system"
   gateways:
   - meshexpansion-ilb-gateway
   tcp:

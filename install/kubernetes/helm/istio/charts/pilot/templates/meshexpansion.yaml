@@ -30,7 +30,11 @@ metadata:
   name: ilb-meshexpansion-pilot
 spec:
   hosts:
+<<<<<<< HEAD
   - "pilot.istio-system"
+=======
+  - "meshexpansionilb.istio-system"
+>>>>>>> eee51c9bfe6dab689646f7e808e74e6946b5b531
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -49,11 +53,20 @@ spec:
         port:
           number: 15010
   - match:
+<<<<<<< HEAD
     - port: 8080
     route:
     - destination:
         host: istio-pilot.istio-system.svc.cluster.local
         port:
           number: 8080
+=======
+    - port: 5353
+    route:
+    - destination:
+        host: kube-dns.kube-system.svc.cluster.local
+        port:
+          number: 53
+>>>>>>> eee51c9bfe6dab689646f7e808e74e6946b5b531
 
 {{- end }}

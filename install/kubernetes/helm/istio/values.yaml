@@ -144,7 +144,6 @@ ingress:
     annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    annotations: {}
     ports:
     - port: 80
       name: http
@@ -199,7 +198,7 @@ gateways:
     # to pilot/citadel if global.meshExpansion settings are enabled.
     - port: 15011
       targetPort: 15011
-      name: tcp-pilot-grcp-tls
+      name: tcp-pilot-grpc-tls
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
@@ -316,6 +315,7 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  cleanUpOldCA: true
 
 #
 # addons configuration

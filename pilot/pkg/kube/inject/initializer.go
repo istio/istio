@@ -39,6 +39,7 @@ var (
 		apiPath      string
 	}{
 		{v1.SchemeGroupVersion, &v1.ReplicationController{}, "replicationcontrollers", "/api"},
+		{v1.SchemeGroupVersion, &v1.Pod{}, "pods", "/api"},
 
 		{v1beta1.SchemeGroupVersion, &v1beta1.Deployment{}, "deployments", "/apis"},
 		{v1beta1.SchemeGroupVersion, &v1beta1.DaemonSet{}, "daemonsets", "/apis"},
