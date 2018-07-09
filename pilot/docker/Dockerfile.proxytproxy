@@ -2,10 +2,23 @@ FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
 
+# Environment variables indicating this proxy's version/capabilities as opaque string
+ENV ISTIO_META_ISTIO_PROXY_VERSION "1.0.0"
+# Environment variable indicating the exact proxy sha - for debugging or version-specific configs
+ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION $istio_version
+
+# This sidecar will use TPROXY for interception
+ENV ISTIO_META_INTERCEPTION_MODE TPROXY
+
 # Please keep in sync with Dockerfile.v2
 # This proxy will use TPROXY interception. Core dump won't work - see issue 5745
 # User will need to use the proxy annotation to use this image, as well as the
 # original InterceptionMode annotation to run as root and add NET_ADMIN
+
+# This doesn't (yet) extend proxyv2 - need to change the makefile to customize the FROM to match the hub/tag that
+# is currently built, or use a base image.
 
 # TODO: evaluate if we should add NET_ADMIN in all cases, to support future firewall
 # and dynamic iptable config
@@ -30,9 +43,6 @@ ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
-ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
-ENV ISTIO_META_ISTIO_VERSION $istio_version
-ENV ISTIO_META_INTERCEPTION_MODE TPROXY
 
 # Sudoers used to allow tcpdump and other debug utilities.
 RUN useradd -m --uid 1337 istio-proxy && \
