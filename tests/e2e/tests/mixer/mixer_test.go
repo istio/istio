@@ -130,7 +130,7 @@ func (t *testConfig) Setup() (err error) {
 	}()
 
 	if testFlags.V1alpha1 {
-		return fmt.Errorf("Attempt to tests deprecated v1alpha1")
+		return fmt.Errorf("attempt to tests deprecated v1alpha1")
 	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
