@@ -599,13 +599,6 @@ func (in *ServiceEntryList) DeepCopyObject() runtime.Object {
 	return nil
 }
 
-// DestinationPolicy is the generic Kubernetes API object wrapper
-type DestinationPolicy struct {
-	meta_v1.TypeMeta   `json:",inline"`
-	meta_v1.ObjectMeta `json:"metadata"`
-	Spec               map[string]interface{} `json:"spec"`
-}
-
 // DestinationRule is the generic Kubernetes API object wrapper
 type DestinationRule struct {
 	meta_v1.TypeMeta   `json:",inline"`
