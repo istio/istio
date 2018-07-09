@@ -4,6 +4,10 @@ global:
   imagePullPolicy: Always
   hub: docker.io/istionightly
   tag: nightly-release-0.8
+  meshExpansion: true
+  meshExpansionILB: true
+  proxy_init:
+    image: costinm/proxy_init:tproxy
 
   proxy:
     image: proxyv2
@@ -13,11 +17,17 @@ global:
         memory: 1024Mi
 
 gateways:
+  istio-ilbgateway:
+    enabled: true
+
   istio-ingressgateway:
     meshExpansion: true
     enabled: true
     labels:
       istio: ingressgateway
+      ver: ingress10
+      app: istio-ingressgateway
+      name: gateway
     autoscaleMin: 1
     autoscaleMax: 4
     resources:
@@ -25,16 +35,25 @@ gateways:
         cpu: 4000m
         memory: 512Mi
       requests:
-        cpu: 2500m
+        cpu: 4000m
         memory: 512Mi
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
     - port: 80
-      name: http
+      targetPort: 80
+      name: http2
+      nodePort: 31380
     - port: 443
       name: https
+      nodePort: 31390
     - port: 31400
       name: tcp
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
     - port: 5201
       name: tcp-iperf-cont
     - port: 5202
@@ -47,7 +66,7 @@ gateways:
 pilot:
   replicaCount: 2
   # Override for 0.8 upgrade
-  image: costinm/pilot:costin-dev
+  #image: costinm/pilot:costin-dev
 
 ingress:
   enabled: false

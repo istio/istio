@@ -11,12 +11,49 @@ spec:
   - meshexpansion-gateway
   tcp:
   - match:
-    - port: 15005
+    - port: 15011
     route:
     - destination:
         host: istio-pilot.istio-system.svc.cluster.local
         port:
-          number: 15005
+          number: 15011
 
+
+{{- end }}
+
+
+{{- if .Values.global.meshExpansionILB }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ilb-meshexpansion-pilot
+spec:
+  hosts:
+  - "pilot.istio-system"
+  gateways:
+  - meshexpansion-ilb-gateway
+  tcp:
+  - match:
+    - port: 15011
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 15011
+  - match:
+    - port: 15010
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 15010
+  - match:
+    - port: 8080
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 8080
 
 {{- end }}

@@ -43,3 +43,19 @@ spec:
           limits:
             cpu: 1000m
             memory: "1G"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortiomaster
+spec:
+  hosts:
+  - "fortio-tproxy.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortio-tproxy.test.svc.cluster.local
+        port:
+          number: 8080

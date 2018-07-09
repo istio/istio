@@ -20,8 +20,6 @@ data:
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
-    # To disable the mixer completely (including metrics), comment out
-    # the following lines
     # Deprecated: mixer is using EDS
     {{- if .Values.mixer.enabled }}
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
@@ -38,7 +36,7 @@ data:
     # How frequently should Envoy fetch key/cert from NodeAgent.
     sdsRefreshDelay: 15s
 
-
+    #
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
