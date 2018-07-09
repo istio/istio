@@ -234,7 +234,8 @@ func TestSingleTypeCases(t *testing.T) {
 	defer ts.close()
 
 	c := New(ts, supportedMessageNames, ts, key, metadata)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go c.Run(ctx)
 
 	makeRequest := func(typeURL, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
