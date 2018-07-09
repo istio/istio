@@ -27,7 +27,6 @@ package simple
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -62,25 +61,15 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
-	configVersion = ""
-	versionSubdir = ""
+	versionSubdir = v1alpha3Subdir
 )
 
 func init() {
 	testFlags.Init()
 	flag.Parse()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
-	if testFlags.V1alpha3 {
-		versionSubdir = v1alpha3Subdir
-	}
 }
 
 func TestMain(m *testing.M) {
@@ -395,14 +384,10 @@ func setTestConfig() error {
 }
 
 func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		log.Infof("vialpha3 getting Gateway")
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
-// yamlPath returns the appropriate yaml path depending on whether v1alpha1 or 3 is set.
+// yamlPath returns the appropriate yaml path
 func yamlPath(filename string) string {
 	return filepath.Join(baseDir, versionSubdir, filename)
 }

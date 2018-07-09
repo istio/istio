@@ -67,8 +67,6 @@ const (
 var (
 	tc *testConfig
 	tf = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -391,19 +389,11 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
 
-	if tf.V1alpha1 && tf.V1alpha3 {
-		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
-			"cannot test both v1alpha1 and alpha3 simultaneously")
-	}
-
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
 }
 
 func getIngressOrFail(t *testing.T, configVersion string) string {
-	if configVersion == "v1alpha3" {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }

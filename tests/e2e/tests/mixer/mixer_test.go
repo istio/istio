@@ -87,16 +87,14 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: false, //implies envoyv1
-		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
-	configVersion      = ""
-	ingressName        = "ingress"
+	configVersion      = "v1alpha3"
+	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 = "kube" // v1 rules directory by default
+	rulesDir                 = "routing"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
@@ -115,10 +113,6 @@ var (
 
 func init() {
 	testFlags.Init()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
 }
 
 // Setup is called from framework package init().
@@ -129,10 +123,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha3 {
-		rulesDir = "routing"
-		ingressName = "ingressgateway"
-	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
@@ -781,10 +771,7 @@ func TestIngressCheckCache(t *testing.T) {
 }
 
 func getIngressOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 // TestCheckCache tests that check cache works within the mesh.
@@ -1184,17 +1171,11 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 }
 
 func getIngressOrGateway() (string, error) {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGateway()
-	}
-	return tc.Kube.Ingress()
+	return tc.Kube.IngressGateway()
 }
 
 func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
