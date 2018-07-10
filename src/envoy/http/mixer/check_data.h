@@ -41,7 +41,6 @@ class CheckData : public ::istio::control::http::CheckData,
   std::map<std::string, std::string> GetRequestHeaders() const override;
 
   bool IsMutualTLS() const override;
-  std::string GetRequestedServerName() const override;
 
   bool FindHeaderByType(
       ::istio::control::http::CheckData::HeaderType header_type,
