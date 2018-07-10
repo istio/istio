@@ -22,9 +22,9 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	restclient "k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin

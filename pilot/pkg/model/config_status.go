@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // config_status tracks configuration metrics and errors.
@@ -38,8 +39,6 @@ var (
 		Name: "pilot_conf_out_listeners",
 		Help: "Number of conflicting listeners.",
 	})
-
-
 )
 
 func init() {
@@ -57,12 +56,10 @@ type PushStatus struct {
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
 	ProxyWithoutService map[string]*Proxy
-	Unready map[string]*Proxy
+	Unready             map[string]*Proxy
 
 	ConflictingOutbound map[string]string
-
 }
-
 
 // Tracked errors:
 // - pilot_no_ip - set for sidecars without 'in' - either have no services or are not ready when the sidecar calls.

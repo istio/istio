@@ -627,7 +627,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			status := c.Env.PushStatus
 			if status != nil {
 				status.Mutex.Lock()
-				status.ProxyWithoutService[proxy.ID]=proxy
+				status.ProxyWithoutService[proxy.ID] = proxy
 				status.Mutex.Unlock()
 			}
 		}

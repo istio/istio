@@ -628,7 +628,6 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	w.WriteHeader(http.StatusOK)
 }
 
-
 func writeAllADS(w io.Writer) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()

@@ -29,8 +29,9 @@ import (
 	"strconv"
 	"strings"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	"time"
+
+	authn "istio.io/api/authentication/v1alpha1"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
