@@ -79,7 +79,7 @@ bool CheckData::IsMutualTLS() const { return Utils::IsMutualTLS(connection_); }
 
 std::string CheckData::GetRequestedServerName() const {
   if (connection_) {
-    return connection_->requestedServerName();
+    return std::string(connection_->requestedServerName());
   }
 
   return "";
