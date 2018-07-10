@@ -58,6 +58,9 @@ const char AttributeName::kConnectionSendTotalBytes[] =
     "connection.sent.bytes_total";
 const char AttributeName::kConnectionDuration[] = "connection.duration";
 const char AttributeName::kConnectionMtls[] = "connection.mtls";
+const char AttributeName::kConnectionRequestedServerName[] =
+    "connection.requested_server_name";
+
 // Downstream TCP connection id.
 const char AttributeName::kConnectionId[] = "connection.id";
 const char AttributeName::kConnectionEvent[] = "connection.event";
