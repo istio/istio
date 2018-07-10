@@ -34,7 +34,6 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -71,8 +70,8 @@ type sdsConnection struct {
 	// Time of connection, for debugging.
 	Connect time.Time
 
-	// The proxy from which the connection comes from.
-	proxy *model.Proxy
+	// The ID of proxy from which the connection comes from.
+	proxyID string
 
 	// Sending on this channel results in  push.
 	pushChannel chan *sdsEvent
@@ -134,11 +133,11 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return receiveError
 			}
 
-			proxy, spiffeID, err := parseDiscoveryRequest(discReq)
+			spiffeID, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				continue
 			}
-			con.proxy = proxy
+			con.proxyID = discReq.Node.Id
 
 			secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
 			if err != nil {
@@ -175,7 +174,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	proxy, spiffeID, err := parseDiscoveryRequest(discReq)
+	spiffeID, err := parseDiscoveryRequest(discReq)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +185,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		return nil, err
 	}
 
-	return sdsDiscoveryResponse(secret, proxy)
+	return sdsDiscoveryResponse(secret, discReq.Node.Id)
 }
 
 // NotifyProxy send notification to proxy about secret update,
@@ -203,24 +202,15 @@ func NotifyProxy(proxyID string, secret *SecretItem) error {
 	return nil
 }
 
-func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (*model.Proxy, string, error) {
+func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*spiffeID*/, error) {
 	if discReq.Node.Id == "" {
-		return nil, "", fmt.Errorf("discovery request %+v missing node id", discReq)
+		return "", fmt.Errorf("discovery request %+v missing node id", discReq)
 	}
 
 	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
-		return nil, "", fmt.Errorf("discovery request has invalid resourceNames %+v", discReq.ResourceNames)
+		return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
 	}
-	spiffeID := discReq.ResourceNames[0]
-
-	proxy, err := model.ParseServiceNode(discReq.Node.Id)
-	if err != nil {
-		log.Errorf("Failed to parse service node from discovery request %+v: %v", discReq, err)
-		return nil, "", err
-	}
-	proxy.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-
-	return &proxy, spiffeID, nil
+	return discReq.ResourceNames[0], nil
 }
 
 func getCredentialToken(ctx context.Context) (string, error) {
@@ -252,7 +242,7 @@ func removeConn(proxyID string) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	response, err := sdsDiscoveryResponse(con.secret, con.proxy)
+	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
@@ -263,11 +253,11 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
-	log.Infof("SDS: push for proxy:%q addr:%q", con.proxy.ID, con.PeerAddr)
+	log.Infof("SDS: push for proxy:%q addr:%q", con.proxyID, con.PeerAddr)
 	return nil
 }
 
-func sdsDiscoveryResponse(s *SecretItem, proxy *model.Proxy) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
 	//TODO(quanlin): use timestamp for versionInfo and nouce for now, may change later.
 	t := time.Now().String()
 	resp := &xdsapi.DiscoveryResponse{
@@ -277,7 +267,7 @@ func sdsDiscoveryResponse(s *SecretItem, proxy *model.Proxy) (*xdsapi.DiscoveryR
 	}
 
 	if s == nil {
-		log.Errorf("SDS: got nil secret for proxy %q", proxy.ID)
+		log.Errorf("SDS: got nil secret for proxy %q", proxyID)
 		return resp, nil
 	}
 
@@ -301,7 +291,7 @@ func sdsDiscoveryResponse(s *SecretItem, proxy *model.Proxy) (*xdsapi.DiscoveryR
 
 	ms, err := types.MarshalAny(secret)
 	if err != nil {
-		log.Errorf("Failed to mashal secret for proxy %q: %v", proxy.ID, err)
+		log.Errorf("Failed to mashal secret for proxy %q: %v", proxyID, err)
 		return nil, err
 	}
 	resp.Resources = append(resp.Resources, *ms)
