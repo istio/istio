@@ -30,7 +30,6 @@ import (
 var arguments = driver.DefaultArgs()
 var showHelp = false
 var logOptions = log.DefaultOptions()
-var noCleanup = false
 
 // The command we use to parse flags.
 var cmdForLog = &cobra.Command{}
@@ -89,9 +88,6 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 	stringVar(&arguments.WorkDir, "work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	stringVar(&arguments.Labels, "labels", arguments.Labels,
-		"Only run tests with the given labels")
-
 	stringVar(&arguments.Environment, "environment", arguments.Environment,
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
 			driver.EnvLocal, driver.EnvKube))
@@ -102,7 +98,7 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 	boolVar(&showHelp, "hh", showHelp,
 		"Show the help page for the test framework")
 
-	boolVar(&noCleanup, "no-cleanup", noCleanup, "Do not cleanup resources after test completion")
+	boolVar(&arguments.NoCleanup, "no-cleanup", arguments.NoCleanup, "Do not cleanup resources after test completion")
 }
 
 func doShowHelp() {
