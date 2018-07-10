@@ -38,7 +38,7 @@ metadata:
 spec:
   access_token: abcdef
   ingest_url: %s
-  disable_metrics: true
+  enable_metrics: false
   tracing_buffer_size: 1000
   tracing_sample_probability: 1.0
 ---

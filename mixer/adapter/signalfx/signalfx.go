@@ -78,7 +78,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 	var resErr *me.Error
 
-	if !b.config.DisableMetrics && len(b.metricTypes) > 0 {
+	if b.config.EnableMetrics && len(b.metricTypes) > 0 {
 		h.metricshandler = &metricshandler{
 			env:                env,
 			ctx:                ctx,
@@ -93,7 +93,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		}
 	}
 
-	if !b.config.DisableTracing {
+	if b.config.EnableTracing {
 		h.tracinghandler = &tracinghandler{
 			sink: sink,
 			env:  env,
@@ -119,7 +119,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Appendf("access_token", "You must specify the SignalFx access token")
 	}
 
-	if !b.config.DisableMetrics && len(b.config.Metrics) == 0 {
+	if b.config.EnableMetrics && len(b.config.Metrics) == 0 {
 		ce = ce.Appendf("metrics", "There must be at least one metric definition for this to be useful")
 	}
 
@@ -211,6 +211,8 @@ func GetInfo() adapter.Info {
 		},
 		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{
+			EnableMetrics:            true,
+			EnableTracing:            true,
 			DatapointInterval:        10 * time.Second,
 			TracingBufferSize:        1000,
 			TracingSampleProbability: 1.0,

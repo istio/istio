@@ -48,7 +48,7 @@ func (mh *metricshandler) InitMetrics() error {
 	mh.scheduler.ReportingDelay(time.Duration(mh.intervalSeconds) * time.Second)
 
 	mh.scheduler.ErrorHandler = func(err error) error {
-		return mh.env.Logger().Errorf("Error sending datapoints: %s", err.Error())
+		return mh.env.Logger().Errorf("Error sending datapoints: %v", err)
 	}
 
 	mh.registry = newRegistry(registryExpiry)
@@ -58,7 +58,7 @@ func (mh *metricshandler) InitMetrics() error {
 		err := mh.scheduler.Schedule(mh.ctx)
 		if err != nil {
 			if ec, ok := err.(*errors.ErrorChain); !ok || ec.Tail() != context.Canceled {
-				_ = mh.env.Logger().Errorf("Scheduler shutdown unexpectedly: %s", err.Error())
+				_ = mh.env.Logger().Errorf("Scheduler shutdown unexpectedly: %v", err)
 			}
 		}
 	})
