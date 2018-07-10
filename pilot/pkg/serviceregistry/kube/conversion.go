@@ -112,10 +112,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		LoadBalancingDisabled: loadBalancingDisabled,
 		MeshExternal:          meshExternal,
 		Resolution:            resolution,
-		Namespace:             svc.Namespace,
-		Name:                  svc.Name,
-		CreationTimestamp:     svc.CreationTimestamp,
-		ResourceVersion:       svc.ResourceVersion,
+		ID:             			 fmt.Sprintf("%s:%s", svc.Namespace, svc.Name),
+		Time:     						 svc.CreationTimestamp.Time,
 	}
 }
 

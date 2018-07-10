@@ -29,9 +29,8 @@ import (
 	"strconv"
 	"strings"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	authn "istio.io/api/authentication/v1alpha1"
+	"time"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -87,28 +86,12 @@ type Service struct {
 	// by the caller)
 	Resolution Resolution
 
-	// Name is a unique immutable identifier in a namespace
-	Name string `json:"name,omitempty"`
+	// ID represents the location of the config used to create this Service. Optional.
+	// For k8s, it is namespace:name
+	ID string `json:"name,omitempty"`
 
-	// Namespace defines the space for names (optional for some types),
-	// applications may choose to use namespaces for a variety of purposes
-	// (security domains, fault domains, organizational domains)
-	Namespace string `json:"namespace,omitempty"`
-
-	// ResourceVersion is an opaque identifier for tracking updates to the config registry.
-	// The implementation may use a change index or a commit log for the revision.
-	// The config client should not make any assumptions about revisions and rely only on
-	// exact equality to implement optimistic concurrency of read-write operations.
-	//
-	// The lifetime of an object of a particular revision depends on the underlying data store.
-	// The data store may compactify old revisions in the interest of storage optimization.
-	//
-	// An empty revision carries a special meaning that the associated object has
-	// not been stored and assigned a revision.
-	ResourceVersion string `json:"resourceVersion,omitempty"`
-
-	// CreationTimestamp records the creation time
-	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
+	// Time records the resource time (modified time if available, creation otherwise), if available.
+	Time time.Time `json:"mtime,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing

@@ -191,7 +191,7 @@ type Server struct {
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
-	kubectl          *kube.Controller
+	kubeRegistry     *kube.Controller
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
@@ -594,7 +594,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-	s.kubectl = kubectl
+	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             serviceregistry.KubernetesRegistry,
@@ -784,8 +784,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	if s.kubectl != nil {
-		s.kubectl.Env = &environment
+	if s.kubeRegistry != nil {
+		// kubeRegistry may use the environment for push status reporting.
+		// TODO: maybe all registries should have his as an optional field ?
+		s.kubeRegistry.Env = &environment
 	}
 
 	// Set up discovery service

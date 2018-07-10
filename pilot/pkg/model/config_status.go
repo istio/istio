@@ -14,7 +14,7 @@ var (
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
-	LastPushStatus *ConfigStatus
+	LastPushStatus *PushStatus
 )
 
 var (
@@ -49,7 +49,7 @@ func init() {
 
 }
 
-type ConfigStatus struct {
+type PushStatus struct {
 	Mutex sync.Mutex
 
 	// ProxyWithoutService is keyed by the proxy ID, and holds proxies where no ServiceInstance was found.
@@ -67,7 +67,7 @@ type ConfigStatus struct {
 // Tracked errors:
 // - pilot_no_ip - set for sidecars without 'in' - either have no services or are not ready when the sidecar calls.
 
-func GetStatus(obj interface{}) *ConfigStatus {
+func GetStatus(obj interface{}) *PushStatus {
 	env, ok := obj.(Environment)
 	if !ok {
 		return nil
@@ -75,14 +75,14 @@ func GetStatus(obj interface{}) *ConfigStatus {
 	return env.PushStatus
 }
 
-func NewStatus() *ConfigStatus {
+func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set
-	return &ConfigStatus{
+	return &PushStatus{
 		ProxyWithoutService: map[string]*Proxy{},
 	}
 }
 
-func (cs *ConfigStatus) AfterPush() {
+func (cs *PushStatus) AfterPush() {
 	cs.Mutex.Lock()
 	defer cs.Mutex.Unlock()
 	LastPushStatus = cs
