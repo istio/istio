@@ -315,7 +315,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		rbacLog.Infof("disabled, no RbacConfig")
+		rbacLog.Debugf("disabled, no RbacConfig")
 		return false
 	}
 

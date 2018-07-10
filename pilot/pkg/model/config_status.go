@@ -76,6 +76,8 @@ func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set
 	return &PushStatus{
 		ProxyWithoutService: map[string]*Proxy{},
+		Unready:             map[string]*Proxy{},
+		ConflictingOutbound: map[string]string{},
 	}
 }
 
@@ -86,5 +88,4 @@ func (cs *PushStatus) AfterPush() {
 	ipNotFound.Set(float64(len(cs.ProxyWithoutService)))
 	unready.Set(float64(len(cs.Unready)))
 	conflictingOutbound.Set(float64(len(cs.ConflictingOutbound)))
-
 }

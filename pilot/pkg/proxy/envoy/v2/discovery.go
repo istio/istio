@@ -23,6 +23,8 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	"encoding/json"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -153,6 +155,12 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		PushAll()
 
 		s.env.PushStatus.AfterPush()
+
+		out, err := json.MarshalIndent(model.LastPushStatus, "", "    ")
+		if err != nil {
+			adsLog.Infof("After push:", out)
+		}
+
 		s.env.PushStatus = nil
 	}
 }
