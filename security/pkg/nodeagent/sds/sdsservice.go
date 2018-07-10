@@ -208,7 +208,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*spiffeID*
 	}
 
 	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
-		return "", fmt.Errorf("discovery request has invalid resourceNames %+v", discReq.ResourceNames)
+		return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
 	}
 	return discReq.ResourceNames[0], nil
 }
