@@ -31,7 +31,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	envoy_type1 "github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -693,13 +693,13 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 	if env.Mesh.EnableTracing {
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: httpOpts.direction,
-			ClientSampling: &envoy_type1.Percent{
+			ClientSampling: &envoy_type.Percent{
 				Value: 100.0,
 			},
-			RandomSampling: &envoy_type1.Percent{
+			RandomSampling: &envoy_type.Percent{
 				Value: getTraceSampling(),
 			},
-			OverallSampling: &envoy_type1.Percent{
+			OverallSampling: &envoy_type.Percent{
 				Value: 100.0,
 			},
 		}
