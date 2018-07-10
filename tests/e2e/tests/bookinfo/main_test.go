@@ -40,7 +40,7 @@ const (
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
 	deploymentDir                      = "kube"
-	routeRulesDir                      = "kube"
+	routeRulesDir                      = "networking"
 	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
 	bookinfoRatingsMysqlYaml           = "bookinfo-ratings-v2-mysql"
@@ -51,15 +51,15 @@ const (
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
 	destRule                           = routeRulesDir + "/" + "destination-rule-all"
 	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
-	allRule                            = routeRulesDir + "/" + "route-rule-all-v1"
-	delayRule                          = routeRulesDir + "/" + "route-rule-ratings-test-delay"
-	tenRule                            = routeRulesDir + "/" + "/route-rule-reviews-90-10"
-	twentyRule                         = routeRulesDir + "/" + "route-rule-reviews-80-20"
-	fiftyRule                          = routeRulesDir + "/" + "route-rule-reviews-50-v3"
-	testRule                           = routeRulesDir + "/" + "route-rule-reviews-test-v2"
-	testDbRule                         = routeRulesDir + "/" + "route-rule-ratings-db"
-	testMysqlRule                      = routeRulesDir + "/" + "route-rule-ratings-mysql"
-	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "route-rule-details-v2"
+	allRule                            = routeRulesDir + "/" + "virtual-service-all-v1"
+	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
+	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
+	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
+	fiftyRule                          = routeRulesDir + "/" + "virtual-service-reviews-50-v3"
+	testRule                           = routeRulesDir + "/" + "virtual-service-reviews-test-v2"
+	testDbRule                         = routeRulesDir + "/" + "virtual-service-ratings-db"
+	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
+	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
 	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 )
@@ -67,8 +67,8 @@ const (
 var (
 	tc *testConfig
 	tf = &framework.TestFlags{
-		V1alpha1: true,  //implies envoyv1
-		V1alpha3: false, //implies envoyv2
+		V1alpha1: false, //implies envoyv1
+		V1alpha3: true,  //implies envoyv2
 		Ingress:  true,
 		Egress:   true,
 	}
@@ -111,20 +111,19 @@ func closeResponseBody(r *http.Response) {
 }
 
 func getPreprocessedRulePath(t *testConfig, version, rule string) string {
-	// transform, for example "routing/route-rule" into
-	// "{t.rulesDir}/routing/v1aplha3/route-rule.yaml"
+	// transform, for example "routing/virtual-service" into
+	// "{t.rulesDir}/routing/v1aplha3/virtual-service.yaml"
 	parts := strings.Split(rule, string(os.PathSeparator))
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 
-	return util.GetResourcePath(filepath.Join(t.rulesDir, "routing", version,
+	return util.GetResourcePath(filepath.Join(t.rulesDir, routeRulesDir, version,
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
 func getOriginalRulePath(version, rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
-	if version == "v1alpha3" {
-		parts[0] = "routing"
-	}
+
+	parts[0] = routeRulesDir
 	parts[len(parts)-1] = parts[len(parts)-1] + "." + yamlExtension
 	return util.GetResourcePath(filepath.Join(bookinfoSampleDir,
 		strings.Join(parts, string(os.PathSeparator))))
@@ -165,8 +164,8 @@ func (t *testConfig) Setup() error {
 		allRules = append(allRules, routeRulesDir+"/"+"destination-rule-all")
 		defaultRules = append(defaultRules, routeRulesDir+"/"+"destination-rule-all")
 	}
-	allRules = append(allRules, routeRulesDir+"/"+"route-rule-all-v1")
-	defaultRules = append(defaultRules, routeRulesDir+"/"+"route-rule-all-v1")
+	allRules = append(allRules, routeRulesDir+"/"+"virtual-service-all-v1")
+	defaultRules = append(defaultRules, routeRulesDir+"/"+"virtual-service-all-v1")
 	for _, rule := range allRules {
 		for _, configVersion := range tf.ConfigVersions() {
 			err := preprocessRule(t, configVersion, rule)
@@ -391,9 +390,9 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
 
-	if tf.V1alpha1 && tf.V1alpha3 {
-		check(errors.New("both v1alpha1 and v1alpha3 are requested"),
-			"cannot test both v1alpha1 and alpha3 simultaneously")
+	if tf.V1alpha1 {
+		check(errors.New("attempt to test deprecated v1alpha1"),
+			"attempt to test deprecated v1alpha1")
 	}
 
 	check(setTestConfig(), "could not create TestConfig")
