@@ -107,9 +107,9 @@ var (
 	DefaultPlugins = []string{
 		plugin.Authn,
 		plugin.Authz,
+		plugin.Mixer,
 		plugin.Envoyfilter,
 		plugin.Health,
-		plugin.Mixer,
 	}
 )
 
