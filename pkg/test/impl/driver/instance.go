@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
-	"istio.io/istio/pkg/test/label"
 	"istio.io/istio/pkg/test/local"
 )
 
@@ -42,7 +41,6 @@ type driver struct {
 	lock sync.Mutex
 
 	args          *Args
-	allowedLabels map[label.Label]struct{}
 	ctx           *internal.TestContext
 
 	// The names of the tests that we've encountered so far.
@@ -107,16 +105,6 @@ func (d *driver) Initialize(a *Args) error {
 
 	d.ctx = ctx
 	d.args = args
-
-	if args.Labels != "" {
-		d.allowedLabels = make(map[label.Label]struct{})
-
-		parts := strings.Split(args.Labels, ",")
-		for _, p := range parts {
-			d.allowedLabels[label.Label(p)] = struct{}{}
-		}
-		scope.Debugf("Suite level labels: %s", args.Labels)
-	}
 
 	return nil
 }
@@ -213,34 +201,6 @@ func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []depende
 			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
-	}
-}
-
-// CheckLabels implements same-named Interface method.
-func (d *driver) CheckLabels(t testing.TB, labels []label.Label) {
-	t.Helper()
-	scope.Debugf("Enter: driver.CheckLabels (%s)", d.ctx.TestID())
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	if !d.running {
-		t.Fatalf("Test driver is not running.")
-	}
-
-	skip := false
-	if len(d.allowedLabels) > 0 {
-		// Only filter if the labels are specified.
-		skip = true
-		for _, l := range labels {
-			if _, ok := d.allowedLabels[l]; ok {
-				skip = false
-				break
-			}
-		}
-	}
-
-	if skip && !t.Skipped() {
-		t.Skip("Skipping(Filtered): No matching label found")
 	}
 }
 

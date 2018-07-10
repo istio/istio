@@ -12,7 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package label
+package test
 
-// Label is just a basic string.
-type Label string
+import "testing"
+
+// Ignore the test with the given reason.
+func Ignore(t testing.TB, reason string) {
+	t.Helper()
+	t.Skipf("Skipping(Ignored): %s", reason)
+}
