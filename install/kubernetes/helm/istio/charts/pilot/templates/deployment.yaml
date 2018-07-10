@@ -64,7 +64,7 @@ spec:
             value: "5"
 {{- if .Values.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
-            value: {{ .Values.traceSampling }}
+            value: "{{ .Values.traceSampling }}"
 {{- end }}
           resources:
 {{- if .Values.resources }}
