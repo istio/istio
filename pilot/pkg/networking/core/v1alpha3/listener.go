@@ -66,7 +66,7 @@ var (
 	// Use /debug/ldsz instead.
 	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
 
-	// Mesh-wide trace sampling percentage, should be 0 - 100
+	// Mesh-wide trace sampling percentage, should be 0.0 - 100.0 Precision to 0.01
 	traceSampling        = os.Getenv("PILOT_TRACE_SAMPLING")
 	traceSamplingDefault = 10.0
 
@@ -777,9 +777,11 @@ func getTraceSampling() float64 {
 	}
 	f, err := strconv.ParseFloat(traceSampling, 64)
 	if err != nil {
+		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", traceSampling)
 		return traceSamplingDefault
 	}
 	if f < 0.0 || f > 100.0 {
+		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
 		return traceSamplingDefault
 	}
 	return f
