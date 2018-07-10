@@ -46,7 +46,7 @@ import (
 const (
 	bookinfoSampleDir     = "samples/bookinfo"
 	yamlExtension         = "yaml"
-	deploymentDir         = "deployment/kube"
+	deploymentDir         = "platform/kube"
 	bookinfoYaml          = "bookinfo"
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
