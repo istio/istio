@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/impl/driver"
-	"istio.io/istio/pkg/test/label"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
@@ -39,7 +38,6 @@ func Run(testID string, m *testing.M) {
 
 	args := *arguments
 	args.TestID = testID
-	args.NoCleanup = noCleanup
 	args.M = m
 
 	scope.Debugf("test.Run: command-line flags are parsed, and logging is initialized.")
@@ -58,12 +56,6 @@ func Run(testID string, m *testing.M) {
 	os.Exit(rt)
 }
 
-// Ignore the test with the given reason.
-func Ignore(t testing.TB, reason string) {
-	t.Helper()
-	t.Skipf("Skipping(Ignored): %s", reason)
-}
-
 // SuiteRequires indicates that the whole suite requires particular dependencies.
 func SuiteRequires(m *testing.M, dependencies ...dependency.Instance) {
 	// We only care that m exists at this point.
@@ -79,25 +71,6 @@ func SuiteRequires(m *testing.M, dependencies ...dependency.Instance) {
 func Requires(t testing.TB, dependencies ...dependency.Instance) {
 	t.Helper()
 	d.InitializeTestDependencies(t, dependencies)
-}
-
-// SuiteTag tags all tests in the suite with the given labels.
-func SuiteTag(m *testing.M, labels ...label.Label) {
-	// We only care that m exists at this point.
-	if m == nil {
-		panic("test.SuiteTag: nil testing.M")
-	}
-
-	arguments.SuiteLabels = append(arguments.SuiteLabels, labels...)
-}
-
-// Tag the test with the given labels. The user can filter using the labels.
-func Tag(t testing.TB, labels ...label.Label) {
-	// TODO: We should add a linter rule to ensure that this method is always called, to ensure that
-	// the label based skipping/checking always works.
-	// See https://github.com/istio/istio/issues/6176
-	t.Helper()
-	d.CheckLabels(t, labels)
 }
 
 // AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly

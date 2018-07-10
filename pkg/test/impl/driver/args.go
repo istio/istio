@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/label"
 )
 
 const (
@@ -33,10 +32,6 @@ const (
 
 // Args is the set of arguments to the test driver.
 type Args struct {
-	// Labels is the comma-separated set of set of labels for selecting tests to run. Tests matching to
-	// at least one specified label will be executed. If unspecified, all applicable tests will be executed.
-	Labels string
-
 	// Environment to run the tests in. By default, a local environment will be used.
 	Environment string
 
@@ -54,9 +49,6 @@ type Args struct {
 
 	// SuiteDependencies is the set of dependencies the suite needs.
 	SuiteDependencies []dependency.Instance
-
-	// SuiteLabels is the set of labels that is attached to the suite.
-	SuiteLabels []label.Label
 
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
