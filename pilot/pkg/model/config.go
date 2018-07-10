@@ -544,7 +544,7 @@ var (
 		ClusterScoped: true,
 		Type:          "rbac-config",
 		Plural:        "rbac-configs",
-		Group:         "config",
+		Group:         "rbac",
 		Version:       istioAPIVersion,
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateRbacConfig,
