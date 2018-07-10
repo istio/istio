@@ -157,6 +157,10 @@ bool Filter::IsMutualTLS() const {
   return Utils::IsMutualTLS(&filter_callbacks_->connection());
 }
 
+std::string Filter::GetRequestedServerName() const {
+  return filter_callbacks->connection().requestedServerName()
+}
+
 bool Filter::GetDestinationIpPort(std::string* str_ip, int* port) const {
   if (filter_callbacks_->upstreamHost() &&
       filter_callbacks_->upstreamHost()->address()) {

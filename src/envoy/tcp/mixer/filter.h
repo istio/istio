@@ -53,6 +53,7 @@ class Filter : public Network::Filter,
   bool GetSourceIpPort(std::string* str_ip, int* port) const override;
   bool GetSourceUser(std::string* user) const override;
   bool IsMutualTLS() const override;
+  std::string GetRequestedServerName() const override;
 
   // ReportData virtual functions.
   bool GetDestinationIpPort(std::string* str_ip, int* port) const override;
