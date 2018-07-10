@@ -77,6 +77,10 @@ std::map<std::string, std::string> CheckData::GetRequestHeaders() const {
 
 bool CheckData::IsMutualTLS() const { return Utils::IsMutualTLS(connection_); }
 
+std::string GetRequestedServerName() const {
+  return connection_.requestedServerName();
+}
+
 bool CheckData::FindHeaderByType(HttpCheckData::HeaderType header_type,
                                  std::string* value) const {
   switch (header_type) {
