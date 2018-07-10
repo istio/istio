@@ -293,7 +293,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
     return true;
   }));
   EXPECT_CALL(mock_data, GetRequestedServerName())
-      .WillOnce(Return("www.google.com"));
+      .WillOnce(testing::Return("www.google.com"));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
