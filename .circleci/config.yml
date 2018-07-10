@@ -437,6 +437,9 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "ac:01:9e:cb:2c:2f:77:b6:4d:e7:38:7f:47:60:8d:28"
       - run: make sync
       - run: make lint
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
