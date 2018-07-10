@@ -34,6 +34,9 @@ const (
 
 	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
 	CARootCertPath = "/etc/certs/ca-root-cert.pem"
+
+	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
+	SDSStatPrefix = "sdsstat"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -75,7 +78,8 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
-									TargetUri: sdsUdsPath,
+									TargetUri:  sdsUdsPath,
+									StatPrefix: SDSStatPrefix,
 									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
 											SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
