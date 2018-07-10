@@ -629,7 +629,6 @@ func TestValidateProxyConfig(t *testing.T) {
 
 var (
 	validService    = &mccpb.IstioService{Service: "*cnn.com"}
-	invalidService  = &mccpb.IstioService{Service: "^-foobar"}
 	validAttributes = &mpb.Attributes{
 		Attributes: map[string]*mpb.Attributes_AttributeValue{
 			"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
@@ -837,13 +836,6 @@ func TestValidateHTTPAPISpecBinding(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid service",
-			in: &mccpb.HTTPAPISpecBinding{
-				Services: []*mccpb.IstioService{invalidService},
-				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
-			},
-		},
-		{
 			name: "no spec",
 			in: &mccpb.HTTPAPISpecBinding{
 				Services: []*mccpb.IstioService{validService},
@@ -1002,13 +994,6 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 			name: "no service",
 			in: &mccpb.QuotaSpecBinding{
 				Services:   []*mccpb.IstioService{},
-				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
-			},
-		},
-		{
-			name: "invalid service",
-			in: &mccpb.QuotaSpecBinding{
-				Services:   []*mccpb.IstioService{invalidService},
 				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
 			},
 		},
