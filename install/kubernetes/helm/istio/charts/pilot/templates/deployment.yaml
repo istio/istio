@@ -62,6 +62,10 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+{{- if .Values.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: {{ .Values.traceSampling }}
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
