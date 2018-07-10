@@ -93,20 +93,21 @@ var (
 		Egress:   true,
 	}
 	configVersion      = ""
-	ingressName        = "ingress"
+	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 = "kube" // v1 rules directory by default
+	networkingDir            = "networking"
+	policyDir                = "policy"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
 	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
 	destinationRuleAll       = "destination-rule-all"
-	routeAllRule             = "route-rule-all-v1"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
-	routeReviewsV3Rule       = "route-rule-reviews-v3"
-	tcpDbRule                = "route-rule-ratings-db"
+	routeAllRule             = "virtual-service-all-v1"
+	routeReviewsVersionsRule = "virtual-service-reviews-v2-v3"
+	routeReviewsV3Rule       = "virtual-service-reviews-v3"
+	tcpDbRule                = "virtual-service-ratings-db"
 	bookinfoGateway          = "bookinfo-gateway"
 
 	defaultRules []string
@@ -129,19 +130,26 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha3 {
-		rulesDir = "routing"
-		ingressName = "ingressgateway"
+	if testFlags.V1alpha1 {
+		return fmt.Errorf("attempt to tests deprecated v1alpha1")
 	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
-	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+
 	for _, dr := range drs {
-		*dr = filepath.Join(rulesDir, *dr)
+		*dr = filepath.Join(networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
+
+	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
+		&kubeenvTelemetryRule}
 	for _, r := range rs {
-		*r = filepath.Join(rulesDir, *r)
+		*r = filepath.Join(policyDir, *r)
+		rules = append(rules, *r)
+	}
+
+	rs = []*string{&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	for _, r := range rs {
+		*r = filepath.Join(networkingDir, *r)
 		rules = append(rules, *r)
 	}
 
