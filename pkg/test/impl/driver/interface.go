@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/label"
 )
 
 // Interface for the test framework driver.
@@ -36,8 +35,4 @@ type Interface interface {
 
 	// InitializeTestDependencies checks and initializes the supplied dependencies appropriately.
 	InitializeTestDependencies(t testing.TB, dependencies []dependency.Instance)
-
-	// CheckLabels checks the labels against the user supplied filter, and skips the test if the labels
-	// do not match user supplied labels.
-	CheckLabels(t testing.TB, labels []label.Label)
 }

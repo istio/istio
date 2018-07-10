@@ -22,16 +22,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/label"
 )
 
 // Capturing TestMain allows us to:
 // - Do cleanup before exit
 // - process testing specific flags
 func TestMain(m *testing.M) {
-	// Tags all tests in the suite with this tag.
-	test.SuiteTag(m, label.Networking)
-
 	// Indicates that all tests in the suite requires a particular dependency.
 	//test.SuiteRequires(m, dependency.GKE)
 
@@ -41,12 +37,6 @@ func TestMain(m *testing.M) {
 // Ignore this test with a reason. Uses Go's "Skip"
 func TestIgnored(t *testing.T) {
 	test.Ignore(t, "bad test")
-}
-
-// Test categorization can be used to filter out tests.
-// Try running "go test -labels=networking" or "go test -labels=policy" etc.
-func TestCategorization(t *testing.T) {
-	test.Tag(t, label.Networking)
 }
 
 // Requirement checks and ensures that the specified requirement can be satisfied.
