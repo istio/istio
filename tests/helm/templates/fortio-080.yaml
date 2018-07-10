@@ -28,7 +28,11 @@ spec:
     spec:
       containers:
       - name: echosrv
+<<<<<<< HEAD
         image: istio/fortio:latest
+=======
+        image: {{ .Values.fortioImage }}
+>>>>>>> upstream/release-1.0
         imagePullPolicy: Always
         ports:
          - containerPort: 8080

@@ -354,6 +354,7 @@ const (
 // - consul: defaults to 'instance.Datacenter'
 //
 // This is used by EDS to group the endpoints by AZ and by .
+// TODO: remove me?
 func (si *ServiceInstance) GetAZ() string {
 	if si.AvailabilityZone != "" {
 		return si.AvailabilityZone

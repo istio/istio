@@ -20,7 +20,7 @@ export ISTIO_GO
 SHELL := /bin/bash
 
 # Current version, updated after a release.
-VERSION ?= 0.8-dev
+VERSION ?= 1.0-dev
 
 # locations where artifacts are stored
 ISTIO_DOCKER_HUB ?= docker.io/istio
@@ -312,6 +312,7 @@ mixs:
 $(MIXER_GO_BINS):
 	bin/gobuild.sh $@ ./mixer/cmd/$(@F)
 
+.PHONY: galley
 GALLEY_GO_BINS:=${ISTIO_OUT}/galley
 galley:
 	bin/gobuild.sh ${ISTIO_OUT}/galley ./galley/cmd/galley
@@ -370,7 +371,6 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
-	cp bin/dump_kubernetes.sh ${ISTIO_OUT}/archive
 	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"
@@ -399,7 +399,7 @@ JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 test: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(MAKE) --keep-going common-test pilot-test mixer-test security-test broker-test galley-test istioctl-test \
+	$(MAKE) --keep-going common-test pilot-test mixer-test security-test galley-test istioctl-test \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
@@ -445,10 +445,6 @@ mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
 
-.PHONY: broker-test
-broker-test: depend
-	go test ${T} ./broker/...
-
 .PHONY: galley-test
 galley-test: depend
 	go test ${T} ./galley/...
@@ -469,7 +465,7 @@ common-test:
 .PHONY: coverage
 
 # Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage broker-coverage galley-coverage common-coverage istioctl-coverage
+coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
 
 .PHONY: pilot-coverage
 pilot-coverage:
@@ -482,10 +478,6 @@ istioctl-coverage:
 .PHONY: mixer-coverage
 mixer-coverage:
 	bin/codecov.sh mixer
-
-.PHONY: broker-coverage
-broker-coverage:
-	bin/codecov.sh broker
 
 .PHONY: galley-coverage
 galley-coverage:
@@ -507,7 +499,7 @@ common-coverage:
 .PHONY: racetest
 
 # Run race tests
-racetest: pilot-racetest mixer-racetest security-racetest broker-racetest galley-test common-racetest istioctl-racetest
+racetest: pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest
 
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
@@ -521,10 +513,6 @@ istioctl-racetest: istioctl
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
 	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
-
-.PHONY: broker-racetest
-broker-racetest: depend
-	RACE_TEST=true go test ${T} -race ./broker/...
 
 .PHONY: galley-racetest
 galley-racetest: depend

@@ -1,0 +1,112 @@
+// Copyright 2018 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+package istio.mcp.v1alpha1;
+
+import "google/protobuf/struct.proto";
+import "google/rpc/status.proto";
+import "gogoproto/gogo.proto";
+import "mcp/v1alpha1/envelope.proto";
+
+option go_package="istio.io/api/mcp/v1alpha1";
+option (gogoproto.equal_all) = true;
+
+// Identifies a specific MCP client instance. The client identifier is
+// presented to the management server, which may use this identifier
+// to distinguish per client configuration for serving. This
+// information is not authoriative. Authoritative identity should come
+// from the underlying transport layer (e.g. rpc credentials).
+message Client {
+  // An opaque identifier for the MCP client.
+  string id = 1;
+
+  // Opaque metadata extending the client identifier.
+  google.protobuf.Struct metadata = 2;
+}
+
+// A MeshConfigRequest requests a set of versioned resources of the
+// same type for a given client.
+message MeshConfigRequest {
+  // The version_info provided in the request messages will be the
+  // version_info received with the most recent successfully processed
+  // response or empty on the first request. It is expected that no
+  // new request is sent after a response is received until the client
+  // instance is ready to ACK/NACK the new configuration. ACK/NACK
+  // takes place by returning the new API config version as applied or
+  // the previous API config version respectively. Each type_url (see
+  // below) has an independent version associated with it.
+  string version_info = 1;
+
+  // The client making the request.
+  Client client = 2;
+
+  // Type of the resource that is being requested, e.g.
+  // "type.googleapis.com/istio.io.networking.v1alpha3.VirtualService".
+  string type_url = 3;
+
+  // The nonce corresponding to MeshConfigResponse being
+  // ACK/NACKed. See above discussion on version_info and the
+  // MeshConfigResponse nonce comment. This may be empty if no nonce is
+  // available, e.g. at startup.
+  string response_nonce = 4;
+
+  // This is populated when the previous MeshConfigResponse failed to
+  // update configuration. The *message* field in *error_details*
+  // provides the client internal exception related to the failure. It
+  // is only intended for consumption during manual debugging, the
+  // string provided is not guaranteed to be stable across client
+  // versions.
+  google.rpc.Status error_detail = 5;
+}
+
+// A MeshConfigResponse delivers a set of versioned resources of the
+// same type in response to a MeshConfigRequest.
+message MeshConfigResponse {
+  // The version of the response data.
+  string version_info = 1;
+
+  // The response resources wrapped in the common MCP *Envelope*
+  // message.
+  repeated Envelope envelopes = 2 [(gogoproto.nullable) = false];
+
+  // Type URL for resources wrapped in the provided envelope(s). This
+  // must be consistent with the type_url in the wrapper messages if
+  // envelopes is non-empty.
+  string type_url = 3;
+
+  // The nonce provides a way to explicitly ack a specific
+  // MeshConfigResponse in a following MeshConfigRequest. Additional
+  // messages may have been sent by client to the management server for
+  // the previous version on the stream prior to this
+  // MeshConfigResponse, that were unprocessed at response send
+  // time. The nonce allows the management server to ignore any
+  // further MeshConfigRequests for the previous version until a
+  // MeshConfigRequest bearing the nonce.
+  string nonce = 4;
+}
+
+// The aggregated mesh configuration services allow a single
+// management server, via a single gRPC stream, to deliver all API
+// updates.
+service AggregatedMeshConfigService {
+  // StreamAggregatedResources provides the ability to carefully
+  // sequence updates across multiple resource types. A single stream
+  // is used with multiple independent MeshConfigRequest /
+  // MeshConfigResponses sequences multiplexed via the type URL.
+  rpc StreamAggregatedResources(stream MeshConfigRequest)
+      returns (stream MeshConfigResponse) {
+  }
+}

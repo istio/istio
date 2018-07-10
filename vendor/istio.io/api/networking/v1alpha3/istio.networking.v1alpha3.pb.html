@@ -766,7 +766,7 @@ envoy.http<em>connection</em>manager.</p>
 <td><code>listenerMatch</code></td>
 <td><code><a href="#EnvoyFilter-ListenerMatch">EnvoyFilter.ListenerMatch</a></code></td>
 <td>
-<p>Filter will be added to the listner only if the match conditions are true.
+<p>Filter will be added to the listener only if the match conditions are true.
 If not specified, the filters will be applied to all listeners.</p>
 
 </td>
@@ -938,7 +938,7 @@ to be applied to a listener.</p>
 <td><code>uint32</code></td>
 <td>
 <p>The service port/gateway port to which traffic is being
-sent/received. If not specified, matches all listeners. Eventhough
+sent/received. If not specified, matches all listeners. Even though
 inbound listeners are generated for the instance/pod ports, only
 service ports should be used to match listeners.</p>
 
@@ -981,7 +981,7 @@ passthrough using SNI).</p>
 <td><code>string[]</code></td>
 <td>
 <p>One or more IP addresses to which the listener is bound. If
-specified, should match atleast one address in the list.</p>
+specified, should match at least one address in the list.</p>
 
 </td>
 </tr>
@@ -2000,9 +2000,9 @@ service.</p>
 
 </td>
 </tr>
-<tr id="LoadBalancerSettings-ConsistentHashLB-source_ip" class="oneof">
-<td><code>sourceIp</code></td>
-<td><code>string (oneof)</code></td>
+<tr id="LoadBalancerSettings-ConsistentHashLB-use_source_ip" class="oneof">
+<td><code>useSourceIp</code></td>
+<td><code>bool (oneof)</code></td>
 <td>
 <p>Hash based on the source IP address.</p>
 
@@ -2782,7 +2782,7 @@ prefix.  For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
 header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
-the incoming traffic will be idenfified as belonging to this service
+the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
 field. If the Addresses field is empty, traffic will be identified
 solely based on the destination port. In such scenarios, the port on

@@ -67,7 +67,7 @@ spec:
     spec:
       containers:
       - name: fortio
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         ports:
          - containerPort: 8080
          - containerPort: 8079
