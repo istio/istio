@@ -90,12 +90,6 @@ attributes {
   }
 }
 attributes {
-  key: "connection.requested_server_name"
-  value {
-    string_value: "www.google.com"
-  }
-}
-attributes {
   key: "source.principal"
   value {
     string_value: "test_user"
@@ -292,8 +286,6 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
-  EXPECT_CALL(mock_data, GetRequestedServerName())
-      .WillOnce(testing::Return("www.google.com"));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -349,8 +341,6 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
-  EXPECT_CALL(mock_data, GetRequestedServerName())
-      .WillOnce(testing::Return("www.google.com"));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
