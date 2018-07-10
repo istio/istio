@@ -29,9 +29,6 @@ import (
 )
 
 const (
-	// SDSCertPath is the path of cert that envoy uses to communicate with SDS service through secure gPRC.
-	SDSCertPath = "/etc/certs/nodeagent-sds-cert.pem"
-
 	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
 	CARootCertPath = "/etc/certs/ca-root-cert.pem"
 
@@ -80,17 +77,6 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 								GoogleGrpc: &core.GrpcService_GoogleGrpc{
 									TargetUri:  sdsUdsPath,
 									StatPrefix: SDSStatPrefix,
-									ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-										CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-											SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
-												CertChain: &core.DataSource{
-													Specifier: &core.DataSource_Filename{
-														Filename: SDSCertPath,
-													},
-												},
-											},
-										},
-									},
 								},
 							},
 						},
