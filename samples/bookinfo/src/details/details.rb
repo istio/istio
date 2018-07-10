@@ -82,12 +82,12 @@ def fetch_details_from_external_service(isbn, id, headers)
     http = Net::HTTP.new(uri.host, uri.port)
     http.read_timeout = 5 # seconds
 
-    # DO_NOT_ENCRYPT means that the app must access external services without TLS,
-    # using unencrypted traffic protocols like HTTP. The TLS origination will be
-    # performed if needed, elsewhere, e.g. by a sidecar proxy.
+    # DO_NOT_ENCRYPT is used to configure the details service to use either
+    # HTTP (true) or HTTPS (false, default) when calling the external service to
+    # retrieve the book information.
     #
-    # If this environment variable is false, the app must use TLS, e.g. HTTPS, to access
-    # external services.
+    # Unless this environment variable is set to true, the app will use TLS (HTTPS)
+    # to access external services.
     unless ENV['DO_NOT_ENCRYPT'] === 'true' then
       http.use_ssl = true
     end
