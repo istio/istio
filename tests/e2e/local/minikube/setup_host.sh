@@ -55,7 +55,8 @@ fi
 #Setup LocalRegistry
 if [ ! -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml ]; then
     echo File $ISTIO/istio/tests/util/localregistry/localregistry.yaml not found!.
-    echo Please check $ISTIO path is pointing to your Istio codebase.
+    echo Please make sure $ISTIO points to your Istio codebase.
+    echo See https://github.com/istio/istio/wiki/Dev-Guide#setting-up-environment-variables
     exit
 fi
 kubectl apply -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml
