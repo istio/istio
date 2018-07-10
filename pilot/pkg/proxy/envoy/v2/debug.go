@@ -64,6 +64,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
+	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -610,6 +611,23 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
+
+// PushStatusHandler dumps the last PushStatus
+func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	if model.LastPushStatus == nil {
+		return
+	}
+	out, err := json.MarshalIndent(model.LastPushStatus, "", "    ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(out)
+	w.WriteHeader(http.StatusOK)
+}
+
 
 func writeAllADS(w io.Writer) {
 	adsClientsMutex.RLock()

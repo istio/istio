@@ -144,7 +144,16 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		monVServices.Set(float64(len(s.virtualServices)))
 		s.modelMutex.RUnlock()
 
+		// Reset the status during the push.
+		if s.env.PushStatus != nil {
+			adsLog.Info("Push status already set")
+		}
+		s.env.PushStatus = model.NewStatus()
+
 		PushAll()
+
+		s.env.PushStatus.AfterPush()
+		s.env.PushStatus = nil
 	}
 }
 

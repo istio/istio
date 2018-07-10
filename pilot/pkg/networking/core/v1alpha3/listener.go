@@ -67,10 +67,6 @@ var (
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
 	// TODO: add dimensions - namespace of rule, service, rule name
-	conflictingOutbound = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "pilot_conf_out_listeners",
-		Help: "Number of conflicting listeners.",
-	})
 	invalidOutboundListeners = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "pilot_invalid_out_listeners",
 		Help: "Number of invalid outbound listeners.",
@@ -82,7 +78,6 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(conflictingOutbound)
 	prometheus.MustRegister(invalidOutboundListeners)
 	prometheus.MustRegister(filterChainsConflict)
 }
@@ -389,7 +384,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !listenerTypeMap[listenerMapKey].IsHTTP() {
-						conflictingOutbound.Add(1)
+						pushStat := env.PushStatus
+						if pushStat != nil {
+							pushStat.Mutex.Lock()
+							pushStat.ConflictingOutbound[listenerMapKey] = fmt.Sprintf("(%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+								servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
+							pushStat.Mutex.Unlock()
+						}
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
 					}
@@ -423,7 +424,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !listenerTypeMap[listenerMapKey].IsTCP() {
-						conflictingOutbound.Add(1)
+						pushStat := env.PushStatus
+						if pushStat != nil {
+							pushStat.Mutex.Lock()
+							pushStat.ConflictingOutbound[listenerMapKey] = fmt.Sprintf("(%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+								servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
+							pushStat.Mutex.Unlock()
+						}
 						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
 						continue

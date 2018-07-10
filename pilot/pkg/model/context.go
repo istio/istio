@@ -45,6 +45,10 @@ type Environment struct {
 
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
+
+	// ConfigStatus holds informations during push generation. It is reset on config change, at the beginning
+	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
+	PushStatus *ConfigStatus
 }
 
 // Proxy defines the proxy attributes used by xDS identification
