@@ -53,6 +53,11 @@ if [[ -z "${ISTIO// }" ]]; then
 fi
 
 #Setup LocalRegistry
+if [ ! -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml ]; then
+    echo File $ISTIO/istio/tests/util/localregistry/localregistry.yaml not found!.
+    echo Please check $ISTIO path is pointing to your Istio codebase.
+    exit
+fi
 kubectl apply -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml
 echo "local registry started"
 
