@@ -18,17 +18,35 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/log"
+)
+
+const (
+	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
+	CARootCertPath = "/etc/certs/ca-root-cert.pem"
+
+	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
+	SDSStatPrefix = "sdsstat"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
-func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(service, port)
+// service specified by hostname and port, if defined.
+// If not, it generates and output a policy that is equivalent to the legacy flag
+// and/or service annotation. Once these legacy flags/config deprecated,
+// this function can be placed by a call to store.AuthenticationPolicyByDestination
+// directly.
+func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
+	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -36,6 +54,64 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 		}
 	}
 
+	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
+		hostname, port.Port, mesh.AuthPolicy)
+	return legacyAuthenticationPolicyToPolicy(mesh.AuthPolicy)
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Duration, sdsUdsPath string) *auth.SdsSecretConfig {
+	if serviceAccount == "" || sdsUdsPath == "" || refreshDuration == nil {
+		return nil
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: serviceAccount,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: &core.GrpcService_GoogleGrpc{
+									TargetUri:  sdsUdsPath,
+									StatPrefix: SDSStatPrefix,
+								},
+							},
+						},
+					},
+					RefreshDelay: refreshDuration,
+				},
+			},
+		},
+	}
+}
+
+// ConstructValidationContext constructs ValidationContext in CommonTlsContext.
+func ConstructValidationContext(rootCAFilePath string) *auth.CommonTlsContext_ValidationContext {
+	return &auth.CommonTlsContext_ValidationContext{
+		ValidationContext: &auth.CertificateValidationContext{
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: rootCAFilePath,
+				},
+			},
+		},
+	}
+}
+
+// If input legacy is MeshConfig_MUTUAL_TLS, return a authentication policy equivalent to it. Else,
+// returns nil (implies no authentication is used)
+func legacyAuthenticationPolicyToPolicy(legacy meshconfig.MeshConfig_AuthPolicy) *authn.Policy {
+	if legacy == meshconfig.MeshConfig_MUTUAL_TLS {
+		return &authn.Policy{
+			Peers: []*authn.PeerAuthenticationMethod{{
+				Params: &authn.PeerAuthenticationMethod_Mtls{
+					&authn.MutualTls{},
+				}}},
+		}
+	}
 	return nil
 }
 

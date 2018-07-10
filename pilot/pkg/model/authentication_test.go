@@ -17,6 +17,13 @@ package model
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+
+	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestParseJwksURI(t *testing.T) {
@@ -79,6 +86,94 @@ func TestParseJwksURI(t *testing.T) {
 					c.in, c.expectedHostname, c.expectedPort, c.expectedUseSSL,
 					host, port, useSSL)
 			}
+		}
+	}
+}
+
+func TestLegacyAuthenticationPolicyToPolicy(t *testing.T) {
+	cases := []struct {
+		in       meshconfig.MeshConfig_AuthPolicy
+		expected *authn.Policy
+	}{
+		{
+			in: meshconfig.MeshConfig_MUTUAL_TLS,
+			expected: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
+				}},
+			},
+		},
+		{
+			in:       meshconfig.MeshConfig_NONE,
+			expected: nil,
+		},
+	}
+
+	for _, c := range cases {
+		if got := legacyAuthenticationPolicyToPolicy(c.in); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("legacyAuthenticationPolicyToPolicy(%v): got(%#v) != want(%#v)\n", c.in, got, c.expected)
+		}
+	}
+}
+
+func TestConstructSdsSecretConfig(t *testing.T) {
+	refreshDelay := 15 * time.Second
+
+	cases := []struct {
+		serviceAccount  string
+		refreshDuration *time.Duration
+		sdsUdsPath      string
+		expected        *auth.SdsSecretConfig
+	}{
+		{
+			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:      "/tmp/sdsuds.sock",
+			refreshDuration: &refreshDelay,
+			expected: &auth.SdsSecretConfig{
+				Name: "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType: core.ApiConfigSource_GRPC,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+										GoogleGrpc: &core.GrpcService_GoogleGrpc{
+											TargetUri:  "/tmp/sdsuds.sock",
+											StatPrefix: SDSStatPrefix,
+										},
+									},
+								},
+							},
+							RefreshDelay: &refreshDelay,
+						},
+					},
+				},
+			},
+		},
+		{
+			serviceAccount:  "",
+			sdsUdsPath:      "/tmp/sdsuds.sock",
+			refreshDuration: &refreshDelay,
+			expected:        nil,
+		},
+		{
+			serviceAccount:  "",
+			sdsUdsPath:      "spiffe://cluster.local/ns/bar/sa/foo",
+			refreshDuration: &refreshDelay,
+			expected:        nil,
+		},
+		{
+			serviceAccount:  "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:      "/tmp/sdsuds.sock",
+			refreshDuration: nil,
+			expected:        nil,
+		},
+	}
+
+	for _, c := range cases {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.refreshDuration, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
 }

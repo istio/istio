@@ -66,7 +66,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
-	s.initGrpcServer()
+	s.grpcServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.envoySds.register(s.grpcServer)
 
 	var err error
@@ -87,14 +87,8 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 	return nil
 }
 
-func (s *Server) initGrpcServer() {
-	grpcOptions := s.grpcServerOptions()
-	s.grpcServer = grpc.NewServer(grpcOptions...)
-}
-
-func (s *Server) grpcServerOptions() []grpc.ServerOption {
-	grpcOptions := []grpc.ServerOption{
+func (s *Server) grpcServerOptions(options *Options) []grpc.ServerOption {
+	return []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 	}
-	return grpcOptions
 }
