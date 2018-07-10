@@ -357,6 +357,18 @@ func addDestinationServiceAttributes(node *model.Proxy, attrs attributes, discov
 	attrs["destination.service"] = attrStringValue(destinationHostname.String()) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
+<<<<<<< HEAD
+	serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
+	if err == nil && serviceAttributes != nil {
+		if serviceAttributes.Name != "" {
+			attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
+		}
+		if serviceAttributes.Namespace != "" {
+			attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
+		}
+		if serviceAttributes.UID != "" {
+			attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
+=======
 	if has10Config(node) {
 		// Not compatible with Istio 0.8 - can be added back only if version 1.0+ is detected or post 1.0
 		serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
@@ -370,6 +382,7 @@ func addDestinationServiceAttributes(node *model.Proxy, attrs attributes, discov
 			if serviceAttributes.UID != "" {
 				attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
 			}
+>>>>>>> upstream/release-1.0
 		}
 	}
 	return attrs

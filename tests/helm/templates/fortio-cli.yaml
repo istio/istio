@@ -26,7 +26,11 @@ spec:
           - -c
           - "32"
           - -qps
+<<<<<<< HEAD
+          - "1000"
+=======
           - "{{ .Values.qps }}"
+>>>>>>> upstream/release-1.0
           - http://fortiotls.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -61,7 +65,11 @@ spec:
           - -c
           - "32"
           - -qps
+<<<<<<< HEAD
+          - "1000"
+=======
           - "{{ .Values.qps }}"
+>>>>>>> upstream/release-1.0
           - http://fortionoistio.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -96,7 +104,11 @@ spec:
           - -c
           - "32"
           - -qps
+<<<<<<< HEAD
+          - "1000"
+=======
           - "{{ .Values.qps }}"
+>>>>>>> upstream/release-1.0
           - http://fortiomaster.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -132,7 +144,11 @@ spec:
           - -c
           - "32"
           - -qps
+<<<<<<< HEAD
+          - "1000"
+=======
           - "{{ .Values.qps }}"
+>>>>>>> upstream/release-1.0
           - http://fortio10rc1.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -168,7 +184,11 @@ spec:
           - -c
           - "32"
           - -qps
+<<<<<<< HEAD
+          - "1000"
+=======
           - "{{ .Values.qps }}"
+>>>>>>> upstream/release-1.0
           - http://fortio080.{{ .Values.domain }}/echo?size=5000
         resources:
           requests:
@@ -177,6 +197,8 @@ spec:
           limits:
             cpu: 500m
             memory: "1G"
+<<<<<<< HEAD
+=======
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -278,3 +300,4 @@ spec:
           limits:
             cpu: 500m
             memory: "1G"
+>>>>>>> upstream/release-1.0

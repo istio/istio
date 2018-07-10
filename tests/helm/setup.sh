@@ -8,13 +8,23 @@ function testIstioSystem() {
     --values tests/helm/values-istio-test.yaml \
     --set global.refreshInterval=30s \
     --set global.tag=$TAG \
+<<<<<<< HEAD
+=======
     --set global.meshExpansion=true \
+>>>>>>> upstream/release-1.0
     --set global.proxy.accessLogFile="" \
     --set global.proxy.resources.requests.cpu=1100m \
     --set global.proxy.resources.requests.memory=256Mi \
     --set global.imagePullPolicy=Always \
     --set global.hub=$HUB \
+<<<<<<< HEAD
+    --set gateways.istio-ingressgateway.resources.requests.cpu=1900m \
+    --set gateways.istio-ingressgateway.resources.requests.memory=512Mi \
+    --set gateways.istio-ingressgateway.resources.limits.cpu=1900m \
+    --set gateways.istio-ingressgateway.resources.limits.memory=512Mi \
+=======
     --set global.configValidation=false \
+>>>>>>> upstream/release-1.0
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
    popd
@@ -41,7 +51,10 @@ function testApply() {
    local F=${1:-"istio/fortio:latest"}
    pushd $TOP/src/istio.io/istio
    helm -n test template \
+<<<<<<< HEAD
+=======
     --set fortioImage=$F \
+>>>>>>> upstream/release-1.0
     tests/helm |kubectl -n test apply -f -
    popd
 }
@@ -82,4 +95,8 @@ function testAddDNS() {
     gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=${N}.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
 
     gcloud dns --project=$DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> upstream/release-1.0

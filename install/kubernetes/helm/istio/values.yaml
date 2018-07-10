@@ -2,7 +2,11 @@
 global:
   # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
+<<<<<<< HEAD
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on
+=======
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+>>>>>>> upstream/release-1.0
   hub: docker.io/istionightly
 
   # Default tag for Istio images.
@@ -11,6 +15,8 @@ global:
   proxy:
     image: proxyv2
 
+<<<<<<< HEAD
+=======
     # Resources for the sidecar.
     resources: 
       requests:
@@ -20,6 +26,7 @@ global:
       #   cpu: 100m
       #   memory: 128Mi
 
+>>>>>>> upstream/release-1.0
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"

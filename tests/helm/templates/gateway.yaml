@@ -20,14 +20,20 @@ spec:
     - "fortio2.{{ .Values.domain }}"
     - "fortiotls.{{ .Values.domain }}"
     - "fortionoistio.{{ .Values.domain }}"
+<<<<<<< HEAD
+=======
     - "fortionoistio1.{{ .Values.domain }}"
+>>>>>>> upstream/release-1.0
     - "bookinfo.{{ .Values.domain }}"
     - "httpbin.{{ .Values.domain }}"
     - "fortio080.{{ .Values.domain }}"
     - "fortio10rc1.{{ .Values.domain }}"
     - "fortiomaster.{{ .Values.domain }}"
     - "fortiocli.{{ .Values.domain }}"
+<<<<<<< HEAD
+=======
     - "fortio-tproxy.{{ .Values.domain }}"
+>>>>>>> upstream/release-1.0
   - port:
       number: 5201
       protocol: TCP

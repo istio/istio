@@ -3,6 +3,7 @@
 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
+<<<<<<< HEAD
 metadata:
   name: fortionoistio
 spec:
@@ -23,6 +24,28 @@ kind: Service
 metadata:
   name: fortionoistio
 spec:
+=======
+metadata:
+  name: fortionoistio
+spec:
+  hosts:
+  - "fortionoistio.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortionoistio.test.svc.cluster.local
+        port:
+          number: 8080
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortionoistio
+spec:
+>>>>>>> upstream/release-1.0
   ports:
   - port: 8080
     name: http-echo
@@ -30,6 +53,8 @@ spec:
     name: grpc-ping
   selector:
     name: fortionoistio
+<<<<<<< HEAD
+=======
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -90,19 +115,30 @@ spec:
     name: grpc-ping
   selector:
     name: fortionoistio1
+>>>>>>> upstream/release-1.0
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
+<<<<<<< HEAD
+  name: fortionoistio
+=======
   name: fortionoistio1
+>>>>>>> upstream/release-1.0
 spec:
   replicas: 1
   template:
     metadata:
       labels:
+<<<<<<< HEAD
+        app: fortionoistio
+        name: fortionoistio
+        version: fortionoistio
+=======
         app: fortionoistio1
         name: fortionoistio1
         version: fortionoistio1
+>>>>>>> upstream/release-1.0
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

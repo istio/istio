@@ -20,8 +20,14 @@ data:
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
+<<<<<<< HEAD
+    # To disable the mixer completely (including metrics), comment out
+    # the following lines
+    # Deprecated: mixer is using EDS
+=======
     # Deprecated: mixer is using EDS
     {{- if .Values.mixer.enabled }}
+>>>>>>> upstream/release-1.0
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
     {{- end }}
