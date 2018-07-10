@@ -316,6 +316,8 @@ security:
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
   cleanUpOldCA: true
+  # Enabled Health Check will add the livenessProbe to the Citadel container
+  healthCheckEnabled: false
 
 #
 # addons configuration
