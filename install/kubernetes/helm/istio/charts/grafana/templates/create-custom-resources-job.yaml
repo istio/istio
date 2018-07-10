@@ -1,4 +1,3 @@
-{{- if .Values.global.mtls.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -76,4 +75,3 @@ spec:
           configMap:
             name: istio-grafana-custom-resources
       restartPolicy: OnFailure
-{{- end }}
