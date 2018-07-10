@@ -6,7 +6,7 @@ spec:
   hosts:
   - productpage
   gateways:
-  - bookinfo
+  - bookinfo-gateway
   - mesh #TODO remove this if not needed
   http:
   - route:
