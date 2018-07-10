@@ -59,6 +59,8 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
+
+	traceSamplingDefault = 10.0
 )
 
 var (
@@ -67,8 +69,8 @@ var (
 	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
 
 	// Mesh-wide trace sampling percentage, should be 0.0 - 100.0 Precision to 0.01
-	traceSampling        = os.Getenv("PILOT_TRACE_SAMPLING")
-	traceSamplingDefault = 10.0
+	traceSamplingEnv = os.Getenv("PILOT_TRACE_SAMPLING")
+	traceSampling    = getTraceSampling()
 
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
@@ -697,7 +699,7 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 				Value: 100.0,
 			},
 			RandomSampling: &envoy_type.Percent{
-				Value: getTraceSampling(),
+				Value: traceSampling,
 			},
 			OverallSampling: &envoy_type.Percent{
 				Value: 100.0,
@@ -772,12 +774,12 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 // Return trace sampling if set correctly, or default if not.
 func getTraceSampling() float64 {
-	if traceSampling == "" {
+	if traceSamplingEnv == "" {
 		return traceSamplingDefault
 	}
-	f, err := strconv.ParseFloat(traceSampling, 64)
+	f, err := strconv.ParseFloat(traceSamplingEnv, 64)
 	if err != nil {
-		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", traceSampling)
+		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", traceSamplingEnv)
 		return traceSamplingDefault
 	}
 	if f < 0.0 || f > 100.0 {
