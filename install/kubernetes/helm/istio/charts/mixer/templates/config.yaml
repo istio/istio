@@ -220,6 +220,7 @@ spec:
     requestSize: request.size | 0
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
+    requestedServerName: connection.requested_server_name | ""
     userAgent: request.useragent | ""
     responseTimestamp: response.time
     receivedBytes: request.total_size | connection.received.bytes | 0
