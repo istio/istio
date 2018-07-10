@@ -36,7 +36,7 @@ import (
 const (
 	u1              = "normal-user"
 	u2              = "test-user"
-	bookinfoYaml    = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoYaml    = "samples/bookinfo/deployment/kube/bookinfo.yaml"
 	bookinfoGateway = "bookinfo-gateway.yaml"
 	modelDir        = "tests/apps/bookinfo/output"
 	rulesDir        = "samples/bookinfo/networking"
