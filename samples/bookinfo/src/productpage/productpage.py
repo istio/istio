@@ -22,6 +22,7 @@ import sys
 from json2html import *
 import logging
 import requests
+import os
 
 # These two lines enable debugging at httplib level (requests->urllib3->http.client)
 # You will see the REQUEST, including HEADERS and DATA, and RESPONSE with HEADERS but without DATA.
@@ -44,26 +45,28 @@ app.logger.setLevel(logging.DEBUG)
 from flask_bootstrap import Bootstrap
 Bootstrap(app)
 
+servicesDomain = "" if (os.environ.get("SERVICES_DOMAIN") == None) else "." + os.environ.get("SERVICES_DOMAIN")
+
 details = {
-    "name" : "http://details:9080",
+    "name" : "http://details{0}:9080".format(servicesDomain),
     "endpoint" : "details",
     "children" : []
 }
 
 ratings = {
-    "name" : "http://ratings:9080",
+    "name" : "http://ratings{0}:9080".format(servicesDomain),
     "endpoint" : "ratings",
     "children" : []
 }
 
 reviews = {
-    "name" : "http://reviews:9080",
+    "name" : "http://reviews{0}:9080".format(servicesDomain),
     "endpoint" : "reviews",
     "children" : [ratings]
 }
 
 productpage = {
-    "name" : "http://productpage:9080",
+    "name" : "http://details{0}:9080".format(servicesDomain),
     "endpoint" : "details",
     "children" : [details, reviews]
 }
@@ -243,6 +246,8 @@ class Writer(object):
 
     def write(self, data):
         self.file.write(data)
+
+    def flush(self):
         self.file.flush()
 
 if __name__ == '__main__':
