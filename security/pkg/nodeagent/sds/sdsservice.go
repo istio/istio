@@ -41,7 +41,7 @@ import (
 
 const (
 	// SecretType is used for secret discovery service to construct response.
-	SecretType = "type.googleapis.com/envoy.api.v2.Secret"
+	SecretType = "type.googleapis.com/envoy.api.v2.auth.Secret"
 
 	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
