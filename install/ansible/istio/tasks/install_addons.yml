@@ -1,9 +1,5 @@
 - name: Install Kiali
   block:
-  
-  - set_fact: 
-      kiali_version: v0.4.0
-
   - name: Install Kiali on Openshift
     shell: |
       curl https://raw.githubusercontent.com/kiali/kiali/{{ kiali_version }}/deploy/openshift/kiali-configmap.yaml | VERSION_LABEL={{ kiali_version }} envsubst | {{ cmd_path }} create -n {{ istio_namespace }} -f -
