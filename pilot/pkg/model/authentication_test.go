@@ -141,17 +141,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
 											TargetUri:  "/tmp/sdsuds.sock",
 											StatPrefix: SDSStatPrefix,
-											ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-												CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_SslCredentials{
-													SslCredentials: &core.GrpcService_GoogleGrpc_SslCredentials{
-														CertChain: &core.DataSource{
-															Specifier: &core.DataSource_Filename{
-																Filename: SDSCertPath,
-															},
-														},
-													},
-												},
-											},
 										},
 									},
 								},
