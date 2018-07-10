@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -58,66 +57,6 @@ type testCaseGoldenFile struct {
 }
 
 var (
-	testRouteRules = []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				Name:      "d",
-				Namespace: "default",
-				Type:      model.RouteRule.Type,
-				Group:     model.RouteRule.Group,
-				Version:   model.RouteRule.Version,
-			},
-			Spec: &v1alpha1.RouteRule{
-				Precedence: 2,
-				Destination: &v1alpha1.IstioService{
-					Name: "d",
-				},
-			},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "b",
-				Namespace: "default",
-				Type:      model.RouteRule.Type,
-				Group:     model.RouteRule.Group,
-				Version:   model.RouteRule.Version,
-			},
-			Spec: &v1alpha1.RouteRule{
-				Precedence: 3,
-				Destination: &v1alpha1.IstioService{
-					Name: "b",
-				},
-			},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "c",
-				Namespace: "istio-system",
-				Type:      model.RouteRule.Type,
-				Group:     model.RouteRule.Group,
-				Version:   model.RouteRule.Version,
-			},
-			Spec: &v1alpha1.RouteRule{
-				Precedence: 2,
-				Destination: &v1alpha1.IstioService{
-					Name: "c",
-				},
-			},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "a",
-				Namespace: "default",
-				Type:      model.RouteRule.Type,
-				Group:     model.RouteRule.Group,
-				Version:   model.RouteRule.Version,
-			},
-			Spec: &v1alpha1.RouteRule{
-				Precedence: 1,
-				Destination: &v1alpha1.IstioService{
-					Name: "a",
-				},
-			},
-		},
-	}
-
 	testGateways = []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{
@@ -155,6 +94,55 @@ var (
 			Spec: &networking.VirtualService{
 				Hosts:    []string{"*"},
 				Gateways: []string{"bookinfo-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/login"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Exact{"/logout"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									&networking.StringMatch_Prefix{"/api/v1/products"},
+								},
+							},
+						},
+						Route: []*networking.DestinationWeight{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage",
+									Port: &networking.PortSelector{
+										Port: &networking.PortSelector_Number{80},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{
+				Name:      "bookinfo2",
+				Namespace: "default",
+				Type:      model.VirtualService.Type,
+				Group:     model.VirtualService.Group,
+				Version:   model.VirtualService.Version,
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"bookinfo2"},
+				Gateways: []string{"bookinfo2-gateway"},
 				Http: []*networking.HTTPRoute{
 					{
 						Match: []*networking.HTTPMatchRequest{
@@ -242,66 +230,52 @@ func TestGet(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			configs: []model.Config{},
-			args:    strings.Split("get routerules", " "),
+			args:    strings.Split("get gateways", " "),
 			expectedOutput: `No resources found.
 `,
 		},
 		{ // case 1
-			configs: testRouteRules,
-			args:    strings.Split("get routerules --all-namespaces", " "),
-			expectedOutput: `NAME      KIND                        NAMESPACE      AGE
-a         RouteRule.config.v1alpha2   default        <unknown>
-b         RouteRule.config.v1alpha2   default        <unknown>
-c         RouteRule.config.v1alpha2   istio-system   <unknown>
-d         RouteRule.config.v1alpha2   default        <unknown>
-`,
-		},
-		{ // case 2
 			configs: testGateways,
 			args:    strings.Split("get gateways -n default", " "),
 			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE   AGE
 bookinfo-gateway   *         default     <unknown>
 `,
 		},
-		{ // case 3
+		{ // case 2
 			configs: testVirtualServices,
 			args:    strings.Split("get virtualservices -n default", " "),
-			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
-bookinfo               bookinfo-gateway   *             1        0      default     <unknown>
+			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS            HOSTS       #HTTP     #TCP      NAMESPACE   AGE
+bookinfo               bookinfo-gateway    *               1        0      default     <unknown>
+bookinfo2              bookinfo2-gateway   bookinfo2       1        0      default     <unknown>
 `,
 		},
-		{ // case 4 invalid type
+		{ // case 3 invalid type
 			configs:        []model.Config{},
 			args:           strings.Split("get invalid", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true, // "istioctl get invalid" should fail
 		},
-		{ // case 5 all
-			configs: append(testRouteRules, testVirtualServices...),
+		{ // case 4 all
+			configs: testVirtualServices,
 			args:    strings.Split("get all", " "),
-			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
-bookinfo               bookinfo-gateway   *             1        0      default     <unknown>
-
-NAME      KIND                        NAMESPACE      AGE
-a         RouteRule.config.v1alpha2   default        <unknown>
-b         RouteRule.config.v1alpha2   default        <unknown>
-c         RouteRule.config.v1alpha2   istio-system   <unknown>
-d         RouteRule.config.v1alpha2   default        <unknown>
+			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS            HOSTS       #HTTP     #TCP      NAMESPACE   AGE
+bookinfo               bookinfo-gateway    *               1        0      default     <unknown>
+bookinfo2              bookinfo2-gateway   bookinfo2       1        0      default     <unknown>
 `,
 		},
-		{ // case 6 all with no data
+		{ // case 5 all with no data
 			configs:        []model.Config{},
 			args:           strings.Split("get all", " "),
 			expectedOutput: "No resources found.\n",
 		},
-		{ // case 7
+		{ // case 6
 			configs: testDestinationRules,
 			args:    strings.Split("get destinationrules", " "),
 			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
 googleapis              *.googleapis.com             default     <unknown>
 `,
 		},
-		{ // case 8
+		{ // case 7
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries", " "),
 			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
@@ -321,7 +295,7 @@ func TestCreate(t *testing.T) {
 	cases := []testCase{
 		{ // invalid doesn't provide -f filename
 			configs:        []model.Config{},
-			args:           strings.Split("create routerules", " "),
+			args:           strings.Split("create virtualservices", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true,
 		},
@@ -338,7 +312,7 @@ func TestReplace(t *testing.T) {
 	cases := []testCase{
 		{ // case 0 -- invalid doesn't provide -f
 			configs:        []model.Config{},
-			args:           strings.Split("replace routerules", " "),
+			args:           strings.Split("replace virtualservices", " "),
 			expectedRegexp: regexp.MustCompile("^Usage:.*"),
 			wantException:  true,
 		},
@@ -355,21 +329,21 @@ func TestDelete(t *testing.T) {
 	cases := []testCase{
 		{ // case 0
 			configs:        []model.Config{},
-			args:           strings.Split("delete routerule unknown", " "),
+			args:           strings.Split("delete virtualservice unknown", " "),
 			expectedRegexp: regexp.MustCompile("^Error: 1 error occurred:\n\n\\* cannot delete unknown: item not found\n$"),
 			wantException:  true,
 		},
 		{ // case 1
-			configs: testRouteRules,
-			args:    strings.Split("delete routerule a", " "),
-			expectedOutput: `Deleted config: routerule a
+			configs: testVirtualServices,
+			args:    strings.Split("delete virtualservice bookinfo", " "),
+			expectedOutput: `Deleted config: virtualservice bookinfo
 `,
 		},
 		{ // case 2
-			configs: testRouteRules,
-			args:    strings.Split("delete routerule a b", " "),
-			expectedOutput: `Deleted config: routerule a
-Deleted config: routerule b
+			configs: testVirtualServices,
+			args:    strings.Split("delete virtualservice bookinfo bookinfo2", " "),
+			expectedOutput: `Deleted config: virtualservice bookinfo
+Deleted config: virtualservice bookinfo2
 `,
 		},
 		{ // case 3 - "all" not valid for delete

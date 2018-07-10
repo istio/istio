@@ -88,23 +88,14 @@ var (
 
 	// sortWeight defines the output order for "get all".  We show the V3 types first.
 	sortWeight = map[string]int{
-		model.Gateway.Type:           -10,
-		model.VirtualService.Type:    -5,
-		model.DestinationRule.Type:   -3,
-		model.ServiceEntry.Type:      -1,
-		model.IngressRule.Type:       1,
-		model.RouteRule.Type:         5,
-		model.DestinationPolicy.Type: 10,
-		model.EgressRule.Type:        20,
+		model.Gateway.Type:         -10,
+		model.VirtualService.Type:  -5,
+		model.DestinationRule.Type: -3,
+		model.ServiceEntry.Type:    -1,
 	}
 
 	// deprecatedTypes tracks if a deprecation warning is needed
-	deprecatedTypes = map[string]bool{
-		model.RouteRule.Type:         true,
-		model.IngressRule.Type:       true,
-		model.DestinationPolicy.Type: true,
-		model.EgressRule.Type:        true,
-	}
+	deprecatedTypes = map[string]bool{}
 
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
 	// The user wants reasonable error messages when doing `get all` against a different
@@ -143,12 +134,9 @@ var (
 	// configTypes is the Istio types supported by the client
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	configTypes = model.ConfigDescriptor{
-		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
-		model.EgressRule,
 		model.ServiceEntry,
-		model.DestinationPolicy,
 		model.DestinationRule,
 		model.HTTPAPISpec,
 		model.HTTPAPISpecBinding,
@@ -182,10 +170,6 @@ system.
 Available routing and traffic management configuration types:
 
 	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
-
-Legacy routing and traffic management configuration types:
-
-	[routerule egressrule destinationpolicy]
 
 See https://istio.io/docs/reference/ for an overview of Istio routing.
 
@@ -690,7 +674,7 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {

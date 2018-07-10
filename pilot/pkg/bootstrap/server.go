@@ -79,12 +79,9 @@ var (
 	// ConfigDescriptor describes all supported configuration kinds.
 	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
 	ConfigDescriptor = model.ConfigDescriptor{
-		model.RouteRule,
 		model.VirtualService,
 		model.Gateway,
-		model.EgressRule,
 		model.ServiceEntry,
-		model.DestinationPolicy,
 		model.DestinationRule,
 		model.EnvoyFilter,
 		model.HTTPAPISpec,
