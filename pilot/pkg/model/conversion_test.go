@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -32,12 +33,12 @@ func TestGogoProtoSchemaConversions(t *testing.T) {
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				"api.service": {
 					Value: &mpb.Attributes_AttributeValue_StringValue{
-						"my-service",
+						StringValue: "my-service",
 					},
 				},
 				"api.version": {
 					Value: &mpb.Attributes_AttributeValue_StringValue{
-						"1.0.0",
+						StringValue: "1.0.0",
 					},
 				},
 			},
@@ -48,7 +49,7 @@ func TestGogoProtoSchemaConversions(t *testing.T) {
 					Attributes: map[string]*mpb.Attributes_AttributeValue{
 						"api.operation": {
 							Value: &mpb.Attributes_AttributeValue_StringValue{
-								"createPet",
+								StringValue: "createPet",
 							},
 						},
 					},
@@ -62,7 +63,7 @@ func TestGogoProtoSchemaConversions(t *testing.T) {
 		ApiKeys: []*mccpb.APIKey{
 			{
 				Key: &mccpb.APIKey_Query{
-					"api_key",
+					Query: "api_key",
 				},
 			},
 		},
@@ -220,148 +221,137 @@ patterns:
 	}
 }
 
-// func TestProtoSchemaConversions(t *testing.T) {
-// 	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
+func TestProtoSchemaConversions(t *testing.T) {
+	destinationRuleSchema := &model.ProtoSchema{MessageName: model.DestinationRule.MessageName}
 
-// 	msg := &routing.RouteRule{
-// 		Destination: &routing.IstioService{
-// 			Name: "foo",
-// 		},
-// 		Precedence: 5,
-// 		Route: []*routing.DestinationWeight{
-// 			{Destination: &routing.IstioService{Name: "bar"}, Weight: 75},
-// 			{Destination: &routing.IstioService{Name: "baz"}, Weight: 25},
-// 		},
-// 	}
+	msg := &networking.DestinationRule{
+		Host: "something.svc.local",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{},
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name: "foo",
+				Labels: map[string]string{
+					"test": "label",
+				},
+			},
+		},
+	}
 
-// 	wantJSON := `
-// 	{
-// 		"destination": {
-// 			"name": "foo"
-// 		},
-// 		"precedence": 5,
-// 		"route": [
-// 		{
-// 			"destination": {
-// 				"name" : "bar"
-// 			},
-// 			"weight": 75
-// 		},
-// 		{
-// 			"destination": {
-// 				"name" : "baz"
-// 			},
-// 			"weight": 25
-// 		}
-// 		]
-// 	}
-// 	`
+	wantJSON := `
+		{
+      "host":"something.svc.local",
+      "trafficPolicy": {
+        "loadBalancer":{"simple":"ROUND_ROBIN"}
+       },
+       "subsets": [
+         {"name":"foo","labels":{"test":"label"}}
+       ]
+		}`
 
-// 	wantYAML := "destination:\n" +
-// 		"  name: foo\n" +
-// 		"precedence: 5\n" +
-// 		"route:\n" +
-// 		"- destination:\n" +
-// 		"    name: bar\n" +
-// 		"  weight: 75\n" +
-// 		"- destination:\n" +
-// 		"    name: baz\n" +
-// 		"  weight: 25\n"
+	wantYAML := `host: something.svc.local
+subsets:
+- labels:
+    test: label
+  name: foo
+trafficPolicy:
+  loadBalancer:
+    simple: ROUND_ROBIN
+`
 
-// 	wantJSONMap := map[string]interface{}{
-// 		"destination": map[string]interface{}{
-// 			"name": "foo",
-// 		},
-// 		"precedence": 5.0,
-// 		"route": []interface{}{
-// 			map[string]interface{}{
-// 				"destination": map[string]interface{}{
-// 					"name": "bar",
-// 				},
-// 				"weight": 75.0,
-// 			},
-// 			map[string]interface{}{
-// 				"destination": map[string]interface{}{
-// 					"name": "baz",
-// 				},
-// 				"weight": 25.0,
-// 			},
-// 		},
-// 	}
+	wantJSONMap := map[string]interface{}{
+		"host": "something.svc.local",
+		"trafficPolicy": map[string]interface{}{
+			"loadBalancer": map[string]interface{}{
+				"simple": "ROUND_ROBIN",
+			},
+		},
+		"subsets": []interface{}{
+			map[string]interface{}{
+				"name": "foo",
+				"labels": map[string]interface{}{
+					"test": "label",
+				},
+			},
+		},
+	}
 
-// 	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
-// 	if _, err := badSchema.FromYAML(wantYAML); err == nil {
-// 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
-// 	}
+	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
+	if _, err := badSchema.FromYAML(wantYAML); err == nil {
+		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
+	}
 
-// 	gotJSON, err := model.ToJSON(msg)
-// 	if err != nil {
-// 		t.Errorf("ToJSON failed: %v", err)
-// 	}
-// 	if gotJSON != strings.Join(strings.Fields(wantJSON), "") {
-// 		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
-// 	}
+	gotJSON, err := model.ToJSON(msg)
+	if err != nil {
+		t.Errorf("ToJSON failed: %v", err)
+	}
+	if gotJSON != strings.Join(strings.Fields(wantJSON), "") {
+		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
+	}
 
-// 	if _, err = model.ToJSON(nil); err == nil {
-// 		t.Error("should produce an error")
-// 	}
+	if _, err = model.ToJSON(nil); err == nil {
+		t.Error("should produce an error")
+	}
 
-// 	gotFromJSON, err := routeRuleSchema.FromJSON(wantJSON)
-// 	if err != nil {
-// 		t.Errorf("FromJSON failed: %v", err)
-// 	}
-// 	if !reflect.DeepEqual(gotFromJSON, msg) {
-// 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
-// 	}
+	gotFromJSON, err := destinationRuleSchema.FromJSON(wantJSON)
+	if err != nil {
+		t.Errorf("FromJSON failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotFromJSON, msg) {
+		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromJSON), spew.Sdump(msg))
+	}
 
-// 	gotYAML, err := model.ToYAML(msg)
-// 	if err != nil {
-// 		t.Errorf("ToYAML failed: %v", err)
-// 	}
-// 	if !reflect.DeepEqual(gotYAML, wantYAML) {
-// 		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
-// 	}
+	gotYAML, err := model.ToYAML(msg)
+	if err != nil {
+		t.Errorf("ToYAML failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotYAML, wantYAML) {
+		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
+	}
 
-// 	if _, err = model.ToYAML(nil); err == nil {
-// 		t.Error("should produce an error")
-// 	}
+	if _, err = model.ToYAML(nil); err == nil {
+		t.Error("should produce an error")
+	}
 
-// 	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
-// 	if err != nil {
-// 		t.Errorf("FromYAML failed: %v", err)
-// 	}
-// 	if !reflect.DeepEqual(gotFromYAML, msg) {
-// 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
-// 	}
+	gotFromYAML, err := destinationRuleSchema.FromYAML(wantYAML)
+	if err != nil {
+		t.Errorf("FromYAML failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotFromYAML, msg) {
+		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
+	}
 
-// 	if _, err = routeRuleSchema.FromYAML(":"); err == nil {
-// 		t.Errorf("should produce an error")
-// 	}
+	if _, err = destinationRuleSchema.FromYAML(":"); err == nil {
+		t.Errorf("should produce an error")
+	}
 
-// 	gotJSONMap, err := model.ToJSONMap(msg)
-// 	if err != nil {
-// 		t.Errorf("ToJSONMap failed: %v", err)
-// 	}
-// 	if !reflect.DeepEqual(gotJSONMap, wantJSONMap) {
-// 		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
-// 	}
+	gotJSONMap, err := model.ToJSONMap(msg)
+	if err != nil {
+		t.Errorf("ToJSONMap failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotJSONMap, wantJSONMap) {
+		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
+	}
 
-// 	if _, err = model.ToJSONMap(nil); err == nil {
-// 		t.Error("should produce an error")
-// 	}
+	if _, err = model.ToJSONMap(nil); err == nil {
+		t.Error("should produce an error")
+	}
 
-// 	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
-// 	if err != nil {
-// 		t.Errorf("FromJSONMap failed: %v", err)
-// 	}
-// 	if !reflect.DeepEqual(gotFromJSONMap, msg) {
-// 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
-// 	}
+	gotFromJSONMap, err := destinationRuleSchema.FromJSONMap(wantJSONMap)
+	if err != nil {
+		t.Errorf("FromJSONMap failed: %v", err)
+	}
+	if !reflect.DeepEqual(gotFromJSONMap, msg) {
+		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
+	}
 
-// 	if _, err = routeRuleSchema.FromJSONMap(1); err == nil {
-// 		t.Error("should produce an error")
-// 	}
-// 	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
-// 		t.Errorf("should produce an error")
-// 	}
-// }
+	if _, err = destinationRuleSchema.FromJSONMap(1); err == nil {
+		t.Error("should produce an error")
+	}
+	if _, err = destinationRuleSchema.FromJSON(":"); err == nil {
+		t.Errorf("should produce an error")
+	}
+}
