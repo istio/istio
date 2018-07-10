@@ -51,8 +51,11 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   builder.AddBool(utils::AttributeName::kConnectionMtls,
                   check_data->IsMutualTLS());
 
-  builder.AddString(utils::AttributeName::kConnectionRequestedServerName,
-                    check_data->GetRequestedServerName());
+  std::string requested_server_name = check_data->GetRequestedServerName());
+  if (!requested_server_name.empty()) {
+    builder.AddString(utils::AttributeName::kConnectionRequestedServerName,
+                      requested_server_name);
+  }
 
   builder.AddTimestamp(utils::AttributeName::kContextTime,
                        std::chrono::system_clock::now());
