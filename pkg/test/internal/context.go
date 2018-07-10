@@ -18,25 +18,27 @@ import "istio.io/istio/pkg/test/dependency"
 
 // TestContext provides the ambient context to internal code.
 type TestContext struct {
-	testID  string
-	runID   string
-	workDir string
-	hub     string
-	tag     string
-	env     Environment
-	deps    Tracker
+	testID         string
+	runID          string
+	workDir        string
+	hub            string
+	tag            string
+	env            Environment
+	deps           Tracker
+	kubeConfigPath string
 }
 
 // NewTestContext initializes and returns a new instance of TestContext.
-func NewTestContext(testID, runID, workDir, hub, tag string, env Environment) *TestContext {
+func NewTestContext(testID, runID, workDir, hub, tag string, kubeConfigPath string, env Environment) *TestContext {
 	return &TestContext{
-		testID:  testID,
-		runID:   runID,
-		workDir: workDir,
-		hub:     hub,
-		tag:     tag,
-		env:     env,
-		deps:    make(map[dependency.Instance]interface{}),
+		testID:         testID,
+		runID:          runID,
+		workDir:        workDir,
+		hub:            hub,
+		tag:            tag,
+		env:            env,
+		kubeConfigPath: kubeConfigPath,
+		deps:           make(map[dependency.Instance]interface{}),
 	}
 }
 
@@ -63,6 +65,11 @@ func (t *TestContext) Hub() string {
 // Tag environment variable.
 func (t *TestContext) Tag() string {
 	return t.tag
+}
+
+// KubeConfigPath parameter.
+func (t *TestContext) KubeConfigPath() string {
+	return t.kubeConfigPath
 }
 
 // CreateTmpDirectory allows creation of temporary directories.

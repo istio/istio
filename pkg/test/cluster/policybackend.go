@@ -26,9 +26,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 
-	"istio.io/istio/pkg/test/cluster/kube"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/fakes/policy"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/tmpl"
 )
 
@@ -101,7 +101,7 @@ func newPolicyBackend(e *Environment) (*policyBackend, error) {
 		return nil, err
 	}
 
-	if err = kube.ApplyContents(e.kubeConfigPath, e.DependencyNamespace, result); err != nil {
+	if err = kube.ApplyContents(e.ctx.KubeConfigPath(), e.DependencyNamespace, result); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +125,7 @@ func newPolicyBackend(e *Environment) (*policyBackend, error) {
 	addressInCluster := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scope.Debugf("Policy Backend in-cluster address: %s", addressInCluster)
 
-	forwarder := kube.NewPortForwarder(e.kubeConfigPath, pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
+	forwarder := kube.NewPortForwarder(e.ctx.KubeConfigPath(), pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
 	if err = forwarder.Start(); err != nil {
 		return nil, err
 	}

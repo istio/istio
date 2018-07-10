@@ -15,11 +15,10 @@
 package driver
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/errors"
 )
 
 const (
@@ -74,25 +73,15 @@ func (a *Args) Validate() error {
 	case EnvLocal, EnvKube:
 
 	default:
-		return fmt.Errorf("unrecognized environment: %s", a.Environment)
+		return errors.UnrecognizedEnvironment(a.Environment)
 	}
 
 	if a.Environment == EnvKube && a.KubeConfig == "" {
-		// Try the config home folder
-		path := fmt.Sprintf("%s/.kube/config", os.Getenv("HOME"))
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("kube configuration must be specified for the %s environment", EnvKube)
-			}
-
-			return fmt.Errorf("error reading config from home: %s", path)
-		}
-
-		a.KubeConfig = path
+		return errors.MissingKubeConfigForEnvironment(EnvKube)
 	}
 
 	if a.TestID == "" || len(a.TestID) > maxTestIDLength {
-		return fmt.Errorf("testID must be non-empty and  cannot be longer than %d characters", maxTestIDLength)
+		return errors.InvalidTestID(maxTestIDLength)
 	}
 
 	return nil
