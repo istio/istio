@@ -77,7 +77,7 @@ std::map<std::string, std::string> CheckData::GetRequestHeaders() const {
 
 bool CheckData::IsMutualTLS() const { return Utils::IsMutualTLS(connection_); }
 
-std::string GetRequestedServerName() const {
+std::string CheckData::GetRequestedServerName() const {
   return connection_.requestedServerName();
 }
 
