@@ -33,7 +33,6 @@ type bufferedClient interface {
 }
 
 // A wrapper around the stackdriver client SDK that handles batching data before sending.
-// TODO: implement size based batching, today we only send batches on a time.Ticker's tick and we don't watch how much data we're storing.
 type buffered struct {
 	project     string
 	pushMetrics pushFunc
