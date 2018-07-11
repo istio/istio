@@ -594,12 +594,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 							ServiceAccount:   sa,
 						})
 						if c.Env != nil {
-							status := c.Env.PushStatus
-							if status != nil {
-								status.Mutex.Lock()
-								status.Unready[proxy.IPAddress] = proxy
-								status.Mutex.Unlock()
-							}
+							c.Env.PushStatus.Add(model.METRIC_PROXY_UNREADY, proxy.ID, proxy, "")
 						}
 					}
 				}
@@ -608,13 +603,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	}
 	if len(out) == 0 {
 		if c.Env != nil {
+			c.Env.PushStatus.Add(model.METRIC_PROXY_NO_SERVICE, proxy.ID, proxy, "")
 			status := c.Env.PushStatus
-			if status != nil {
-				status.Mutex.Lock()
-				status.ProxyWithoutService[proxy.ID] = proxy
-				status.Mutex.Unlock()
-			} else {
-				log.Infof("Empty list of services for pod %s", proxy.ID)
+			if status == nil {
+				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
 			}
 		} else {
 			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)

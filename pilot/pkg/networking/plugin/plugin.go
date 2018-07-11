@@ -114,11 +114,11 @@ type Plugin interface {
 	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
-	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+	OnOutboundCluster(env *model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
-	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+	OnInboundCluster(env *model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is

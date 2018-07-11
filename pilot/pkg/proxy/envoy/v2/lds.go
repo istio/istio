@@ -40,7 +40,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode, con.PeerAddr, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode.ID, con.PeerAddr, len(rawListeners))
 	return nil
 }
 

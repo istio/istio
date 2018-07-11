@@ -35,6 +35,12 @@ spec:
     hosts:
     - "*"
   - port:
+      number: 5202
+      protocol: TCP
+      name: tcp-iperf3-noistio
+    hosts:
+    - "*"
+  - port:
       number: 5203
       protocol: TCP
       name: tcp-iperf-tls

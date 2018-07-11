@@ -549,10 +549,10 @@ func AdsPushAll(s *DiscoveryServer) {
 	s.modelMutex.RUnlock()
 
 	// Reset the status during the push.
-	afterPush := true
+	//afterPush := true
 	if s.env.PushStatus != nil {
-		adsLog.Info("Push status already set, another push in progress")
-		afterPush = false
+		//adsLog.Info("Push status already set, another push in progress")
+		//afterPush = false
 	} else {
 		s.env.PushStatus = model.NewStatus()
 	}
@@ -571,7 +571,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := updateCluster(clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
@@ -619,7 +619,7 @@ func AdsPushAll(s *DiscoveryServer) {
 		}
 	}
 
-	if afterPush && s != nil {
+	if s != nil {
 		time.AfterFunc(10*time.Second, func() {
 			ps := s.env.PushStatus
 			if ps != nil {
@@ -630,7 +630,8 @@ func AdsPushAll(s *DiscoveryServer) {
 					adsLog.Infof("After push: %s", string(out))
 				}
 
-				s.env.PushStatus = nil
+				s.env.PushStatus = model.NewStatus()
+				//s.env.PushStatus = nil
 			}
 		})
 	}

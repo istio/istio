@@ -79,8 +79,6 @@ sidecar-injector:
 
 grafana:
   enabled: true
-  # Temp: release 1.0 not working
-  image: costinm/grafana:costin-dev2
   #image: gcr.io/istio-release/grafana:release-1.0-20180710-09-15
 
 

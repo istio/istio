@@ -44,7 +44,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
 
-	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode, con.PeerAddr, len(rawRoutes))
+	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode.ID, con.PeerAddr, len(rawRoutes))
 	return nil
 }
 

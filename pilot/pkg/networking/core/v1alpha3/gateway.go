@@ -41,7 +41,7 @@ var (
 	}
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 	// collect workload labels
 	workloadInstances, err := env.GetProxyServiceInstances(&node)
 	if err != nil {
@@ -119,7 +119,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 		for _, p := range configgen.Plugins {
 			params := &plugin.InputParams{
 				ListenerProtocol: listenerType,
-				Env:              &env,
+				Env:              env,
 				Node:             &node,
 				ProxyInstances:   workloadInstances,
 				ServiceInstance:  si,
@@ -165,7 +165,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env model.Environmen
 	return listeners, nil
 }
 
-func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
 	// collect workload labels
@@ -202,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env model.Envi
 }
 
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	env model.Environment, node model.Proxy, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+	env *model.Environment, node model.Proxy, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
 	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
 	if err != nil {
@@ -316,7 +316,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 
 // TODO: Once RDS is permanent, merge this function with buildGatewayHTTPRouteConfig
 func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
-	env model.Environment,
+	env *model.Environment,
 	node model.Proxy,
 	svcs map[model.Hostname]*model.Service,
 	gateways map[string]bool,
@@ -396,7 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
+			Env:              env,
 			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
@@ -406,7 +406,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 }
 
 func createGatewayTCPFilterChainOpts(
-	env model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+	env *model.Environment, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
@@ -421,7 +421,7 @@ func createGatewayTCPFilterChainOpts(
 
 // buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool) []listener.Filter {
+func buildGatewayNetworkFilters(env *model.Environment, server *networking.Server, gatewayNames map[string]bool) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
@@ -451,7 +451,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 
 // getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env *model.Environment, server *networking.Server, gateways map[string]bool) []*networking.Destination {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true

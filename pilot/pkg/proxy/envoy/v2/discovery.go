@@ -56,7 +56,7 @@ const (
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
 type DiscoveryServer struct {
 	// env is the model environment.
-	env model.Environment
+	env *model.Environment
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *MemServiceDiscovery
@@ -77,7 +77,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
 		env:             env,
 		ConfigGenerator: generator,

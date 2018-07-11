@@ -30,7 +30,7 @@ import (
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances, err := env.GetProxyServiceInstances(&node)
 	if err != nil {
@@ -53,7 +53,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, nod
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
 	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
@@ -82,7 +82,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
+			Env:              env,
 			Node:             &node,
 			ServiceInstance:  instance,
 			Service:          instance.Service,
@@ -95,7 +95,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
+			Env:              env,
 			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
