@@ -81,8 +81,11 @@ var (
 	outputFormat     string
 	getAllNamespaces bool
 
-	// Create a model.ConfigStore (or mockCrdClient)
+	// Create a model.ConfigStore (or sortedConfigStore)
 	clientFactory = newClient
+
+	// Create a kubernetes.ExecClient (or mockExecClient)
+	clientExecFactory = newExecClient
 
 	loggingOptions = log.DefaultOptions()
 

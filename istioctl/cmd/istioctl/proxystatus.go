@@ -42,7 +42,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 			if err != nil {
 				return err
 			}
-			sw := pilot.StatusWriter{Writer: os.Stdout}
+			sw := pilot.StatusWriter{Writer: c.OutOrStdout()}
 			return sw.PrintAll(statuses)
 		},
 	}
@@ -79,4 +79,8 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+}
+
+func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
+	return kubernetes.NewExecClient(kubeconfig, configContext)
 }
