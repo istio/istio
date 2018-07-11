@@ -164,6 +164,7 @@ docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend \
 	time (cd $(ISTIO_DOCKER)/test_policybackend && \
 		docker build -t $(HUB)/test_policybackend:$(TAG) -f Dockerfile.test_policybackend .)
 
+PILOT_DOCKER:=docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
