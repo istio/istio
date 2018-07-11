@@ -73,6 +73,8 @@ spec:
         valueType: DURATION
       connection.mtls:
         valueType: BOOL
+      connection.requested_server_name:
+        valueType: STRING
       context.protocol:
         valueType: STRING
       context.timestamp:
@@ -120,7 +122,7 @@ spec:
       source.namespace:
         valueType: STRING
       source.owner:
-        valueType: STRING      
+        valueType: STRING
       source.service:  # DEPRECATED
         valueType: STRING
       source.serviceAccount:
@@ -132,11 +134,11 @@ spec:
       source.workload.name:
         valueType: STRING
       source.workload.namespace:
-        valueType: STRING        
+        valueType: STRING
       destination.ip:
         valueType: IP_ADDRESS
       destination.labels:
-        valueType: STRING_MAP      
+        valueType: STRING_MAP
       destination.metadata:
         valueType: STRING_MAP
       destination.name:
@@ -144,7 +146,7 @@ spec:
       destination.namespace:
         valueType: STRING
       destination.owner:
-        valueType: STRING        
+        valueType: STRING
       destination.service: # DEPRECATED
         valueType: STRING
       destination.service.uid:
