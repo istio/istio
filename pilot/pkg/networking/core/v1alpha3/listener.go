@@ -60,7 +60,7 @@ const (
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
 
-	traceSamplingDefault = 10.0
+	traceSamplingDefault = 100.0
 )
 
 var (
