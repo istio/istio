@@ -231,11 +231,22 @@ func init() {
 
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
-	defer ts.close()
 
 	c := New(ts, supportedMessageNames, ts, key, metadata)
-	ctx := context.Background()
-	go c.Run(ctx)
+	ctx, cancelClient := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		c.Run(ctx)
+		wg.Done()
+	}()
+
+	defer func() {
+		cancelClient()
+		wg.Wait()
+		ts.close()
+	}()
 
 	makeRequest := func(typeURL, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
 		req := &mcp.MeshConfigRequest{
