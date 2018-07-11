@@ -23,8 +23,6 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
-	"encoding/json"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -95,7 +93,7 @@ func NewDiscoveryServer(env model.Environment, generator core.ConfigGenerator) *
 		}
 	}
 	if periodicRefreshDuration > 0 {
-		go periodicRefresh()
+		go out.periodicRefresh()
 	}
 
 	return out
@@ -112,24 +110,15 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
-func periodicRefresh() {
+func (s *DiscoveryServer) periodicRefresh() {
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		PushAll()
+		adsLog.Infof("ADS: periodic push")
+		AdsPushAll(s)
 	}
 }
 
-// PushAll implements old style invalidation, generated when any rule or endpoint changes.
-// Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
-// to the model ConfigStorageCache and Controller.
-func PushAll() {
-	versionMutex.Lock()
-	version = time.Now()
-	versionMutex.Unlock()
-
-	adsPushAll()
-}
 
 // ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
 // This is used for transition, once the new config model is in place we'll have separate
@@ -139,29 +128,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
 		s.updateModel()
 
-		s.modelMutex.RLock()
-		adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
-			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
-		monServices.Set(float64(len(s.services)))
-		monVServices.Set(float64(len(s.virtualServices)))
-		s.modelMutex.RUnlock()
-
-		// Reset the status during the push.
-		if s.env.PushStatus != nil {
-			adsLog.Info("Push status already set")
-		}
-		s.env.PushStatus = model.NewStatus()
-
-		PushAll()
-
-		s.env.PushStatus.AfterPush()
-
-		out, err := json.MarshalIndent(model.LastPushStatus, "", "    ")
-		if err != nil {
-			adsLog.Infof("After push:", out)
-		}
-
-		s.env.PushStatus = nil
+		AdsPushAll(s)
 	}
 }
 

@@ -441,11 +441,11 @@ func (ds *DiscoveryService) clearCache() {
 
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
-		lastClearCacheEvent = time.Now()
-		lastClearCache = time.Now()
 		log.Infof("Push %d: %v since last change, %v since last push",
 			clearCacheEvents,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+		lastClearCacheEvent = time.Now()
+		lastClearCache = time.Now()
 		V2ClearCache()
 		return
 	}

@@ -94,7 +94,7 @@ func TestReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestReconnect(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	s := initLocalPilotTestEnv(t)
 	edsstr := connect(t)
 	_, _ = edsstr.Recv()
 
@@ -108,7 +108,8 @@ func TestReconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.PushAll()
+	v2.AdsPushAll(s.EnvoyXdsServer)
+
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	done := make(chan struct{}, 1)
@@ -163,7 +164,9 @@ func directRequest(server *bootstrap.Server, t *testing.T) {
 		AvailabilityZone: "az",
 	})
 
-	v2.PushAll() // will trigger recompute and push
+	v2.AdsPushAll(server.EnvoyXdsServer)
+	// will trigger recompute and push
+
 	// This should happen in 15 seconds, for the periodic refresh
 	// TODO: verify push works
 	_, err := edsstr.Recv()
@@ -266,7 +269,7 @@ func multipleRequest(server *bootstrap.Server, t *testing.T) {
 	}
 	log.Println("Done connecting")
 	for j := 0; j < nPushes; j++ {
-		v2.PushAll()
+		v2.AdsPushAll(server.EnvoyXdsServer)
 		log.Println("Push done ", j)
 	}
 

@@ -34,6 +34,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
+	"encoding/json"
 )
 
 var (
@@ -480,32 +481,47 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
-			if con.CDSWatch {
-				err := s.pushCds(con)
-				if err != nil {
-					return err
-				}
-			}
-			if len(con.Routes) > 0 {
-				err := s.pushRoute(con)
-				if err != nil {
-					return err
-				}
-			}
-			if len(con.Clusters) > 0 {
-				err := s.pushEds(con)
-				if err != nil {
-					return err
-				}
-			}
-			if con.LDSWatch {
-				err := s.pushLds(con)
-				if err != nil {
-					return err
-				}
+			err := s.pushAll(con)
+			if err != nil {
+				return nil
 			}
 		}
 	}
+}
+
+func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
+	defer func() {
+		ps := s.env.PushStatus
+		if ps == nil {
+			return
+		}
+
+	}()
+	if con.CDSWatch {
+		err := s.pushCds(con)
+		if err != nil {
+			return err
+		}
+	}
+	if len(con.Routes) > 0 {
+		err := s.pushRoute(con)
+		if err != nil {
+			return err
+		}
+	}
+	if len(con.Clusters) > 0 {
+		err := s.pushEds(con)
+		if err != nil {
+			return err
+		}
+	}
+	if con.LDSWatch {
+		err := s.pushLds(con)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func edsClientCount() int {
@@ -516,10 +532,30 @@ func edsClientCount() int {
 	return n
 }
 
-// adsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+// AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func adsPushAll() {
+func AdsPushAll(s *DiscoveryServer) {
+	versionMutex.Lock()
+	version = time.Now()
+	versionMutex.Unlock()
+
+	s.modelMutex.RLock()
+	adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
+			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+	monServices.Set(float64(len(s.services)))
+	monVServices.Set(float64(len(s.virtualServices)))
+	s.modelMutex.RUnlock()
+
+	// Reset the status during the push.
+	afterPush := true
+	if s.env.PushStatus != nil {
+		adsLog.Info("Push status already set, another push in progress")
+		afterPush = false
+	} else {
+		s.env.PushStatus = model.NewStatus()
+	}
+
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
@@ -557,9 +593,6 @@ func adsPushAll() {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
-		// Commented out - since we don't have throttling or rate control for push - need to experiment
-		// with larger clusters.
-		//go func(client *XdsConnection) {
 		to := time.After(PushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{}:
@@ -583,7 +616,21 @@ func adsPushAll() {
 				}
 			}
 		}
-		//}(client)
+	}
+
+	if afterPush && s != nil {
+		time.AfterFunc(10 * time.Second, func() {
+			ps := s.env.PushStatus
+			if ps != nil {
+				ps.AfterPush()
+
+				out, err := json.MarshalIndent(ps, "", "    ")
+				if err == nil {
+					adsLog.Infof("After push: %s", string(out))
+				}
+
+				s.env.PushStatus = nil
+		}})
 	}
 }
 

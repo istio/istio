@@ -53,8 +53,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", edsz)
-	mux.HandleFunc("/debug/adsz", adsz)
+	mux.HandleFunc("/debug/edsz", s.edsz)
+	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
 
@@ -562,11 +562,11 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
-func adsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
-		adsPushAll()
+		AdsPushAll(s)
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
@@ -658,12 +658,12 @@ func writeAllADS(w io.Writer) {
 
 // edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func edsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		PushAll()
+		AdsPushAll(s)
 	}
 
 	edsClusterMutex.Lock()

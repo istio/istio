@@ -49,7 +49,7 @@ func init() {
 }
 
 type PushStatus struct {
-	Mutex sync.Mutex
+	Mutex sync.Mutex `json:"-"`
 
 	// ProxyWithoutService is keyed by the proxy ID, and holds proxies where no ServiceInstance was found.
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
@@ -59,18 +59,10 @@ type PushStatus struct {
 	Unready             map[string]*Proxy
 
 	ConflictingOutbound map[string]string
+
+
 }
 
-// Tracked errors:
-// - pilot_no_ip - set for sidecars without 'in' - either have no services or are not ready when the sidecar calls.
-
-func GetStatus(obj interface{}) *PushStatus {
-	env, ok := obj.(Environment)
-	if !ok {
-		return nil
-	}
-	return env.PushStatus
-}
 
 func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set

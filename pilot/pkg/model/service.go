@@ -28,7 +28,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -89,10 +88,10 @@ type Service struct {
 
 	// ID represents the location of the config used to create this Service. Optional.
 	// For k8s, it is namespace:name
-	ID string `json:"name,omitempty"`
+	ID string `json:"id,omitempty"`
 
 	// Time records the resource time (modified time if available, creation otherwise), if available.
-	Time time.Time `json:"mtime,omitempty"`
+	Time time.Time `json:"time,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing

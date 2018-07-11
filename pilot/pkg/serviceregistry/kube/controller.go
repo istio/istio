@@ -629,7 +629,11 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				status.Mutex.Lock()
 				status.ProxyWithoutService[proxy.ID] = proxy
 				status.Mutex.Unlock()
+			} else {
+				log.Infof("Empty list of services for pod %s", proxy.ID)
 			}
+		} else {
+			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
 		}
 	}
 	return out, nil
