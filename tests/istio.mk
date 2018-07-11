@@ -103,7 +103,7 @@ e2e_simple_noauth_run: out_dir
 e2e_mixer_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 e2e_galley_run: out_dir
 	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
@@ -168,7 +168,7 @@ test/local/noauth/e2e_simple: out_dir generate_yaml
 test/local/e2e_mixer: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/e2e_galley: out_dir istioctl generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/galley -args \
@@ -202,12 +202,12 @@ test/local/cloudfoundry/e2e_pilotv2: out_dir
 test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
-		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
-	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 	${ISTIO_BIN}/go-junit-report < $(OUT_DIR)/tests/build-log.txt > $(OUT_DIR)/tests/junit.xml
