@@ -29,6 +29,8 @@ import (
 	"strconv"
 	"strings"
 
+	"time"
+
 	authn "istio.io/api/authentication/v1alpha1"
 )
 
@@ -84,6 +86,9 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
