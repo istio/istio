@@ -39,7 +39,7 @@ const (
 	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
-	deploymentDir                      = "kube"
+	deploymentDir                      = "platform/kube"
 	routeRulesDir                      = "networking"
 	bookinfoYaml                       = "bookinfo"
 	bookinfoRatingsv2Yaml              = "bookinfo-ratings-v2"
