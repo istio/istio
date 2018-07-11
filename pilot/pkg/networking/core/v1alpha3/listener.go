@@ -260,8 +260,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
-		if l, exists := listenerMap[listenerMapKey]; exists {
-			log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+		if _, exists := listenerMap[listenerMapKey]; exists {
+			env.PushStatus.Add(model.METRIC_CONFLICTING_INBOUND, node.ID, &node,
+				fmt.Sprintf("Rejected %s for %s", instance.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
 		}
@@ -384,7 +385,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if l, exists := listenerMap[listenerMapKey]; exists {
 					if !listenerTypeMap[listenerMapKey].IsHTTP() {
-						env.PushStatus.Add(model.METRIC_CONFLICTING_OUTBOUND,
+						env.PushStatus.Add(model.METRIC_CONFLICTING_HTTP_OUTBOUND,
 							listenerMapKey, &node,
 							fmt.Sprintf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 								servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l))
@@ -419,7 +420,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !listenerTypeMap[listenerMapKey].IsTCP() {
-						env.PushStatus.Add(model.METRIC_CONFLICTING_OUTBOUND,
+						env.PushStatus.Add(model.METRIC_CONFLICTING_TCP_OUTBOUND,
 							listenerMapKey, &node, fmt.Sprintf("(%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
 								servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener))
 						continue

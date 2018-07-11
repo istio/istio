@@ -20,9 +20,14 @@ type PushStatus struct {
 
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
-	ProxyStatus map[string]map[string]*Proxy
+	ProxyStatus map[string]map[string]PushStatusEvent
 
 	Start time.Time
+}
+
+type PushStatusEvent struct {
+	Proxy   *Proxy
+	Message string
 }
 
 type PushMetric struct {
@@ -54,10 +59,10 @@ func (ps *PushStatus) Add(metric *PushMetric, key string, proxy *Proxy, msg stri
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
-		metricMap = map[string]*Proxy{}
+		metricMap = map[string]PushStatusEvent{}
 		ps.ProxyStatus[metric.Name] = metricMap
 	}
-	metricMap[key] = proxy
+	metricMap[key] = PushStatusEvent{Proxy: proxy, Message: msg}
 }
 
 var (
@@ -78,11 +83,30 @@ var (
 		"Endpoints found in unready state.",
 	)
 
-	METRIC_CONFLICTING_OUTBOUND = newPushMetric(
-		"pilot_conf_out_listeners",
-		"Number of conflicting listeners.",
+	// METRIC_CONFLICTING_HTTP_OUTBOUND tracks cases of multiple outbound
+	// listeners, with accepted HTTP and the conflicting one a
+	// different type
+	METRIC_CONFLICTING_HTTP_OUTBOUND = newPushMetric(
+		"pilot_conf_out_http_listeners",
+		"Number of conflicting listeners on a http port.",
 	)
 
+	// METRIC_CONFLICTING_TCP_OUTBOUND tracks cases of multiple outbound
+	// listeners, with accepted TCP and the conflicting one a
+	// different type
+	METRIC_CONFLICTING_TCP_OUTBOUND = newPushMetric(
+		"pilot_conf_out_tcp_listeners",
+		"Number of conflicting listeners on a tcp listener.",
+	)
+
+	// METRIC_CONFLICTING_INBOUND tracks cases of multiple inbound
+	// listeners - 2 services selecting the same port of the pod
+	METRIC_CONFLICTING_INBOUND = newPushMetric(
+		"pilot_conf_in_listeners",
+		"Number of conflicting inbound listeners.",
+	)
+
+	// METRIC_NO_INSTANCES tracks clusters (services) without workloads.
 	METRIC_NO_INSTANCES = newPushMetric(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
@@ -92,9 +116,6 @@ var (
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
 	LastPushStatus *PushStatus
-)
-
-var (
 
 	// All metrics we registered.
 	metrics []*PushMetric

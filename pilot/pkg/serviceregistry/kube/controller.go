@@ -555,48 +555,10 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 
 				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
-			}
-			// If the pod has a Readiness probe, the IP will not be added to Addresses, but to NotReadyAddresses.
-			// That means we may fail to add listeners, resulting in readiness continuing to fail.
-			for _, ea := range ss.NotReadyAddresses {
-				if proxy.IPAddress == ea.IP {
-					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
-					if !exists {
-						continue
-					}
-					svc := convertService(*item, c.domainSuffix)
-					if svc == nil {
-						continue
-					}
-					for _, port := range ss.Ports {
-						svcPort, exists := svc.Ports.Get(port.Name)
-						if !exists {
-							continue
-						}
-						labels, _ := c.pods.labelsByIP(ea.IP)
-						pod, exists := c.pods.getPodByIP(ea.IP)
-						az, sa := "", ""
-						if exists {
-							az, _ = c.GetPodAZ(pod)
-							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-						}
-						//
-						out = append(out, &model.ServiceInstance{
-							Endpoint: model.NetworkEndpoint{
-								Address:     ea.IP,
-								Port:        int(port.Port),
-								ServicePort: svcPort,
-							},
-							Service:          svc,
-							Labels:           labels,
-							AvailabilityZone: az,
-							ServiceAccount:   sa,
-						})
-						if c.Env != nil {
-							c.Env.PushStatus.Add(model.METRIC_PROXY_UNREADY, proxy.ID, proxy, "")
-						}
-					}
+				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
+				out = append(out, nrEP...)
+				if len(nrEP) > 0 && c.Env != nil {
+					c.Env.PushStatus.Add(model.METRIC_PROXY_UNREADY, proxy.ID, proxy, "")
 				}
 			}
 		}
