@@ -131,7 +131,7 @@ spec:
     source.namespace:
       valueType: STRING
     source.owner:
-      valueType: STRING      
+      valueType: STRING
     source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
