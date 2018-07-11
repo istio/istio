@@ -1464,8 +1464,8 @@ func validateDestinationWeights(weights []*networking.DestinationWeight) (errs e
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
 		totalWeight += weight.Weight
 	}
-	if len(weights) > 1 && totalWeight > 100 {
-		errs = appendErrors(errs, fmt.Errorf("total destination weight %v > 100", totalWeight))
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
 	}
 	return
 }
