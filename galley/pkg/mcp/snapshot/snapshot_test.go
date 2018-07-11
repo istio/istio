@@ -27,6 +27,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/server"
 )
@@ -49,10 +51,12 @@ const (
 	fakeType0Prefix = "istio.io.galley.pkg.mcp.server.fakeType0"
 	fakeType1Prefix = "istio.io.galley.pkg.mcp.server.fakeType1"
 	fakeType2Prefix = "istio.io.galley.pkg.mcp.server.fakeType2"
+)
 
-	fakeType0TypeURL = typePrefix + fakeType0Prefix
-	fakeType1TypeURL = typePrefix + fakeType1Prefix
-	fakeType2TypeURL = typePrefix + fakeType2Prefix
+var (
+	fakeType0TypeURL = resource.MustTypeURL(typePrefix + fakeType0Prefix)
+	fakeType1TypeURL = resource.MustTypeURL(typePrefix + fakeType1Prefix)
+	fakeType2TypeURL = resource.MustTypeURL(typePrefix + fakeType2Prefix)
 )
 
 func mustMarshalAny(pb proto.Message) *types.Any {
@@ -84,17 +88,17 @@ func init() {
 
 type fakeSnapshot struct {
 	// read-only fields - no locking required
-	envelopes map[string][]*mcp.Envelope
-	versions  map[string]string
+	envelopes map[resource.TypeURL][]*mcp.Envelope
+	versions  map[resource.TypeURL]resource.Version
 }
 
-func (fs *fakeSnapshot) Resources(typ string) []*mcp.Envelope { return fs.envelopes[typ] }
-func (fs *fakeSnapshot) Version(typ string) string            { return fs.versions[typ] }
+func (fs *fakeSnapshot) Resources(typ resource.TypeURL) []*mcp.Envelope { return fs.envelopes[typ] }
+func (fs *fakeSnapshot) Version(typ resource.TypeURL) resource.Version  { return fs.versions[typ] }
 
 func (fs *fakeSnapshot) copy() *fakeSnapshot {
 	fsCopy := &fakeSnapshot{
-		envelopes: make(map[string][]*mcp.Envelope),
-		versions:  make(map[string]string),
+		envelopes: make(map[resource.TypeURL][]*mcp.Envelope),
+		versions:  make(map[resource.TypeURL]resource.Version),
 	}
 	for typeURL, envelopes := range fs.envelopes {
 		fsCopy.envelopes[typeURL] = append(fsCopy.envelopes[typeURL], envelopes...)
@@ -103,14 +107,14 @@ func (fs *fakeSnapshot) copy() *fakeSnapshot {
 	return fsCopy
 }
 
-func makeSnapshot(version string) *fakeSnapshot {
+func makeSnapshot(version resource.Version) *fakeSnapshot {
 	return &fakeSnapshot{
-		envelopes: map[string][]*mcp.Envelope{
+		envelopes: map[resource.TypeURL][]*mcp.Envelope{
 			fakeType0TypeURL: {fakeEnvelope0},
 			fakeType1TypeURL: {fakeEnvelope1},
 			fakeType2TypeURL: {fakeEnvelope2},
 		},
-		versions: map[string]string{
+		versions: map[resource.TypeURL]resource.Version{
 			fakeType0TypeURL: version,
 			fakeType1TypeURL: version,
 			fakeType2TypeURL: version,
@@ -132,7 +136,7 @@ var (
 	fakeEnvelope1 *mcp.Envelope
 	fakeEnvelope2 *mcp.Envelope
 
-	WatchResponseTypes = []string{
+	WatchResponseTypes = []resource.TypeURL{
 		fakeType0TypeURL,
 		fakeType1TypeURL,
 		fakeType2TypeURL,
@@ -150,10 +154,10 @@ func nextStrVersion(version *int64) string {
 
 }
 
-func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
+func createTestWatch(c *Cache, typeURL resource.TypeURL, version resource.Version, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
 	req := &mcp.MeshConfigRequest{
-		TypeUrl:     typeURL,
-		VersionInfo: version,
+		TypeUrl:     typeURL.String(),
+		VersionInfo: version.String(),
 		Client: &mcp.Client{
 			Id: key,
 		},
@@ -194,7 +198,7 @@ func getAsyncResponse(responseC chan *server.WatchResponse) (*server.WatchRespon
 
 func TestCreateWatch(t *testing.T) {
 	var versionInt int64 // atomic
-	initVersion := nextStrVersion(&versionInt)
+	initVersion := resource.Version(nextStrVersion(&versionInt))
 	snapshot := makeSnapshot(initVersion)
 
 	c := New()
@@ -202,7 +206,7 @@ func TestCreateWatch(t *testing.T) {
 
 	// verify immediate and async responses are handled independently across types.
 	for _, typeURL := range WatchResponseTypes {
-		t.Run(typeURL, func(t *testing.T) {
+		t.Run(typeURL.String(), func(t *testing.T) {
 			typeVersion := initVersion
 			responseC := make(chan *server.WatchResponse, 1)
 
@@ -221,7 +225,7 @@ func TestCreateWatch(t *testing.T) {
 
 			// verify async response
 			snapshot = snapshot.copy()
-			typeVersion = nextStrVersion(&versionInt)
+			typeVersion = resource.Version(nextStrVersion(&versionInt))
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
@@ -252,14 +256,14 @@ func TestCreateWatch(t *testing.T) {
 
 func TestWatchCancel(t *testing.T) {
 	var versionInt int64 // atomic
-	initVersion := nextStrVersion(&versionInt)
+	initVersion := resource.Version(nextStrVersion(&versionInt))
 	snapshot := makeSnapshot(initVersion)
 
 	c := New()
 	c.SetSnapshot(key, snapshot)
 
 	for _, typeURL := range WatchResponseTypes {
-		t.Run(typeURL, func(t *testing.T) {
+		t.Run(typeURL.String(), func(t *testing.T) {
 			typeVersion := initVersion
 			responseC := make(chan *server.WatchResponse, 1)
 
@@ -277,7 +281,7 @@ func TestWatchCancel(t *testing.T) {
 
 			// verify no response after watch is canceled
 			snapshot = snapshot.copy()
-			typeVersion = nextStrVersion(&versionInt)
+			typeVersion = resource.Version(nextStrVersion(&versionInt))
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
@@ -290,14 +294,14 @@ func TestWatchCancel(t *testing.T) {
 
 func TestClearSnapshot(t *testing.T) {
 	var versionInt int64 // atomic
-	initVersion := nextStrVersion(&versionInt)
+	initVersion := resource.Version(nextStrVersion(&versionInt))
 	snapshot := makeSnapshot(initVersion)
 
 	c := New()
 	c.SetSnapshot(key, snapshot)
 
 	for _, typeURL := range WatchResponseTypes {
-		t.Run(typeURL, func(t *testing.T) {
+		t.Run(typeURL.String(), func(t *testing.T) {
 			responseC := make(chan *server.WatchResponse, 1)
 
 			// verify no immediate response if snapshot is cleared.
@@ -308,7 +312,7 @@ func TestClearSnapshot(t *testing.T) {
 
 			// verify async response after new snapshot is added
 			snapshot = snapshot.copy()
-			typeVersion := nextStrVersion(&versionInt)
+			typeVersion := resource.Version(nextStrVersion(&versionInt))
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 
@@ -330,13 +334,13 @@ func TestClearSnapshot(t *testing.T) {
 
 func TestClearStatus(t *testing.T) {
 	var versionInt int64 // atomic
-	initVersion := nextStrVersion(&versionInt)
+	initVersion := resource.Version(nextStrVersion(&versionInt))
 	snapshot := makeSnapshot(initVersion)
 
 	c := New()
 
 	for _, typeURL := range WatchResponseTypes {
-		t.Run(typeURL, func(t *testing.T) {
+		t.Run(typeURL.String(), func(t *testing.T) {
 			responseC := make(chan *server.WatchResponse, 1)
 
 			if _, _, err := createTestWatch(c, typeURL, "", responseC, false, true); err != nil {
@@ -348,7 +352,7 @@ func TestClearStatus(t *testing.T) {
 			// verify that ClearStatus() cancels the open watch and
 			// that any subsequent snapshot is not delivered.
 			snapshot = snapshot.copy()
-			typeVersion := nextStrVersion(&versionInt)
+			typeVersion := resource.Version(nextStrVersion(&versionInt))
 			snapshot.versions[typeURL] = typeVersion
 			c.SetSnapshot(key, snapshot)
 

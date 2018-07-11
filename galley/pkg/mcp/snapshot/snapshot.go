@@ -15,11 +15,13 @@
 package snapshot
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/server"
+	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 )
 
@@ -27,8 +29,8 @@ var scope = log.RegisterScope("snapshot", "mcp snapshot", 0)
 
 // Snapshot provides an immutable view of versioned envelopes.
 type Snapshot interface {
-	Resources(typ string) []*mcp.Envelope
-	Version(typ string) string
+	Resources(typeURL resource.TypeURL) []*mcp.Envelope
+	Version(typeURL resource.TypeURL) resource.Version
 }
 
 // Cache is a snapshot-based cache that maintains a single versioned
@@ -52,7 +54,8 @@ func New() *Cache {
 var _ server.Watcher = &Cache{}
 
 type responseWatch struct {
-	request   *mcp.MeshConfigRequest // original request
+	typeURL   resource.TypeURL
+	version   resource.Version
 	responseC chan<- *server.WatchResponse
 }
 
@@ -67,6 +70,12 @@ type statusInfo struct {
 func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
 	// TODO(ayj) - use hash of clients's ID to index map.
 	nodeID := request.Client.GetId()
+
+	typeURL, err := resource.ParseTypeURL(request.TypeUrl)
+	if err != nil {
+		panic(fmt.Sprintf("type URL should have been validated by the protocol implementation: %q", request.TypeUrl))
+	}
+	version := resource.Version(request.VersionInfo)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -88,14 +97,14 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	// return an immediate response if a snapshot is available and the
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[nodeID]; ok {
-		version := snapshot.Version(request.TypeUrl)
-		scope.Debugf("Found snapshot for node: %q, with version: %q", nodeID, version)
-		if version != request.VersionInfo {
+		snapshotVersion := snapshot.Version(typeURL)
+		scope.Debugf("Found snapshot for node: %q, with version: %q", nodeID, snapshotVersion)
+		if version != snapshotVersion {
 			scope.Debugf("Responding to node %q with snapshot:\n%v\n", nodeID, snapshot)
 			response := &server.WatchResponse{
-				TypeURL:   request.TypeUrl,
-				Version:   version,
-				Envelopes: snapshot.Resources(request.TypeUrl),
+				TypeURL:   typeURL,
+				Version:   snapshotVersion,
+				Envelopes: snapshot.Resources(typeURL),
 			}
 			return response, nil
 		}
@@ -109,7 +118,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 		watchID, request.TypeUrl, nodeID, request.VersionInfo)
 
 	info.mu.Lock()
-	info.watches[watchID] = &responseWatch{request: request, responseC: responseC}
+	info.watches[watchID] = &responseWatch{typeURL: typeURL, version: version, responseC: responseC}
 	info.mu.Unlock()
 
 	cancel := func() {
@@ -136,14 +145,14 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	if info, ok := c.status[node]; ok {
 		info.mu.Lock()
 		for id, watch := range info.watches {
-			version := snapshot.Version(watch.request.TypeUrl)
-			if version != watch.request.VersionInfo {
+			version := snapshot.Version(watch.typeURL)
+			if version != watch.version {
 				log.Infof("SetSnapshot(): respond to watch %d with new version1 %q", id, version)
 
 				response := &server.WatchResponse{
-					TypeURL:   watch.request.TypeUrl,
+					TypeURL:   watch.typeURL,
 					Version:   version,
-					Envelopes: snapshot.Resources(watch.request.TypeUrl),
+					Envelopes: snapshot.Resources(watch.typeURL),
 				}
 				watch.responseC <- response
 

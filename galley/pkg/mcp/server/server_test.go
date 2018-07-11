@@ -31,16 +31,18 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 type mockConfigWatcher struct {
 	mu        sync.Mutex
-	counts    map[string]int
-	responses map[string]*WatchResponse
+	counts    map[resource.TypeURL]int
+	responses map[resource.TypeURL]*WatchResponse
 
-	watchesCreated map[string]chan struct{}
-	watches        map[string][]chan<- *WatchResponse
+	watchesCreated map[resource.TypeURL]chan struct{}
+	watches        map[resource.TypeURL][]chan<- *WatchResponse
 	closeWatch     bool
 }
 
@@ -48,19 +50,23 @@ func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, out chan<- *W
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	config.counts[req.TypeUrl]++
+	typeURL, err := resource.ParseTypeURL(req.TypeUrl)
+	if err != nil {
+		panic(fmt.Sprintf("Type url should have been validated by the protocol: %q", req.TypeUrl))
+	}
+	config.counts[typeURL]++
 
-	if rsp, ok := config.responses[req.TypeUrl]; ok {
-		rsp.TypeURL = req.TypeUrl
+	if rsp, ok := config.responses[typeURL]; ok {
+		rsp.TypeURL = typeURL
 		return rsp, nil
 	} else if config.closeWatch {
 		go func() { out <- nil }()
 	} else {
 		// save open watch channel for later
-		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], out)
+		config.watches[typeURL] = append(config.watches[typeURL], out)
 	}
 
-	if ch, ok := config.watchesCreated[req.TypeUrl]; ok {
+	if ch, ok := config.watchesCreated[typeURL]; ok {
 		ch <- struct{}{}
 	}
 
@@ -84,10 +90,10 @@ func (config *mockConfigWatcher) setResponse(response *WatchResponse) {
 
 func makeMockConfigWatcher() *mockConfigWatcher {
 	return &mockConfigWatcher{
-		counts:         make(map[string]int),
-		watchesCreated: make(map[string]chan struct{}),
-		watches:        make(map[string][]chan<- *WatchResponse),
-		responses:      make(map[string]*WatchResponse),
+		counts:         make(map[resource.TypeURL]int),
+		watchesCreated: make(map[resource.TypeURL]chan struct{}),
+		watches:        make(map[resource.TypeURL][]chan<- *WatchResponse),
+		responses:      make(map[resource.TypeURL]*WatchResponse),
 	}
 }
 
@@ -174,10 +180,14 @@ const (
 	fakeType0Prefix = "istio.io.galley.pkg.mcp.server.fakeType0"
 	fakeType1Prefix = "istio.io.galley.pkg.mcp.server.fakeType1"
 	fakeType2Prefix = "istio.io.galley.pkg.mcp.server.fakeType2"
+)
 
-	fakeType0TypeURL = typePrefix + fakeType0Prefix
-	fakeType1TypeURL = typePrefix + fakeType1Prefix
-	fakeType2TypeURL = typePrefix + fakeType2Prefix
+var (
+	fakeType0TypeURL = resource.MustTypeURL(typePrefix + fakeType0Prefix)
+	fakeType1TypeURL = resource.MustTypeURL(typePrefix + fakeType1Prefix)
+	fakeType2TypeURL = resource.MustTypeURL(typePrefix + fakeType2Prefix)
+
+	unsupportedTypeURL = resource.MustTypeURL(typePrefix + "unsupportedType")
 )
 
 func mustMarshalAny(pb proto.Message) *types.Any {
@@ -216,7 +226,7 @@ var (
 	fakeEnvelope1 *mcp.Envelope
 	fakeEnvelope2 *mcp.Envelope
 
-	WatchResponseTypes = []string{
+	WatchResponseTypes = []resource.TypeURL{
 		fakeType0TypeURL,
 		fakeType1TypeURL,
 		fakeType2TypeURL,
@@ -235,7 +245,7 @@ func TestMultipleRequests(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -250,7 +260,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case rsp = <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[resource.TypeURL]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -259,7 +269,7 @@ func TestMultipleRequests(t *testing.T) {
 
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:        client,
-		TypeUrl:       fakeType0TypeURL,
+		TypeUrl:       fakeType0TypeURL.String(),
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
@@ -267,7 +277,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[resource.TypeURL]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -283,7 +293,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -304,7 +314,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	select {
 	case <-stream.sent:
 		close(stream.recv)
-		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[resource.TypeURL]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -320,7 +330,7 @@ func TestWatchClosed(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 
 	// check that response fails since watch gets closed
@@ -344,7 +354,7 @@ func TestSendError(t *testing.T) {
 	stream.sendError = true
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -369,7 +379,7 @@ func TestReceiveError(t *testing.T) {
 	stream.recvError = status.Error(codes.Internal, "internal receive error")
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 
 	// check that response fails since watch gets closed
@@ -384,7 +394,7 @@ func TestReceiveError(t *testing.T) {
 func TestUnsupportedTypeError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   "unsupportedType",
+		TypeURL:   unsupportedTypeURL,
 		Version:   "1",
 		Envelopes: []*mcp.Envelope{fakeEnvelope0},
 	})
@@ -393,7 +403,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: "unsupportedtype",
+		TypeUrl: unsupportedTypeURL.String(),
 	}
 
 	// check that response fails since watch gets closed
@@ -416,7 +426,7 @@ func TestStaleNonce(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 	stop := make(chan struct{})
 	s := New(config, WatchResponseTypes)
@@ -425,7 +435,7 @@ func TestStaleNonce(t *testing.T) {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		// should be two watches called
-		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[resource.TypeURL]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 		close(stop)
@@ -435,14 +445,14 @@ func TestStaleNonce(t *testing.T) {
 		// stale request
 		stream.recv <- &mcp.MeshConfigRequest{
 			Client:        client,
-			TypeUrl:       fakeType0TypeURL,
+			TypeUrl:       fakeType0TypeURL.String(),
 			ResponseNonce: "xyz",
 		}
 		// fresh request
 		stream.recv <- &mcp.MeshConfigRequest{
 			VersionInfo:   "1",
 			Client:        client,
-			TypeUrl:       fakeType0TypeURL,
+			TypeUrl:       fakeType0TypeURL.String(),
 			ResponseNonce: "1",
 		}
 		close(stream.recv)
@@ -473,15 +483,15 @@ func TestAggregatedHandlers(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType0TypeURL,
+		TypeUrl: fakeType0TypeURL.String(),
 	}
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType1TypeURL,
+		TypeUrl: fakeType1TypeURL.String(),
 	}
 	stream.recv <- &mcp.MeshConfigRequest{
 		Client:  client,
-		TypeUrl: fakeType2TypeURL,
+		TypeUrl: fakeType2TypeURL.String(),
 	}
 
 	s := New(config, WatchResponseTypes)
@@ -491,7 +501,7 @@ func TestAggregatedHandlers(t *testing.T) {
 		}
 	}()
 
-	want := map[string]int{
+	want := map[resource.TypeURL]int{
 		fakeType0TypeURL: 1,
 		fakeType1TypeURL: 1,
 		fakeType2TypeURL: 1,

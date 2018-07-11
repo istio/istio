@@ -16,8 +16,6 @@ package resource
 
 import (
 	"fmt"
-
-	"github.com/gogo/protobuf/proto"
 )
 
 // EventKind is the type of an event.
@@ -43,9 +41,8 @@ const (
 
 // Event represents a change that occurred against a resource in the source config system.
 type Event struct {
-	Kind EventKind
-	ID   VersionedKey
-	Item proto.Message
+	Kind  EventKind
+	Entry Entry
 }
 
 // String implements Stringer.String
@@ -68,5 +65,5 @@ func (k EventKind) String() string {
 
 // String implements Stringer.String
 func (e Event) String() string {
-	return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.ID)
+	return fmt.Sprintf("[Event](%s: %v)", e.Kind.String(), e.Entry.ID)
 }

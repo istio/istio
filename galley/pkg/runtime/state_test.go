@@ -30,8 +30,10 @@ func TestState_Apply_Add(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 
 	changed := s.apply(e)
@@ -40,11 +42,11 @@ func TestState_Apply_Add(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.TypeURL)
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
-	v := sn.Version(emptyInfo.TypeURL.String())
+	v := sn.Version(emptyInfo.TypeURL)
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -55,8 +57,10 @@ func TestState_Apply_Update(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 
 	changed := s.apply(e)
@@ -66,8 +70,10 @@ func TestState_Apply_Update(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Updated,
-		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 	changed = s.apply(e)
 	if !changed {
@@ -75,11 +81,11 @@ func TestState_Apply_Update(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.TypeURL)
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
-	v := sn.Version(emptyInfo.TypeURL.String())
+	v := sn.Version(emptyInfo.TypeURL)
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -90,8 +96,10 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 
 	changed := s.apply(e)
@@ -101,8 +109,10 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Updated,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 	s.apply(e)
 
@@ -117,8 +127,10 @@ func TestState_Apply_Delete(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 
 	changed := s.apply(e)
@@ -128,7 +140,9 @@ func TestState_Apply_Delete(t *testing.T) {
 
 	e = resource.Event{
 		Kind: resource.Deleted,
-		ID:   resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+		Entry: resource.Entry{
+			ID: resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+		},
 	}
 	s.apply(e)
 
@@ -138,7 +152,7 @@ func TestState_Apply_Delete(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("mn")
+	r := sn.Resources(resource.MustTypeURL("type.googleapis.com/mn"))
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -149,8 +163,10 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.EventKind(42),
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: &types.Any{},
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: &types.Any{},
+		},
 	}
 	changed := s.apply(e)
 	if changed {
@@ -158,7 +174,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources("mn")
+	r := sn.Resources(resource.MustTypeURL("type.googleapis.com/mn"))
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -169,8 +185,10 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: nil,
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: nil,
+		},
 	}
 	changed := s.apply(e)
 	if changed {
@@ -178,7 +196,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.TypeURL)
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -189,8 +207,10 @@ func TestState_String(t *testing.T) {
 
 	e := resource.Event{
 		Kind: resource.Added,
-		ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
-		Item: nil,
+		Entry: resource.Entry{
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "fn"}},
+			Item: nil,
+		},
 	}
 	_ = s.apply(e)
 

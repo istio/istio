@@ -58,7 +58,7 @@ func (b *SchemaBuilder) Register(typeURL string, isGogo bool) {
 	}
 
 	// Before registering, ensure that the proto type is actually reachable.
-	url, err := newTypeURL(typeURL)
+	url, err := ParseTypeURL(typeURL)
 	if err != nil {
 		panic(err)
 	}
@@ -114,11 +114,11 @@ func (s *Schema) All() []Info {
 }
 
 // TypeURLs returns all known type URLs.
-func (s *Schema) TypeURLs() []string {
-	result := make([]string, 0, len(s.byURL))
+func (s *Schema) TypeURLs() []TypeURL {
+	result := make([]TypeURL, 0, len(s.byURL))
 
 	for _, info := range s.byURL {
-		result = append(result, info.TypeURL.string)
+		result = append(result, info.TypeURL)
 	}
 
 	return result

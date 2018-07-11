@@ -30,12 +30,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 type testStream struct {
 	sync.Mutex
-	change map[string]*Change
+	change map[resource.TypeURL]Change
 
 	requestC  chan *mcp.MeshConfigRequest  // received from client
 	responseC chan *mcp.MeshConfigResponse // to-be-sent to client
@@ -51,7 +53,7 @@ func newTestStream() *testStream {
 	return &testStream{
 		requestC:  make(chan *mcp.MeshConfigRequest, 10),
 		responseC: make(chan *mcp.MeshConfigResponse, 10),
-		change:    make(map[string]*Change),
+		change:    make(map[resource.TypeURL]Change),
 	}
 }
 
@@ -105,13 +107,13 @@ func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
 	return response, nil
 }
 
-func (ts *testStream) Update(change *Change) error {
+func (ts *testStream) Update(change Change) error {
 	if ts.updateError {
 		return errors.New("update error")
 	}
 	ts.Lock()
 	defer ts.Unlock()
-	ts.change[change.MessageName] = change
+	ts.change[change.Objects[0].ID.TypeURL] = change
 	return nil
 }
 
@@ -284,20 +286,24 @@ func TestSingleTypeCases(t *testing.T) {
 		name         string
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
-		wantChange   *Change
+		wantResource Change
 		updateError  bool
 	}{
 		{
 			name:         "ACK request (type0)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+							FullName: fakeResource0_0.Metadata.Name,
+						},
+						Version: resource.Version("type0/v0"),
+					},
+					Item: fake0_0,
 				}},
 			},
 		},
@@ -305,13 +311,17 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request (type1)",
 			sendResponse: makeResponse(fakeType1TypeURL, "type1/v0", "type1/n0", fakeResource1),
 			wantRequest:  makeRequest(fakeType1TypeURL, "type1/v0", "type1/n0", codes.OK),
-			wantChange: &Change{
-				MessageName: fakeType1MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType1MessageName,
-					Metadata:    fakeResource1.Metadata,
-					Resource:    fake1,
-					Version:     "type1/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType1TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType1TypeURL),
+							FullName: fakeResource1.Metadata.Name,
+						},
+						Version: resource.Version("type1/v0"),
+					},
+					Item: fake1,
 				}},
 			},
 		},
@@ -319,13 +329,17 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request (type2)",
 			sendResponse: makeResponse(fakeType2TypeURL, "type2/v0", "type2/n0", fakeResource2),
 			wantRequest:  makeRequest(fakeType2TypeURL, "type2/v0", "type2/n0", codes.OK),
-			wantChange: &Change{
-				MessageName: fakeType2MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType2MessageName,
-					Metadata:    fakeResource2.Metadata,
-					Resource:    fake2,
-					Version:     "type2/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType2TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType2TypeURL),
+							FullName: fakeResource2.Metadata.Name,
+						},
+						Version: resource.Version("type2/v0"),
+					},
+					Item: fake2,
 				}},
 			},
 		},
@@ -333,13 +347,17 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unsupported type_url)",
 			sendResponse: makeResponse(fakeType0TypeURL+"Garbage", "type0/v1", "type0/n1", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL+"Garbage", "", "type0/n1", codes.Unimplemented),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+							FullName: fakeResource0_0.Metadata.Name,
+						},
+						Version: resource.Version("type0/v0"),
+					},
+					Item: fake0_0,
 				}},
 			},
 		},
@@ -347,13 +365,17 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unmarshal error)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n2", badUnmarshalEnvelope),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n2", codes.Unknown),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+							FullName: fakeResource0_0.Metadata.Name,
+						},
+						Version: resource.Version("type0/v0"),
+					},
+					Item: fake0_0,
 				}},
 			},
 		},
@@ -361,13 +383,17 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (response type_url does not match resource type_url)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+							FullName: fakeResource0_0.Metadata.Name,
+						},
+						Version: resource.Version("type0/v0"),
+					},
+					Item: fake0_0,
 				}},
 			},
 		},
@@ -376,13 +402,17 @@ func TestSingleTypeCases(t *testing.T) {
 			updateError:  true,
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_0.Metadata,
-					Resource:    fake0_0,
-					Version:     "type0/v0",
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{{
+					ID: resource.VersionedKey{
+						Key: resource.Key{
+							TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+							FullName: fakeResource0_0.Metadata.Name,
+						},
+						Version: resource.Version("type0/v0"),
+					},
+					Item: fake0_0,
 				}},
 			},
 		},
@@ -390,19 +420,30 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request after previous NACKs",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_1, fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n3", codes.OK),
-			wantChange: &Change{
-				MessageName: fakeType0MessageName,
-				Objects: []*Object{{
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_1.Metadata,
-					Resource:    fake0_1,
-					Version:     "type0/v1",
-				}, {
-					MessageName: fakeType0MessageName,
-					Metadata:    fakeResource0_2.Metadata,
-					Resource:    fake0_2,
-					Version:     "type0/v1",
-				}},
+			wantResource: Change{
+				TypeURL: resource.MustTypeURL(fakeType0TypeURL),
+				Objects: []resource.Entry{
+					{
+						ID: resource.VersionedKey{
+							Key: resource.Key{
+								TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+								FullName: fakeResource0_1.Metadata.Name,
+							},
+							Version: resource.Version("type0/v1"),
+						},
+						Item: fake0_1,
+					},
+					{
+						ID: resource.VersionedKey{
+							Key: resource.Key{
+								TypeURL:  resource.MustTypeURL(fakeType0TypeURL),
+								FullName: fakeResource0_2.Metadata.Name,
+							},
+							Version: resource.Version("type0/v1"),
+						},
+						Item: fake0_2,
+					},
+				},
 			},
 		},
 	}
@@ -419,8 +460,8 @@ func TestSingleTypeCases(t *testing.T) {
 
 		ts.sendResponseToClient(step.sendResponse)
 		<-responseDone
-		if !reflect.DeepEqual(ts.change[step.wantChange.MessageName], step.wantChange) {
-			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v", step.name, ts.change, step.wantChange)
+		if !reflect.DeepEqual(ts.change[step.wantResource.Objects[0].ID.TypeURL], step.wantResource) {
+			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v", step.name, ts.change, step.wantResource)
 		}
 
 		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {

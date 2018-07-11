@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/runtime/resource"
 
 	"google.golang.org/grpc"
 
@@ -34,7 +35,7 @@ type Server struct {
 	Cache *snapshot.Cache
 
 	// TypeURLs that were originally passed in.
-	TypeURLs []string
+	TypeURLs []resource.TypeURL
 
 	// Port that the service is listening on.
 	Port int
@@ -51,7 +52,7 @@ var _ io.Closer = &Server{}
 // NewServer creates and starts a new MCP Server. Returns a new Server instance upon success.
 // Specifying port as 0 will cause the server to bind to an arbitrary port. This port can be queried
 // from the Port field of the returned server struct.
-func NewServer(port int, typeUrls []string) (*Server, error) {
+func NewServer(port int, typeUrls []resource.TypeURL) (*Server, error) {
 	cache := snapshot.New()
 	s := server.New(cache, typeUrls)
 

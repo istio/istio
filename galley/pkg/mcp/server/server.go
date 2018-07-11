@@ -18,12 +18,13 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
@@ -35,12 +36,12 @@ var (
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
 type WatchResponse struct {
-	TypeURL string
+	TypeURL resource.TypeURL
 
 	// Version of the resources in the response for the given
 	// type. The client responses with this version in subsequent
 	// requests as an acknowledgment.
-	Version string
+	Version resource.Version
 
 	// Enveloped resources to be included in the response.
 	Envelopes []*mcp.Envelope
@@ -73,7 +74,7 @@ var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
 // Server implements the Mesh Configuration Protocol (MCP) gRPC server.
 type Server struct {
 	watcher        Watcher
-	supportedTypes []string
+	supportedTypes []resource.TypeURL
 	nextStreamID   int64
 }
 
@@ -98,12 +99,12 @@ type connection struct {
 	requestC  chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
 	reqError  error                       // holds error if request channel is closed
 	responseC chan *WatchResponse         // channel of pushes responses
-	watches   map[string]*watch           // per-type watches
+	watches   map[resource.TypeURL]*watch // per-type watches
 	watcher   Watcher
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
-func New(watcher Watcher, supportedTypes []string) *Server {
+func New(watcher Watcher, supportedTypes []resource.TypeURL) *Server {
 	return &Server{
 		watcher:        watcher,
 		supportedTypes: supportedTypes,
@@ -121,7 +122,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		peerAddr:  peerAddr,
 		requestC:  make(chan *mcp.MeshConfigRequest),
 		responseC: make(chan *WatchResponse),
-		watches:   make(map[string]*watch),
+		watches:   make(map[resource.TypeURL]*watch),
 		watcher:   s.watcher,
 		id:        atomic.AddInt64(&s.nextStreamID, 1),
 	}
@@ -129,11 +130,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	var messageNames []string
 	for _, typeURL := range s.supportedTypes {
 		con.watches[typeURL] = &watch{}
-
-		// extract the message name from the fully qualified type_url.
-		if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
-			messageNames = append(messageNames, typeURL[slash+1:])
-		}
+		messageNames = append(messageNames, typeURL.MessageName())
 	}
 
 	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, messageNames)
@@ -180,9 +177,9 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 		envelopes = append(envelopes, *envelope)
 	}
 	msg := &mcp.MeshConfigResponse{
-		VersionInfo: resp.Version,
+		VersionInfo: resp.Version.String(),
 		Envelopes:   envelopes,
-		TypeUrl:     resp.TypeURL,
+		TypeUrl:     resp.TypeURL.String(),
 	}
 
 	// increment nonce
@@ -226,7 +223,12 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
-	watch, ok := con.watches[req.TypeUrl]
+	typeURL, err := resource.ParseTypeURL(req.TypeUrl)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "unrecognized type_url %q", req.TypeUrl)
+	}
+
+	watch, ok := con.watches[typeURL]
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "unsupported type_url %q", req.TypeUrl)
 	}

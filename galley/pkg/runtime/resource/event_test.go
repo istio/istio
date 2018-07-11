@@ -32,11 +32,11 @@ func TestEventKind_String(t *testing.T) {
 	}
 
 	for i, e := range tests {
-		t.Run(e, (func(t *testing.T) {
+		t.Run(e, func(t *testing.T) {
 			a := i.String()
 			if a != e {
 				t.Fatalf("Mismatch: Actual=%v, Expected=%v", a, e)
 			}
-		}))
+		})
 	}
 }
