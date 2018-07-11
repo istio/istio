@@ -21,9 +21,13 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sync"
 
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -213,12 +217,54 @@ func (e *Ephemeral) processAttributeManifests(counters Counters, errs *multierro
 	return attrs
 }
 
+// convert converts unstructured spec into the target proto.
+func convert(spec map[string]interface{}, target proto.Message) error {
+	jsonData, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
+		log.Warnf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+	}
+	return err
+}
+
 func (e *Ephemeral) processStaticAdapterHandlerConfigs(counters Counters, errs *multierror.Error) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
 		var info *adapter.Info
 		var found bool
+
+		if key.Kind == constant.HandlerKind {
+			handlerProto := resource.Spec.(*config.Handler)
+
+			a, ok := e.adapters[handlerProto.CompiledAdapter]
+			if !ok {
+				continue
+			}
+
+			staticConfig := &HandlerStatic{
+				Name:    key.Name,
+				Adapter: a,
+			}
+
+			if handlerProto.Params != nil {
+				c := staticConfig.Adapter.DefaultConfig
+				switch v := handlerProto.Params.(type) {
+				case map[string]interface{}:
+					if err := convert(v, c); err != nil {
+						log.Warnf("could not convert handler params; using default config: %v", err)
+					}
+				default:
+					log.Warnf("unexpected type for handler params: %T; could not convert handler params; using default config", v)
+				}
+				staticConfig.Params = c
+			}
+			handlers[key.String()] = staticConfig
+			continue
+		}
+
 		if info, found = e.adapters[key.Kind]; !found {
 			// This config resource is not for an adapter (or at least not for one that Mixer is currently aware of).
 			continue
@@ -263,6 +309,9 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, c
 		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
 		hdl := resource.Spec.(*config.Handler)
+		if len(hdl.CompiledAdapter) > 0 {
+			continue // this will have already been added in staticHandlerConfigs
+		}
 		adpt, _ := getCanonicalRef(hdl.Adapter, constant.AdapterKind, key.Namespace, func(n string) interface{} {
 			if a, ok := adapters[n]; ok {
 				return a
