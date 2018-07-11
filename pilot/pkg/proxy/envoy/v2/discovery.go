@@ -119,7 +119,6 @@ func (s *DiscoveryServer) periodicRefresh() {
 	}
 }
 
-
 // ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
 // This is used for transition, once the new config model is in place we'll have separate
 // functions for each event and push only configs that need to be pushed.

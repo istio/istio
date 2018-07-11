@@ -32,9 +32,10 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"encoding/json"
+
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
-	"encoding/json"
 )
 
 var (
@@ -542,7 +543,7 @@ func AdsPushAll(s *DiscoveryServer) {
 
 	s.modelMutex.RLock()
 	adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
-			"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
 	monServices.Set(float64(len(s.services)))
 	monVServices.Set(float64(len(s.virtualServices)))
 	s.modelMutex.RUnlock()
@@ -619,7 +620,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	}
 
 	if afterPush && s != nil {
-		time.AfterFunc(10 * time.Second, func() {
+		time.AfterFunc(10*time.Second, func() {
 			ps := s.env.PushStatus
 			if ps != nil {
 				ps.AfterPush()
@@ -630,7 +631,8 @@ func AdsPushAll(s *DiscoveryServer) {
 				}
 
 				s.env.PushStatus = nil
-		}})
+			}
+		})
 	}
 }
 

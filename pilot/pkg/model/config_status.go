@@ -59,10 +59,7 @@ type PushStatus struct {
 	Unready             map[string]*Proxy
 
 	ConflictingOutbound map[string]string
-
-
 }
-
 
 func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set
