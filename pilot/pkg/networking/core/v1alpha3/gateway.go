@@ -412,7 +412,17 @@ func createGatewayTCPFilterChainOpts(
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		sniHostSets := getSNIHostSets(env, server, gatewayNames)
+		sniHostSets := getSNIHostSets(env, server, gatewayNames) // FIXME: this should be ordered.
+
+		for _, sniHostSet := range sniHostSets {
+			if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       sniHostSet,
+					tlsContext:     buildGatewayListenerTLSContext(server),
+					networkFilters: filters,
+				})
+			}
+		}
 		// FIXME: len(sniHostSets) == 0?
 		if filters := buildGatewayNetworkFilters(env, server, gatewayNames, ""); len(filters) > 0 {
 			opts = append(opts, &filterChainOpts{
@@ -421,22 +431,13 @@ func createGatewayTCPFilterChainOpts(
 				networkFilters: filters,
 			})
 		}
-		for sniHostSet := range sniHostSets {
-			if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
-				opts = append(opts, &filterChainOpts{
-					sniHosts:       strings.Split(sniHostSet, ","), // FIXME: oh god
-					tlsContext:     buildGatewayListenerTLSContext(server),
-					networkFilters: filters,
-				})
-			}
-		}
 	}
 	return opts
 }
 
 // buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool, sniHostsSet string) []listener.Filter {
+func buildGatewayNetworkFilters(env model.Environment, server *networking.Server, gatewayNames map[string]bool, sniHostsSet []string) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
@@ -466,7 +467,7 @@ func buildGatewayNetworkFilters(env model.Environment, server *networking.Server
 
 // getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool, sniHostsSet string) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env model.Environment, server *networking.Server, gateways map[string]bool, sniHostsSet []string) []*networking.Destination {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
@@ -543,7 +544,7 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool, sniHostsSet string) bool {
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool, sniHostsSet []string) bool {
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
@@ -555,7 +556,11 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 		// TODO: implement more matches, like CIDR ranges, etc.
 
 		// the match's sni hosts includes hosts advertised by server
-		sniHostsMatch := sniHostsKey(match.SniHosts) == sniHostsSet
+		// FIXME: ugh
+		matchSNIHostsSet := sniHostsKey(match.SniHosts)
+		sniHostsSetKey := sniHostsKey(sniHostsSet)
+		sniHostsMatch := matchSNIHostsSet == sniHostsSetKey
+		log.Errorf("SNI hosts match check comparing %v to %v is %v", match.SniHosts, sniHostsSet, sniHostsMatch)
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
@@ -599,12 +604,12 @@ func sniHostsKey(sniHosts []string) string {
 	return strings.Join(sniHosts, ",")
 }
 
-func getSNIHostSets(env model.Environment, server *networking.Server, gateways map[string]bool) map[string]bool {
+func getSNIHostSets(env model.Environment, server *networking.Server, gateways map[string]bool) [][]string {
 	if server.Tls == nil {
 		return nil
 	}
 
-	out := make(map[string]bool)
+	have := make(map[string]bool)
 
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
@@ -612,6 +617,8 @@ func getSNIHostSets(env model.Environment, server *networking.Server, gateways m
 	}
 
 	virtualServices := env.VirtualServices(gateways)
+
+	out := make([][]string, 0) // TODO: hm, is this ordering actually guaranteed here? i think we need to sort virtual services by hostname sets?
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
@@ -622,11 +629,17 @@ func getSNIHostSets(env model.Environment, server *networking.Server, gateways m
 
 		for _, tls := range vsvc.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, nil, gateways, int(server.Port.Number)) { // FIXME: labels, ports
-					out[sniHostsKey(match.SniHosts)] = true
+				if matchTLS(match, nil, gateways, int(server.Port.Number)) {
+					// FIXME: labels, ports
+					key := sniHostsKey(match.SniHosts)
+					if have[key] {
+						have[key] = true
+						out = append(out, match.SniHosts)
+					}
 				}
 			}
 		}
 	}
+	log.Errorf("sni host sets: %v", out)
 	return out
 }
