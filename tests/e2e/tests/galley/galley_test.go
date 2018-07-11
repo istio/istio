@@ -166,12 +166,6 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-rule-invalid", false},
 		{"config-v1alpha2-rule-valid", true},
 
-		{"config-v1alpha2-RouteRule-invalid", false},
-		{"config-v1alpha2-RouteRule-valid", true},
-		{"config-v1alpha2-DestinationPolicy-invalid", false},
-		{"config-v1alpha2-DestinationPolicy-valid", true},
-		{"config-v1alpha2-EgressRule-invalid", false},
-		{"config-v1alpha2-EgressRule-valid", true},
 		{"config-v1alpha2-HTTPAPISpec-invalid", false},
 		{"config-v1alpha2-HTTPAPISpec-valid", true},
 		{"config-v1alpha2-HTTPAPISpecBinding-invalid", false},

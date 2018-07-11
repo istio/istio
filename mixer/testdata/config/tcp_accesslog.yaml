@@ -9,12 +9,13 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
-  name: accesslog
+  name: tcpaccesslog
   namespace: istio-system
 spec:
-  severity: '"Default"'
-  timestamp: request.time | timestamp("2017-01-01T00:00:00Z")
+  severity: '"Info"'
+  timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
   variables:
+    connectionEvent: connection.event | ""
     sourceIp: source.ip | ip("0.0.0.0")
     sourceApp: source.labels["app"] | ""
     sourcePrincipal: source.principal | ""
@@ -30,37 +31,23 @@ spec:
     destinationNamespace: destination.namespace | ""
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
-    apiName: api.service | ""
-    apiVersion: api.version | ""
-    apiClaims: request.auth.raw_claims | ""
-    apiKey: request.api_key | request.headers["x-api-key"] | ""
-    requestOperation: api.operation | ""
-    protocol: request.scheme | context.protocol | "http"
-    method: request.method | ""
-    url: request.path | ""
-    responseCode: response.code | 0
-    responseSize: response.size | 0
-    requestSize: request.size | 0
-    requestId: request.headers["x-request-id"] | ""
-    clientTraceId: request.headers["x-client-trace-id"] | ""
-    latency: response.duration | "0ms"
+    protocol: context.protocol | "tcp"
+    connctionDuration: connection.duration | "0ms"
     connectionMtls: connection.mtls | false
-    userAgent: request.useragent | ""
-    responseTimestamp: response.time | timestamp("2017-01-01T00:00:00Z")
-    receivedBytes: request.total_size | 0
-    sentBytes: response.total_size | 0
-    referer: request.referer | ""
-    xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+    receivedBytes: connection.received.bytes | 0
+    sentBytes: connection.sent.bytes | 0
+    totalReceivedBytes: connection.received.bytes_total | 0
+    totalSentBytes: connection.sent.bytes_total | 0
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: stdiohttp
+  name: stdiotcp
   namespace: istio-system
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.stdio
     instances:
-    - accesslog.logentry
+    - tcpaccesslog.logentry

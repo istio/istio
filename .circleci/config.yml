@@ -400,7 +400,7 @@ jobs:
             make sync
             make localTestEnv
             set -o pipefail
-            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
+            make -k pilot-racetest mixer-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
