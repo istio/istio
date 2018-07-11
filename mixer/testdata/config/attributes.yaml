@@ -73,6 +73,8 @@ spec:
         valueType: DURATION
       connection.mtls:
         valueType: BOOL
+      connection.requested_server_name:
+        valueType: STRING
       context.protocol:
         valueType: STRING
       context.timestamp:
