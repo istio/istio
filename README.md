@@ -53,7 +53,7 @@ Istio is composed of these components:
 
 - **Node Agent** - A per-node component responsible for certificate issuance and rotation.
 
-Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
+Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
 
 ## Repositories

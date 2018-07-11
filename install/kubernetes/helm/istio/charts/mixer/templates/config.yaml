@@ -76,6 +76,8 @@ spec:
       valueType: DURATION
     connection.mtls:
       valueType: BOOL
+    connection.requested_server_name:
+      valueType: STRING
     context.protocol:
       valueType: STRING
     context.timestamp:
@@ -129,7 +131,7 @@ spec:
     source.namespace:
       valueType: STRING
     source.owner:
-      valueType: STRING      
+      valueType: STRING
     source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
@@ -222,6 +224,7 @@ spec:
     clientTraceId: request.headers["x-client-trace-id"] | ""
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
+    requestedServerName: connection.requested_server_name | ""
     userAgent: request.useragent | ""
     responseTimestamp: response.time
     receivedBytes: request.total_size | 0
@@ -258,6 +261,7 @@ spec:
     protocol: context.protocol | "tcp"
     connctionDuration: connection.duration | "0ms"
     connectionMtls: connection.mtls | false
+    requestedServerName: connection.requested_server_name | ""
     receivedBytes: connection.received.bytes | 0
     sentBytes: connection.sent.bytes | 0
     totalReceivedBytes: connection.received.bytes_total | 0
