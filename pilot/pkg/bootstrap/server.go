@@ -56,7 +56,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
-	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -75,28 +74,6 @@ const (
 var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
-
-	// ConfigDescriptor describes all supported configuration kinds.
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	ConfigDescriptor = model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.EnvoyFilter,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
 
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
@@ -143,17 +120,10 @@ type ConsulArgs struct {
 	Interval  time.Duration
 }
 
-// EurekaArgs provides configuration for the Eureka service registry
-type EurekaArgs struct {
-	ServerURL string
-	Interval  time.Duration
-}
-
 // ServiceArgs provides the composite configuration for all service registries in the system.
 type ServiceArgs struct {
 	Registries []string
 	Consul     ConsulArgs
-	Eureka     EurekaArgs
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -475,7 +445,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
-		store := memory.Make(ConfigDescriptor)
+		store := memory.Make(model.IstioConfigTypes)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args, configController)
@@ -539,7 +509,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := crd.NewClient(kubeCfgFile, "", ConfigDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := crd.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -552,7 +522,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, ConfigDescriptor)
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -668,17 +638,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
-				})
-		case serviceregistry.EurekaRegistry:
-			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
-			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
-					ClusterID:        string(serviceregistry.EurekaRegistry),
-					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
-					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
-					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
 
 		case serviceregistry.CloudFoundryRegistry:
