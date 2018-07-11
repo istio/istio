@@ -86,6 +86,12 @@ attributes {
   }
 }
 attributes {
+  key: "destination.principal"
+  value {
+    string_value: "destination_user"
+  }
+}
+attributes {
   key: "connection.id"
   value {
     string_value: "1234-5"
@@ -305,9 +311,13 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
-  EXPECT_CALL(mock_data, GetSourceUser(_))
-      .WillOnce(Invoke([](std::string* user) -> bool {
-        *user = "test_user";
+  EXPECT_CALL(mock_data, GetPrincipal(_, _))
+      .WillRepeatedly(Invoke([](bool peer, std::string* user) -> bool {
+        if (peer) {
+          *user = "test_user";
+        } else {
+          *user = "destination_user";
+        }
         return true;
       }));
   EXPECT_CALL(mock_data, GetConnectionId()).WillOnce(Return("1234-5"));

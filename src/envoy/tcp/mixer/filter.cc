@@ -149,8 +149,8 @@ bool Filter::GetSourceIpPort(std::string* str_ip, int* port) const {
   return Utils::GetIpPort(filter_callbacks_->connection().remoteAddress()->ip(),
                           str_ip, port);
 }
-bool Filter::GetSourceUser(std::string* user) const {
-  return Utils::GetSourceUser(&filter_callbacks_->connection(), user);
+bool Filter::GetPrincipal(bool peer, std::string* user) const {
+  return Utils::GetPrincipal(&filter_callbacks_->connection(), peer, user);
 }
 
 bool Filter::IsMutualTLS() const {

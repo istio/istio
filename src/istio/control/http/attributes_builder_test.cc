@@ -108,6 +108,12 @@ attributes {
   }
 }
 attributes {
+  key: "destination.principal"
+  value {
+    string_value: "destination_user"
+  }
+}
+attributes {
   key: "request.auth.audiences"
   value {
     string_value: "thisisaud"
@@ -284,9 +290,13 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
 
 TEST(AttributesBuilderTest, TestCheckAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, GetSourceUser(_))
-      .WillOnce(Invoke([](std::string *user) -> bool {
-        *user = "test_user";
+  EXPECT_CALL(mock_data, GetPrincipal(_, _))
+      .WillRepeatedly(Invoke([](bool peer, std::string *user) -> bool {
+        if (peer) {
+          *user = "test_user";
+        } else {
+          *user = "destination_user";
+        }
         return true;
       }));
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
@@ -414,6 +424,10 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   (*expected_attributes
         .mutable_attributes())[utils::AttributeName::kRequestAuthRawClaims]
       .set_string_value("test_raw_claims");
+
+  // strip destination.principal for JWT-based authn
+  (*expected_attributes.mutable_attributes())
+      .erase(utils::AttributeName::kDestinationPrincipal);
 
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));

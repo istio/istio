@@ -42,12 +42,19 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   // TODO(diemtvu): add TCP authn filter similar to http case, and use authn
   // result output here instead.
   std::string source_user;
-  if (check_data->GetSourceUser(&source_user)) {
+  if (check_data->GetPrincipal(true, &source_user)) {
     // TODO(diemtvu): remove kSourceUser once migration to source.principal is
     // over. https://github.com/istio/istio/issues/4689
     builder.AddString(utils::AttributeName::kSourceUser, source_user);
     builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
   }
+
+  std::string destination_principal;
+  if (check_data->GetPrincipal(false, &destination_principal)) {
+    builder.AddString(utils::AttributeName::kDestinationPrincipal,
+                      destination_principal);
+  }
+
   builder.AddBool(utils::AttributeName::kConnectionMtls,
                   check_data->IsMutualTLS());
 

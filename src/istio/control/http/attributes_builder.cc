@@ -128,11 +128,17 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
     builder.AddStringMap(utils::AttributeName::kRequestAuthClaims, payload);
   }
   std::string source_user;
-  if (check_data->GetSourceUser(&source_user)) {
+  if (check_data->GetPrincipal(true, &source_user)) {
     // TODO(diemtvu): remove kSourceUser once migration to source.principal is
     // over. https://github.com/istio/istio/issues/4689
     builder.AddString(utils::AttributeName::kSourceUser, source_user);
     builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
+  }
+
+  std::string destination_principal;
+  if (check_data->GetPrincipal(false, &destination_principal)) {
+    builder.AddString(utils::AttributeName::kDestinationPrincipal,
+                      destination_principal);
   }
 }  // namespace http
 
