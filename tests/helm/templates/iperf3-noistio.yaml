@@ -8,7 +8,9 @@ spec:
   gateways:
   - istio-gateway
   tcp:
-  - route:
+  - match:
+    - port: 5201
+    route:
     - destination:
         host: iperf3-raw.test.svc.cluster.local
         port:
