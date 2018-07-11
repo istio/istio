@@ -102,14 +102,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env model.Environment, node
 	return nil, nil
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*model.Service) []*model.Service {
-	sort.SliceStable(services, func(i, j int) bool {
-		return services[i].CreationTime.Before(services[j].CreationTime)
-	})
-	return services
-}
-
 // buildSidecarListeners produces a list of listeners for sidecar proxies
 func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
 
@@ -125,9 +117,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 	if err != nil {
 		return nil, err
 	}
-
-	// Sort the services in order of creation.
-	services = sortServicesByCreationTime(services)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -363,6 +352,14 @@ func handleOutboundListenerConflict(service *model.Service, servicePort *model.P
 		servicePort.Protocol)
 }
 
+// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func sortServicesByCreationTime(services []*model.Service) []*model.Service {
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].CreationTime.Before(services[j].CreationTime)
+	})
+	return services
+}
+
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
@@ -379,6 +376,9 @@ func handleOutboundListenerConflict(service *model.Service, servicePort *model.P
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
+
+	// Sort the services in order of creation.
+	services = sortServicesByCreationTime(services)
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
