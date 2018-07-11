@@ -78,8 +78,6 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 #####################
 
 generate: \
-	generate-broker-go \
-	generate-broker-python \
 	generate-mcp-go \
 	generate-mcp-python \
 	generate-mesh-go \
@@ -94,32 +92,6 @@ generate: \
 	generate-authn-python \
 	generate-envoy-go \
 	generate-envoy-python
-
-#####################
-# broker/...
-#####################
-
-broker_v1_path := broker/dev
-broker_v1_protos := $(shell find $(broker_v1_path) -type f -name '*.proto' | sort)
-broker_v1_pb_gos := $(broker_v1_protos:.proto=.pb.go)
-broker_v1_pb_pythons := $(broker_v1_protos:.proto=_pb2.py)
-broker_v1_pb_doc := $(broker_v1_path)/istio.broker.dev.pb.html
-
-generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
-
-$(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos)
-	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
-
-generate-broker-python: $(broker_v1_pb_pythons)
-
-$(broker_v1_pb_pythons): $(broker_v1_protos)
-	## Generate python/istio_api/broker/dev/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $^
-
-clean-broker:
-	rm -f $(broker_v1_pb_gos)
-	rm -f $(broker_v1_pb_doc)
 
 #####################
 # mcp/...
@@ -386,8 +358,7 @@ clean-envoy:
 clean-python:
 	rm -rf python/istio_api/*
 
-clean: clean-broker \
-	clean-mcp \
+clean: 	clean-mcp \
 	clean-mesh \
 	clean-mixer \
 	clean-routing \

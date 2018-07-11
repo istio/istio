@@ -216,4 +216,4 @@ junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 # Can be run after tests. It will also process the auto-saved log output
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys: out_dir
-	bin/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs
+	tools/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs

@@ -24,11 +24,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	mccpb "istio.io/api/mixer/v1/config/client"
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	mock_config "istio.io/istio/pilot/test/mock"
 )
 
@@ -261,49 +260,49 @@ func TestConfigKey(t *testing.T) {
 func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
-		svc  *routing.IstioService
+		svc  *mccpb.IstioService
 		want model.Hostname
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &routing.IstioService{Name: "hello"},
+			svc:  &mccpb.IstioService{Name: "hello"},
 			want: "hello.default.svc.cluster.local",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &routing.IstioService{Name: "hello",
+			svc: &mccpb.IstioService{Name: "hello",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "hello.default.svc.cluster.local",
 		},
 		{
 			meta: model.ConfigMeta{},
-			svc:  &routing.IstioService{Name: "hello"},
+			svc:  &mccpb.IstioService{Name: "hello"},
 			want: "hello",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default"},
-			svc:  &routing.IstioService{Name: "hello"},
+			svc:  &mccpb.IstioService{Name: "hello"},
 			want: "hello.default",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &routing.IstioService{Service: "reviews.service.consul"},
+			svc:  &mccpb.IstioService{Service: "reviews.service.consul"},
 			want: "reviews.service.consul",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &routing.IstioService{Name: "hello", Service: "reviews.service.consul",
+			svc: &mccpb.IstioService{Name: "hello", Service: "reviews.service.consul",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "reviews.service.consul",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &routing.IstioService{Service: "*cnn.com"},
+			svc:  &mccpb.IstioService{Service: "*cnn.com"},
 			want: "*cnn.com",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &routing.IstioService{Name: "hello", Service: "*cnn.com",
+			svc: &mccpb.IstioService{Name: "hello", Service: "*cnn.com",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "*cnn.com",
 		},
@@ -313,73 +312,6 @@ func TestResolveHostname(t *testing.T) {
 		if got := model.ResolveHostname(test.meta, test.svc); got != test.want {
 			t.Errorf("ResolveHostname(%v, %v) => got %q, want %q", test.meta, test.svc, got, test.want)
 		}
-	}
-}
-
-func TestMatchSource(t *testing.T) {
-	cases := []struct {
-		meta      model.ConfigMeta
-		svc       *routing.IstioService
-		instances []*model.ServiceInstance
-		want      bool
-	}{
-		{
-			meta: model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			want: true,
-		},
-		{
-			meta: model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:  &routing.IstioService{Name: "hello"},
-			want: false,
-		},
-		{
-			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &routing.IstioService{Name: "world"},
-			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
-			want:      false,
-		},
-		{
-			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &routing.IstioService{Name: "hello"},
-			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
-			want:      true,
-		},
-		{
-			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
-			instances: []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")},
-			want:      true,
-		},
-	}
-
-	for _, test := range cases {
-		if got := model.MatchSource(test.meta, test.svc, test.instances); got != test.want {
-			t.Errorf("MatchSource(%v) => got %v, want %v", test, got, test.want)
-		}
-	}
-}
-
-func TestSortRouteRules(t *testing.T) {
-	rules := []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{Name: "d"},
-			Spec:       &routing.RouteRule{Precedence: 2},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "b"},
-			Spec:       &routing.RouteRule{Precedence: 3},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "c"},
-			Spec:       &routing.RouteRule{Precedence: 2},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{Name: "a"},
-		},
-	}
-	model.SortRouteRules(rules)
-	if !(rules[0].Name == "a" && rules[1].Name == "b" && rules[2].Name == "c" && rules[3].Name == "d") {
-		t.Errorf("SortRouteRules() => got %#v, want a, b, c, d", rules)
 	}
 }
 
@@ -407,154 +339,6 @@ func (errorStore) Update(config model.Config) (string, error) {
 
 func (errorStore) Delete(typ, name, namespace string) error {
 	return errors.New("just keep failing")
-}
-
-func TestRouteRules(t *testing.T) {
-	instance := srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.RouteRule.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: &routing.RouteRule{
-			Match: &routing.MatchCondition{
-				Source: &routing.IstioService{
-					Name:   "hello",
-					Labels: instance.Labels,
-				},
-			},
-			Destination: &routing.IstioService{
-				Name: "world",
-			},
-		},
-	}
-
-	if _, err := store.Create(config); err != nil {
-		t.Error(err)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, srmemory.WorldService.Hostname.String()); len(out) != 1 ||
-		!reflect.DeepEqual(config.Spec, out[0].Spec) {
-		t.Errorf("RouteRules() => expected %#v but got %#v", config.Spec, out)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, srmemory.HelloService.Hostname.String()); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for destination-matched rules")
-	}
-	if out := store.RouteRules(nil, srmemory.WorldService.Hostname.String()); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for source-matched rules")
-	}
-
-	world := srmemory.MakeInstance(srmemory.WorldService, srmemory.GetPortHTTP(srmemory.WorldService), 0, "")
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
-		!reflect.DeepEqual(config.Spec, out[0].Spec) {
-		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, config.Spec)
-	}
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
-		t.Error("RouteRulesByDestination() => expected no match")
-	}
-
-	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		srmemory.WorldService.Hostname.String()); len(out) != 0 {
-		t.Errorf("RouteRules() => expected nil but got %v", out)
-	}
-	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
-		t.Errorf("RouteRulesByDestination() => expected nil but got %v", out)
-	}
-}
-
-func TestEgressRules(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	rule := &routing.EgressRule{
-		Destination: &routing.IstioService{
-			Service: "*.foo.com",
-		},
-		Ports: []*routing.EgressRule_Port{{
-			Port:     80,
-			Protocol: "HTTP",
-		}},
-	}
-
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.EgressRule.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: rule,
-	}
-
-	if _, err := store.Create(config); err != nil {
-		t.Error(err)
-	}
-
-	got := store.EgressRules()
-	if len(got) != 1 {
-		t.Fatalf("EgressRules() => want 1 rule, got %d", len(got))
-	}
-
-	gotRule := got[0].Spec
-
-	if !reflect.DeepEqual(gotRule, rule) {
-		t.Errorf("EgressRules() => expected \n%#v, got \n%#v", rule, gotRule)
-	}
-
-	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).EgressRules(); len(out) != 0 {
-		t.Errorf("EgressRules() => expected nil but got %v", out)
-	}
-}
-
-func TestDestinationPolicy(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	labels := map[string]string{"version": "v1"}
-	instances := []*model.ServiceInstance{srmemory.MakeInstance(srmemory.HelloService, srmemory.GetPortHTTP(srmemory.HelloService), 0, "")}
-
-	policy1 := &routing.DestinationPolicy{
-		Source: &routing.IstioService{
-			Name:   "hello",
-			Labels: map[string]string{"version": "v0"},
-		},
-		Destination: &routing.IstioService{
-			Name:   "world",
-			Labels: labels,
-		},
-	}
-
-	config1 := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.DestinationPolicy.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: policy1,
-	}
-
-	if _, err := store.Create(config1); err != nil {
-		t.Error(err)
-	}
-	if out := store.Policy(instances, srmemory.WorldService.Hostname.String(), labels); out == nil ||
-		!reflect.DeepEqual(policy1, out.Spec) {
-		t.Errorf("Policy() => expected %#v but got %#v", policy1, out)
-	}
-	if out := store.Policy(instances, srmemory.HelloService.Hostname.String(), labels); out != nil {
-		t.Error("Policy() => expected no match for destination-matched policy")
-	}
-	if out := store.Policy(instances, srmemory.WorldService.Hostname.String(), nil); out != nil {
-		t.Error("Policy() => expected no match for labels-matched policy")
-	}
-	if out := store.Policy(nil, srmemory.WorldService.Hostname.String(), labels); out != nil {
-		t.Error("Policy() => expected no match for source-matched policy")
-	}
-
-	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).Policy(instances, srmemory.WorldService.Hostname.String(), labels); out != nil {
-		t.Errorf("Policy() => expected nil but got %v", out)
-	}
 }
 
 func TestAuthenticationPolicyConfig(t *testing.T) {

@@ -26,6 +26,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+	"github.com/prometheus/client_golang/prometheus"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -172,12 +173,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			timerC = nil
 			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 			if err != nil {
-				log.Errorf("reload cert error: %v", err)
+				metricCertKeyUpdateError.With(prometheus.Labels{"error": err.Error()}).Add(1)
+				log.Errorf("Cert/Key reload error: %v", err)
 				break
 			}
 			wh.mu.Lock()
 			wh.cert = &pair
 			wh.mu.Unlock()
+
+			metricCertKeyUpdate.Add(1)
+			log.Error("Cert and Key reloaded")
 		case event := <-wh.watcher.Event:
 			// use a timer to debounce cert updates
 			if (event.IsModify() || event.IsCreate()) && timerC == nil {
@@ -216,6 +221,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		}
 	}
 	if len(body) == 0 {
+		reportValidationHTTPError(http.StatusBadRequest)
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -223,6 +229,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
+		reportValidationHTTPError(http.StatusUnsupportedMediaType)
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -245,9 +252,12 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 
 	resp, err := json.Marshal(response)
 	if err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
+		return
 	}
 	if _, err := w.Write(resp); err != nil {
+		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
 }
@@ -265,28 +275,34 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
 		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
 	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+		reportValidationFailed(request, reasonYamlDecodeError)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 	}
 
 	schema, exists := wh.descriptor.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
 	if !exists {
+		reportValidationFailed(request, reasonUnknownType)
 		return toAdmissionResponse(fmt.Errorf("unrecognized type %v", obj.Kind))
 	}
 
 	out, err := crd.ConvertObject(schema, &obj, wh.domainSuffix)
 	if err != nil {
+		reportValidationFailed(request, reasonCRDConversionError)
 		return toAdmissionResponse(fmt.Errorf("error decoding configuration: %v", err))
 	}
 
 	if err := schema.Validate(out.Name, out.Namespace, out.Spec); err != nil {
+		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(fmt.Errorf("configuration is invalid: %v", err))
 	}
 
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }
 
@@ -302,24 +318,29 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		ev.Type = store.Update
 		var obj unstructured.Unstructured
 		if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+			reportValidationFailed(request, reasonYamlDecodeError)
 			return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 		}
 		ev.Value = mixerCrd.ToBackEndResource(&obj)
 		ev.Key.Name = ev.Value.Metadata.Name
 	case admissionv1beta1.Delete:
 		if request.Name == "" {
+			reportValidationFailed(request, reasonUnknownType)
 			return toAdmissionResponse(fmt.Errorf("illformed request: name not found on delete request"))
 		}
 		ev.Type = store.Delete
 		ev.Key.Name = request.Name
 	default:
 		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	if err := wh.validator.Validate(ev); err != nil {
+		reportValidationFailed(request, reasonInvalidConfig)
 		return toAdmissionResponse(err)
 	}
 
+	reportValidationPass(request)
 	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }

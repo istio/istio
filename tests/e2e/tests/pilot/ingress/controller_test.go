@@ -16,11 +16,9 @@ package ingress
 
 import (
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
-	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,11 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
-	pb "istio.io/api/routing/v1alpha1"
 	crd "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/test"
 )
 
@@ -137,136 +133,6 @@ var (
 		},
 	}
 )
-
-func TestConfig(t *testing.T) {
-	if !tc.Ingress || tc.V1alpha3 {
-		t.Skipf("Skipping %s: ingress=false", t.Name())
-	}
-
-	cl := fake.NewSimpleClientset()
-	mesh := model.DefaultMeshConfig()
-	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
-		WatchedNamespace: namespace,
-		ResyncPeriod:     resync,
-	})
-
-	stop := make(chan struct{})
-	go ctl.Run(stop)
-
-	if len(ctl.ConfigDescriptor()) == 0 {
-		t.Errorf("must support ingress type")
-	}
-
-	rule := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.IngressRule.Type,
-			Name:      "test",
-			Namespace: namespace,
-		},
-		Spec: mock.ExampleIngressRule,
-	}
-
-	// make sure all operations error out
-	if _, err := ctl.Create(rule); err == nil {
-		t.Errorf("Post should not be allowed")
-	}
-
-	if _, err := ctl.Update(rule); err == nil {
-		t.Errorf("Put should not be allowed")
-	}
-
-	if err := ctl.Delete(model.IngressRule.Type, "test", namespace); err == nil {
-		t.Errorf("Delete should not be allowed")
-	}
-
-	test.Eventually(t, "HasSynced", ctl.HasSynced)
-}
-
-func TestIngressController(t *testing.T) {
-	if !tc.Ingress || tc.V1alpha3 {
-		t.Skipf("Skipping %s: ingress=false", t.Name())
-	}
-	cl := fake.NewSimpleClientset()
-	mesh := model.DefaultMeshConfig()
-	ctl := crd.NewController(cl, &mesh, kube.ControllerOptions{
-		WatchedNamespace: namespace,
-		ResyncPeriod:     resync,
-	})
-
-	// Append an ingress notification handler that just counts number of notifications
-	stop := make(chan struct{})
-	numNotifications := atomic.NewInt64(0)
-	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
-		numNotifications.Inc()
-	})
-	go ctl.Run(stop)
-
-	if _, err := cl.ExtensionsV1beta1().Ingresses(nginxIngress.Namespace).Create(&nginxIngress); err != nil {
-		t.Errorf("Cannot create ingress in namespace %s (error: %v)", nginxIngress.Namespace, err)
-	}
-	// Create a "real" ingress resource, with 4 host/path rules and an additional "default" rule.
-	if _, err := cl.ExtensionsV1beta1().Ingresses(namespace).Create(&ig); err != nil {
-		t.Errorf("Cannot create ingress in namespace %s (error: %v)", namespace, err)
-	}
-
-	const expectedRuleCount = 5
-	test.Eventually(t, "notified for all CRD events", func() bool {
-		return numNotifications.Load() == expectedRuleCount
-	})
-	var rules []model.Config
-	test.Eventually(t, "successfully got objects for every CRD event", func() bool {
-		var err error
-		rules, err = ctl.List(model.IngressRule.Type, namespace)
-		if err != nil {
-			t.Errorf("ctl.List(model.IngressRule, %s) => error: %v", namespace, err)
-		}
-		return len(rules) == expectedRuleCount
-	})
-
-	for _, listMsg := range rules {
-		getMsg, exists := ctl.Get(model.IngressRule.Type, listMsg.Name, listMsg.Namespace)
-		if !exists {
-			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key())
-		} else {
-			listRule, ok := listMsg.Spec.(*pb.IngressRule)
-			if !ok {
-				t.Errorf("expected IngressRule but got %v", listMsg.Spec)
-			}
-
-			getRule, ok := getMsg.Spec.(*pb.IngressRule)
-			if !ok {
-				t.Errorf("expected IngressRule but got %v", getMsg)
-			}
-
-			if !reflect.DeepEqual(listRule, getRule) {
-				t.Errorf("expected Get (%v) and List (%v) to return same rule", getMsg, listMsg)
-			}
-		}
-	}
-
-	// test edge cases for Get and List
-	if _, exists := ctl.Get(model.RouteRule.Type, "test", namespace); exists {
-		t.Error("Get() => got exists for route rule")
-	}
-	if _, exists := ctl.Get(model.IngressRule.Type, ig.Name, namespace); exists {
-		t.Error("Get() => got exists for a name without a rule path")
-	}
-	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName("blah", 0, 0), namespace); exists {
-		t.Error("Get() => got exists for a missing ingress resource")
-	}
-	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName(nginxIngress.Name, 0, 0), namespace); exists {
-		t.Error("Get() => got exists for a different class resource")
-	}
-	if _, exists := ctl.Get(model.IngressRule.Type, crd.EncodeIngressRuleName(ig.Name, 10, 10), namespace); exists {
-		t.Error("Get() => got exists for a unreachable rule path")
-	}
-	if _, err := ctl.List(model.RouteRule.Type, namespace); err == nil {
-		t.Error("List() => got no error for route rules")
-	}
-	if elts, err := ctl.List(model.IngressRule.Type, "missing"); err != nil || len(elts) > 0 {
-		t.Errorf("List() => got %#v, %v for a missing namespace", elts, err)
-	}
-}
 
 func TestSyncer(t *testing.T) {
 	if !tc.Ingress || tc.V1alpha3 {

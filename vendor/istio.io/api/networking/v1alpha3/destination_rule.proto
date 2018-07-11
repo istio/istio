@@ -302,7 +302,7 @@ message LoadBalancerSettings {
       HTTPCookie http_cookie = 2;
 
       // Hash based on the source IP address.
-      string source_ip = 3;
+      bool use_source_ip = 3;
     };
 
     // The minimum number of virtual nodes to use for the hash
