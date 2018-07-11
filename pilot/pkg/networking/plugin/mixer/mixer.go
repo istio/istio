@@ -17,7 +17,6 @@ package mixer
 import (
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -66,10 +65,13 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	}
 
 	attrs := attributes{
-		"source.uid":            attrUID(in.Node),
-		"source.namespace":      attrNamespace(in.Node),
-		"context.reporter.uid":  attrUID(in.Node),
-		"context.reporter.kind": attrStringValue("outbound"),
+		"source.namespace": attrNamespace(in.Node),
+	}
+
+	if has10Config(in.Node) {
+		attrs["source.uid"] = attrUID(in.Node)
+		attrs["context.reporter.uid"] = attrUID(in.Node)
+		attrs["context.reporter.kind"] = attrStringValue("outbound")
 	}
 
 	switch in.ListenerProtocol {
@@ -176,7 +178,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.TransportConfig {
+func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy, uid attribute) *mccpb.TransportConfig {
 	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
 	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
 
@@ -194,8 +196,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 	res.NetworkFailPolicy = &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE}
 
 	// Those settings are not backward compatible.
-	// For testing you can enable them using env - but can't be enabled in 1.0 unless fixed.
-	if os.Getenv("MIXER_NEW_ATTRIBUTES") != "" {
+	if has10Config(node) {
 		// internal telemetry forwarding
 		res.AttributesForMixerProxy = &mpb.Attributes{Attributes: attributes{"source.uid": uid}}
 	}
@@ -204,16 +205,21 @@ func buildTransport(mesh *meshconfig.MeshConfig, uid attribute) *mccpb.Transport
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
-	return &http_conn.HttpFilter{
-		Name: mixer,
-		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes: &mpb.Attributes{Attributes: attributes{
-				"source.uid": attrUID(node),
-			}},
-			Transport: buildTransport(mesh, attrUID(node)),
-		}),
+	hc := &mccpb.HttpClientConfig{
+		MixerAttributes: &mpb.Attributes{Attributes: attrs},
+		Transport:       buildTransport(mesh, node, attrUID(node)),
 	}
+	if has10Config(node) {
+		hc.ForwardAttributes = &mpb.Attributes{Attributes: attributes{
+			"source.uid": attrUID(node),
+		}}
+	}
+	mix := &http_conn.HttpFilter{
+		Name:   mixer,
+		Config: util.MessageToStruct(hc),
+	}
+
+	return mix
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
@@ -228,9 +234,18 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 				},
 			},
 			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			Transport:       buildTransport(mesh, attrUID(node)),
+			Transport:       buildTransport(mesh, node, attrUID(node)),
 		}),
 	}
+}
+
+// has10Config returns true if the sidecar has at least 1.0 config.
+// This will be removed after 1.0, and possibly replaced with a more fine-grained check to verify
+// sidecar capabilities. It is used to detect 0.8 sidecards and allow upgrades without breaking 0.8 workloads during
+// upgrade.
+func has10Config(node *model.Proxy) bool {
+	_, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return found
 }
 
 func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) route.Route {
@@ -243,21 +258,27 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, hostname)
-			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			attrs := addDestinationServiceAttributes(in.Node, make(attributes), in.Env.ServiceDiscovery, hostname)
+			sc := &mccpb.ServiceConfig{
 				DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-			})
+			}
+			if has10Config(in.Node) {
+				sc.ForwardAttributes = &mpb.Attributes{Attributes: attrs}
+			}
+			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, sc)
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, hostname)
-				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
+				attrs := addDestinationServiceAttributes(in.Node, make(attributes), in.Env.ServiceDiscovery, hostname)
+				sc := &mccpb.ServiceConfig{
 					DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
+				}
+				if has10Config(in.Node) {
+					sc.ForwardAttributes = &mpb.Attributes{Attributes: attrs}
+				}
+				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, sc)
 			}
 		case *route.RouteAction_ClusterHeader:
 		default:
@@ -273,7 +294,7 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, httpRoute route.Route) ro
 func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
-	attrs := addDestinationServiceAttributes(make(attributes), in.Env.ServiceDiscovery, instance.Service.Hostname)
+	attrs := addDestinationServiceAttributes(in.Node, make(attributes), in.Env.ServiceDiscovery, instance.Service.Hostname)
 	out := &mccpb.ServiceConfig{
 		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
@@ -298,14 +319,14 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	discovery model.ServiceDiscovery) listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
-		attrs = addDestinationServiceAttributes(attrs, discovery, destination.Hostname)
+		attrs = addDestinationServiceAttributes(node, attrs, discovery, destination.Hostname)
 	}
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, attrUID(node)),
+			Transport:         buildTransport(mesh, node, attrUID(node)),
 		}),
 	}
 }
@@ -316,7 +337,7 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 			DisableCheckCalls: mesh.DisablePolicyChecks,
 			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, attrUID(node)),
+			Transport:         buildTransport(mesh, node, attrUID(node)),
 		}),
 	}
 }
@@ -329,26 +350,28 @@ func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.Serv
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, discovery model.ServiceDiscovery, destinationHostname model.Hostname) attributes {
+func addDestinationServiceAttributes(node *model.Proxy, attrs attributes, discovery model.ServiceDiscovery, destinationHostname model.Hostname) attributes {
 	if destinationHostname == "" {
 		return attrs
 	}
 	attrs["destination.service"] = attrStringValue(destinationHostname.String()) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
-	// Not compatible with Istio 0.8 - can be added back only if version 1.0+ is detected or post 1.0
-	//serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
-	//if err == nil && serviceAttributes != nil {
-	//	if serviceAttributes.Name != "" {
-	//		attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
-	//	}
-	//	if serviceAttributes.Namespace != "" {
-	//		attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
-	//	}
-	//	if serviceAttributes.UID != "" {
-	//		attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
-	//	}
-	//}
+	if has10Config(node) {
+		// Not compatible with Istio 0.8 - can be added back only if version 1.0+ is detected or post 1.0
+		serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
+		if err == nil && serviceAttributes != nil {
+			if serviceAttributes.Name != "" {
+				attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
+			}
+			if serviceAttributes.Namespace != "" {
+				attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
+			}
+			if serviceAttributes.UID != "" {
+				attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
+			}
+		}
+	}
 	return attrs
 }
 

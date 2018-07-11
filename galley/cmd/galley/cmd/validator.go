@@ -34,7 +34,7 @@ import (
 	runtimeConfig "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/template"
 	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -169,7 +169,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 			params := validation.WebhookParameters{
 				MixerValidator:      mixerValidator,
-				PilotDescriptor:     bootstrap.ConfigDescriptor,
+				PilotDescriptor:     model.IstioConfigTypes,
 				DomainSuffix:        domainSuffix,
 				Port:                port,
 				CertFile:            certFile,

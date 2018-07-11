@@ -541,52 +541,66 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
+	proxyIP := proxy.IPAddress
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
+
+		svcItem, exists := c.serviceByKey(ep.Name, ep.Namespace)
+		if !exists {
+			continue
+		}
+		svc := convertService(*svcItem, c.domainSuffix)
+		if svc == nil {
+			continue
+		}
+
 		for _, ss := range ep.Subsets {
-			for _, ea := range ss.Addresses {
-				if proxy.IPAddress == ea.IP {
-					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
-					if !exists {
-						continue
-					}
-					svc := convertService(*item, c.domainSuffix)
-					if svc == nil {
-						continue
-					}
-					for _, port := range ss.Ports {
-						svcPort, exists := svc.Ports.Get(port.Name)
-						if !exists {
-							continue
-						}
-						labels, _ := c.pods.labelsByIP(ea.IP)
-						pod, exists := c.pods.getPodByIP(ea.IP)
-						az, sa := "", ""
-						if exists {
-							az, _ = c.GetPodAZ(pod)
-							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-						}
-						out = append(out, &model.ServiceInstance{
-							Endpoint: model.NetworkEndpoint{
-								Address:     ea.IP,
-								Port:        int(port.Port),
-								ServicePort: svcPort,
-							},
-							Service:          svc,
-							Labels:           labels,
-							AvailabilityZone: az,
-							ServiceAccount:   sa,
-						})
-					}
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
 				}
+
+				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
+				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
 			}
 		}
 	}
 	if len(out) == 0 {
-		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
+		log.Errorf("ip not found, listeners will be broken %v %v", proxyIP, proxy.ID, out)
 		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
 	}
 	return out, nil
+}
+
+func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
+	port v1.EndpointPort, svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+
+	var out []*model.ServiceInstance
+	for _, ea := range addr {
+		if proxyIP != ea.IP {
+			continue
+		}
+		labels, _ := c.pods.labelsByIP(ea.IP)
+		pod, exists := c.pods.getPodByIP(ea.IP)
+		az, sa := "", ""
+		if exists {
+			az, _ = c.GetPodAZ(pod)
+			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+		}
+		out = append(out, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     ea.IP,
+				Port:        int(port.Port),
+				ServicePort: svcPort,
+			},
+			Service:          svc,
+			Labels:           labels,
+			AvailabilityZone: az,
+			ServiceAccount:   sa,
+		})
+	}
+	return out
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
