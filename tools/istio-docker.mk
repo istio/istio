@@ -54,7 +54,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # directives to copy files to docker scratch directory
 
 # tell make which files are copied form go/out
-DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server pilot-test-eurekamirror \
+DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
                              istio_ca node_agent galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
@@ -73,7 +73,6 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 
 # pilot docker imagesDOCKER_BUILD_TOP
 
-docker.eurekamirror: $(ISTIO_DOCKER)/pilot-test-eurekamirror
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
 docker.sidecar_injector: $(ISTIO_DOCKER)/sidecar-injector
 
@@ -165,8 +164,7 @@ docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend \
 	time (cd $(ISTIO_DOCKER)/test_policybackend && \
 		docker build -t $(HUB)/test_policybackend:$(TAG) -f Dockerfile.test_policybackend .)
 
-PILOT_DOCKER:=docker.eurekamirror \
-              docker.proxy_init docker.sidecar_injector
+PILOT_DOCKER:=docker.proxy_init docker.sidecar_injector
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 
