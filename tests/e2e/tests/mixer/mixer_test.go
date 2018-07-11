@@ -90,20 +90,12 @@ var (
 		Ingress: true,
 		Egress:  true,
 	}
-<<<<<<< HEAD
 	configVersion      = "v1alpha3"
-	ingressName        = "ingressgateway"
-	productPageTimeout = 60 * time.Second
-
-	rulesDir                 = "routing"
-=======
-	configVersion      = ""
 	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
 	networkingDir            = "networking"
 	policyDir                = "policy"
->>>>>>> 0fc96e9ca76024c6916cbc37693ad62ecbeb270c
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
@@ -132,12 +124,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-<<<<<<< HEAD
-=======
-	if testFlags.V1alpha1 {
-		return fmt.Errorf("attempt to tests deprecated v1alpha1")
-	}
->>>>>>> 0fc96e9ca76024c6916cbc37693ad62ecbeb270c
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 
 	for _, dr := range drs {
