@@ -34,8 +34,6 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"time"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -347,9 +345,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 }
 
 type listenerEntry struct {
-	protocol     model.Protocol
-	listener     *xdsapi.Listener
-	creationTime time.Time
+	protocol model.Protocol
+	listener *xdsapi.Listener
+}
+
+func handleOutboundListenerConflict(service *model.Service, servicePort *model.Port, current listenerEntry, listenerMapKey string) {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
+		service.Hostname, servicePort.Port)
+
+	conflictingOutbound.Add(1)
+	log.Warnf("buildSidecarOutboundListener: Omitting service %s due to conflict while "+
+		"adding to listener %s on %s. Current Protocol: %s, incoming service protocol %s",
+		clusterName,
+		current.listener.Name,
+		listenerMapKey,
+		current.protocol,
+		servicePort.Protocol)
 }
 
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
@@ -379,12 +390,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
-	listenerMap := make(map[string]*listenerEntry)
+	listenerMap := make(map[string]listenerEntry)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
-				service.Hostname, servicePort.Port)
-
 			listenAddress := WildcardAddress
 			var addresses []string
 			var listenerMapKey string
@@ -402,12 +410,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
 			case plugin.ListenerProtocolHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if l, exists := listenerMap[listenerMapKey]; exists {
-					if !l.protocol.IsHTTP() {
-						conflictingOutbound.Add(1)
-						log.Warnf("buildSidecarOutboundListeners: listener conflict on key %s (for cluster %s), dropping listener for newer service.\n"+
-							"Current: {Protocol=%v, Created=%v}.\nNew={Protocol=%v, Created=%v}.\nListener=%v",
-							listenerMapKey, clusterName, l.protocol, l.creationTime, servicePort.Protocol, service.CreationTime, l.listener)
+				if current, exists := listenerMap[listenerMapKey]; exists {
+					if !current.protocol.IsHTTP() {
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -434,17 +439,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				currentListener = nil
-				if l, exists := listenerMap[listenerMapKey]; exists {
-					// TODO(nmittler): Should we be setting currentListener if it causes a conflict below?
-					currentListener = l.listener
+				if current, exists := listenerMap[listenerMapKey]; exists {
+					currentListener = current.listener
 					// Check for port collisions between TCP/TLS and HTTP.
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
-					if !l.protocol.IsTCP() {
-						conflictingOutbound.Add(1)
-						log.Warnf("buildSidecarOutboundListeners: listener conflict on key %s (for cluster %s), dropping listener for newer service.\n"+
-							"Current: {Protocol=%v, Created=%v}.\nNew={Protocol=%v, Created=%v}.\nListener=%v",
-							listenerMapKey, clusterName, l.protocol, l.creationTime, servicePort.Protocol, service.CreationTime, l.listener)
+					if !current.protocol.IsTCP() {
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 						continue
 					}
 				}
@@ -494,10 +495,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
 				currentListener.FilterChains = newFilterChains
 			} else {
-				listenerMap[listenerMapKey] = &listenerEntry{
-					creationTime: service.CreationTime,
-					protocol:     servicePort.Protocol,
-					listener:     mutable.Listener,
+				listenerMap[listenerMapKey] = listenerEntry{
+					protocol: servicePort.Protocol,
+					listener: mutable.Listener,
 				}
 			}
 
