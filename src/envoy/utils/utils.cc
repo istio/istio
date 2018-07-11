@@ -116,6 +116,16 @@ bool IsMutualTLS(const Network::Connection* connection) {
          connection->ssl()->peerCertificatePresented();
 }
 
+bool GetRequestedServerName(const Network::Connection* connection,
+                            std::string* name) {
+  if (connection) {
+    *name = std::string(connection->requestedServerName());
+    return true;
+  }
+
+  return false;
+}
+
 Status ParseJsonMessage(const std::string& json, Message* output) {
   ::google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = true;

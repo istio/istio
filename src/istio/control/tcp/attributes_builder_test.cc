@@ -68,6 +68,12 @@ attributes {
   }
 }
 attributes {
+  key: "connection.requested_server_name"
+  value {
+    string_value: "www.google.com"
+  }
+}
+attributes {
   key: "source.principal"
   value {
     string_value: "test_user"
@@ -305,7 +311,11 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         return true;
       }));
   EXPECT_CALL(mock_data, GetConnectionId()).WillOnce(Return("1234-5"));
-
+  EXPECT_CALL(mock_data, GetRequestedServerName(_))
+      .WillOnce(Invoke([](std::string* name) -> bool {
+        *name = "www.google.com";
+        return true;
+      }));
   RequestContext request;
   AttributesBuilder builder(&request);
   builder.ExtractCheckAttributes(&mock_data);
