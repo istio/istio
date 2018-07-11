@@ -31,7 +31,7 @@ import (
 )
 
 // ServiceController monitors the service definition changes in a namespace. If a
-// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" and
+// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" or
 // "alpha.istio.io/canonical-serviceaccounts" annotations enabled,
 // the corresponding service account will be added to the identity registry
 // for whitelisting.
