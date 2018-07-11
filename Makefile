@@ -242,7 +242,7 @@ $(ISTIO_OUT) $(ISTIO_BIN):
 
 # Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
 depend.diff: $(ISTIO_OUT)
-	go get -u github.com/golang/dep/cmd/dep
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | DEP_RELEASE_TAG="v0.4.1" sh
 	dep ensure
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
