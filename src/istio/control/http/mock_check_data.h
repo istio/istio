@@ -44,7 +44,7 @@ class MockCheckData : public CheckData {
   MOCK_CONST_METHOD1(GetAuthenticationResult,
                      bool(istio::authn::Result *result));
   MOCK_CONST_METHOD0(IsMutualTLS, bool());
-  MOCK_CONST_METHOD0(GetRequestedServerName, bool(std::string *name));
+  MOCK_CONST_METHOD1(GetRequestedServerName, bool(std::string *name));
 };
 
 // The mock object for HeaderUpdate interface.
