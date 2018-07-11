@@ -346,7 +346,7 @@ func init() {
 		"Disable internal telemetry")
 
 	proxyCmd.PersistentFlags().StringVar(&exportCfg.AgentAddress, "aspenAgentAddress", exportCfg.AgentAddress,
-		"IP Address and Port of the aspenmesh agent HTTP api")
+		"IP Address and Port of the aspen mesh agent HTTP api")
 	proxyCmd.PersistentFlags().DurationVar(&exportCfg.PollInterval, "exportPollInterval", exportCfg.PollInterval,
 		"Number of seconds between updates.")
 

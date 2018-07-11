@@ -39,4 +39,4 @@ spec:
     protocol: TCP
     targetPort: http
   selector:
-    istio: aspenmesh-agent
+    istio: aspen-mesh-agent

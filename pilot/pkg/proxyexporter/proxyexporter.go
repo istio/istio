@@ -49,7 +49,7 @@ func DefaultOptions() *Config {
 func (cfg *Config) SetDefaults() {
 	values := model.DefaultProxyConfig()
 	cfg.StatsdUDPAddress = values.StatsdUdpAddress
-	cfg.AgentAddress = "aspenmesh-agent.istio-system.svc.cluster.local:12001"
+	cfg.AgentAddress = "aspen-mesh-agent.istio-system.svc.cluster.local:12001"
 
 	name := os.Getenv(PodNameEnvVar)
 	namespace := os.Getenv(PodNamespaceEnvVar)
