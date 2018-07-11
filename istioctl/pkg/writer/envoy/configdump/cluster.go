@@ -21,10 +21,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	proto "github.com/gogo/protobuf/types"
 
+	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -89,7 +88,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredClusters := protoMessageSlice{}
+	filteredClusters := protio.MessageSlice{}
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
 			filteredClusters = append(filteredClusters, cluster)
@@ -116,20 +115,16 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
-	clusterDumpAny, ok := c.configDump.Configs[clustersKey]
-	if !ok {
-		return nil, fmt.Errorf("unable to find %v in Envoy config dump", clustersKey)
-	}
-	clusterDump := &adminapi.ClustersConfigDump{}
-	if err := proto.UnmarshalAny(&clusterDumpAny, clusterDump); err != nil {
-		return nil, fmt.Errorf("unable to unmarshalAny/assert clusters dump: %v", err)
+	clusterDump, err := c.configDump.GetClusterConfigDump()
+	if err != nil {
+		return nil, err
 	}
 	clusters := []*xdsapi.Cluster{}
 	for _, cluster := range clusterDump.DynamicActiveClusters {
 		clusters = append(clusters, cluster.Cluster)
 	}
 	for _, cluster := range clusterDump.StaticClusters {
-		clusters = append(clusters, &cluster)
+		clusters = append(clusters, cluster.Cluster)
 	}
 	if len(clusters) == 0 {
 		return nil, fmt.Errorf("no clusters found")

@@ -17,8 +17,10 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"time"
 
+	"github.com/howeyc/fsnotify"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/galley/cmd/shared"
@@ -31,6 +33,7 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util"
 )
@@ -50,6 +53,54 @@ func createMixerValidator() (store.BackendValidator, error) {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
 }
 
+// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
+// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
+// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
+func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, webhookNames []string) error {
+	client, err := kube.CreateClientset(flags.kubeConfig, "")
+	if err != nil {
+		return err
+	}
+
+	caCertPem, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return err
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	watchDir, _ := filepath.Split(caCertFile)
+	if err = watcher.Watch(watchDir); err != nil {
+		return fmt.Errorf("could not watch %v: %v", caCertFile, err)
+	}
+
+	go func() {
+		tickerC := time.NewTicker(time.Second).C
+		for {
+			select {
+			case <-stop:
+				return
+			case <-tickerC:
+				if err = util.PatchValidatingWebhookConfig(client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations(),
+					webhookConfigName, webhookNames, caCertPem); err != nil {
+					log.Errorf("Patch webhook failed: %s", err)
+				}
+			case <-watcher.Event:
+				if b, err := ioutil.ReadFile(caCertFile); err == nil {
+					caCertPem = b
+				} else {
+					log.Errorf("CA bundle file read error: %v", err)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	var (
 		webhookConfigName   string
@@ -63,40 +114,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		healthCheckInterval time.Duration
 		healthCheckFile     string
 	)
-
-	patchCert := func(stop chan struct{}) error {
-		caCertPem, err := ioutil.ReadFile(caFile)
-		if err != nil {
-			return err
-		}
-
-		client, err := createInterface(flags.kubeConfig)
-		if err != nil {
-			return fmt.Errorf("failed to connect to Kubernetes API: %v", err)
-		}
-
-		timeout := time.After(time.Minute)
-		cl := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-		for {
-			webhooks := []string{pilotWebhookName, mixerWebhookName}
-			if err = util.PatchValidatingWebhookConfig(cl, webhookConfigName, webhooks, caCertPem); err == nil {
-				return nil
-			}
-
-			log.Errorf("Patching caBundle in ValidatingWebhookConfigurations %v failed: %v -- retrying",
-				webhookConfigName, err)
-			select {
-			case <-stop:
-				// canceled by caller
-				return nil
-			case <-time.After(time.Second):
-				// retry
-			case <-timeout:
-				return fmt.Errorf("timed out trying to patch ValidatingWebhookConfiguration %q {%q and %q})",
-					webhookConfigName, pilotWebhookName, mixerWebhookName)
-			}
-		}
-	}
 
 	validatorCmd := &cobra.Command{
 		Use:   "validator",
@@ -127,11 +144,10 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
-			go func() {
-				if err := patchCert(stop); err != nil {
-					log.Errorf("Failed to patch webhook config: %v", err)
-				}
-			}()
+			webhookNames := []string{pilotWebhookName, mixerWebhookName}
+			if err := patchCertLoop(stop, caFile, webhookConfigName, webhookNames); err != nil {
+				log.Errorf("Failed to patch webhook config: %v", err)
+			}
 
 			go wh.Run(stop)
 			cmd.WaitSignal(stop)
@@ -156,7 +172,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	validatorCmd.PersistentFlags().StringVar(&caFile, "caCertFile", "/etc/istio/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	validatorCmd.PersistentFlags().DurationVar(&healthCheckInterval, "healthCheckInterval", 0,
-		"Configure how frequently the health check file specified by --healhCheckFile should be updated")
+		"Configure how frequently the health check file specified by --healthCheckFile should be updated")
 	validatorCmd.PersistentFlags().StringVar(&healthCheckFile, "healthCheckFile", "",
 		"File that should be periodically updated if health checking is enabled")
 

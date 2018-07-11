@@ -22,7 +22,8 @@ spec:
   spanName: request.path | &quot;/&quot;
   startTime: request.time
   endTime: response.time
-  client_span: !context.reporter.local
+  clientSpan: (context.reporter.local | true) == false
+  rewriteClientSpanId: false
   spanTags:
     http.method: request.method | &quot;&quot;
     http.status_code: response.code | 200
@@ -148,8 +149,25 @@ span status will be assumed to be successful.</p>
 <td><code>bool</code></td>
 <td>
 <p>client_span indicates the span kind. True for client spans and False or
-not provided for server spans.
-Optional</p>
+not provided for server spans. Using bool instead of enum is a temporary
+work around since mixer expression language does not yet support enum
+type.</p>
+
+<p>Optional</p>
+
+</td>
+</tr>
+<tr id="Template-rewrite_client_span_id">
+<td><code>rewriteClientSpanId</code></td>
+<td><code>bool</code></td>
+<td>
+<p>rewrite<em>client</em>span_id is used to indicate whether to create a new client
+span id to accommodate Zipkin shared span model. Some tracing systems like
+Stackdriver separates a RPC into client span and server span. To solve this
+incompatibility, deterministically rewriting both span id of client span and
+parent span id of server span to the same newly generated id.</p>
+
+<p>Optional</p>
 
 </td>
 </tr>

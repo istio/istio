@@ -39,28 +39,34 @@ import (
 )
 
 const (
-	istioMeshDashboard   = "addons/grafana/dashboards/istio-mesh-dashboard.json"
-	httpServiceDashboard = "addons/grafana/dashboards/istio-http-grpc-service-dashboard.json"
-	tcpServiceDashboard  = "addons/grafana/dashboards/istio-tcp-service-dashboard.json"
-	mixerDashboard       = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard       = "addons/grafana/dashboards/pilot-dashboard.json"
-	fortioYaml           = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml           = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard = "addons/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "addons/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
+	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
 )
 
 var (
 	replacer = strings.NewReplacer(
+		"$workload", "echosrv.*",
 		"$service", "echosrv.*",
+		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
 		`connection_mtls=\"true\"`, "",
 		`connection_mtls=\"false\"`, "",
+		`source_workload_namespace=~"$srcns"`, "",
+		`destination_workload_namespace=~"$dstns"`, "",
+		//		"$dstwl", "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
+		"istio-ingressgateway", "netcat-client",
 	)
 
 	tc *testConfig
@@ -90,8 +96,8 @@ func TestDashboards(t *testing.T) {
 		metricPort int
 	}{
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"HTTP Service", httpServiceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"TCP Service", httpServiceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 	}
@@ -469,9 +475,9 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 	// These are sentinel metrics that will be used to evaluate if prometheus
 	// scraping has occurred and data is available via promQL.
 	queries := []string{
-		`round(sum(irate(istio_request_count[1m])), 0.001)`,
-		`sum(irate(istio_request_count{response_code=~"4.*"}[1m]))`,
-		`sum(irate(istio_request_count{response_code=~"5.*"}[1m]))`,
+		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
+		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
+		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
 	}
 
 	for _, duration := range waitDurations {

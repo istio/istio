@@ -239,6 +239,18 @@ func (m *Permission) Validate() error {
 			}
 		}
 
+	case *Permission_Metadata:
+
+		if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PermissionValidationError{
+					Field:  "Metadata",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	default:
 		return PermissionValidationError{
 			Field:  "Rule",
@@ -353,6 +365,18 @@ func (m *Principal) Validate() error {
 			if err := v.Validate(); err != nil {
 				return PrincipalValidationError{
 					Field:  "Header",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *Principal_Metadata:
+
+		if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PrincipalValidationError{
+					Field:  "Metadata",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

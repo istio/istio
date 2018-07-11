@@ -221,14 +221,7 @@ jobs:
   e2e-pilot-cloudfoundry-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at: /go
@@ -240,6 +233,9 @@ jobs:
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
             make test/local/cloudfoundry/e2e_pilotv2
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /go/out/logs
       - store_artifacts:
@@ -265,7 +261,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml-envoyv2_transition
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -304,7 +300,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml-envoyv2_transition
+            make docker.all generate_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:

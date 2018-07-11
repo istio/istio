@@ -44,11 +44,21 @@ done
 
 # Set up env ISTIO if not done yet
 if [[ -z "${ISTIO// }" ]]; then
-    export ISTIO=$GOPATH/src/istio.io
-    echo 'Set ISTIO to' $ISTIO
+  if [[ -z "${GOPATH// }" ]]; then 
+    echo GOPATH is not set. Please set and run script again.
+    exit
+  fi 
+  export ISTIO=$GOPATH/src/istio.io
+  echo 'Set ISTIO to' $ISTIO
 fi
 
 #Setup LocalRegistry
+if [ ! -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml ]; then
+    echo File $ISTIO/istio/tests/util/localregistry/localregistry.yaml not found!.
+    echo Please make sure $ISTIO points to your Istio codebase.
+    echo See https://github.com/istio/istio/wiki/Dev-Guide#setting-up-environment-variables
+    exit
+fi
 kubectl apply -f $ISTIO/istio/tests/util/localregistry/localregistry.yaml
 echo "local registry started"
 

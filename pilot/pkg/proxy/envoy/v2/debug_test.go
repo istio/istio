@@ -16,31 +16,53 @@ package v2_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
-func Test_Syncz(t *testing.T) {
+func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
 		initLocalPilotTestEnv(t)
-		adsstr := connectADS(t, util.MockPilotGrpcAddr)
+		adsstr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer adsstr.CloseSend()
 
 		// Need to send two of each so that the second sends an Ack that is picked up
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp"), adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr)
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+
 		for i := 0; i < 4; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
@@ -52,17 +74,36 @@ func Test_Syncz(t *testing.T) {
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
 		initLocalPilotTestEnv(t)
-		adsstr := connectADS(t, util.MockPilotGrpcAddr)
+		adsstr, err := connectADS(util.MockPilotGrpcAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer adsstr.CloseSend()
 
-		sendEDSReq(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendEDSNack(t, []string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendCDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendCDSNack(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendLDSReq(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendLDSNack(t, sidecarId(app3Ip, "syncApp2"), adsstr)
-		sendRDSReq(t, sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr)
-		sendRDSNack(t, sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr)
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendCDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendLDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
+		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
+			t.Fatal(err)
+		}
 		for i := 0; i < 5; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
@@ -125,4 +166,95 @@ func verifySyncStatus(t *testing.T, gotStatus []v2.SyncStatus, nodeID string, wa
 		}
 	}
 	t.Errorf("node id %v not found", nodeID)
+}
+
+func TestConfigDump(t *testing.T) {
+	tests := []struct {
+		name     string
+		wantCode int
+		proxyID  string
+	}{
+		{
+			name:     "dumps most recent proxy with 200",
+			proxyID:  "dumpApp-644fc65469-96dza.testns",
+			wantCode: 200,
+		},
+		{
+			name:     "returns 404 if proxy not found",
+			proxyID:  "not-found",
+			wantCode: 404,
+		},
+		{
+			name:     "returns 400 if no proxyID",
+			proxyID:  "",
+			wantCode: 400,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initLocalPilotTestEnv(t)
+			for i := 0; i < 2; i++ {
+				envoy, err := connectADS(util.MockPilotGrpcAddr)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer envoy.CloseSend()
+				if err := sendCDSReq(sidecarId(app3Ip, "dumpApp"), envoy); err != nil {
+					t.Fatal(err)
+				}
+				if err := sendLDSReq(sidecarId(app3Ip, "dumpApp"), envoy); err != nil {
+					t.Fatal(err)
+				}
+				// Only most recent proxy will have routes
+				if i == 1 {
+					if err := sendRDSReq(sidecarId(app3Ip, "dumpApp"), []string{"80", "8080"}, envoy); err != nil {
+						t.Fatal(err)
+					}
+					_, err := adsReceive(envoy, 5*time.Second)
+					if err != nil {
+						t.Fatal("Recv failed", err)
+					}
+				}
+				for j := 0; j < 2; j++ {
+					_, err := adsReceive(envoy, 5*time.Second)
+					if err != nil {
+						t.Fatal("Recv failed", err)
+					}
+				}
+			}
+			wrapper := getConfigDump(t, tt.proxyID, tt.wantCode)
+			if wrapper != nil {
+				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
+					t.Errorf("routes were present, must have received an older connection's dump")
+				}
+			} else if tt.wantCode < 400 {
+				t.Error("expected a non-nil wrapper with successful status code")
+			}
+		})
+	}
+}
+
+func getConfigDump(t *testing.T, proxyID string, wantCode int) *configdump.Wrapper {
+	path := "/config_dump"
+	if proxyID != "" {
+		path += fmt.Sprintf("?proxyID=%v", proxyID)
+	}
+	req, err := http.NewRequest("GET", path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	syncz := http.HandlerFunc(v2.ConfigDump)
+	syncz.ServeHTTP(rr, req)
+	if rr.Code != wantCode {
+		t.Errorf("wanted response code %v, got %v", wantCode, rr.Code)
+	}
+	if wantCode > 399 {
+		return nil
+	}
+	got := &configdump.Wrapper{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf(err.Error())
+	}
+	return got
 }

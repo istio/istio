@@ -19,9 +19,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-citadel-service-account
-{{- end }}
       containers:
         - name: citadel
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -41,7 +39,11 @@ spec:
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
 {{- if not .Values.selfSigned }}
           volumeMounts:
           - name: cacerts

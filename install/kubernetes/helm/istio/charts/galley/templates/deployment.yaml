@@ -16,9 +16,7 @@ spec:
       labels:
         istio: galley
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-galley-service-account
-{{- end }}
       containers:
         - name: validator
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -59,14 +57,14 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       volumes:
       - name: certs
         secret:
-{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-galley-service-account
-{{- else }}
-          secretName: istio.default
-{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

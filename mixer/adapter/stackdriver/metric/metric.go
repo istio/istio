@@ -56,7 +56,7 @@ type (
 		createClient createClientFunc
 		metrics      map[string]*metric.Type
 		cfg          *config.Params
-		mg           *helper.MetadataGenerator
+		mg           helper.MetadataGenerator
 	}
 
 	info struct {
@@ -105,7 +105,7 @@ var (
 )
 
 // NewBuilder returns a builder implementing the metric.HandlerBuilder interface.
-func NewBuilder(mg *helper.MetadataGenerator) metric.HandlerBuilder {
+func NewBuilder(mg helper.MetadataGenerator) metric.HandlerBuilder {
 	return &builder{createClient: createClient, mg: mg}
 }
 

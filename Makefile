@@ -203,7 +203,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 .PHONY: check-tree
 check-tree:
 	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Istio not found in GOPATH/src/istio.io. Make sure to clone Istio on that path. $(ISTIO_GO) not under $(GO_TOP) ; \
+		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
 		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
@@ -247,7 +247,7 @@ depend.diff: $(ISTIO_OUT)
 	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
 
 ${GEN_CERT}:
-	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/cmd/generate_cert
+	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -580,10 +580,6 @@ installgen:
 	install/updateVersion.sh -a ${HUB},${TAG}
 	$(MAKE) istio.yaml
 
-# A make target to generate all the YAML files
-generate_yaml:
-	./install/updateVersion.sh -a ${HUB},${TAG}
-
 $(HELM):
 	bin/init_helm.sh
 
@@ -603,46 +599,22 @@ isti%.yaml: $(HELM)
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-# This is temporary. REMOVE ME after Envoy v2 transition
-# creates istio.yaml using values-envoyv2-transition.yaml
-generate_yaml-envoyv2_transition: $(HELM)
+generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
+		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
-		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
-
-# This is temporary. REMOVE ME after Envoy v2 transition
-# creates istio.yaml using values-envoyv2-transition.yaml
-generate_yaml-envoyv2_transition_loadbalancer_ingressgateway: $(HELM)
-	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set gateways.istio-ingressgateway.type=LoadBalancer \
-		--set ingress.enabled=false \
-		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
-	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
-		--namespace=istio-system \
-		--set global.hub=${HUB} \
-		--values install/kubernetes/helm/istio/values-envoyv2-transition.yaml \
-		--set gateways.istio-ingressgateway.type=LoadBalancer \
-		--set ingress.enabled=false \
-		--set global.mtls.enabled=true \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # Generate the install files, using istioctl.

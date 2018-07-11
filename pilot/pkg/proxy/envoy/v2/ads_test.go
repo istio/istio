@@ -14,230 +14,49 @@
 package v2_test
 
 import (
-	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"sync"
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gogo/googleapis/google/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
-	pilotbootstrap "istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/tests/util"
 )
 
-func connectADS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
-	conn, err := grpc.Dial(url, grpc.WithInsecure())
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	return edsstr
-}
-
-func connectADSS(t *testing.T, url string) ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
-	certDir := util.IstioSrc + "/tests/testdata/certs/default/"
-
-	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
-		certDir+model.KeyFilename)
-	if err != nil {
-		t.Fatal("Can't load client certs ", err)
-		return nil
-	}
-
-	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
-	if err != nil {
-		t.Fatal("Can't load client certs ", err)
-		return nil
-	}
-	serverCAs := x509.NewCertPool()
-	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		t.Fatal("Can't load client certs ", err)
-		return nil
-	}
-
-	tlsCfg := &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      serverCAs,
-		ServerName:   "istio-pilot.istio-system.svc",
-	}
-
-	creds := credentials.NewTLS(tlsCfg)
-
-	opts := []grpc.DialOption{
-		// Verify Pilot cert and service account
-		grpc.WithTransportCredentials(creds),
-	}
-	conn, err := grpc.Dial(url, opts...)
-	if err != nil {
-		t.Fatal("Connection failed", err)
-	}
-
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		t.Fatal("Rpc failed", err)
-	}
-	return edsstr
-}
-
-func sendEDSReq(t *testing.T, clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl:       v2.EndpointType,
-		ResourceNames: clusters,
-	})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendEDSNack(t *testing.T, clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl:     v2.EndpointType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"},
-	})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-// If pilot is reset, envoy will connect with a nonce/version info set on the previous
-// connection to pilot. In HA case this may be a different pilot. This is a regression test for
-// reconnect problems.
-func sendEDSReqReconnect(t *testing.T, clusters []string,
-	edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
-	res *xdsapi.DiscoveryResponse) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		Node: &envoy_api_v2_core1.Node{
-			Id: sidecarId(app3Ip, "app3"),
-		},
-		TypeUrl:       v2.EndpointType,
-		ResponseNonce: res.Nonce,
-		VersionInfo:   res.VersionInfo,
-		ResourceNames: clusters})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendLDSReq(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl: v2.ListenerType})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendLDSNack(t *testing.T, node string, ldsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl:     v2.ListenerType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendRDSReq(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl:       v2.RouteType,
-		ResourceNames: routes})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-
-}
-func sendRDSNack(t *testing.T, node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl:     v2.RouteType,
-		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendCDSReq(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		TypeUrl: v2.ClusterType})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
-func sendCDSNack(t *testing.T, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
-	err := edsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node: &envoy_api_v2_core1.Node{
-			Id: node,
-		},
-		ErrorDetail: &rpc.Status{Message: "NOPE!"},
-		TypeUrl:     v2.ClusterType})
-	if err != nil {
-		t.Fatal("Send failed", err)
-	}
-}
-
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_ = initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, _ := adsReceive(edsstr, 5*time.Second)
 
 	// closes old process
 	_ = edsstr.CloseSend()
 
-	edsstr = connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err = connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr.CloseSend()
-	sendEDSReqReconnect(t, []string{"service3.default.svc.cluster.local|http"}, edsstr, res)
-	sendEDSReq(t, []string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+
+	err = sendEDSReqReconnect([]string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, _ = adsReceive(edsstr, 5*time.Second)
 	_ = edsstr.CloseSend()
 
@@ -247,14 +66,27 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	_, _ = adsReceive(edsstr, 5*time.Second)
 
 	// envoy restarts and reconnects
-	edsstr2 := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr2, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr2.CloseSend()
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr2)
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _ = adsReceive(edsstr2, 5*time.Second)
 
 	// closes old process
@@ -275,10 +107,16 @@ func TestAdsReconnect(t *testing.T) {
 
 func TestTLS(t *testing.T) {
 	initLocalPilotTestEnv(t)
-	edsstr := connectADSS(t, util.MockPilotSecureAddr)
+	edsstr, err := connectADSS(util.MockPilotSecureAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer edsstr.CloseSend()
-	sendCDSReq(t, sidecarId(app3Ip, "app3"), edsstr)
-	_, err := adsReceive(edsstr, 3*time.Second)
+	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = adsReceive(edsstr, 3*time.Second)
 	if err != nil {
 		t.Error("Failed to receive with TLS connection ", err)
 	}
@@ -292,29 +130,18 @@ func TestTLS(t *testing.T) {
 	t.Log("AZ:", c.AvailabilityZone)
 }
 
-func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {
-	done := make(chan int, 1)
-	t := time.NewTimer(to)
-	defer func() {
-		done <- 1
-	}()
-	go func() {
-		select {
-		case <-t.C:
-			_ = ads.CloseSend() // will result in adsRecv closing as well, interrupting the blocking recv
-		case <-done:
-			_ = t.Stop()
-		}
-	}()
-	return ads.Recv()
-}
-
 func TestAdsClusterUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		sendEDSReq(t, []string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		res, err := adsReceive(edsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
@@ -352,7 +179,11 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 func TestAdsUpdate(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	edsstr := connectADS(t, util.MockPilotGrpcAddr)
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Old style cluster.
 	// TODO: convert tests (except eds) to new style.
 	server.EnvoyXdsServer.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
@@ -363,8 +194,10 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	sendEDSReq(t, []string{"adsupdate.default.svc.cluster.local|http-main"},
-		sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"adsupdate.default.svc.cluster.local|http-main"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	res1, err := adsReceive(edsstr, 5*time.Second)
 	if err != nil {
@@ -414,34 +247,10 @@ func TestAdsUpdate(t *testing.T) {
 }
 
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
-func TestAdsEds(t *testing.T) {
+func TestAdsMultiple(t *testing.T) {
 	server := initLocalPilotTestEnv(t)
-	testAdsMultiple(t, server)
-}
+	errChan := make(chan error, 100)
 
-// Extract cluster load assignment from a discovery response.
-func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssignment, error) {
-	if res1.TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		return nil, errors.New("Invalid typeURL" + res1.TypeUrl)
-	}
-	if res1.Resources[0].TypeUrl != "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment" {
-		return nil, errors.New("Invalid resource typeURL" + res1.Resources[0].TypeUrl)
-	}
-	cla := &xdsapi.ClusterLoadAssignment{}
-	err := cla.Unmarshal(res1.Resources[0].Value)
-	if err != nil {
-		return nil, err
-	}
-	return cla, nil
-}
-
-func testIp(id uint32) string {
-	ipb := []byte{0, 0, 0, 0}
-	binary.BigEndian.PutUint32(ipb, id)
-	return net.IP(ipb).String()
-}
-
-func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 	wg := &sync.WaitGroup{}
 	wgConnect := &sync.WaitGroup{}
 
@@ -453,33 +262,41 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 	for i := 0; i < n; i++ {
 		i := i
 		go func() {
-			edsstr := connectADS(t, util.MockPilotGrpcAddr)
-			sendEDSReq(t, []string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			edsstr, err := connectADS(util.MockPilotGrpcAddr)
+			if err != nil {
+				errChan <- err
+			}
+
+			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			if err != nil {
+				errChan <- err
+			}
 
 			res1, err := adsReceive(edsstr, 5*time.Second)
 			if err != nil {
-				t.Fatal("Recv failed", err)
+				errChan <- err
 			}
 			wgConnect.Done()
 
 			cla, err := getLoadAssignment(res1)
 			if err != nil {
-				t.Fatal("Invalid EDS response ", err)
+				errChan <- err
 			}
 
 			ep := cla.Endpoints
 			if len(ep) == 0 {
 				t.Fatal("No endpoints")
+				errChan <- fmt.Errorf("No endpoints received")
 			}
 			lbe := ep[0].LbEndpoints
 			if len(lbe) == 0 {
-				t.Fatal("No lb endpoints")
+				errChan <- fmt.Errorf("No lb endpoints received")
 			}
 
 			for j := 0; j < nPushes; j++ {
 				_, err = adsReceive(edsstr, 5*time.Second)
 				if err != nil {
-					t.Fatal("Recv2 failed", err)
+					errChan <- fmt.Errorf("Receive 2 failed: %s", err)
 				}
 			}
 			_ = edsstr.CloseSend()
@@ -503,5 +320,11 @@ func testAdsMultiple(t *testing.T, server *pilotbootstrap.Server) {
 	ok = waitTimeout(wg, 20*time.Second)
 	if !ok {
 		t.Fatal("Failed to receive all responses")
+	}
+
+	close(errChan)
+
+	for e := range errChan {
+		t.Fatal(e)
 	}
 }

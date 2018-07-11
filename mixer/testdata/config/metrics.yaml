@@ -6,11 +6,25 @@ metadata:
 spec:
   value: "1"
   dimensions:
-    source_service: source.service | "unknown"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    source_namespace: source.namespace | "unknown"
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -21,11 +35,25 @@ metadata:
 spec:
   value: response.duration | "0ms"
   dimensions:
-    source_service: source.service | "unknown"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    source_namespace: source.namespace | "unknown"
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -36,11 +64,25 @@ metadata:
 spec:
   value: request.size | 0
   dimensions:
-    source_service: source.service | "unknown"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    source_namespace: source.namespace | "unknown"
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -51,10 +93,24 @@ metadata:
 spec:
   value: response.size | 0
   dimensions:
-    source_service: source.service | "unknown"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    source_namespace: source.namespace | "unknown"
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
     source_version: source.labels["version"] | "unknown"
-    destination_service: destination.service | "unknown"
+    destination_namespace: destination.namespace | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
     destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.host | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    connection_mtls: connection.mtls | false
   monitored_resource_type: '"UNSPECIFIED"'
 ---

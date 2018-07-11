@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 
@@ -35,7 +36,7 @@ type State struct {
 
 	// entries for per-message-type State.
 	entriesLock sync.Mutex
-	entries     map[resource.MessageName]*resourceTypeState
+	entries     map[resource.TypeURL]*resourceTypeState
 }
 
 // per-resource-type State.
@@ -50,17 +51,12 @@ type resourceTypeState struct {
 func newState(schema *resource.Schema) *State {
 	return &State{
 		schema:  schema,
-		entries: make(map[resource.MessageName]*resourceTypeState),
+		entries: make(map[resource.TypeURL]*resourceTypeState),
 	}
 }
 
 func (s *State) apply(event resource.Event) bool {
-	if _, ok := s.schema.LookupByMessageName(event.ID.MessageName); !ok {
-		scope.Errorf("Received an source event for unknown message name: %v", event)
-		return false
-	}
-
-	pks := s.getResourceTypeState(event.ID.MessageName)
+	pks := s.getResourceTypeState(event.ID.TypeURL)
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
@@ -93,10 +89,12 @@ func (s *State) apply(event resource.Event) bool {
 	s.versionCounter++
 	pks.version = s.versionCounter
 
+	scope.Debugf("In-memory state has changed:\n%v\n", s)
+
 	return true
 }
 
-func (s *State) getResourceTypeState(name resource.MessageName) *resourceTypeState {
+func (s *State) getResourceTypeState(name resource.TypeURL) *resourceTypeState {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -118,14 +116,14 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 
 	sn := snapshot.NewInMemory()
 
-	for name, state := range s.entries {
+	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(string(name), version, entries)
+		sn.Set(typeURL.String(), version, entries)
 	}
 
 	sn.Freeze()
@@ -134,8 +132,6 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	info, _ := s.schema.LookupByMessageName(event.ID.MessageName)
-
 	serialized, err := proto.Marshal(event.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source event: %v", event)
@@ -147,10 +143,22 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 			Name: event.ID.FullName,
 		},
 		Resource: &types.Any{
-			TypeUrl: info.TypeURL,
+			TypeUrl: event.ID.TypeURL.String(),
 			Value:   serialized,
 		},
 	}
 
 	return entry, true
+}
+
+// String implements fmt.Stringer
+func (s *State) String() string {
+	var b bytes.Buffer
+
+	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+
+	sn := s.buildSnapshot().(*snapshot.InMemory)
+	fmt.Fprintf(&b, "%v", sn)
+
+	return b.String()
 }

@@ -18,12 +18,11 @@ spec:
     metadata:
       labels:
         istio: pilot
+        app: pilot
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: istio-pilot-service-account
-{{- end }}
       containers:
         - name: discovery
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -60,7 +59,11 @@ spec:
           - name: PILOT_CACHE_SQUASH
             value: "5"
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -105,7 +108,11 @@ spec:
                 apiVersion: v1
                 fieldPath: status.podIP
           resources:
+{{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: istio-certs
             mountPath: /etc/certs
@@ -116,10 +123,6 @@ spec:
           name: istio
       - name: istio-certs
         secret:
-{{- if .Values.global.rbacEnabled }}
           secretName: istio.istio-pilot-service-account
-{{- else }}
-          secretName: istio.default
-{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

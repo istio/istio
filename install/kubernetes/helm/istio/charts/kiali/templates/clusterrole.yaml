@@ -1,4 +1,3 @@
-{{- if .Values.global.rbacEnabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -59,9 +58,9 @@ rules:
   resources:
   - virtualservices
   - destinationrules
+  - serviceentries
   - gateways
   verbs:
   - get
   - list
   - watch
-{{- end }}

@@ -151,6 +151,12 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/bradfitz/slice"
+  packages = ["."]
+  revision = "d9036e2120b5ddfa53f3ebccd618c4af275f47da"
+
+[[projects]]
   name = "github.com/cactus/go-statsd-client"
   packages = [
     "statsd",
@@ -273,9 +279,13 @@
     "envoy/config/trace/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
+    "envoy/type/matcher",
+    "pkg/cache",
+    "pkg/log",
+    "pkg/server",
     "pkg/util"
   ]
-  revision = "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1"
+  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -361,6 +371,11 @@
   ]
   revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/gogo/status"
+  packages = ["."]
+  revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
 
 [[projects]]
   branch = "master"
@@ -1011,6 +1026,12 @@
 
 [[projects]]
   branch = "master"
+  name = "go4.org"
+  packages = ["reflectutil"]
+  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "ed25519",
@@ -1287,7 +1308,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "1ab9532ecae5db039bd95ad0a3686ae74a7e0b70"
+  revision = "2d182f5d150eaa9ac276347df8f0154f209973dc"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1585,6 +1606,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "740f1664dbc3031eea3097fd27b90ce66ddc00a53607476b96a34f1dd46cd5b7"
+  inputs-digest = "70f66277068be52e07b9b2e40c6959ddae2b8708745af55a9a22cac843b99210"
   solver-name = "gps-cdcl"
   solver-version = 1

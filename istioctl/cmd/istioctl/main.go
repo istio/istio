@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -416,10 +417,13 @@ istioctl get virtualservice bookinfo
 			} else {
 				for _, typ := range typs {
 					typeConfigs, err := configClient.List(typ.Type, ns)
-					if err != nil && mustList[typ.Type] {
-						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+					if err == nil {
+						configs = append(configs, typeConfigs...)
+					} else {
+						if mustList[typ.Type] {
+							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
+						}
 					}
-					configs = append(configs, typeConfigs...)
 				}
 			}
 
