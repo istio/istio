@@ -157,7 +157,7 @@ bool Filter::IsMutualTLS() const {
   return Utils::IsMutualTLS(&filter_callbacks_->connection());
 }
 
-std::string Filter::GetRequestedServerName() const {
+bool Filter::GetRequestedServerName(std::string* name) const {
   return Utils::GetRequestedServerName(&filter_callbacks_->connection(), name);
 }
 
