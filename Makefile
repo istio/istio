@@ -626,8 +626,8 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio-one-namespace-auth.yaml \
                 install/kubernetes/istio-one-namespace.yaml \
                 install/kubernetes/istio.yaml \
-                samples/bookinfo/consul/bookinfo.sidecars.yaml \
-                samples/bookinfo/eureka/bookinfo.sidecars.yaml
+                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
+                samples/bookinfo/platform/eureka/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

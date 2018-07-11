@@ -477,8 +477,12 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
-		} else {
+			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+			} else {
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+			}
+		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
 		}

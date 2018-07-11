@@ -115,11 +115,6 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		// TODO: This works well for Add and Delete events, but not so for Update:
 		// An updated ingress may also trigger an Add or Delete for one of its constituent sub-rules.
 		switch typ {
-		case model.IngressRule.Type:
-			rules := convertIngress(*ingress, c.domainSuffix)
-			for _, rule := range rules {
-				f(rule, event)
-			}
 		case model.Gateway.Type:
 			config, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			f(config, event)
@@ -143,11 +138,13 @@ func (c *controller) Run(stop <-chan struct{}) {
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
-	return model.ConfigDescriptor{model.IngressRule}
+	//TODO: are these two config descriptors right?
+	return model.ConfigDescriptor{model.Gateway, model.VirtualService}
 }
 
+//TODO: we don't return out of this function now
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
-	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, false
 	}
 
@@ -167,20 +164,11 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	if typ == model.IngressRule.Type {
-		rules := convertIngress(*ingress, c.domainSuffix)
-		for _, rule := range rules {
-			if rule.Name == name {
-				return &rule, true
-			}
-		}
-	}
-
 	return nil, false
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	if typ != model.IngressRule.Type && typ != model.Gateway.Type && typ != model.VirtualService.Type {
+	if typ != model.Gateway.Type && typ != model.VirtualService.Type {
 		return nil, errUnsupportedOp
 	}
 
@@ -202,9 +190,6 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 		case model.Gateway.Type:
 			gateways, _ := ConvertIngressV1alpha3(*ingress, c.domainSuffix)
 			out = append(out, gateways)
-		case model.IngressRule.Type:
-			rules := convertIngress(*ingress, c.domainSuffix)
-			out = append(out, rules...)
 		}
 	}
 

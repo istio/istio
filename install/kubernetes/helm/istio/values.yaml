@@ -166,6 +166,7 @@ gateways:
   istio-ingressgateway:
     enabled: true
     labels:
+      app: istio-ingressgateway
       istio: ingressgateway
     replicaCount: 1
     autoscaleMin: 1
@@ -212,6 +213,7 @@ gateways:
   istio-egressgateway:
     enabled: true
     labels:
+      app: istio-egressgateway
       istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
@@ -236,6 +238,7 @@ gateways:
   istio-ilbgateway:
       enabled: false
       labels:
+        app: istio-ilbgateway
         istio: ilbgateway
       replicaCount: 1
       autoscaleMin: 1
@@ -315,7 +318,6 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
-  cleanUpOldCA: true
 
 #
 # addons configuration
@@ -419,15 +421,15 @@ tracing:
     enabled: false
     # Used to create an Ingress record.
     hosts:
-      - zipkin.local
+      - tracing.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
     tls:
       # Secrets must be manually created in the namespace.
-      # - secretName: zipkin-tls
+      # - secretName: tracing-tls
       #   hosts:
-      #     - zipkin.local
+      #     - tracing.local
 
 kiali:
   enabled: false
