@@ -39,7 +39,11 @@ spec:
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
 {{- if not .Values.selfSigned }}
           volumeMounts:
           - name: cacerts
