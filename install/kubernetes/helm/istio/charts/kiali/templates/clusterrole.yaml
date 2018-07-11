@@ -48,6 +48,8 @@ rules:
   - quotas
   - reportnothings
   - servicecontrolreports
+  - quotaspecs
+  - quotaspecbindings
   verbs:
   - get
   - list
