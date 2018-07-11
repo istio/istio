@@ -43,6 +43,10 @@ bool GetSourceUser(const Network::Connection* connection, std::string* user);
 // Returns true if connection is mutual TLS enabled.
 bool IsMutualTLS(const Network::Connection* connection);
 
+// Get requested server name, SNI in case of TLS
+bool GetRequestedServerName(const Network::Connection* connection,
+                            std::string* name);
+
 // Parse JSON string into message.
 ::google::protobuf::util::Status ParseJsonMessage(
     const std::string& json, ::google::protobuf::Message* output);
