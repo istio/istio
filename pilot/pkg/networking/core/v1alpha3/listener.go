@@ -20,7 +20,6 @@ import (
 	"os"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -59,18 +58,12 @@ const (
 
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
-
-	traceSamplingDefault = 100.0
 )
 
 var (
 	// Very verbose output in the logs - full LDS response logged for each sidecar.
 	// Use /debug/ldsz instead.
 	verboseDebug = os.Getenv("PILOT_DUMP_ALPHA3") != ""
-
-	// Mesh-wide trace sampling percentage, should be 0.0 - 100.0 Precision to 0.01
-	traceSamplingEnv = os.Getenv("PILOT_TRACE_SAMPLING")
-	traceSampling    = getTraceSampling()
 
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
@@ -693,16 +686,17 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 	}
 
 	if env.Mesh.EnableTracing {
+		tc := model.GetTraceConfig()
 		connectionManager.Tracing = &http_conn.HttpConnectionManager_Tracing{
 			OperationName: httpOpts.direction,
 			ClientSampling: &envoy_type.Percent{
-				Value: 100.0,
+				Value: tc.ClientSampling,
 			},
 			RandomSampling: &envoy_type.Percent{
-				Value: traceSampling,
+				Value: tc.RandomSampling,
 			},
 			OverallSampling: &envoy_type.Percent{
-				Value: 100.0,
+				Value: tc.OverallSampling,
 			},
 		}
 		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
@@ -770,23 +764,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,
 	}
-}
-
-// Return trace sampling if set correctly, or default if not.
-func getTraceSampling() float64 {
-	if traceSamplingEnv == "" {
-		return traceSamplingDefault
-	}
-	f, err := strconv.ParseFloat(traceSamplingEnv, 64)
-	if err != nil {
-		log.Warnf("PILOT_TRACE_SAMPLING not set to a number: %v", traceSamplingEnv)
-		return traceSamplingDefault
-	}
-	if f < 0.0 || f > 100.0 {
-		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return traceSamplingDefault
-	}
-	return f
 }
 
 // marshalFilters adds the provided TCP and HTTP filters to the provided Listener and serializes them.
