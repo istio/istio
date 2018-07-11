@@ -48,14 +48,14 @@ func getTraceSampling() float64 {
 	return f
 }
 
-// TraceConfig. Values are percentages 0.0 - 100.0
+// TraceConfig values are percentages 0.0 - 100.0
 type TraceConfig struct {
 	ClientSampling  float64
 	RandomSampling  float64
 	OverallSampling float64
 }
 
-// Returns configured TraceConfig
+// GetTraceConfig returns configured TraceConfig
 func GetTraceConfig() TraceConfig {
 	return TraceConfig{
 		ClientSampling:  100.0,
