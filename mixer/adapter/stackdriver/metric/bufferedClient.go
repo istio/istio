@@ -16,7 +16,6 @@ package metric
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -93,7 +92,7 @@ func (b *buffered) Send() {
 	for _, timeSeries := range batches {
 		err := b.pushMetrics(context.Background(),
 			&monitoringpb.CreateTimeSeriesRequest{
-				Name:       fmt.Sprintf("projects/%s", b.project),
+				Name:       "projects/" + b.project,
 				TimeSeries: timeSeries,
 			})
 
