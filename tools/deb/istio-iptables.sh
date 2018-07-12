@@ -188,6 +188,7 @@ set -x # echo on
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 # redirects to Envoy.
 iptables -t nat -N ISTIO_REDIRECT
+iptables -t nat -A ISTIO_REDIRECT -p tcp --dport 53 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port ${PROXY_PORT}
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
