@@ -8,6 +8,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pkg/log"
+	"encoding/json"
+	"go.uber.org/atomic"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -22,6 +24,16 @@ type PushStatus struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]PushStatusEvent
 
+	// PushCount represents the number of sidecar pushes using this
+	// status. It can be non-zero if pushes overlap. Used for debugging,
+	// the code will need to avoid overlapping pushes.
+	PushCount atomic.Int64
+
+	// PendingPush represents number of sidecar pushes still in progress.
+	PendingPush atomic.Int64
+
+	// Start represents the time of last config change that reset the
+	// push status.
 	Start time.Time
 }
 
@@ -77,10 +89,11 @@ var (
 	)
 
 	// METRIC_PROXY_UNREADY represents proxies found not be ready.
-	// Updated by GetProxyServiceInstances
-	METRIC_PROXY_UNREADY = newPushMetric(
-		"pilot_unready",
-		"Endpoints found in unready state.",
+	// Updated by GetProxyServiceInstances. Normal condition when starting
+	// an app with readiness, error if it doesn't change to 0.
+	METRIC_ENDPOINT_NOT_READY = newPushMetric(
+		"pilot_endpoint_not_ready",
+		"Endpoint found in unready state.",
 	)
 
 	// METRIC_CONFLICTING_HTTP_OUTBOUND tracks cases of multiple outbound
@@ -129,6 +142,17 @@ func NewStatus() *PushStatus {
 		Start:       time.Now(),
 	}
 }
+
+// MarshalJSON implements json.Marshaller, with a lock.
+func (cs *PushStatus) MarshalJSON() ([]byte, error) {
+	if cs == nil {
+		return []byte{'{','}'}, nil
+	}
+	cs.mutex.Lock()
+	defer cs.mutex.Unlock()
+	return json.MarshalIndent(cs, "", "    ")
+}
+
 
 // AfterPush is called after a push to update the gauges and the debug
 // status.

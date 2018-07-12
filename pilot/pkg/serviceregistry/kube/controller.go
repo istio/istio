@@ -558,7 +558,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
 				out = append(out, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushStatus.Add(model.METRIC_PROXY_UNREADY, proxy.ID, proxy, "")
+					c.Env.PushStatus.Add(model.METRIC_ENDPOINT_NOT_READY, proxy.ID, proxy, "")
 				}
 			}
 		}

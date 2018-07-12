@@ -41,7 +41,7 @@ func connect(t *testing.T) xdsapi.EndpointDiscoveryService_StreamEndpointsClient
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"},
 	}
 	return connectWithRequest(req, t)
 }
@@ -53,7 +53,7 @@ func reconnect(res *xdsapi.DiscoveryResponse, t *testing.T) xdsapi.EndpointDisco
 		},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"},
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"},
 	}
 	return connectWithRequest(req, t)
 }
@@ -198,7 +198,7 @@ func connectAndSend(id uint32, t *testing.T) (xdsapi.EndpointDiscoveryService_St
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(testIp(uint32(0x0a100000+id)), "app3"),
 		},
-		ResourceNames: []string{"hello.default.svc.cluster.local|http"}})
+		ResourceNames: []string{"outbound|80||hello.default.svc.cluster.local"}})
 	if err != nil {
 		t.Fatal("Send failed", err)
 	}
@@ -346,7 +346,7 @@ func udsRequest(server *bootstrap.Server, t *testing.T) {
 		Node: &envoy_api_v2_core1.Node{
 			Id: sidecarId(app3Ip, "app3"),
 		},
-		ResourceNames: []string{"localuds.cluster.local|grpc"},
+		ResourceNames: []string{"outbound|0||localuds.cluster.local"},
 	}
 	edsstr := connectWithRequest(req, t)
 
@@ -420,7 +420,7 @@ func testEdsz(t *testing.T) {
 	}
 	statusStr := string(data)
 
-	if !strings.Contains(statusStr, "\"hello.default.svc.cluster.local|http\"") {
+	if !strings.Contains(statusStr, "\"outbound|80||hello.default.svc.cluster.local\"") {
 		t.Fatal("Mock hello service not found ", statusStr)
 	}
 }

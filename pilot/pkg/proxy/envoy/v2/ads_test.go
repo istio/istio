@@ -33,7 +33,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,14 +157,14 @@ func TestAdsClusterUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	cluster1 := "adsupdate.default.svc.cluster.local|http-main"
+	cluster1 := "outbound|80||adsupdate.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
 	// register a second endpoint
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
 		"http-status", 2080, "10.2.0.2", 1081)
 
-	cluster2 := "adsupdate2.default.svc.cluster.local|http-status"
+	cluster2 := "outbound|80||adsupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
 }
 
@@ -185,7 +185,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	err = sendEDSReq([]string{"adsupdate.default.svc.cluster.local|http-main"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarId("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestAdsMultiple(t *testing.T) {
 				errChan <- err
 			}
 
-			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
 			if err != nil {
 				errChan <- err
 			}

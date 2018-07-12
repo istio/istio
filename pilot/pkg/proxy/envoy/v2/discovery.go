@@ -36,6 +36,8 @@ var (
 	versionMutex sync.Mutex
 	// version is update by registry events.
 	version = time.Now()
+
+	periodicRefreshMetrics = 10 * time.Second
 )
 
 const (
@@ -82,6 +84,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
+	env.PushStatus = model.NewStatus()
 
 	envOverride := os.Getenv("V2_REFRESH")
 	if len(envOverride) > 0 {
@@ -89,12 +92,14 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		periodicRefreshDuration, err = time.ParseDuration(envOverride)
 		if err != nil {
 			adsLog.Warn("Invalid value for V2_REFRESH")
-			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
 		}
 	}
 	if periodicRefreshDuration > 0 {
 		go out.periodicRefresh()
 	}
+
+	go out.periodicRefreshMetrics()
+
 
 	return out
 }
@@ -119,6 +124,27 @@ func (s *DiscoveryServer) periodicRefresh() {
 	}
 }
 
+// Push metrics are updated periodically (10s default)
+func (s *DiscoveryServer) periodicRefreshMetrics() {
+	envOverride := os.Getenv("V2_METRICS")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshMetrics, err = time.ParseDuration(envOverride)
+		if err != nil {
+			adsLog.Warn("Invalid value for V2_METRICS")
+		}
+	}
+	if periodicRefreshMetrics == 0 {
+		return
+	}
+
+	ticker := time.NewTicker(periodicRefreshMetrics)
+	defer ticker.Stop()
+	for range ticker.C {
+		AdsPushAll(s)
+	}
+}
+
 // ClearCacheFunc returns a function that invalidates v2 caches and triggers a push.
 // This is used for transition, once the new config model is in place we'll have separate
 // functions for each event and push only configs that need to be pushed.
@@ -126,6 +152,15 @@ func (s *DiscoveryServer) periodicRefresh() {
 func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
 		s.updateModel()
+
+		// Reset the status during the push.
+		//afterPush := true
+		if s.env.PushStatus != nil {
+			s.env.PushStatus.AfterPush()
+		}
+		// PushStatus is reset after a config change. Previous status is
+		// saved.
+		s.env.PushStatus = model.NewStatus()
 
 		AdsPushAll(s)
 	}

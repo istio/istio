@@ -32,8 +32,6 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"encoding/json"
-
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -58,6 +56,7 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
 )
 
 var (
@@ -280,6 +279,8 @@ type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
 	clusters []string
+
+	push *model.PushStatus
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -402,7 +403,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushStatus)
+				err := s.pushLds(con, s.env.PushStatus, true)
 				if err != nil {
 					return err
 				}
@@ -478,11 +479,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				s.addCon(con.ConID, con)
 				defer s.removeCon(con.ConID, con)
 			}
-		case <-con.pushChannel:
+		case pushEv, _ := <-con.pushChannel:
 			// It is called when config changes.
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
-			err := s.pushAll(con)
+
+			err := s.pushAll(con, pushEv.push)
 			if err != nil {
 				return nil
 			}
@@ -490,13 +492,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
-func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
+func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) error {
 	defer func() {
-		ps := s.env.PushStatus
-		if ps == nil {
-			return
+		n := push.PendingPush.Sub(1)
+		if n == 0 {
+			// Display again the push status
+			out, err := push.MarshalJSON()
+			if err == nil {
+				adsLog.Infof("Push finished: ", string(out))
+			}
 		}
-
 	}()
 	if con.CDSWatch {
 		err := s.pushCds(con)
@@ -505,7 +510,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, s.env.PushStatus)
+		err := s.pushRoute(con, push)
 		if err != nil {
 			return err
 		}
@@ -517,7 +522,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, s.env.PushStatus)
+		err := s.pushLds(con, push, false)
 		if err != nil {
 			return err
 		}
@@ -548,14 +553,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	monVServices.Set(float64(len(s.virtualServices)))
 	s.modelMutex.RUnlock()
 
-	// Reset the status during the push.
-	//afterPush := true
-	if s.env.PushStatus != nil {
-		//adsLog.Info("Push status already set, another push in progress")
-		//afterPush = false
-	} else {
-		s.env.PushStatus = model.NewStatus()
-	}
+	pushStatus := s.env.PushStatus
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
@@ -590,13 +588,18 @@ func AdsPushAll(s *DiscoveryServer) {
 	// It will include sending all configs that envoy is listening for, including EDS.
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
+	pushStatus.PushCount.Add(int64(len(tmpMap)))
+	pushStatus.PendingPush.Add(int64(len(tmpMap)))
+
 	for _, c := range tmpMap {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
 		to := time.After(PushTimeout)
 		select {
-		case client.pushChannel <- &XdsEvent{}:
+		case client.pushChannel <- &XdsEvent{
+			push: pushStatus,
+		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
@@ -617,23 +620,6 @@ func AdsPushAll(s *DiscoveryServer) {
 				}
 			}
 		}
-	}
-
-	if s != nil {
-		time.AfterFunc(10*time.Second, func() {
-			ps := s.env.PushStatus
-			if ps != nil {
-				ps.AfterPush()
-
-				out, err := json.MarshalIndent(ps, "", "    ")
-				if err == nil {
-					adsLog.Infof("After push: %s", string(out))
-				}
-
-				s.env.PushStatus = model.NewStatus()
-				//s.env.PushStatus = nil
-			}
-		})
 	}
 }
 
