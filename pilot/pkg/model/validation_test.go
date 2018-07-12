@@ -1058,7 +1058,7 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+						Port:  &networking.Port{Name: "name1", Number: 66000, Protocol: "http"},
 					}},
 			},
 			"port"},
