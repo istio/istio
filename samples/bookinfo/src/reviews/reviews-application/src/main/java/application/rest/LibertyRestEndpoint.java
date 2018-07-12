@@ -42,13 +42,14 @@ public class LibertyRestEndpoint extends Application {
 
     private final static Boolean ratings_enabled = Boolean.valueOf(System.getenv("ENABLE_RATINGS"));
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
-    private final static String ratings_service = "http://ratings:9080/ratings";
-    
+    private final static String services_domain = System.getenv("SERVICES_DOMAIN") == null ? "" : ("." + System.getenv("SERVICES_DOMAIN"));
+    private final static String ratings_service = "http://ratings" + services_domain + ":9080/ratings";
+
     private String getJsonResponse (String productId, int starsReviewer1, int starsReviewer2) {
     	String result = "{";
     	result += "\"id\": \"" + productId + "\",";
     	result += "\"reviews\": [";
-    	
+
     	// reviewer 1:
     	result += "{";
     	result += "  \"reviewer\": \"Reviewer1\",";
