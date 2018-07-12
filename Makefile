@@ -214,12 +214,12 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 sync: init git.pullmaster
 	mkdir -p ${OUT_DIR}/logs
 
-# Merge master. To be used in CI or by developers, assumes the
+# Merge release-1.0. To be used in CI or by developers, assumes the
 # remote is called 'origin' (git default). Will fail on conflicts
 # Note: in a branch, this will get the latest from master. In master it has no effect.
 # This should be run after a 'git fetch' (typically done in the checkout step in CI)
 git.pullmaster:
-	git merge master
+	git merge origin/release-1.0
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
