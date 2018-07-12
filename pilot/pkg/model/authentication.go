@@ -30,7 +30,7 @@ import (
 
 const (
 	// CARootCertPath is the path of ca root cert that envoy uses to validate cert got from SDS service.
-	CARootCertPath = "/etc/certs/ca-root-cert.pem"
+	CARootCertPath = "/etc/istio/certs/ca-root-cert.pem"
 
 	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
 	SDSStatPrefix = "sdsstat"
