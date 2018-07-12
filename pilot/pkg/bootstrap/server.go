@@ -41,10 +41,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
@@ -474,31 +472,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		go s.configController.Run(stop)
 		return nil
 	})
-
-	// If running in ingress mode (requires k8s), wrap the config controller.
-	if hasKubeRegistry(args) && s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
-		// Wrap the config controller with a cache.
-		configController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
-			s.configController,
-			ingress.NewController(s.kubeClient, s.mesh, args.Config.ControllerOptions),
-		})
-		if err != nil {
-			return err
-		}
-
-		// Update the config controller
-		s.configController = configController
-
-		if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
-			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
-		} else {
-			s.addStartFunc(func(stop chan struct{}) error {
-				go ingressSyncer.Run(stop)
-				return nil
-			})
-		}
-	}
 
 	// Create the config store.
 	s.istioConfigStore = model.MakeIstioStore(s.configController)
