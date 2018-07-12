@@ -495,7 +495,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) error {
 	defer func() {
 		n := push.PendingPush.Sub(1)
-		if n >= 0 {
+		if n <= 0 && push.End == timeZero {
 			// Display again the push status
 			out, _ := push.JSON()
 			push.End = time.Now()
