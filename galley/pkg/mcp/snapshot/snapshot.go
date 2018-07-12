@@ -75,7 +75,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	if err != nil {
 		panic(fmt.Sprintf("type URL should have been validated by the protocol implementation: %q", request.TypeUrl))
 	}
-	resourceVersion := resource.Version(request.VersionInfo)
+	requestVersion := resource.Version(request.VersionInfo)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -95,11 +95,11 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	info.mu.Unlock()
 
 	// return an immediate response if a snapshot is available and the
-	// requested resourceVersion doesn't match.
+	// requested requestVersion doesn't match.
 	if snapshot, ok := c.snapshots[nodeID]; ok {
 		snapshotVersion := snapshot.Version(typeURL)
-		scope.Debugf("Found snapshot for node: %q, with resourceVersion: %q", nodeID, snapshotVersion)
-		if resourceVersion != snapshotVersion {
+		scope.Debugf("Found snapshot for node: %q, with requestVersion: %q", nodeID, snapshotVersion)
+		if requestVersion != snapshotVersion {
 			scope.Debugf("Responding to node %q with snapshot:\n%v\n", nodeID, snapshot)
 			response := &server.WatchResponse{
 				TypeURL:   typeURL,
@@ -110,7 +110,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 		}
 	}
 
-	// Otherwise, open a watch if no snapshot was available or the requested resourceVersion is up-to-date.
+	// Otherwise, open a watch if no snapshot was available or the requested requestVersion is up-to-date.
 	c.watchCount++
 	watchID := c.watchCount
 
@@ -118,7 +118,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 		watchID, request.TypeUrl, nodeID, request.VersionInfo)
 
 	info.mu.Lock()
-	info.watches[watchID] = &responseWatch{typeURL: typeURL, version: resourceVersion, responseC: responseC}
+	info.watches[watchID] = &responseWatch{typeURL: typeURL, version: requestVersion, responseC: responseC}
 	info.mu.Unlock()
 
 	cancel := func() {
