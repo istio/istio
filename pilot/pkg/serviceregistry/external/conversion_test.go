@@ -296,7 +296,7 @@ func TestConvertService(t *testing.T) {
 		{
 			// service entry tcp static
 			externalSvc: tcpStatic,
-			services: []*model.Service{makeService("tcpstatic.com", "172.217.0.0/16",
+			services: []*model.Service{makeService("tcpstatic.com", "172.217.0.1",
 				map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 			},
 		},
