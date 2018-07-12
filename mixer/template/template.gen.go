@@ -328,6 +328,9 @@ var (
 					func(name string) (value interface{}, found bool) {
 						field := strings.TrimPrefix(name, fullOutName)
 						if len(field) != len(name) {
+							if !out.WasSet(field) {
+								return nil, false
+							}
 							switch field {
 
 							case "source_pod_ip":

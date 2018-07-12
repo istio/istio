@@ -1607,10 +1607,19 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Weight:      75,
 			}},
 		}, valid: true},
-		{name: "bad total weight", route: &networking.HTTPRoute{
+		{name: "total weight > 100", route: &networking.HTTPRoute{
 			Route: []*networking.DestinationWeight{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      55,
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Weight:      50,
+			}},
+		}, valid: false},
+		{name: "total weight < 100", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz.south"},
+				Weight:      49,
 			}, {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
