@@ -385,12 +385,6 @@
   source = "github.com/istio/glog"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/golang/groupcache"
-  packages = ["lru"]
-  revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
-
-[[projects]]
   name = "github.com/golang/protobuf"
   packages = [
     "jsonpb",
@@ -1522,12 +1516,9 @@
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
     "tools/clientcmd/api/v1",
-    "tools/leaderelection",
-    "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
     "tools/portforward",
-    "tools/record",
     "tools/reference",
     "tools/remotecommand",
     "transport",
@@ -1566,21 +1557,6 @@
   version = "v2.8.2"
 
 [[projects]]
-  name = "k8s.io/ingress"
-  packages = [
-    "core/pkg/ingress/annotations/class",
-    "core/pkg/ingress/annotations/parser",
-    "core/pkg/ingress/errors",
-    "core/pkg/ingress/status",
-    "core/pkg/ingress/store",
-    "core/pkg/k8s",
-    "core/pkg/strings",
-    "core/pkg/task"
-  ]
-  revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
-  version = "0.9.6"
-
-[[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
@@ -1604,6 +1580,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9685749234e1dda2f52784e4221c6670fb34bd9d6bed2ba63680b4e5faa7690d"
+  inputs-digest = "1864814ff4af9aa7dbfe488ff2ce42bb1651a66c1ce0c9ba4b0ec04fb26a6f73"
   solver-name = "gps-cdcl"
   solver-version = 1
