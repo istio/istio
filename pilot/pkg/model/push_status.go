@@ -97,7 +97,7 @@ var (
 	// listeners, with accepted HTTP and the conflicting one a
 	// different type
 	METRIC_CONFLICTING_HTTP_OUTBOUND = newPushMetric(
-		"pilot_conf_out_http_listeners",
+		"pilot_conflict_out_http_listeners",
 		"Number of conflicting listeners on a http port.",
 	)
 
@@ -105,14 +105,14 @@ var (
 	// listeners, with accepted TCP and the conflicting one a
 	// different type
 	METRIC_CONFLICTING_TCP_OUTBOUND = newPushMetric(
-		"pilot_conf_out_tcp_listeners",
+		"pilot_conflict_out_tcp_listeners",
 		"Number of conflicting listeners on a tcp listener.",
 	)
 
 	// METRIC_CONFLICTING_INBOUND tracks cases of multiple inbound
-	// listeners - 2 services selecting the same port of the pod
+	// listeners - 2 services selecting the same port of the pod.
 	METRIC_CONFLICTING_INBOUND = newPushMetric(
-		"pilot_conf_in_listeners",
+		"pilot_conflict_in_listeners",
 		"Number of conflicting inbound listeners.",
 	)
 

@@ -144,6 +144,11 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 		push := s.env.PushStatus
 		model.LastPushStatus = push
 		push.UpdateMetrics()
+		// TODO: env to customize
+		if time.Since(push.Start) > 30 * time.Second {
+			// Reset the stats, some errors may still be stale.
+			s.env.PushStatus = model.NewStatus()
+		}
 	}
 }
 
