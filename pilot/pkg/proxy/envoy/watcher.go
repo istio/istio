@@ -330,7 +330,13 @@ func (proxy envoy) Cleanup(epoch int) {
 	}
 }
 
-func (proxy envoy) Panic(_ interface{}) {
+func (proxy envoy) Panic(epoch interface{}) {
 	log.Error("cannot start the proxy with the desired configuration")
+	if epochInt, ok := epoch.(int); ok {
+		// print the failed config file
+		filePath := configFile(proxy.config.ConfigPath, epochInt)
+		b, _ := ioutil.ReadFile(filePath)
+		log.Errorf(string(b))
+	}
 	os.Exit(-1)
 }
