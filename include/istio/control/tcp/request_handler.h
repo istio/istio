@@ -43,7 +43,8 @@ class RequestHandler {
   virtual void Report(ReportData* report_data) = 0;
 
   // Make report call.
-  // If is_final_report is true, report all attributes. Otherwise, report delta
+  // If is_first_report is true, report connection open event. If
+  // is_final_report is true, report all attributes. Otherwise, report delta
   // attributes.
   virtual void Report(ReportData* report_data, bool is_first_report,
                       bool is_final_report) = 0;
