@@ -196,6 +196,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 	}
 
 	// These settings are not backward compatible with 0.8.
+	// Proxy version is only valuable from 1.0 onwards.
 	if _, found := node.GetProxyVersion(); !found {
 		res.AttributesForMixerProxy = nil
 	}
@@ -333,6 +334,7 @@ func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct,
 		filterConfigs = make(map[string]*types.Struct)
 	}
 	// These settings are not backward compatible with 0.8.
+	// Proxy version is only valuable from 1.0 onwards.
 	if _, found := node.GetProxyVersion(); !found {
 		config.ForwardAttributes = nil
 	}
