@@ -9,7 +9,6 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"encoding/json"
-	"go.uber.org/atomic"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -24,14 +23,6 @@ type PushStatus struct {
 	// by the ID.
 	ProxyStatus map[string]map[string]PushStatusEvent
 
-	// PushCount represents the number of sidecar pushes using this
-	// status. It can be non-zero if pushes overlap. Used for debugging,
-	// the code will need to avoid overlapping pushes.
-	PushCount atomic.Int64
-
-	// PendingPush represents number of sidecar pushes still in progress.
-	PendingPush atomic.Int64
-
 	// Start represents the time of last config change that reset the
 	// push status.
 	Start time.Time
@@ -40,8 +31,8 @@ type PushStatus struct {
 }
 
 type PushStatusEvent struct {
-	Proxy   *Proxy
-	Message string
+	Proxy   string `json:"proxy,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 type PushMetric struct {
@@ -76,7 +67,11 @@ func (ps *PushStatus) Add(metric *PushMetric, key string, proxy *Proxy, msg stri
 		metricMap = map[string]PushStatusEvent{}
 		ps.ProxyStatus[metric.Name] = metricMap
 	}
-	metricMap[key] = PushStatusEvent{Proxy: proxy, Message: msg}
+	ev := PushStatusEvent{Message: msg}
+	if proxy != nil {
+		ev.Proxy = proxy.ID
+	}
+	metricMap[key] = ev
 }
 
 var (
@@ -125,12 +120,6 @@ var (
 	METRIC_NO_INSTANCES = newPushMetric(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
-	)
-
-	// METRIC_INVALID_INGRESS tracks invalid ingresses.
-	METRIC_INVALID_INGRESS = newPushMetric(
-		"pilot_invalid_ingress",
-		"Number of invalid ingress resources.",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.

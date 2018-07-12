@@ -34,6 +34,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -281,6 +282,8 @@ type XdsEvent struct {
 	clusters []string
 
 	push *model.PushStatus
+
+	pending *atomic.Int32
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -484,7 +487,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			// This is not optimized yet - we should detect what changed based on event and only
 			// push resources that need to be pushed.
 
-			err := s.pushAll(con, pushEv.push)
+			err := s.pushAll(con, pushEv)
 			if err != nil {
 				return nil
 			}
@@ -492,15 +495,15 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
-func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) error {
+func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent ) error {
 	defer func() {
-		n := push.PendingPush.Sub(1)
-		if n <= 0 && push.End == timeZero {
+		n := pushEv.pending.Sub(1)
+		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
-			out, _ := push.JSON()
-			push.End = time.Now()
+			pushEv.push.End = time.Now()
+			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",
-				time.Since(push.Start), string(out))
+				time.Since(pushEv.push.Start), string(out))
 		}
 	}()
 	if con.CDSWatch {
@@ -510,7 +513,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) er
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, push)
+		err := s.pushRoute(con, pushEv.push)
 		if err != nil {
 			return err
 		}
@@ -522,7 +525,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) er
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, push, false)
+		err := s.pushLds(con, pushEv.push, false)
 		if err != nil {
 			return err
 		}
@@ -588,8 +591,9 @@ func AdsPushAll(s *DiscoveryServer) {
 	// It will include sending all configs that envoy is listening for, including EDS.
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
-	pushStatus.PushCount.Add(int64(len(tmpMap)))
-	pushStatus.PendingPush.Add(int64(len(tmpMap)))
+
+	var pendingPush atomic.Int32
+	pendingPush.Store(int32(len(tmpMap)))
 
 	for _, c := range tmpMap {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
@@ -599,6 +603,7 @@ func AdsPushAll(s *DiscoveryServer) {
 		select {
 		case client.pushChannel <- &XdsEvent{
 			push: pushStatus,
+			pending: &pendingPush,
 		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero

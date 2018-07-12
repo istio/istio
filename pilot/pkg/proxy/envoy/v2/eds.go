@@ -29,8 +29,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/peer"
 
-	"fmt"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -162,7 +160,7 @@ func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsClust
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			s.env.PushStatus.Add(model.METRIC_NO_INSTANCES, clusterName, nil, fmt.Sprintf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels))
+			s.env.PushStatus.Add(model.METRIC_NO_INSTANCES, clusterName, nil, "")
 			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
