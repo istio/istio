@@ -118,9 +118,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env model.Environmen
 		return nil, err
 	}
 
-	// ensure services are ordered to simplify generation logic
-	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
-
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -336,6 +333,33 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 	return listeners
 }
 
+type listenerEntry struct {
+	protocol model.Protocol
+	listener *xdsapi.Listener
+}
+
+func handleOutboundListenerConflict(service *model.Service, servicePort *model.Port, current listenerEntry, listenerMapKey string) {
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
+		service.Hostname, servicePort.Port)
+
+	conflictingOutbound.Add(1)
+	log.Warnf("buildSidecarOutboundListener: Omitting service %s due to conflict while "+
+		"adding to listener %s on %s. Current Protocol: %s, incoming service protocol %s",
+		clusterName,
+		current.listener.Name,
+		listenerMapKey,
+		current.protocol,
+		servicePort.Protocol)
+}
+
+// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func sortServicesByCreationTime(services []*model.Service) []*model.Service {
+	sort.SliceStable(services, func(i, j int) bool {
+		return services[i].CreationTime.Before(services[j].CreationTime)
+	})
+	return services
+}
+
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
@@ -353,6 +377,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.Environment, node model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
+	// Sort the services in order of creation.
+	services = sortServicesByCreationTime(services)
+
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
@@ -363,13 +390,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	var currentListener *xdsapi.Listener
-	listenerTypeMap := make(map[string]model.Protocol)
-	listenerMap := make(map[string]*xdsapi.Listener)
+	listenerMap := make(map[string]listenerEntry)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "",
-				service.Hostname, servicePort.Port)
-
 			listenAddress := WildcardAddress
 			var addresses []string
 			var listenerMapKey string
@@ -387,11 +410,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
 			case plugin.ListenerProtocolHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if l, exists := listenerMap[listenerMapKey]; exists {
-					if !listenerTypeMap[listenerMapKey].IsHTTP() {
-						conflictingOutbound.Add(1)
-						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
-							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
+				if current, exists := listenerMap[listenerMapKey]; exists {
+					if !current.protocol.IsHTTP() {
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -417,15 +438,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				var exists bool
-				if currentListener, exists = listenerMap[listenerMapKey]; exists {
+				currentListener = nil
+				if current, exists := listenerMap[listenerMapKey]; exists {
+					currentListener = current.listener
 					// Check for port collisions between TCP/TLS and HTTP.
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
-					if !listenerTypeMap[listenerMapKey].IsTCP() {
-						conflictingOutbound.Add(1)
-						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
-							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, currentListener.Name, currentListener)
+					if !current.protocol.IsTCP() {
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 						continue
 					}
 				}
@@ -475,8 +495,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
 				currentListener.FilterChains = newFilterChains
 			} else {
-				listenerMap[listenerMapKey] = mutable.Listener
-				listenerTypeMap[listenerMapKey] = servicePort.Protocol
+				listenerMap[listenerMapKey] = listenerEntry{
+					protocol: servicePort.Protocol,
+					listener: mutable.Listener,
+				}
 			}
 
 			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
@@ -492,16 +514,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 	}
 
 	for name, l := range listenerMap {
-		ltype := listenerTypeMap[name]
-		if err := l.Validate(); err != nil {
-			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, ltype, err)
+		if err := l.listener.Validate(); err != nil {
+			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.protocol, err)
 			invalidOutboundListeners.Add(1)
 			continue
 		}
-		if ltype.IsTCP() {
-			tcpListeners = append(tcpListeners, l)
+		if l.protocol.IsTCP() {
+			tcpListeners = append(tcpListeners, l.listener)
 		} else {
-			httpListeners = append(httpListeners, l)
+			httpListeners = append(httpListeners, l.listener)
 		}
 	}
 

@@ -112,6 +112,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		LoadBalancingDisabled: loadBalancingDisabled,
 		MeshExternal:          meshExternal,
 		Resolution:            resolution,
+		CreationTime:          svc.CreationTimestamp.Time,
 	}
 }
 
