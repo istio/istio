@@ -2247,7 +2247,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2262,7 +2262,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2277,7 +2277,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2288,7 +2288,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},

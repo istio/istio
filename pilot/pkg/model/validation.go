@@ -1639,7 +1639,10 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		}
 	}
 	for _, address := range serviceEntry.Addresses {
-		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		// TODO (rshriram): Until get proper filter chain support, we cannot
+		// allow CIDRs here. We should only allow IP addresses
+		// errs = appendErrors(errs, ValidateIPv4Subnet(address))
+		errs = appendErrors(errs, ValidateIPv4Address(address))
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
