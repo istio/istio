@@ -35,15 +35,8 @@ class RequestHandlerImpl : public RequestHandler {
       ::istio::mixerclient::CheckDoneFunc on_done) override;
 
   // Make a Report call.
-  // TODO(JimmyCYJ): Let TCP filter use
-  // void Report(ReportData* report_data, bool is_final_report), and deprecate
-  // this method.
-  void Report(ReportData* report_data) override;
-
-  // Make a Report call. If is_final_report is true, then report all attributes,
-  // otherwise, report delta attributes.
-  void Report(ReportData* report_data, bool is_first_report,
-              bool is_final_report) override;
+  void Report(ReportData* report_data,
+              ReportData::ConnectionEvent event) override;
 
  private:
   // The request context object.

@@ -111,7 +111,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerReport) {
   EXPECT_CALL(*mock_client_, Report(_)).Times(1);
 
   auto handler = controller_->CreateRequestHandler();
-  handler->Report(&mock_data);
+  handler->Report(&mock_data, ReportData::CONTINUE);
 }
 
 }  // namespace tcp

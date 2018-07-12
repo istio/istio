@@ -441,8 +441,7 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   ReportData::ReportInfo last_report_info{0ULL, 0ULL,
                                           std::chrono::nanoseconds::zero()};
   // Verify first open report
-  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ true,
-                                  /* is_final_report */ false,
+  builder.ExtractReportAttributes(&mock_data, ReportData::ConnectionEvent::OPEN,
                                   &last_report_info);
   ClearContextTime(&request);
 
@@ -459,9 +458,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   EXPECT_EQ(0, last_report_info.send_bytes);
 
   // Verify delta one report
-  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
-                                  /* is_final_report */ false,
-                                  &last_report_info);
+  builder.ExtractReportAttributes(
+      &mock_data, ReportData::ConnectionEvent::CONTINUE, &last_report_info);
   ClearContextTime(&request);
 
   TextFormat::PrintToString(request.attributes, &out_str);
@@ -476,9 +474,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   EXPECT_EQ(200, last_report_info.send_bytes);
 
   // Verify delta two report
-  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
-                                  /* is_final_report */ false,
-                                  &last_report_info);
+  builder.ExtractReportAttributes(
+      &mock_data, ReportData::ConnectionEvent::CONTINUE, &last_report_info);
   ClearContextTime(&request);
 
   out_str.clear();
@@ -494,9 +491,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   EXPECT_EQ(404, last_report_info.send_bytes);
 
   // Verify final report
-  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
-                                  /* is_final_report */ true,
-                                  &last_report_info);
+  builder.ExtractReportAttributes(
+      &mock_data, ReportData::ConnectionEvent::CLOSE, &last_report_info);
   ClearContextTime(&request);
 
   out_str.clear();
