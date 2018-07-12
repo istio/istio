@@ -37,4 +37,7 @@ rules:
 - apiGroups: ["authentication.istio.io"]
   resources: ["*"]
   verbs: ["*"]
+- apiGroups: ["config.aspenmesh.io"]
+  resources: ["*"]
+  verbs: ["*"]
 {{- end }}

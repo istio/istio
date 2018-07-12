@@ -1112,5 +1112,19 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: experiments.config.aspenmesh.io
+spec:
+  group: config.aspenmesh.io
+  names:
+    kind: Experiment
+    plural: experiments
+    singular: experiment
+    listKind: ExperimentList
+  scope: Namespaced
+  version: v1alpha1
+---
 # {{- end }}
 # {{ end }}

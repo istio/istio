@@ -35,3 +35,6 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["config.aspenmesh.io"]
+  resources: ["*"]
+  verbs: ["*"]
