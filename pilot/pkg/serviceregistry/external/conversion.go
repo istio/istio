@@ -61,6 +61,7 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 						newAddress = ip.String()
 					}
 					out = append(out, &model.Service{
+						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     model.Hostname(host),
 						Address:      newAddress,
