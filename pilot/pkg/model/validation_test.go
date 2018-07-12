@@ -1044,32 +1044,12 @@ func TestValidateGateway(t *testing.T) {
 				}},
 			},
 			""},
-		{"happy ip",
-			&networking.Gateway{
-				Servers: []*networking.Server{{
-					Hosts: []string{"192.168.0.1"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-				}},
-			},
-			""},
-		{"happy cidr",
-			&networking.Gateway{
-				Servers: []*networking.Server{{
-					Hosts: []string{"192.168.0.0/16"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-				}},
-			},
-			""},
 		{"happy multiple servers",
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
 						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1079,10 +1059,6 @@ func TestValidateGateway(t *testing.T) {
 					{
 						Hosts: []string{"foo.bar.com"},
 						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
@@ -1105,10 +1081,6 @@ func TestValidateGateway(t *testing.T) {
 					{
 						Hosts: []string{"foo.*.bar.com"},
 						Port:  &networking.Port{Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/33"},
-						Port:  &networking.Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"domain"},
