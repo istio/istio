@@ -67,7 +67,6 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   builder.AddTimestamp(utils::AttributeName::kContextTime,
                        std::chrono::system_clock::now());
   builder.AddString(utils::AttributeName::kContextProtocol, "tcp");
-  builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionOpen);
 
   // Get unique downstream connection ID, which is <uuid>-<connection id>.
   std::string connection_id = check_data->GetConnectionId();
@@ -75,7 +74,7 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
 }
 
 void AttributesBuilder::ExtractReportAttributes(
-    ReportData* report_data, bool is_final_report,
+    ReportData* report_data, bool is_first_report, bool is_final_report,
     ReportData::ReportInfo* last_report_info) {
   utils::AttributesBuilder builder(&request_->attributes);
 
@@ -100,6 +99,8 @@ void AttributesBuilder::ExtractReportAttributes(
                         request_->check_status.ToString());
     }
     builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionClose);
+  } else if (is_first_report) {
+    builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionOpen);
   } else {
     last_report_info->received_bytes = info.received_bytes;
     last_report_info->send_bytes = info.send_bytes;

@@ -42,7 +42,8 @@ class RequestHandlerImpl : public RequestHandler {
 
   // Make a Report call. If is_final_report is true, then report all attributes,
   // otherwise, report delta attributes.
-  void Report(ReportData* report_data, bool is_final_report) override;
+  void Report(ReportData* report_data, bool is_first_report,
+              bool is_final_report) override;
 
  private:
   // The request context object.

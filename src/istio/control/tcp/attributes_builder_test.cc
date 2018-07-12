@@ -37,12 +37,6 @@ namespace {
 
 const char kCheckAttributes[] = R"(
 attributes {
-  key: "connection.event"
-  value {
-    string_value: "open"
-  }
-}
-attributes {
   key: "context.protocol"
   value {
     string_value: "tcp"
@@ -99,6 +93,64 @@ attributes {
 }
 )";
 
+const char kFirstReportAttributes[] = R"(
+attributes {
+  key: "connection.event"
+  value {
+    string_value: "open"
+  }
+}
+attributes {
+  key: "connection.received.bytes"
+  value {
+    int64_value: 0
+  }
+}
+attributes {
+  key: "connection.received.bytes_total"
+  value {
+    int64_value: 0
+  }
+}
+attributes {
+  key: "connection.sent.bytes"
+  value {
+    int64_value: 0
+  }
+}
+attributes {
+  key: "connection.sent.bytes_total"
+  value {
+    int64_value: 0
+  }
+}
+attributes {
+  key: "context.time"
+  value {
+    timestamp_value {
+    }
+  }
+}
+attributes {
+  key: "destination.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.port"
+  value {
+    int64_value: 8080
+  }
+}
+attributes {
+  key: "destination.uid"
+  value {
+    string_value: "pod1.ns2"
+  }
+}
+)";
+
 const char kReportAttributes[] = R"(
 attributes {
   key: "connection.event"
@@ -122,7 +174,7 @@ attributes {
   key: "connection.duration"
   value {
     duration_value {
-      nanos: 3
+      nanos: 4
     }
   }
 }
@@ -346,34 +398,39 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 TEST(AttributesBuilderTest, TestReportAttributes) {
   ::testing::NiceMock<MockReportData> mock_data;
   EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
-      .Times(3)
+      .Times(4)
       .WillRepeatedly(Invoke([](std::string* ip, int* port) -> bool {
         *ip = "1.2.3.4";
         *port = 8080;
         return true;
       }));
   EXPECT_CALL(mock_data, GetDestinationUID(_))
-      .Times(3)
+      .Times(4)
       .WillRepeatedly(Invoke([](std::string* uid) -> bool {
         *uid = "pod1.ns2";
         return true;
       }));
   EXPECT_CALL(mock_data, GetReportInfo(_))
-      .Times(3)
+      .Times(4)
+      .WillOnce(Invoke([](ReportData::ReportInfo* info) {
+        info->received_bytes = 0;
+        info->send_bytes = 0;
+        info->duration = std::chrono::nanoseconds(1);
+      }))
       .WillOnce(Invoke([](ReportData::ReportInfo* info) {
         info->received_bytes = 100;
         info->send_bytes = 200;
-        info->duration = std::chrono::nanoseconds(1);
+        info->duration = std::chrono::nanoseconds(2);
       }))
       .WillOnce(Invoke([](ReportData::ReportInfo* info) {
         info->received_bytes = 201;
         info->send_bytes = 404;
-        info->duration = std::chrono::nanoseconds(2);
+        info->duration = std::chrono::nanoseconds(3);
       }))
       .WillOnce(Invoke([](ReportData::ReportInfo* info) {
         info->received_bytes = 345;
         info->send_bytes = 678;
-        info->duration = std::chrono::nanoseconds(3);
+        info->duration = std::chrono::nanoseconds(4);
       }));
 
   RequestContext request;
@@ -383,12 +440,30 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
 
   ReportData::ReportInfo last_report_info{0ULL, 0ULL,
                                           std::chrono::nanoseconds::zero()};
-  // Verify delta one report
-  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ false,
+  // Verify first open report
+  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ true,
+                                  /* is_final_report */ false,
                                   &last_report_info);
   ClearContextTime(&request);
 
   std::string out_str;
+  TextFormat::PrintToString(request.attributes, &out_str);
+  GOOGLE_LOG(INFO) << "===" << out_str << "===";
+
+  ::istio::mixer::v1::Attributes expected_open_attributes;
+  ASSERT_TRUE(TextFormat::ParseFromString(kFirstReportAttributes,
+                                          &expected_open_attributes));
+  EXPECT_TRUE(
+      MessageDifferencer::Equals(request.attributes, expected_open_attributes));
+  EXPECT_EQ(0, last_report_info.received_bytes);
+  EXPECT_EQ(0, last_report_info.send_bytes);
+
+  // Verify delta one report
+  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
+                                  /* is_final_report */ false,
+                                  &last_report_info);
+  ClearContextTime(&request);
+
   TextFormat::PrintToString(request.attributes, &out_str);
   GOOGLE_LOG(INFO) << "===" << out_str << "===";
 
@@ -401,7 +476,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   EXPECT_EQ(200, last_report_info.send_bytes);
 
   // Verify delta two report
-  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ false,
+  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
+                                  /* is_final_report */ false,
                                   &last_report_info);
   ClearContextTime(&request);
 
@@ -418,7 +494,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   EXPECT_EQ(404, last_report_info.send_bytes);
 
   // Verify final report
-  builder.ExtractReportAttributes(&mock_data, /* is_final_report */ true,
+  builder.ExtractReportAttributes(&mock_data, /* is_first_report */ false,
+                                  /* is_final_report */ true,
                                   &last_report_info);
   ClearContextTime(&request);
 

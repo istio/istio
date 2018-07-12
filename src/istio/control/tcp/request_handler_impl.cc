@@ -55,16 +55,17 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
 
 // Make remote report call.
 void RequestHandlerImpl::Report(ReportData* report_data) {
-  Report(report_data, /* is_final_report */ true);
+  Report(report_data, /* is_first_report */ false, /* is_final_report */ true);
 }
 
-void RequestHandlerImpl::Report(ReportData* report_data, bool is_final_report) {
+void RequestHandlerImpl::Report(ReportData* report_data, bool is_first_report,
+                                bool is_final_report) {
   if (!client_context_->enable_mixer_report()) {
     return;
   }
 
   AttributesBuilder builder(&request_context_);
-  builder.ExtractReportAttributes(report_data, is_final_report,
+  builder.ExtractReportAttributes(report_data, is_first_report, is_final_report,
                                   &last_report_info_);
 
   client_context_->SendReport(request_context_);
