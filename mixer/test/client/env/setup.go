@@ -283,8 +283,8 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 	}
 }
 
-// VerifyReport2 verifies Report request data.
-func (s *TestSetup) VerifyReport2(tag string, result1, result2 string) {
+// VerifyTwoReports verifies two Report bags, in any order.
+func (s *TestSetup) VerifyTwoReports(tag string, result1, result2 string) {
 	s.t.Helper()
 	bag1 := <-s.mixer.report.ch
 	bag2 := <-s.mixer.report.ch

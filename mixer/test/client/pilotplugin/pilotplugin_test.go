@@ -238,7 +238,7 @@ func TestPilotPlugin(t *testing.T) {
 		t.Errorf("Failed in request: %v", err)
 	}
 	s.VerifyCheck("http", checkAttributesOkGet)
-	s.VerifyReport2("http", reportAttributesOkOutbound, reportAttributesOkInbound)
+	s.VerifyTwoReports("http", reportAttributesOkOutbound, reportAttributesOkInbound)
 }
 
 type mock struct{}

@@ -102,13 +102,10 @@ func (node *Proxy) ServiceNode() string {
 
 }
 
-// Has10Config returns true if the sidecar has at least 1.0 config.
-// This will be removed after 1.0, and possibly replaced with a more fine-grained check to verify
-// sidecar capabilities. It is used to detect 0.8 sidecards and allow upgrades without breaking 0.8 workloads during
-// upgrade.
-func (node *Proxy) Has10Config() bool {
-	_, found := node.Metadata["ISTIO_PROXY_VERSION"]
-	return found
+// GetProxyVersion returns the proxy version string identifier, and whether it is present.
+func (node *Proxy) GetProxyVersion() (string, bool) {
+	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return version, found
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
