@@ -211,7 +211,7 @@ init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Sync target will pull from master and sync the modules. It is the first step of the
 # circleCI build, developers should call it periodically.
-sync: init git.pullmaster
+sync: init
 	mkdir -p ${OUT_DIR}/logs
 
 # Merge master. To be used in CI or by developers, assumes the
