@@ -338,17 +338,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 }
 
 type listenerEntry struct {
-	service *model.Service
+	service     *model.Service
 	servicePort *model.Port
-	listener *xdsapi.Listener
-}
-
-func getServiceName(env model.Environment, service *model.Service) string {
-	attrs, err := env.GetServiceAttributes(service.Hostname)
-	if err != nil || attrs == nil || attrs.Name == "" {
-		return "unknown"
-	}
-	return fmt.Sprintf("%s/%s", attrs.Namespace, attrs.Name)
+	listener    *xdsapi.Listener
 }
 
 func getClusterName(service *model.Service, servicePort *model.Port) string {
@@ -356,14 +348,12 @@ func getClusterName(service *model.Service, servicePort *model.Port) string {
 		service.Hostname, servicePort.Port)
 }
 
-func handleOutboundListenerConflict(env model.Environment, service *model.Service, servicePort *model.Port, current listenerEntry, listenerMapKey string) {
+func handleOutboundListenerConflict(service *model.Service, servicePort *model.Port, current listenerEntry, listenerMapKey string) {
 	conflictingOutbound.Add(1)
-	log.Warnf("buildSidecarOutboundListener: Omitting listener for service '%s' due to conflict with service '%s'. "+
-		"Outbound listener '%s' for cluster '%s' on key '%s'. Current Protocol: %s, incoming service protocol %s",
-		getServiceName(env, service),
-		getServiceName(env, current.service),
-		current.listener.Name,
+	log.Warnf("buildSidecarOutboundListener: Omitting service %s due to conflict while "+
+		"adding to listener %s on %s. Current Protocol: %s, incoming service protocol %s",
 		getClusterName(service, servicePort),
+		current.listener.Name,
 		listenerMapKey,
 		current.servicePort.Protocol,
 		servicePort.Protocol)
@@ -429,7 +419,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if current, exists := listenerMap[listenerMapKey]; exists {
 					if !current.servicePort.Protocol.IsHTTP() {
-						handleOutboundListenerConflict(env, service, servicePort, current, listenerMapKey)
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 					}
 					// Skip building listener for the same http port
 					continue
@@ -462,7 +452,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !current.servicePort.Protocol.IsTCP() {
-						handleOutboundListenerConflict(env, service, servicePort, current, listenerMapKey)
+						handleOutboundListenerConflict(service, servicePort, current, listenerMapKey)
 						continue
 					}
 				}
@@ -513,9 +503,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				currentListener.FilterChains = newFilterChains
 			} else {
 				listenerMap[listenerMapKey] = listenerEntry{
-					service: service,
+					service:     service,
 					servicePort: servicePort,
-					listener: mutable.Listener,
+					listener:    mutable.Listener,
 				}
 			}
 
