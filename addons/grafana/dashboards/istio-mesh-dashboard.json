@@ -466,22 +466,6 @@
           "unit": "short"
         },
         {
-          "alias": "Namespace",
-          "colorMode": null,
-          "colors": [
-            "rgba(245, 54, 54, 0.9)",
-            "rgba(237, 129, 40, 0.89)",
-            "rgba(50, 172, 45, 0.97)"
-          ],
-          "dateFormat": "YYYY-MM-DD HH:mm:ss",
-          "decimals": 2,
-          "pattern": "destination_namespace",
-          "sanitize": false,
-          "thresholds": [],
-          "type": "hidden",
-          "unit": "short"
-        },
-        {
           "alias": "Requests",
           "colorMode": null,
           "colors": [
@@ -618,7 +602,7 @@
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload_namespace }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload}}.{{ destination_workload_namespace }}",
           "refId": "A"
         },
         {
@@ -627,7 +611,7 @@
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload_namespace }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload}}.{{ destination_workload_namespace }}",
           "refId": "B"
         },
         {
@@ -636,7 +620,7 @@
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "D"
         },
         {
@@ -645,7 +629,7 @@
           "hide": false,
           "instant": true,
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "E"
         },
         {
@@ -655,7 +639,7 @@
           "instant": true,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ destination_workload }}.{{ destination_namespace }}",
+          "legendFormat": "{{ destination_workload }}.{{ destination_workload_namespace }}",
           "refId": "F"
         }
       ],
@@ -873,5 +857,5 @@
   "timezone": "browser",
   "title": "Istio Mesh Dashboard",
   "uid": "1",
-  "version": 3
+  "version": 2
 }
