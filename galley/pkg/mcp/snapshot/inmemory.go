@@ -22,6 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 

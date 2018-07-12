@@ -15,14 +15,12 @@
 package mcptest
 
 import (
+	"fmt"
+	"io"
+	"net"
+	"net/url"
 
-"fmt"
-"io"
-"net"
-"net/url"
-
-mcp "istio.io/api/config/mcp/v1alpha1"
-
+	mcp "istio.io/api/config/mcp/v1alpha1"
 
 	"google.golang.org/grpc"
 
@@ -79,7 +77,7 @@ func NewServer(port int, typeUrls []string) (*Server, error) {
 	return &Server{
 		Cache:    cache,
 		TypeURLs: typeUrls,
-		Port:     int(p),
+		Port:     p,
 		URL:      u,
 		gs:       gs,
 		l:        l,
