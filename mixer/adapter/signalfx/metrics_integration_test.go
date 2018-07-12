@@ -15,24 +15,28 @@
 package signalfx
 
 import (
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	sfxproto "github.com/signalfx/com_signalfx_metrics_protobuf"
+	"github.com/signalfx/golib/trace"
 
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 const (
-	requestCountToSignalFxCfg = `
+	metricConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: signalfx
 metadata:
@@ -41,9 +45,12 @@ metadata:
 spec:
   access_token: abcdef
   ingest_url: %s
+  datapoint_interval: 2s
   metrics:
   - name: requestcount.metric.istio-system
     type: COUNTER
+  - name: requestsize.metric.istio-system
+    type: HISTOGRAM
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -55,6 +62,7 @@ spec:
   - handler: handler.signalfx
     instances:
     - requestcount.metric
+    - requestsize.metric
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -66,27 +74,63 @@ spec:
   dimensions:
     destination_service: "\"myservice\""
     response_code: "200"
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestsize
+  namespace: istio-system
+spec:
+  value: request.size
+  dimensions:
+    destination_service: "\"myservice\""
+    response_code: "200"
 `
 )
 
 type fakeSfxIngest struct {
 	*httptest.Server
-	DPs chan *sfxproto.DataPoint
+	DPs   chan *sfxproto.DataPoint
+	Spans chan *trace.Span
 }
 
 func (f *fakeSfxIngest) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	contents, _ := ioutil.ReadAll(req.Body)
-	defer req.Body.Close()
-	rw.WriteHeader(http.StatusOK)
-	if n, err := io.WriteString(rw, "\"OK\""); err != nil || n != 4 {
-		panic("could not write response back to test client")
+	var body io.ReadCloser
+	if req.Header.Get("Content-Encoding") == "gzip" {
+		body, _ = gzip.NewReader(req.Body)
+	} else {
+		body = req.Body
 	}
+	contents, _ := ioutil.ReadAll(body)
+	defer body.Close()
 
-	dpUpload := &sfxproto.DataPointUploadMessage{}
-	err := proto.Unmarshal(contents, dpUpload)
-	if err == nil {
-		for i := range dpUpload.Datapoints {
-			f.DPs <- dpUpload.Datapoints[i]
+	rw.WriteHeader(http.StatusOK)
+	if strings.Contains(req.URL.Path, "datapoint") {
+		if n, err := io.WriteString(rw, "\"OK\""); err != nil || n != 4 {
+			panic("could not write response back to test client")
+		}
+
+		dpUpload := &sfxproto.DataPointUploadMessage{}
+		err := proto.Unmarshal(contents, dpUpload)
+		if err == nil {
+			for i := range dpUpload.Datapoints {
+				f.DPs <- dpUpload.Datapoints[i]
+			}
+		}
+	} else {
+		var spans []*trace.Span
+		err := json.Unmarshal(contents, &spans)
+		if err != nil {
+			panic("Unable to deserialize span request: " + err.Error())
+		}
+
+		for i := range spans {
+			f.Spans <- spans[i]
+		}
+
+		if _, err := io.WriteString(rw, fmt.Sprintf(`{"valid": %d}`, len(spans))); err != nil {
+			panic("could not write response back to test client")
 		}
 	}
 }
@@ -95,7 +139,7 @@ func TestReportMetrics(t *testing.T) {
 	fakeIngest := &fakeSfxIngest{
 		DPs: make(chan *sfxproto.DataPoint),
 	}
-	server := httptest.NewServer(fakeIngest)
+	fakeIngest.Server = httptest.NewServer(fakeIngest)
 
 	adapter_integration.RunTest(
 		t,
@@ -104,14 +148,20 @@ func TestReportMetrics(t *testing.T) {
 			ParallelCalls: []adapter_integration.Call{
 				{
 					CallKind: adapter_integration.REPORT,
+					Attrs: map[string]interface{}{
+						"request.size": 1000,
+					},
 				},
 				{
 					CallKind: adapter_integration.REPORT,
+					Attrs: map[string]interface{}{
+						"request.size": 500,
+					},
 				},
 			},
 
 			GetState: func(_ interface{}) (interface{}, error) {
-				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				var dps []*sfxproto.DataPoint
 				for {
 					select {
@@ -129,14 +179,15 @@ func TestReportMetrics(t *testing.T) {
 						})
 
 						dps = append(dps, dp)
-						cancel()
-						return dps, nil
+						if len(dps) >= 4 {
+							cancel()
+						}
 					}
 				}
 			},
 
 			Configs: []string{
-				fmt.Sprintf(requestCountToSignalFxCfg, server.URL),
+				fmt.Sprintf(metricConfig, fakeIngest.URL),
 			},
 
 			Want: `
@@ -158,7 +209,58 @@ func TestReportMetrics(t *testing.T) {
                  "value": {
                    "intValue": 2
                  }
-               }
+               },
+               {
+                 "dimensions": [
+                  {
+                   "key": "destination_service",
+                   "value": "myservice"
+                  },
+                  {
+                   "key": "response_code",
+                   "value": "200"
+                  }
+                 ],
+                 "metric": "requestsize.metric.istio-system.count",
+                 "metricType": 3,
+                 "value": {
+                  "intValue": 2
+                 }
+                },
+                {
+                 "dimensions": [
+                  {
+                   "key": "destination_service",
+                   "value": "myservice"
+                  },
+                  {
+                   "key": "response_code",
+                   "value": "200"
+                  }
+                 ],
+                 "metric": "requestsize.metric.istio-system.sum",
+                 "metricType": 3,
+                 "value": {
+                  "doubleValue": 1500
+                 }
+                },
+                {
+                 "dimensions": [
+                  {
+                   "key": "destination_service",
+                   "value": "myservice"
+                  },
+                  {
+                   "key": "response_code",
+                   "value": "200"
+                  }
+                 ],
+                 "metric": "requestsize.metric.istio-system.sumsquare",
+                 "metricType": 3,
+                 "value": {
+                  "doubleValue": 1250000
+                 }
+                }
              ],
              "Returns": [
               {
