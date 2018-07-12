@@ -239,7 +239,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn)
+	listeners, err := s.generateRawListeners(conn, s.env.PushStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 	configDump.Configs["listeners"] = *listenersAny
 
-	routes, err := s.generateRawRoutes(conn)
+	routes, err := s.generateRawRoutes(conn, s.env.PushStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +402,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con)
+				err := s.pushLds(con, s.env.PushStatus)
 				if err != nil {
 					return err
 				}
@@ -428,7 +428,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Infof("ADS:RDS: REQ %s %s (%s) routes: %d", peerAddr, con.ConID, con.modelNode, len(con.Routes))
-				err := s.pushRoute(con)
+				err := s.pushRoute(con, s.env.PushStatus)
 				if err != nil {
 					return err
 				}
@@ -505,7 +505,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con)
+		err := s.pushRoute(con, s.env.PushStatus)
 		if err != nil {
 			return err
 		}
@@ -517,7 +517,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection) error {
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con)
+		err := s.pushLds(con, s.env.PushStatus)
 		if err != nil {
 			return err
 		}

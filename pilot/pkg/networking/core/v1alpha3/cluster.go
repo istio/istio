@@ -47,7 +47,7 @@ const (
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy,push *model.PushStatus) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
 	services, err := env.Services()
@@ -56,7 +56,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		return nil, err
 	}
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, services)...)
+	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
 	for _, c := range clusters {
 		// Envoy requires a non-zero connect timeout
 		if c.ConnectTimeout == 0 {
@@ -64,14 +64,14 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		}
 	}
 	if proxy.Type == model.Sidecar {
-		instances, err := env.GetProxyServiceInstances(&proxy)
+		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err
 		}
 
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
-		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, instances, managementPorts)...)
+		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
 	// Add a blackhole cluster for catching traffic to unresolved routes
@@ -81,7 +81,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	return clusters, nil // TODO: normalize/dedup/order
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus,
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
@@ -112,7 +112,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
+						p.OnOutboundCluster(env, proxy, push, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -125,7 +125,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
+				p.OnOutboundCluster(env, proxy, push, service, port, defaultCluster)
 			}
 		}
 	}
@@ -167,7 +167,7 @@ func buildClusterHosts(env *model.Environment, service *model.Service, port int)
 	return hosts
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus,
 	instances []*model.ServiceInstance,
 	managementPorts []*model.Port) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		for _, p := range configgen.Plugins {
-			p.OnInboundCluster(env, proxy, instance.Service, instance.Endpoint.ServicePort, localCluster)
+			p.OnInboundCluster(env, proxy, push, instance.Service, instance.Endpoint.ServicePort, localCluster)
 		}
 
 		// When users specify circuit breakers, they need to be set on the receiver end

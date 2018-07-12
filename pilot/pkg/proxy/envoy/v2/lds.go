@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-	rawListeners, err := s.generateRawListeners(con)
+	rawListeners, err := s.generateRawListeners(con, push)
 	if err != nil {
 		return err
 	}
@@ -44,8 +44,8 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection) ([]*xdsapi.Listener, error) {
-	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, *con.modelNode)
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection,push *model.PushStatus) ([]*xdsapi.Listener, error) {
+	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)

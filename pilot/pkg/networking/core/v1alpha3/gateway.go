@@ -41,9 +41,9 @@ var (
 	}
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus) ([]*xdsapi.Listener, error) {
 	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(&node)
+	workloadInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		log.Errora("Failed to get gateway instances for router ", node.ID, err)
 		return nil, err
@@ -92,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
-			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(env, node, servers, merged.Names)
+			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(env, node, push, servers, merged.Names)
 		case plugin.ListenerProtocolTCP:
 			opts.filterChainOpts = createGatewayTCPFilterChainOpts(env, servers, merged.Names)
 		default:
@@ -120,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			params := &plugin.InputParams{
 				ListenerProtocol: listenerType,
 				Env:              env,
-				Node:             &node,
+				Node:             node,
 				ProxyInstances:   workloadInstances,
 				ServiceInstance:  si,
 				Port: &model.Port{
@@ -165,7 +165,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	return listeners, nil
 }
 
-func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
 	// collect workload labels
@@ -202,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 }
 
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	env *model.Environment, node model.Proxy, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+	env *model.Environment, node *model.Proxy, push *model.PushStatus, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
 	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
 	if err != nil {
@@ -317,7 +317,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 // TODO: Once RDS is permanent, merge this function with buildGatewayHTTPRouteConfig
 func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	env *model.Environment,
-	node model.Proxy,
+	node *model.Proxy,
 	svcs map[model.Hostname]*model.Service,
 	gateways map[string]bool,
 	servers []*networking.Server,
@@ -397,7 +397,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
 			Env:              env,
-			Node:             &node,
+			Node:             node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
