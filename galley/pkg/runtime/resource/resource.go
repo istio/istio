@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	prlang "github.com/golang/protobuf/proto"
+	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 // TypeURL of the resource.
@@ -48,8 +49,9 @@ type VersionedKey struct {
 
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
-	ID   VersionedKey
-	Item prlang.Message
+	ID       VersionedKey
+	Metadata *mcp.Metadata
+	Item     prlang.Message
 }
 
 // Info is the type metadata for an Entry.

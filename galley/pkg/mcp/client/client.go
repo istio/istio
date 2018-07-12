@@ -204,6 +204,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 				Version: resource.Version(response.VersionInfo),
 				Key:     resource.Key{TypeURL: typeURL, FullName: envelope.Metadata.Name},
 			},
+			Metadata: envelope.Metadata,
 			Item: message,
 		}
 		change.Objects = append(change.Objects, entry)
