@@ -27,10 +27,13 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 )
 
 var (
 	outMeshDumpFilename string
+	dumpPilot           bool
+	dumpEnvoy           bool
 
 	meshDumpCmd = &cobra.Command{
 		Use:   "mesh-dump",
@@ -48,12 +51,7 @@ Creates an archive of mesh information required for debugging.
 				return err
 			}
 
-			filename := "istio-dump.tgz"
-			if outMeshDumpFilename != "" {
-				filename = outMeshDumpFilename
-			}
-
-			f, err := os.Create(filename)
+			f, err := os.Create(outMeshDumpFilename)
 			if err != nil {
 				return err
 			}
@@ -67,42 +65,48 @@ Creates an archive of mesh information required for debugging.
 			}()
 
 			var errs error
-			pilotADSz, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/adsz", nil)
-			if err != nil {
-				log.Errorf("error retrieving adsz from Pilots: %v", err)
-			}
-			log.Debugf("Finished AllPilotsDiscoveryDo with %d pilots", len(pilotADSz))
-			for pilot, adsz := range pilotADSz {
-				fname := filepath.Join("pilot", pilot+".json")
-				// if err = ioutil.WriteFile(filepath.Join(tmp, "pilot", pilot+".json"), adsz, 0777); err != nil {
-				if err = writeToTar(tarWriter, fname, adsz); err != nil {
-					errs = multierror.Append(errs, err)
-				}
-			}
-
-			pods, err := kubeClient.GetPods("", "")
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			}
-			for _, pod := range pods {
-				_, err := kubernetes.GetPilotAgentContainer(pod)
+			var pilotADSz map[string][]byte
+			if dumpPilot || dumpAll() {
+				pilotADSz, err = kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/adsz", nil)
 				if err != nil {
-					continue // Ignore pods that have no pilot-agent
+					log.Errorf("error retrieving adsz from Pilots: %v", err)
 				}
-				log.Debugf("Querying pod %s/%s", pod.Namespace, pod.Name)
-				out, err := kubeClient.EnvoyDo(pod.Name, pod.Namespace, "GET", "/config_dump", nil)
-				if err != nil {
-					errs = multierror.Append(errs, err)
-				}
-				if len(out) > 0 {
-					fname := filepath.Join("pod", pod.Namespace, fmt.Sprintf("%s.json", pod.Name))
-					if err = writeToTar(tarWriter, fname, out); err != nil {
+				log.Debugf("Finished AllPilotsDiscoveryDo with %d pilots", len(pilotADSz))
+				for pilot, adsz := range pilotADSz {
+					fname := filepath.Join("pilot", pilot+".json")
+					if err = writeToTar(tarWriter, fname, adsz); err != nil {
 						errs = multierror.Append(errs, err)
 					}
 				}
 			}
 
-			c.Printf("Wrote %d pilot configurations and %d pod configurations to %s\n", len(pilotADSz), len(pods), filename)
+			var pods []v1.Pod
+			if dumpEnvoy || dumpAll() {
+				pods, err = kubeClient.GetPods("", "")
+				if err != nil {
+					errs = multierror.Append(errs, err)
+				}
+				for _, pod := range pods {
+					_, err := kubernetes.GetPilotAgentContainer(pod)
+					if err != nil {
+						log.Debugf("Skipping pod %s/%s which has no agent-container", pod.Namespace, pod.Name)
+						continue // Ignore pods that have no pilot-agent
+					}
+					log.Debugf("Querying pod %s/%s", pod.Namespace, pod.Name)
+					out, err := kubeClient.EnvoyDo(pod.Name, pod.Namespace, "GET", "/config_dump", nil)
+					if err != nil {
+						errs = multierror.Append(errs, err)
+					}
+					if len(out) > 0 {
+						fname := filepath.Join("pod", pod.Namespace, fmt.Sprintf("%s.json", pod.Name))
+						if err = writeToTar(tarWriter, fname, out); err != nil {
+							errs = multierror.Append(errs, err)
+						}
+					}
+				}
+			}
+
+			c.Printf("Wrote %d pilot configurations and %d pod configurations to %s\n", len(pilotADSz), len(pods), outMeshDumpFilename)
 
 			return errs
 		},
@@ -110,8 +114,10 @@ Creates an archive of mesh information required for debugging.
 )
 
 func init() {
-	rootCmd.AddCommand(meshDumpCmd)
-	meshDumpCmd.PersistentFlags().StringVarP(&outMeshDumpFilename, "output", "o", "", "Output .tgz filename")
+	experimentalCmd.AddCommand(meshDumpCmd)
+	meshDumpCmd.PersistentFlags().StringVarP(&outMeshDumpFilename, "output", "o", "istio-dump.tgz", "Output .tgz filename")
+	meshDumpCmd.PersistentFlags().BoolVar(&dumpPilot, "pilot", false, "Mesh Dump of Pilot status")
+	meshDumpCmd.PersistentFlags().BoolVar(&dumpEnvoy, "envoy", false, "Mesh Dump of Envoy status")
 }
 
 // writeToTar writes a single file to a tar/tgz archive.
@@ -129,4 +135,9 @@ func writeToTar(out *tar.Writer, name string, body []byte) error {
 		return err
 	}
 	return nil
+}
+
+func dumpAll() bool {
+	// If nothing has been explicity requested, dump everything
+	return !dumpPilot && !dumpEnvoy
 }

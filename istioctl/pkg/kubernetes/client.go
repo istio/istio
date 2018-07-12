@@ -226,5 +226,5 @@ func GetPilotAgentContainer(pod v1.Pod) (string, error) {
 			return c.Name, nil
 		}
 	}
-	return "", fmt.Errorf("Pod %s has no pilot-agent container")
+	return "", fmt.Errorf("pod %s has no pilot-agent container")
 }
