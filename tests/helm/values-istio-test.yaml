@@ -90,3 +90,9 @@ servicegraph:
 
 prometheus:
   enabled: true
+
+kiali:
+  enabled: true
+
+certmanager:
+  enabled: true

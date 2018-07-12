@@ -35,6 +35,8 @@ type PushStatus struct {
 	// Start represents the time of last config change that reset the
 	// push status.
 	Start time.Time
+
+	End time.Time
 }
 
 type PushStatusEvent struct {
@@ -125,6 +127,12 @@ var (
 		"Number of clusters without instances.",
 	)
 
+	// METRIC_INVALID_INGRESS tracks invalid ingresses.
+	METRIC_INVALID_INGRESS = newPushMetric(
+		"pilot_invalid_ingress",
+		"Number of invalid ingress resources.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -144,7 +152,7 @@ func NewStatus() *PushStatus {
 }
 
 // MarshalJSON implements json.Marshaller, with a lock.
-func (cs *PushStatus) MarshalJSON() ([]byte, error) {
+func (cs *PushStatus) JSON() ([]byte, error) {
 	if cs == nil {
 		return []byte{'{','}'}, nil
 	}
@@ -154,12 +162,15 @@ func (cs *PushStatus) MarshalJSON() ([]byte, error) {
 }
 
 
-// AfterPush is called after a push to update the gauges and the debug
-// status.
-func (cs *PushStatus) AfterPush() {
+// OnConfigChange is called when a config change is detected.
+func (cs *PushStatus) OnConfigChange() {
+	LastPushStatus = cs
+	cs.UpdateMetrics()
+}
+
+func (cs *PushStatus) UpdateMetrics() {
 	cs.mutex.Lock()
 	defer cs.mutex.Unlock()
-	LastPushStatus = cs
 
 	for _, pm := range metrics {
 		mmap, f := cs.ProxyStatus[pm.Name]

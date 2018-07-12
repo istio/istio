@@ -141,7 +141,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		AdsPushAll(s)
+		push := s.env.PushStatus
+		model.LastPushStatus = push
+		push.UpdateMetrics()
 	}
 }
 
@@ -156,7 +158,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// Reset the status during the push.
 		//afterPush := true
 		if s.env.PushStatus != nil {
-			s.env.PushStatus.AfterPush()
+			s.env.PushStatus.OnConfigChange()
 		}
 		// PushStatus is reset after a config change. Previous status is
 		// saved.

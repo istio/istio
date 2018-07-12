@@ -495,12 +495,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 func (s *DiscoveryServer) pushAll(con *XdsConnection, push *model.PushStatus) error {
 	defer func() {
 		n := push.PendingPush.Sub(1)
-		if n == 0 {
+		if n >= 0 {
 			// Display again the push status
-			out, err := push.MarshalJSON()
-			if err == nil {
-				adsLog.Infof("Push finished: ", string(out))
-			}
+			out, _ := push.JSON()
+			push.End = time.Now()
+			adsLog.Infof("Push finished: %v %s",
+				time.Since(push.Start), string(out))
 		}
 	}()
 	if con.CDSWatch {
@@ -620,6 +620,14 @@ func AdsPushAll(s *DiscoveryServer) {
 				}
 			}
 		}
+
+		time.AfterFunc(20 * time.Second, func() {
+			if pushStatus.End == timeZero && time.Since(pushStatus.Start) > 20 * time.Second {
+				out, _ := pushStatus.JSON()
+				adsLog.Warnf("Long push %v %s",
+					time.Since(pushStatus.Start), string(out))
+			}
+		})
 	}
 }
 
