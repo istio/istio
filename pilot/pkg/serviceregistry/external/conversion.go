@@ -18,6 +18,8 @@ import (
 	"net"
 	"strings"
 
+	"time"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -30,7 +32,7 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
+func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Time) []*model.Service {
 	out := make([]*model.Service, 0)
 
 	var resolution model.Resolution
@@ -59,6 +61,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 						newAddress = ip.String()
 					}
 					out = append(out, &model.Service{
+						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     model.Hostname(host),
 						Address:      newAddress,
@@ -67,6 +70,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 					})
 				} else if net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
+						CreationTime: creationTime,
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     model.Hostname(host),
 						Address:      address,
@@ -77,6 +81,7 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 			}
 		} else {
 			out = append(out, &model.Service{
+				CreationTime: creationTime,
 				MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 				Hostname:     model.Hostname(host),
 				Address:      model.UnspecifiedIP,
@@ -119,9 +124,9 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-func convertInstances(serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
+func convertInstances(serviceEntry *networking.ServiceEntry, creationTime time.Time) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	for _, service := range convertServices(serviceEntry) {
+	for _, service := range convertServices(serviceEntry, creationTime) {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {

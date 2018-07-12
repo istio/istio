@@ -73,14 +73,14 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			c.updateNeeded = true
 			c.storeMutex.Unlock()
 
-			services := convertServices(serviceEntry)
+			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
 
-			instances := convertInstances(serviceEntry)
+			instances := convertInstances(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -116,7 +116,7 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
 	}
 
 	return services, nil
@@ -137,7 +137,7 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		svcs := convertServices(serviceEntry)
+		svcs := convertServices(serviceEntry, config.CreationTimestamp.Time)
 		for _, s := range svcs {
 			if s.Hostname == hostname {
 				return &model.ServiceAttributes{
@@ -153,7 +153,7 @@ func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
 	}
 	return services
 }
@@ -190,7 +190,7 @@ func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
 	out := []*model.ServiceInstance{}
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry) {
+		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
 				portMatchEnvoyV1(instance, portMap) {
@@ -242,7 +242,7 @@ func (d *ServiceEntryStore) update() {
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry) {
+		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
 			key := instance.Service.Hostname.String()
 			out, found := d.instances[key]
 			if !found {
