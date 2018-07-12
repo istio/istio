@@ -16,12 +16,13 @@ fi
 
 PATH_BUILD=""
 PATH_LATEST=""
+PATH_RELEASE=""
 
 if [[ $CIRCLE_TAG != "" ]]; then
   echo "Saving artifacts from tag ${CIRCLE_TAG}"
   PATH_BUILD="${CIRCLE_TAG}/build-${CIRCLE_BUILD_NUM}"
   PATH_LATEST="${CIRCLE_TAG}/latest"
-
+  PATH_RELEASE="${CIRCLE_TAG}"
 elif [[ $CIRCLE_PR_NUMBER != "" ]]; then
   echo "Saving artifacts from ${CIRCLE_PR_USERNAME}'s PR ${CIRCLE_PR_NUMBER}"
   PATH_BUILD="PR/${CIRCLE_PR_NUMBER}/build-${CIRCLE_BUILD_NUM}"
@@ -48,4 +49,8 @@ EOF
 
 
 aws s3 cp "${SRCDIR}" s3://aspenmesh-ci-artifacts/istio/${PATH_BUILD}/ --recursive
-aws s3 sync "${SRCDIR}" s3://aspenmesh-ci-artifacts/istio/${PATH_LATEST}
+aws s3 sync "${SRCDIR}" s3://aspenmesh-ci-artifacts/istio/${PATH_LATEST} --delete
+
+if [[ $PATH_RELEASE != "" ]]; then
+  aws s3 cp "${SRCDIR}" s3://aspenmesh-release/${PATH_RELEASE}/ --recursive
+fi
