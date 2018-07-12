@@ -283,6 +283,26 @@ func (s *TestSetup) VerifyReport(tag string, result string) {
 	}
 }
 
+// VerifyReport2 verifies Report request data.
+func (s *TestSetup) VerifyReport2(tag string, result1, result2 string) {
+	s.t.Helper()
+	bag1 := <-s.mixer.report.ch
+	bag2 := <-s.mixer.report.ch
+	if err1 := Verify(bag1, result1); err1 != nil {
+		// try the other way
+		if err2 := Verify(bag1, result2); err2 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n%v\n, Attributes: %+v",
+				tag, err1, err2, bag1)
+		} else if err3 := Verify(bag2, result1); err3 != nil {
+			s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+				tag, err3, bag2)
+		}
+	} else if err4 := Verify(bag2, result2); err4 != nil {
+		s.t.Fatalf("Failed to verify %s report: %v\n, Attributes: %+v",
+			tag, err4, bag2)
+	}
+}
+
 // VerifyQuota verified Quota request data.
 func (s *TestSetup) VerifyQuota(tag string, name string, amount int64) {
 	s.t.Helper()

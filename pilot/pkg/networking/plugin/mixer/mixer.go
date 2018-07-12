@@ -284,16 +284,18 @@ func buildInboundRouteConfig(in *plugin.InputParams, instance *model.ServiceInst
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 	}
 
-	apiSpecs := config.HTTPAPISpecByDestination(instance)
-	model.SortHTTPAPISpec(apiSpecs)
-	for _, config := range apiSpecs {
-		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
-	}
+	if config != nil {
+		apiSpecs := config.HTTPAPISpecByDestination(instance)
+		model.SortHTTPAPISpec(apiSpecs)
+		for _, config := range apiSpecs {
+			out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+		}
 
-	quotaSpecs := config.QuotaSpecByDestination(instance)
-	model.SortQuotaSpec(quotaSpecs)
-	for _, config := range quotaSpecs {
-		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		quotaSpecs := config.QuotaSpecByDestination(instance)
+		model.SortQuotaSpec(quotaSpecs)
+		for _, config := range quotaSpecs {
+			out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		}
 	}
 
 	return out
