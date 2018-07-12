@@ -2245,6 +2245,29 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: false},
 
+		{name: "discovery type none, cidr addresses", in: networking.ServiceEntry{
+			Hosts: []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: true},
+
+
+		{name: "discovery type not none, cidr addresses", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+			valid: false},
+
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},

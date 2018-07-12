@@ -52,16 +52,16 @@ func convertServices(serviceEntry *networking.ServiceEntry) []*model.Service {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
 				if ip, network, cidrErr := net.ParseCIDR(address); cidrErr == nil {
-					listenAddress := address
+					newAddress := address
 					ones, zeroes := network.Mask.Size()
 					if ones == zeroes {
 						// /32 mask. Remove the /32 and make it a normal IP address
-						listenAddress = ip.String()
+						newAddress = ip.String()
 					}
 					out = append(out, &model.Service{
 						MeshExternal: serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 						Hostname:     model.Hostname(host),
-						Address:      listenAddress,
+						Address:      newAddress,
 						Ports:        svcPorts,
 						Resolution:   resolution,
 					})

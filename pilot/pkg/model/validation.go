@@ -1638,11 +1638,17 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
 		}
 	}
+
+	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
-		// TODO (rshriram): Until get proper filter chain support, we cannot
-		// allow CIDRs here. We should only allow IP addresses
-		// errs = appendErrors(errs, ValidateIPv4Subnet(address))
-		errs = appendErrors(errs, ValidateIPv4Address(address))
+		cidrFound = cidrFound || strings.Contains(address, "/")
+		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+	}
+
+	if cidrFound {
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
+		}
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
