@@ -353,6 +353,7 @@ func TestValidateWildcardDomain(t *testing.T) {
 		{"wildcard prefix dash", "*-foo.bar.com", ""},
 		{"bad wildcard", "foo.*.com", "invalid"},
 		{"bad wildcard", "foo*.bar.com", "invalid"},
+		{"IP address", "1.1.1.1", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1291,34 +1292,6 @@ func TestValidateTlsOptions(t *testing.T) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
 			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
-		})
-	}
-}
-
-func TestValidateHost(t *testing.T) {
-	testCases := []struct {
-		host  string
-		valid bool
-	}{
-		{host: "", valid: false},
-		{host: "*", valid: true},
-		{host: "hello.world", valid: true},
-		{host: "*.world", valid: true},
-		{host: "h*.world", valid: false},
-		{host: "h*-abcdef.world", valid: true}, // special-case wildcard for Envoy
-		{host: "hello.*", valid: false},        // wildcard can only exist in first label
-		{host: "hello.world!", valid: false},
-		{host: "   ", valid: false},
-		{host: "127.0.0.1", valid: true},
-		{host: "192.168.100.14/32", valid: true},
-		{host: "192.168.100.14/24", valid: true},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.host, func(t *testing.T) {
-			if err := validateHost(tt.host); (err == nil && !tt.valid) || (err != nil && tt.valid) {
-				t.Fatalf("validateHost(%q) err=\"%v\", wanted valid=%v", tt.host, err, tt.valid)
 			}
 		})
 	}
