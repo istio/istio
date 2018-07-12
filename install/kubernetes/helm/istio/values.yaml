@@ -136,7 +136,7 @@ istiotesting:
 # ingress configuration
 #
 ingress:
-  enabled: true
+  enabled: false
   replicaCount: 1
   autoscaleMin: 1
   autoscaleMax: 1
