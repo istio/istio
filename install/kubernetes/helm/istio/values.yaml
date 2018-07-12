@@ -310,6 +310,7 @@ pilot:
   enabled: true
   replicaCount: 1
   image: pilot
+  traceSampling: 100.0
 
 #
 # security configuration
