@@ -29,11 +29,11 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v2:1.5.0
+        image: istio/examples-bookinfo-details-v2:1.7.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
         env:
-        - name: WITH_ISTIO
+        - name: DO_NOT_ENCRYPT
           value: "true"
 ---

@@ -6,7 +6,7 @@ global:
   hub: docker.io/istionightly
 
   # Default tag for Istio images.
-  tag: nightly-master
+  tag: nightly-release-1.0
 
   proxy:
     image: proxyv2
@@ -310,6 +310,7 @@ pilot:
   enabled: true
   replicaCount: 1
   image: pilot
+  traceSampling: 100.0
 
 #
 # security configuration
