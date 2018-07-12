@@ -74,7 +74,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	tnow := time.Now()
 	expectedServices := []*model.Service{
 		makeService("*.google.com", model.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB, tnow),
-		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB, tnow),
+		makeService("tcpstatic.com", "172.217.0.1", map[string]int{"tcp-444": 444}, true, model.ClientSideLB, tnow),
 	}
 
 	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t, tnow)
