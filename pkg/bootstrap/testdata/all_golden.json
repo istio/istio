@@ -90,22 +90,7 @@
     },
     "http2_protocol_options": { }
     }
-    
-    ,
-      {
-        "name": "statsd",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-        "seconds": 1
-      },
-      "lb_policy": "ROUND_ROBIN",
-      "hosts": [
-        {
-          "socket_address": {"address": "10.1.1.1", "port_value": 9125}
-        }
-      ]
-    }
-      
+
     
     ,
       {
@@ -139,7 +124,9 @@
     {
       "name": "envoy.statsd",
       "config": {
-        "tcp_cluster_name": "statsd"
+        "address": {
+          "socket_address": {"address": "10.1.1.1", "port_value": 9125}
+        }
       }
     }
   ]

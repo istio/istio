@@ -99,22 +99,7 @@
     },
     "http2_protocol_options": { }
     }
-    {{ if .statsd }}
-    ,
-      {
-        "name": "statsd",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-        "seconds": 1
-      },
-      "lb_policy": "ROUND_ROBIN",
-      "hosts": [
-        {
-          "socket_address": {{ .statsd }}
-        }
-      ]
-    }
-      {{ end }}
+
     {{ if .zipkin }}
     ,
       {
@@ -148,7 +133,9 @@
     {
       "name": "envoy.statsd",
       "config": {
-        "tcp_cluster_name": "statsd"
+        "address": {
+          "socket_address": {{ .statsd }}
+        }
       }
     }
   ]
