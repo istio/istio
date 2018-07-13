@@ -45,8 +45,6 @@ type ExecClient interface {
 	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
 	// AllPilotsDiscoveryDo invokes "/usr/local/bin/pilot-agent request" on all Istio pilots
 	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
-	// GetPods returns all pods optionally matching a namespace or label selector
-	GetPods(namespace, labelSelector string) ([]v1.Pod, error)
 }
 
 // NewClient is the contructor for the client wrapper

@@ -23,8 +23,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
-
-	"k8s.io/api/core/v1"
 )
 
 type execTestCase struct {
@@ -182,9 +180,4 @@ func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path strin
 		return results, nil
 	}
 	return nil, fmt.Errorf("unable to find any Pilot instances")
-}
-
-func (client mockExecConfig) GetPods(namespace, labelSelector string) ([]v1.Pod, error) {
-	// This mock implemention never finds any pods
-	return nil, nil
 }
