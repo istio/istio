@@ -102,6 +102,12 @@ func (node *Proxy) ServiceNode() string {
 
 }
 
+// GetProxyVersion returns the proxy version string identifier, and whether it is present.
+func (node *Proxy) GetProxyVersion() (string, bool) {
+	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return version, found
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *types.Struct) map[string]string {

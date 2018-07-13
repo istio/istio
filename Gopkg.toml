@@ -297,7 +297,10 @@ ignored = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  # TODO: Setting this to release-1.0 to associate istio.io/istio and istio.io/api release-1.0 branches.
+  # Once 1.0 is released, and the changes start getting merged into master, this constraint needs to be
+  # reverted back to master.
+  branch = "release-1.0"
 
 # fortio is latest tagged by default
 
@@ -358,3 +361,7 @@ ignored = [
 [[constraint]]
   name = "github.com/gogo/status"
   revision = "d60b5acac426cb52f7e28124c6aaa862d9f339f5"
+
+[[override]]
+  name = "github.com/imdario/mergo"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"

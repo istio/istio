@@ -36,12 +36,12 @@ import (
 const (
 	u1              = "normal-user"
 	u2              = "test-user"
-	bookinfoYaml    = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoYaml    = "samples/bookinfo/platform/kube/bookinfo.yaml"
 	bookinfoGateway = "bookinfo-gateway.yaml"
 	modelDir        = "tests/apps/bookinfo/output"
-	rulesDir        = "samples/bookinfo/kube"
-	allRule         = "route-rule-all-v1.yaml"
-	testRule        = "route-rule-reviews-test-v2.yaml"
+	rulesDir        = "samples/bookinfo/networking"
+	allRule         = "virtual-service-all-v1.yaml"
+	testRule        = "virtual-service-reviews-test-v2.yaml"
 	testRetryTimes  = 10
 )
 
