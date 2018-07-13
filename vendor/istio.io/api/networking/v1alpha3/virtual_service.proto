@@ -659,11 +659,9 @@ message DestinationWeight {
 // L4 connection match attributes. Note that L4 connection matching support
 // is incomplete.
 message L4MatchAttributes {
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 1;
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnet = 1;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they support,
@@ -694,11 +692,9 @@ message TLSMatchAttributes {
   // as well as example.com.
   repeated string sni_hosts = 1;
 
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 2;
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnet = 2;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they
