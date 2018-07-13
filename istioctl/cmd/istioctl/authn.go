@@ -46,7 +46,7 @@ istioclt authn tls-check foo.bar.svc.cluster.local
 			if err != nil {
 				return err
 			}
-			tcw := pilot.TLSCheckWriter{Writer: c.OutOrStdout()}
+			tcw := pilot.TLSCheckWriter{Writer: cmd.OutOrStdout()}
 			if len(args) > 0 {
 				return tcw.PrintSingle(debug, args[0])
 			}
