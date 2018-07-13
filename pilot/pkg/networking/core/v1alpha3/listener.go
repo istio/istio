@@ -793,6 +793,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			TransportProtocol: chain.transportProtocol,
 		}
 		if len(chain.sniHosts) > 0 {
+			sort.Strings(chain.sniHosts)
 			fullWildcardFound := false
 			for _, h := range chain.sniHosts {
 				if h == "*" {
@@ -804,11 +805,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 			if !fullWildcardFound {
 				match.ServerNames = chain.sniHosts
-				sort.Strings(match.ServerNames)
 			}
 		}
 
 		if len(chain.destinationCIDRs) > 0 {
+			sort.Strings(chain.destinationCIDRs)
 			 cidrArray := make([]*core.CidrRange, 0)
 			 for _, d := range chain.destinationCIDRs {
 			 	cidr := util.ConvertAddressToCidr(d)
