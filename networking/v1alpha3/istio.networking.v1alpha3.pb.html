@@ -1172,9 +1172,9 @@ spec:
 </code></pre>
 
 <p>The following VirtualService forwards traffic arriving at (external)
-port 27017 from &ldquo;172.17.16.0/24&rdquo; subnet to internal Mongo server on port
-5555. This rule is not applicable internally in the mesh as the gateway
-list omits the reserved name <code>mesh</code>.</p>
+port 27017 to internal Mongo server on port 5555. This rule is not
+applicable internally in the mesh as the gateway list omits the
+reserved name <code>mesh</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1188,7 +1188,6 @@ spec:
   tcp:
   - match:
     - port: 27017
-      sourceSubnet: &quot;172.17.16.0/24&quot;
     route:
     - destination:
         host: mongo.prod.svc.cluster.local
@@ -1860,12 +1859,10 @@ is incomplete.</p>
 <tbody>
 <tr id="L4MatchAttributes-destination_subnet">
 <td><code>destinationSubnet</code></td>
-<td><code>string</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-destination service has several IPs and the application explicitly
-specifies a particular IP.</p>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
 
 </td>
 </tr>
@@ -3169,12 +3166,10 @@ as well as example.com.</p>
 </tr>
 <tr id="TLSMatchAttributes-destination_subnet">
 <td><code>destinationSubnet</code></td>
-<td><code>string</code></td>
+<td><code>string[]</code></td>
 <td>
-<p>IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-destination service has several IPs and the application explicitly
-specifies a particular IP.</p>
+<p>IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+a.b.c.d/xx form or just a.b.c.d.</p>
 
 </td>
 </tr>
