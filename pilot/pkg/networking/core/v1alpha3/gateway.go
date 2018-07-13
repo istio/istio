@@ -241,7 +241,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			rdsName := model.GatewayRDSRouteName(server)
 			routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
 			if routeCfg == nil {
-				log.Debugf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
+				log.Warnf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 				continue
 			}
 			o := &filterChainOpts{
@@ -343,12 +343,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 		vs := v.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
 		if len(matchingHosts) == 0 {
-			log.Debugf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
+			log.Warnf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
 			continue
 		}
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
-			log.Debugf("omitting routes for service %v due to error: %v", v, err)
+			log.Warnf("omitting routes for service %v due to error: %v", v, err)
 			continue
 		}
 
@@ -367,7 +367,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	}
 
 	if len(virtualHosts) == 0 {
-		log.Debugf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
+		log.Warnf("constructed http route config for port %d with no vhosts; Setting up a default 404 vhost", port)
 		virtualHosts = append(virtualHosts, route.VirtualHost{
 			Name:    fmt.Sprintf("blackhole:%d", port),
 			Domains: []string{"*"},

@@ -31,7 +31,7 @@ import (
 var (
 	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
 	// Disabled by default.
-	periodicRefreshDuration = 60 * time.Second
+	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.Mutex
 	// version is update by registry events.
@@ -86,17 +86,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	}
 	env.PushStatus = model.NewStatus()
 
-	envOverride := os.Getenv("V2_REFRESH")
-	if len(envOverride) > 0 {
-		var err error
-		periodicRefreshDuration, err = time.ParseDuration(envOverride)
-		if err != nil {
-			adsLog.Warn("Invalid value for V2_REFRESH")
-		}
-	}
-	if periodicRefreshDuration > 0 {
-		go out.periodicRefresh()
-	}
+	go out.periodicRefresh()
 
 	go out.periodicRefreshMetrics()
 
@@ -115,10 +105,21 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 // ( will be removed after change detection is implemented, to double check all changes are
 // captured)
 func (s *DiscoveryServer) periodicRefresh() {
+	envOverride := os.Getenv("V2_REFRESH")
+	if len(envOverride) > 0 {
+		var err error
+		periodicRefreshDuration, err = time.ParseDuration(envOverride)
+		if err != nil {
+			adsLog.Warn("Invalid value for V2_REFRESH")
+		}
+	}
+	if periodicRefreshDuration == 0 {
+		return
+	}
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		adsLog.Infof("ADS: periodic push")
+		adsLog.Infof("ADS: periodic push of envoy configs")
 		AdsPushAll(s)
 	}
 }

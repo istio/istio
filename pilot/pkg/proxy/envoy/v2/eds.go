@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -152,19 +151,16 @@ func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsClust
 	var instances []*model.ServiceInstance
 	var err error
 
-	if strings.Index(clusterName, "outbound") == 0 ||
-		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
-		var p int
-		var subsetName string
-		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
-		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
-		if len(instances) == 0 {
-			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
-		}
-		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
+	var p int
+	var subsetName string
+	_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
+	labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
+	instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
+	if len(instances) == 0 {
+		s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 	}
+	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 
 	if err != nil {
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
@@ -359,7 +355,7 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 		con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	return nil
 }

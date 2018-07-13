@@ -32,7 +32,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"go.uber.org/atomic"
+	"sync/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
@@ -283,7 +283,7 @@ type XdsEvent struct {
 
 	push *model.PushStatus
 
-	pending *atomic.Int32
+	pending *int32
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -408,7 +408,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 				// too verbose - sent immediately after EDS response is received
-				//adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.env.PushStatus, true)
 				if err != nil {
@@ -435,7 +435,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 				con.Routes = routes
-				adsLog.Infof("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
+				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.env.PushStatus)
 				if err != nil {
 					return err
@@ -471,7 +471,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 				con.Clusters = clusters
-				adsLog.Infof("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
+				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(con)
 				if err != nil {
 					return err
@@ -501,7 +501,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	defer func() {
-		n := pushEv.pending.Sub(1)
+		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
 			pushEv.push.End = time.Now()
@@ -596,8 +596,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
 
-	var pendingPush atomic.Int32
-	pendingPush.Store(int32(len(tmpMap)))
+	pendingPush := int32(len(tmpMap))
 
 	for _, c := range tmpMap {
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
@@ -629,14 +628,6 @@ func AdsPushAll(s *DiscoveryServer) {
 				}
 			}
 		}
-
-		time.AfterFunc(20*time.Second, func() {
-			if pushStatus.End == timeZero && time.Since(pushStatus.Start) > 20*time.Second {
-				out, _ := pushStatus.JSON()
-				adsLog.Warnf("Long push %v %s",
-					time.Since(pushStatus.Start), string(out))
-			}
-		})
 	}
 }
 
