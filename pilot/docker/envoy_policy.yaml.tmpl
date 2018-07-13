@@ -69,7 +69,7 @@ static_resources:
     - filters:
       - config:
           codec_type: AUTO
-          generate_request_id: true
+          generate_request_id: false
           http_filters:
           - name: envoy.router
           route_config:
@@ -85,7 +85,6 @@ static_resources:
                   cluster: in.9093
                   timeout: 0.000s
           stat_prefix: health
-          tracing: {}
         name: envoy.http_connection_manager
     name: health
   - address:
