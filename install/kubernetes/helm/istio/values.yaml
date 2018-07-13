@@ -1,7 +1,7 @@
 # Common settings.
 global:
   hub: quay.io/aspenmesh/jenkins-artifacts
-  hub_public: quay.io/aspenmesh/istio
+  hub_public: quay.io/aspenmesh/jenkins-artifacts
   hub_img_delim: ":"
   # image: per deployment
   img_tag_delim: "-"

@@ -164,6 +164,12 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
+
+PUBLIC_HUB?=istio
+ifeq ($(PUBLIC_HUB),)
+  $(error "PUBLIC_HUB cannot be empty")
+endif
+
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
@@ -589,6 +595,7 @@ aspenmes%.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.hub_public=${PUBLIC_HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
@@ -599,6 +606,7 @@ isti%.yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.hub_public=${PUBLIC_HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
 		--values aspenmesh/helm-test-values-override.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
@@ -609,6 +617,7 @@ generate_yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.hub_public=${PUBLIC_HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
 		--values aspenmesh/helm-test-values-override.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
@@ -617,6 +626,7 @@ generate_yaml: $(HELM)
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
+		--set global.hub_public=${PUBLIC_HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
 		--values aspenmesh/helm-test-values-override.yaml \
 		--set global.mtls.enabled=true \

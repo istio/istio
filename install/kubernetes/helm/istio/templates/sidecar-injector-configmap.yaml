@@ -19,7 +19,7 @@ data:
 {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
 {{- else }}
-        image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy_init.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
+        image: "{{ .Values.global.hub_public }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy_init.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
 {{- end }}
         args:
         - "-p"
@@ -64,7 +64,7 @@ data:
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
           - /bin/sh
-        image: {{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}proxy_init{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}
+        image: {{ .Values.global.hub_public }}{{ .Values.global.hub_img_delim }}proxy_init{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -76,7 +76,7 @@ data:
         image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
         {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
         {{ "[[ else -]]" }}
-        {{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}
+        {{ .Values.global.hub_public }}{{ .Values.global.hub_img_delim }}{{ .Values.global.proxy.image }}{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}
         {{ "[[ end -]]" }}
         args:
         - proxy

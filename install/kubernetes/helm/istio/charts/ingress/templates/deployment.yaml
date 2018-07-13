@@ -25,7 +25,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ template "istio.name" . }}
-          image: "{{ .Values.global.hub }}{{ .Values.global.hub_img_delim }}proxyv2{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub_public }}{{ .Values.global.hub_img_delim }}proxyv2{{ .Values.global.img_tag_delim }}{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 80

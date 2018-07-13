@@ -216,10 +216,6 @@ DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxyv2 docker.app docker
 DOCKER_RULE=time (cp $< $(ISTIO_DOCKER)/ && cd $(ISTIO_DOCKER) && \
             docker build -t $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$@)$(IMG_TAG_DELIM)$(TAG) -f Dockerfile$(suffix $@) .)
 
-# This target will package all docker images used in test and release, without re-building
-# go binaries. It is intended for CI/CD systems where the build is done in separate job.
-docker.all: $(DOCKER_TARGETS)
-
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
@@ -245,17 +241,29 @@ DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 
-ifneq ($(PUBLIC_HUB),)
+ifneq ($(PUBLIC_HUB),$(HUB))
   PUBLIC_DOCKER_TARGETS := docker.proxyv2 docker.proxy_debug docker.proxy_init
   # Add extra aspenmesh targets for public proxy images. These few images need to
   # be also pushed to a public repository.
-$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval push_public.$(TGT): | $(TGT) ; \
+
+  # define targets to re-tag as public images
+$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval tag_public.$(TGT): | $(TGT) ; \
         time (docker tag $(HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG) \
-                  $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG) && \
-	docker push $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
+                  $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
+
+$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval DOCKER_TARGETS+=tag_public.$(TGT)))
+
+  # define targets to push public images
+$(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval push_public.$(TGT): | $(TGT) ; \
+        time (docker push $(PUBLIC_HUB)$(HUB_IMG_DELIM)$(subst docker.,,$(TGT))$(IMG_TAG_DELIM)$(TAG))))
 
 $(foreach TGT,$(PUBLIC_DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push_public.$(TGT)))
 endif
+
+# This target will package all docker images used in test and release, without re-building
+# go binaries. It is intended for CI/CD systems where the build is done in separate job.
+docker.all: $(DOCKER_TARGETS)
+
 
 # This target pushes each docker image to specified HUB and TAG.
 # The push scripts support a comma-separated list of HUB(s) and TAG(s),

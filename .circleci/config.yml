@@ -476,6 +476,7 @@ jobs:
     environment:
       # Makefile overrides these if CIRCLE_TAG is set
       HUB: "quay.io/aspenmesh/jenkins-artifacts"
+      PUBLIC_HUB: "quay.io/aspenmesh/jenkins-artifacts"
       ISTIO_DOCKER_HUB: "quay.io/aspenmesh/jenkins-artifacts"
       TAG: "circle-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_BUILD_NUM}"
       HUB_IMG_DELIM: ":"
