@@ -298,7 +298,7 @@ message ServiceEntry {
   // the destination will be identified based on the HTTP Host/Authority
   // header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
   // the hosts will be ignored. If one or more IP addresses are specified,
-  // the incoming traffic will be idenfified as belonging to this service
+  // the incoming traffic will be identified as belonging to this service
   // if the destination IP matches the IP/CIDRs specified in the addresses
   // field. If the Addresses field is empty, traffic will be identified
   // solely based on the destination port. In such scenarios, the port on

@@ -25,7 +25,11 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
@@ -58,6 +62,10 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+{{- if .Values.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.traceSampling }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

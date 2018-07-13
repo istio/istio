@@ -46,7 +46,7 @@ import (
 const (
 	bookinfoSampleDir     = "samples/bookinfo"
 	yamlExtension         = "yaml"
-	deploymentDir         = "kube"
+	deploymentDir         = "platform/kube"
 	bookinfoYaml          = "bookinfo"
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
@@ -87,25 +87,25 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: false, //implies envoyv1
-		V1alpha3: true,  //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
-	configVersion      = ""
-	ingressName        = "ingress"
+	configVersion      = "v1alpha3"
+	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	rulesDir                 = "kube" // v1 rules directory by default
+	networkingDir            = "networking"
+	policyDir                = "policy"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit"
 	denialRule               = "mixer-rule-ratings-denial"
 	ingressDenialRule        = "mixer-rule-ingress-denial"
 	newTelemetryRule         = "mixer-rule-additional-telemetry"
 	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
-	routeAllRule             = "route-rule-all-v1"
-	routeReviewsVersionsRule = "route-rule-reviews-v2-v3"
-	routeReviewsV3Rule       = "route-rule-reviews-v3"
-	tcpDbRule                = "route-rule-ratings-db"
+	destinationRuleAll       = "destination-rule-all"
+	routeAllRule             = "virtual-service-all-v1"
+	routeReviewsVersionsRule = "virtual-service-reviews-v2-v3"
+	routeReviewsV3Rule       = "virtual-service-reviews-v3"
+	tcpDbRule                = "virtual-service-ratings-db"
 	bookinfoGateway          = "bookinfo-gateway"
 
 	defaultRules []string
@@ -114,10 +114,6 @@ var (
 
 func init() {
 	testFlags.Init()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
 }
 
 // Setup is called from framework package init().
@@ -128,19 +124,23 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha3 {
-		rulesDir = "routing"
-		ingressName = "ingressgateway"
-	}
-	drs := []*string{&routeAllRule, &bookinfoGateway}
-	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
-		&kubeenvTelemetryRule, &routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
+
 	for _, dr := range drs {
-		*dr = filepath.Join(rulesDir, *dr)
+		*dr = filepath.Join(networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
+
+	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
+		&kubeenvTelemetryRule}
 	for _, r := range rs {
-		*r = filepath.Join(rulesDir, *r)
+		*r = filepath.Join(policyDir, *r)
+		rules = append(rules, *r)
+	}
+
+	rs = []*string{&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
+	for _, r := range rs {
+		*r = filepath.Join(networkingDir, *r)
 		rules = append(rules, *r)
 	}
 
@@ -260,14 +260,22 @@ func applyRules(ruleKeys []string) error {
 }
 
 func (t *testConfig) Teardown() error {
-	return deleteDefaultRoutingRules()
+	return deleteAllRoutingConfig()
 }
 
-func deleteDefaultRoutingRules() error {
-	if err := deleteRouteRule(routeAllRule); err != nil {
-		return fmt.Errorf("could not delete default routing rule: %v", err)
+func deleteAllRoutingConfig() error {
+
+	drs := []*string{&routeAllRule, &destinationRuleAll, &bookinfoGateway}
+
+	var err error
+	for _, dr := range drs {
+		if err = deleteRoutingConfig(*dr); err != nil {
+			log.Errorf("could not delete routing config: %v", err)
+		}
+
 	}
-	return nil
+
+	return err
 }
 
 type promProxy struct {
@@ -520,7 +528,7 @@ func TestTcpMetrics(t *testing.T) {
 		t.Fatalf("Could not update reviews routing rule: %v", err)
 	}
 	defer func() {
-		if err := deleteRouteRule(tcpDbRule); err != nil {
+		if err := deleteRoutingConfig(tcpDbRule); err != nil {
 			t.Fatalf("Could not delete reviews routing rule: %v", err)
 		}
 	}()
@@ -772,10 +780,7 @@ func TestIngressCheckCache(t *testing.T) {
 }
 
 func getIngressOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 // TestCheckCache tests that check cache works within the mesh.
@@ -1175,17 +1180,11 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 }
 
 func getIngressOrGateway() (string, error) {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGateway()
-	}
-	return tc.Kube.Ingress()
+	return tc.Kube.IngressGateway()
 }
 
 func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
@@ -1284,7 +1283,7 @@ func replaceRouteRule(ruleName string) error {
 	return util.KubeApply(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }
 
-func deleteRouteRule(ruleName string) error {
+func deleteRoutingConfig(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName+"."+yamlExtension)
 	return util.KubeDelete(tc.Kube.Namespace, rule, tc.Kube.KubeConfig)
 }

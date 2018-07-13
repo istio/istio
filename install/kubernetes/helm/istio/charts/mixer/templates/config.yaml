@@ -60,6 +60,8 @@ spec:
       valueType: STRING
     destination.port:
       valueType: INT64
+    connection.event:
+      valueType: STRING
     connection.id:
       valueType: STRING
     connection.received.bytes:
@@ -74,6 +76,8 @@ spec:
       valueType: DURATION
     connection.mtls:
       valueType: BOOL
+    connection.requested_server_name:
+      valueType: STRING
     context.protocol:
       valueType: STRING
     context.timestamp:
@@ -127,7 +131,7 @@ spec:
     source.namespace:
       valueType: STRING
     source.owner:
-      valueType: STRING      
+      valueType: STRING
     source.service:  # DEPRECATED
       valueType: STRING
     source.serviceAccount:
@@ -207,7 +211,7 @@ spec:
     destinationPrincipal: destination.principal | ""
     apiName: api.service | ""
     apiVersion: api.version | ""
-    apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
+    apiClaims: request.auth.raw_claims | ""
     apiKey: request.api_key | request.headers["x-api-key"] | ""
     requestOperation: api.operation | ""
     protocol: request.scheme | context.protocol | "http"
@@ -216,26 +220,77 @@ spec:
     responseCode: response.code | 0
     responseSize: response.size | 0
     requestSize: request.size | 0
+    requestId: request.headers["x-request-id"] | ""
+    clientTraceId: request.headers["x-client-trace-id"] | ""
     latency: response.duration | "0ms"
     connectionMtls: connection.mtls | false
+    requestedServerName: connection.requested_server_name | ""
     userAgent: request.useragent | ""
     responseTimestamp: response.time
-    receivedBytes: request.total_size | connection.received.bytes | 0
-    sentBytes: response.total_size | connection.sent.bytes | 0
+    receivedBytes: request.total_size | 0
+    sentBytes: response.total_size | 0
     referer: request.referer | ""
+    xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+  monitored_resource_type: '"global"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: tcpaccesslog
+  namespace: {{ .Release.Namespace }}
+spec:
+  severity: '"Info"'
+  timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
+  variables:
+    connectionEvent: connection.event | ""
+    sourceIp: source.ip | ip("0.0.0.0")
+    sourceApp: source.labels["app"] | ""
+    sourcePrincipal: source.principal | ""
+    sourceName: source.name | ""
+    sourceWorkload: source.workload.name | ""
+    sourceNamespace: source.namespace | ""
+    sourceOwner: source.owner | ""
+    destinationApp: destination.labels["app"] | ""
+    destinationIp: destination.ip | ip("0.0.0.0")
+    destinationServiceHost: destination.service.host | ""
+    destinationWorkload: destination.workload.name | ""
+    destinationName: destination.name | ""
+    destinationNamespace: destination.namespace | ""
+    destinationOwner: destination.owner | ""
+    destinationPrincipal: destination.principal | ""
+    protocol: context.protocol | "tcp"
+    connctionDuration: connection.duration | "0ms"
+    connectionMtls: connection.mtls | false
+    requestedServerName: connection.requested_server_name | ""
+    receivedBytes: connection.received.bytes | 0
+    sentBytes: connection.sent.bytes | 0
+    totalReceivedBytes: connection.received.bytes_total | 0
+    totalSentBytes: connection.sent.bytes_total | 0
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: stdio
+  name: stdiohttp
   namespace: {{ .Release.Namespace }}
 spec:
-  match: "true" # If omitted match is true.
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.stdio
     instances:
     - accesslog.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stdiotcp
+  namespace: {{ .Release.Namespace }}
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.stdio
+    instances:
+    - tcpaccesslog.logentry
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -643,6 +698,7 @@ spec:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
     source.ip: $out.source_pod_ip | ip("0.0.0.0")
+    source.uid: $out.source_pod_uid | "unknown"
     source.labels: $out.source_labels | emptyStringMap()
     source.name: $out.source_pod_name | "unknown"
     source.namespace: $out.source_namespace | "default"
@@ -652,6 +708,7 @@ spec:
     source.workload.name: $out.source_workload_name | "unknown"
     source.workload.namespace: $out.source_workload_namespace | "unknown"
     destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
+    destination.uid: $out.destination_pod_uid | "unknown"
     destination.labels: $out.destination_labels | emptyStringMap()
     destination.name: $out.destination_pod_name | "unknown"
     destination.container.name: $out.destination_container_name | "unknown"
