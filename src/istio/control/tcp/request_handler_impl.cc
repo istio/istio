@@ -53,19 +53,14 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
   return client_context_->SendCheck(nullptr, on_done, &request_context_);
 }
 
-// Make remote report call.
-void RequestHandlerImpl::Report(ReportData* report_data) {
-  Report(report_data, /* is_final_report */ true);
-}
-
-void RequestHandlerImpl::Report(ReportData* report_data, bool is_final_report) {
+void RequestHandlerImpl::Report(ReportData* report_data,
+                                ReportData::ConnectionEvent event) {
   if (!client_context_->enable_mixer_report()) {
     return;
   }
 
   AttributesBuilder builder(&request_context_);
-  builder.ExtractReportAttributes(report_data, is_final_report,
-                                  &last_report_info_);
+  builder.ExtractReportAttributes(report_data, event, &last_report_info_);
 
   client_context_->SendReport(request_context_);
 }

@@ -117,6 +117,7 @@ void Filter::completeCheck(const Status& status) {
     if (!calling_check_) {
       filter_callbacks_->continueReading();
     }
+    handler_->Report(this, ConnectionEvent::OPEN);
     report_timer_ =
         control_.dispatcher().createTimer([this]() { OnReportTimer(); });
     report_timer_->enableTimer(control_.config().report_interval_ms());
@@ -139,7 +140,7 @@ void Filter::onEvent(Network::ConnectionEvent event) {
       if (report_timer_) {
         report_timer_->disableTimer();
       }
-      handler_->Report(this, /* is_final_report */ true);
+      handler_->Report(this, ConnectionEvent::CLOSE);
     }
     cancelCheck();
   }
@@ -193,7 +194,7 @@ std::string Filter::GetConnectionId() const {
 }
 
 void Filter::OnReportTimer() {
-  handler_->Report(this, /* is_final_report */ false);
+  handler_->Report(this, ConnectionEvent::CONTINUE);
   report_timer_->enableTimer(control_.config().report_interval_ms());
 }
 

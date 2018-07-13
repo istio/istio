@@ -32,7 +32,8 @@ class AttributesBuilder {
   // Extract attributes for Check.
   void ExtractCheckAttributes(CheckData* check_data);
   // Extract attributes for Report.
-  void ExtractReportAttributes(ReportData* report_data, bool is_final_report,
+  void ExtractReportAttributes(ReportData* report_data,
+                               ReportData::ConnectionEvent event,
                                ReportData::ReportInfo* last_report_info);
 
  private:
