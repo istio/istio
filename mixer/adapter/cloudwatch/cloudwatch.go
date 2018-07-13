@@ -20,6 +20,7 @@ package cloudwatch
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
@@ -60,12 +61,13 @@ type (
 
 	// handler holds data for the cloudwatch adapter handler
 	handler struct {
-		metricTypes    map[string]*metric.Type
-		logEntryTypes  map[string]*logentry.Type
-		env            adapter.Env
-		cfg            *config.Params
-		cloudwatch     cloudwatchiface.CloudWatchAPI
-		cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI
+		metricTypes       map[string]*metric.Type
+		logEntryTypes     map[string]*logentry.Type
+		logEntryTemplates map[string]*template.Template
+		env               adapter.Env
+		cfg               *config.Params
+		cloudwatch        cloudwatchiface.CloudWatchAPI
+		cloudwatchlogs    cloudwatchlogsiface.CloudWatchLogsAPI
 	}
 )
 
@@ -81,16 +83,28 @@ var (
 ///////////////// Configuration-time Methods ///////////////
 
 // newHandler initializes both cloudwatch and cloudwatchlogs handler
-func newHandler(metricTypes map[string]*metric.Type, logEntryTypes map[string]*logentry.Type, env adapter.Env, cfg *config.Params,
+func newHandler(metricTypes map[string]*metric.Type, logEntryTypes map[string]*logentry.Type, logEntryTemplates map[string]*template.Template, env adapter.Env, cfg *config.Params,
 	cloudwatch cloudwatchiface.CloudWatchAPI, cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI) adapter.Handler {
-	return &handler{metricTypes: metricTypes, logEntryTypes: logEntryTypes, env: env, cfg: cfg, cloudwatch: cloudwatch, cloudwatchlogs: cloudwatchlogs}
+	return &handler{metricTypes: metricTypes, logEntryTypes: logEntryTypes, logEntryTemplates: logEntryTemplates, env: env, cfg: cfg, cloudwatch: cloudwatch, cloudwatchlogs: cloudwatchlogs}
 }
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	cloudwatch := newCloudWatchClient()
 	cloudwatchlogs := newCloudWatchLogsClient()
-	return newHandler(b.metricTypes, b.logEntryTypes, env, b.adpCfg, cloudwatch, cloudwatchlogs), nil
+
+	templates := make(map[string]*template.Template)
+	for name, l := range b.adpCfg.GetLogs() {
+		if strings.TrimSpace(l.PayloadTemplate) == "" {
+			l.PayloadTemplate = defaultTemplate
+		}
+		tmpl, err := template.New(name).Parse(l.PayloadTemplate)
+		if err == nil {
+			templates[name] = tmpl
+		}
+	}
+
+	return newHandler(b.metricTypes, b.logEntryTypes, templates, env, b.adpCfg, cloudwatch, cloudwatchlogs), nil
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig
@@ -152,13 +166,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	for _, v := range b.logEntryTypes {
 		if len(v.Variables) == 0 {
 			ce = ce.Append("instancevariables", fmt.Errorf("instance variables should not be empty"))
-		}
-	}
-
-	// replace with default template if payload template is empty in adapter config
-	for _, l := range b.adpCfg.GetLogs() {
-		if strings.TrimSpace(l.PayloadTemplate) == "" {
-			l.PayloadTemplate = defaultTemplate
 		}
 	}
 	return ce

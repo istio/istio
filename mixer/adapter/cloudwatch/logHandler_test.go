@@ -16,6 +16,7 @@ package cloudwatch
 
 import (
 	"errors"
+	"html/template"
 	"reflect"
 	"strconv"
 	"strings"
@@ -96,6 +97,9 @@ func TestPutLogEntryData(t *testing.T) {
 
 	env := test.NewEnv(t)
 
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
+
 	cases := []struct {
 		name              string
 		logEntryData      []*cloudwatchlogs.InputLogEvent
@@ -109,14 +113,14 @@ func TestPutLogEntryData(t *testing.T) {
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
 			"testEmptyLogEntryData",
 			[]*cloudwatchlogs.InputLogEvent{},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
@@ -125,7 +129,7 @@ func TestPutLogEntryData(t *testing.T) {
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
@@ -134,7 +138,7 @@ func TestPutLogEntryData(t *testing.T) {
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"",
 		},
 	}
@@ -165,8 +169,10 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 		LogGroupName:  "TestLogGroup",
 		LogStreamName: "TestLogStream",
 	}
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 
-	h := newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil})
+	h := newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil})
 
 	cases := []struct {
 		name                        string
@@ -181,7 +187,7 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 			"testLogstreamDescribeFailure",
 			generateTestLogEntryData(0),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{
 				resp: generateLogStreamOutput(), describeError: errors.New("describe logstream failed"),
 			}),
 		},
@@ -189,13 +195,13 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 			"testNilOutputStream",
 			generateTestLogEntryData(0),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateNilLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateNilLogStreamOutput(), describeError: nil}),
 		},
 		{
 			"testFailLogsClient",
 			generateTestLogEntryData(1),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &failLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 		},
 	}
 
@@ -228,13 +234,13 @@ func generateTestLogEntryData(count int) []*cloudwatchlogs.InputLogEvent {
 func TestGenerateLogEntryData(t *testing.T) {
 	timestp := time.Now()
 	env := test.NewEnv(t)
-	template := `{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`
+	tmpl := `{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`
 	cfg := &config.Params{
 		LogGroupName:  "testLogGroup",
 		LogStreamName: "testLogStream",
 		Logs: map[string]*config.Params_LogInfo{
 			"accesslog": {
-				PayloadTemplate: template,
+				PayloadTemplate: tmpl,
 			},
 		},
 	}
@@ -247,6 +253,8 @@ func TestGenerateLogEntryData(t *testing.T) {
 			},
 		},
 	}
+	logEntryTemplates := make(map[string]*template.Template)
+	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 
 	cases := []struct {
 		name                 string
@@ -257,14 +265,14 @@ func TestGenerateLogEntryData(t *testing.T) {
 		// empty instances
 		{
 			"testEmptyInstance",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{},
 			[]*cloudwatchlogs.InputLogEvent{},
 		},
 		// non empty instances
 		{
 			"testNonEmptyInstance",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
@@ -284,7 +292,7 @@ func TestGenerateLogEntryData(t *testing.T) {
 		},
 		{
 			"testMultipleVariables",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
@@ -306,7 +314,7 @@ func TestGenerateLogEntryData(t *testing.T) {
 		// payload template not provided explicitly
 		{
 			"testEmptyTemplate",
-			newHandler(nil, nil, env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, make(map[string]*template.Template), env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,

@@ -63,10 +63,10 @@ func (h *handler) generateLogEntryData(insts []*logentry.Instance) []*cloudwatch
 }
 
 func getMessageFromVariables(h *handler, inst *logentry.Instance) (string, error) {
-	tmplString := h.cfg.GetLogs()[inst.Name].PayloadTemplate
-	tmpl, err := template.New(inst.Name).Parse(tmplString)
-	if err != nil {
-		return "", h.env.Logger().Errorf("failed to evaluate template for log instance: %s, skipping: %v", inst, err)
+	var tmpl *template.Template
+	var found bool
+	if tmpl, found = h.logEntryTemplates[inst.Name]; !found {
+		return "", h.env.Logger().Errorf("failed to evaluate template for log instance: %s, skipping", inst)
 	}
 
 	buf := pool.GetBuffer()
