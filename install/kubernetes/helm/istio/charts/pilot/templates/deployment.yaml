@@ -43,7 +43,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /debug/edsz
-              port: 8080
+              port: 15007
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
