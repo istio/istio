@@ -100,7 +100,6 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	go out.periodicRefreshMetrics()
 
-
 	return out
 }
 
@@ -145,7 +144,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 		model.LastPushStatus = push
 		push.UpdateMetrics()
 		// TODO: env to customize
-		if time.Since(push.Start) > 30 * time.Second {
+		if time.Since(push.Start) > 30*time.Second {
 			// Reset the stats, some errors may still be stale.
 			s.env.PushStatus = model.NewStatus()
 		}

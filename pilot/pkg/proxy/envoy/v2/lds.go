@@ -45,7 +45,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection,push *model.PushStatus) ([]*xdsapi.Listener, error) {
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.Listener, error) {
 	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)

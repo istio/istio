@@ -32,9 +32,10 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pilot/pkg/model"
 	istiolog "istio.io/istio/pkg/log"
-	"go.uber.org/atomic"
 )
 
 var (
@@ -57,7 +58,6 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
-
 )
 
 var (
@@ -499,7 +499,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
-func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent ) error {
+func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	defer func() {
 		n := pushEv.pending.Sub(1)
 		if n <= 0 && pushEv.push.End == timeZero {
@@ -606,7 +606,7 @@ func AdsPushAll(s *DiscoveryServer) {
 		to := time.After(PushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{
-			push: pushStatus,
+			push:    pushStatus,
 			pending: &pendingPush,
 		}:
 			client.LastPush = time.Now()
@@ -630,8 +630,8 @@ func AdsPushAll(s *DiscoveryServer) {
 			}
 		}
 
-		time.AfterFunc(20 * time.Second, func() {
-			if pushStatus.End == timeZero && time.Since(pushStatus.Start) > 20 * time.Second {
+		time.AfterFunc(20*time.Second, func() {
+			if pushStatus.End == timeZero && time.Since(pushStatus.Start) > 20*time.Second {
 				out, _ := pushStatus.JSON()
 				adsLog.Warnf("Long push %v %s",
 					time.Since(pushStatus.Start), string(out))

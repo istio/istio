@@ -30,7 +30,8 @@ import (
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushStatus, routeName string) (*xdsapi.RouteConfiguration, error) {
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {

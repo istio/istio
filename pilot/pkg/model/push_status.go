@@ -1,3 +1,17 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package model
 
 import (
@@ -7,8 +21,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"istio.io/istio/pkg/log"
 	"encoding/json"
+
+	"istio.io/istio/pkg/log"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -30,11 +45,14 @@ type PushStatus struct {
 	End time.Time
 }
 
+// PushStatusEvent represents an event captured by push status.
+// It may contain additional message and the affected proxy.
 type PushStatusEvent struct {
 	Proxy   string `json:"proxy,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
+// PushMetric wraps a prometheus metric.
 type PushMetric struct {
 	Name  string
 	gauge prometheus.Gauge
@@ -75,49 +93,49 @@ func (ps *PushStatus) Add(metric *PushMetric, key string, proxy *Proxy, msg stri
 }
 
 var (
-	// METRIC_PROXY_NO_SERVICE represents proxies not selected by any service
+	// ProxyStatusNoService represents proxies not selected by any service
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
 	// Updated by GetProxyServiceInstances
-	METRIC_PROXY_NO_SERVICE = newPushMetric(
+	ProxyStatusNoService = newPushMetric(
 		"pilot_no_ip",
 		"Pods not found in the endpoint table, possibly invalid.",
 	)
 
-	// METRIC_PROXY_UNREADY represents proxies found not be ready.
+	// ProxyStatusEndpointNotReady represents proxies found not be ready.
 	// Updated by GetProxyServiceInstances. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
-	METRIC_ENDPOINT_NOT_READY = newPushMetric(
+	ProxyStatusEndpointNotReady = newPushMetric(
 		"pilot_endpoint_not_ready",
 		"Endpoint found in unready state.",
 	)
 
-	// METRIC_CONFLICTING_HTTP_OUTBOUND tracks cases of multiple outbound
+	// ProxyStatusConflictHTTPOut tracks cases of multiple outbound
 	// listeners, with accepted HTTP and the conflicting one a
 	// different type
-	METRIC_CONFLICTING_HTTP_OUTBOUND = newPushMetric(
+	ProxyStatusConflictHTTPOut = newPushMetric(
 		"pilot_conflict_out_http_listeners",
 		"Number of conflicting listeners on a http port.",
 	)
 
-	// METRIC_CONFLICTING_TCP_OUTBOUND tracks cases of multiple outbound
+	// ProxyStatusConflictTCPOut tracks cases of multiple outbound
 	// listeners, with accepted TCP and the conflicting one a
 	// different type
-	METRIC_CONFLICTING_TCP_OUTBOUND = newPushMetric(
+	ProxyStatusConflictTCPOut = newPushMetric(
 		"pilot_conflict_out_tcp_listeners",
 		"Number of conflicting listeners on a tcp listener.",
 	)
 
-	// METRIC_CONFLICTING_INBOUND tracks cases of multiple inbound
+	// ProxyStatusConflictIn tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
-	METRIC_CONFLICTING_INBOUND = newPushMetric(
+	ProxyStatusConflictIn = newPushMetric(
 		"pilot_conflict_in_listeners",
 		"Number of conflicting inbound listeners.",
 	)
 
-	// METRIC_NO_INSTANCES tracks clusters (services) without workloads.
-	METRIC_NO_INSTANCES = newPushMetric(
+	// ProxyStatusClusterNoInstances tracks clusters (services) without workloads.
+	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
 	)
@@ -140,29 +158,30 @@ func NewStatus() *PushStatus {
 	}
 }
 
-// MarshalJSON implements json.Marshaller, with a lock.
-func (cs *PushStatus) JSON() ([]byte, error) {
-	if cs == nil {
-		return []byte{'{','}'}, nil
+// JSON implements json.Marshaller, with a lock.
+func (ps *PushStatus) JSON() ([]byte, error) {
+	if ps == nil {
+		return []byte{'{', '}'}, nil
 	}
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
-	return json.MarshalIndent(cs, "", "    ")
+	ps.mutex.Lock()
+	defer ps.mutex.Unlock()
+	return json.MarshalIndent(ps, "", "    ")
 }
-
 
 // OnConfigChange is called when a config change is detected.
-func (cs *PushStatus) OnConfigChange() {
-	LastPushStatus = cs
-	cs.UpdateMetrics()
+func (ps *PushStatus) OnConfigChange() {
+	LastPushStatus = ps
+	ps.UpdateMetrics()
 }
 
-func (cs *PushStatus) UpdateMetrics() {
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
+// UpdateMetrics will update the prometheus metrics based on the
+// current status of the push.
+func (ps *PushStatus) UpdateMetrics() {
+	ps.mutex.Lock()
+	defer ps.mutex.Unlock()
 
 	for _, pm := range metrics {
-		mmap, f := cs.ProxyStatus[pm.Name]
+		mmap, f := ps.ProxyStatus[pm.Name]
 		if f {
 			pm.gauge.Set(float64(len(mmap)))
 		} else {

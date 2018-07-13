@@ -88,7 +88,7 @@ func init() {
 var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
-func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, node *model.Proxy,push *model.PushStatus) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
 		return configgen.buildSidecarListeners(env, node)
@@ -262,7 +262,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if _, exists := listenerMap[listenerMapKey]; exists {
-			env.PushStatus.Add(model.METRIC_CONFLICTING_INBOUND, node.ID, node,
+			env.PushStatus.Add(model.ProxyStatusConflictIn, node.ID, node,
 				fmt.Sprintf("Rejected %s for %s", instance.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
@@ -399,7 +399,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				if current, exists := listenerMap[listenerMapKey]; exists {
 					if !current.servicePort.Protocol.IsHTTP() {
-						env.PushStatus.Add(model.METRIC_CONFLICTING_HTTP_OUTBOUND,
+						env.PushStatus.Add(model.ProxyStatusConflictHTTPOut,
 							listenerMapKey, node,
 							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
 								current.servicePort.Port,
@@ -438,7 +438,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !current.servicePort.Protocol.IsTCP() {
-						env.PushStatus.Add(model.METRIC_CONFLICTING_TCP_OUTBOUND,
+						env.PushStatus.Add(model.ProxyStatusConflictTCPOut,
 							listenerMapKey, node,
 							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
 								current.servicePort.Port,
