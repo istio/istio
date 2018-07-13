@@ -98,7 +98,7 @@ func TestPutLogEntryData(t *testing.T) {
 	env := test.NewEnv(t)
 
 	logEntryTemplates := make(map[string]*template.Template)
-	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
+	logEntryTemplates["accesslog"], _ = template.New("accesslog").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 
 	cases := []struct {
 		name              string
@@ -170,7 +170,7 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 		LogStreamName: "TestLogStream",
 	}
 	logEntryTemplates := make(map[string]*template.Template)
-	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
+	logEntryTemplates["accesslog"], _ = template.New("accesslog").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
 
 	h := newHandler(nil, nil, logEntryTemplates, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil})
 
@@ -254,7 +254,10 @@ func TestGenerateLogEntryData(t *testing.T) {
 		},
 	}
 	logEntryTemplates := make(map[string]*template.Template)
-	logEntryTemplates["inst"], _ = template.New("inst").Parse(`{{or (.sourceIp) "-"}} - {{or (.sourceUser) "-"}}`)
+	logEntryTemplates["accesslog"], _ = template.New("accesslog").Parse(tmpl)
+
+	emptyTemplateMap := make(map[string]*template.Template)
+	emptyTemplateMap["accesslog"], _ = template.New("accesslog").Parse("")
 
 	cases := []struct {
 		name                 string
@@ -314,7 +317,7 @@ func TestGenerateLogEntryData(t *testing.T) {
 		// payload template not provided explicitly
 		{
 			"testEmptyTemplate",
-			newHandler(nil, nil, make(map[string]*template.Template), env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, emptyTemplateMap, env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
