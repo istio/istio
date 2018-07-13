@@ -234,6 +234,9 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, p
 	if len(p.Namespace) > 0 {
 		o.SetDestinationNamespace(p.Namespace)
 	}
+	if len(p.Name) > 0 && len(p.Namespace) > 0 {
+		o.SetDestinationPodUid(kubePrefix + p.Name + "." + p.Namespace)
+	}
 	if len(p.Spec.ServiceAccountName) > 0 {
 		o.SetDestinationServiceAccountName(p.Spec.ServiceAccountName)
 	}
@@ -265,6 +268,9 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 	}
 	if len(p.Namespace) > 0 {
 		o.SetSourceNamespace(p.Namespace)
+	}
+	if len(p.Name) > 0 && len(p.Namespace) > 0 {
+		o.SetSourcePodUid(kubePrefix + p.Name + "." + p.Namespace)
 	}
 	if len(p.Spec.ServiceAccountName) > 0 {
 		o.SetSourceServiceAccountName(p.Spec.ServiceAccountName)

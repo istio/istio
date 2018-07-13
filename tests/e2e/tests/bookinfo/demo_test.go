@@ -59,9 +59,7 @@ func TestVersionRouting(t *testing.T) {
 		},
 	}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		testVersionRoutingRules(t, configVersion, rules)
-	}
+	testVersionRoutingRules(t, "v1alpha3", rules)
 }
 
 func testVersionRoutingRules(t *testing.T, configVersion string, rules []versionRoutingRule) {
@@ -90,9 +88,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 
 func TestFaultDelay(t *testing.T) {
 	var rules = []string{testRule, delayRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestFaultDelay(t, configVersion, rules)
-	}
+	doTestFaultDelay(t, "v1alpha3", rules)
 }
 
 func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
@@ -134,9 +130,7 @@ type migrationRule struct {
 }
 
 func TestVersionMigration(t *testing.T) {
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestVersionMigration(t, configVersion)
-	}
+	doTestVersionMigration(t, "v1alpha3")
 }
 
 func doTestVersionMigration(t *testing.T, configVersion string) {
@@ -239,9 +233,7 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 
 func TestDbRoutingMongo(t *testing.T) {
 	var rules = []string{testDbRule}
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMongo(t, configVersion, rules)
-	}
+	doTestDbRoutingMongo(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
@@ -265,9 +257,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 func TestDbRoutingMysql(t *testing.T) {
 	var rules = []string{testMysqlRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestDbRoutingMysql(t, configVersion, rules)
-	}
+	doTestDbRoutingMysql(t, "v1alpha3", rules)
 }
 
 func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
@@ -315,9 +305,7 @@ func TestExternalDetailsService(t *testing.T) {
 
 	var rules = []string{detailsExternalServiceRouteRule, detailsExternalServiceEgressRule}
 
-	for _, configVersion := range tf.ConfigVersions() {
-		doTestExternalDetailsService(t, configVersion, rules)
-	}
+	doTestExternalDetailsService(t, "v1alpha3", rules)
 }
 
 func doTestExternalDetailsService(t *testing.T, configVersion string, rules []string) {
