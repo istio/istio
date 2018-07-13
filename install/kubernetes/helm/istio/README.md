@@ -68,7 +68,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | Parameter | Description | Values | Default |
 | --- | --- | --- | --- |
 | `global.hub` | Specifies the HUB for most images used by Istio | registry/namespace | `docker.io/istio` |
-| `global.tag` | Specifies the TAG for most images used by Istio | valid image tag | `0.8.latest` |
+| `global.tag` | Specifies the TAG for most images used by Istio | valid image tag | `1.0.0-snapshot.0` |
 | `global.proxy.image` | Specifies the proxy image name | valid proxy name | `proxyv2` |
 | `global.imagePullPolicy` | Specifies the image pull policy | valid image pull policy | `IfNotPresent` |
 | `global.controlPlaneSecurityEnabled` | Specifies whether control plane mTLS is enabled | true/false | `false` |
