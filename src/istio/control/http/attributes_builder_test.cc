@@ -108,6 +108,12 @@ attributes {
   }
 }
 attributes {
+  key: "origin.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
   key: "destination.principal"
   value {
     string_value: "destination_user"
@@ -307,6 +313,12 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         *name = "www.google.com";
         return true;
       }));
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -365,6 +377,12 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   EXPECT_CALL(mock_data, GetRequestedServerName(_))
       .WillOnce(Invoke([](std::string *name) -> bool {
         *name = "www.google.com";
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
         return true;
       }));
   EXPECT_CALL(mock_data, GetRequestHeaders())

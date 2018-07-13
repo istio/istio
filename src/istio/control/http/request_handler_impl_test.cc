@@ -172,7 +172,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Report is enabled so Attributes are extracted.
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should NOT be called.
@@ -193,7 +193,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
 TEST_F(RequestHandlerImplTest, TestPerRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
@@ -221,7 +221,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteAttributes) {
 TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
@@ -254,7 +254,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
 TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   ServiceConfig route_config;
@@ -369,7 +369,7 @@ TEST_F(RequestHandlerImplTest, TestPerRouteApiSpec) {
 TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   ::testing::NiceMock<MockHeaderUpdate> mock_header;
-  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.

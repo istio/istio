@@ -160,6 +160,13 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
 
   utils::AttributesBuilder builder(&request_->attributes);
 
+  // connection remote IP is always reported as origin IP
+  std::string source_ip;
+  int source_port;
+  if (check_data->GetSourceIpPort(&source_ip, &source_port)) {
+    builder.AddBytes(utils::AttributeName::kOriginIp, source_ip);
+  }
+
   builder.AddBool(utils::AttributeName::kConnectionMtls,
                   check_data->IsMutualTLS());
 

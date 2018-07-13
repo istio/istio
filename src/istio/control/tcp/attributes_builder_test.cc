@@ -56,6 +56,12 @@ attributes {
   }
 }
 attributes {
+  key: "origin.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
   key: "connection.mtls"
   value {
     bool_value: true
