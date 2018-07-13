@@ -19,6 +19,7 @@ spec:
     - "fortio.{{ .Values.domain }}"
     - "fortio2.{{ .Values.domain }}"
     - "fortiotls.{{ .Values.domain }}"
+    - "fortiottls.{{ .Values.domain }}"
     - "fortionoistio.{{ .Values.domain }}"
     - "fortionoistio1.{{ .Values.domain }}"
     - "bookinfo.{{ .Values.domain }}"
