@@ -27,7 +27,9 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
       {{- end }}
     spec:
+{{- if .Values.global.rbacEnabled }}
       serviceAccountName: {{ template "certmanager.serviceAccountName" . }}
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
