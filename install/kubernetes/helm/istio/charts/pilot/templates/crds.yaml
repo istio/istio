@@ -11,6 +11,9 @@ spec:
     listKind: VirtualServiceList
     plural: virtualservices
     singular: virtualservice
+    categories:
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   version: v1alpha3
 ---
@@ -27,6 +30,9 @@ spec:
     listKind: DestinationRuleList
     plural: destinationrules
     singular: destinationrule
+    categories:
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   version: v1alpha3
 ---
@@ -43,6 +49,9 @@ spec:
     listKind: ServiceEntryList
     plural: serviceentries
     singular: serviceentry
+    categories:
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   version: v1alpha3
 ---
@@ -58,6 +67,9 @@ spec:
     kind: Gateway
     plural: gateways
     singular: gateway
+    categories:
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   version: v1alpha3
 ---
@@ -71,6 +83,9 @@ spec:
     kind: Policy
     plural: policies
     singular: policy
+    categories:
+    - istio-io
+    - authentication-istio-io
   scope: Namespaced
   version: v1alpha1
 ---
@@ -85,6 +100,9 @@ spec:
     listKind: MeshPolicyList
     plural: meshpolicies
     singular: meshpolicy
+    categories:
+    - istio-io
+    - authentication-istio-io
   scope: Cluster
   version: v1alpha1
 ---
@@ -98,6 +116,9 @@ spec:
     kind: HTTPAPISpecBinding
     plural: httpapispecbindings
     singular: httpapispecbinding
+    categories:
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -111,6 +132,9 @@ spec:
     kind: HTTPAPISpec
     plural: httpapispecs
     singular: httpapispec
+    categories:
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -124,6 +148,9 @@ spec:
     kind: QuotaSpecBinding
     plural: quotaspecbindings
     singular: quotaspecbinding
+    categories:
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -137,6 +164,9 @@ spec:
     kind: QuotaSpec
     plural: quotaspecs
     singular: quotaspec
+    categories:
+    - istio-io
+    - apim-istio-io
   scope: Namespaced
   version: v1alpha2
 
@@ -153,5 +183,8 @@ spec:
     kind: EnvoyFilter
     plural: envoyfilters
     singular: envoyfilter
+    categories:
+    - istio-io
+    - networking-istio-io
   scope: Namespaced
   version: v1alpha3
