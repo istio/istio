@@ -330,7 +330,12 @@ grafana:
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
+  security:
+    enabled: true
+    adminUser: admin
+    adminPassword: admin
   ingress:
+    # DEPRECATED. DO NOT USE.
     enabled: false
     # Used to create an Ingress record.
     hosts:
@@ -343,6 +348,11 @@ grafana:
       # - secretName: grafana-tls
       #   hosts:
       #     - grafana.local
+  ingressgateway:
+    enabled: true
+    hosts:
+      - grafana.local
+    
 
 prometheus:
   enabled: true
