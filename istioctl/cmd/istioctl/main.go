@@ -153,10 +153,6 @@ Available routing and traffic management configuration types:
 
 	[virtualservice gateway destinationrule serviceentry httpapispec httpapispecbinding quotaspec quotaspecbinding servicerole servicerolebinding policy]
 
-Legacy routing and traffic management configuration types:
-
-	[routerule egressrule destinationpolicy]
-
 See https://istio.io/docs/reference/ for an overview of Istio routing.
 
 `,
@@ -657,7 +653,7 @@ func main() {
 	}
 }
 
-// The protoSchema is based on the kind (for example "routerule" or "destinationpolicy")
+// The protoSchema is based on the kind (for example "virtualservice" or "destinationrule")
 func protoSchema(configClient model.ConfigStore, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
 		switch strings.ToLower(typ) {
