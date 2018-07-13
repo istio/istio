@@ -138,6 +138,6 @@ func writeToTar(out *tar.Writer, name string, body []byte) error {
 }
 
 func dumpAll() bool {
-	// If nothing has been explicity requested, dump everything
+	// If nothing has been explicitly requested, dump everything
 	return !dumpPilot && !dumpEnvoy
 }
