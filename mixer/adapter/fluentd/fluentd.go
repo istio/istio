@@ -77,7 +77,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		env:    env,
 		intDur: b.adpCfg.IntegerDuration,
 	}
-	han.logger, err = fluent.New(fluent.Config{FluentPort: p, FluentHost: h})
+	han.logger, err = fluent.New(fluent.Config{FluentPort: p, FluentHost: h, Async: true})
 	if err != nil {
 		return nil, err
 	}
