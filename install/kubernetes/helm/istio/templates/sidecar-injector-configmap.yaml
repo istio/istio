@@ -120,6 +120,12 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- if .Values.global.aspenMeshCloud.enabled }}
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        {{- end }}
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:

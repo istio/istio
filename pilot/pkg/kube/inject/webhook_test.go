@@ -52,7 +52,7 @@ import (
 const (
 	helmChartDirectory     = "../../../../install/kubernetes/helm/istio"
 	helmConfigMapKey       = "istio/templates/sidecar-injector-configmap.yaml"
-	helmValuesFile         = "values.yaml"
+	helmValuesFile         = "values-test-webhook-inject.yaml"
 	yamlSeparator          = "\n---"
 	minimalSidecarTemplate = `
 initContainers:

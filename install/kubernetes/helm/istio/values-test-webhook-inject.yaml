@@ -1,0 +1,447 @@
+# Use --set or additional values.yaml file to configure settings.
+# This file no longer uses sed, updateVersions.sh or istio.VERSIONS
+# TODO: evaluate if we need individual overrides for each component version, istio
+# is not typically tested with a mix of versions. Only supported case is version upgrade.
+
+# Common settings.
+global:
+  hub: quay.io/aspenmesh/jenkins-artifacts
+  hub_public: quay.io/aspenmesh/jenkins-artifacts
+  hub_img_delim: ":"
+  # image: per deployment
+  img_tag_delim: "-"
+  tag: circle-istio-private-2087
+
+  aspenMeshCloud:
+    enabled: false
+
+  proxy:
+    image: proxyv2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # istio-sidecar-injector configmap stores configuration for sidecar injection.
+    # This config map is used by istioctl kube-inject and the injector webhook.
+    enableCoreDump: false
+    serviceAccountName: default # used only if RBAC is not enabled
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+    policy: enabled
+
+  proxy_init:
+    image: proxy_init
+
+  # imagePullPolicy is applied to istio control plane components.
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
+  imagePullPolicy: IfNotPresent
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    repository: quay.io/coreos/hyperkube
+    tag: v1.7.6_coreos.0
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: true
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+    # List of fully qualified services to exclude from mtls
+    # TODO: add the templating.
+    mtlsExcludedServices:
+    - "kubernetes.default.svc.cluster.local"
+
+  # create RBAC resources. Must be set for any cluster configured with rbac.
+  rbacEnabled: true
+
+  ## imagePullSecrets for all ServiceAccount. Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    - name: aspen-mesh-pull-secret
+
+  # Default is 1 second
+  refreshInterval: 10s
+
+  # Enable multicluster operation.  Must be set to true if multicluster operation
+  # is desired.
+  multicluster:
+    enabled: false
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
+
+#
+# ingress configuration
+#
+ingress:
+  enabled: false
+  serviceAccountName: default
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    loadBalancerIP: ""
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      name: http
+      nodePort: 32000
+    - port: 443
+      name: https
+    selector:
+      istio: ingress
+#
+# ingressgateway configuration
+#
+ingressgateway:
+  enabled: true
+  serviceAccountName: istio-ingressgateway-service-account
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-ingressgateway #DNS addressible
+    labels:
+      istio: ingressgateway
+    #namespace: istio-system
+    loadBalancerIP: ""
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
+  deployment:
+    labels:
+      istio: ingressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+    - containerPort: 31400
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+
+#
+# egressgateway configuration
+#
+egressgateway:
+  enabled: true
+  serviceAccountName: istio-egressgateway-service-account
+  autoscaleMin: 1
+  autoscaleMax: 1
+  resources: {}
+# limits:
+#  cpu: 100m
+#  memory: 128Mi
+# requests:
+#  cpu: 100m
+#  memory: 128Mi
+  service:
+    name: istio-egressgateway #DNS addressible
+    labels:
+      istio: egressgateway
+    #namespace: istio-system
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      name: http
+    - port: 443
+      name: https
+  deployment:
+    labels:
+      istio: egressgateway #will be added to pods and service
+    ports:
+    - containerPort: 80
+    - containerPort: 443
+  # secretVolumes: TODO
+  # - name: someName
+  #   mountPath: somePath
+  #   secretName: someName
+
+#
+# sidecar-injector webhook configuration
+#
+sidecarInjectorWebhook:
+  enabled: true
+  image: sidecar_injector
+
+
+#
+# galley configuration
+#
+galley:
+  enabled: false
+  serviceAccountName: default
+  replicaCount: 1
+  image: galley
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+#
+# mixer configuration
+#
+mixer:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  image: mixer
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+  prometheusStatsdExporter:
+    repository: prom/statsd-exporter
+    tag: latest
+    resources: {}
+
+#
+# pilot configuration
+#
+pilot:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  image: pilot
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+#
+# security configuration
+#
+security:
+  enabled: true
+  serviceAccountName: default # used only if RBAC is not enabled
+  replicaCount: 1
+  image: citadel
+  resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+  cleanUpOldCA: true
+
+#
+# addons configuration
+#
+grafana:
+  enabled: false
+  replicaCount: 1
+  image: grafana
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 3000
+    internalPort: 3000
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - grafana.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: grafana-tls
+      #   hosts:
+      #     - grafana.local
+
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+prometheus:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: docker.io/prom/prometheus
+    tag: v2.3.1
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    #hosts:
+    #  - prometheus.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: prometheus-tls
+      #   hosts:
+      #     - prometheus.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  service:
+    nodePort:
+      enabled: false
+      port: 32090
+  scrapeTargets:
+    kubernetesApiservers: false
+    kubernetesCadvisor: true
+    kubernetesNodes: true
+    kubernetesServiceEndpoints: false
+    kubernetesPods: false
+
+servicegraph:
+  enabled: false
+  replicaCount: 1
+  image: servicegraph
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 8088
+    internalPort: 8088
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - servicegraph.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: servicegraph-tls
+      #   hosts:
+      #     - servicegraph.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+  # prometheus addres
+  prometheusAddr: http://prometheus:9090
+
+tracing:
+  enabled: false
+  jaeger:
+    enabled: false
+    memory:
+      max_traces: 50000
+  replicaCount: 1
+  image:
+    repository: jaegertracing/all-in-one
+    tag: 1.5
+  service:
+    name: http
+    type: ClusterIP
+    externalPort: 9411
+    internalPort: 9411
+    uiPort: 16686
+  ingress:
+    enabled: false
+    # Used to create an Ingress record.
+    hosts:
+      - zipkin.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: zipkin-tls
+      #   hosts:
+      #     - zipkin.local
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
+
+aspen-mesh-agent:
+  image: quay.io/aspenmesh/agent:master-211
+  resources: {}
+    # limits:
+    #  cpu: 100m
+    #  memory: 128Mi
+    # requests:
+    #  cpu: 100m
+    #  memory: 128Mi
