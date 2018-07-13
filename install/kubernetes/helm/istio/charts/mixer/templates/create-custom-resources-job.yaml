@@ -60,7 +60,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-mixer-post-install
+  name: istio-mixer-post-install-1.0
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
