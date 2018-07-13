@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-  # TODO: default tempate doesn't have this, which one is right ?
+  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -42,8 +42,8 @@ spec:
           - containerPort: 15010
           readinessProbe:
             httpGet:
-              path: /debug/edsz
-              port: 15007
+              path: /debug/endpointz
+              port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
