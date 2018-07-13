@@ -13,7 +13,7 @@ global:
 
   # Default tag for Istio images.
   # Should track latest released version in the branch.
-  tag: 0.8.latest
+  tag: 1.0.0-snapshot.0
   proxy:
     image: proxyv2
     resources:
