@@ -34,7 +34,7 @@
           mountPath: /sock
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /version
             port: 9093
           initialDelaySeconds: 5
           periodSeconds: 5
@@ -125,7 +125,7 @@
           mountPath: /sock
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /version
             port: 9093
           initialDelaySeconds: 5
           periodSeconds: 5
