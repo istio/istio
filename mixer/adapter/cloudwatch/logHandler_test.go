@@ -32,31 +32,31 @@ import (
 	"istio.io/istio/mixer/template/logentry"
 )
 
-type mockCloudWatchLogsClient struct {
+type mockLogsClient struct {
 	cloudwatchlogsiface.CloudWatchLogsAPI
 	resp          *cloudwatchlogs.DescribeLogStreamsOutput
 	describeError error
 }
 
-func (m *mockCloudWatchLogsClient) PutLogEvents(input *cloudwatchlogs.PutLogEventsInput) (*cloudwatchlogs.PutLogEventsOutput, error) {
+func (m *mockLogsClient) PutLogEvents(input *cloudwatchlogs.PutLogEventsInput) (*cloudwatchlogs.PutLogEventsOutput, error) {
 	return &cloudwatchlogs.PutLogEventsOutput{}, nil
 }
 
-func (m *mockCloudWatchLogsClient) DescribeLogStreams(input *cloudwatchlogs.DescribeLogStreamsInput) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+func (m *mockLogsClient) DescribeLogStreams(input *cloudwatchlogs.DescribeLogStreamsInput) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
 	return m.resp, m.describeError
 }
 
-type mockFailCloudWatchLogsClient struct {
+type failLogsClient struct {
 	cloudwatchlogsiface.CloudWatchLogsAPI
 	resp          *cloudwatchlogs.DescribeLogStreamsOutput
 	describeError error
 }
 
-func (m *mockFailCloudWatchLogsClient) PutLogEvents(input *cloudwatchlogs.PutLogEventsInput) (*cloudwatchlogs.PutLogEventsOutput, error) {
+func (m *failLogsClient) PutLogEvents(input *cloudwatchlogs.PutLogEventsInput) (*cloudwatchlogs.PutLogEventsOutput, error) {
 	return nil, errors.New("put logentry data failed")
 }
 
-func (m *mockFailCloudWatchLogsClient) DescribeLogStreams(input *cloudwatchlogs.DescribeLogStreamsInput) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+func (m *failLogsClient) DescribeLogStreams(input *cloudwatchlogs.DescribeLogStreamsInput) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
 	return m.resp, m.describeError
 }
 
@@ -97,39 +97,44 @@ func TestPutLogEntryData(t *testing.T) {
 	env := test.NewEnv(t)
 
 	cases := []struct {
+		name              string
 		logEntryData      []*cloudwatchlogs.InputLogEvent
 		expectedErrString string
 		handler           adapter.Handler
 		nextSequenceToken string
 	}{
 		{
+			"testValidPutLogEntryData",
 			[]*cloudwatchlogs.InputLogEvent{
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
+			"testEmptyLogEntryData",
 			[]*cloudwatchlogs.InputLogEvent{},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockFailCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
+			"testFailLogsClient",
 			[]*cloudwatchlogs.InputLogEvent{
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockFailCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"49579643037721145729486712515534281748446571659784111634",
 		},
 		{
+			"testNoSequenceToken",
 			[]*cloudwatchlogs.InputLogEvent{
 				{Message: aws.String("testMessage2"), Timestamp: aws.Int64(1)},
 			},
 			"put logentry data",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockFailCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{}),
 			"",
 		},
 	}
@@ -137,19 +142,19 @@ func TestPutLogEntryData(t *testing.T) {
 	for _, c := range cases {
 		h, ok := c.handler.(*handler)
 		if !ok {
-			t.Error("test case has the wrong type of handler.")
+			t.Errorf("test case: %s has the wrong type of handler.", c.name)
 		}
 
 		err := h.putLogEntryData(c.logEntryData, c.nextSequenceToken)
 		if len(c.expectedErrString) > 0 {
 			if err == nil {
-				t.Errorf("expected an error containing %s, got none", c.expectedErrString)
+				t.Errorf("putLogEntryData() for test case: %s did not produce expected error: %s", c.name, c.expectedErrString)
 
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.expectedErrString) {
-				t.Errorf("expected an error containing \"%s\", actual error: \"%v\"", c.expectedErrString, err)
+				t.Errorf("putLogEntryData() for test case: %s returned error message %s, wanted %s", c.name, err, c.expectedErrString)
 			}
 		} else if err != nil {
-			t.Errorf("unexpected error: \"%v\"", err)
+			t.Errorf("putLogEntryData() for test case: %s generated unexpected error: %v", c.name, err)
 		}
 	}
 }
@@ -161,44 +166,48 @@ func TestSendLogEntriesToCloudWatch(t *testing.T) {
 		LogStreamName: "TestLogStream",
 	}
 
-	h := newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil})
+	h := newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil})
 
 	cases := []struct {
+		name                        string
 		logEntryData                []*cloudwatchlogs.InputLogEvent
 		expectedCloudWatchCallCount int
 		Handler                     adapter.Handler
 	}{
-		{[]*cloudwatchlogs.InputLogEvent{}, 0, h},
-		{generateTestLogEntryData(1), 1, h},
-		{generateTestLogEntryData(10001), 2, h},
+		{"testNilLogEntryData", []*cloudwatchlogs.InputLogEvent{}, 0, h},
+		{"testMockLogsClient", generateTestLogEntryData(1), 1, h},
+		{"testBatchCountLimit", generateTestLogEntryData(10001), 2, h},
 		{
+			"testLogstreamDescribeFailure",
 			generateTestLogEntryData(0),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{
 				resp: generateLogStreamOutput(), describeError: errors.New("describe logstream failed"),
 			}),
 		},
 		{
+			"testNilOutputStream",
 			generateTestLogEntryData(0),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateNilLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateNilLogStreamOutput(), describeError: nil}),
 		},
 		{
+			"testFailLogsClient",
 			generateTestLogEntryData(1),
 			0,
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockFailCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &failLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 		},
 	}
 
 	for _, c := range cases {
 		h, ok := c.Handler.(*handler)
 		if !ok {
-			t.Error("test case has the wrong type of handler.")
+			t.Errorf("test case: %s has the wrong type of handler.", c.name)
 		}
 
 		count, _ := h.sendLogEntriesToCloudWatch(c.logEntryData)
 		if count != c.expectedCloudWatchCallCount {
-			t.Errorf("expected %v calls but got %v", c.expectedCloudWatchCallCount, count)
+			t.Errorf("sendLogEntriesToCloudWatch() for test case: %s resulted in %d calls; wanted %d", c.name, count, c.expectedCloudWatchCallCount)
 		}
 	}
 }
@@ -240,19 +249,22 @@ func TestGenerateLogEntryData(t *testing.T) {
 	}
 
 	cases := []struct {
+		name                 string
 		handler              adapter.Handler
 		insts                []*logentry.Instance
 		expectedLogEntryData []*cloudwatchlogs.InputLogEvent
 	}{
 		// empty instances
 		{
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			"testEmptyInstance",
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{},
 			[]*cloudwatchlogs.InputLogEvent{},
 		},
 		// non empty instances
 		{
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			"testNonEmptyInstance",
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
@@ -271,7 +283,8 @@ func TestGenerateLogEntryData(t *testing.T) {
 			},
 		},
 		{
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			"testMultipleVariables",
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
@@ -292,7 +305,8 @@ func TestGenerateLogEntryData(t *testing.T) {
 		},
 		// payload template not provided explicitly
 		{
-			newHandler(nil, nil, env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
+			"testEmptyTemplate",
+			newHandler(nil, nil, env, emptyPayloadCfg, &mockCloudWatchClient{}, &mockLogsClient{resp: generateLogStreamOutput(), describeError: nil}),
 			[]*logentry.Instance{
 				{
 					Timestamp: timestp,
@@ -316,13 +330,13 @@ func TestGenerateLogEntryData(t *testing.T) {
 	for _, c := range cases {
 		h, ok := c.handler.(*handler)
 		if !ok {
-			t.Error("test case has the wrong type of handler.")
+			t.Errorf("test case: %s has the wrong type of handler.", c.name)
 		}
 
 		ld := h.generateLogEntryData(c.insts)
 
 		if len(c.expectedLogEntryData) != len(ld) {
-			t.Errorf("expected %v logentry data items but got %v", len(c.expectedLogEntryData), len(ld))
+			t.Errorf("generateLogEntryData() for test case: %s generated %d items; wanted %d", c.name, len(ld), len(c.expectedLogEntryData))
 		}
 
 		for i := 0; i < len(c.expectedLogEntryData); i++ {
@@ -330,7 +344,7 @@ func TestGenerateLogEntryData(t *testing.T) {
 			actualLD := ld[i]
 
 			if !reflect.DeepEqual(expectedLD, actualLD) {
-				t.Errorf("expected %v, actual %v", expectedLD, actualLD)
+				t.Errorf("generateLogEntryData() for test case: %s generated %v; wanted %v", c.name, actualLD, expectedLD)
 			}
 		}
 	}

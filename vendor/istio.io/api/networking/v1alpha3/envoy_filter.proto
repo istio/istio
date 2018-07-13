@@ -38,23 +38,24 @@ option go_package = "istio.io/api/networking/v1alpha3";
 // inbound calls arriving at service port 8080 of the reviews service pod with
 // labels "app: reviews".
 //
-//     apiVersion: networking.istio.io/v1alpha3
-//     kind: EnvoyFilter
-//     metadata:
-//       name: reviews-lua
-//     spec:
-//       workloadLabels:
-//         app: reviews
-//       filters:
-//       - listenerMatch:
-//           portNumber: 8080 
-//           listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
-//         filterName: envoy.lua
-//         filterType: HTTP
-//         filterConfig:
-//           inlineCode: |
-//             ... lua code ...
-//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: EnvoyFilter
+// metadata:
+//   name: reviews-lua
+// spec:
+//   workloadLabels:
+//     app: reviews
+//   filters:
+//   - listenerMatch:
+//       portNumber: 8080
+//       listenerType: SIDECAR_INBOUND #will match with the inbound listener for reviews:8080
+//     filterName: envoy.lua
+//     filterType: HTTP
+//     filterConfig:
+//       inlineCode: |
+//         ... lua code ...
+// ```
 message EnvoyFilter {
   // One or more labels that indicate a specific set of pods/VMs whose
   // proxies should be configured to use these additional filters.  The
@@ -86,7 +87,7 @@ message EnvoyFilter {
     enum ListenerType {
       // All listeners
       ANY = 0;
-      
+
       // Inbound listener in sidecar
       SIDECAR_INBOUND = 1;
 
@@ -146,7 +147,7 @@ message EnvoyFilter {
     // filter relative to which this filter should be inserted.
     string relative_to = 2;
   };
-  
+
   // Envoy filters to be added to a network or http filter chain.
   message Filter {
     // Filter will be added to the listner only if the match conditions are true.

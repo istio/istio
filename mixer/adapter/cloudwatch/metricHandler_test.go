@@ -65,14 +65,14 @@ func TestPutMetricData(t *testing.T) {
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"put metric data",
-			newHandler(nil, nil, env, cfg, &mockFailCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockFailCloudWatchClient{}, &mockLogsClient{}),
 		},
 		{
 			[]*cloudwatch.MetricDatum{
 				{MetricName: aws.String("testMetric"), Value: aws.Float64(1)},
 			},
 			"",
-			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+			newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{}),
 		},
 	}
 
@@ -217,7 +217,7 @@ func TestSendMetricsToCloudWatch(t *testing.T) {
 		Namespace: "istio-mixer-cloudwatch",
 	}
 
-	h := newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockCloudWatchLogsClient{})
+	h := newHandler(nil, nil, env, cfg, &mockCloudWatchClient{}, &mockLogsClient{})
 
 	cases := []struct {
 		metricData                  []*cloudwatch.MetricDatum
@@ -268,13 +268,13 @@ func TestGenerateMetricData(t *testing.T) {
 		{
 			newHandler(nil, nil, env,
 				generateCfgWithUnit(config.Count),
-				&mockCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{}, []*cloudwatch.MetricDatum{}},
 		// timestamp value
 		{
 			newHandler(nil, nil, env,
 				generateCfgWithNameAndUnit("requestduration", config.Milliseconds),
-				&mockCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{
 				{
 					Value: 1 * time.Minute,
@@ -294,7 +294,7 @@ func TestGenerateMetricData(t *testing.T) {
 		{
 			newHandler(nil, nil, env,
 				generateCfgWithNameAndUnit("requestcount", config.Count),
-				&mockCloudWatchClient{}, &mockCloudWatchLogsClient{}),
+				&mockCloudWatchClient{}, &mockLogsClient{}),
 			[]*metric.Instance{
 				{
 					Value: "1",

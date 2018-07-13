@@ -96,7 +96,7 @@ func (h *handler) sendLogEntriesToCloudWatch(logentryData []*cloudwatchlogs.Inpu
 
 	nextSequenceToken, err := getNextSequenceToken(h)
 	if err != nil {
-		h.env.Logger().Errorf("could not get next upload sequence token: %v", err)
+		h.env.Logger().Errorf("logentry upload failed as next upload sequence token could not be retrieved: %v", err)
 		return 0, err
 	}
 

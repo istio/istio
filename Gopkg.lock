@@ -891,7 +891,7 @@
     "timekeeper",
     "trace"
   ]
-  revision = "b1be94c3ec8d1fdeccd62735b851489f0b3798e0"
+  revision = "23eb012a5fd9ba184a3baa1ee092fe384a1dbf86"
   version = "v1.1.6"
 
 [[projects]]
@@ -1312,7 +1312,7 @@
     "rbac/v1alpha1",
     "routing/v1alpha1"
   ]
-  revision = "2d8fbdb9495e737b10f6ac5f64e344517b0e7b10"
+  revision = "2d182f5d150eaa9ac276347df8f0154f209973dc"
 
 [[projects]]
   name = "istio.io/fortio"

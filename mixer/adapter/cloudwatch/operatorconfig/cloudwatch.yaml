@@ -24,9 +24,9 @@ spec:
  severity: '"Default"'
  timestamp: request.time
  variables:
-  source_service: source.labels["service"] | "unknown"
+  source_service: source.labels["app"] | "unknown"
   source_ip: source.ip | ip("0.0.0.0")
-  destination_service: destination.labels["service"] | "unknown"
+  destination_service: destination.labels["app"] | "unknown"
   destination_ip: destination.ip | ip("0.0.0.0")
   source_user: source.user | ""
   method: request.method | ""

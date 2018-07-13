@@ -34,6 +34,10 @@ spec:
               path: /graph
               port: {{ .Values.service.internalPort }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

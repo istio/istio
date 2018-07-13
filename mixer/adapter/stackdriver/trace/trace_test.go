@@ -359,69 +359,6 @@ func TestBuildSpanData(t *testing.T) {
 	}
 }
 
-func TestExtractParentContext(t *testing.T) {
-	tests := []struct {
-		name          string
-		instance      *tracespan.Instance
-		parentContext trace.SpanContext
-		ok            bool
-	}{
-		{
-			name: "missing TraceID",
-			instance: &tracespan.Instance{
-				Name:         "tracespan.test",
-				SpanName:     "/io.opencensus.Service.Method",
-				ParentSpanId: "0020000000000001",
-				SpanId:       "a2fb4a1d1a96d312",
-			},
-			ok: false,
-		},
-		{
-			name: "ParentSpanID not present (root span)",
-			instance: &tracespan.Instance{
-				Name:     "tracespan.test",
-				SpanName: "/io.opencensus.Service.Method",
-				TraceId:  "463ac35c9f6413ad48485a3953bb6124",
-				SpanId:   "a2fb4a1d1a96d312",
-			},
-			ok: true,
-			parentContext: trace.SpanContext{
-				TraceID:      trace.TraceID{0x46, 0x3a, 0xc3, 0x5c, 0x9f, 0x64, 0x13, 0xad, 0x48, 0x48, 0x5a, 0x39, 0x53, 0xbb, 0x61, 0x24},
-				SpanID:       trace.SpanID{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-				TraceOptions: 0x0,
-			},
-		},
-		{
-			name: "ParentSpanID present",
-			instance: &tracespan.Instance{
-				Name:         "tracespan.test",
-				SpanName:     "/io.opencensus.Service.Method",
-				TraceId:      "463ac35c9f6413ad48485a3953bb6124",
-				SpanId:       "a2fb4a1d1a96d312",
-				ParentSpanId: "0020000000000001",
-			},
-			ok: true,
-			parentContext: trace.SpanContext{
-				TraceID:      trace.TraceID{0x46, 0x3a, 0xc3, 0x5c, 0x9f, 0x64, 0x13, 0xad, 0x48, 0x48, 0x5a, 0x39, 0x53, 0xbb, 0x61, 0x24},
-				SpanID:       trace.SpanID{0x0, 0x20, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1},
-				TraceOptions: 0x0,
-			},
-		},
-	}
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			gotParentContext, gotOK := extractParentContext(tt.instance)
-			if gotOK != tt.ok {
-				t.Errorf("got ok = %v; want %v", gotOK, tt.ok)
-				return
-			}
-			if gotParentContext != tt.parentContext {
-				t.Errorf("got parentContext = %#v; want %#v", gotParentContext, tt.parentContext)
-			}
-		})
-	}
-}
-
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
