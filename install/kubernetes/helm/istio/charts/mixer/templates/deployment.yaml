@@ -85,6 +85,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 19093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -176,6 +182,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 19093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 
