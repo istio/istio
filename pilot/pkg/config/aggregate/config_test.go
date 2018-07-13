@@ -33,7 +33,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
 		Type:        "some-config",
 		Plural:      "some-configs",
-		MessageName: "istio.routing.v1alpha1.IngressRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
 	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{
@@ -53,7 +53,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 		{
 			Type:        "some-config",
 			Plural:      "some-configs",
-			MessageName: "istio.routing.v1alpha1.IngressRule",
+			MessageName: "istio.networking.v1alpha3.DestinationRule",
 		},
 		{
 			Type:        "other-config",
@@ -89,7 +89,7 @@ func TestAggregateStoreGet(t *testing.T) {
 	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
 		Type:        "some-config",
 		Plural:      "some-configs",
-		MessageName: "istio.routing.v1alpha1.IngressRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
 	configReturn := &model.Config{
@@ -126,7 +126,7 @@ func TestAggregateStoreList(t *testing.T) {
 	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
 		Type:        "some-config",
 		Plural:      "some-configs",
-		MessageName: "istio.routing.v1alpha1.IngressRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
 	storeOne.ListReturns([]model.Config{
@@ -204,7 +204,7 @@ func TestAggregateStoreCache(t *testing.T) {
 	storeOne.ConfigDescriptorReturns([]model.ProtoSchema{{
 		Type:        "some-config",
 		Plural:      "some-configs",
-		MessageName: "istio.routing.v1alpha1.IngressRule",
+		MessageName: "istio.networking.v1alpha3.DestinationRule",
 	}})
 
 	storeTwo.ConfigDescriptorReturns([]model.ProtoSchema{{

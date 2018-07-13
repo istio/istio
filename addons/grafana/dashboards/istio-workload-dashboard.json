@@ -58,7 +58,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1530559147894,
+  "iteration": 1531345461465,
   "links": [],
   "panels": [
     {
@@ -2195,7 +2195,7 @@
         "multi": false,
         "name": "workload",
         "options": [],
-        "query": "query_result(sum(istio_requests_total{destination_workload_namespace=~\"$namespace\"}) by (destination_workload) or sum(istio_tcp_sent_bytes_total{destination_workload_namespace=~\"$namespace\"}) by (destination_workload))",
+        "query": "query_result((sum(istio_requests_total{destination_workload_namespace=~\"$namespace\"}) by (destination_workload) or sum(istio_requests_total{source_workload_namespace=~\"$namespace\"}) by (source_workload)) or (sum(istio_tcp_sent_bytes_total{destination_workload_namespace=~\"$namespace\"}) by (destination_workload) or sum(istio_tcp_sent_bytes_total{source_workload_namespace=~\"$namespace\"}) by (source_workload)))",
         "refresh": 1,
         "regex": "/.*workload=\"([^\"]*).*/",
         "sort": 1,
@@ -2299,5 +2299,5 @@
   "timezone": "",
   "title": "Istio Workload Dashboard",
   "uid": "UbsSZTDik",
-  "version": 51
+  "version": 1
 }

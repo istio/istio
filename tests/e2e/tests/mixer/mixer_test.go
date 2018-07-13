@@ -46,7 +46,7 @@ import (
 const (
 	bookinfoSampleDir     = "samples/bookinfo"
 	yamlExtension         = "yaml"
-	deploymentDir         = "kube"
+	deploymentDir         = "platform/kube"
 	bookinfoYaml          = "bookinfo"
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
@@ -87,12 +87,10 @@ type testConfig struct {
 var (
 	tc        *testConfig
 	testFlags = &framework.TestFlags{
-		V1alpha1: false, //implies envoyv1
-		V1alpha3: true,  //implies envoyv2
-		Ingress:  true,
-		Egress:   true,
+		Ingress: true,
+		Egress:  true,
 	}
-	configVersion      = ""
+	configVersion      = "v1alpha3"
 	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
@@ -116,10 +114,6 @@ var (
 
 func init() {
 	testFlags.Init()
-	if len(testFlags.ConfigVersions()) != 1 {
-		panic(fmt.Sprintf("must set exactly one of v1alpha1 or v1alpha3, have %v", testFlags.ConfigVersions()))
-	}
-	configVersion = testFlags.ConfigVersions()[0]
 }
 
 // Setup is called from framework package init().
@@ -130,9 +124,6 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}()
 
-	if testFlags.V1alpha1 {
-		return fmt.Errorf("attempt to tests deprecated v1alpha1")
-	}
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 
 	for _, dr := range drs {
@@ -789,10 +780,7 @@ func TestIngressCheckCache(t *testing.T) {
 }
 
 func getIngressOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 // TestCheckCache tests that check cache works within the mesh.
@@ -1192,17 +1180,11 @@ func get(clnt *http.Client, url string, headers ...*header) (status int, content
 }
 
 func getIngressOrGateway() (string, error) {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGateway()
-	}
-	return tc.Kube.Ingress()
+	return tc.Kube.IngressGateway()
 }
 
 func getIngressOrGatewayOrFail(t *testing.T) string {
-	if testFlags.V1alpha3 {
-		return tc.Kube.IngressGatewayOrFail(t)
-	}
-	return tc.Kube.IngressOrFail(t)
+	return tc.Kube.IngressGatewayOrFail(t)
 }
 
 func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {

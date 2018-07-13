@@ -529,37 +529,4 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	Types.add(ResourceSpec{
-		Kind:      "DestinationPolicy",
-		ListKind:  "DestinationPolicyList",
-		Singular:  "destinationpolicy",
-		Plural:    "destinationpolicies",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("type.googleapis.com/istio.routing.v1alpha1.DestinationPolicy"),
-		Converter: converter.Get("identity"),
-	})
-
-	Types.add(ResourceSpec{
-		Kind:      "EgressRule",
-		ListKind:  "EgressRuleList",
-		Singular:  "egressrule",
-		Plural:    "egressrules",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("type.googleapis.com/istio.routing.v1alpha1.EgressRule"),
-		Converter: converter.Get("identity"),
-	})
-
-	Types.add(ResourceSpec{
-		Kind:      "RouteRule",
-		ListKind:  "RouteRuleList",
-		Singular:  "routerule",
-		Plural:    "routerules",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("type.googleapis.com/istio.routing.v1alpha1.RouteRule"),
-		Converter: converter.Get("identity"),
-	})
-
 }

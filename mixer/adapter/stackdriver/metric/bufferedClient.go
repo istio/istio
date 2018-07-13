@@ -16,7 +16,6 @@ package metric
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -34,7 +33,6 @@ type bufferedClient interface {
 }
 
 // A wrapper around the stackdriver client SDK that handles batching data before sending.
-// TODO: implement size based batching, today we only send batches on a time.Ticker's tick and we don't watch how much data we're storing.
 type buffered struct {
 	project     string
 	pushMetrics pushFunc
@@ -43,8 +41,22 @@ type buffered struct {
 	closeMe io.Closer
 
 	// Guards buffer
-	m      sync.Mutex
-	buffer []*monitoringpb.TimeSeries
+	m                   sync.Mutex
+	buffer              []*monitoringpb.TimeSeries
+	timeSeriesBatchSize int
+}
+
+// batchTimeSeries slices the given time series array with respect to the given batch size limit.
+func batchTimeSeries(series []*monitoringpb.TimeSeries, tsLimit int) [][]*monitoringpb.TimeSeries {
+	var batches [][]*monitoringpb.TimeSeries
+	for i := 0; i < len(series); i += tsLimit {
+		e := i + tsLimit
+		if e > len(series) {
+			e = len(series)
+		}
+		batches = append(batches, series[i:e])
+	}
+	return batches
 }
 
 func (b *buffered) start(env adapter.Env, ticker *time.Ticker) {
@@ -74,19 +86,23 @@ func (b *buffered) Send() {
 	b.m.Unlock()
 
 	merged := merge(toSend, b.l)
-	err := b.pushMetrics(context.Background(),
-		&monitoringpb.CreateTimeSeriesRequest{
-			Name:       fmt.Sprintf("projects/%s", b.project),
-			TimeSeries: merged,
-		})
+	batches := batchTimeSeries(merged, b.timeSeriesBatchSize)
 
-	// TODO: this is executed in a daemon, so we can't get out info about errors other than logging.
-	// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
-	// can handle some of this complexity?
-	if err != nil {
-		_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, merged)
-	} else {
-		b.l.Debugf("Successfully sent data to Stackdriver.")
+	for _, timeSeries := range batches {
+		err := b.pushMetrics(context.Background(),
+			&monitoringpb.CreateTimeSeriesRequest{
+				Name:       "projects/" + b.project,
+				TimeSeries: timeSeries,
+			})
+
+		// TODO: this is executed in a daemon, so we can't get out info about errors other than logging.
+		// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
+		// can handle some of this complexity?
+		if err != nil {
+			_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, timeSeries)
+		} else {
+			b.l.Debugf("Successfully sent data to Stackdriver.")
+		}
 	}
 }
 
