@@ -55,10 +55,14 @@ Creates an archive of mesh information required for debugging.
 
 			zipper := gzip.NewWriter(f)
 			tarWriter := tar.NewWriter(zipper)
+			noOutput := false
 			defer func() {
 				tarWriter.Close()
 				zipper.Close()
 				f.Close()
+				if noOutput {
+					os.Remove(outMeshDumpFilename)
+				}
 			}()
 
 			var errs error
@@ -86,7 +90,13 @@ Creates an archive of mesh information required for debugging.
 				}
 			}
 
-			c.Printf("Wrote %d pilot Aggregate (adsz) configurations and %d Sync (syncz) configurations to %s\n", len(pilotADSz), len(pilotSyncz), outMeshDumpFilename)
+			if len(pilotADSz) == 0 && len(pilotSyncz) == 0 {
+				noOutput = true // deferred closer will delete empty .tgz file
+			}
+
+			if !noOutput {
+				c.Printf("Wrote %d pilot Aggregate (adsz) configurations and %d Sync (syncz) configurations to %s\n", len(pilotADSz), len(pilotSyncz), outMeshDumpFilename)
+			}
 
 			return errs
 		},
@@ -113,9 +123,4 @@ func writeToTar(out *tar.Writer, name string, body []byte) error {
 		return err
 	}
 	return nil
-}
-
-func dumpAll() bool {
-	// If nothing has been explicitly requested, dump everything
-	return !dumpPilot && !dumpEnvoy
 }
