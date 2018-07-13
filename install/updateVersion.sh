@@ -210,7 +210,7 @@ function merge_files_docker() {
 }
 
 function gen_platforms_files() {
-    for platform in consul eureka
+    for platform in consul
     do
         cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
         cp -a $ROOT/samples/bookinfo/platform/$platform/templates/. $TEMP_DIR/templates/
@@ -248,5 +248,5 @@ update_istio_addons
 # Generate the istio*.yaml files
 gen_istio_files
 
-# Generate platform files (consul and eureka)
+# Generate platform files (consul)
 gen_platforms_files

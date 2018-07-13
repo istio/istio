@@ -46,16 +46,6 @@ type testCase struct {
 	wantException bool
 }
 
-type testCaseGoldenFile struct {
-	configs []model.Config
-	args    []string
-
-	filename       string         // Expected constant output
-	expectedRegexp *regexp.Regexp // Expected regexp output
-
-	wantException bool
-}
-
 var (
 	testGateways = []model.Config{
 		{
@@ -189,14 +179,14 @@ func TestGet(t *testing.T) {
 			configs: testGateways,
 			args:    strings.Split("get gateways -n default", " "),
 			expectedOutput: `GATEWAY NAME       HOSTS     NAMESPACE   AGE
-bookinfo-gateway   *         default     <unknown>
+bookinfo-gateway   *         default     0s
 `,
 		},
 		{
 			configs: testVirtualServices,
 			args:    strings.Split("get virtualservices -n default", " "),
 			expectedOutput: `VIRTUAL-SERVICE NAME   GATEWAYS           HOSTS     #HTTP     #TCP      NAMESPACE   AGE
-bookinfo               bookinfo-gateway   *             1        0      default     <unknown>
+bookinfo               bookinfo-gateway   *             1        0      default     0s
 `,
 		},
 		{
@@ -214,14 +204,14 @@ bookinfo               bookinfo-gateway   *             1        0      default 
 			configs: testDestinationRules,
 			args:    strings.Split("get destinationrules", " "),
 			expectedOutput: `DESTINATION-RULE NAME   HOST               SUBSETS   NAMESPACE   AGE
-googleapis              *.googleapis.com             default     <unknown>
+googleapis              *.googleapis.com             default     0s
 `,
 		},
 		{
 			configs: testServiceEntries,
 			args:    strings.Split("get serviceentries", " "),
 			expectedOutput: `SERVICE-ENTRY NAME   HOSTS              PORTS      NAMESPACE   AGE
-googleapis           *.googleapis.com   HTTP/443   default     <unknown>
+googleapis           *.googleapis.com   HTTP/443   default     0s
 `,
 		},
 	}

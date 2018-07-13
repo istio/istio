@@ -353,6 +353,7 @@ func TestValidateWildcardDomain(t *testing.T) {
 		{"wildcard prefix dash", "*-foo.bar.com", ""},
 		{"bad wildcard", "foo.*.com", "invalid"},
 		{"bad wildcard", "foo*.bar.com", "invalid"},
+		{"IP address", "1.1.1.1", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1043,32 +1044,12 @@ func TestValidateGateway(t *testing.T) {
 				}},
 			},
 			""},
-		{"happy ip",
-			&networking.Gateway{
-				Servers: []*networking.Server{{
-					Hosts: []string{"192.168.0.1"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-				}},
-			},
-			""},
-		{"happy cidr",
-			&networking.Gateway{
-				Servers: []*networking.Server{{
-					Hosts: []string{"192.168.0.0/16"},
-					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-				}},
-			},
-			""},
 		{"happy multiple servers",
 			&networking.Gateway{
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
 						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1077,11 +1058,7 @@ func TestValidateGateway(t *testing.T) {
 				Servers: []*networking.Server{
 					{
 						Hosts: []string{"foo.bar.com"},
-						Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &networking.Port{Name: "name2", Number: 66000, Protocol: "redis"},
+						Port:  &networking.Port{Name: "name1", Number: 66000, Protocol: "http"},
 					}},
 			},
 			"port"},
@@ -1104,10 +1081,6 @@ func TestValidateGateway(t *testing.T) {
 					{
 						Hosts: []string{"foo.*.bar.com"},
 						Port:  &networking.Port{Number: 7, Protocol: "http"},
-					},
-					{
-						Hosts: []string{"192.168.0.0/33"},
-						Port:  &networking.Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"domain"},
@@ -1291,34 +1264,6 @@ func TestValidateTlsOptions(t *testing.T) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
 			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
-		})
-	}
-}
-
-func TestValidateHost(t *testing.T) {
-	testCases := []struct {
-		host  string
-		valid bool
-	}{
-		{host: "", valid: false},
-		{host: "*", valid: true},
-		{host: "hello.world", valid: true},
-		{host: "*.world", valid: true},
-		{host: "h*.world", valid: false},
-		{host: "h*-abcdef.world", valid: true}, // special-case wildcard for Envoy
-		{host: "hello.*", valid: false},        // wildcard can only exist in first label
-		{host: "hello.world!", valid: false},
-		{host: "   ", valid: false},
-		{host: "127.0.0.1", valid: true},
-		{host: "192.168.100.14/32", valid: true},
-		{host: "192.168.100.14/24", valid: true},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.host, func(t *testing.T) {
-			if err := validateHost(tt.host); (err == nil && !tt.valid) || (err != nil && tt.valid) {
-				t.Fatalf("validateHost(%q) err=\"%v\", wanted valid=%v", tt.host, err, tt.valid)
 			}
 		})
 	}
@@ -1607,10 +1552,19 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Weight:      75,
 			}},
 		}, valid: true},
-		{name: "bad total weight", route: &networking.HTTPRoute{
+		{name: "total weight > 100", route: &networking.HTTPRoute{
 			Route: []*networking.DestinationWeight{{
 				Destination: &networking.Destination{Host: "foo.baz.south"},
 				Weight:      55,
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz.east"},
+				Weight:      50,
+			}},
+		}, valid: false},
+		{name: "total weight < 100", route: &networking.HTTPRoute{
+			Route: []*networking.DestinationWeight{{
+				Destination: &networking.Destination{Host: "foo.baz.south"},
+				Weight:      49,
 			}, {
 				Destination: &networking.Destination{Host: "foo.baz.east"},
 				Weight:      50,
@@ -2291,9 +2245,31 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: false},
 
-		{name: "discovery type static", in: networking.ServiceEntry{
+		{name: "discovery type none, cidr addresses", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_NONE,
+		},
+			valid: true},
+
+		{name: "discovery type not none, cidr addresses", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16/16"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "http", Name: "http-valid1"},
+				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+			valid: false},
+
+		{name: "discovery type static", in: networking.ServiceEntry{
+			Hosts:     []string{"google.com"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2308,7 +2284,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2323,7 +2299,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
@@ -2334,7 +2310,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
-			Addresses: []string{"172.1.2.16/16"},
+			Addresses: []string{"172.1.2.16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},

@@ -34,7 +34,7 @@ import (
 
 // annotations for a Cluster
 const (
-	// The cluster's platform: Kubernetes, Consul, Eureka, CloudFoundry
+	// The cluster's platform: Kubernetes, Consul, CloudFoundry
 	ClusterPlatform = "config.istio.io/platform"
 
 	// The cluster's access configuration stored in k8s Secret object
@@ -180,8 +180,6 @@ func validateCluster(cluster *k8s_cr.Cluster) (err error) {
 		// Currently only supporting kubernetes registry,
 		case serviceregistry.KubernetesRegistry:
 		case serviceregistry.ConsulRegistry:
-			fallthrough
-		case serviceregistry.EurekaRegistry:
 			fallthrough
 		case serviceregistry.CloudFoundryRegistry:
 			fallthrough

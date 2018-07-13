@@ -246,7 +246,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
-		log.Infof("GetService(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 	item, exists := c.serviceByKey(name, namespace)
@@ -541,52 +541,66 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
+	proxyIP := proxy.IPAddress
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
+
+		svcItem, exists := c.serviceByKey(ep.Name, ep.Namespace)
+		if !exists {
+			continue
+		}
+		svc := convertService(*svcItem, c.domainSuffix)
+		if svc == nil {
+			continue
+		}
+
 		for _, ss := range ep.Subsets {
-			for _, ea := range ss.Addresses {
-				if proxy.IPAddress == ea.IP {
-					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
-					if !exists {
-						continue
-					}
-					svc := convertService(*item, c.domainSuffix)
-					if svc == nil {
-						continue
-					}
-					for _, port := range ss.Ports {
-						svcPort, exists := svc.Ports.Get(port.Name)
-						if !exists {
-							continue
-						}
-						labels, _ := c.pods.labelsByIP(ea.IP)
-						pod, exists := c.pods.getPodByIP(ea.IP)
-						az, sa := "", ""
-						if exists {
-							az, _ = c.GetPodAZ(pod)
-							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-						}
-						out = append(out, &model.ServiceInstance{
-							Endpoint: model.NetworkEndpoint{
-								Address:     ea.IP,
-								Port:        int(port.Port),
-								ServicePort: svcPort,
-							},
-							Service:          svc,
-							Labels:           labels,
-							AvailabilityZone: az,
-							ServiceAccount:   sa,
-						})
-					}
+			for _, port := range ss.Ports {
+				svcPort, exists := svc.Ports.Get(port.Name)
+				if !exists {
+					continue
 				}
+
+				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
+				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
 			}
 		}
 	}
 	if len(out) == 0 {
-		log.Errorf("ip not found, listeners will be broken %v %v", proxy.IPAddress, proxy.ID)
+		log.Errorf("ip not found, listeners will be broken %v %v", proxyIP, proxy.ID, out)
 		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
 	}
 	return out, nil
+}
+
+func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
+	port v1.EndpointPort, svcPort *model.Port, svc *model.Service) []*model.ServiceInstance {
+
+	var out []*model.ServiceInstance
+	for _, ea := range addr {
+		if proxyIP != ea.IP {
+			continue
+		}
+		labels, _ := c.pods.labelsByIP(ea.IP)
+		pod, exists := c.pods.getPodByIP(ea.IP)
+		az, sa := "", ""
+		if exists {
+			az, _ = c.GetPodAZ(pod)
+			sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+		}
+		out = append(out, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     ea.IP,
+				Port:        int(port.Port),
+				ServicePort: svcPort,
+			},
+			Service:          svc,
+			Labels:           labels,
+			AvailabilityZone: az,
+			ServiceAccount:   sa,
+		})
+	}
+	return out
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
@@ -595,6 +609,18 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 // "spiffe://cluster.local/ns/foo/sa/bar".
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	saSet := make(map[string]bool)
+
+	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
+	// from the service annotation explicitly set by the operators.
+	svc, err := c.GetService(hostname)
+	if err != nil {
+		// Do not log error here, as the service could exist in another registry
+		return nil
+	}
+	if svc == nil {
+		// Do not log error here as the service could exist in another registry
+		return nil
+	}
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
@@ -609,17 +635,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 		}
 	}
 
-	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
-	// from the service annotation explicitly set by the operators.
-	svc, err := c.GetService(hostname)
-	if err != nil {
-		log.Warnf("GetService(%s) error: %v", hostname, err)
-		return nil
-	}
-	if svc == nil {
-		log.Infof("GetService(%s) error: service does not exist", hostname)
-		return nil
-	}
 	for _, serviceAccount := range svc.ServiceAccounts {
 		sa := serviceAccount
 		saSet[sa] = true
