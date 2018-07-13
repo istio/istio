@@ -258,7 +258,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 // If Port == 0, a port number is automatically chosen. This method returns the address on which the server is
 // listening for incoming connections. Content serving is started by this method, but is executed asynchronously.
 // Serving can be cancelled at any time by closing the provided stop channel.
-func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
+func (s *Server) Start(stop <-chan struct{}) (net.Addr, error) {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
@@ -270,11 +270,11 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
-type startFunc func(stop chan struct{}) error
+type startFunc func(stop <-chan struct{}) error
 
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(args *PilotArgs) error {
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		monitor, addr, err := startMonitor(args.DiscoveryOptions.MonitoringAddr, s.mux)
 		if err != nil {
 			return err
@@ -500,7 +500,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	}
 
 	// Defer starting the controller until after the service is created.
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.configController.Run(stop)
 		return nil
 	})
@@ -523,7 +523,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
 			log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 		} else {
-			s.addStartFunc(func(stop chan struct{}) error {
+			s.addStartFunc(func(stop <-chan struct{}) error {
 				go ingressSyncer.Run(stop)
 				return nil
 			})
@@ -555,7 +555,7 @@ func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigS
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		fileMonitor.Start(stop)
 		return nil
 	})
@@ -580,7 +580,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
 	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
 
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		copilotMonitor.Start(stop)
 		return nil
 	})
@@ -725,7 +725,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	s.ServiceController = serviceControllers
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.ServiceController.Run(stop)
 		return nil
 	})
@@ -829,7 +829,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
