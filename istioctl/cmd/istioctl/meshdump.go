@@ -29,8 +29,6 @@ import (
 
 var (
 	outMeshDumpFilename string
-	dumpPilot           bool
-	dumpEnvoy           bool
 
 	meshDumpCmd = &cobra.Command{
 		Use:   "mesh-dump",
