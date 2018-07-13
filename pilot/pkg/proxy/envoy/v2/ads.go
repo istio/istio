@@ -385,6 +385,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
+				// CDS REQ is the first request an envoy makes. This shows up
+				// immediately after connect. It is followed by EDS REQ as
+				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
 				err := s.pushCds(con)
@@ -404,7 +407,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
-				adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
+				// too verbose - sent immediately after EDS response is received
+				//adsLog.Infof("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
 				err := s.pushLds(con, s.env.PushStatus, true)
 				if err != nil {
@@ -431,7 +435,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 				con.Routes = routes
-				adsLog.Infof("ADS:RDS: REQ %s %s (%s) routes: %d", peerAddr, con.ConID, con.modelNode, len(con.Routes))
+				adsLog.Infof("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.env.PushStatus)
 				if err != nil {
 					return err
