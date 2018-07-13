@@ -79,7 +79,7 @@ func tlsCheckPrintln(w io.Writer, entry v2.AuthenticationDebug) {
 	if entry.Host == "" {
 		return
 	}
-	host := fmt.Sprintf("%s:%5d", entry.Host, entry.Port)
+	host := fmt.Sprintf("%s:%d", entry.Host, entry.Port)
 	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", host, entry.TLSConflictStatus,
 		entry.ServerProtocol, entry.ClientProtocol,
 		entry.AuthenticationPolicyName, entry.DestinationRuleName)
