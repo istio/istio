@@ -221,6 +221,10 @@ var (
 				{
 					Attributes: map[string]*istio_policy_v1beta1.AttributeManifest_AttributeInfo{
 
+						"adapter_template_kubernetes.output.source_pod_uid": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
 						"adapter_template_kubernetes.output.source_pod_ip": {
 							ValueType: istio_policy_v1beta1.IP_ADDRESS,
 						},
@@ -258,6 +262,10 @@ var (
 						},
 
 						"adapter_template_kubernetes.output.source_owner": {
+							ValueType: istio_policy_v1beta1.STRING,
+						},
+
+						"adapter_template_kubernetes.output.destination_pod_uid": {
 							ValueType: istio_policy_v1beta1.STRING,
 						},
 
@@ -333,6 +341,10 @@ var (
 							}
 							switch field {
 
+							case "source_pod_uid":
+
+								return out.SourcePodUid, true
+
 							case "source_pod_ip":
 
 								return []uint8(out.SourcePodIp), true
@@ -372,6 +384,10 @@ var (
 							case "source_owner":
 
 								return out.SourceOwner, true
+
+							case "destination_pod_uid":
+
+								return out.DestinationPodUid, true
 
 							case "destination_pod_ip":
 
