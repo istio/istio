@@ -804,6 +804,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 			if !fullWildcardFound {
 				match.ServerNames = chain.sniHosts
+				sort.Strings(match.ServerNames)
 			}
 		}
 
