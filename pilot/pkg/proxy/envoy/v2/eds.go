@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,18 +151,19 @@ func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsClust
 	var labels model.LabelsCollection
 	var instances []*model.ServiceInstance
 	var err error
-
-	var p int
-	var subsetName string
-	_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-	labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
-	instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
-	if len(instances) == 0 {
-		s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+	if strings.Index(clusterName, "outbound") == 0 ||
+		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
+		var p int
+		var subsetName string
+		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
+		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
+		if len(instances) == 0 {
+			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
-	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
-
 	if err != nil {
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
