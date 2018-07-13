@@ -88,7 +88,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 19093
+            port: 15093
           initialDelaySeconds: 5
           periodSeconds: 5
 {{- end }}
@@ -185,7 +185,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 19093
+            port: 15093
           initialDelaySeconds: 5
           periodSeconds: 5
 {{- end }}
