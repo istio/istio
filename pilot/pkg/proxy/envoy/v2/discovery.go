@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"os"
 	"sync"
 	"time"
 
@@ -29,10 +28,6 @@ import (
 )
 
 var (
-	// Failsafe to implement periodic refresh, in case events or cache invalidation fail.
-	// Disabled by default.
-	periodicRefreshDuration = 60 * time.Second
-
 	versionMutex sync.Mutex
 	// version is update by registry events.
 	version = time.Now()
@@ -78,25 +73,10 @@ type DiscoveryServer struct {
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
-	out := &DiscoveryServer{
+	return &DiscoveryServer{
 		env:             env,
 		ConfigGenerator: generator,
 	}
-
-	envOverride := os.Getenv("V2_REFRESH")
-	if len(envOverride) > 0 {
-		var err error
-		periodicRefreshDuration, err = time.ParseDuration(envOverride)
-		if err != nil {
-			adsLog.Warn("Invalid value for V2_REFRESH")
-			periodicRefreshDuration = 0 // this is also he default, but setting it explicitly
-		}
-	}
-	if periodicRefreshDuration > 0 {
-		go periodicRefresh()
-	}
-
-	return out
 }
 
 // Register adds the ADS and EDS handles to the grpc server
@@ -105,17 +85,6 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// 0.7 proxies will use this service.
 	xdsapi.RegisterEndpointDiscoveryServiceServer(rpcs, s)
 	ads.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
-}
-
-// Singleton, refresh the cache - may not be needed if events work properly, just a failsafe
-// ( will be removed after change detection is implemented, to double check all changes are
-// captured)
-func periodicRefresh() {
-	ticker := time.NewTicker(periodicRefreshDuration)
-	defer ticker.Stop()
-	for range ticker.C {
-		PushAll()
-	}
 }
 
 // PushAll implements old style invalidation, generated when any rule or endpoint changes.
