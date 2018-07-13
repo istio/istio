@@ -752,6 +752,31 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 	})
 }
 
+// Flush cached discovery responses whenever services, service instances, or routing configuration changes.
+// TODO: smarter cache invalidation. this is very simplistic.
+// essentially we invalidate our cache whenever ANYTHING changes.
+func (s *Server) registerClearCacheHandlers() error {
+	serviceHandler := func(*model.Service, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+		return err
+	}
+	instanceHandler := func(*model.ServiceInstance, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+		return err
+	}
+
+	if s.configController != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
+		configHandler := func(model.Config, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+		for _, descriptor := range model.IstioConfigTypes {
+			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+		}
+	}
+
+	return nil
+}
+
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
@@ -768,6 +793,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	container.Add(ws)
 
 	s.mux = container.ServeMux
+
+	if err := s.registerClearCacheHandlers(); err != nil {
+		return err
+	}
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
