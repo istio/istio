@@ -525,7 +525,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					}
 					if !conflictFound {
 						newFilterChains = append(newFilterChains, incomingFilterChain)
-						listenerMap[listenerMapKey].services = append(listenerMap[listenerMapKey].services, service)
+						lEntry := listenerMap[listenerMapKey]
+						lEntry.services = append(lEntry.services, service)
 					}
 				}
 				currentListener.FilterChains = newFilterChains
