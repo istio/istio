@@ -143,7 +143,7 @@ data:
           requests:
             cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
             memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
-           {{ "[[ else -]]" }}
+        {{ "[[ else -]]" }}
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
 {{- end }}
