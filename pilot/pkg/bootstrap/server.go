@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -283,9 +284,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			return err
 		}
 	}
-	if s.clusterStore != nil {
-		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-	}
+	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 
 	return err
 }
@@ -322,7 +321,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+		if errors.IsNotFound(err) {
 			defaultMesh := model.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
@@ -351,17 +350,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		return nil
 	}
 	var mesh *meshconfig.MeshConfig
+	var err error
+
 	if args.Mesh.ConfigFile != "" {
-		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
-		} else {
-			mesh = fileMesh
 		}
 	}
 
 	if mesh == nil {
-		var err error
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
 			log.Warnf("failed to read mesh configuration: %v", err)
@@ -397,11 +395,8 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
-	if kubeCfgFile == "" {
-		kubeCfgFile = args.Config.KubeConfig
-	}
-	return
+func (s *Server) getKubeCfgFile(args *PilotArgs) string {
+	return args.Config.KubeConfig
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
