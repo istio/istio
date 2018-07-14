@@ -161,6 +161,7 @@ type Server struct {
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
+	kubeRegistry     *kube.Controller
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
@@ -563,6 +564,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             serviceregistry.KubernetesRegistry,
@@ -758,10 +760,16 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)
+
+	if s.kubeRegistry != nil {
+		// kubeRegistry may use the environment for push status reporting.
+		// TODO: maybe all registries should have his as an optional field ?
+		s.kubeRegistry.Env = &environment
+	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 

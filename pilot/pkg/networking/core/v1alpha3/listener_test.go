@@ -28,7 +28,7 @@ import (
 var (
 	tnow  = time.Now()
 	tzero = time.Time{}
-	proxy = model.Proxy{
+	proxy = &model.Proxy{
 		Type:      model.Sidecar,
 		IPAddress: "1.1.1.1",
 		ID:        "v0.default",
@@ -114,11 +114,11 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
-func (p *fakePlugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
@@ -152,7 +152,7 @@ func buildService(protocol model.Protocol, creationTime time.Time) *model.Servic
 	}
 }
 
-func buildListenerEnv() model.Environment {
+func buildListenerEnv() *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	configStore := &fakes.IstioConfigStore{}
@@ -166,5 +166,5 @@ func buildListenerEnv() model.Environment {
 		MixerSAN:         []string{},
 	}
 
-	return env
+	return &env
 }
