@@ -45,6 +45,12 @@ spec:
               secretKeyRef:
                 name: grafana
                 key: password
+          - name: GF_AUTH_BASIC_ENABLED
+            value: "true"
+          - name: GF_AUTH_ANONYMOUS_ENABLED
+            value: "false"
+          - name: GF_AUTH_DISABLE_LOGIN_FORM
+            value: "false"
 {{- else }}            
           - name: GF_AUTH_BASIC_ENABLED
             value: "false"
