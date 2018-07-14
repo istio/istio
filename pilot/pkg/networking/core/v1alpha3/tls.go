@@ -106,9 +106,9 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 						destinationCIDRs = match.DestinationSubnet
 					}
 					out = append(out, &filterChainOpts{
-						sniHosts: match.SniHosts,
+						sniHosts:         match.SniHosts,
 						destinationCIDRs: destinationCIDRs,
-						networkFilters: buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+						networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
 					})
 				}
 			}
@@ -177,7 +177,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{deprecatedTCPFilterMatchAddress},
-			networkFilters: buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
 		})
 	}
 

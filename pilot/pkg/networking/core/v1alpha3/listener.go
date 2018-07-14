@@ -334,7 +334,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 }
 
 type listenerEntry struct {
-	service     []*model.Service
+	// TODO: Clean this up
+	services    []*model.Service
 	servicePort *model.Port
 	listener    *xdsapi.Listener
 }
@@ -402,14 +403,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					if !current.servicePort.Protocol.IsHTTP() {
 						env.PushStatus.Add(model.ProxyStatusConflictHTTPOut,
 							listenerMapKey, node,
-							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
-								current.servicePort.Port,
-								current.service.Hostname,
-								service.Hostname,
-								listenerMapKey))
+							fmt.Sprintf("Listener=%s HTTPServices=%d RejectedTCP=%s",
+								listenerMapKey,
+								len(current.services),
+								service.Hostname))
 					}
 					// Skip building listener for the same http port
-					current.service = append(current.service, service)
+					current.services = append(current.services, service)
 					continue
 				}
 
@@ -452,11 +452,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					if !current.servicePort.Protocol.IsTCP() {
 						env.PushStatus.Add(model.ProxyStatusConflictTCPOut,
 							listenerMapKey, node,
-							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
-								current.servicePort.Port,
-								current.service.Hostname,
-								service.Hostname,
-								listenerMapKey))
+							fmt.Sprintf("Listener=%s TCPServices=%d Rejected=%s",
+								listenerMapKey,
+								len(current.services),
+								service.Hostname))
 						continue
 					}
 					// WE have a collision with another TCP port.
@@ -526,12 +525,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					}
 					if !conflictFound {
 						newFilterChains = append(newFilterChains, incomingFilterChain)
+						listenerMap[listenerMapKey].services = append(listenerMap[listenerMapKey].services, service)
 					}
 				}
 				currentListener.FilterChains = newFilterChains
 			} else {
 				listenerMap[listenerMapKey] = listenerEntry{
-					service:     []*model.Service{service},
+					services:    []*model.Service{service},
 					servicePort: servicePort,
 					listener:    mutable.Listener,
 				}
@@ -802,16 +802,16 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 		if len(chain.destinationCIDRs) > 0 {
 			sort.Strings(chain.destinationCIDRs)
-			 cidrArray := make([]*core.CidrRange, 0)
-			 for _, d := range chain.destinationCIDRs {
-			 	cidr := util.ConvertAddressToCidr(d)
-			 	if cidr != nil {
-			 		cidrArray = append(cidrArray, cidr)
+			cidrArray := make([]*core.CidrRange, 0)
+			for _, d := range chain.destinationCIDRs {
+				cidr := util.ConvertAddressToCidr(d)
+				if cidr != nil {
+					cidrArray = append(cidrArray, cidr)
 				}
-			 }
-			 if len(cidrArray) > 0 {
-			 	match.PrefixRanges = cidrArray
-			 }
+			}
+			if len(cidrArray) > 0 {
+				match.PrefixRanges = cidrArray
+			}
 		}
 
 		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
