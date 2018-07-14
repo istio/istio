@@ -386,7 +386,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				proxyInstances: proxyInstances,
 				ip:             WildcardAddress,
 				port:           12223,
-				bindToPort:		true,
+				bindToPort:     true,
 				protocol:       servicePort.Protocol,
 			}
 
@@ -422,7 +422,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
 						//rds:              fmt.Sprintf("%d", servicePort.Port),
-						routeConfig: routeConfig,
+						routeConfig:      routeConfig,
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
 					},

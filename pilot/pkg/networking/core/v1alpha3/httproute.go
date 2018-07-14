@@ -23,11 +23,11 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/api/networking/v1alpha3"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -104,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env mod
 	serviceRoute := &route.Route{
 		Match: route.RouteMatch{
 			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
-				Name: "service",
+				Name:  "service",
 				Value: instance.Service.Hostname.String(),
 			}},
 		},
@@ -132,18 +132,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env mod
 
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerProtocol:    plugin.ListenerProtocolHTTP,
-			Env:             &env,
-			Node:            &node,
-			ServiceInstance: instance,
-			Service:         instance.Service,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
+			ServiceInstance:  instance,
+			Service:          instance.Service,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
 
 	return r
 }
-
 
 // BuildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
@@ -284,9 +283,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env mo
 	// call plugins
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
-			ListenerProtocol: 	plugin.ListenerProtocolHTTP,
-			Env:          		&env,
-			Node:         		&node,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              &env,
+			Node:             &node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
@@ -331,7 +330,7 @@ func buildDefaultVirtualService(serviceIndex map[model.Hostname]*model.Service, 
 		}
 		spec := &v1alpha3.VirtualService{
 			Hosts: []string{"*"},
-			Http: []*v1alpha3.HTTPRoute{route},
+			Http:  []*v1alpha3.HTTPRoute{route},
 		}
 		virtualService := model.Config{
 			Spec: spec,

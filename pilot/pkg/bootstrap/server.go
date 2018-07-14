@@ -57,10 +57,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
-	"istio.io/istio/pilot/pkg/serviceregistry/zookeeper"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/zookeeper"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -152,7 +152,7 @@ type EurekaArgs struct {
 
 type ZookeeperArgs struct {
 	ServerURL string
-	Root string
+	Root      string
 }
 
 // ServiceArgs provides the composite configuration for all service registries in the system.

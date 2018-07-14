@@ -129,7 +129,6 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Zookeeper.Root, "zookeeperRoot", "",
 		"Root path of the zookeeper registry")
 
-
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.HTTPAddr, "httpAddr", ":8080",
 		"Discovery service HTTP address")
