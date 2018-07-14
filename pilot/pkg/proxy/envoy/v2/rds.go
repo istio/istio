@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
-	rawRoutes, err := s.generateRawRoutes(con)
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushStatus) error {
+	rawRoutes, err := s.generateRawRoutes(con, push)
 	if err != nil {
 		return err
 	}
@@ -44,11 +44,11 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "rds"}).Add(1)
 
-	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode, con.PeerAddr, len(rawRoutes))
+	adsLog.Infof("ADS: RDS: PUSH for node: %s addr:%s routes:%d", con.modelNode.ID, con.PeerAddr, len(rawRoutes))
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection) ([]*xdsapi.RouteConfiguration, error) {
+func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.RouteConfiguration, error) {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
 	// TODO: Follow this logic for other xDS resources as well
 	// And cache/retrieve this info on-demand, not for every request from every proxy
@@ -66,7 +66,7 @@ func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection) ([]*xdsapi.Route
 
 	// TODO: once per config update
 	for _, routeName := range con.Routes {
-		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, *con.modelNode, routeName)
+		r, err := s.ConfigGenerator.BuildHTTPRoutes(s.env, con.modelNode, push, routeName)
 		if err != nil {
 			retErr := fmt.Errorf("RDS: Failed to generate route %s for node %v: %v", routeName, con.modelNode, err)
 			adsLog.Warnf("RDS: Failed to generate routes for route %s for node %s: %v", routeName, con.modelNode, err)
