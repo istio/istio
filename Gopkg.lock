@@ -846,6 +846,12 @@
   version = "v0.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/samuel/go-zookeeper"
+  packages = ["zk"]
+  revision = "c4fab1ac1bec58281ad0667dc3f0907a9476ac47"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
@@ -1606,6 +1612,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "346348e33c5dd182dfc8f81ac793dc616c8e640625bc671402d085785f030264"
+  inputs-digest = "3448e465166c1145341754fab35d63d68a9b8743c6e70c5c48e1717da4a1a385"
   solver-name = "gps-cdcl"
   solver-version = 1

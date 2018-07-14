@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -365,7 +365,8 @@ func BuildRDSRoute(mesh *meshconfig.MeshConfig, node model.Proxy, routeName stri
 }
 
 // options required to build an HTTPListener
-type buildHTTPListenerOpts struct { // nolint: maligned
+type buildHTTPListenerOpts struct {
+	// nolint: maligned
 	mesh             *meshconfig.MeshConfig
 	proxy            model.Proxy
 	proxyInstances   []*model.ServiceInstance
@@ -560,7 +561,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			operation = IngressTraceOperation
 		}
 
-		listeners = append(listeners, buildHTTPListener(buildHTTPListenerOpts{
+		listenerOpts := buildHTTPListenerOpts{
 			mesh:             mesh,
 			proxy:            node,
 			proxyInstances:   proxyInstances,
@@ -573,11 +574,76 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy, proxy
 			outboundListener: true,
 			store:            config,
 			authnPolicy:      nil, /* authn policy is not needed for outbound listener */
-		}))
+		}
 		clusters = append(clusters, routeConfig.Clusters()...)
+		if routeConfig.Protocol == model.ProtocolBOLT {
+			listeners = append(listeners, buildBOLTListener(listenerOpts))
+			continue
+		}
+		listeners = append(listeners, buildHTTPListener(listenerOpts))
+
 	}
 
 	return listeners, clusters
+}
+
+func buildBOLTListener(opts buildHTTPListenerOpts) *Listener {
+	filters := buildFaultFilters(opts.routeConfig)
+
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+		filter := HTTPFilter{
+			Type:   decoder,
+			Name:   MixerFilter,
+			Config: mixerConfig,
+		}
+		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
+	}
+
+	config := &HTTPFilterConfig{
+		CodecType:        auto,
+		UseRemoteAddress: opts.useRemoteAddress,
+		StatPrefix:       "bolt",
+		Filters:          filters,
+	}
+
+	if opts.mesh.AccessLogFile != "" {
+		config.AccessLog = []AccessLog{{
+			Path: opts.mesh.AccessLogFile,
+		}}
+	}
+
+	if opts.mesh.EnableTracing {
+		config.GenerateRequestID = true
+		config.Tracing = &HTTPFilterTraceConfig{
+			OperationName: opts.direction,
+		}
+	}
+
+	if opts.rds != "" {
+		config.RDS = &RDS{
+			Cluster:         RDSName,
+			RouteConfigName: opts.rds,
+			RefreshDelayMs:  protoDurationToMS(opts.mesh.RdsRefreshDelay),
+		}
+	} else {
+		config.RouteConfig = opts.routeConfig
+	}
+
+	return &Listener{
+		BindToPort: true,
+		Name:       fmt.Sprintf("bolt_%s_%d", opts.ip, opts.port),
+		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
+		Filters: []*NetworkFilter{{
+			Type:   read,
+			Name:   "outbound_bolt",
+			Config: config,
+		}},
+	}
 }
 
 // BuildClusterFunc is a function that builds a Cluster.
@@ -592,7 +658,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 ) []*HTTPRoute {
 	protocol := servicePort.Protocol
 	switch protocol {
-	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolBOLT:
 		routes := make([]*HTTPRoute, 0)
 
 		// collect route rules
@@ -674,6 +740,7 @@ func buildOutboundHTTPRoutes(node model.Proxy,
 				// for example, a service "a" with two ports 80 and 8080, would have virtual
 				// hosts on 80 and 8080 listeners that contain domain "a".
 				http.VirtualHosts = append(http.VirtualHosts, host)
+				http.Protocol = servicePort.Protocol
 			}
 		}
 	}
@@ -793,8 +860,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
 		switch protocol {
-		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
-			defaultRoute := BuildDefaultRoute(cluster, defaultOperation)
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolBOLT:
+			defaultRoute := BuildDefaultRoute(cluster)
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerCheckServer != "" || mesh.MixerReportServer != "" {
@@ -834,20 +901,39 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, node model.Proxy,
 			host.Routes = append(host.Routes, defaultRoute)
 
 			routeConfig := &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: []*VirtualHost{host}}
-			listener = buildHTTPListener(buildHTTPListenerOpts{
-				mesh:             mesh,
-				proxy:            node,
-				proxyInstances:   proxyInstances,
-				routeConfig:      routeConfig,
-				ip:               endpoint.Address,
-				port:             endpoint.Port,
-				rds:              "",
-				useRemoteAddress: false,
-				direction:        IngressTraceOperation,
-				outboundListener: false,
-				store:            config,
-				authnPolicy:      authenticationPolicy,
-			})
+
+			// extend http listener to support bolt
+			if protocol == model.ProtocolBOLT {
+				listener = buildBoltInboundListener(buildHTTPListenerOpts{
+					mesh:             mesh,
+					proxy:            node,
+					proxyInstances:   proxyInstances,
+					routeConfig:      routeConfig,
+					ip:               endpoint.Address,
+					port:             endpoint.Port,
+					rds:              "",
+					useRemoteAddress: false,
+					direction:        IngressTraceOperation,
+					outboundListener: false,
+					store:            config,
+					authnPolicy:      authenticationPolicy,
+				})
+			} else {
+				listener = buildHTTPListener(buildHTTPListenerOpts{
+					mesh:             mesh,
+					proxy:            node,
+					proxyInstances:   proxyInstances,
+					routeConfig:      routeConfig,
+					ip:               endpoint.Address,
+					port:             endpoint.Port,
+					rds:              "",
+					useRemoteAddress: false,
+					direction:        IngressTraceOperation,
+					outboundListener: false,
+					store:            config,
+					authnPolicy:      authenticationPolicy,
+				})
+			}
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
@@ -896,6 +982,65 @@ func TruncateClusterName(name string) string {
 		return fmt.Sprintf("%s%x", prefix, sum)
 	}
 	return name
+}
+
+func buildBoltInboundListener(opts buildHTTPListenerOpts) *Listener {
+	filters := buildFaultFilters(opts.routeConfig)
+
+	if opts.mesh.MixerCheckServer != "" || opts.mesh.MixerReportServer != "" {
+		mixerConfig := BuildHTTPMixerFilterConfig(opts.mesh, opts.proxy, opts.proxyInstances, opts.outboundListener, opts.store)
+		filter := HTTPFilter{
+			Type:   decoder,
+			Name:   MixerFilter,
+			Config: mixerConfig,
+		}
+		filters = append([]HTTPFilter{filter}, filters...)
+	}
+
+	if filter := buildJwtFilter(opts.authnPolicy); filter != nil {
+		filters = append([]HTTPFilter{*filter}, filters...)
+	}
+
+	config := &HTTPFilterConfig{
+		CodecType:        auto,
+		UseRemoteAddress: opts.useRemoteAddress,
+		StatPrefix:       "bolt",
+		Filters:          filters,
+	}
+
+	if opts.mesh.AccessLogFile != "" {
+		config.AccessLog = []AccessLog{{
+			Path: opts.mesh.AccessLogFile,
+		}}
+	}
+
+	if opts.mesh.EnableTracing {
+		config.GenerateRequestID = true
+		config.Tracing = &HTTPFilterTraceConfig{
+			OperationName: opts.direction,
+		}
+	}
+
+	if opts.rds != "" {
+		config.RDS = &RDS{
+			Cluster:         RDSName,
+			RouteConfigName: opts.rds,
+			RefreshDelayMs:  protoDurationToMS(opts.mesh.RdsRefreshDelay),
+		}
+	} else {
+		config.RouteConfig = opts.routeConfig
+	}
+
+	return &Listener{
+		BindToPort: true,
+		Name:       fmt.Sprintf("bolt_%s_%d", opts.ip, opts.port),
+		Address:    fmt.Sprintf("tcp://%s:%d", opts.ip, opts.port),
+		Filters: []*NetworkFilter{{
+			Type:   read,
+			Name:   "bolt_inbound",
+			Config: config,
+		}},
+	}
 }
 
 func buildEgressVirtualHost(serviceName string, destination model.Hostname,

@@ -127,11 +127,37 @@ func BuildVirtualHostsFromConfigAndRegistry(
 					Services: []*model.Service{svc},
 					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
 				})
+			} else if port.Protocol.IsRPC() {
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				out = append(out, VirtualHostWrapper{
+					Port:     port.Port,
+					Services: []*model.Service{svc},
+					Routes:   []route.Route{*buildDefaultRPCRoute(svc, cluster)},
+				})
 			}
 		}
 	}
 
 	return out
+}
+
+func buildDefaultRPCRoute(service *model.Service, clusterName string) *route.Route {
+	return &route.Route{
+		Match: route.RouteMatch{
+			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
+				Name: "service",
+				Value: service.Hostname.String(),
+			}},
+		},
+		Decorator: &route.Decorator{
+			Operation: "service-route",
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+			},
+		},
+	}
 }
 
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
@@ -179,7 +205,7 @@ func buildVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() {
+			if port.Protocol.IsHTTP() || port.Protocol.IsRPC() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
