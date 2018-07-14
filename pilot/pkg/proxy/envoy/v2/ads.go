@@ -537,11 +537,11 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	return nil
 }
 
-func edsClientCount() int {
+func adsClientCount() int {
 	var n int
-	edsClusterMutex.Lock()
+	adsClientsMutex.RLock()
 	n = len(adsClients)
-	edsClusterMutex.Unlock()
+	adsClientsMutex.RUnlock()
 	return n
 }
 
@@ -555,12 +555,13 @@ func AdsPushAll(s *DiscoveryServer) {
 
 	s.modelMutex.RLock()
 	adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
-		"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), edsClientCount())
+		"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), adsClientCount())
 	monServices.Set(float64(len(s.services)))
 	monVServices.Set(float64(len(s.virtualServices)))
-	s.modelMutex.RUnlock()
 
 	pushStatus := s.env.PushStatus
+
+	s.modelMutex.RUnlock()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
