@@ -73,7 +73,7 @@ metadata:
 spec:
   template:
     metadata:
-      name: istio-mixer-post-install
+      name: istio-mixer-post-install-1.0
       labels:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}

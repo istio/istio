@@ -343,12 +343,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 		vs := v.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
 		if len(matchingHosts) == 0 {
-			log.Warnf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
+			log.Infof("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
 		}
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
-			log.Warnf("omitting routes for service %v due to error: %v", v, err)
+			log.Warnf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
 			continue
 		}
 
