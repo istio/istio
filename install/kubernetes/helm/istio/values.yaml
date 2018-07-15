@@ -303,15 +303,19 @@ mixer:
     autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
-    targetAverageUtilization: 80
-    targetAverageValue: 2500Mi
+    cpu:
+      targetAverageUtilization: 80
+    memory:
+      targetAverageValue: 2500Mi
 
   istio-telemetry:
     autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
-    targetAverageUtilization: 80
-    targetAverageValue: 2500Mi
+    cpu:
+      targetAverageUtilization: 80
+    memory:
+      targetAverageValue: 2500Mi
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
