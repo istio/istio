@@ -74,7 +74,7 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	return nil
 }
 
-func buildOutboundTCPFilterChainOpts(env model.Environment, configs []model.Config, addresses []string,
+func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Config, addresses []string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)

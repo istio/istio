@@ -30,6 +30,8 @@ import (
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
+	"os"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
@@ -157,6 +159,14 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		} else {
 			network = a.APIAddress[:idx]
 			address = a.APIAddress[idx+3:]
+		}
+	}
+
+	if network == "unix" {
+		// remove Unix socket before use.
+		if err = os.Remove(address); err != nil && !os.IsNotExist(err) {
+			// Anything other than "file not found" is an error.
+			return nil, fmt.Errorf("unable to remove unix://%s: %v", address, err)
 		}
 	}
 

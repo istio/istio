@@ -26,9 +26,6 @@ webhooks:
         apiVersions:
         - v1alpha2
         resources:
-        - destinationpolicies
-        - egressrules
-        - routerules
         - httpapispecs
         - httpapispecbindings
         - quotaspecs

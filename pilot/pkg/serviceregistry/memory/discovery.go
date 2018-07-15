@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net"
 
+	"time"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -37,8 +39,9 @@ func NewDiscovery(services map[model.Hostname]*model.Service, versions int) *Ser
 // MakeService creates a memory service
 func MakeService(hostname model.Hostname, address string) *model.Service {
 	return &model.Service{
-		Hostname: hostname,
-		Address:  address,
+		CreationTime: time.Now(),
+		Hostname:     hostname,
+		Address:      address,
 		Ports: []*model.Port{
 			{
 				Name:     PortHTTPName,
@@ -68,6 +71,7 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 // MakeExternalHTTPService creates memory external service
 func MakeExternalHTTPService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
+		CreationTime: time.Now(),
 		Hostname:     hostname,
 		Address:      address,
 		ExternalName: external,
@@ -82,6 +86,7 @@ func MakeExternalHTTPService(hostname, external model.Hostname, address string) 
 // MakeExternalHTTPSService creates memory external service
 func MakeExternalHTTPSService(hostname, external model.Hostname, address string) *model.Service {
 	return &model.Service{
+		CreationTime: time.Now(),
 		Hostname:     hostname,
 		Address:      address,
 		ExternalName: external,
