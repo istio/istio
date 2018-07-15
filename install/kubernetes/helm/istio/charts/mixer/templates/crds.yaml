@@ -654,13 +654,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: rbacconfigs.config.istio.io
+  name: rbacconfigs.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: RbacConfig
     plural: rbacconfigs
