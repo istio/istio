@@ -1319,9 +1319,10 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	}
-	if match.DestinationSubnet != "" {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
+
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -1338,17 +1339,18 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
 	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
+		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
 	}
 	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
 	return
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
-	if match.DestinationSubnet != "" {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
-	if match.SourceSubnet != "" {
+
+	if len(match.SourceSubnet) > 0 {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {

@@ -227,7 +227,9 @@ spec:
     receivedBytes: request.total_size | 0
     sentBytes: response.total_size | 0
     referer: request.referer | ""
+    httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -263,6 +265,7 @@ spec:
     sentBytes: connection.sent.bytes | 0
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"

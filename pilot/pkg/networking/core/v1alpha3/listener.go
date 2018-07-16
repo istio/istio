@@ -262,7 +262,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if _, exists := listenerMap[listenerMapKey]; exists {
-			env.PushStatus.Add(model.ProxyStatusConflictIn, node.ID, node,
+			env.PushStatus.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
 				fmt.Sprintf("Rejected %s for %s", instance.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
@@ -334,7 +334,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 }
 
 type listenerEntry struct {
-	service     *model.Service
+	// TODO: Clean this up
+	services    []*model.Service
 	servicePort *model.Port
 	listener    *xdsapi.Listener
 }
@@ -345,6 +346,47 @@ func sortServicesByCreationTime(services []*model.Service) []*model.Service {
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
+}
+
+func protocolName(p model.Protocol) string {
+	switch plugin.ModelProtocolToListenerProtocol(p) {
+	case plugin.ListenerProtocolHTTP:
+		return "HTTP"
+	case plugin.ListenerProtocolTCP:
+		return "TCP"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+type outboundListenerConflict struct {
+	metric          *model.PushMetric
+	env             *model.Environment
+	node            *model.Proxy
+	listenerName    string
+	currentProtocol model.Protocol
+	currentServices []*model.Service
+	newHostname     model.Hostname
+	newProtocol     model.Protocol
+}
+
+func (c outboundListenerConflict) addMetric() {
+	currentHostnames := make([]string, len(c.currentServices))
+	for i, s := range c.currentServices {
+		currentHostnames[i] = string(s.Hostname)
+	}
+	concatHostnames := strings.Join(currentHostnames, ",")
+	c.env.PushStatus.Add(c.metric,
+		c.listenerName,
+		c.node,
+		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",
+			c.listenerName,
+			protocolName(c.currentProtocol),
+			concatHostnames,
+			protocolName(c.newProtocol),
+			c.newHostname,
+			protocolName(c.currentProtocol),
+			len(c.currentServices)))
 }
 
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
@@ -376,12 +418,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	configs := env.VirtualServices(meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
-	var currentListener *xdsapi.Listener
-	listenerMap := make(map[string]listenerEntry)
+	// For conflicit resolution
+	var currentListenerEntry *listenerEntry
+	listenerMap := make(map[string]*listenerEntry)
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
-			var addresses []string
+			// TODO(rshriram) Nuke after Piotr's changes get in
+			var deprecatedTCPFilterMatchAddress string
 			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
 				env:            env,
@@ -392,22 +436,31 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				protocol:       servicePort.Protocol,
 			}
 
-			currentListener = nil
+			currentListenerEntry = nil
 
 			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
 			case plugin.ListenerProtocolHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if current, exists := listenerMap[listenerMapKey]; exists {
-					if !current.servicePort.Protocol.IsHTTP() {
-						env.PushStatus.Add(model.ProxyStatusConflictHTTPOut,
-							listenerMapKey, node,
-							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
-								current.servicePort.Port,
-								current.service.Hostname,
-								service.Hostname,
-								listenerMapKey))
+				var exists bool
+				// Check if this HTTP listener conflicts with an existing wildcard TCP listener
+				// i.e. one of NONE resolution type, since we collapse all HTTP listeners into
+				// a single 0.0.0.0:port listener and use vhosts to distinguish individual http
+				// services in that port
+				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
+					if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
+							env:             env,
+							node:            node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     service.Hostname,
+							newProtocol:     servicePort.Protocol,
+						}.addMetric()
 					}
 					// Skip building listener for the same http port
+					currentListenerEntry.services = append(currentListenerEntry.services, service)
 					continue
 				}
 
@@ -425,31 +478,59 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					},
 				}}
 			case plugin.ListenerProtocolTCP:
+				// Determine the listener address
+				// If its a passthrough service, then we listen on 0.0.0.0
+				// and use original dst cluster
+				// If its anything else, we listen on the service VIP if and only
+				// if the address is an IP address. If its a CIDR, we listen on
+				// 0.0.0.0, and setup a filter chain match for the CIDR range.
+				// TODO(rshriram) Once Piotr's PR gets in, change this logic
+				// to establish filter chains based on the CIDR of passthrough services
+				// instead of forcing all of them to be 0.0.0.0
+				// We should be able to do the same even for static services with
+				// CIDR addresses.
 				if service.Resolution != model.Passthrough {
-					listenAddress = service.GetServiceAddressForProxy(node)
-					addresses = []string{listenAddress}
-				}
-
-				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				currentListener = nil
-				if current, exists := listenerMap[listenerMapKey]; exists {
-					currentListener = current.listener
-					// Check for port collisions between TCP/TLS and HTTP.
-					// If configured correctly, TCP/TLS ports may not collide.
-					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
-					if !current.servicePort.Protocol.IsTCP() {
-						env.PushStatus.Add(model.ProxyStatusConflictTCPOut,
-							listenerMapKey, node,
-							fmt.Sprintf("Port=%d Accepted=%s Rejected=%s Key=%s",
-								current.servicePort.Port,
-								current.service.Hostname,
-								service.Hostname,
-								listenerMapKey))
-						continue
+					svclistenAddress := service.GetServiceAddressForProxy(node)
+					if !strings.Contains(svclistenAddress, "/") {
+						listenAddress = svclistenAddress
+					} else {
+						// Address is a CIDR. Fall back to 0.0.0.0 and
+						// filter in the tcp proxy
+						deprecatedTCPFilterMatchAddress = listenAddress
 					}
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, addresses, service, servicePort, proxyLabels, meshGateway)
+				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
+				var exists bool
+				// Check if this TCP listener conflicts with an existing HTTP listener on 0.0.0.0:Port
+				//
+				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
+					// Check for port collisions between TCP/TLS and HTTP.
+					// If configured correctly, TCP/TLS ports may not collide.
+					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
+					if !currentListenerEntry.servicePort.Protocol.IsTCP() {
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
+							env:             env,
+							node:            node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     service.Hostname,
+							newProtocol:     servicePort.Protocol,
+						}.addMetric()
+						continue
+					}
+					// WE have a collision with another TCP port.
+					// This can happen only if the service is listening on 0.0.0.0:<port>
+					// which is the case for headless services, or non-k8s services that do not have a VIP.
+					// Unfortunately we won't know if this is a real conflict or not
+					// until we process the VirtualServices, etc.
+					// The conflict resolution is done later in this code
+				}
+
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs,
+					deprecatedTCPFilterMatchAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -487,24 +568,86 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				continue
 			}
 
-			if currentListener != nil {
+			// We checked TCP over HTTP, and HTTP over TCP conflicts above.
+			// The code below checks for TCP over TCP conflicts and merges listeners
+			if currentListenerEntry != nil {
 				// merge the newly built listener with the existing listener
-				newFilterChains := make([]listener.FilterChain, 0, len(currentListener.FilterChains)+len(mutable.Listener.FilterChains))
-				newFilterChains = append(newFilterChains, currentListener.FilterChains...)
-				newFilterChains = append(newFilterChains, mutable.Listener.FilterChains...)
-				currentListener.FilterChains = newFilterChains
+				// if and only if the filter chains have distinct conditions
+				// Extract the current filter chain matches
+				// For every new filter chain match being added, check if any previous match is same
+				// if so, skip adding this filter chain with a warning
+				// This is very unoptimized.
+				newFilterChains := make([]listener.FilterChain, 0,
+					len(currentListenerEntry.listener.FilterChains)+len(mutable.Listener.FilterChains))
+				newFilterChains = append(newFilterChains, currentListenerEntry.listener.FilterChains...)
+				for _, incomingFilterChain := range mutable.Listener.FilterChains {
+					conflictFound := false
+
+				compareWithExisting:
+					for _, existingFilterChain := range currentListenerEntry.listener.FilterChains {
+						if existingFilterChain.FilterChainMatch == nil {
+							// This is a catch all filter chain.
+							// We can only merge with a non-catch all filter chain
+							// Else mark it as conflict
+							if incomingFilterChain.FilterChainMatch == nil {
+								conflictFound = true
+								outboundListenerConflict{
+									metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+									env:             env,
+									node:            node,
+									listenerName:    listenerMapKey,
+									currentServices: currentListenerEntry.services,
+									currentProtocol: currentListenerEntry.servicePort.Protocol,
+									newHostname:     service.Hostname,
+									newProtocol:     servicePort.Protocol,
+								}.addMetric()
+								break compareWithExisting
+							} else {
+								continue
+							}
+						}
+						if incomingFilterChain.FilterChainMatch == nil {
+							continue
+						}
+
+						// We have two non-catch all filter chains. Check for duplicates
+						if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
+							conflictFound = true
+							outboundListenerConflict{
+								metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+								env:             env,
+								node:            node,
+								listenerName:    listenerMapKey,
+								currentServices: currentListenerEntry.services,
+								currentProtocol: currentListenerEntry.servicePort.Protocol,
+								newHostname:     service.Hostname,
+								newProtocol:     servicePort.Protocol,
+							}.addMetric()
+							break compareWithExisting
+						}
+					}
+
+					if !conflictFound {
+						// There is no conflict with any filter chain in the existing listener.
+						// So append the new filter chains to the existing listener's filter chains
+						newFilterChains = append(newFilterChains, incomingFilterChain)
+						lEntry := listenerMap[listenerMapKey]
+						lEntry.services = append(lEntry.services, service)
+					}
+				}
+				currentListenerEntry.listener.FilterChains = newFilterChains
 			} else {
-				listenerMap[listenerMapKey] = listenerEntry{
-					service:     service,
+				listenerMap[listenerMapKey] = &listenerEntry{
+					services:    []*model.Service{service},
 					servicePort: servicePort,
 					listener:    mutable.Listener,
 				}
 			}
 
-			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListener != nil {
+			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListenerEntry != nil {
 				var numChains int
-				if currentListener != nil {
-					numChains = len(currentListener.FilterChains)
+				if currentListenerEntry != nil {
+					numChains = len(currentListenerEntry.listener.FilterChains)
 				} else {
 					numChains = len(mutable.Listener.FilterChains)
 				}
@@ -526,39 +669,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-	listeners := append(tcpListeners, httpListeners...)
-
-	// trim conflicting filter chains
-	// If there are two headless services on the same port, this loop will
-	// detect it and remove one of the listeners. This is fine because headless
-	// services (resolution NONE) are typically established with original dst clusters
-	// So, even though there is only one listener shared across two headless services,
-	// traffic will continue to go to the requested destination. The only problem here
-	// is that stats will end up being attributed to the incorrect service.
-	for _, l := range listeners {
-		filterChainMatches := make(map[string]bool)
-
-		trimmedFilterChains := make([]listener.FilterChain, 0, len(l.FilterChains))
-		for _, filterChain := range l.FilterChains {
-			key := "" // for filter chains without matches or SNI domains
-			if filterChain.FilterChainMatch != nil {
-				sniDomains := make([]string, len(filterChain.FilterChainMatch.ServerNames))
-				copy(sniDomains, filterChain.FilterChainMatch.ServerNames)
-				sort.Strings(sniDomains)
-				key = strings.Join(sniDomains, ",") // sni domains is the only thing set in FilterChainMatch right now
-			}
-			if !filterChainMatches[key] {
-				trimmedFilterChains = append(trimmedFilterChains, filterChain)
-				filterChainMatches[key] = true
-			} else {
-				log.Warnf("omitting filterchain with duplicate filterchainmatch: %v", key)
-				filterChainsConflict.Add(1)
-			}
-		}
-		l.FilterChains = trimmedFilterChains
-	}
-
-	return listeners
+	return append(tcpListeners, httpListeners...)
 }
 
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
@@ -638,6 +749,7 @@ type httpListenerOpts struct {
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
 	sniHosts          []string
+	destinationCIDRs  []string
 	transportProtocol string
 	tlsContext        *auth.DownstreamTlsContext
 	httpOpts          *httpListenerOpts
@@ -748,6 +860,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			TransportProtocol: chain.transportProtocol,
 		}
 		if len(chain.sniHosts) > 0 {
+			sort.Strings(chain.sniHosts)
 			fullWildcardFound := false
 			for _, h := range chain.sniHosts {
 				if h == "*" {
@@ -761,6 +874,17 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.ServerNames = chain.sniHosts
 			}
 		}
+
+		if len(chain.destinationCIDRs) > 0 {
+			sort.Strings(chain.destinationCIDRs)
+			for _, d := range chain.destinationCIDRs {
+				cidr := util.ConvertAddressToCidr(d)
+				if cidr != nil {
+					match.PrefixRanges = append(match.PrefixRanges, cidr)
+				}
+			}
+		}
+
 		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
