@@ -37,6 +37,8 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   // it
   if (check_data->GetSourceIpPort(&source_ip, &source_port)) {
     builder.AddBytes(utils::AttributeName::kSourceIp, source_ip);
+    // connection remote IP is always reported as origin IP
+    builder.AddBytes(utils::AttributeName::kOriginIp, source_ip);
   }
 
   // TODO(diemtvu): add TCP authn filter similar to http case, and use authn

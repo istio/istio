@@ -50,6 +50,7 @@ const char AttributeName::kSourcePort[] = "source.port";
 const char AttributeName::kDestinationIp[] = "destination.ip";
 const char AttributeName::kDestinationPort[] = "destination.port";
 const char AttributeName::kDestinationUID[] = "destination.uid";
+const char AttributeName::kOriginIp[] = "origin.ip";
 const char AttributeName::kConnectionReceviedBytes[] =
     "connection.received.bytes";
 const char AttributeName::kConnectionReceviedTotalBytes[] =
