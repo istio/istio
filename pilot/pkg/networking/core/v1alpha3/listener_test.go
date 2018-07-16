@@ -27,6 +27,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
+const (
+	wildcardIP = "0.0.0.0"
+)
+
 var (
 	tnow  = time.Now()
 	tzero = time.Time{}
@@ -42,33 +46,33 @@ func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1,com", model.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2,com", model.ProtocolTCP, tnow),
-		buildService("test3,com", model.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService("test1,com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
+		buildService("test2,com", wildcardIP, model.ProtocolTCP, tnow),
+		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", model.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", model.ProtocolHTTP, tnow),
-		buildService("test3.com", model.ProtocolTCP, tnow.Add(2*time.Second)))
+		buildService("test1.com", wildcardIP, model.ProtocolTCP, tnow.Add(1*time.Second)),
+		buildService("test2.com", wildcardIP, model.ProtocolHTTP, tnow),
+		buildService("test3.com", wildcardIP, model.ProtocolTCP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_Unordered(t *testing.T) {
 	// Ensure that the order is preserved when all the times match. The first service in the list wins.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", model.ProtocolHTTP, tzero),
-		buildService("test2.com", model.ProtocolTCP, tzero),
-		buildService("test3.com", model.ProtocolTCP, tzero))
+		buildService("test1.com", wildcardIP, model.ProtocolHTTP, tzero),
+		buildService("test2.com", wildcardIP, model.ProtocolTCP, tzero),
+		buildService("test3.com", wildcardIP, model.ProtocolTCP, tzero))
 }
 
 func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
-		buildService("test1.com", model.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", model.ProtocolTCP, tnow),
-		buildService("test3.com", model.ProtocolTCP, tnow.Add(2*time.Second)),
+		buildService("test1.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(1*time.Second)),
+		buildService("test2.com", "1.2.3.4", model.ProtocolTCP, tnow),
+		buildService("test3.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(2*time.Second)),
 	}
 	p := &fakePlugin{}
 	listeners := buildOutboundListeners(p, services...)
@@ -197,11 +201,11 @@ func isHTTPListener(listener *xdsapi.Listener) bool {
 	return false
 }
 
-func buildService(hostname string, protocol model.Protocol, creationTime time.Time) *model.Service {
+func buildService(hostname string, ip string, protocol model.Protocol, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
 		Hostname:     model.Hostname(hostname),
-		Address:      "1.1.1.1",
+		Address:      ip,
 		ClusterVIPs:  make(map[string]string),
 		Ports: model.PortList{
 			&model.Port{
