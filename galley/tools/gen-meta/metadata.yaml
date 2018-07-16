@@ -1,12 +1,6 @@
 # TODO: We should be obtaining this metadata directly from the api repository.
 items:
 # Types from Pilot
-  - kind:        "RouteRule"
-    singular:    "routerule"
-    plural:      "routerules"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "istio.routing.v1alpha1.RouteRule"
 
   - kind:        "VirtualService"
     singular:    "virtualservice"
@@ -24,13 +18,6 @@ items:
     proto:       "istio.networking.v1alpha3.Gateway"
     gogo:        true
 
-  - kind:        "EgressRule"
-    singular:    "egressrule"
-    plural:      "egressrules"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "istio.routing.v1alpha1.EgressRule"
-
   - kind:        "ServiceEntry"
     singular:    "serviceentry"
     plural:      "serviceentries"
@@ -38,13 +25,6 @@ items:
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     gogo:        true
-
-  - kind:        "DestinationPolicy"
-    singular:    "destinationpolicy"
-    plural:      "destinationpolicies"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "istio.routing.v1alpha1.DestinationPolicy"
 
   - kind:        "DestinationRule"
     singular:    "destinationrule"

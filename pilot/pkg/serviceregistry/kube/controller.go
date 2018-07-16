@@ -69,17 +69,6 @@ var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
-var (
-	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_no_ip",
-		Help: "Pods not found in the endpoint table, possibly invalid.",
-	}, []string{"node"})
-)
-
-func init() {
-	prometheus.MustRegister(ipNotFound)
-}
-
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
@@ -100,6 +89,10 @@ type Controller struct {
 	nodes     cacheHandler
 
 	pods *PodCache
+
+	// Env is set by server to point to the environment, to allow the controller to
+	// use env data and push status. It may be null in tests.
+	Env *model.Environment
 }
 
 type cacheHandler struct {
@@ -246,7 +239,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
-		log.Infof("GetService(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 	item, exists := c.serviceByKey(name, namespace)
@@ -562,13 +555,24 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 
 				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
+				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
+				out = append(out, nrEP...)
+				if len(nrEP) > 0 && c.Env != nil {
+					c.Env.PushStatus.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+				}
 			}
 		}
 	}
 	if len(out) == 0 {
-		log.Errorf("ip not found, listeners will be broken %v %v", proxyIP, proxy.ID, out)
-		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
+		if c.Env != nil {
+			c.Env.PushStatus.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
+			status := c.Env.PushStatus
+			if status == nil {
+				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
+			}
+		} else {
+			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
+		}
 	}
 	return out, nil
 }
@@ -610,6 +614,18 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
 	saSet := make(map[string]bool)
 
+	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
+	// from the service annotation explicitly set by the operators.
+	svc, err := c.GetService(hostname)
+	if err != nil {
+		// Do not log error here, as the service could exist in another registry
+		return nil
+	}
+	if svc == nil {
+		// Do not log error here as the service could exist in another registry
+		return nil
+	}
+
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
 	instances, err := c.Instances(hostname, ports, model.LabelsCollection{})
@@ -623,17 +639,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 		}
 	}
 
-	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
-	// from the service annotation explicitly set by the operators.
-	svc, err := c.GetService(hostname)
-	if err != nil {
-		log.Warnf("GetService(%s) error: %v", hostname, err)
-		return nil
-	}
-	if svc == nil {
-		log.Infof("GetService(%s) error: service does not exist", hostname)
-		return nil
-	}
 	for _, serviceAccount := range svc.ServiceAccounts {
 		sa := serviceAccount
 		saSet[sa] = true
