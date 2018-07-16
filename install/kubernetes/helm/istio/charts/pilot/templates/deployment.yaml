@@ -33,6 +33,10 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+{{- if .Values.global.clusterRegistriesNamespace }}
+          - "--clusterRegistriesNamespace"
+          - {{ .Values.global.clusterRegistriesNamespace }}
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
