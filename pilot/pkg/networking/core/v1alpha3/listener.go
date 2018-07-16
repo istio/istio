@@ -517,7 +517,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				for _, incomingFilterChain := range mutable.Listener.FilterChains {
 					conflictFound := false
 					for _, existingFilterChain := range currentListener.FilterChains {
-						if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, incomingFilterChain.FilterChainMatch) {
+						if existingFilterChain.FilterChainMatch == nil {
+							// This is a catch all filter chain.
+							// We can only merge with a non-catch all filter chain
+							if incomingFilterChain.FilterChainMatch == nil {
+								conflictFound = true
+								break
+							}
+							continue
+						}
+						if incomingFilterChain.FilterChainMatch == nil {
+							continue
+						}
+						if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
 							// TODO reporting after costin's Pr is merged
 							conflictFound = true
 							break
