@@ -277,7 +277,7 @@ gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_t
   while read -r docker_image;do
     gcloud container images add-tag \
     "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}" \
-    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_daily_{{ settings.BRANCH }}" --quiet;
+    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.BRANCH }}-latest-daily" --quiet;
     #pull_source="gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}"
     #push_dest="  gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_{{ settings.BRANCH }}";
     #docker pull $pull_source
