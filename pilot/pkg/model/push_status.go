@@ -111,26 +111,31 @@ var (
 		"Endpoint found in unready state.",
 	)
 
-	// ProxyStatusConflictHTTPOut tracks cases of multiple outbound
-	// listeners, with accepted HTTP and the conflicting one a
-	// different type
-	ProxyStatusConflictHTTPOut = newPushMetric(
-		"pilot_conflict_out_http_listeners",
-		"Number of conflicting listeners on a http port.",
+	// ProxyStatusConflictOutboundListenerTCPOverHTTP metric tracks number of
+	// wildcard TCP listeners that conflicted with existing wildcard HTTP listener on same port
+	ProxyStatusConflictOutboundListenerTCPOverHTTP = newPushMetric(
+		"pilot_conflict_outbound_listener_tcp_over_current_http",
+		"Number of conflicting wildcard tcp listeners with current wildcard http listener.",
 	)
 
-	// ProxyStatusConflictTCPOut tracks cases of multiple outbound
-	// listeners, with accepted TCP and the conflicting one a
-	// different type
-	ProxyStatusConflictTCPOut = newPushMetric(
-		"pilot_conflict_out_tcp_listeners",
-		"Number of conflicting listeners on a tcp listener.",
+	// ProxyStatusConflictOutboundListenerTCPOverTCP metric tracks number of
+	// TCP listeners that conflicted with existing TCP listeners on same port
+	ProxyStatusConflictOutboundListenerTCPOverTCP = newPushMetric(
+		"pilot_conflict_outbound_listener_tcp_over_current_tcp",
+		"Number of conflicting tcp listeners with current tcp listener.",
 	)
 
-	// ProxyStatusConflictIn tracks cases of multiple inbound
+	// ProxyStatusConflictOutboundListenerHTTPOverTCP metric tracks number of
+	// wildcard HTTP listeners that conflicted with existing wildcard TCP listener on same port
+	ProxyStatusConflictOutboundListenerHTTPOverTCP = newPushMetric(
+		"pilot_conflict_outbound_listener_http_over_current_tcp",
+		"Number of conflicting wildcard http listeners with current wildcard tcp listener.",
+	)
+
+	// ProxyStatusConflictInboundListener tracks cases of multiple inbound
 	// listeners - 2 services selecting the same port of the pod.
-	ProxyStatusConflictIn = newPushMetric(
-		"pilot_conflict_in_listeners",
+	ProxyStatusConflictInboundListener = newPushMetric(
+		"pilot_conflict_inbound_listener",
 		"Number of conflicting inbound listeners.",
 	)
 

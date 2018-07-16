@@ -1319,11 +1319,10 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	}
-	if len(match.DestinationSubnet) > 0 {
-		for _, destinationSubnet := range match.DestinationSubnet {
-			errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
-		}
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
+
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -1347,11 +1346,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
-	if len(match.DestinationSubnet) > 0 {
-		for _, destinationSubnet := range match.DestinationSubnet {
-			errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
-		}
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
+
 	if len(match.SourceSubnet) > 0 {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}

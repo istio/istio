@@ -102,8 +102,8 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
 					destinationCIDRs := []string{deprecatedTCPFilterMatchAddress}
-					if len(match.DestinationSubnet) > 0 {
-						destinationCIDRs = match.DestinationSubnet
+					if len(match.DestinationSubnets) > 0 {
+						destinationCIDRs = match.DestinationSubnets
 					}
 					out = append(out, &filterChainOpts{
 						sniHosts:         match.SniHosts,
@@ -150,7 +150,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					// and break out of the loop.
 					// But if we find only runtime destination subnet matches in all match blocks, collect them
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
-					if len(match.DestinationSubnet) == 0 {
+					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
@@ -158,7 +158,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 						defaultRouteAdded = true
 						break TcpLoop
 					} else {
-						virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnet...)
+						virtualServiceDestinationSubnets = append(virtualServiceDestinationSubnets, match.DestinationSubnets...)
 					}
 				}
 			}

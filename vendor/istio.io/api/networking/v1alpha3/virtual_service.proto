@@ -17,9 +17,11 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Route Rules v1alpha3
+// $title: Traffic Routing
 // $description: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
+// $aliases:
+// $  - /docs/reference/config/istio.routing.v1alpha1/
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -546,7 +548,7 @@ message HTTPMatchRequest {
   // - `regex: "value"` for ECMAscript style regex-based match
   //
   StringMatch authority = 4;
-  
+
   // The header keys must be lowercase and use hyphen as the separator,
   // e.g. _x-request-id_.
   //
@@ -661,14 +663,14 @@ message DestinationWeight {
 message L4MatchAttributes {
   // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
   // a.b.c.d/xx form or just a.b.c.d.
-  repeated string destination_subnet = 1;
+  repeated string destination_subnets = 1;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they support,
   // in these cases it is not required to explicitly select the port.
   uint32 port = 2;
 
-  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx 
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
   // form or just a.b.c.d
   // $hide_from_docs
   string source_subnet = 3;
@@ -694,7 +696,7 @@ message TLSMatchAttributes {
 
   // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
   // a.b.c.d/xx form or just a.b.c.d.
-  repeated string destination_subnet = 2;
+  repeated string destination_subnets = 2;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they
@@ -702,7 +704,7 @@ message TLSMatchAttributes {
   // port.
   uint32 port = 3;
 
-  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx 
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
   // form or just a.b.c.d
   // $hide_from_docs
   string source_subnet = 4;
@@ -747,12 +749,12 @@ message HTTPRedirect {
   // value. Note that the entire path will be replaced, irrespective of the
   // request URI being matched as an exact path or prefix.
   string uri = 1;
-   
+
   // On a redirect, overwrite the Authority/Host portion of the URL with
   // this value.
   string authority = 2;
 }
- 
+
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
 // be used only with the DestinationWeights. The following example
