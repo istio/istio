@@ -113,7 +113,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 	var httpRoutes []*networking.HTTPRoute
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
-			log.Infof("invalid ingress rule for host %q, no paths defined", rule.Host)
+			log.Infof("invalid ingress rule %s:%s for host %q, no paths defined", ingress.Namespace, ingress.Name, rule.Host)
 			continue
 		}
 
@@ -125,7 +125,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model
 
 			httpRoute := ingressBackendToHTTPRoute(&path.Backend, ingress.Namespace, domainSuffix)
 			if httpRoute == nil {
-				log.Infof("invalid ingress rule for host %q, no backend defined for path", rule.Host)
+				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
 				continue
 			}
 			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}

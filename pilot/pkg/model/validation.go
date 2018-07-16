@@ -325,41 +325,21 @@ func ValidatePercent(val int32) error {
 	return nil
 }
 
-// ValidateFloatPercent checks that percent is in range
-func ValidateFloatPercent(val float32) error {
-	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("percentage %v is not in range 0..100", val)
-	}
-	return nil
-}
-
-// ValidateSubnet checks that IPv4 subnet form
-func ValidateSubnet(subnet string) error {
-	// The current implementation only supports IP v4 addresses
-	return ValidateIPv4Subnet(subnet)
-}
-
-// validateCIDR checks that a string is in "CIDR notation"
-func validateCIDR(cidr string) error {
-	// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return fmt.Errorf("%v is not a valid CIDR block", cidr)
-	}
-	// The current implementation only supports IP v4 addresses
-	if ip.To4() == nil {
-		return fmt.Errorf("%v is not a valid IPv4 address", cidr)
-	}
-
-	return nil
-}
-
 // ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
 func ValidateIPv4Subnet(subnet string) error {
 	// We expect a string in "CIDR notation" or "Dot-decimal notation"
 	// E.g., a.b.c.d/xx form or just a.b.c.d
 	if strings.Count(subnet, "/") == 1 {
-		return validateCIDR(subnet)
+		// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+		ip, _, err := net.ParseCIDR(subnet)
+		if err != nil {
+			return fmt.Errorf("%v is not a valid CIDR block", subnet)
+		}
+		// The current implementation only supports IP v4 addresses
+		if ip.To4() == nil {
+			return fmt.Errorf("%v is not a valid IPv4 address", subnet)
+		}
+		return nil
 	}
 	return ValidateIPv4Address(subnet)
 }
@@ -426,12 +406,8 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
-			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
-			// (including CIDR addresses). If it's neither, we report both errors.
 			if err := ValidateWildcardDomain(host); err != nil {
-				if err2 := ValidateIPv4Subnet(host); err2 != nil {
-					errs = appendErrors(errs, err, err2)
-				}
+				errs = appendErrors(errs, err)
 			}
 		}
 	}
@@ -483,7 +459,7 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 	}
 
 	errs = appendErrors(errs,
-		validateHost(rule.Host),
+		ValidateWildcardDomain(rule.Host),
 		validateTrafficPolicy(rule.TrafficPolicy))
 
 	for _, subset := range rule.Subsets {
@@ -1281,7 +1257,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		if err := validateHost(host); err != nil {
+		if err := ValidateWildcardDomain(host); err != nil {
 			errs = appendErrors(errs, err)
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
@@ -1343,9 +1319,10 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	}
-	if match.DestinationSubnet != "" {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
+
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -1362,17 +1339,18 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
 	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
+		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
 	}
 	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
 	return
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
-	if match.DestinationSubnet != "" {
-		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
+	for _, destinationSubnet := range match.DestinationSubnets {
+		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
 	}
-	if match.SourceSubnet != "" {
+
+	if len(match.SourceSubnet) > 0 {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
@@ -1381,17 +1359,6 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 	return
-}
-
-func validateHost(host string) error {
-	// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
-	// (including CIDR addresses). If it's neither, we report both errors.
-	if err := ValidateWildcardDomain(host); err != nil {
-		if err2 := ValidateIPv4Subnet(host); err2 != nil {
-			return appendErrors(err, err2)
-		}
-	}
-	return nil
 }
 
 func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
@@ -1572,7 +1539,7 @@ func validateDestination(destination *networking.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, validateHost(destination.Host))
+	errs = appendErrors(errs, ValidateWildcardDomain(destination.Host))
 	if destination.Subset != "" {
 		errs = appendErrors(errs, validateSubsetName(destination.Subset))
 	}
@@ -1673,8 +1640,17 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
 		}
 	}
+
+	cidrFound := false
 	for _, address := range serviceEntry.Addresses {
-		errs = appendErrors(errs, validateCIDR(address))
+		cidrFound = cidrFound || strings.Contains(address, "/")
+		errs = appendErrors(errs, ValidateIPv4Subnet(address))
+	}
+
+	if cidrFound {
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
+		}
 	}
 
 	servicePortNumbers := make(map[uint32]bool)
