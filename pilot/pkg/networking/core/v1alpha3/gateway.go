@@ -15,17 +15,18 @@
 package v1alpha3
 
 import (
-	"fmt"
-	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+"fmt"
+
+xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+"github.com/gogo/protobuf/types"
+"github.com/hashicorp/go-multierror"
+
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -340,8 +341,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	allVirtualServices := env.VirtualServices(gateways)
-	virtualServices := mergeIngress(allVirtualServices)
+	virtualServices := env.VirtualServices(gateways)
 
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	dedupHosts := map[string]*model.Config{}
@@ -352,7 +352,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 			log.Infof("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
 		}
-		routes, err := istio_route.BuildHTTPRoutesForVirtualService(*v, svcs, port, nil, gateways, env.IstioConfigStore)
+		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
 			log.Warnf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
 			continue
@@ -371,7 +371,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 					Domains: []string{vsvcHost},
 					Routes:  routes,
 				}
-				dedupHosts[key] = v
+				dedupHosts[key] = &v
 
 				if tlsRedirect[gatewayHost] {
 					host.RequireTls = route.VirtualHost_ALL
@@ -418,68 +418,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	}
 
 	return out
-}
-
-// mergeIngress will append rules from Ingress-generated virtual services to existing virtual services.
-// The ingress can be created dynamically, and only has very limitted capabilities -
-// [host]/path->backend configuration
-func mergeIngress(configs []model.Config) []*model.Config {
-	configsOut := []*model.Config{}
-
-	hostsToVS := map[string]*networking.VirtualService{}
-
-	// Ignore ingress resources, build a map of hosts to (real) VirtualServices. VirtualService has priority.
-	for _, c := range configs {
-		vs := c.Spec.(*networking.VirtualService)
-		for _, h := range vs.Hosts {
-			if !strings.HasSuffix(c.Name, model.IstioIngressGatewayName) {
-				vse, e := hostsToVS[h]
-				if e {
-					// Just a message - dups will be eliminated later.
-					log.Infof("Duplicated hostname %s OLD:%v NEW:%v", h, vse, vs)
-				}
-				hostsToVS[h] = vs
-				configsOut = append(configsOut, &c)
-			}
-		}
-	}
-
-	// Add the rules from Ingress generated resources, as well as
-	// all ingress generated resources for domains not covered by VirtualService
-
-	// We could restrict ingress merging if a VirtualService exists - only /.well-known (to narrow
-	// it to ACME case, or only exact match, etc.
-	for _, c := range configs {
-		vs := c.Spec.(*networking.VirtualService)
-		for _, h := range vs.Hosts {
-			if strings.HasSuffix(c.Name, model.IstioIngressGatewayName) {
-				vse, e := hostsToVS[h]
-				if e {
-					// A VirtualService entry exists for the domain.
-					for _, r := range vs.Http {
-						if len(r.Match) == 0 {
-							continue // unexpected
-						}
-						if p, ok := r.Match[0].Uri.GetMatchType().(*networking.StringMatch_Prefix); ok {
-							if p.Prefix == "/" || p.Prefix == "" {
-								log.Infof("Ignoring / prefix for %s %s", h, c.Name)
-								continue
-							}
-						}
-						vse.Http = append([]*networking.HTTPRoute{r}, vse.Http...)
-					}
-					//vse.Http = append(vs.Http, vse.Http...)
-					log.Infof("Merging ingress to vs %s %s", h, c.Name)
-				} else {
-					// This domain only has Ingress configs
-					hostsToVS[h] = vs
-					configsOut = append(configsOut, &c)
-				}
-			}
-		}
-	}
-
-	return configsOut
 }
 
 func createGatewayTCPFilterChainOpts(
