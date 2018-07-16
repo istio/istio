@@ -13,6 +13,17 @@
     },
     {
       "volumes": [
+    {
+          "name": "buildoutput",
+          "path": "/output"
+    }
+      ],
+      "name": "gcr.io/istio-testing/istio-builder:0.5.4",
+      "args": [ "-c", "sed -i 's|hub\: docker.io/istionightly|hub\: gcr.io/istio-release|g' go/src/istio.io/istio/install/kubernetes/helm/istio*/values.yaml && sed -i \"s/tag\: nightly.*/tag\: ${_VER_STRING}/g\" go/src/istio.io/istio/install/kubernetes/helm/istio*/values.yaml" ],
+      "entrypoint": "bash"
+    },
+    {
+      "volumes": [
 	{
           "name": "buildoutput",
           "path": "/output"
