@@ -1,0 +1,55 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 15007
+      name: pilot-http-discovery
+      protocol: TCP
+    hosts:
+    - "*"
+  - port:
+      number: 15010
+      name: pilot-grpc-xds
+      protocol: TCP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: pilot-http-discovery
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - istio-gateway
+  tcp:
+  - match:
+    - port: 15007
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 15007
+---
+kind: VirtualService
+metadata:
+  name: pilot-grpc-xds
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - istio-gateway
+  tcp:
+  - match:
+    - port: 15010
+    route:
+    - destination:
+        host: istio-pilot.istio-system.svc.cluster.local
+        port:
+          number: 15010
