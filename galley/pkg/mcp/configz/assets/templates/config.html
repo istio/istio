@@ -1,0 +1,158 @@
+{{ define "content" }}
+
+    <p>
+        The Mesh Configuration Protocol (MCP) client state for this process.
+    </p>
+
+    <style>
+    .metadata-table-cell {
+        margin: 0;
+        padding: 0;
+    }
+
+    .metadata-table {
+        margin: 0;
+        padding: 0;
+    }
+    </style>
+
+    <div>
+        <table>
+            <thead>
+            <tr>
+                <th colspan="2">Client Info</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>ID</td>
+                <td>{{.ID}}</td>
+            </tr>
+            <tr>
+                <td>Metadata</td>
+                <td class="metadata-table-cell">
+                    <table class="metadata-table">
+                    {{ range $key, $value := .Metadata }}
+                    <tr>
+                        <td>{{$key}}</td>
+                        <td>{{$value}}</td>
+                    {{end}}
+                    </table>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <table>
+            <thead>
+            <tr>
+                <th>Suported Type URLs</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range $value := .SupportedTypeURLs }}
+            <tr>
+                <td>{{$value}}</td>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+
+    <div>
+        <table id="recent-requests-table">
+            <thead>
+            <tr>
+                <th colspan="5">Recent Requests</th>
+            </tr>
+            <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Acked</th>
+                <th>Nonce</th>
+            </tr>
+            </thead>
+
+            <tbody>
+        {{ range $entry := .LatestRequests }}
+            <tr>
+                <td>{{$entry.Time.Format "2006-01-02T15:04:05Z07:00"}}</td>
+                <td>{{$entry.Request.TypeUrl}}</td>
+                <td>{{$entry.Request.VersionInfo}}</td>
+                <td>{{$entry.Acked}}</td>
+                <td>{{$entry.Request.ResponseNonce}}</td>
+            </tr>
+        {{ end }}
+            </tbody>
+        </table>
+    </div>
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict";
+
+    function refreshRecentRequests() {
+        var url = window.location.protocol + "//" + window.location.host + "/configj/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var data = JSON.parse(this.responseText);
+
+                var table = document.getElementById("recent-requests-table");
+
+                var tbody = document.createElement("tbody");
+                for (var i = 0; i < data.LatestRequests.length; i++) {
+                    var row = document.createElement("tr");
+
+                    var c1 = document.createElement("td");
+                    c1.innerText = data.LatestRequests[i].Time;
+                    row.appendChild(c1);
+
+                    var c2 = document.createElement("td");
+                    c2.innerText = data.LatestRequests[i].Request.type_url;
+                    row.appendChild(c2);
+
+                    var c3 = document.createElement("td");
+                    c3.innerText = data.LatestRequests[i].Request.version_info;
+                    row.appendChild(c3);
+
+                    var c4 = document.createElement("td");
+                    if (data.LatestRequests[i].Request.error_detail === null) {
+                        c4.innerText = "true"
+                    } else {
+                        c4.innerText = "false"
+                    }
+                    row.appendChild(c4);
+
+                    var c5 = document.createElement("td");
+                    c5.innerText = data.LatestRequests[i].Request.response_nonce;
+                    row.appendChild(c5);
+
+                    tbody.appendChild(row)
+                }
+                table.removeChild(table.tBodies[0]);
+                table.appendChild(tbody);
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshRecentRequests();
+    window.setInterval(refreshRecentRequests, 1000);
+
+</script>
+
+{{ end }}
