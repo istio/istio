@@ -32,6 +32,8 @@ default_args = {
     'owner': 'rkrishnap',
     'depends_on_past': False,
     # This is the date to when the airflow pipeline thinks the run started
+    # There is some airflow weirdness, for periodic jobs start_date needs to
+    # be greater than the interval between jobs
     'start_date': datetime.datetime.now() - datetime.timedelta(days=1, minutes=15),
     'email': environment_config.EMAIL_LIST,
     'email_on_failure': True, 
@@ -365,7 +367,7 @@ def DailyPipeline(branch):
 
 
 
-def MonthlyPipeline(branch):
+def MonthlyPipeline():
   MONTHLY_RELEASE_TRIGGER = '15 17 * * 4#3'
 
   def MonthlyGenerateTestArgs(**kwargs):
@@ -384,17 +386,19 @@ def MonthlyPipeline(branch):
 
     # If version is overriden then we should use it otherwise we use it's
     # default or monthly value.
-    version = conf.get('VERSION') or AirflowGetVariableOrBaseCase(branch+'-version', None)
+    version = conf.get('VERSION') or AirflowGetVariableOrBaseCase('monthly-version', None)
     if not version or version == 'INVALID':
       raise ValueError('version needs to be provided')
-    Variable.set(branch+'-version', 'INVALID')
+    Variable.set('monthly-version', 'INVALID')
 
     GCS_MONTHLY_STAGE_PATH='prerelease/{version}'
     gcs_path = GCS_MONTHLY_STAGE_PATH.format(version=version)
 
-    mfest_commit = conf.get('MFEST_COMMIT')
-    if mfest_commit is None:
-      mfest_commit = branch
+    branch = conf.get('BRANCH') or AirflowGetVariableOrBaseCase('monthly-branch', None)
+    if not branch or branch == 'INVALID':
+      raise ValueError('branch needs to be provided')
+    Variable.set('monthly-branch', 'INVALID')
+    mfest_commit = conf.get('MFEST_COMMIT') or branch
 
     default_conf = environment_config.get_default_config(
         branch=branch,
@@ -417,7 +421,7 @@ def MonthlyPipeline(branch):
 
   dag, tasks = MakeCommonDag(
     MonthlyGenerateTestArgs,
-    'istio_monthly_'+branch,
+    'istio_monthly_dag',
     schedule_interval=MONTHLY_RELEASE_TRIGGER)
 
   release_push_github_docker_template = """
