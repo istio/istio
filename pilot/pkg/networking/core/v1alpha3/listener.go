@@ -348,6 +348,47 @@ func sortServicesByCreationTime(services []*model.Service) []*model.Service {
 	return services
 }
 
+func protocolName(p model.Protocol) string {
+	switch plugin.ModelProtocolToListenerProtocol(p) {
+	case plugin.ListenerProtocolHTTP:
+		return "HTTP"
+	case plugin.ListenerProtocolTCP:
+		return "TCP"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+type outboundListenerConflict struct {
+	metric          *model.PushMetric
+	env             *model.Environment
+	node            *model.Proxy
+	listenerName    string
+	currentProtocol model.Protocol
+	currentServices []*model.Service
+	newHostname     model.Hostname
+	newProtocol     model.Protocol
+}
+
+func (c outboundListenerConflict) addMetric() {
+	currentHostnames := make([]string, len(c.currentServices))
+	for i, s := range c.currentServices {
+		currentHostnames[i] = string(s.Hostname)
+	}
+	concatHostnames := strings.Join(currentHostnames, ",")
+	c.env.PushStatus.Add(c.metric,
+		c.listenerName,
+		c.node,
+		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",
+			c.listenerName,
+			protocolName(c.currentProtocol),
+			concatHostnames,
+			protocolName(c.newProtocol),
+			c.newHostname,
+			protocolName(c.currentProtocol),
+			len(c.currentServices)))
+}
+
 // buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
@@ -407,12 +448,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// services in that port
 				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
 					if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
-						env.PushStatus.Add(model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-							listenerMapKey, node,
-							fmt.Sprintf("Listener=%s HTTPServices=%d RejectedTCP=%s",
-								listenerMapKey,
-								len(currentListenerEntry.services),
-								service.Hostname))
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
+							env:             env,
+							node:            node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     service.Hostname,
+							newProtocol:     servicePort.Protocol,
+						}.addMetric()
 					}
 					// Skip building listener for the same http port
 					currentListenerEntry.services = append(currentListenerEntry.services, service)
@@ -464,12 +509,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// If configured correctly, TCP/TLS ports may not collide.
 					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
 					if !currentListenerEntry.servicePort.Protocol.IsTCP() {
-						env.PushStatus.Add(model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
-							listenerMapKey, node,
-							fmt.Sprintf("Listener=%s TCPServices=%d RejectedHTTP=%s",
-								listenerMapKey,
-								len(currentListenerEntry.services),
-								service.Hostname))
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
+							env:             env,
+							node:            node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     service.Hostname,
+							newProtocol:     servicePort.Protocol,
+						}.addMetric()
 						continue
 					}
 					// WE have a collision with another TCP port.
@@ -542,12 +591,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							// Else mark it as conflict
 							if incomingFilterChain.FilterChainMatch == nil {
 								conflictFound = true
-								env.PushStatus.Add(model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-									listenerMapKey, node,
-									fmt.Sprintf("Listener=%s TCPServices=%d RejectedTCP=%s",
-										listenerMapKey,
-										len(currentListenerEntry.services),
-										service.Hostname))
+								outboundListenerConflict{
+									metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+									env:             env,
+									node:            node,
+									listenerName:    listenerMapKey,
+									currentServices: currentListenerEntry.services,
+									currentProtocol: currentListenerEntry.servicePort.Protocol,
+									newHostname:     service.Hostname,
+									newProtocol:     servicePort.Protocol,
+								}.addMetric()
 								break compareWithExisting
 							} else {
 								continue
@@ -560,12 +613,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						// We have two non-catch all filter chains. Check for duplicates
 						if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
 							conflictFound = true
-							env.PushStatus.Add(model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-								listenerMapKey, node,
-								fmt.Sprintf("Listener=%s TCPServices=%d RejectedTCP=%s",
-									listenerMapKey,
-									len(currentListenerEntry.services),
-									service.Hostname))
+							outboundListenerConflict{
+								metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+								env:             env,
+								node:            node,
+								listenerName:    listenerMapKey,
+								currentServices: currentListenerEntry.services,
+								currentProtocol: currentListenerEntry.servicePort.Protocol,
+								newHostname:     service.Hostname,
+								newProtocol:     servicePort.Protocol,
+							}.addMetric()
 							break compareWithExisting
 						}
 					}
