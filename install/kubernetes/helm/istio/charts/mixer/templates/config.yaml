@@ -209,11 +209,8 @@ spec:
     destinationNamespace: destination.namespace | ""
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
-    apiName: api.service | ""
-    apiVersion: api.version | ""
     apiClaims: request.auth.raw_claims | ""
     apiKey: request.api_key | request.headers["x-api-key"] | ""
-    requestOperation: api.operation | ""
     protocol: request.scheme | context.protocol | "http"
     method: request.method | ""
     url: request.path | ""
@@ -230,7 +227,9 @@ spec:
     receivedBytes: request.total_size | 0
     sentBytes: response.total_size | 0
     referer: request.referer | ""
+    httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -259,13 +258,14 @@ spec:
     destinationOwner: destination.owner | ""
     destinationPrincipal: destination.principal | ""
     protocol: context.protocol | "tcp"
-    connctionDuration: connection.duration | "0ms"
+    connectionDuration: connection.duration | "0ms"
     connectionMtls: connection.mtls | false
     requestedServerName: connection.requested_server_name | ""
     receivedBytes: connection.received.bytes | 0
     sentBytes: connection.sent.bytes | 0
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -674,6 +674,7 @@ spec:
     # Fill the new attributes from the adapter produced output.
     # $out refers to an instance of OutputTemplate message
     source.ip: $out.source_pod_ip | ip("0.0.0.0")
+    source.uid: $out.source_pod_uid | "unknown"
     source.labels: $out.source_labels | emptyStringMap()
     source.name: $out.source_pod_name | "unknown"
     source.namespace: $out.source_namespace | "default"
@@ -683,6 +684,7 @@ spec:
     source.workload.name: $out.source_workload_name | "unknown"
     source.workload.namespace: $out.source_workload_namespace | "unknown"
     destination.ip: $out.destination_pod_ip | ip("0.0.0.0")
+    destination.uid: $out.destination_pod_uid | "unknown"
     destination.labels: $out.destination_labels | emptyStringMap()
     destination.name: $out.destination_pod_name | "unknown"
     destination.container.name: $out.destination_container_name | "unknown"
