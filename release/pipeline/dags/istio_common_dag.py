@@ -177,6 +177,8 @@ def MakeCommonDag(dag_args_func, name='istio_daily_flow_test',
   build_template = """
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
+    # TODO: Merge these json/script changes into istio/istio master and change these path back.
+    # Currently we did changes and push those to a test-version folder manually
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.json .
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
     chmod u+x *
@@ -271,7 +273,7 @@ gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_t
                           sed -E "s/docker\/(([a-z]|-)*).tar.gz/\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
-  cat docker_images.txt docker_images.txt | \
+  cat docker_images.txt docker_tars.txt | \
   while read -r docker_image;do
     gcloud container images add-tag \
     "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}" \
