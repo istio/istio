@@ -220,7 +220,7 @@ spec:
     requestId: request.headers["x-request-id"] | ""
     clientTraceId: request.headers["x-client-trace-id"] | ""
     latency: response.duration | "0ms"
-    connectionMtls: connection.mtls | false
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     requestedServerName: connection.requested_server_name | ""
     userAgent: request.useragent | ""
     responseTimestamp: response.time
@@ -229,7 +229,7 @@ spec:
     referer: request.referer | ""
     httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -259,13 +259,13 @@ spec:
     destinationPrincipal: destination.principal | ""
     protocol: context.protocol | "tcp"
     connectionDuration: connection.duration | "0ms"
-    connectionMtls: connection.mtls | false
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
     requestedServerName: connection.requested_server_name | ""
     receivedBytes: connection.received.bytes | 0
     sentBytes: connection.sent.bytes | 0
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
-    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "client", "server")
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
