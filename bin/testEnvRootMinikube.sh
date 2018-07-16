@@ -35,9 +35,10 @@ function waitMinikube() {
         netstat -an
         docker images
         cat /var/lib/localkube/localkube.err
-        echo "\n\n\n"
+        echo -e "\n\n\n"
         kubectl cluster-info dump
-        #exit 1
+        echo "Exiting"
+        exit 1
     fi
     echo "Minikube is running"
 }
