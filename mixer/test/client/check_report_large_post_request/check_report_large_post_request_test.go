@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package checkReport
+package client_test
 
 import (
 	"fmt"
