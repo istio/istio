@@ -64,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
 
 	errs := &multierror.Error{}
-	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
+	outboundListeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
 	for portNumber, servers := range merged.Servers {
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		if protocol == model.ProtocolHTTPS {
@@ -149,20 +149,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
 				len(mutable.Listener.FilterChains), mutable.Listener)
 		}
-		listeners = append(listeners, mutable.Listener)
+		outboundListeners = append(outboundListeners, mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
-	if len(listeners) == 0 {
-		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
-		return []*xdsapi.Listener{}, nil
-	}
-
-	if err != nil {
-		// we have some listeners to return, but we also have some errors; log them
+	if len(outboundListeners) == 0 {
+		log.Errorf("buildGatewayListeners: Have zero outbound listeners: %v", err.Error())
+	} else if err != nil {
+		// we have some outbound listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
 	}
-	return listeners, nil
+
+	inboundListeners := configgen.buildSidecarInboundListeners(env, node, workloadInstances)
+	return append(outboundListeners, inboundListeners...), nil
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy,
