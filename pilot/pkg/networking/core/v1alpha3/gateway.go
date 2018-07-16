@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -32,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"strings"
 )
 
 var (
@@ -241,7 +241,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		for i, server := range servers {
 			rdsName := model.GatewayRDSRouteName(server)
 			routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, push,
-			nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
+				nameToServiceMap, gatewayNames, []*networking.Server{server}, rdsName)
 			if routeCfg == nil {
 				log.Warnf("omitting HTTP listeners for port %d filter chain %d due to no routes", server.Port, i)
 				continue
@@ -352,7 +352,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 			log.Infof("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
 		}
-		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
+		routes, err := istio_route.BuildHTTPRoutesForVirtualService(*v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
 			log.Warnf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
 			continue
@@ -364,7 +364,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 			if f {
 				push.Add(model.DuplicatedDomains, key, node,
 					fmt.Sprintf("Duplicated virtual host %s use %s:%s rejecting %s:%s",
-					key, old.Namespace, old.Name, v.Namespace, v.Name))
+						key, old.Namespace, old.Name, v.Namespace, v.Name))
 			} else {
 				host := route.VirtualHost{
 					Name:    key,
@@ -422,7 +422,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 
 // mergeIngress will append rules from Ingress-generated virtual services to existing virtual services.
 // The ingress can be created dynamically, and only has very limitted capabilities -
-// [host]/path->backend configuration 
+// [host]/path->backend configuration
 func mergeIngress(configs []model.Config) []*model.Config {
 	configsOut := []*model.Config{}
 
