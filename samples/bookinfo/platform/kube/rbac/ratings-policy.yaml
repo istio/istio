@@ -15,7 +15,7 @@ metadata:
   namespace: default
 spec:
   subjects:
-  - user: "cluster.local/ns/default/sa/bookinfo-reviews"
+  - user: "spiffe://cluster.local/ns/default/sa/bookinfo-reviews"
   roleRef:
     kind: ServiceRole
     name: "ratings-viewer"

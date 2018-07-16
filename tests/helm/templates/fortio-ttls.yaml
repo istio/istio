@@ -2,14 +2,15 @@
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
-  name: fortiotls
+  name: fortiottls
 spec:
   peers:
-  - mtls: {}
+  - mtls:
+    mode: PERMISSIVE
   peer_is_optional: true
   targets:
   # Must be short name of service
-  - name: fortiotls
+  - name: fortiottls
     # subsets: "v2"
     ports:
     # name also supported
@@ -19,25 +20,17 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: fortiotls
+  name: fortiottls
 spec:
-  host:  fortiotls.test.svc.cluster.local
+  host:  fortiottls.test.svc.cluster.local
   trafficPolicy:
     tls:
-      # Equivalent with ISTIO_MUTUAL
-      mode: MUTUAL
-      client_certificate: /etc/certs/cert-chain.pem
-      private_key: /etc/certs/key.pem
-      ca_certificates: /etc/certs/root-cert.pem
-      subject_alt_names:
-      - spiffe://cluster.local/ns/test/sa/default
-
-
+      mode: ISTIO_MUTUAL
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: fortiotls
+  name: fortiottls
 spec:
   ports:
   - port: 8080
@@ -48,12 +41,12 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortiotls
+    app: fortiottls
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: fortiotls
+  name: fortiottls
 spec:
   replicas: 1
   template:
@@ -63,8 +56,8 @@ spec:
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
         sidecar.istio.io/discoveryAddress: pilot.{{ .Values.domain }}:15011
       labels:
-        app: fortiotls
-        version: tls
+        app: fortiottls
+        version: ttls
     spec:
       containers:
       - name: fortio
@@ -87,15 +80,15 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: fortiotls
+  name: fortiottls
 spec:
   hosts:
-  - "fortiotls.{{ .Values.domain }}"
+  - "fortiottls.{{ .Values.domain }}"
   gateways:
   - istio-gateway
   http:
   - route:
     - destination:
-        host: fortiotls.test.svc.cluster.local
+        host: fortiottls.test.svc.cluster.local
         port:
           number: 8080

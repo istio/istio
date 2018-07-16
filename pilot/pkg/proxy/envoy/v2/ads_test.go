@@ -33,7 +33,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"service3.default.svc.cluster.local|http"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	s := initLocalPilotTestEnv(t)
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestAdsReconnect(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// event happens
-	v2.PushAll()
+	v2.AdsPushAll(s.EnvoyXdsServer)
 	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	m, err := adsReceive(edsstr2, 3*time.Second)
@@ -157,14 +157,14 @@ func TestAdsClusterUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	cluster1 := "adsupdate.default.svc.cluster.local|http-main"
+	cluster1 := "outbound|80||adsupdate.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
 	// register a second endpoint
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
 		"http-status", 2080, "10.2.0.2", 1081)
 
-	cluster2 := "adsupdate2.default.svc.cluster.local|http-status"
+	cluster2 := "outbound|80||adsupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
 }
 
@@ -185,7 +185,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	err = sendEDSReq([]string{"adsupdate.default.svc.cluster.local|http-main"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarId("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestAdsUpdate(t *testing.T) {
 
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
-	v2.PushAll()
+	v2.AdsPushAll(server.EnvoyXdsServer)
 
 	res1, err = adsReceive(edsstr, 5*time.Second)
 	if err != nil {
@@ -258,7 +258,7 @@ func TestAdsMultiple(t *testing.T) {
 				errChan <- err
 			}
 
-			err = sendEDSReq([]string{"service3.default.svc.cluster.local|http-main"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
+			err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(testIp(uint32(0x0a200000+i)), "app3"), edsstr)
 			if err != nil {
 				errChan <- err
 			}
@@ -304,7 +304,7 @@ func TestAdsMultiple(t *testing.T) {
 	for j := 0; j < nPushes; j++ {
 		_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("service3.default.svc.cluster.local",
 			"http-main", 2080, "10.1.7.1", 1080)
-		v2.PushAll()
+		v2.AdsPushAll(server.EnvoyXdsServer)
 		log.Println("Push done ", j)
 	}
 
