@@ -734,7 +734,7 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
     - port:
-        name: grpc-mixer-mtls
+        number: 15004
       tls:
         mode: ISTIO_MUTUAL
     {{- end}}
@@ -754,7 +754,7 @@ spec:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
     - port:
-        name: grpc-mixer-mtls
+        number: 15004
       tls:
         mode: ISTIO_MUTUAL
     {{- end}}
