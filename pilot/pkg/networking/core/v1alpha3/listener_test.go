@@ -38,7 +38,7 @@ var (
 	}
 )
 
-func TestOutboundListenerConflict_HTTP(t *testing.T) {
+func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
@@ -47,7 +47,7 @@ func TestOutboundListenerConflict_HTTP(t *testing.T) {
 		buildService("test3,com", model.ProtocolHTTP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_TCP(t *testing.T) {
+func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
 	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
@@ -64,7 +64,7 @@ func TestOutboundListenerConflict_Unordered(t *testing.T) {
 		buildService("test3.com", model.ProtocolTCP, tzero))
 }
 
-func TestMergeOutboundTCPFilterChains(t *testing.T) {
+func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	services := []*model.Service{
 		buildService("test1.com", model.ProtocolTCP, tnow.Add(1*time.Second)),
 		buildService("test2.com", model.ProtocolTCP, tnow),
