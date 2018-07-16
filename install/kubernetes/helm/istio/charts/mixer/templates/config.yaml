@@ -228,6 +228,7 @@ spec:
     sentBytes: response.total_size | 0
     referer: request.referer | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
+    reporterKind: context.reporter.kind | "unknown"
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -263,6 +264,7 @@ spec:
     sentBytes: connection.sent.bytes | 0
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
+    reporterKind: context.reporter.kind | "unknown"
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
