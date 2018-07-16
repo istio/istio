@@ -77,8 +77,12 @@ var (
 		Kind:         config.DISTRIBUTION,
 		LabelNames:   []string{},
 		Buckets: &config.Params_MetricInfo_BucketsDefinition{
-			&config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets{
-				&config.Params_MetricInfo_BucketsDefinition_Explicit{Bounds: []float64{0.5434}}}},
+			Definition: &config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets{
+				ExplicitBuckets: &config.Params_MetricInfo_BucketsDefinition_Explicit{
+					Bounds: []float64{0.5434},
+				},
+			},
+		},
 	}
 
 	counterNoLabels = &config.Params_MetricInfo{
@@ -105,8 +109,14 @@ var (
 		Kind:         config.DISTRIBUTION,
 		LabelNames:   []string{},
 		Buckets: &config.Params_MetricInfo_BucketsDefinition{
-			&config.Params_MetricInfo_BucketsDefinition_LinearBuckets{
-				&config.Params_MetricInfo_BucketsDefinition_Linear{NumFiniteBuckets: 5, Offset: 45, Width: 12}}},
+			Definition: &config.Params_MetricInfo_BucketsDefinition_LinearBuckets{
+				LinearBuckets: &config.Params_MetricInfo_BucketsDefinition_Linear{
+					NumFiniteBuckets: 5,
+					Offset:           45,
+					Width:            12,
+				},
+			},
+		},
 	}
 
 	counter = &config.Params_MetricInfo{
@@ -128,8 +138,8 @@ var (
 		Description:  "fun with buckets",
 		Kind:         config.DISTRIBUTION,
 		Buckets: &config.Params_MetricInfo_BucketsDefinition{
-			&config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets{
-				&config.Params_MetricInfo_BucketsDefinition_Exponential{Scale: .14, GrowthFactor: 2, NumFiniteBuckets: 198}},
+			Definition: &config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets{
+				ExponentialBuckets: &config.Params_MetricInfo_BucketsDefinition_Exponential{Scale: .14, GrowthFactor: 2, NumFiniteBuckets: 198}},
 		},
 		LabelNames: []string{"bool", "string", "email"},
 	}

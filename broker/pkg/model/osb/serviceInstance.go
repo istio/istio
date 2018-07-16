@@ -18,26 +18,26 @@ package osb
 type ServiceInstance struct {
 	ID               string `json:"id"`
 	DashboardURL     string `json:"dashboard_url"`
-	InternalID       string `json:"internalId, omitempty"`
+	InternalID       string `json:"internalId,omitempty"`
 	ServiceID        string `json:"service_id"`
 	PlanID           string `json:"plan_id"`
 	OrganizationGUID string `json:"organization_guid"`
 	SpaceGUID        string `json:"space_guid"`
 
-	LastOperation *LastOperation `json:"last_operation, omitempty"`
+	LastOperation *LastOperation `json:"last_operation,omitempty"`
 
-	Parameters interface{} `json:"parameters, omitempty"`
+	Parameters interface{} `json:"parameters,omitempty"`
 }
 
 // LastOperation defines OSB last operation data structure.
 type LastOperation struct {
 	State                    string `json:"state"`
 	Description              string `json:"description"`
-	AsyncPollIntervalSeconds int    `json:"async_poll_interval_seconds, omitempty"`
+	AsyncPollIntervalSeconds int    `json:"async_poll_interval_seconds,omitempty"`
 }
 
 // CreateServiceInstanceResponse defines OSB service instance response data structure.
 type CreateServiceInstanceResponse struct {
 	DashboardURL  string         `json:"dashboard_url"`
-	LastOperation *LastOperation `json:"last_operation, omitempty"`
+	LastOperation *LastOperation `json:"last_operation,omitempty"`
 }

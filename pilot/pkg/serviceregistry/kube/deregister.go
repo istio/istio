@@ -78,7 +78,7 @@ func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName s
 			If the service endpoint has not been registered
 			before, report proper error message.
 		*/
-		log.Errora("Could not find ip %s in svc %s endpoints", ip, svcName)
+		log.Errorf("Could not find ip %s in svc %s endpoints", ip, svcName)
 		return err
 	}
 	eps, err = client.CoreV1().Endpoints(namespace).Update(eps)

@@ -48,9 +48,9 @@ func setupQuotaTest(t *testing.T) *quotaTest {
 	svcCfg := &config.GcpServiceSetting{
 		Quotas: []*config.Quota{
 			{
-				"ratelimit.quota.istio-system",
-				"read-requests",
-				&pbtypes.Duration{
+				Name: "ratelimit.quota.istio-system",
+				GoogleQuotaMetricName: "read-requests",
+				Expiration: &pbtypes.Duration{
 					Seconds: 60,
 				},
 			},
