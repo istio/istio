@@ -38,7 +38,8 @@ import (
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 )
 
-const envoyConf = `
+const (
+	envoyConf = `
 admin:
   access_log_path: {{.AccessLogPath}}
   address:
@@ -86,7 +87,35 @@ static_resources:
         port_value: {{.Ports.MixerPort}}
 `
 
-const checkAttributesOkGet = `
+	checkAttributesOkOutbound = `
+{
+  "connection.mtls": false,
+  "context.protocol": "http",
+  "context.reporter.kind": "outbound",
+  "context.reporter.uid": "kubernetes://pod2.ns2",
+  "destination.service": "svc.ns3",
+  "destination.service.host": "svc.ns3",
+  "destination.service.name": "svc",
+  "destination.service.namespace": "ns3",
+  "destination.service.uid": "svcuid",
+  "source.uid": "kubernetes://pod2.ns2",
+  "source.namespace": "ns2",
+  "request.headers": {
+     ":method": "GET",
+     ":path": "/echo",
+     ":authority": "*",
+     "x-forwarded-proto": "http",
+     "x-request-id": "*"
+  },
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http"
+}
+`
+	checkAttributesOkInbound = `
 {
   "connection.mtls": false,
   "context.protocol": "http",
@@ -117,7 +146,7 @@ const checkAttributesOkGet = `
   "request.scheme": "http"
 }
 `
-const reportAttributesOkOutbound = `
+	reportAttributesOkOutbound = `
 {
   "connection.mtls": false,
   "context.protocol": "http",
@@ -132,6 +161,8 @@ const reportAttributesOkOutbound = `
   "destination.service.uid": "svcuid",
   "source.uid": "kubernetes://pod2.ns2",
   "source.namespace": "ns2",
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "request.headers": {
      ":method": "GET",
      ":path": "/echo",
@@ -161,7 +192,7 @@ const reportAttributesOkOutbound = `
   "response.total_size": "*"
 }`
 
-const reportAttributesOkInbound = `
+	reportAttributesOkInbound = `
 {
   "connection.mtls": false,
   "context.protocol": "http",
@@ -207,6 +238,7 @@ const reportAttributesOkInbound = `
   },
   "response.total_size": "*"
 }`
+)
 
 func TestPilotPlugin(t *testing.T) {
 	s := env.NewTestSetup(env.PilotPluginTest, t)
@@ -237,7 +269,8 @@ func TestPilotPlugin(t *testing.T) {
 	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	s.VerifyCheck("http", checkAttributesOkGet)
+	s.VerifyCheck("http-outbound", checkAttributesOkOutbound)
+	s.VerifyCheck("http-inbound", checkAttributesOkInbound)
 	s.VerifyTwoReports("http", reportAttributesOkOutbound, reportAttributesOkInbound)
 }
 
@@ -274,8 +307,9 @@ var (
 	svc  = model.Service{Hostname: "svc.ns3"}
 	mesh = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
+			MixerCheckServer:            "mixer_server:9091",
+			MixerReportServer:           "mixer_server:9091",
+			EnableClientSidePolicyCheck: true,
 		},
 		ServiceDiscovery: mock{},
 	}
