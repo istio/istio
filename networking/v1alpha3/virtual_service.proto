@@ -663,7 +663,7 @@ message DestinationWeight {
 message L4MatchAttributes {
   // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
   // a.b.c.d/xx form or just a.b.c.d.
-  repeated string destination_subnet = 1;
+  repeated string destination_subnets = 1;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they support,
@@ -696,7 +696,7 @@ message TLSMatchAttributes {
 
   // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
   // a.b.c.d/xx form or just a.b.c.d.
-  repeated string destination_subnet = 2;
+  repeated string destination_subnets = 2;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they
