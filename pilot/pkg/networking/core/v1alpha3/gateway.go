@@ -26,8 +26,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"strings"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -222,7 +220,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	// If plain text, we have to combine all servers into a single listener
 	if model.ParseProtocol(servers[0].Port.Protocol) == model.ProtocolHTTP {
 		rdsName := model.GatewayRDSRouteName(servers[0])
-		// using RDS - no need to compute all routes here as well.
+		routeCfg := configgen.buildGatewayInboundHTTPRouteConfig(env, node, nameToServiceMap, gatewayNames, servers, rdsName)
 		o := &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
 			// and that no two non-HTTPS servers can be on same port or share port names.
@@ -230,6 +228,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
+				routeConfig:      routeCfg,
 				rds:              rdsName,
 				useRemoteAddress: true,
 				direction:        http_conn.EGRESS, // viewed as from gateway to internal
@@ -339,19 +338,17 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices(gateways)
-	virtualServices = mergeIngress(virtualServices)
-
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	for _, v := range virtualServices {
 		vs := v.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
 		if len(matchingHosts) == 0 {
-			log.Infof("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
+			log.Warnf("omitting virtual service %q because its hosts don't match gateways %v server %d", v.Name, gateways, port)
 			continue
 		}
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(v, svcs, port, nil, gateways, env.IstioConfigStore)
 		if err != nil {
-			log.Warnf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
+			log.Warnf("omitting routes for service %v due to error: %v", v, err)
 			continue
 		}
 
@@ -406,48 +403,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayInboundHTTPRouteConfig(
 	}
 
 	return out
-}
-
-// mergeIngress will append rules from Ingress-generated virtual services to existing virtual services.
-// The ingress can be created dynamically, and only has very limitted capabilities -
-// [host]/path->backend configuration
-func mergeIngress(configs []model.Config) []model.Config {
-	configsOut := []model.Config{}
-	hostsToVS := map[string]*networking.VirtualService{}
-
-	// Ignore ingress resources, build a map of hosts to (real) VirtualServices.
-	for _, c := range configs {
-		vs := c.Spec.(*networking.VirtualService)
-		for _, h := range vs.Hosts {
-			if !strings.HasSuffix(c.Name, model.IstioIngressGatewayName) {
-				vse, e := hostsToVS[h]
-				if e {
-					log.Warnf("Duplicated hostname %s OLD:%v NEW:%v", h, vse, vs)
-					continue
-				}
-				hostsToVS[h] = vs
-				configsOut = append(configsOut, c)
-			}
-		}
-	}
-
-	for _, c := range configs {
-		vs := c.Spec.(*networking.VirtualService)
-		for _, h := range vs.Hosts {
-			if strings.HasSuffix(c.Name, model.IstioIngressGatewayName) {
-				vse, e := hostsToVS[h]
-				if e {
-					vse.Http = append(vse.Http, vs.Http...)
-					log.Infof("Merging ingress to vs %s %s", h, c.Name)
-				} else {
-					hostsToVS[h] = vs
-					configsOut = append(configsOut, c)
-				}
-			}
-		}
-	}
-
-	return configsOut
 }
 
 func createGatewayTCPFilterChainOpts(
