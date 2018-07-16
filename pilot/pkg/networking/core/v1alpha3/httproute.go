@@ -47,7 +47,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	case model.Sidecar:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, proxyInstances, services, routeName)
+		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
 	return nil, nil
 }
