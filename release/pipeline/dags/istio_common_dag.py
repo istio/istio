@@ -36,7 +36,7 @@ default_args = {
     # be greater than the interval between jobs
     'start_date': datetime.datetime.now() - datetime.timedelta(days=1, minutes=15),
     'email': environment_config.EMAIL_LIST,
-    'email_on_failure': True, 
+    'email_on_failure': True,
     'email_on_retry': False,
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
@@ -125,7 +125,7 @@ def MakeCommonDag(dag_args_func, name='istio_daily_flow_test',
     pushd istio-code/release
     ISTIO_HEAD_SHA=`git rev-parse HEAD`
     git checkout ${ISTIO_SHA} || exit 8
-    
+
     TS_SHA=` git show -s --format=%ct ${ISTIO_SHA}`
     TS_HEAD=`git show -s --format=%ct ${ISTIO_HEAD_SHA}`
     DIFF_SEC=$((TS_HEAD - TS_SHA))
@@ -149,11 +149,11 @@ def MakeCommonDag(dag_args_func, name='istio_daily_flow_test',
         exit 10
       fi
       if [ "$PROXY_HEAD_API_SHA" != "$API_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA != $API_SHA   API_SHA"   1>&2 
+        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA != $API_SHA   API_SHA"   1>&2
         exit 11
       fi
       if [ "$ISTIO_HEAD_SHA" != "$ISTIO_SHA" ]; then
-        echo "inconsistent shas     ISTIO_HEAD_SHA     $ISTIO_HEAD_SHA != $ISTIO_SHA ISTIO_SHA" 1>&2 
+        echo "inconsistent shas     ISTIO_HEAD_SHA     $ISTIO_HEAD_SHA != $ISTIO_SHA ISTIO_SHA" 1>&2
         exit 12
       fi
     fi
@@ -177,8 +177,8 @@ def MakeCommonDag(dag_args_func, name='istio_daily_flow_test',
   build_template = """
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-    gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
-    gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
+    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.json .
+    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
     chmod u+x *
     ./start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
     }} -r {{ settings.GCR_STAGING_DEST }} -s {{ settings.GCS_BUILD_PATH }} \
@@ -186,6 +186,7 @@ def MakeCommonDag(dag_args_func, name='istio_daily_flow_test',
     -u "{{ settings.MFEST_URL }}" \
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
     -a {{ settings.SVC_ACCT }}
+    -l {{ settings.PIPELINE_TYPE }}
     """
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 
@@ -270,13 +271,16 @@ gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_t
                           sed -E "s/docker\/(([a-z]|-)*).tar.gz/\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
-  cat docker_images.txt | \
+  cat docker_images.txt docker_images.txt | \
   while read -r docker_image;do
-    pull_source="gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}"
-    push_dest="  gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_{{ settings.BRANCH }}";
-    docker pull $pull_source
-    docker tag  $pull_source $push_dest
-    docker push $push_dest
+    gcloud container images add-tag \
+    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}" \
+    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_daily_{{ settings.BRANCH }}" --quiet;
+    #pull_source="gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}"
+    #push_dest="  gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_{{ settings.BRANCH }}";
+    #docker pull $pull_source
+    #docker tag  $pull_source $push_dest
+    #docker push $push_dest
   done
 
 cat docker_tars.txt docker_images.txt
@@ -308,7 +312,7 @@ def DailyPipeline(branch):
     daily_params = dict(
       GCS_DAILY_PATH='daily-build/{version}',
       MFEST_COMMIT='{branch}@{{{timestamp}}}',
-      VERIFY_CONSISTENCY='false', 
+      VERIFY_CONSISTENCY='false',
       VERSION='{branch}-{date_string}')
 
     """Loads the configuration that will be used for this Iteration."""
@@ -347,7 +351,7 @@ def DailyPipeline(branch):
     config_settings = dict()
     for name in default_conf.iterkeys():
       config_settings[name] = conf.get(name) or default_conf[name]
-
+    config_settings['PIPELINE_TYPE'] = 'daily'
     return config_settings
 
   dag_name = 'istio_daily_' + branch
@@ -416,7 +420,7 @@ def MonthlyPipeline():
 		version=config_settings['VERSION'])
     for name in release_params.iterkeys():
       config_settings[name] = conf.get(name) or monthly_conf[name]
-
+    config_settings['PIPELINE_TYPE'] = 'monthly'
     return config_settings
 
   dag, tasks = MakeCommonDag(
