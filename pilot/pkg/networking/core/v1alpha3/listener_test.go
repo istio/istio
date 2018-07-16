@@ -79,6 +79,10 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
+	// The filter chains should all be merged into one.
+	if len(listeners[0].FilterChains) != 1 {
+		t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+	}
 	verifyOutboundTCPListenerHostname(t, listeners[0], "test2.com")
 
 	oldestService := getOldestService(services...)
@@ -87,11 +91,6 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		t.Fatal("expected TCP listener, found HTTP")
 	} else if oldestProtocol == model.ProtocolHTTP && !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
-	}
-
-	// The plugin should show 3 that all 3 listeners were created. Their filter chains should be merged, however.
-	if len(p.outboundListenerParams) != 3 {
-		t.Fatalf("expected %d listener params, found %d", 3, len(p.outboundListenerParams))
 	}
 
 	if p.outboundListenerParams[0].Service != oldestService {
