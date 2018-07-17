@@ -16,14 +16,13 @@ package ingress
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"path"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -61,8 +60,7 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway + VirtualServices
-// TODO: handle multiple ingress specs
+// ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.Config {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
@@ -121,6 +119,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) model.
 	return gatewayConfig
 }
 
+// ConvertIngressV1alpha3 converts from ingress spec to Istio VirtualServices
 func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, ingressByHost map[string]*model.Config) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
