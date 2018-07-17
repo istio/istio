@@ -32,6 +32,11 @@ set -e
 source ${ROOT}/prow/lib.sh
 setup_and_export_git_sha
 
+if [ "${CI:-}" == 'bootstrap' ]; then
+  # bootsrap upload all artifacts in _artifacts to the log bucket.
+  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
+fi
+
 echo 'Build'
 (cd ${ROOT}; make build)
 
@@ -43,3 +48,6 @@ fi
 # Upload images - needed by the subsequent tests
 time ISTIO_DOCKER_HUB="gcr.io/istio-testing" make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
 
+# Run integration framework sample and security e2e test
+# JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
+# make with_junit_report TARGET="test/integration-example test/security-integration"
