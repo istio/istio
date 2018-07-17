@@ -123,6 +123,12 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -474,8 +480,3 @@ certmanager:
   hub: quay.io/jetstack
   tag: v0.3.1
   resources: {}
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-hyperkube:
-  hub: quay.io/coreos
-  tag: v1.7.6_coreos.0

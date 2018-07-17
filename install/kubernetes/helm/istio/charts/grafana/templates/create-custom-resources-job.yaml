@@ -65,7 +65,7 @@ spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:
         - name: hyperkube
-          image: "{{ .Values.hyperkube.repository }}/hyperkube:{{ .Values.hyperkube.tag }}"
+          image: "{{ .Values.global.hyperkube.repository }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
           command: [ "/bin/bash", "/tmp/grafana/run.sh", "/tmp/grafana/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/grafana"
