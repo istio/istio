@@ -94,8 +94,10 @@ data:
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/discoveryAddress\") .ProxyConfig.DiscoveryAddress ]]" }}
         - --discoveryRefreshDelay
         - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
+      {{- if .Values.global.zipkinAddress }}
         - --zipkinAddress
         - {{ "[[ .ProxyConfig.ZipkinAddress ]]" }}
+      {{- end }}
         - --connectTimeout
         - {{ "[[ formatDuration .ProxyConfig.ConnectTimeout ]]" }}
       {{- if .Values.global.proxy.envoyStatsd.enabled }}
