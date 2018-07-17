@@ -288,6 +288,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	return routeCfg, nil
 }
 
+// to process HTTP and HTTPS servers
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	env *model.Environment, node *model.Proxy, push *model.PushStatus, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
@@ -305,7 +306,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or TLS servers?
 	// If plain text, we have to combine all servers into a single listener
-	if model.ParseProtocol(servers[0].Port.Protocol) == model.ProtocolHTTP {
+	if model.ParseProtocol(servers[0].Port.Protocol).IsHTTP() {
 		rdsName := model.GatewayRDSRouteName(servers[0])
 		o := &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names

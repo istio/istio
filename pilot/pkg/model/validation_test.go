@@ -1142,9 +1142,18 @@ func TestValidateServer(t *testing.T) {
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
 				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_PASSTHROUGH},
+				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"cannot have TLS"},
+		{"tls redirect on HTTP",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
+				Tls: &networking.Server_TLSOptions{
+					HttpsRedirect: true,
+				},
+			},
+			""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

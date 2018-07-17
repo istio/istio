@@ -421,9 +421,17 @@ func validateServer(server *networking.Server) (errs error) {
 	if portErr == nil {
 		protocol := ParseProtocol(server.Port.Protocol)
 		if protocol.IsTLS() && server.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("Server must have TLS settings for HTTPS/TLS protocols"))
-		} else if protocol.IsHTTP() && server.Tls != nil {
-			errs = appendErrors(errs, fmt.Errorf("Server cannot have TLS settings for plain text HTTP ports"))
+			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
+		} else if !protocol.IsTLS() && server.Tls != nil {
+			// only tls redirect is allowed if this is a HTTP server
+			if protocol.IsHTTP() {
+				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
+					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
+					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+			}
 		}
 	}
 	return errs
