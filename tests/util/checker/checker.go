@@ -24,7 +24,7 @@ import (
 )
 
 // Check checks the list of files, and write to the given Report.
-func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *Report) error {
+func Check(paths []string, factory RulesFactory, whitelist WhitelistFactory, report *Report) error {
 	// Empty paths means current dir.
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -52,31 +52,44 @@ func Check(paths []string, factory RulesFactory, whitelist *Whitelist, report *R
 }
 
 // fileCheck checks a file using the given rules, and write to the given Report.
-func fileCheck(path string, rules []Rule, whitelist *Whitelist, report *Report) {
+func fileCheck(path string, rules []Rule, whitelist WhitelistFactory, report *Report) {
 	fs := token.NewFileSet()
-	astFile, err := parser.ParseFile(fs, path, nil, parser.Mode(0))
+	astFile, err := parser.ParseFile(fs, path, nil, parser.ParseComments)
 	if err != nil {
 		report.AddString(fmt.Sprintf("%v", err))
 		return
 	}
 	v := FileVisitor{
-		path:      path,
-		rules:     rules,
-		whitelist: whitelist,
-		fileset:   fs,
-		report:    report,
+		path:    path,
+		rules:   rules,
+		fileset: fs,
+		report:  report,
 	}
-	// Walk through the files
-	ast.Walk(&v, astFile)
+
+	v.whitelist = whitelist.GetWhitelist(astFile)
+	// Walk through each function in the file.
+	for _, d := range astFile.Decls {
+		if fn, isFn := d.(*ast.FuncDecl); isFn {
+			v.SetCurrentFuncName(fn.Name.String())
+			ast.Walk(&v, fn)
+			v.report.Sort()
+		}
+	}
 }
 
 // FileVisitor visits the go file syntax tree and applies the given rules.
 type FileVisitor struct {
-	path      string
-	rules     []Rule     // rules to check
-	whitelist *Whitelist // rules to skip
-	fileset   *token.FileSet
-	report    *Report // report for linting process
+	path       string
+	rules      []Rule    // rules to check
+	whitelist  Whitelist // rules to skip
+	fileset    *token.FileSet
+	report     *Report // report for linting process
+	curFunName string  // name of function that is being checked.
+}
+
+// SetCurrentFuncName sets the function name to FileVistor that is being checked.
+func (fv *FileVisitor) SetCurrentFuncName(fName string) {
+	fv.curFunName = fName
 }
 
 // Visit checks each node and runs the applicable checks.
@@ -87,7 +100,7 @@ func (fv *FileVisitor) Visit(node ast.Node) ast.Visitor {
 
 	// ApplyRules applies rules to node and generate lint report.
 	for _, rule := range fv.rules {
-		if !fv.whitelist.Apply(fv.path, rule) {
+		if !fv.whitelist.Apply(fv.curFunName, rule) {
 			rule.Check(node, fv.fileset, fv.report)
 		}
 	}

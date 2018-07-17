@@ -57,19 +57,24 @@ type RulesFactory interface {
 
 ### Whitelist
 
-In addition to [RulesFactory](rule.go), application can provide a [Whitelist](whitelist.go) to opt out selected files
-from certain rules. This allows temporary rule disablement until the file is updated to comply with the rules, or an
-exception mechanism to allow approved files break some rules.
-
-A [Whitelist](whitelist.go) object is backed by a map from string to a string slice, where the keys are file paths, and
-the values are slices of rule IDs, as identified by return value of the GetID() method, in the [Rule](rule.go)
-interface.
-
-```bash
-func NewWhitelist(ruleWhitelist map[string][]string) *Whitelist {
-	return Whitelist{ruleWhitelist: ruleWhitelist}
+If, for some reason, you want to disable lint rule for a function, you can add a comment above the function. The comment should match this pattern, and ends with a period.
+`// whitelist(url-to-GitHub-issue):[rule ID 1],[rule ID 2]...`
+Rule ID is the name of that rule file without `.go` extension.
+For example:
+```base
+// whitelist(https://github.com/istio/istio/issues/6346):no_sleep,skip_issue.
+func exampleFunc() {
+	...
 }
 ```
+If you want to disable all rules for function, you can specify `*` as the rule ID.
+For example:
+```base
+// whitelist(https://github.com/istio/istio/issues/6346):*.
+func exampleFunc() {
+	...
+}
+``` 
 
 
 ### Report

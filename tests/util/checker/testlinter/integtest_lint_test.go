@@ -43,10 +43,10 @@ func TestIntegTestSkipByShortRule(t *testing.T) {
 	rpts, _ := getReport([]string{"testdata/"})
 	expectedRpts := []string{getAbsPath("testdata/integration/integtest_test.go") +
 		":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
-		getAbsPath("testdata/integration/integtest_test.go") +
-			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
 		getAbsPath("testdata/integtest_integ_test.go") +
 			":10:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
+		getAbsPath("testdata/integration/integtest_test.go") +
+			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)",
 		getAbsPath("testdata/integtest_integ_test.go") +
 			":25:1:Missing either 'if testing.Short() { t.Skip() }' or 'if !testing.Short() {}' (short_skip)"}
 

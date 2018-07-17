@@ -69,17 +69,31 @@ Example:
 
 
 # Whitelist
-If, for some reason, you want to disable lint rule for a file, you can add the file path and rule ID in 
-[whitelist.go](whitelist.go). Rule ID is the name of that rule file without `.go` extension.
-You could also specify file path in regex.
-
-If you want to disable all rules for a file path, you can specify `*` as the ID.
-
-Example:
+If, for some reason, you want to disable lint rules for tests, you can specify a whitelist for the tests by adding a whitelist comment. The comment should match this pattern, and ends with a period.
+`// whitelist(url-to-GitHub-issue):[rule ID 1],[rule ID 2]...`
+Rule ID is the name of that rule file without `.go` extension.
+For example, you can skip no_sleep and skip_issue rules for test TestFunction:
 ```base
-var Whitelist = map[string][]string{
-    "/istoi/mixer/pkg/*": {"skip_issue", "short_skip"},
-    "/istoi/piloy/pkg/simply_test.go": {"*"},
+// whitelist(https://github.com/istio/istio/issues/6346):no_sleep,skip_issue.
+func TestFunction(t *testing.T) {
+	...
+}
+```
+If you want to disable all rules for a test function, you can specify `*` as the ID.
+For example:
+```base
+// whitelist(https://github.com/istio/istio/issues/6346):*.
+func TestFunction(t *testing.T) {
+	...
+}
+``` 
+If you want to skip rules for all tests in a file, you can put the whitelist comment
+into comment of TestMain.
+For example, you can skip no_sleep and skip_issue rules for all tests:
+```base
+// whitelist(https://github.com/istio/istio/issues/6346):no_sleep,skip_issue.
+func TestMain(t *testing.M) {
+	...
 }
 ```
 

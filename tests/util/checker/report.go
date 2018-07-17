@@ -17,11 +17,21 @@ package checker
 import (
 	"fmt"
 	"go/token"
+	"sort"
 )
+
+// Item stores error position in a test and error message.
+type Item struct {
+	pos int
+	msg string
+}
+
+// ItemList is an array of items.
+type ItemList []Item
 
 // Report populates lint report.
 type Report struct {
-	items []string
+	items ItemList
 }
 
 // NewLintReport creates and returns a Report object.
@@ -31,21 +41,41 @@ func NewLintReport() *Report {
 
 // Items returns formatted report as a string slice.
 func (lr *Report) Items() []string {
-	return lr.items
+	itemStr := []string{}
+	for _, it := range lr.items {
+		itemStr = append(itemStr, it.msg)
+	}
+	return itemStr
 }
+
+// Sort sorts report items.
+func (lr *Report) Sort() {
+	sort.Sort(&lr.items)
+}
+
+func (l ItemList) Len() int           { return len(l) }
+func (l ItemList) Less(i, j int) bool { return l[i].pos < l[j].pos }
+func (l ItemList) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 
 // AddItem creates a new lint error report.
 func (lr *Report) AddItem(pos token.Position, id string, msg string) {
-	item := fmt.Sprintf("%v:%v:%v:%s (%s)",
-		pos.Filename,
-		pos.Line,
-		pos.Column,
-		msg,
-		id)
+	item := Item{
+		pos: pos.Line,
+		msg: fmt.Sprintf("%v:%v:%v:%s (%s)",
+			pos.Filename,
+			pos.Line,
+			pos.Column,
+			msg,
+			id),
+	}
 	lr.items = append(lr.items, item)
 }
 
 // AddString creates a new string line in report.
 func (lr *Report) AddString(msg string) {
-	lr.items = append(lr.items, msg)
+	itm := Item{
+		pos: 0,
+		msg: msg,
+	}
+	lr.items = append(lr.items, itm)
 }
