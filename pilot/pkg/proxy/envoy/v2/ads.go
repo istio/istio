@@ -696,9 +696,11 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(SendTimeout)
 	go func() {
+		// Mutex is protecting from data races on the fields and against
+		// concurrent grpc send.
+		conn.mu.Lock()
 		err := conn.stream.Send(res)
 		done <- err
-		conn.mu.Lock()
 		if res.Nonce != "" {
 			switch res.TypeUrl {
 			case ClusterType:
