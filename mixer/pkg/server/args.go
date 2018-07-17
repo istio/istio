@@ -17,6 +17,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"math"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -120,11 +121,11 @@ func DefaultArgs() *Args {
 }
 
 func (a *Args) validate() error {
-	if a.APIWorkerPoolSize <= 0 {
+	if a.APIWorkerPoolSize <= 0 || a.APIWorkerPoolSize > math.MaxInt32 {
 		return fmt.Errorf("api worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.APIWorkerPoolSize)
 	}
 
-	if a.AdapterWorkerPoolSize <= 0 {
+	if a.AdapterWorkerPoolSize <= 0 || a.AdapterWorkerPoolSize > math.MaxInt32 {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
 	}
 
