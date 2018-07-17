@@ -53,6 +53,10 @@ else
   fi
 fi
 
+if [[ $DEBUG == "true" ]]; then
+  sed -i '/echo-svc-deployment1/a\  annotations:\n    sidecar.istio.io\/interceptionMode: TPROXY' $FNAME.yaml
+fi
+
 function update_gcp_opts() {
   export GCP_OPTS="--project $PROJECT --zone $ZONE"
 }
@@ -159,7 +163,7 @@ function install_non_istio_svc() {
 function install_istio_svc() {
  Execute kubectl create namespace $ISTIO_NAMESPACE || echo "Error assumed to be ns $ISTIO_NAMESPACE already created"
  FNAME=$TOOLS_DIR/perf_k8svcs
- Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
+ Execute sh -c "$ISTIOCTL kube-inject -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
  Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
 }
 
