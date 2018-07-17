@@ -398,9 +398,6 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
-  enabled: true
-
 tracing:
   enabled: false
   jaeger:
@@ -466,6 +463,8 @@ kiali:
       #     - kiali.local
   dashboard:
     username: admin
+    # Default admin password for kiali. Must be set during setup, and
+    # changed by overriding the secret
     password: admin
 
 certmanager:
