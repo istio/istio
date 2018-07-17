@@ -95,7 +95,7 @@ items:
     singular:    "servicerole"
     plural:      "serviceroles"
     group:       "rbac.istio.io"
-    version:     "v1alpha2"
+    version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
 
   - kind:        "ServiceRoleBinding"
@@ -103,7 +103,7 @@ items:
     singular:      "servicerolebinding"
     plural:        "servicerolebindings"
     group:       "rbac.istio.io"
-    version:     "v1alpha2"
+    version:     "v1alpha1"
     proto:         "istio.rbac.v1alpha1.ServiceRoleBinding"
 
   - kind:        "Rbac"
@@ -111,7 +111,7 @@ items:
     singular:    "rbac"
     plural:      "rbacs"
     group:       "rbac.istio.io"
-    version:     "v1alpha2"
+    version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
 
 # Types from Mixer

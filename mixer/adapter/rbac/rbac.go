@@ -62,7 +62,7 @@ type (
 const (
 	// API group and version string for the RBAC CRDs.
 	apiGroup   = "rbac.istio.io"
-	apiVersion = "v1alpha2"
+	apiVersion = "v1alpha1"
 
 	// ServiceRoleKind defines the config kind name of ServiceRole.
 	serviceRoleKind = "ServiceRole"
