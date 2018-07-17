@@ -15,6 +15,8 @@ spec:
     metadata:
       labels:
         istio: sidecar-injector
+      annotations:
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
       containers:
@@ -78,3 +80,4 @@ spec:
             path: config
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+---

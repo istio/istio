@@ -1,36 +1,95 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: istio-sidecar-injector
+  name: istio-sidecar-injector-pre-install
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-sidecar-injector
+    app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-webhooks:
-  - name: sidecar-injector.istio.io
-    clientConfig:
-      service:
-        name: istio-sidecar-injector
-        namespace: {{ .Release.Namespace }}
-        path: "/inject"
-      caBundle: ""
-    rules:
-      - operations: [ "CREATE" ]
-        apiGroups: [""]
-        apiVersions: ["v1"]
-        resources: ["pods"]
-    failurePolicy: Fail
-    namespaceSelector:
-{{- if .Values.enableNamespacesByDefault }}
-      matchExpressions:
-      - key: istio-injection
-        operator: NotIn
-        values:
-        - disabled
-{{- else }}
-      matchLabels:
-        istio-injection: enabled
-{{- end }}
-
+spec:
+  template:
+    metadata:
+      name: istio-sidecar-injector-pre-install
+      labels:
+        app: istio-sidecar-injector-pre-install
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-sidecar-injector-service-account
+      containers:
+      - name: hyperkube
+        image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+        command: [ "/bin/entrypoint.sh" ]
+        args: [ "/mutatingwebhookconfiguration.yaml" ]
+        volumeMounts:
+        - name: entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: config
+          mountPath: /mutatingwebhookconfiguration.yaml
+          readOnly: true
+          subPath: mutatingwebhookconfiguration.yaml
+      volumes:
+      - name: entrypoint
+        configMap:
+          defaultMode: 0700
+          name: istio-sidecar-injector-pre-install
+      - name: config
+        configMap:
+          name: istio-sidecar-injector-pre-install
+      restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector-pre-install
+  namespace: {{ .Release.Namespace }}
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -ex
+    [ "$#" -ne 1 ] && echo "first argument must be path to mutatingwebhookconfiguration.yaml" && exit 1
+    /kubectl label --overwrite namespace kube-system istio-injection=disabled
+    /kubectl label --overwrite namespace {{ .Release.Namespace }} istio-injection=disabled
+    /kubectl apply -f ${1}
+  mutatingwebhookconfiguration.yaml: |-
+    apiVersion: admissionregistration.k8s.io/v1beta1
+    kind: MutatingWebhookConfiguration
+    metadata:
+      name: istio-sidecar-injector
+      namespace: {{ .Release.Namespace }}
+      labels:
+        app: istio-sidecar-injector
+        chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    webhooks:
+      - name: sidecar-injector.istio.io
+        clientConfig:
+          service:
+            name: istio-sidecar-injector
+            namespace: {{ .Release.Namespace }}
+            path: "/inject"
+          caBundle: ""
+        rules:
+          - operations: [ "CREATE" ]
+            apiGroups: [""]
+            apiVersions: ["v1"]
+            resources: ["pods"]
+        failurePolicy: Fail
+        namespaceSelector:
+    {{- if .Values.enableNamespacesByDefault }}
+          matchExpressions:
+          - key: istio-injection
+            operator: NotIn
+            values:
+            - disabled
+    {{- else }}
+          matchLabels:
+            istio-injection: enabled
+    {{- end }}
+---
