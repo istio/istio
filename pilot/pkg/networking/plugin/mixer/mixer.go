@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -42,13 +43,6 @@ type attribute = *mpb.Attributes_AttributeValue
 type attributes map[string]attribute
 
 const (
-	//mixerPortName       = "grpc-mixer"
-	// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
-	mixerPortNumber = 9091
-
-	//mixerMTLSPortName   = "grpc-mixer-mtls"
-	mixerMTLSPortNumber = 15004
-
 	// mixer filter name
 	mixer = "mixer"
 
@@ -137,12 +131,14 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
@@ -178,18 +174,16 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
+func buildUpstreamName(address string) string {
+	host, port, _ := net.SplitHostPort(address)
+	v, _ := strconv.Atoi(port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
+}
+
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
-	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
-	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
-
-	port := mixerPortNumber
-	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		port = mixerMTLSPortNumber
-	}
-
 	res := &mccpb.TransportConfig{
-		CheckCluster:      model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
-		ReportCluster:     model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
+		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
+		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},

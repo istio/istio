@@ -36,7 +36,7 @@ items:
       heritage: {{ .Release.Service }}
   spec:
     ports:
-      - name: query-http
+      - name: http-query
         port: 80
         protocol: TCP
         targetPort: {{ .Values.service.uiPort }}
