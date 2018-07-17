@@ -26,14 +26,15 @@ import (
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"sort"
+	"strings"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-	"strings"
-	"sort"
 )
 
 var (
@@ -460,7 +461,9 @@ func buildGatewayNetworkFilters(env *model.Environment, server *networking.Serve
 
 // getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env *model.Environment, server *networking.Server, gateways map[string]bool, sniHostsSet []string) []*networking.Destination {
+func getVirtualServiceTCPDestinations(env *model.Environment, server *networking.Server,
+	gateways map[string]bool, sniHostsSet []string) []*networking.Destination {
+
 	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayHosts[model.Hostname(host)] = true
