@@ -268,6 +268,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}, nil
 }
 
+// IsClusterWide indicates whether or not the environment is configured for a cluster-wide deployment.
+func (k *KubeInfo) IsClusterWide() bool {
+	return *clusterWide
+}
+
 // IstioSystemNamespace returns the namespace used for the Istio system components.
 func (k *KubeInfo) IstioSystemNamespace() string {
 	if *clusterWide {
