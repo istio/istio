@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/fortio/fhttp"
+
 	// flog "istio.io/fortio/log"
 	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
@@ -1024,6 +1025,15 @@ func TestRedisQuota(t *testing.T) {
 	defer func() {
 		if err := deleteRouteRule(routeReviewsV3Rule); err != nil {
 			t.Fatalf("Could not delete reviews routing rule: %v", err)
+		}
+	}()
+
+	if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 2, tc.Kube.KubeConfig); err != nil {
+		fatalf(t, "Could not scale up istio-policy pod: %v", err)
+	}
+	defer func() {
+		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
+			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
 		}
 	}()
 
