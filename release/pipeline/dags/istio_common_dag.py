@@ -276,7 +276,10 @@ cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
 cat docker_tars.txt docker_images.txt
 rm  docker_tars.txt docker_images.txt
 
-./modify_values.sh -p {{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
+ls
+gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
+chmod u+x *
+./modify_values.sh -p gs://{{ settings.GCS_BUILD_BUCKET }}/{{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
 """
 
   tag_daily_grc = BashOperator(
