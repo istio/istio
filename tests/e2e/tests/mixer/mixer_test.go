@@ -148,8 +148,8 @@ func (t *testConfig) Setup() (err error) {
 		*r = filepath.Join(networkingDir, *r)
 		rules = append(rules, *r)
 	}
-  
-  rs = []*string{&redisQuotaRule}
+
+	rs = []*string{&redisQuotaRule}
 	for _, r := range rs {
 		*r = filepath.Join(mixerTestDataDir, *r)
 		rules = append(rules, *r)
