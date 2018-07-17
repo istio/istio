@@ -729,8 +729,6 @@ func testDenials(t *testing.T, rule string) {
 
 // TestIngressCheckCache tests that check cache works in Ingress.
 func TestIngressCheckCache(t *testing.T) {
-	//t.Skip("https://github.com/istio/istio/issues/6309")
-
 	// Apply denial rule to istio-ingress, so that only request with ["x-user"] could go through.
 	// This is to make the test focus on ingress check cache.
 	t.Logf("block request through ingress if x-user header is john")
@@ -883,8 +881,6 @@ func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults
 }
 
 func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/6309")
-
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
