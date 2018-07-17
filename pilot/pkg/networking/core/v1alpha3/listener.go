@@ -193,8 +193,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			protocol:       model.ProtocolHTTP,
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
-					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
-						services, RDSHttpProxy),
 					rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
@@ -470,9 +468,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
-						rds: fmt.Sprintf("%d", servicePort.Port),
-						routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(
-							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
+						rds:              fmt.Sprintf("%d", servicePort.Port),
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
 					},
