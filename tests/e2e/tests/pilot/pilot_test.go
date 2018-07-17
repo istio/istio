@@ -172,7 +172,7 @@ func (c *deployableConfig) Setup() error {
 	}
 
 	// Sleep for a while to allow the change to propagate.
-	time.Sleep(c.propagationDelay())
+	time.Sleep(PropagationDelay())
 	return nil
 }
 
@@ -181,7 +181,7 @@ func (c *deployableConfig) Teardown() error {
 	err := c.TeardownNoDelay()
 
 	// Sleep for a while to allow the change to propagate.
-	time.Sleep(c.propagationDelay())
+	time.Sleep(PropagationDelay())
 	return err
 }
 
@@ -195,7 +195,8 @@ func (c *deployableConfig) TeardownNoDelay() error {
 	return err
 }
 
-func (c *deployableConfig) propagationDelay() time.Duration {
+// PropagationDelay returns the sleep duration waiting for configs to propagate
+func PropagationDelay() time.Duration {
 	// With multiple clusters, it takes more time to propagate.
 	return defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters))
 }
