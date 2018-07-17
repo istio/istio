@@ -1,6 +1,6 @@
 # istio-rbac-rules.yaml to enforce access control to services
 
-# For service a, allow non-exist-user, non-exist-group and non-exist-namespace to access it.
+# For service a, allow non-exist-user and non-exist-namespace to access it.
 # This actually means nobody could access a.
 apiVersion: "config.istio.io/v1alpha2"
 kind: ServiceRole
@@ -11,7 +11,7 @@ spec:
   - services: ["*"]
     methods: ["GET"]
     constraints:
-    - key: "app"
+    - key: "destination.labels[app]"
       values: ["a"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -21,9 +21,8 @@ metadata:
 spec:
   subjects:
   - user: "non-exist-user"
-  - group: "non-exist-group"
   - properties:
-      namespace: "non-exist-namespace"
+      source.namespace: "non-exist-namespace"
   roleRef:
     kind: ServiceRole
     name: "access-a"
@@ -90,7 +89,7 @@ metadata:
 spec:
   subjects:
   - properties:
-      app: "d"
+      source.principal: "*sa/d"
   roleRef:
     kind: ServiceRole
     name: "access-c"
@@ -106,7 +105,7 @@ spec:
   - services: ["d.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
     constraints:
-    - key: "app"
+    - key: "destination.labels[app]"
       values: ["d"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -116,7 +115,7 @@ metadata:
 spec:
   subjects:
   - properties:
-      namespace: "{{ .Namespace }}"
+      source.namespace: "{{ .Namespace }}"
   roleRef:
     kind: ServiceRole
     name: "access-d"
