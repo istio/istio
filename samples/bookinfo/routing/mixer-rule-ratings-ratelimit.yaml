@@ -16,14 +16,15 @@ spec:
     - dimensions:
         destination: ratings
         source: reviews
+        sourceVersion: v3
       maxAmount: 1
-      validDuration: 1s
+      validDuration: 5s
     # The following override applies to 'ratings' regardless
     # of the source.
     - dimensions:
         destination: ratings
-      maxAmount: 100
-      validDuration: 1s
+      maxAmount: 5
+      validDuration: 10s
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -74,7 +75,11 @@ spec:
     namespace: istio-system
   services:
   - name: ratings
+    namespace: default
   - name: reviews
+    namespace: default
   - name: details
+    namespace: default
   - name: productpage
+    namespace: default
 
