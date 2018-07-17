@@ -1,0 +1,61 @@
+# Fortio with 1.0RC1 sidecar
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio10rc1
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio10rc1
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio10rc1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio10rc1
+        version: fortio10rc1
+      annotations:
+        sidecar.istio.io/proxyImage: gcr.io/istio-release/proxyv2:release-1.0-20180703-03-01
+    spec:
+      containers:
+      - name: echosrv
+        image: {{ .Values.fortioImage }}
+        imagePullPolicy: Always
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: fortio10rc1
+spec:
+  hosts:
+  - "fortio10rc1.{{.Values.domain}}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: fortio10rc1.test.svc.cluster.local
+        port:
+          number: 8080

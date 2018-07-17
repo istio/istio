@@ -27,8 +27,8 @@ func TestToProto(t *testing.T) {
 	spec := map[string]interface{}{}
 
 	s := resource.NewSchema()
-	s.Register("google.protobuf.Empty", true)
-	i, _ := s.LookupByMessageName("google.protobuf.Empty")
+	s.Register("type.googleapis.com/google.protobuf.Empty", true)
+	i, _ := s.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	p, err := toProto(i, spec)
 	if err != nil {

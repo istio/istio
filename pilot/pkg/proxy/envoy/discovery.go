@@ -112,6 +112,7 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
+	clearCacheMutex sync.Mutex
 
 	// lastClearCache is the time we last pushed
 	lastClearCache time.Time
@@ -119,13 +120,15 @@ var (
 	// lastClearCacheEvent is the time of the last config event
 	lastClearCacheEvent time.Time
 
+	// clearCacheEvents is the counter of 'clearCache' calls
+	clearCacheEvents int
+
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
 
-	clearCacheMutex sync.Mutex
-
 	// clearCacheTime is the max time to squash a series of events.
 	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
+	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
 	clearCacheTime = 1
 
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
@@ -392,14 +395,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		To(ds.ListAllEndpoints).
 		Doc("Services in SDS"))
 
-	// This route retrieves the Availability Zone of the service node requested
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1/az/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.AvailabilityZone).
-		Doc("AZ for service node").
-		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
-
 	ws.Route(ws.
 		GET("/cache_stats").
 		To(ds.GetCacheStats).
@@ -442,11 +437,15 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
+	clearCacheEvents++
+
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
+		log.Infof("Push %d: %v since last change, %v since last push",
+			clearCacheEvents,
+			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
-		log.Infof("Cleared discovery service cache after 1 sec of quiet")
 		V2ClearCache()
 		return
 	}
@@ -457,7 +456,8 @@ func (ds *DiscoveryService) clearCache() {
 	// also push
 
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
-		log.Infof("Cleared discovery service cache after %v", time.Since(lastClearCache))
+		log.Infof("Timer push %d: %v since last change, %v since last push",
+			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCache = time.Now()
 		V2ClearCache()
 		return
@@ -505,15 +505,9 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 					return
 				}
 				for _, instance := range instances {
-					// Only set tags if theres an AZ to set, ensures nil tags when there isnt
-					var t *tags
-					if instance.AvailabilityZone != "" {
-						t = &tags{AZ: instance.AvailabilityZone}
-					}
 					hosts = append(hosts, &host{
 						Address: instance.Endpoint.Address,
 						Port:    instance.Endpoint.Port,
-						Tags:    t,
 					})
 				}
 				services = append(services, &keyAndService{
@@ -543,29 +537,6 @@ func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (mod
 		return svcNode, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
 	}
 	return svcNode, nil
-}
-
-// AvailabilityZone responds to requests for an AZ for the given cluster node
-func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response *restful.Response) {
-	methodName := "AvailabilityZone"
-	incCalls(methodName)
-
-	svcNode, err := ds.parseDiscoveryRequest(request)
-	if err != nil {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
-		return
-	}
-	proxyInstances, err := ds.GetProxyServiceInstances(&svcNode)
-	if err != nil {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone "+err.Error())
-		return
-	}
-	if len(proxyInstances) <= 0 {
-		errorResponse(methodName, response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
-		return
-	}
-	// All instances are going to have the same IP addr therefore will all be in the same AZ
-	writeResponse(response, []byte(proxyInstances[0].GetAZ()))
 }
 
 func (ds *DiscoveryService) invokeWebhook(path string, payload []byte, methodName string) ([]byte, error) {
@@ -629,13 +600,6 @@ func errorResponse(methodName string, r *restful.Response, status int, msg strin
 	incErrors(methodName)
 	log.Warn(msg)
 	if err := r.WriteErrorString(status, msg); err != nil {
-		log.Warna(err)
-	}
-}
-
-func writeResponse(r *restful.Response, data []byte) {
-	r.WriteHeader(http.StatusOK)
-	if _, err := r.Write(data); err != nil {
 		log.Warna(err)
 	}
 }

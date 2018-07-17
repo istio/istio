@@ -53,8 +53,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", edsz)
-	mux.HandleFunc("/debug/adsz", adsz)
+	mux.HandleFunc("/debug/edsz", s.edsz)
+	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
 
@@ -63,6 +63,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
+	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
+	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -93,6 +95,8 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
+	adsClientsMutex.RLock()
+	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -411,9 +415,9 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 					return
 				}
 				for _, svc := range all {
-					fmt.Fprintf(w, "%s:%s %v %s:%d %v %v %s\n", ss.Hostname,
+					fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.GetAZ(), svc.ServiceAccount)
+						svc.ServiceAccount)
 				}
 			}
 		}
@@ -558,56 +562,70 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
-func adsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
-		adsPushAll()
+		AdsPushAll(s)
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
-		return
-	}
-
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		writeADSForSidecar(w, proxyID)
 		return
 	}
 	writeAllADS(w)
 }
 
-func writeADSForSidecar(w http.ResponseWriter, proxyID string) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
-	connections, ok := adsSidecarIDConnectionsMap[proxyID]
-	if !ok {
-		w.WriteHeader(404)
+// ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
+// The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
+// should look like according to Pilot vs what it currently does look like.
+func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		adsClientsMutex.RLock()
+		defer adsClientsMutex.RUnlock()
+		connections, ok := adsSidecarIDConnectionsMap[proxyID]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Proxy not connected to this Pilot instance"))
+			return
+		}
+
+		jsonm := &jsonpb.Marshaler{Indent: "    "}
+		mostRecent := ""
+		for key := range connections {
+			if mostRecent == "" || key > mostRecent {
+				mostRecent = key
+			}
+		}
+		dump, err := s.configDump(connections[mostRecent])
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		if err := jsonm.Marshal(w, dump); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 		return
 	}
-	for _, conn := range connections {
-		for _, ls := range conn.HTTPListeners {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(ls)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
-		for _, rt := range conn.RouteConfigs {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(rt)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
-		for _, cs := range conn.HTTPClusters {
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(cs)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
-			}
-			fmt.Fprintln(w)
-		}
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("You must provide a proxyID in the query string"))
+}
+
+// PushStatusHandler dumps the last PushStatus
+func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	if model.LastPushStatus == nil {
+		return
 	}
+	out, err := model.LastPushStatus.JSON()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(out)
+	w.WriteHeader(http.StatusOK)
 }
 
 func writeAllADS(w io.Writer) {
@@ -640,12 +658,12 @@ func writeAllADS(w io.Writer) {
 
 // edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func edsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		PushAll()
+		AdsPushAll(s)
 	}
 
 	edsClusterMutex.Lock()

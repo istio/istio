@@ -23,6 +23,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
+          - containerPort: 9093
           command:
           - /usr/local/bin/galley
           - validator
@@ -57,7 +58,11 @@ spec:
             initialDelaySeconds: 4
             periodSeconds: 4
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       volumes:
       - name: certs
         secret:

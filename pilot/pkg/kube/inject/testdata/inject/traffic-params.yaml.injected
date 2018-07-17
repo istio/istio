@@ -1,0 +1,119 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: traffic
+spec:
+  replicas: 7
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/status: '{"version":"ba9173bb3e2a1218051bc9b347224bf20dc925b5c88564ac4b79114e3437e574","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+      creationTimestamp: null
+      labels:
+        app: traffic
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
+        name: traffic
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - --configPath
+        - /etc/istio/proxy
+        - --binaryPath
+        - /usr/local/bin/envoy
+        - --serviceCluster
+        - traffic
+        - --drainDuration
+        - 2s
+        - --parentShutdownDuration
+        - 3s
+        - --discoveryAddress
+        - istio-pilot:15007
+        - --discoveryRefreshDelay
+        - 1s
+        - --zipkinAddress
+        - ""
+        - --connectTimeout
+        - 1s
+        - --statsdUdpAddress
+        - ""
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        image: docker.io/istio/proxyv2:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        resources:
+          requests:
+            cpu: 10m
+        securityContext:
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      initContainers:
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - 127.0.0.1/24,10.96.0.1/24
+        - -x
+        - 10.96.0.2/24,10.96.0.3/24
+        - -b
+        - 80,
+        - -d
+        - 4,5,6
+        image: docker.io/istio/proxy_init:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
+status: {}
+---

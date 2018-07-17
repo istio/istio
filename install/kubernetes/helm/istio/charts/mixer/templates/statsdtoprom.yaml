@@ -59,7 +59,11 @@ spec:
         args:
         - '-statsd.mapping-config=/etc/statsd/mapping.conf'
         resources:
-{{ toYaml $.Values.prometheusStatsdExporter.resources | indent 12 }}
+{{- if .Values.prometheusStatsdExporter.resources }}
+{{ toYaml .Values.prometheusStatsdExporter.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: config-volume
           mountPath: /etc/statsd

@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/mcp/v1alpha1"
 )
 
 // InMemory Snapshot implementation

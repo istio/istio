@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"text/tabwriter"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	proto "github.com/gogo/protobuf/types"
+
+	protio "istio.io/istio/istioctl/pkg/util/proto"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions
@@ -61,7 +61,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredRoutes := protoMessageSlice{}
+	filteredRoutes := protio.MessageSlice{}
 	for _, route := range routes {
 		if filter.Verify(route) {
 			filteredRoutes = append(filteredRoutes, route)
@@ -88,13 +88,9 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
-	routeDumpAny, ok := c.configDump.Configs[routesKey]
-	if !ok {
-		return nil, fmt.Errorf("unable to find %v in Envoy config dump", routesKey)
-	}
-	routeDump := &adminapi.RoutesConfigDump{}
-	if err := proto.UnmarshalAny(&routeDumpAny, routeDump); err != nil {
-		return nil, fmt.Errorf("unable to unmarshalAny/assert routes dump: %v", err)
+	routeDump, err := c.configDump.GetRouteConfigDump()
+	if err != nil {
+		return nil, err
 	}
 	routes := []*xdsapi.RouteConfiguration{}
 	for _, route := range routeDump.DynamicRouteConfigs {

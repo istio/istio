@@ -81,7 +81,8 @@ func TestBuilder(t *testing.T) {
 		{
 			"Empty Address",
 			config.Params{
-				Address: "",
+				Address:         "",
+				IntegerDuration: false,
 			},
 			false,
 			false,
@@ -89,7 +90,8 @@ func TestBuilder(t *testing.T) {
 		{
 			"Bad Address",
 			config.Params{
-				Address: "dummy",
+				Address:         "dummy",
+				IntegerDuration: false,
 			},
 			false,
 			false,
@@ -97,7 +99,8 @@ func TestBuilder(t *testing.T) {
 		{
 			"Good Address",
 			config.Params{
-				Address: "1.2.3.4:1234",
+				Address:         "1.2.3.4:1234",
+				IntegerDuration: false,
 			},
 			true,
 			true,
@@ -161,6 +164,7 @@ func TestLogEntry(t *testing.T) {
 		logger: mf,
 		types:  types,
 		env:    test.NewEnv(t),
+		intDur: false,
 	}
 
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
@@ -171,6 +175,7 @@ func TestLogEntry(t *testing.T) {
 		failWrites   bool
 		expectedTags []string
 		expected     []map[string]interface{}
+		intDur       bool
 	}{
 		{
 			"Basic Logs",
@@ -205,6 +210,7 @@ func TestLogEntry(t *testing.T) {
 					"severity": "WARNING",
 				},
 			},
+			false,
 		},
 
 		{
@@ -238,6 +244,32 @@ func TestLogEntry(t *testing.T) {
 					"Duration": "1s",
 				},
 			},
+			false,
+		},
+		{
+			"Integer Duration",
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "WARNING",
+					Variables: map[string]interface{}{
+						"String":   "a string",
+						"Duration": 10 * time.Millisecond,
+					},
+				},
+			},
+			false,
+			[]string{
+				"Foo",
+			},
+			[]map[string]interface{}{
+				{
+					"severity": "WARNING",
+					"String":   "a string",
+					"Duration": int64(10),
+				},
+			},
+			true,
 		},
 	}
 
@@ -245,6 +277,7 @@ func TestLogEntry(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			mf.Reset()
 
+			han.intDur = c.intDur
 			err := han.HandleLogEntry(context.Background(), c.instances)
 			if err != nil && !c.failWrites {
 				t.Errorf("Got %v, expecting success", err)

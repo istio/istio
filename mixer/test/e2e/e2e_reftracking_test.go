@@ -94,11 +94,7 @@ func TestRefTracking(t *testing.T) {
 
 			expectAttrRefs: []expectedAttrRef{
 				{
-					name:      "context.protocol",
-					condition: istio_mixer_v1.ABSENCE,
-				},
-				{
-					name:      "context.reporter.type",
+					name:      "context.reporter.kind",
 					condition: istio_mixer_v1.ABSENCE,
 				},
 				{
