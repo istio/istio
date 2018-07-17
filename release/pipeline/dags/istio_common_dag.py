@@ -176,8 +176,7 @@ def MakeCommonDag(dag_args_func, name,
     -v "{{ settings.VERSION }}" \
     -u "{{ settings.MFEST_URL }}" \
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
-    -a {{ settings.SVC_ACCT }} \
-    -l {{ settings.PIPELINE_TYPE }}
+    -a {{ settings.SVC_ACCT }}
     """
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 
