@@ -223,7 +223,7 @@ def ReportDailySuccessful(task_instance, **kwargs):
   """Set this release as the candidate if it is the latest."""
   date = kwargs['execution_date']
   branch = GetSettingPython(task_instance, 'BRANCH')
-  latest_run = float(AirflowGetVariableOrBaseCase(branch+'latest_daily_timestamp', 0))
+  latest_run = float(GetVariableOrDefault(branch+'latest_daily_timestamp', 0))
 
   timestamp = time.mktime(date.timetuple())
   logging.info("Current run's timestamp: %s \n"
