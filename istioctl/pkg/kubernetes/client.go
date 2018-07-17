@@ -98,27 +98,8 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
 func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
-	pilots, err := client.GetPilotPods(pilotNamespace)
-	if err != nil {
-		return nil, err
-	}
-	if len(pilots) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
-	}
 	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
-	var stdout, stderr *bytes.Buffer
-	result := map[string][]byte{}
-	for _, pilot := range pilots {
-		stdout, stderr, err = client.PodExec(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
-		if err != nil {
-			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, err)
-		} else if stdout.String() != "" {
-			result[pilot.Name] = stdout.Bytes()
-		} else if stderr.String() != "" {
-			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, stderr.String())
-		}
-	}
-	return result, err
+	return client.AllSelectorDiscoveryExec(pilotNamespace, "istio=pilot", discoveryContainer, cmd)
 }
 
 // PilotDiscoveryDo makes an http request to a single Pilot discovery instance
@@ -159,20 +140,7 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 
 // GetPilotPods retrieves the pod objects for all known pilots
 func (client *Client) GetPilotPods(namespace string) ([]v1.Pod, error) {
-	req := client.Get().
-		Resource("pods").
-		Namespace(namespace).
-		Param("labelSelector", "istio=pilot")
-
-	res := req.Do()
-	if res.Error() != nil {
-		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
-	}
-	list := &v1.PodList{}
-	if err := res.Into(list); err != nil {
-		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
-	}
-	return list.Items, nil
+	return client.GetLabeledPods(namespace, "istio=pilot")
 }
 
 // GetPilotAgentContainer retrieves the pilot-agent container name for the specified pod
@@ -197,4 +165,46 @@ func (client *Client) GetPilotAgentContainer(podName, podNamespace string) (stri
 		}
 	}
 	return proxyContainer, nil
+}
+
+// AllPilotsDiscoveryExec runs an arbitrary command each Pilot discovery instance
+func (client *Client) AllSelectorDiscoveryExec(pilotNamespace, selector, container string, cmd []string) (map[string][]byte, error) {
+	pods, err := client.GetLabeledPods(pilotNamespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("unable to find any %q instances", selector)
+	}
+	var stdout, stderr *bytes.Buffer
+	result := map[string][]byte{}
+	for _, pilot := range pods {
+		stdout, stderr, err = client.PodExec(pilot.Name, pilot.Namespace, container, cmd)
+		if err != nil {
+			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, container, err)
+		} else if stdout.String() != "" {
+			result[pilot.Name] = stdout.Bytes()
+		} else if stderr.String() != "" {
+			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, container, stderr.String())
+		}
+	}
+	return result, err
+}
+
+// GetLabeledPods retrieves the pod objects matching a label
+func (client *Client) GetLabeledPods(namespace, selector string) ([]v1.Pod, error) {
+	req := client.Get().
+		Resource("pods").
+		Namespace(namespace).
+		Param("labelSelector", selector)
+
+	res := req.Do()
+	if res.Error() != nil {
+		return nil, fmt.Errorf("unable to retrieve Pods: %v", res.Error())
+	}
+	list := &v1.PodList{}
+	if err := res.Into(list); err != nil {
+		return nil, fmt.Errorf("unable to parse PodList: %v", res.Error())
+	}
+	return list.Items, nil
 }

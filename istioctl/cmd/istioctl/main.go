@@ -54,7 +54,6 @@ import (
 	"istio.io/istio/pkg/collateral"
 	kubecfg "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -671,7 +670,6 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
-	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(experimentalCmd)
 
