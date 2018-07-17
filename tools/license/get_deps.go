@@ -1,6 +1,16 @@
+// Binary get_dep_licenses outputs aggrerate license information for all transitive Istio dependencies.
+// This tool requires https://github.com/benbalter/licensee to work.
+// Usage:
+//   1) Generate CSV format output with one package per line:
+//      get_dep_licenses --branch release-0.8 --summary
+//   2) Generate complete dump of every license, suitable for including in release build/binary image:
+//      get_dep_licenses --branch release-0.8
+//   3) Generate detailed info about how closely each license matches official text:
+//      get_dep_licenses --branch release-0.8 --match-detail
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -17,8 +27,6 @@ const (
 	// maxLevelsToLicense is the maximum levels to go up to the root to find
 	// license in parent directories.
 	maxLevelsToLicense = 7
-	// istioReleaseBranch is the name of the release to check licenses for.
-	istioReleaseBranch = "release-0.8"
 )
 
 var (
@@ -27,14 +35,22 @@ var (
 		"istio.io/istio/vendor",
 		"vendor",
 	}
+	// After ignoring anything not in mustStartWith, further exclude anything with prefix below.
 	skipPrefixes = []string{
 		"istio.io/istio/vendor/github.com/gogo",
 		"vendor/golang_org",
 	}
-	root      = filepath.Join(os.Getenv("GOPATH"), "src")
-	istioRoot = filepath.Join(root, "istio.io/istio")
+	// root is the root of Go src code.
+	root = filepath.Join(os.Getenv("GOPATH"), "src")
+	// istioSubdir is the subdir from src root where istio source is found.
+	istioSubdir = "istio.io/istio"
+	// istioRoot is the path we expect to find istio source under.
+	istioRoot = filepath.Join(root, istioSubdir)
+	// istioReleaseBranch is the branch to generate licenses for.
+	istioReleaseBranch = ""
 )
 
+// LicenseInfo describes a license.
 type LicenseInfo struct {
 	packageName       string
 	path              string
@@ -45,32 +61,69 @@ type LicenseInfo struct {
 	exact             bool
 	confidence        string
 }
+
+// LicenseInfos is a slice of LicenseInfo.
 type LicenseInfos []*LicenseInfo
 
+// Len implements the sort.Interface interface.
 func (s LicenseInfos) Len() int {
 	return len(s)
 }
 
+// Less implements the sort.Interface interface.
 func (s LicenseInfos) Less(i, j int) bool {
 	return s[i].packageName < s[j].packageName
 }
 
+// Swap implements the sort.Interface interface.
 func (s LicenseInfos) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
 func main() {
-	var summary bool
+	var summary, matchDetail bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
+	flag.BoolVar(&matchDetail, "match_detail", false, "Show information about match closeness for inexact matches.")
+	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use. Must be set.")
 	flag.Parse()
 
-	if err := os.Chdir(istioRoot); err != nil {
-		log.Fatal(err)
+	// Verify inputs.
+	if summary && matchDetail {
+		log.Fatal("--summary and --match_detail cannot both be set.")
+	}
+	if istioReleaseBranch == "" {
+		log.Fatal("--release must be set e.g. release-0.8")
 	}
 
-	out, err := exec.Command("go", "list", "-f", `'{{ join .Deps  "\n"}}'`, "./vendor/...").Output()
+	// Everything happens from istio root.
+	if err := os.Chdir(istioRoot); err != nil {
+		log.Fatalf("Could not chdir to Istio root at %s", istioRoot)
+	}
+
+	// Save git branch to return to later.
+	pb, err := runBash("git", "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not get current branch: %s", err)
+	}
+	prevBranch := strings.TrimSpace(string(pb))
+
+	// Need to switch to branch we're getting the licenses for.
+	out, err := runBash("git", "checkout", istioReleaseBranch)
+	if err != nil {
+		log.Fatalf("Could not git checkout %s: %s", istioReleaseBranch, err)
+	}
+	defer func() {
+		// Get back to original branch.
+		_, err = exec.Command("git", "checkout", prevBranch).Output()
+		if err != nil {
+			log.Fatalf("Could not git checkout back to original branch %s.", prevBranch)
+		}
+	}()
+
+	// List all the deps in vendor.
+	out, err = runBash("go", "list", "-f", `'{{ join .Deps  "\n"}}'`, "./vendor/...")
+	if err != nil {
+		log.Fatal(out)
 	}
 	outv := strings.Split(string(out), "\n")
 	outv, skipv := filter(dedup(outv))
@@ -90,40 +143,46 @@ func main() {
 	}
 
 	licenseTypes := make(map[string][]string, 0)
-	var licenses, inexact LicenseInfos
+	var licenses, exact, inexact LicenseInfos
 	for p, lp := range licensePath {
 		linfo, err := getLicenseInfo(lp)
 		if err != nil {
 			log.Printf("licensee error: %s", err)
 			continue
 		}
-		linfo.packageName = strings.TrimPrefix(p, "istio.io/istio/vendor/")
+		linfo.packageName = strings.TrimPrefix(p, istioSubdir+"/vendor/")
+		linfo.licenseText = readFile(lp)
 		licenses = append(licenses, linfo)
 		if linfo.exact {
 			licenseTypes[linfo.licenseTypeString] = append(licenseTypes[linfo.licenseTypeString], p)
+			exact = append(exact, linfo)
 		} else {
-			linfo.licenseText = readFile(lp)
 			inexact = append(inexact, linfo)
 		}
 	}
 
 	sort.Sort(licenses)
+	sort.Sort(exact)
+	sort.Sort(inexact)
 
 	if summary {
 		for _, p := range missing {
 			fmt.Printf("%s, MISSING\n", p)
 		}
-		for _, l := range licenses {
+		for _, l := range append(inexact, exact...) {
 			fmt.Printf("%s,%s,%s,%s\n", l.packageName, l.url, l.licenseTypeString, l.confidence)
 		}
-	} else {
-		fmt.Println("===========================================================")
-		fmt.Println("The following packages were missing license files:")
-		fmt.Println("===========================================================")
-		for _, p := range missing {
-			fmt.Println(p)
-		}
+		return
+	}
 
+	fmt.Println("===========================================================")
+	fmt.Println("The following packages were missing license files:")
+	fmt.Println("===========================================================")
+	for _, p := range missing {
+		fmt.Println(p)
+	}
+
+	if matchDetail {
 		fmt.Println("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had inexact licenses:")
@@ -147,9 +206,36 @@ func main() {
 				fmt.Printf("  %s\n", p)
 			}
 		}
+	} else {
+		fmt.Println("\n\n")
+		fmt.Println("===========================================================")
+		fmt.Println("Package licenses")
+		fmt.Println("===========================================================")
+
+		for _, l := range append(exact, inexact...) {
+			fmt.Printf("Package: %s\n", l.packageName)
+			fmt.Printf("License URL: %s\n", l.url)
+			fmt.Printf("License text:\n%s\n", l.licenseText)
+			fmt.Println("-----------------------------------------------------------")
+		}
 	}
 }
 
+// runBash runs a bash command. If command is successful, returns output, otherwise returns stderr output as error.
+func runBash(args ...string) (string, error) {
+	cmd := exec.Command(args[0], args[1:]...)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf(fmt.Sprint(err) + ": " + stderr.String())
+	}
+	return out.String(), nil
+}
+
+// pathToURL returns a URL to a path within Istio github code.
 func pathToURL(path string) string {
 	return strings.Replace(path, istioRoot, "https://github.com/istio/istio/blob/"+istioReleaseBranch, 1)
 }
@@ -169,12 +255,18 @@ func getLicenseInfo(path string) (*LicenseInfo, error) {
 	}
 	out := string(outb)
 
+	licenseTypeString := getMatchingValue(out, "License:")
+	confidence := getMatchingValue(out, "  Confidence:")
+	if licenseTypeString == "NOASSERTION" {
+		licenseTypeString, confidence = getLicenseAndConfidence(out)
+	}
+
 	return &LicenseInfo{
 		path:              path,
 		url:               pathToURL(path),
 		licenseeOutput:    out,
-		licenseTypeString: getMatchingValue(out, "License:"),
-		confidence:        getMatchingValue(out, "  Confidence:"),
+		licenseTypeString: licenseTypeString,
+		confidence:        confidence,
 		exact:             strings.Contains(out, "Licensee::Matchers::Exact"),
 	}, nil
 }
@@ -185,7 +277,19 @@ func getMatchingValue(in, match string) string {
 			return strings.TrimSpace(strings.TrimPrefix(l, match))
 		}
 	}
-	return "ERROR"
+	return ""
+}
+
+// For NOASSERTION license type, it means we are below the match threshold. Still grab the closest match and output
+// confidence value.
+func getLicenseAndConfidence(in string) (string, string) {
+	for _, l := range strings.Split(in, "\n") {
+		if strings.Contains(l, " similarity:") {
+			fs := strings.Fields(l)
+			return fs[0], fs[2]
+		}
+	}
+	return "UNKNOWN", ""
 }
 
 func findLicenseFile(path string) ([]string, error) {
