@@ -257,11 +257,11 @@ set -x
 pwd; ls
 
 gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_tars.txt
-  cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|-)*).tar.gz" | \
-                          sed -E "s/docker\/(([a-z]|-)*).tar.gz/\1/g" > docker_images.txt
+cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
+                        sed -E "s/docker\/(([a-z]|[0-9]|-|_)*).tar.gz/\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
-  cat docker_images.txt docker_tars.txt | \
+  cat docker_images.txt | \
   while read -r docker_image;do
     gcloud container images add-tag \
     "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}" \
@@ -275,6 +275,8 @@ gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_t
 
 cat docker_tars.txt docker_images.txt
 rm  docker_tars.txt docker_images.txt
+
+./modify_values.sh -p {{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
 """
 
   tag_daily_grc = BashOperator(
