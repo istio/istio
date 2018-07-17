@@ -33,6 +33,7 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "connection.id": "*"
 }
 `
@@ -49,6 +50,7 @@ const reportAttributesOkPostOpen = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
@@ -70,6 +72,7 @@ const reportAttributesOkPostClose = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
@@ -92,6 +95,7 @@ const reportAttributesFailPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",

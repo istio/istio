@@ -42,7 +42,7 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 
 	debugLevel := os.Getenv("ENVOY_DEBUG")
 	if len(debugLevel) == 0 {
-		debugLevel = "info"
+		debugLevel = "trace"
 	}
 
 	// Don't use hot-start, each Envoy re-start use different base-id

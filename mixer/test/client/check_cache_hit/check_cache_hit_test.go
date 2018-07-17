@@ -42,6 +42,7 @@ const checkAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "request.headers": {
     ":method": "GET",
     ":path": "/echo",
@@ -76,6 +77,7 @@ var reportAttributesOkGet = [...]string{`{
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -120,6 +122,7 @@ var reportAttributesOkGet = [...]string{`{
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": true,
   "quota.cache_hit": true,
   "request.headers": {
