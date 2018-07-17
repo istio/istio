@@ -29,6 +29,8 @@ import (
 func TestRoutes(t *testing.T) {
 	samples := 100
 
+	tc.Kube.DeployAddOns()
+	defer tc.Kube.DeleteAddOns()
 	var cfgs *deployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYaml string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
