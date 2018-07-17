@@ -79,8 +79,6 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
-	tc.Kube.InstallAddons = false // zipkin is used
-
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err
@@ -253,7 +251,7 @@ func getApps(tc *testConfig) []framework.App {
 		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
 		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false),
 		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true),
-		//getStatefulSet("statefulset", 19090, true),
+		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
