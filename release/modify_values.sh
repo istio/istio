@@ -16,7 +16,6 @@ rm -rf modification-tmp
 mkdir modification-tmp
 cd modification-tmp
 
-GCS_PATH="${GCS_PATH}/${VERSION}"
 folder_name="istio-${VERSION}"
 tarball_name="${folder_name}-linux.tar.gz"
 gsutil cp "${GCS_PATH}/${tarball_name}" .
