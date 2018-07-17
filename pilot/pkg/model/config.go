@@ -605,6 +605,7 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		return nil
 	}
 
+	// TODO Sort configs by creation time
 	out := make([]Config, 0)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
