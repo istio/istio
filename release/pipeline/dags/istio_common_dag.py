@@ -16,7 +16,6 @@ limitations under the License.
 import datetime
 import logging
 import time
-import collections
 
 from airflow import DAG
 from airflow.models import Variable
@@ -41,17 +40,6 @@ default_args = {
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
 }
-
-CommonTasks = collections.OrderedDict([
-	('generate_workflow_args',          ''),
-	('get_git_commit',                  ''),
-	('run_cloud_builder',               ''),
-	('run_release_qualification_tests', ''),
-	('copy_files_for_release',          '')])
-#        'mark_daily_complete'       used by   daily release
-#        'mark_monthly_complete'     used by monthly release
-#        'github_and_docker_release' used by monthly release
-#        'github_tag_repos'          used by monthly release
 
 def GetSettingPython(ti, setting):
   """Get setting form the generate_flow_args task.
@@ -94,7 +82,7 @@ def MakeCommonDag(dag_args_func, name,
       default_args=default_args,
       schedule_interval=schedule_interval,
   )
-  tasksOD = collections.OrderedDict(CommonTasks)
+  tasks = dict()
 
   generate_flow_args = PythonOperator(
       task_id='generate_workflow_args',
@@ -102,7 +90,7 @@ def MakeCommonDag(dag_args_func, name,
       provide_context=True,
       dag=common_dag,
   )
-  tasksOD['generate_workflow_args'] = generate_flow_args
+  tasks['generate_workflow_args'] = generate_flow_args
 
   get_git_commit_cmd = """
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
@@ -173,7 +161,7 @@ def MakeCommonDag(dag_args_func, name,
       bash_command=get_git_commit_cmd,
       xcom_push=True,
       dag=common_dag)
-  tasksOD['get_git_commit'] = get_git_commit
+  tasks['get_git_commit'] = get_git_commit
 
   build_template = """
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
@@ -195,7 +183,7 @@ def MakeCommonDag(dag_args_func, name,
 
   build = BashOperator(
       task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
-  tasksOD['run_cloud_builder'] = build
+  tasks['run_cloud_builder'] = build
 
   test_command = """
     cp /home/airflow/gcs/data/githubctl ./githubctl
@@ -218,7 +206,7 @@ def MakeCommonDag(dag_args_func, name,
       bash_command=test_command,
       retries=0,
       dag=common_dag)
-  tasksOD['run_release_qualification_tests'] = run_release_qualification_tests
+  tasks['run_release_qualification_tests'] = run_release_qualification_tests
 
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
@@ -227,9 +215,9 @@ def MakeCommonDag(dag_args_func, name,
       destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
       dag=common_dag,
   )
-  tasksOD['copy_files_for_release'] = copy_files
+  tasks['copy_files_for_release'] = copy_files
 
-  return common_dag, tasksOD
+  return common_dag, tasks
 
 
 def ReportDailySuccessful(task_instance, **kwargs):
