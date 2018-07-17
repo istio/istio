@@ -100,7 +100,10 @@ const (
 
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
-	go w.agent.Run(ctx)
+	agentStop := make(chan error)
+	go func(stop chan<- error) {
+		stop <- w.agent.Run(ctx)
+	}(agentStop)
 
 	// kickstart the proxy with partial state (in case there are no notifications coming)
 	w.Reload()
@@ -111,10 +114,18 @@ func (w *watcher) Run(ctx context.Context) {
 		certDirs = append(certDirs, cert.Directory)
 	}
 
-	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, azRetryInterval, azRetryAttempts)
+	watchingCtx, cancelWatching := context.WithCancel(ctx)
+	go watchCerts(watchingCtx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
+	go w.retrieveAZ(watchingCtx, azRetryInterval, azRetryAttempts)
 
-	<-ctx.Done()
+	select {
+	case err := <-agentStop:
+		if err != nil {
+			log.Errora(err)
+		}
+	case <-ctx.Done():
+	}
+	cancelWatching()
 }
 
 func (w *watcher) Reload() {
