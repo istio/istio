@@ -587,6 +587,7 @@ generate_yaml: $(HELM)
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
+		${EXTRAARGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
@@ -596,6 +597,7 @@ generate_yaml: $(HELM)
 		--values install/kubernetes/helm/istio/values.yaml \
 		--set global.mtls.enabled=true \
 		--set global.controlPlaneSecurityEnabled=true \
+		${EXTRAARGS} \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
 # Generate the install files, using istioctl.
