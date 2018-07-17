@@ -120,7 +120,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
+		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -312,7 +312,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes, instances []*model.ServiceInstance) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
