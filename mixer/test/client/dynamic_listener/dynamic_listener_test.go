@@ -84,6 +84,7 @@ static_resources:
 const checkAttributesOkGet = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",
   "mesh1.ip": "[1 1 1 1]",

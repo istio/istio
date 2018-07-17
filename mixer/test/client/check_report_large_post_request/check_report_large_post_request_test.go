@@ -38,6 +38,7 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "request.headers": {
      ":method": "POST",
      ":path": "/echo",
@@ -68,6 +69,7 @@ const reportAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
