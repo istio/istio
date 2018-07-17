@@ -73,7 +73,6 @@ func listCrdsAdapters(printf, fatalf shared.FormatFn, infoFns []adapter.InfoFn) 
 	for _, infoFn := range infoFns {
 		info := infoFn()
 		shrtName := info.Name /* TODO make this info.shortName when related PR is in. */
-		// TODO : Use the plural name from the adapter info
 		printCrd(printf, fatalf, shrtName, info.Name, "mixer-adapter")
 	}
 }
@@ -89,7 +88,6 @@ func listCrdsInstances(printf, fatalf shared.FormatFn, infos map[string]template
 
 	for _, tmplName := range tmplNames {
 		info := infos[tmplName]
-		// TODO : Use the plural name from the template info
 		printCrd(printf, fatalf, info.Name, info.Impl, "mixer-instance")
 	}
 }
