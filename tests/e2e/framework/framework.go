@@ -178,7 +178,7 @@ func (t *testCleanup) cleanup() {
 	fn := t.popCleanupAction()
 	for fn != nil {
 		if err := fn(); err != nil {
-			log.Errorf("Failed to cleanup. Error %s", err)
+			log.Errorf("Failed to cleanup. Error %v", err)
 		}
 		fn = t.popCleanupAction()
 	}
@@ -196,7 +196,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 	}
 	log.Info("Saving logs")
 	if err := c.Info.Update(r); err != nil {
-		log.Errorf("Could not create status file. Error %s", err)
+		log.Errorf("Could not create status file. Error %v", err)
 		return err
 	}
 	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig)
@@ -208,7 +208,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 func (c *CommonConfig) RunTest(m runnable) int {
 	var ret int
 	if err := c.Cleanup.init(); err != nil {
-		log.Errorf("Failed to complete Init. Error %s", err)
+		log.Errorf("Failed to complete Init. Error %v", err)
 		ret = 1
 	} else {
 		log.Info("Running test")
