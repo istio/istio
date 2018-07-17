@@ -15,18 +15,16 @@
 package v1alpha3
 
 import (
+	"fmt"
 
-"fmt"
-
-xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-"github.com/gogo/protobuf/types"
-"github.com/hashicorp/go-multierror"
-
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"

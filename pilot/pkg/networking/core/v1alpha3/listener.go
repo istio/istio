@@ -227,7 +227,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
-	listenerMap := make(map[string]*xdsapi.Listener)
+	listenerMap := make(map[string]*model.ServiceInstance)
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -261,9 +261,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
-		if _, exists := listenerMap[listenerMapKey]; exists {
+		if old, exists := listenerMap[listenerMapKey]; exists {
 			env.PushStatus.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
-				fmt.Sprintf("Rejected %s for %s", instance.Service.Hostname, listenerMapKey))
+				fmt.Sprintf("Rejected %s, used %s for %s", instance.Service.Hostname, old.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
 		}
@@ -327,7 +327,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			log.Warna("buildSidecarInboundListeners ", err.Error())
 		} else {
 			listeners = append(listeners, mutable.Listener)
-			listenerMap[listenerMapKey] = mutable.Listener
+			listenerMap[listenerMapKey] = instance
 		}
 	}
 	return listeners
