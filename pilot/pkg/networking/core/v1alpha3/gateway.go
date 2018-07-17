@@ -250,7 +250,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
-				sniHosts:   getSNIHosts(server),
+				sniHosts:   getSNIHosts(server), // FIXME: why is this here?
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					routeConfig:      routeCfg,
@@ -412,23 +412,28 @@ func createGatewayTCPFilterChainOpts(
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		sniHostSets := getSNIHostSets(env, server, gatewayNames) // FIXME: this should be ordered.
+		if server.Tls != nil {
+			// Since this server is configured as TLS we need to generate filter chains based
+			// on SNI host matches.
 
-		for _, sniHostSet := range sniHostSets {
-			if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
-				opts = append(opts, &filterChainOpts{
-					sniHosts:       sniHostSet,
-					tlsContext:     buildGatewayListenerTLSContext(server),
-					networkFilters: filters,
-				})
+			// Get the set of SNI host sets that we filter on for this server.
+			sniHostSets := getSNIHostSets(env, server, gatewayNames)
+
+			// Build a filter chain for each SNI host set.
+			for _, sniHostSet := range sniHostSets {
+				if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
+					opts = append(opts, &filterChainOpts{
+						sniHosts:       sniHostSet,
+						tlsContext:     buildGatewayListenerTLSContext(server),
+						networkFilters: filters,
+					})
+				}
 			}
-		}
-		// FIXME: len(sniHostSets) == 0?
-		if filters := buildGatewayNetworkFilters(env, server, gatewayNames, ""); len(filters) > 0 {
+		} else {
+			// Build a single non-TLS filter chain.
 			opts = append(opts, &filterChainOpts{
-				sniHosts:       nil,
 				tlsContext:     buildGatewayListenerTLSContext(server),
-				networkFilters: filters,
+				networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames, nil),
 			})
 		}
 	}
@@ -604,6 +609,19 @@ func sniHostsKey(sniHosts []string) string {
 	return strings.Join(sniHosts, ",")
 }
 
+// Collects the set of SNI host sets that a given server is filtered on.
+// To illustrate, suppose we have the following configs:
+//
+// 1) Gateway with a TLS server for hosts a, b, c, d.
+// 2) Virtual service for hosts a, b and a TLS block such that TLS connections for ServerName a go to x, and ServerName b go to y.
+// 3) Virtual service for hosts c with no TLS block.
+//
+// This function would return two sets of SNI hosts, a and b, corresponding to the virtual service defined in 2.
+// No SNI host sets are generated for c or d, because both are missing either a virtual service or a virtual service
+// with a TLS block.
+//
+// TODO: return properly ordered SNI host sets
+// TODO: handle wildcards
 func getSNIHostSets(env model.Environment, server *networking.Server, gateways map[string]bool) [][]string {
 	if server.Tls == nil {
 		return nil
@@ -618,9 +636,10 @@ func getSNIHostSets(env model.Environment, server *networking.Server, gateways m
 
 	virtualServices := env.VirtualServices(gateways)
 
-	out := make([][]string, 0) // TODO: hm, is this ordering actually guaranteed here? i think we need to sort virtual services by hostname sets?
+	out := make([][]string, 0)
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
+
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
 		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
@@ -629,17 +648,17 @@ func getSNIHostSets(env model.Environment, server *networking.Server, gateways m
 
 		for _, tls := range vsvc.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, nil, gateways, int(server.Port.Number)) {
-					// FIXME: labels, ports
+				if matchTLS(match, nil, gateways, int(server.Port.Number)) { // FIXME: should proxylabels be ignored?
 					key := sniHostsKey(match.SniHosts)
-					if have[key] {
-						have[key] = true
+					if !have[key] {
 						out = append(out, match.SniHosts)
 					}
+					have[key] = true
 				}
 			}
 		}
 	}
+
 	log.Errorf("sni host sets: %v", out)
 	return out
 }
