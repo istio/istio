@@ -207,6 +207,21 @@ def MakeCommonDag(dag_args_func, name,
       dag=common_dag)
   tasks['run_release_qualification_tests'] = run_release_qualification_tests
 
+  modify_values_command = """
+    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
+    chmod u+x modify_values.sh
+    if [ "{{ settings.PIPELINE_TYPE }}" == "daily" ]; then
+        hub="gcr.io/{{ settings.GCR_STAGING_DEST }}"
+    elif [ "{{ settings.PIPELINE_TYPE }}" == "monthly" ]; then
+        hub="docker.io/istio"
+    ./modify_values.sh -h "${hub}" -t {{ settings.VERSION }} -p gs://{{ settings.GCS_BUILD_BUCKET }}/{{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
+    """
+
+  modify_values = BashOperator(
+    task_id='modify_values_helm', bash_command=modify_values_command, dag=common_dag)
+  tasks['modify_values_helm'] = modify_values
+
+
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
       source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
@@ -275,11 +290,6 @@ cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
 
 cat docker_tars.txt docker_images.txt
 rm  docker_tars.txt docker_images.txt
-
-ls
-gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
-chmod u+x *
-./modify_values.sh -p gs://{{ settings.GCS_BUILD_BUCKET }}/{{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
 """
 
   tag_daily_grc = BashOperator(
@@ -359,7 +369,8 @@ def DailyPipeline(branch):
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
   tasks['run_cloud_builder'              ].set_upstream(tasks['get_git_commit'])
   tasks['run_release_qualification_tests'].set_upstream(tasks['run_cloud_builder'])
-  tasks['copy_files_for_release'         ].set_upstream(tasks['run_release_qualification_tests'])
+  tasks['modify_values_helm'             ].set_upstream(tasks['run_release_qualification_tests'])
+  tasks['copy_files_for_release'         ].set_upstream(tasks['modify_values_helm'])
   tasks['mark_daily_complete'            ].set_upstream(tasks['copy_files_for_release'])
 
   return dag

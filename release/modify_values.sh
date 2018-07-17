@@ -5,8 +5,10 @@ set -o nounset
 set -o pipefail
 set -x
 
-while getopts t:p:v: arg ; do
+while getopts h:t:p:v: arg ; do
   case "${arg}" in
+    h) HUB="${OPTARG}";;
+    t) TAG="${OPTARG}";;
     p) GCS_PATH="${OPTARG}";;
     v) VERSION="${OPTARG}";;
   esac
@@ -22,7 +24,8 @@ gsutil cp "${GCS_PATH}/${tarball_name}" .
 tar -zxvf ${tarball_name}
 rm "${tarball_name}"
 
-sed -i "s|tag: release-1.0-latest-daily|tag: ${VERSION}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
+sed -i "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
+sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
 
 tar -zcvf "${tarball_name}" "${folder_name}"
 
