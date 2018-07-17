@@ -125,6 +125,7 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
+	InstallAddons    bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -322,6 +323,13 @@ func (k *KubeInfo) Setup() error {
 			if err = k.deployIstio(); err != nil {
 				log.Error("Failed to deploy Istio.")
 				return err
+			}
+
+			if k.InstallAddons {
+				if err = k.deployAddons(); err != nil {
+					log.Error("Failed to deploy istio addons")
+					return err
+				}
 			}
 		}
 		// Create the ingress secret.
@@ -562,8 +570,7 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 	return newMap
 }
 
-// DeployAddOns deploys istio add ons like zipkin
-func (k *KubeInfo) DeployAddOns() error {
+func (k *KubeInfo) deployAddons() error {
 	for _, addon := range addons {
 		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
 		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
@@ -585,35 +592,6 @@ func (k *KubeInfo) DeployAddOns() error {
 
 		if err := util.KubeApply(k.Namespace, yamlFile, k.KubeConfig); err != nil {
 			log.Errorf("Kubectl apply %s failed", yamlFile)
-			return err
-		}
-	}
-	return nil
-}
-
-// DeleteAddOns deletes istio add ons like zipkin
-func (k *KubeInfo) DeleteAddOns() error {
-	for _, addon := range addons {
-		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
-		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
-		content, err := ioutil.ReadFile(baseYamlFile)
-		if err != nil {
-			log.Errorf("Cannot read file %s", baseYamlFile)
-			return err
-		}
-
-		if !*clusterWide {
-			content = replacePattern(content, istioSystem, k.Namespace)
-		}
-
-		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
-		err = ioutil.WriteFile(yamlFile, content, 0600)
-		if err != nil {
-			log.Errorf("Cannot write into file %s", yamlFile)
-		}
-
-		if err := util.KubeDelete(k.Namespace, yamlFile, k.KubeConfig); err != nil {
-			log.Errorf("Kubectl delete %s failed", yamlFile)
 			return err
 		}
 	}

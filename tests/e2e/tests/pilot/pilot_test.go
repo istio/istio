@@ -79,6 +79,8 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
+	tc.Kube.InstallAddons = true // zipkin is used
+
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err
@@ -172,7 +174,7 @@ func (c *deployableConfig) Setup() error {
 	}
 
 	// Sleep for a while to allow the change to propagate.
-	time.Sleep(PropagationDelay())
+	time.Sleep(c.propagationDelay())
 	return nil
 }
 
@@ -181,7 +183,7 @@ func (c *deployableConfig) Teardown() error {
 	err := c.TeardownNoDelay()
 
 	// Sleep for a while to allow the change to propagate.
-	time.Sleep(PropagationDelay())
+	time.Sleep(c.propagationDelay())
 	return err
 }
 
@@ -195,8 +197,7 @@ func (c *deployableConfig) TeardownNoDelay() error {
 	return err
 }
 
-// PropagationDelay returns the sleep duration waiting for configs to propagate
-func PropagationDelay() time.Duration {
+func (c *deployableConfig) propagationDelay() time.Duration {
 	// With multiple clusters, it takes more time to propagate.
 	return defaultPropagationDelay * time.Duration(len(tc.Kube.Clusters))
 }
