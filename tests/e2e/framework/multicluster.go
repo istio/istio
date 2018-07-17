@@ -67,11 +67,14 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	}
 
 	if err == nil && eps != nil {
-		if len(eps.Subsets[0].Addresses) != 0 {
-			ip = eps.Subsets[0].Addresses[0].IP
-		} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
-			ip = eps.Subsets[0].NotReadyAddresses[0].IP
-		} else {
+		if len(eps.Subsets) > 0 {
+			if len(eps.Subsets[0].Addresses) != 0 {
+				ip = eps.Subsets[0].Addresses[0].IP
+			} else if len(eps.Subsets[0].NotReadyAddresses) != 0 {
+				ip = eps.Subsets[0].NotReadyAddresses[0].IP
+			}
+		}
+		if ip == "" {
 			err = fmt.Errorf("could not get endpoint addresses for service %s", svc)
 			return "", err
 		}
@@ -79,28 +82,45 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	return
 }
 
-func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("cannot read remote yaml file %s", src)
+func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub, proxyTag string) (err error) {
+	svcToHelmVal := map[string]string{
+		"istio-pilot":              "remotePilotAddress",
+		"istio-policy":             "remotePolicyAddress",
+		"istio-statsd-prom-bridge": "proxy.envoyStatsd.host",
+		"istio-ingress":            "ingressEndpoint",
+		"istio-ingressgateway":     "ingressGatewayEndpoint",
+		"istio-telemetry":          "remoteTelemetryAddress",
+		"zipkin":                   "remoteZipkinAddress",
 	}
-
-	svcs := []string{"istio-pilot", "istio-policy", "istio-statsd-prom-bridge", "istio-ingress", "istio-telemetry"}
-	for _, svc := range svcs {
+	var helmSetContent string
+	for svc, helmVal := range svcToHelmVal {
 		var ip string
 		ip, err = k.getEndpointIPForService(svc)
 		if err == nil {
-			replaceStr := fmt.Sprintf("%s.istio-system", svc)
-			content = replacePattern(content, replaceStr, ip)
+			helmSetContent += " --set global." + helmVal + "=" + ip
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
+			if svc == "istio-statsd-prom-bridge" {
+				helmSetContent += " --set global.proxy.envoyStatsd.enabled=true"
+			}
 		} else {
-			return err
+			log.Infof("Endpoint for service %s not found", svc)
 		}
 	}
-	content = replacePattern(content, istioSystem, k.Namespace)
-	err = ioutil.WriteFile(dst, content, 0600)
+	if !useAutoInject {
+		helmSetContent += " --set sidecarInjectorWebhook.enabled=false"
+		log.Infof("Remote cluster auto-sidecar injection disabled")
+	} else {
+		helmSetContent += " --set sidecarInjectorWebhook.enabled=true"
+		log.Infof("Remote cluster auto-sidecar injection enabled")
+	}
+	if proxyHub != "" && proxyTag != "" {
+		helmSetContent += " --set global.hub=" + proxyHub + " --set global.tag=" + proxyTag
+	}
+	chartDir := filepath.Join(k.ReleaseDir, "install/kubernetes/helm/istio-remote")
+	util.HelmTemplate(chartDir, "istio-remote", k.Namespace, helmSetContent, dst)
 	if err != nil {
-		return fmt.Errorf("cannot write remote into generated yaml file %s", dst)
+		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
+		return err
 	}
 	return nil
 }

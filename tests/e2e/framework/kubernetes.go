@@ -180,7 +180,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy)
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +228,16 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
 			return nil, err
 		}
-
-		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
+		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
+		remoteI, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector")
+		if err != nil {
+			return nil, err
+		}
+		if baseVersion != "" {
+			remoteI.localPath = filepath.Join(releaseDir, "/bin/istioctl")
+			remoteI.defaultProxy = true
+		}
+		aRemote = NewAppManager(tmpDir, *namespace, remoteI, remoteKubeConfig)
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
@@ -316,13 +324,6 @@ func (k *KubeInfo) Setup() error {
 			if err = k.deployIstio(); err != nil {
 				log.Error("Failed to deploy Istio.")
 				return err
-			}
-
-			if k.InstallAddons {
-				if err = k.deployAddons(); err != nil {
-					log.Error("Failed to deploy istio addons")
-					return err
-				}
 			}
 		}
 		// Create the ingress secret.
@@ -634,6 +635,13 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if k.InstallAddons {
+		if err := k.deployAddons(); err != nil {
+			log.Error("Failed to deploy istio addons")
+			return err
+		}
+	}
+
 	if *multiClusterDir != "" {
 		// Create namespace on any remote clusters
 		if err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
@@ -641,7 +649,7 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
 		}
@@ -650,10 +658,8 @@ func (k *KubeInfo) deployIstio() error {
 			log.Infof("Failed to create Cacerts with namespace %s in remote cluster", k.Namespace)
 		}
 
-		yamlDir := filepath.Join(istioInstallDir, mcRemoteInstallFile)
-		baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", mcRemoteInstallFile)
-		if err := k.generateRemoteIstio(baseIstioYaml, testIstioYaml); err != nil {
+		if err := k.generateRemoteIstio(testIstioYaml, *useAutomaticInjection, *proxyHub, *proxyTag); err != nil {
 			log.Errorf("Generating Remote yaml %s failed", testIstioYaml)
 			return err
 		}
