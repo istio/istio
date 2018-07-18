@@ -16,20 +16,20 @@ package agent
 
 import (
 	"fmt"
+	"io"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 // Agent is a wrapper around an Envoy proxy that has been configured for a particular backend Application.
 type Agent interface {
+	io.Closer
 	// GetConfig returns the ServiceEntry configuration for this agent.
 	GetConfig() model.Config
 	// GetAdminPort returns the Envoy administration port for this agent.
 	GetAdminPort() int
 	// GetPorts returns a list of port mappings between Envoy and the backend application.
 	GetPorts() []*MappedPort
-	// Stop the agent
-	Stop() error
 }
 
 // MappedPort provides a single port mapping between an Envoy proxy and its backend application.
