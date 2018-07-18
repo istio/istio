@@ -1394,8 +1394,8 @@ unspecified, all request will be delayed.</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
-<code>user=jason</code>.</p>
+starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
+with value <code>jason</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1407,8 +1407,8 @@ spec:
   http:
   - match:
     - headers:
-        cookie:
-          regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
+        end-user:
+          exact: jason
       uri:
         prefix: &quot;/ratings/v2/&quot;
     route:

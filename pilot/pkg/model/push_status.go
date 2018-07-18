@@ -145,6 +145,12 @@ var (
 		"Number of clusters without instances.",
 	)
 
+	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
+	DuplicatedDomains = newPushMetric(
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
