@@ -905,7 +905,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
 	defer func() {
-		if err := deleteRouteRule(routeReviewsV3Rule); err != nil {
+		if err := deleteRoutingConfig(routeReviewsV3Rule); err != nil {
 			t.Fatalf("Could not delete reviews routing rule: %v", err)
 		}
 	}()
@@ -1028,7 +1028,7 @@ func TestRedisQuota(t *testing.T) {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
 	defer func() {
-		if err := deleteRouteRule(routeReviewsV3Rule); err != nil {
+		if err := deleteRoutingConfig(routeReviewsV3Rule); err != nil {
 			t.Fatalf("Could not delete reviews routing rule: %v", err)
 		}
 	}()
