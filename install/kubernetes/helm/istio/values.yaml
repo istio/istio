@@ -296,8 +296,8 @@ prometheus:
   ingress:
     enabled: false
     # Used to create an Ingress record.
-    #hosts:
-    #  - prometheus.local
+    hosts:
+      - prometheus.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
