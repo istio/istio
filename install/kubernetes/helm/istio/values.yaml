@@ -1,6 +1,6 @@
 # Common settings.
 global:
-  # Default repository for Istio images.
+  # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
   hub: gcr.io/istio-release
@@ -63,11 +63,6 @@ global:
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    repository: quay.io/coreos/hyperkube
-    tag: v1.7.6_coreos.0
-
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
@@ -127,6 +122,11 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
 
 #
 # ingress configuration
@@ -298,7 +298,7 @@ mixer:
   image: mixer
 
   prometheusStatsdExporter:
-    repository: prom/statsd-exporter
+    hub: docker.io/prom
     tag: latest
 
 #
@@ -350,9 +350,9 @@ grafana:
 prometheus:
   enabled: true
   replicaCount: 1
-  image:
-    repository: docker.io/prom/prometheus
-    tag: latest
+  hub: docker.io/prom
+  tag: latest
+
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -418,9 +418,8 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  image:
-    repository: jaegertracing/all-in-one
-    tag: 1.5
+  hub: docker.io/jaegertracing
+  tag: 1.5
   service:
     annotations: {}
     name: http
@@ -445,9 +444,8 @@ tracing:
 kiali:
   enabled: false
   replicaCount: 1
-  image:
-    repository: kiali/kiali
-    tag: v0.5.0
+  hub: docker.io/kiali
+  tag: v0.5.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.

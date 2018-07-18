@@ -499,6 +499,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
+// IncrementalAggregatedResources is not implemented.
+func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)

@@ -52,7 +52,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -90,6 +93,7 @@ static_resources:
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
@@ -118,6 +122,7 @@ static_resources:
 	checkAttributesOkInbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
@@ -149,6 +154,7 @@ static_resources:
 	reportAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
@@ -195,6 +201,7 @@ static_resources:
 	reportAttributesOkInbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",

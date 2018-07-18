@@ -84,7 +84,7 @@ type ConfigMeta struct {
 	ResourceVersion string `json:"resourceVersion,omitempty"`
 
 	// CreationTimestamp records the creation time
-	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
+	CreationTimestamp meta_v1.Time `json:"creationTimestamp,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -298,23 +298,14 @@ const (
 	// Default API version of an Istio config proto message.
 	istioAPIVersion = "v1alpha2"
 
-	// HeaderURI is URI HTTP header
-	HeaderURI = "uri"
-
-	// HeaderAuthority is authority HTTP header
-	HeaderAuthority = "authority"
-
-	// HeaderMethod is method HTTP header
-	HeaderMethod = "method"
-
-	// HeaderScheme is scheme HTTP header
-	HeaderScheme = "scheme"
-
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
 
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
+
+	// IstioSystemNamespace is the namespace where Istio's components are deployed
+	IstioSystemNamespace = "istio-system"
 )
 
 /*
@@ -594,6 +585,14 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 	return configs
 }
 
+// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
+func sortConfigByCreationTime(configs []Config) []Config {
+	sort.SliceStable(configs, func(i, j int) bool {
+		return configs[i].CreationTimestamp.Before(&configs[j].CreationTimestamp)
+	})
+	return configs
+}
+
 // TODO: move the logic to v2, read all VirtualServices once at startup and per
 // change event and pass them to the config generator. Model calls to List are
 // extremely expensive - and for larger number of services it doesn't make sense
@@ -605,7 +604,7 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		return nil
 	}
 
-	// TODO Sort configs by creation time
+	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
@@ -695,6 +694,7 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
 	for _, config := range configs {
 		gateway := config.Spec.(*networking.Gateway)
@@ -711,26 +711,32 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 	return out
 }
 
-// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
-// is undefined.
 func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
+
+	// When there are multiple envoy filter configurations for a workload
+	// merge them instead of randomly picking one
+	mergedFilterConfig := &networking.EnvoyFilter{}
+
 	for _, config := range configs {
 		filter := config.Spec.(*networking.EnvoyFilter)
-		if filter.GetWorkloadLabels() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			return &config
+		// if there is no workload selector, the filter applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		if filter.GetWorkloadLabels() != nil {
+			workloadSelector := Labels(filter.GetWorkloadLabels())
+			if !workloadLabels.IsSupersetOf(workloadSelector) {
+				continue
+			}
 		}
-		workloadSelector := Labels(filter.GetWorkloadLabels())
-		if workloadLabels.IsSupersetOf(workloadSelector) {
-			return &config
-		}
+		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
 	}
-	return nil
+
+	return &Config{Spec: mergedFilterConfig}
 }
 
 func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
@@ -739,6 +745,7 @@ func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
 	byHosts := make(map[Hostname]*Config, len(configs))
 	for i := range configs {

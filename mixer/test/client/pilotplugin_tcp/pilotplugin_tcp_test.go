@@ -50,7 +50,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -88,9 +91,9 @@ static_resources:
 const (
 	checkAttributesOkOutbound = `
 {
-  "connection.event": "open",
 	"connection.id": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "tcp",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
@@ -107,9 +110,9 @@ const (
 `
 	checkAttributesOkInbound = `
 {
-  "connection.event": "open",
 	"connection.id": "*",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "tcp",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns1",
