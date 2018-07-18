@@ -615,8 +615,8 @@ func (m *TCPRoute) GetRoute() []*DestinationWeight {
 // HttpMatchRequest specifies a set of criterion to be met in order for the
 // rule to be applied to the HTTP request. For example, the following
 // restricts the rule to match only requests where the URL path
-// starts with /ratings/v2/ and the request contains a `cookie` with value
-// `user=jason`.
+// starts with /ratings/v2/ and the request contains a custom `end-user` header
+// with value `jason`.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -629,8 +629,8 @@ func (m *TCPRoute) GetRoute() []*DestinationWeight {
 //   http:
 //   - match:
 //     - headers:
-//         cookie:
-//           regex: "^(.*?;)?(user=jason)(;.*)?"
+//         end-user:
+//           exact: jason
 //       uri:
 //         prefix: "/ratings/v2/"
 //     route:
