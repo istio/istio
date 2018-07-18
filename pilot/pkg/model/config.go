@@ -464,7 +464,7 @@ var (
 		Type:        "service-role",
 		Plural:      "service-roles",
 		Group:       "rbac",
-		Version:     istioAPIVersion,
+		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
 	}
@@ -475,7 +475,7 @@ var (
 		Type:          "service-role-binding",
 		Plural:        "service-role-bindings",
 		Group:         "rbac",
-		Version:       istioAPIVersion,
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
 	}
@@ -486,7 +486,7 @@ var (
 		Type:          "rbac-config",
 		Plural:        "rbac-configs",
 		Group:         "rbac",
-		Version:       istioAPIVersion,
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateRbacConfig,
 	}
