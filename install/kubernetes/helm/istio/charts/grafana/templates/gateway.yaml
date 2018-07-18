@@ -21,7 +21,7 @@ kind: DestinationRule
 metadata:
   name: grafana
 spec:
-  host: {{ template "grafana.name" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  host: grafana.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -40,5 +40,5 @@ spec:
     - destination:
         port:
           number: {{ $servicePort }}
-        host: {{ template "grafana.name" . }}.{{ .Release.Namespace }}.svc.cluster.local
+        host: grafana.{{ .Release.Namespace }}.svc.cluster.local
 {{- end}}
