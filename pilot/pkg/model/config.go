@@ -17,13 +17,10 @@ package model
 import (
 	"errors"
 	"fmt"
-	"k8s-cluster-manager/pkg/dns"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/golang/protobuf/proto"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	authn "istio.io/api/authentication/v1alpha1"
