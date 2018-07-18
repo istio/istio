@@ -43,7 +43,10 @@ node:
   cluster: unknown
 dynamic_resources:
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
