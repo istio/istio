@@ -1305,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "f4733971fbdbf0d44f8350946229a9067de7664d"
+  revision = "6a128c56f81639e234cc34dbf40af9532008e467"
 
 [[projects]]
   name = "istio.io/fortio"
