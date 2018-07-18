@@ -152,13 +152,19 @@ func main() {
 	licenseTypes := make(map[string][]string, 0)
 	var licenses, exact, inexact LicenseInfos
 	for p, lp := range licensePath {
-		linfo, err := getLicenseInfo(lp)
-		if err != nil {
-			log.Printf("licensee error: %s", err)
-			continue
+		linfo := &LicenseInfo{}
+		if matchDetail || summary {
+			// This requires the external licensee program.
+			linfo, err = getLicenseeInfo(lp)
+			if err != nil {
+				log.Printf("licensee error: %s", err)
+				continue
+			}
 		}
 		linfo.packageName = strings.TrimPrefix(p, istioSubdir+"/vendor/")
 		linfo.licenseText = readFile(lp)
+		linfo.path = lp
+		linfo.url = pathToURL(lp)
 		licenses = append(licenses, linfo)
 		if linfo.exact {
 			licenseTypes[linfo.licenseTypeString] = append(licenseTypes[linfo.licenseTypeString], p)
@@ -255,7 +261,7 @@ func readFile(path string) string {
 	return string(b)
 }
 
-func getLicenseInfo(path string) (*LicenseInfo, error) {
+func getLicenseeInfo(path string) (*LicenseInfo, error) {
 	outb, err := exec.Command("licensee", "detect", path).Output()
 	if err != nil {
 		return nil, err
@@ -269,8 +275,6 @@ func getLicenseInfo(path string) (*LicenseInfo, error) {
 	}
 
 	return &LicenseInfo{
-		path:              path,
-		url:               pathToURL(path),
 		licenseeOutput:    out,
 		licenseTypeString: licenseTypeString,
 		confidence:        confidence,
