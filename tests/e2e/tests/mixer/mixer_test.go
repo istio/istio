@@ -132,20 +132,20 @@ func (t *testConfig) Setup() (err error) {
 
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
 	for _, dr := range drs {
-		*dr = filepath.Join(networkingDir, *dr)
+		*dr = filepath.Join(bookinfoSampleDir, networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
 
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule}
 	for _, r := range rs {
-		*r = filepath.Join(policyDir, *r)
+		*r = filepath.Join(bookinfoSampleDir, policyDir, *r)
 		rules = append(rules, *r)
 	}
 
 	rs = []*string{&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
 	for _, r := range rs {
-		*r = filepath.Join(networkingDir, *r)
+		*r = filepath.Join(bookinfoSampleDir, networkingDir, *r)
 		rules = append(rules, *r)
 	}
 
