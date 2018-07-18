@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -25,9 +27,6 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-
-	"sort"
-	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -295,17 +294,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	env *model.Environment, node *model.Proxy, push *model.PushStatus, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
 
-	services, err := env.Services() // cannot panic here because gateways do not rely on services necessarily
-	if err != nil {
-		log.Errora("Failed to get services from registry")
-		return []*filterChainOpts{}
-	}
-
-	nameToServiceMap := make(map[model.Hostname]*model.Service, len(services))
-	for _, svc := range services {
-		nameToServiceMap[svc.Hostname] = svc
-	}
-
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or TLS servers?
 	// If plain text, we have to combine all servers into a single listener
@@ -331,7 +319,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
-				sniHosts:   getSNIHosts(server), // FIXME: why is this here?
+				sniHosts:   getSNIHosts(server), // TODO: build SNI hosts based on virtual services
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					rds:              model.GatewayRDSRouteName(server),
@@ -401,29 +389,18 @@ func createGatewayTCPFilterChainOpts(
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		if server.Tls != nil {
-			// Since this server is configured as TLS we need to generate filter chains based
-			// on SNI host matches.
+		// Get the set of SNI host sets that we filter on for this server.
+		sniHostSets := getSNIHostSets(env, server, gatewayNames)
 
-			// Get the set of SNI host sets that we filter on for this server.
-			sniHostSets := getSNIHostSets(env, server, gatewayNames)
-
-			// Build a filter chain for each SNI host set.
-			for _, sniHostSet := range sniHostSets {
-				if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
-					opts = append(opts, &filterChainOpts{
-						sniHosts:       sniHostSet,
-						tlsContext:     buildGatewayListenerTLSContext(server),
-						networkFilters: filters,
-					})
-				}
+		// Build a filter chain for each SNI host set.
+		for _, sniHostSet := range sniHostSets {
+			if filters := buildGatewayNetworkFilters(env, server, gatewayNames, sniHostSet); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       sniHostSet,
+					tlsContext:     buildGatewayListenerTLSContext(server),
+					networkFilters: filters,
+				})
 			}
-		} else {
-			// Build a single non-TLS filter chain.
-			opts = append(opts, &filterChainOpts{
-				tlsContext:     buildGatewayListenerTLSContext(server),
-				networkFilters: buildGatewayNetworkFilters(env, server, gatewayNames, nil),
-			})
 		}
 	}
 	return opts
@@ -552,11 +529,7 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 		// TODO: implement more matches, like CIDR ranges, etc.
 
 		// the match's sni hosts includes hosts advertised by server
-		// FIXME: ugh
-		matchSNIHostsSet := sniHostsKey(match.SniHosts)
-		sniHostsSetKey := sniHostsKey(sniHostsSet)
-		sniHostsMatch := matchSNIHostsSet == sniHostsSetKey
-		log.Errorf("SNI hosts match check comparing %v to %v is %v", match.SniHosts, sniHostsSet, sniHostsMatch)
+		sniHostsMatch := sniHostsKey(match.SniHosts) == sniHostsKey(sniHostsSet)
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
@@ -610,12 +583,9 @@ func sniHostsKey(sniHosts []string) string {
 // This function would return two sets of SNI hosts, a and b, corresponding to the virtual service defined in 2.
 // No SNI host sets are generated for c or d, because both are missing either a virtual service or a virtual service
 // with a TLS block.
-//
-// TODO: return properly ordered SNI host sets
-// TODO: handle wildcards
 func getSNIHostSets(env *model.Environment, server *networking.Server, gateways map[string]bool) [][]string {
-	if server.Tls == nil {
-		return nil
+	if server.Tls == nil || server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+		return [][]string{nil}
 	}
 
 	have := make(map[string]bool)
@@ -639,7 +609,7 @@ func getSNIHostSets(env *model.Environment, server *networking.Server, gateways 
 
 		for _, tls := range vsvc.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, nil, gateways, int(server.Port.Number)) { // FIXME: should proxylabels be ignored?
+				if matchTLS(match, nil, gateways, int(server.Port.Number)) {
 					key := sniHostsKey(match.SniHosts)
 					if !have[key] {
 						out = append(out, match.SniHosts)
@@ -650,6 +620,5 @@ func getSNIHostSets(env *model.Environment, server *networking.Server, gateways 
 		}
 	}
 
-	log.Errorf("sni host sets: %v", out)
 	return out
 }
