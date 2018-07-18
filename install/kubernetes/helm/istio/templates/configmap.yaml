@@ -32,7 +32,7 @@ data:
     {{- end }}
 
     # This is the ingress service name, update if you used a different name
-    ingressService: istio-ingressgateway
+    ingressService: istio-{{ .Values.global.ingressSelector }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 

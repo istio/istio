@@ -8,6 +8,13 @@ global:
   # Default tag for Istio images.
   tag: release-1.0-latest-daily
 
+  # Gateway used for legacy k8s Ingress resources. By default it is
+  # using 'istio:ingress', to match 0.8 config. It requires that
+  # ingress.enabled is set to true. You can also set it
+  # to ingressgateway, or any other gateway you define in the 'gateway'
+  # section.
+  ingressSelector: ingress
+
   proxy:
     image: proxyv2
 
@@ -129,27 +136,6 @@ global:
     tag: v1.7.6_coreos.0
 
 #
-# ingress configuration
-#
-ingress:
-  enabled: false
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  service:
-    annotations: {}
-    loadBalancerIP: ""
-    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    ports:
-    - port: 80
-      name: http
-      nodePort: 32000
-    - port: 443
-      name: https
-    selector:
-      istio: ingress
-
-#
 # Gateways Configuration
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
 # You can add more gateways in addition to the defaults but make sure those are uniquely named
@@ -206,6 +192,7 @@ gateways:
     - name: ingressgateway-ca-certs
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
+
   istio-egressgateway:
     enabled: true
     labels:
@@ -228,6 +215,34 @@ gateways:
       - name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
         mountPath: /etc/istio/egressgateway-ca-certs
+
+  # This is the ingress for legacy K8S Ingress resources.
+  ingress:
+    enabled: true
+    labels:
+      app: istio-ingress
+      istio: ingress
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    serviceAnnotations: {}
+    service:
+    loadBalancerIP: ""
+    type: LoadBalancer
+    ports:
+      - port: 80
+        name: http
+        nodePort: 32000
+      - port: 443
+        name: https
+    secretVolumes:
+    - name: ingress-certs
+      secretName: istio-ingress-certs
+      mountPath: /etc/istio/ingress-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingress-ca-certs
+      mountPath: /etc/istio/ingress-ca-certs
+
   # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
   # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
   # as non-mtls ports to support upgrades and gradual transition.
@@ -270,6 +285,8 @@ gateways:
       - name: ilbgateway-ca-certs
         secretName: istio-ilbgateway-ca-certs
         mountPath: /etc/istio/ilbgateway-ca-certs
+
+
 #
 # sidecar-injector webhook configuration
 #
