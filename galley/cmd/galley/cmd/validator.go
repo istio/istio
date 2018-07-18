@@ -22,9 +22,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"k8s.io/api/admissionregistration/v1beta1"
+	admissionClient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"
@@ -57,16 +60,32 @@ func createMixerValidator() (store.BackendValidator, error) {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
 }
 
-// patchCertLoop continually reapplies the caBundle PEM. This is required because it can be overwritten with empty
-// values if the original yaml is reapplied (https://github.com/istio/istio/issues/6069).
-// TODO(https://github.com/istio/istio/issues/6451) - only patch when caBundle changes
-func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, webhookNames []string) error {
-	client, err := kube.CreateClientset(flags.kubeConfig, "")
+func reload(caCertFile, webhookConfigFile string) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
+	var webhookConfig v1beta1.ValidatingWebhookConfiguration
+	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
+		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v", webhookConfigFile, err)
+	}
 	caCertPem, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return nil, err
+	}
+	for _, hook := range webhookConfig.Webhooks {
+		hook.ClientConfig.CABundle = caCertPem
+	}
+	return &webhookConfig, nil
+}
+
+func reconcile(client admissionClient.ValidatingWebhookConfigurationInterface, config *v1beta1.ValidatingWebhookConfiguration) error {
+	return util.PatchValidatingWebhookConfig(client, config)
+}
+
+// reconcileValidatingWebhookConfiguration reconciles the desired validatingwebhookconfiguration.
+func reconcileValidatingWebhookConfiguration(stop <-chan struct{}, caCertFile, webhookConfigFile string) error {
+	client, err := kube.CreateClientset(flags.kubeConfig, "")
 	if err != nil {
 		return err
 	}
@@ -75,12 +94,37 @@ func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, w
 	if err != nil {
 		return err
 	}
-
-	watchDir, _ := filepath.Split(caCertFile)
-	if err = watcher.Watch(watchDir); err != nil {
-		return fmt.Errorf("could not watch %v: %v", caCertFile, err)
+	for _, file := range []string{caCertFile, webhookConfigFile} {
+		watchDir, _ := filepath.Split(file)
+		if err = watcher.Watch(watchDir); err != nil {
+			return fmt.Errorf("could not watch %v: %v", file, err)
+		}
 	}
 
+	validateClient := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+
+	// initial load
+	desiredValidatingWebhookConfig, err := reload(caCertFile, webhookConfigFile)
+	if err != nil {
+		validation.ReportValidationUpdateError(err)
+		return err
+	}
+	if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
+		validation.ReportValidationUpdateError(err)
+		return err
+	}
+
+	reconcile := func() {
+		if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
+			log.Errorf("Could not reconcile %v validatingwebhookconfiguration: %v",
+				desiredValidatingWebhookConfig.Name, err)
+			validation.ReportValidationUpdateError(err)
+		} else {
+			validation.ReportValidationUpdate()
+		}
+	}
+
+	// reconciliation loop
 	go func() {
 		tickerC := time.NewTicker(time.Second).C
 		for {
@@ -88,16 +132,16 @@ func patchCertLoop(stop <-chan struct{}, caCertFile, webhookConfigName string, w
 			case <-stop:
 				return
 			case <-tickerC:
-				if err = util.PatchValidatingWebhookConfig(client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations(),
-					webhookConfigName, webhookNames, caCertPem); err != nil {
-					log.Errorf("Patch webhook failed: %s", err)
-				}
+				reconcile()
 			case <-watcher.Event:
-				if b, err := ioutil.ReadFile(caCertFile); err == nil {
-					caCertPem = b
-				} else {
-					log.Errorf("CA bundle file read error: %v", err)
+				loaded, err := reload(caCertFile, webhookConfigFile)
+				if err != nil {
+					log.Errorf("Could not reload ca-cert-file and validatingwebhookconfiguration: %v", err)
+					validation.ReportValidationUpdateError(err)
+					break
 				}
+				desiredValidatingWebhookConfig = loaded
+				reconcile()
 			}
 		}
 	}()
@@ -143,9 +187,6 @@ func startSelfMonitoring(stop <-chan struct{}, port uint) {
 
 func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	var (
-		webhookConfigName   string
-		pilotWebhookName    string
-		mixerWebhookName    string
 		port                uint
 		domainSuffix        string
 		certFile            string
@@ -154,6 +195,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		healthCheckInterval time.Duration
 		healthCheckFile     string
 		monitoringPort      uint
+		webhookConfigFile   string
 	)
 
 	validatorCmd := &cobra.Command{
@@ -185,9 +227,14 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
-			webhookNames := []string{pilotWebhookName, mixerWebhookName}
-			if err := patchCertLoop(stop, caFile, webhookConfigName, webhookNames); err != nil {
-				log.Errorf("Failed to patch webhook config: %v", err)
+			if webhookConfigFile != "" {
+				log.Infof("server-side configuration validation enabled. Using %v for validatingwebhookconfiguration",
+					webhookConfigFile)
+				if err := reconcileValidatingWebhookConfiguration(stop, caFile, webhookConfigFile); err != nil {
+					log.Errorf("could not start validatingwebhookconfiguration reconcilation: %v", err)
+				}
+			} else {
+				log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
 			}
 
 			go wh.Run(stop)
@@ -196,15 +243,9 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		},
 	}
 
-	validatorCmd.PersistentFlags().StringVar(&webhookConfigName,
-		"webhook-name", "istio-galley",
-		"Name of the ValidatingWebhookConfiguration resource in Kubernetes")
-	validatorCmd.PersistentFlags().StringVar(&pilotWebhookName,
-		"pilot-webhook-name", "pilot.validation.istio.io",
-		"Name of the pilot webhook entry in the webhook config.")
-	validatorCmd.PersistentFlags().StringVar(&mixerWebhookName,
-		"mixer-webhook-name", "mixer.validation.istio.io",
-		"Name of the mixer webhook entry in the webhook config.")
+	validatorCmd.PersistentFlags().StringVar(&webhookConfigFile,
+		"webhook-config-file", "/etc/istio/config",
+		"File that contains k8s validatingwebhookconfiguration yaml. Validation is disabled if file is not specified")
 	validatorCmd.PersistentFlags().UintVar(&port, "port", 443,
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
 	validatorCmd.PersistentFlags().StringVar(&certFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",

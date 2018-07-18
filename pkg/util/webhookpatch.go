@@ -17,8 +17,11 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"istio.io/istio/pkg/log"
+	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,7 +56,7 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 	if err != nil {
 		return err
 	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, v1beta1.MutatingWebhookConfiguration{})
 	if err != nil {
 		return err
 	}
@@ -65,45 +68,22 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 }
 
 // PatchValidatingWebhookConfig patches a CA bundle into the specified webhook config.
-func PatchValidatingWebhookConfig(client admissionregistrationv1beta1client.ValidatingWebhookConfigurationInterface,
-	webhookConfigName string, webhookNames []string, caBundle []byte) error {
-	config, err := client.Get(webhookConfigName, metav1.GetOptions{})
+func PatchValidatingWebhookConfig(client admissionregistrationv1beta1client.ValidatingWebhookConfigurationInterface, desired *v1beta1.ValidatingWebhookConfiguration) error { // nolint: lll
+	current, err := client.Get(desired.Name, metav1.GetOptions{})
 	if err != nil {
-		return err
-	}
-	prev, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	var found int
-	names := map[string]bool{}
-	for _, name := range webhookNames {
-		names[name] = true
-	}
-	for i, w := range config.Webhooks {
-		if _, ok := names[w.Name]; ok {
-			config.Webhooks[i].ClientConfig.CABundle = caBundle[:]
-			found++
-			if found == len(webhookNames) {
-				break
-			}
+		if errors.IsNotFound(err) {
+			_, err := client.Create(desired)
+			return err
 		}
-	}
-	if found < len(webhookNames) {
-		return apierrors.NewInternalError(fmt.Errorf(
-			"webhook entries %q not found in config %q", webhookNames, webhookConfigName))
-	}
-	curr, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
-	if err != nil {
+		log.Errorf("Failed to retrieve %q validatingwebhookconfigurations: %v", desired.Name, err)
 		return err
 	}
 
-	if string(patch) != "{}" {
-		_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
+	updated := current.DeepCopyObject().(*v1beta1.ValidatingWebhookConfiguration)
+	updated.Webhooks = desired.Webhooks
+	if !reflect.DeepEqual(updated, current) {
+		_, err := client.Update(updated)
+		return err
 	}
-	return err
+	return nil
 }
