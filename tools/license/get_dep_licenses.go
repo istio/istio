@@ -1,12 +1,15 @@
 // Binary get_dep_licenses outputs aggrerate license information for all transitive Istio dependencies.
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
-//   1) Generate CSV format output with one package per line:
-//      get_dep_licenses --branch release-0.8 --summary
-//   2) Generate complete dump of every license, suitable for including in release build/binary image:
-//      get_dep_licenses --branch release-0.8
-//   3) Generate detailed info about how closely each license matches official text:
-//      get_dep_licenses --branch release-0.8 --match-detail
+//   1) Generate complete dump of every license, suitable for including in release build/binary image:
+//      go run get_dep_licenses.go
+//   2) CSV format output with one package per line:
+//      go run get_dep_licenses.go --summary
+//   3) Detailed info about how closely each license matches official text:
+//      go run get_dep_licenses.go --match-detail
+//   4) Use a different branch from the current one. Will do git checkout to that branch and back to the current on completion.
+//      This can only be used from inside Istio repo:
+//      go run get_dep_licenses.go --branch release-0.8
 package main
 
 import (
@@ -84,15 +87,12 @@ func main() {
 	var summary, matchDetail bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
 	flag.BoolVar(&matchDetail, "match_detail", false, "Show information about match closeness for inexact matches.")
-	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use. Must be set.")
+	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use. Can only use from inside Istio git repo.")
 	flag.Parse()
 
 	// Verify inputs.
 	if summary && matchDetail {
 		log.Fatal("--summary and --match_detail cannot both be set.")
-	}
-	if istioReleaseBranch == "" {
-		log.Fatal("--release must be set e.g. release-0.8")
 	}
 
 	// Everything happens from istio root.
@@ -100,28 +100,35 @@ func main() {
 		log.Fatalf("Could not chdir to Istio root at %s", istioRoot)
 	}
 
-	// Save git branch to return to later.
-	pb, err := runBash("git", "rev-parse", "--abbrev-ref", "HEAD")
-	if err != nil {
-		log.Fatalf("Could not get current branch: %s", err)
-	}
-	prevBranch := strings.TrimSpace(string(pb))
+	// Handle git checkouts if the release branch we want != current branch
+	var prevBranch string
+	if istioReleaseBranch != "" {
+		// Save git branch to return to later.
+		pb, err := runBash("git", "rev-parse", "--abbrev-ref", "HEAD")
+		if err != nil {
+			log.Fatalf("Could not get current branch: %s", err)
+		}
+		prevBranch = strings.TrimSpace(string(pb))
 
-	// Need to switch to branch we're getting the licenses for.
-	out, err := runBash("git", "checkout", istioReleaseBranch)
-	if err != nil {
-		log.Fatalf("Could not git checkout %s: %s", istioReleaseBranch, err)
+		// Need to switch to branch we're getting the licenses for.
+		_, err = runBash("git", "checkout", istioReleaseBranch)
+		if err != nil {
+			log.Fatalf("Could not git checkout %s: %s", istioReleaseBranch, err)
+		}
 	}
 	defer func() {
-		// Get back to original branch.
-		_, err = exec.Command("git", "checkout", prevBranch).Output()
-		if err != nil {
-			log.Fatalf("Could not git checkout back to original branch %s.", prevBranch)
+		if istioReleaseBranch != "" {
+			// Get back to original branch.
+
+			_, err := exec.Command("git", "checkout", prevBranch).Output()
+			if err != nil {
+				log.Fatalf("Could not git checkout back to original branch %s.", prevBranch)
+			}
 		}
 	}()
 
 	// List all the deps in vendor.
-	out, err = runBash("go", "list", "-f", `'{{ join .Deps  "\n"}}'`, "./vendor/...")
+	out, err := runBash("go", "list", "-f", `'{{ join .Deps  "\n"}}'`, "./vendor/...")
 	if err != nil {
 		log.Fatal(out)
 	}
