@@ -454,8 +454,8 @@ var (
 	ServiceRole = ProtoSchema{
 		Type:        "service-role",
 		Plural:      "service-roles",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "rbac",
+		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
 	}
@@ -465,8 +465,8 @@ var (
 		ClusterScoped: false,
 		Type:          "service-role-binding",
 		Plural:        "service-role-bindings",
-		Group:         "config",
-		Version:       istioAPIVersion,
+		Group:         "rbac",
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
 	}
@@ -476,8 +476,8 @@ var (
 		ClusterScoped: true,
 		Type:          "rbac-config",
 		Plural:        "rbac-configs",
-		Group:         "config",
-		Version:       istioAPIVersion,
+		Group:         "rbac",
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateRbacConfig,
 	}

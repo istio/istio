@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	rbacEnableTmpl = "testdata/v1alpha2/istio-rbac-enable.yaml.tmpl"
-	rbacRulesTmpl  = "testdata/v1alpha2/istio-rbac-rules.yaml.tmpl"
+	rbacEnableTmpl = "testdata/rbac/v1alpha1/istio-rbac-enable.yaml.tmpl"
+	rbacRulesTmpl  = "testdata/rbac/v1alpha1/istio-rbac-rules.yaml.tmpl"
 )
 
 func TestRBAC(t *testing.T) {
