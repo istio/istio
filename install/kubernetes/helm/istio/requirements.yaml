@@ -6,10 +6,6 @@ dependencies:
   - name: security
     version: 1.0.0
     # repository: file://../security
-  - name: ingress
-    version: 1.0.0
-    # repository: file://../ingress
-    condition: ingress.enabled
   - name: gateways
     version: 1.0.0
     # repository: file://../gateways
