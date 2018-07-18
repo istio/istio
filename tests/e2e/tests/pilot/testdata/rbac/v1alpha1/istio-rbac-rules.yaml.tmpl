@@ -2,7 +2,7 @@
 
 # For service a, allow non-exist-user and non-exist-namespace to access it.
 # This actually means nobody could access a.
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: access-a
@@ -14,7 +14,7 @@ spec:
     - key: "destination.labels[app]"
       values: ["a"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-access-a
@@ -29,7 +29,7 @@ spec:
 ---
 
 # For service b, allow any user to access it with GET at any paths.
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: access-b
@@ -38,7 +38,7 @@ spec:
   - services: ["b.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-access-b
@@ -50,7 +50,7 @@ spec:
     name: "access-b"
 ---
 # For service headless, allow anyone to access it. (Necessary for service b)
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: access-headless
@@ -59,7 +59,7 @@ spec:
   - services: ["headless*"]
     methods: ["*"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-access-headless
@@ -72,7 +72,7 @@ spec:
 ---
 
 # For service c, allow d to access it with GET at paths: ["/prefix*", "*/suffix", "/good"].
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: access-c
@@ -82,7 +82,7 @@ spec:
     methods: ["GET"]
     paths: ["/prefix*", "*/suffix", "/good"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-access-c
@@ -96,7 +96,7 @@ spec:
 ---
 
 # For service d, allow any pod in the same namespace to access it with GET at any paths.
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: access-d
@@ -108,7 +108,7 @@ spec:
     - key: "destination.labels[app]"
       values: ["d"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-access-d
