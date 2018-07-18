@@ -671,13 +671,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: rbacconfigs.config.istio.io
+  name: rbacconfigs.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: RbacConfig
     plural: rbacconfigs
@@ -686,19 +686,19 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha1
 ---
 
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: serviceroles.config.istio.io
+  name: serviceroles.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: ServiceRole
     plural: serviceroles
@@ -707,19 +707,19 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha1
 ---
 
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: servicerolebindings.config.istio.io
+  name: servicerolebindings.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: ServiceRoleBinding
     plural: servicerolebindings
@@ -728,7 +728,7 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha1
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
