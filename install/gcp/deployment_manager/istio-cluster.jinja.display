@@ -100,9 +100,9 @@ input:
       section: MONITORING
       boolean_group: MONITORING_GROUP
 
-    - name: enableZipkin
-      title: Enable Zipkin for tracing
-      tooltip: Enable Zipkin on the cluster
+    - name: enableTracing
+      title: Enable Tracing
+      tooltip: Enable Tracing on the cluster
       section: MONITORING
       boolean_group: MONITORING_GROUP
 
