@@ -55,6 +55,11 @@ func (t *TestContext) Environment() Environment {
 	return t.env
 }
 
+// AcquireDependency tries to either fetch an already initialized dependency, or init it doesn't exist.
+func (t *TestContext) AcquireDependency(dep dependency.Instance) (interface{}, error) {
+	return t.deps.Acquire(t, dep)
+}
+
 // Hub environment variable.
 func (t *TestContext) Hub() string {
 	return t.hub

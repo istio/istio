@@ -28,21 +28,22 @@ var scope = log.RegisterScope("testframework", "General scope for the test frame
 // Tracker keeps track of the state information for dependencies
 type Tracker map[dependency.Instance]interface{}
 
-// Initialize a test dependency and start tracking it.
-func (t Tracker) Initialize(ctx *TestContext, env Environment, dep dependency.Instance) error {
-	if _, ok := t[dep]; ok {
+// Acquire returns an initialized instance of a dependency. The dependency gets initialized first if it
+// doesn't exist.
+func (t Tracker) Acquire(ctx *TestContext, dep dependency.Instance) (interface{}, error) {
+	if ins, ok := t[dep]; ok {
 		scope.Debugf("Dependency already initialized: %v", dep)
-		return nil
+		return ins, nil
 	}
 
-	s, err := env.InitializeDependency(ctx, dep)
+	ins, err := ctx.Environment().InitializeDependency(ctx, dep)
 	if err != nil {
 		scope.Debugf("Error initializing dependency '%v': %v", dep, err)
-		return err
+		return nil, err
 	}
 
-	t[dep] = s
-	return nil
+	t[dep] = ins
+	return ins, nil
 }
 
 // All returns all tracked resources.

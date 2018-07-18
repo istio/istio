@@ -40,8 +40,8 @@ var scope = log.RegisterScope("testframework", "General scope for the test frame
 type driver struct {
 	lock sync.Mutex
 
-	args          *Args
-	ctx           *internal.TestContext
+	args *Args
+	ctx  *internal.TestContext
 
 	// The names of the tests that we've encountered so far.
 	testNames map[string]struct{}
@@ -128,7 +128,7 @@ func (d *driver) Run() int {
 	}
 
 	for _, dep := range d.args.SuiteDependencies {
-		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
+		if _, err := d.ctx.Tracker().Acquire(d.ctx, dep); err != nil {
 			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			return -3
 		}
@@ -197,7 +197,7 @@ func (d *driver) InitializeTestDependencies(t testing.TB, dependencies []depende
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
+		if _, err := d.ctx.Tracker().Acquire(d.ctx, dep); err != nil {
 			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
