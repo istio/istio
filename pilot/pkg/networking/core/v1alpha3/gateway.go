@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
