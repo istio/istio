@@ -50,7 +50,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
