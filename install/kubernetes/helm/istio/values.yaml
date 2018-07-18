@@ -128,10 +128,6 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
-# Any customization for istio testing should be here
-istiotesting:
-  oneNameSpace: false
-
 #
 # ingress configuration
 #
