@@ -208,12 +208,15 @@ def MakeCommonDag(dag_args_func, name,
   tasks['run_release_qualification_tests'] = run_release_qualification_tests
 
   modify_values_command = """
+    {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
     chmod u+x modify_values.sh
-    if [ "{{ settings.PIPELINE_TYPE }}" == "daily" ]; then
+    echo "PIPELINE TYPE is {{ settings.PIPELINE_TYPE }}"
+    if [ "{{ settings.PIPELINE_TYPE }}" = "daily" ]; then
         hub="gcr.io/{{ settings.GCR_STAGING_DEST }}"
-    elif [ "{{ settings.PIPELINE_TYPE }}" == "monthly" ]; then
+    elif [ "{{ settings.PIPELINE_TYPE }}" = "monthly" ]; then
         hub="docker.io/istio"
+    fi
     ./modify_values.sh -h "${hub}" -t {{ settings.VERSION }} -p gs://{{ settings.GCS_BUILD_BUCKET }}/{{ settings.GCS_STAGING_PATH }} -v {{ settings.VERSION }}
     """
 
