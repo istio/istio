@@ -125,7 +125,6 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
-	InstallAddons    bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -323,13 +322,6 @@ func (k *KubeInfo) Setup() error {
 			if err = k.deployIstio(); err != nil {
 				log.Error("Failed to deploy Istio.")
 				return err
-			}
-
-			if k.InstallAddons {
-				if err = k.deployAddons(); err != nil {
-					log.Error("Failed to deploy istio addons")
-					return err
-				}
 			}
 		}
 		// Create the ingress secret.
