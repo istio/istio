@@ -13,6 +13,7 @@ spec:
       name: http
     hosts:
     - "*"
+{{ if .Values.global.ingressHttps }}
   - port:
       number: 443
       protocol: HTTPS
@@ -23,7 +24,7 @@ spec:
       privateKey: /etc/istio/ingress-certs/tls.key
     hosts:
     - "*"
-
+{{ end }}
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -40,6 +41,7 @@ spec:
       name: http
     hosts:
     - "*"
+{{ if .Values.global.ingressHttps }}
   - port:
       number: 443
       protocol: HTTPS
@@ -51,7 +53,7 @@ spec:
       privateKey: /etc/istio/ingressgateway-certs/tls.key
     hosts:
     - "*"
-
+{{ end }}
 ---
 {{- if .Values.global.meshExpansion }}
 apiVersion: networking.istio.io/v1alpha3

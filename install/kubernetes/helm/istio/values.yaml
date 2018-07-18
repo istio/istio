@@ -15,6 +15,12 @@ global:
   # section.
   ingressSelector: ingress
 
+  # IngressHttps will add port 443 on the ingress and ingressgateway.
+  # It REQUIRES that the certificates are installed  in the
+  # expected secrets - enabling this option without certificates
+  # will result in LDS rejection and the ingress will not work.
+  ingressHttps: false
+
   proxy:
     image: proxyv2
 
