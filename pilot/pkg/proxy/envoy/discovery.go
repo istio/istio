@@ -495,9 +495,13 @@ func (ds *DiscoveryService) clearCache() {
 		// Debounce: it's been more than 1 second since last event,
 		// but more events may still be in progress. Trigger
 		// 'debouncedPush' in 100 ms.
-		time.AfterFunc(100 * time.Millisecond, func() {
-			debouncePush(lastClearCacheEvent)
-		})
+		if DebounceAfter > 0 {
+			time.AfterFunc(DebounceAfter, func() {
+				debouncePush(lastClearCacheEvent)
+			})
+		} else {
+			V2ClearCache()
+		}
 
 		return
 	}
