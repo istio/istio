@@ -16,9 +16,9 @@ spec:
         image: "{{ .Values.global.hub }}/node-agent-k8s:{{ .Values.global.tag }}"
         imagePullPolicy: IfNotPresent
         volumeMounts:
-        - mountPath: /tmp
+        - mountPath: /var/run/sds
           name: sdsudspath
       volumes:
       - name: sdsudspath
         hostPath:
-          path: /tmp/sds
+          path: /var/run/sds
