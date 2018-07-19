@@ -343,7 +343,7 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if _, exists := node.GetProxyVersion(); !exists {
+		if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
 		}
 		if in.Timeout != nil {
