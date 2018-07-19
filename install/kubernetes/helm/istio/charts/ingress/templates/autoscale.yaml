@@ -1,0 +1,19 @@
+{{- if .Values.autoscaleMin }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-ingress
+    namespace: {{ .Release.Namespace }}
+spec:
+    maxReplicas: {{ .Values.autoscaleMax }}
+    minReplicas: {{ .Values.autoscaleMin }}
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-ingress
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 80
+{{ end }}

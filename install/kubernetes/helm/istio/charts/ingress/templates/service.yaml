@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: ingress
+  annotations:
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+spec:
+{{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
+{{- end }}
+  type: {{ .Values.service.type }}
+  selector:
+    istio: ingress
+  ports:
+    {{- range $key, $val := .Values.service.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+---
