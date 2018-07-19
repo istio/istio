@@ -28,10 +28,14 @@ import (
 	"github.com/howeyc/fsnotify"
 	"github.com/prometheus/client_golang/prometheus"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	clientset "k8s.io/client-go/kubernetes"
 
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -82,6 +86,13 @@ type WebhookParameters struct {
 	// HealthCheckFile specifies the path to the health check file
 	// that is periodically updated.
 	HealthCheckFile string
+
+	WebhookConfigFile   string
+	CACertFile          string
+	DeploymentNamespace string
+	DeploymentName      string
+
+	Clientset clientset.Interface
 }
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
@@ -99,10 +110,25 @@ type Webhook struct {
 	healthCheckInterval time.Duration
 	healthCheckFile     string
 	server              *http.Server
-	watcher             *fsnotify.Watcher
+	keyCertWatcher      *fsnotify.Watcher
+	configWatcher       *fsnotify.Watcher
 	certFile            string
 	keyFile             string
+	caFile              string
+	webhookConfigFile   string
+	clientset           clientset.Interface
+	deploymentNamespace string
+	deploymentName      string
+
+	caCertPem            []byte
+	ownerRefs            []v1.OwnerReference
+	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
 }
+
+var (
+	timeNewTicker = time.NewTicker
+	timeAfter     = time.After
+)
 
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
@@ -111,16 +137,27 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		return nil, err
 	}
 
-	watcher, err := fsnotify.NewWatcher()
+	certKeyWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-
 	// watch the parent directory of the target files so we can catch
 	// symlink updates of k8s secrets
-	for _, file := range []string{p.CertFile, p.KeyFile} {
+	for _, file := range []string{p.CertFile, p.KeyFile, p.CACertFile, p.WebhookConfigFile} {
 		watchDir, _ := filepath.Split(file)
-		if err := watcher.Watch(watchDir); err != nil {
+		if err := certKeyWatcher.Watch(watchDir); err != nil {
+			return nil, fmt.Errorf("could not watch %v: %v", file, err)
+		}
+	}
+
+	// configuration must be updated whenever the caBundle changes.
+	configWatcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range []string{p.CACertFile, p.WebhookConfigFile} {
+		watchDir, _ := filepath.Split(file)
+		if err := configWatcher.Watch(watchDir); err != nil {
 			return nil, fmt.Errorf("could not watch %v: %v", file, err)
 		}
 	}
@@ -129,7 +166,8 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
-		watcher:             watcher,
+		keyCertWatcher:      certKeyWatcher,
+		configWatcher:       configWatcher,
 		healthCheckInterval: p.HealthCheckInterval,
 		healthCheckFile:     p.HealthCheckFile,
 		certFile:            p.CertFile,
@@ -137,6 +175,39 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		cert:                &pair,
 		descriptor:          p.PilotDescriptor,
 		validator:           p.MixerValidator,
+		caFile:              p.CACertFile,
+		webhookConfigFile:   p.WebhookConfigFile,
+		clientset:           p.Clientset,
+		deploymentName:      p.DeploymentName,
+		deploymentNamespace: p.DeploymentNamespace,
+	}
+
+	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
+		log.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
+			wh.deploymentNamespace, wh.deploymentName)
+	} else {
+		wh.ownerRefs = []v1.OwnerReference{
+			*v1.NewControllerRef(
+				galleyDeployment,
+				schema.GroupVersionKind{
+					Group:   "extensions",
+					Version: "v1beta1",
+					Kind:    "Deployment",
+				},
+			),
+		}
+	}
+
+	if wh.webhookConfigFile != "" {
+		log.Info("server-side configuration validation enabled")
+		if err = wh.rebuildWebhookConfiguration(); err != nil {
+			log.Errorf("could not start config reconciliation: %v. Disabling validation", err) // nolint: lll
+			wh.webhookConfigFile = ""
+		} else {
+			wh.reconcileWebhookConfiguration()
+		}
+	} else {
+		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
 	}
 
 	// mtls disabled because apiserver webhook cert usage is still TBD.
@@ -156,21 +227,29 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
 		}
 	}()
-	defer wh.watcher.Close() // nolint: errcheck
-	defer wh.server.Close()  // nolint: errcheck
+	defer wh.keyCertWatcher.Close() // nolint: errcheck
+	defer wh.server.Close()         // nolint: errcheck
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
+		t := timeNewTicker(wh.healthCheckInterval)
 		healthC = t.C
 		defer t.Stop()
 	}
-	var timerC <-chan time.Time
+
+	// use a timer to debounce file updates
+	var keyCertTimerC <-chan time.Time
+	var configTimerC <-chan time.Time
+
+	var reconcileTickerC <-chan time.Time
+	if wh.webhookConfigFile != "" {
+		reconcileTickerC = timeNewTicker(time.Second).C
+	}
 
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
+		case <-keyCertTimerC:
+			keyCertTimerC = nil
 			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 			if err != nil {
 				metricCertKeyUpdateError.With(prometheus.Labels{"error": err.Error()}).Add(1)
@@ -183,13 +262,26 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 
 			metricCertKeyUpdate.Add(1)
 			log.Error("Cert and Key reloaded")
-		case event := <-wh.watcher.Event:
-			// use a timer to debounce cert updates
-			if (event.IsModify() || event.IsCreate()) && timerC == nil {
-				timerC = time.After(watchDebounceDelay)
+
+		case <-configTimerC:
+			if err := wh.rebuildWebhookConfiguration(); err != nil {
+				break
 			}
-		case err := <-wh.watcher.Error:
-			log.Errorf("Watcher error: %v", err)
+			wh.reconcileWebhookConfiguration()
+		case <-reconcileTickerC:
+			wh.reconcileWebhookConfiguration()
+		case event := <-wh.keyCertWatcher.Event:
+			if (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
+				keyCertTimerC = time.After(watchDebounceDelay)
+			}
+		case event := <-wh.configWatcher.Event:
+			if (event.IsModify() || event.IsCreate()) && configTimerC == nil {
+				configTimerC = time.After(watchDebounceDelay)
+			}
+		case err := <-wh.keyCertWatcher.Error:
+			log.Errorf("keyCertWatcher error: %v", err)
+		case err := <-wh.configWatcher.Error:
+			log.Errorf("configWatcher error: %v", err)
 		case <-healthC:
 			content := []byte(`ok`)
 			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {

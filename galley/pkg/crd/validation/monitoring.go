@@ -50,6 +50,10 @@ var (
 		Name: "galley_validation_config_updates",
 		Help: "k8s webhook configuration updates",
 	})
+	metricWebhookConfigurationLoadError = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "galley_validation_config_load_error",
+		Help: "k8s webhook configuration (re)load error",
+	}, []string{"error"})
 )
 
 func init() {
@@ -60,7 +64,8 @@ func init() {
 		metricValidationFailed,
 		metricValidationHTTPError,
 		metricWebhookConfigurationUpdateError,
-		metricWebhookConfigurationUpdates)
+		metricWebhookConfigurationUpdates,
+		metricWebhookConfigurationLoadError)
 }
 
 func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
@@ -86,15 +91,19 @@ func reportValidationHTTPError(status int) {
 	}).Add(1)
 }
 
-// ReportValidationConfigUpdateError reports validation configuration update errors.
-func ReportValidationConfigUpdateError(err error) {
+func reportValidationConfigUpdateError(err error) {
 	metricWebhookConfigurationUpdateError.With(prometheus.Labels{
 		"error": err.Error(),
 	}).Add(1)
 }
 
-// ReportValidationConfigUpdate reports successful validation configuration updates.
-func ReportValidationConfigUpdate() {
+func reportValidationConfigLoadError(err error) {
+	metricWebhookConfigurationLoadError.With(prometheus.Labels{
+		"error": err.Error(),
+	}).Add(1)
+}
+
+func reportValidationConfigUpdate() {
 	metricWebhookConfigurationUpdates.Add(1)
 }
 

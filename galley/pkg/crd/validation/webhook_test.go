@@ -30,10 +30,15 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -55,7 +60,52 @@ func (fv *fakeValidator) Validate(*store.BackendEvent) error {
 	return fv.err
 }
 
-func createTestWebhook(t testing.TB) (*Webhook, func()) {
+var (
+	dummyConfig = &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "config1",
+		},
+		Webhooks: []admissionregistrationv1beta1.Webhook{
+			{
+				Name: "hook-foo",
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+					Service: &admissionregistrationv1beta1.ServiceReference{
+						Name:      "hook1",
+						Namespace: "default",
+					},
+					CABundle: testcerts.CACert,
+				},
+				Rules: []admissionregistrationv1beta1.RuleWithOperations{
+					{
+						Operations: []admissionregistrationv1beta1.OperationType{
+							admissionregistrationv1beta1.Create,
+							admissionregistrationv1beta1.Update,
+						},
+						Rule: admissionregistrationv1beta1.Rule{
+							APIGroups:   []string{"g1"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"r1"},
+						},
+					},
+				},
+				FailurePolicy:     failurePolicyFail,
+				NamespaceSelector: &metav1.LabelSelector{},
+			},
+		},
+	}
+
+	dummyDeployment = &v1beta1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istio-galley",
+			Namespace: "istio-system",
+			UID:       "deadbeef",
+		},
+	}
+
+	dummyClient = fake.NewSimpleClientset(dummyDeployment)
+)
+
+func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*Webhook, func()) {
 	t.Helper()
 	dir, err := ioutil.TempDir("", "galley_validation_webhook")
 	if err != nil {
@@ -69,6 +119,8 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 		certFile   = filepath.Join(dir, "cert-file.yaml")
 		keyFile    = filepath.Join(dir, "key-file.yaml")
 		healthFile = filepath.Join(dir, "health-file.yaml")
+		caFile     = filepath.Join(dir, "ca-file.yaml")
+		configFile = filepath.Join(dir, "config-file.yaml")
 		port       = uint(0)
 	)
 
@@ -82,6 +134,21 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
+	// ca
+	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
+	}
+
+	configBytes, err := yaml.Marshal(&config)
+	if err != nil {
+		cleanup()
+		t.Fatalf("could not create fake webhook configuration data: %v", err)
+	}
+	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
+	}
 
 	options := WebhookParameters{
 		CertFile:            certFile,
@@ -92,6 +159,11 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 		MixerValidator:      &fakeValidator{},
 		HealthCheckFile:     healthFile,
 		HealthCheckInterval: 10 * time.Millisecond,
+		WebhookConfigFile:   configFile,
+		CACertFile:          caFile,
+		Clientset:           cl,
+		DeploymentName:      dummyDeployment.Name,
+		DeploymentNamespace: dummyDeployment.Namespace,
 	}
 	wh, err := NewWebhook(options)
 	if err != nil {
@@ -145,7 +217,7 @@ func TestAdmitPilot(t *testing.T) {
 	valid := makePilotConfig(t, 0, true, true)
 	invalidConfig := makePilotConfig(t, 0, true, false)
 
-	wh, cancel := createTestWebhook(t)
+	wh, cancel := createTestWebhook(t, dummyClient, dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -232,7 +304,7 @@ func makeMixerConfig(t *testing.T, i int) []byte {
 
 func TestAdmitMixer(t *testing.T) {
 	rawConfig := makeMixerConfig(t, 0)
-	wh, cancel := createTestWebhook(t)
+	wh, cancel := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
 	defer cancel()
 
 	cases := []struct {
@@ -371,7 +443,7 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 }
 
 func TestServe(t *testing.T) {
-	wh, cleanup := createTestWebhook(t)
+	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
@@ -511,6 +583,25 @@ ICN61cIhgz8wChQpF8/fFAI5Fjbjrz5C1Xw/EUHLf/TTn/7Yfp2BHsGm126Et+k+
 +MLBzBfrHKwPaGqDvNHUDrI6c3GI0Qp7jW93FbL5ul8JQ+AowoMF2dIEbN9qQEVP
 ZOQ5UvU=
 -----END CERTIFICATE-----`)
+
+	caFile = []byte(`-----BEGIN CERTIFICATE-----
+MIIC5TCCAc2gAwIBAgIQcxWnwL74pkg4ETpznO3amTANBgkqhkiG9w0BAQsFADAc
+MRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDAeFw0xODA3MTkxOTIwMTVaFw0x
+OTA3MTkxOTIwMTVaMBwxGjAYBgNVBAoTEWs4cy5jbHVzdGVyLmxvY2FsMIIBIjAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1QmcorM5+KmDMJcJH2goZQ7VQuRL
+D8ZEvaqAt1hnDtVTfMmvoi0hkqagVkgI7ZzWD4ZcVHPu5vEiPK+17VzoltirTdAy
+3JdXeSQ8xjd5ZxiGo3XfyQv4piE5pnZgYu4NeYecXmArqn/TUepZZZGZwAxbeK1l
+/ADPsEiO4Of0iAMiEd5vs/lo8+b+SAC8hqXP7vy5osFCexWuoj18Y7CLRogCD+bh
+JIi2PoJfPw0JC4tD3/yhHeV4P9d0ODzE/NDxdjom/zzYd7GD+ofuKGZydYjaPGSt
+xaZQh/hrvELVYbW00v+ezZ/EYeRTFN6Ajz48lRxnXBAGSpVpRyihnEfX0QIDAQAB
+oyMwITAOBgNVHQ8BAf8EBAMCAgQwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0B
+AQsFAAOCAQEAuThfjx9/BGSa1FAYkZeYZdSUjp3Pb+d/PdQSTa8Ejyi/d2r6R6g+
+Ps9+t+0SnLyAFu77A6xI+vz0RPrv+dyvS5UyTKQAR5wrC6cublzweNorkhMiE2pu
+66WFmJYgAVBl69pETIk8NZBbyvrYEng70SH04Av1oFCPtZmmlKqTneyRHpSozzC3
+RS5wr4W7kR2Vf/peu/BCBvSwGb32VNpkOc9/Nf9Hv1CiTfmeDlmXplOsZ6VWLW9n
+fdS4nj6BM7ZmGfJ6HS4pG7ik/7M+7gam73A1PrOka0nTwHy9hB8FjfuwygyItCeO
+yeV/kXsb9LFDyOmrQulnxFQUzskyUQwbIg==
+-----END CERTIFICATE-----`)
 )
 
 func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
@@ -527,7 +618,7 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func TestReloadCert(t *testing.T) {
-	wh, cleanup := createTestWebhook(t)
+	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()

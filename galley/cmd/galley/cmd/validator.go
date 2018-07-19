@@ -16,19 +16,12 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"path/filepath"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"github.com/howeyc/fsnotify"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
-	"k8s.io/api/admissionregistration/v1beta1"
-	admissionClient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
-
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/mixer/adapter"
@@ -41,7 +34,6 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util"
 	"istio.io/istio/pkg/version"
 )
 
@@ -58,95 +50,6 @@ func createMixerValidator() (store.BackendValidator, error) {
 	}
 	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
-}
-
-func reload(caCertFile, webhookConfigFile string) (*v1beta1.ValidatingWebhookConfiguration, error) {
-	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
-	if err != nil {
-		return nil, err
-	}
-	var webhookConfig v1beta1.ValidatingWebhookConfiguration
-	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
-		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v", webhookConfigFile, err)
-	}
-	caCertPem, err := ioutil.ReadFile(caCertFile)
-	if err != nil {
-		return nil, err
-	}
-	for i := range webhookConfig.Webhooks {
-		webhookConfig.Webhooks[i].ClientConfig.CABundle = caCertPem
-	}
-	return &webhookConfig, nil
-}
-
-func reconcile(client admissionClient.ValidatingWebhookConfigurationInterface, config *v1beta1.ValidatingWebhookConfiguration) error {
-	return util.PatchValidatingWebhookConfig(client, config)
-}
-
-// reconcileValidatingWebhookConfiguration reconciles the desired validatingwebhookconfiguration.
-func reconcileValidatingWebhookConfiguration(stop <-chan struct{}, caCertFile, webhookConfigFile string) error {
-	client, err := kube.CreateClientset(flags.kubeConfig, "")
-	if err != nil {
-		return err
-	}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	for _, file := range []string{caCertFile, webhookConfigFile} {
-		watchDir, _ := filepath.Split(file)
-		if err = watcher.Watch(watchDir); err != nil {
-			return fmt.Errorf("could not watch %v: %v", file, err)
-		}
-	}
-
-	validateClient := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-
-	// initial load
-	desiredValidatingWebhookConfig, err := reload(caCertFile, webhookConfigFile)
-	if err != nil {
-		validation.ReportValidationConfigUpdateError(err)
-		return err
-	}
-	if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
-		validation.ReportValidationConfigUpdateError(err)
-		return err
-	}
-
-	reconcile := func() {
-		if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
-			log.Errorf("Could not reconcile %v validatingwebhookconfiguration: %v",
-				desiredValidatingWebhookConfig.Name, err)
-			validation.ReportValidationConfigUpdateError(err)
-		} else {
-			validation.ReportValidationConfigUpdate()
-		}
-	}
-
-	// reconciliation loop
-	go func() {
-		tickerC := time.NewTicker(time.Second).C
-		for {
-			select {
-			case <-stop:
-				return
-			case <-tickerC:
-				reconcile()
-			case <-watcher.Event:
-				loaded, err := reload(caCertFile, webhookConfigFile)
-				if err != nil {
-					log.Errorf("Could not reload ca-cert-file and validatingwebhookconfiguration: %v", err)
-					validation.ReportValidationConfigUpdateError(err)
-					break
-				}
-				desiredValidatingWebhookConfig = loaded
-				reconcile()
-			}
-		}
-	}()
-
-	return nil
 }
 
 const (
@@ -196,6 +99,8 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		healthCheckFile     string
 		monitoringPort      uint
 		webhookConfigFile   string
+		deploymentNamespace string
+		deploymentName      string
 	)
 
 	validatorCmd := &cobra.Command{
@@ -209,6 +114,11 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 				fatalf("cannot create mixer backend validator for %q: %v", flags.kubeConfig, err)
 			}
 
+			clientset, err := kube.CreateClientset(flags.kubeConfig, "")
+			if err != nil {
+				fatalf("could not create k8s clientset: %v", err)
+			}
+
 			params := validation.WebhookParameters{
 				MixerValidator:      mixerValidator,
 				PilotDescriptor:     model.IstioConfigTypes,
@@ -218,6 +128,11 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 				KeyFile:             keyFile,
 				HealthCheckInterval: healthCheckInterval,
 				HealthCheckFile:     healthCheckFile,
+				WebhookConfigFile:   webhookConfigFile,
+				CACertFile:          caFile,
+				Clientset:           clientset,
+				DeploymentNamespace: deploymentNamespace,
+				DeploymentName:      deploymentName,
 			}
 			wh, err := validation.NewWebhook(params)
 			if err != nil {
@@ -226,16 +141,6 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
-
-			if webhookConfigFile != "" {
-				log.Infof("server-side configuration validation enabled. Trying to use %v for validatingwebhookconfiguration",
-					webhookConfigFile)
-				if err := reconcileValidatingWebhookConfiguration(stop, caFile, webhookConfigFile); err != nil {
-					log.Errorf("could not start validatingwebhookconfiguration reconciliation: %v", err)
-				}
-			} else {
-				log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
-			}
 
 			go wh.Run(stop)
 			go startSelfMonitoring(stop, monitoringPort)
@@ -260,6 +165,11 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"File that should be periodically updated if health checking is enabled")
 	validatorCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
 		"Port to use for the exposing self-monitoring information")
+
+	validatorCmd.PersistentFlags().StringVar(&deploymentNamespace, "deployment-namespace", "istio-system",
+		"Namespace of the deployment for the validation pod")
+	validatorCmd.PersistentFlags().StringVar(&deploymentName, "deployment-name", "istio-galley",
+		"Name of the deployment for the validation pod")
 
 	return validatorCmd
 }

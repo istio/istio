@@ -14,3 +14,7 @@ rules:
 - apiGroups: ["config.istio.io"] # istio mixer CRD watcher
   resources: ["*"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["*"]
+  resources: ["deployments"]
+  resourceNames: ["istio-galley"]
+  verbs: ["get"]

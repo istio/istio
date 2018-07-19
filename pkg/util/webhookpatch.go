@@ -17,17 +17,13 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
-
-	"istio.io/istio/pkg/log"
 )
 
 // PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
@@ -66,25 +62,4 @@ func PatchMutatingWebhookConfig(client admissionregistrationv1beta1client.Mutati
 		_, err = client.Patch(webhookConfigName, types.StrategicMergePatchType, patch)
 	}
 	return err
-}
-
-// PatchValidatingWebhookConfig patches a CA bundle into the specified webhook config.
-func PatchValidatingWebhookConfig(client admissionregistrationv1beta1client.ValidatingWebhookConfigurationInterface, desired *v1beta1.ValidatingWebhookConfiguration) error { // nolint: lll
-	current, err := client.Get(desired.Name, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			_, err := client.Create(desired)
-			return err
-		}
-		log.Errorf("Failed to retrieve %q validatingwebhookconfigurations: %v", desired.Name, err)
-		return err
-	}
-
-	updated := current.DeepCopyObject().(*v1beta1.ValidatingWebhookConfiguration)
-	updated.Webhooks = desired.Webhooks
-	if !reflect.DeepEqual(updated, current) {
-		_, err := client.Update(updated)
-		return err
-	}
-	return nil
 }
