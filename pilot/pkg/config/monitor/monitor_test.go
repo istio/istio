@@ -98,7 +98,7 @@ func TestMonitorForChange(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)
@@ -165,7 +165,7 @@ func TestMonitorForError(t *testing.T) {
 		callCount++
 		return configs, err
 	}
-	mon := monitor.NewMonitor(store, checkInterval, someConfigFunc)
+	mon := monitor.NewMonitor("", store, checkInterval, someConfigFunc)
 	stop := make(chan struct{})
 	defer func() { stop <- struct{}{} }() // shut it down
 	mon.Start(stop)

@@ -17,6 +17,7 @@ package cloudfoundry
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
@@ -38,14 +39,49 @@ type copilotClient interface {
 type ServiceDiscovery struct {
 	Client copilotClient
 
+	RoutesRepo RoutesRepo
+
 	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
 	// It is typically 8080
 	ServicePort int
 }
 
+type RoutesRepo struct {
+	client      copilotapi.IstioCopilotClient
+	repo        *copilotapi.RoutesResponse
+	lastUpdated time.Time
+}
+
+func NewRoutesRepo(client copilotapi.IstioCopilotClient) RoutesRepo {
+	return RoutesRepo{
+		client:      client,
+		repo:        &copilotapi.RoutesResponse{},
+		lastUpdated: time.Now().Add(time.Duration(-60 * time.Second)),
+	}
+}
+
+func (r *RoutesRepo) Get() (*copilotapi.RoutesResponse, error) {
+	now := time.Now()
+	if now.Sub(r.lastUpdated) > 30*time.Second {
+		fmt.Println("GET: retrieving routes from copilot")
+
+		resp, err := r.client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+		if err != nil {
+			return nil, fmt.Errorf("getting services from copilot: %s", err)
+		}
+		r.repo = resp
+		r.lastUpdated = now
+	} else {
+		fmt.Println("GET: CACHED!!!")
+	}
+
+	return r.repo, nil
+}
+
 // Services implements a service catalog operation
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
-	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	// resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	resp, err := sd.RoutesRepo.Get()
 	if err != nil {
 		return nil, fmt.Errorf("getting services: %s", err)
 	}
@@ -117,7 +153,9 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 
 // InstancesByPort implements a service catalog operation
 func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	// resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	fmt.Println("InstancesByPort!!")
+	resp, err := sd.RoutesRepo.Get()
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
 	}

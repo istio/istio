@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package cloudfoundry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
+
+var unsupportedErr = errors.New("this operation is not supported by the cloudfoundry copilot controller")
 
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
 //go:generate counterfeiter -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
@@ -32,51 +35,155 @@ type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
-// CopilotSnapshot provides a snapshot of configuration from the Cloud Foundry Copilot component.
-type CopilotSnapshot struct {
-	store   model.ConfigStore
-	client  CopilotClient
-	timeout time.Duration
+type controller struct {
+	client        CopilotClient
+	store         model.ConfigStore
+	timeout       time.Duration
+	checkInterval time.Duration
+	sync.Mutex
+	virtualServices  map[string]*model.Config
+	destinationRules map[string]*model.Config
+	eventHandlers    []func(model.Config, model.Event)
 }
 
-// NewCopilotSnapshot returns a CopilotSnapshot used for integration with Cloud Foundry.
-// The store is required to discover any existing gateways: the generated config will reference those gateways
-// The client is used to discover Cloud Foundry Routes from Copilot
-func NewCopilotSnapshot(store model.ConfigStore, client CopilotClient, timeout time.Duration) *CopilotSnapshot {
-	return &CopilotSnapshot{
-		store:   store,
-		client:  client,
-		timeout: timeout,
+func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval time.Duration) *controller {
+	return &controller{
+		client:           client,
+		store:            store,
+		timeout:          timeout,
+		checkInterval:    checkInterval,
+		virtualServices:  make(map[string]*model.Config),
+		destinationRules: make(map[string]*model.Config),
 	}
 }
 
-// ReadConfigFiles returns a complete set of VirtualServices for all Cloud Foundry routes known to Copilot.
-// It may be used for the getSnapshotFunc when constructing a NewMonitor
-func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
+func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.eventHandlers = append(c.eventHandlers, f)
+}
+
+func (c *controller) HasSynced() bool {
+	return len(c.virtualServices) > 0 && len(c.destinationRules) > 0
+}
+
+func (c *controller) Run(stop <-chan struct{}) {
+	tick := time.NewTicker(c.checkInterval)
+
+	go func() {
+		for {
+			select {
+			case <-stop:
+				tick.Stop()
+				return
+			case <-tick.C:
+				c.rebuildRules()
+				c.runHandlers()
+			}
+		}
+	}()
+}
+
+func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+	return model.ConfigDescriptor{
+		model.VirtualService,
+		model.DestinationRule,
+	}
+}
+
+func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	var (
+		config *model.Config
+		found  bool
+	)
+
+	switch typ {
+	case model.VirtualService.Type:
+		if vs, ok := c.virtualServices[name]; ok {
+			config = vs
+			found = true
+		}
+	case model.DestinationRule.Type:
+		if dr, ok := c.destinationRules[name]; ok {
+			config = dr
+			found = true
+		}
+	default:
+	}
+
+	return config, found
+}
+
+func (c *controller) List(typ, namespace string) ([]model.Config, error) {
+	c.Lock()
+	defer c.Unlock()
+
+	var configs []model.Config
+
+	switch typ {
+	case model.VirtualService.Type:
+		for _, service := range c.virtualServices {
+			configs = append(configs, *service)
+		}
+	case model.DestinationRule.Type:
+		for _, rule := range c.destinationRules {
+			configs = append(configs, *rule)
+		}
+	default:
+	}
+
+	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
+
+	return configs, nil
+}
+
+func (c *controller) Create(config model.Config) (string, error) {
+	return "", unsupportedErr
+}
+
+func (c *controller) Update(config model.Config) (string, error) {
+	return "", unsupportedErr
+}
+
+func (c *controller) Delete(typ, name, namespace string) error {
+	return unsupportedErr
+}
+
+func (c *controller) rebuildRules() {
+	c.Lock()
+	defer c.Unlock()
+
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
 	resp, err := c.client.Routes(ctx, new(copilotapi.RoutesRequest))
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	gateways, err := c.store.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
-	virtualServices := make(map[string]*model.Config)
-	destinationRules := make(map[string]*model.Config)
 
 	var gatewayNames []string
 	for _, gwConfig := range gateways {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
+	virtualServices := make(map[string]*model.Config)
+	destinationRules := make(map[string]*model.Config)
+
 	for _, route := range resp.GetRoutes() {
+		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())
+		virtualServiceName := fmt.Sprintf("virtual-service-for-%s", route.GetHostname())
+
 		var dr *networking.DestinationRule
-		if config, ok := destinationRules[route.GetHostname()]; ok {
+		if config, ok := destinationRules[destinationRuleName]; ok {
 			dr = config.Spec.(*networking.DestinationRule)
 		} else {
 			dr = createDestinationRule(route)
@@ -84,7 +191,7 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 		dr.Subsets = append(dr.Subsets, createSubset(route.GetCapiProcessGuid()))
 
 		var vs *networking.VirtualService
-		if config, ok := virtualServices[route.GetHostname()]; ok {
+		if config, ok := virtualServices[virtualServiceName]; ok {
 			vs = config.Spec.(*networking.VirtualService)
 		} else {
 			vs = createVirtualService(gatewayNames, route)
@@ -93,9 +200,6 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 		r := createRoute(route)
 		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
 
-		// TODO: Extract this sorting logic into a custom sorter
-		// The route matches need to be first before the root routes;
-		// they will otherwise not be enumerated past the root route
 		if route.GetPath() != "" {
 			r.Match = createMatchRequest(route)
 			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
@@ -103,36 +207,32 @@ func (c *CopilotSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 			vs.Http = append(vs.Http, r)
 		}
 
-		virtualServices[route.GetHostname()] = &model.Config{
+		virtualServices[virtualServiceName] = &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    model.VirtualService.Type,
 				Version: model.VirtualService.Version,
-				Name:    fmt.Sprintf("virtual-service-for-%s", route.GetHostname()),
+				Name:    virtualServiceName,
 			},
 			Spec: vs,
 		}
-		destinationRules[route.GetHostname()] = &model.Config{
+		destinationRules[destinationRuleName] = &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:    model.DestinationRule.Type,
 				Version: model.DestinationRule.Version,
-				Name:    fmt.Sprintf("dest-rule-for-%s", route.GetHostname()),
+				Name:    destinationRuleName,
 			},
 			Spec: dr,
 		}
 	}
 
-	var configs []*model.Config
-	for _, service := range virtualServices {
-		configs = append(configs, service)
+	c.virtualServices = virtualServices
+	c.destinationRules = destinationRules
+}
+
+func (c *controller) runHandlers() {
+	for _, h := range c.eventHandlers {
+		h(model.Config{}, model.EventUpdate)
 	}
-
-	for _, rule := range destinationRules {
-		configs = append(configs, rule)
-	}
-
-	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
-
-	return configs, nil
 }
 
 func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBackends) *networking.VirtualService {

@@ -7,9 +7,7 @@ import (
 	"code.cloudfoundry.org/copilot/api"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	// manually added this space to satisfy goimports -d --local istio.io
-	"istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/config/cloudfoundry"
 )
 
 type CopilotClient struct {
@@ -249,4 +247,4 @@ func (fake *CopilotClient) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ monitor.CopilotClient = new(CopilotClient)
+var _ cloudfoundry.CopilotClient = new(CopilotClient)
