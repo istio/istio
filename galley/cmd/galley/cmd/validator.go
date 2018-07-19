@@ -73,8 +73,8 @@ func reload(caCertFile, webhookConfigFile string) (*v1beta1.ValidatingWebhookCon
 	if err != nil {
 		return nil, err
 	}
-	for _, hook := range webhookConfig.Webhooks {
-		hook.ClientConfig.CABundle = caCertPem
+	for i := range webhookConfig.Webhooks {
+		webhookConfig.Webhooks[i].ClientConfig.CABundle = caCertPem
 	}
 	return &webhookConfig, nil
 }
