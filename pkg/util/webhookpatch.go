@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"istio.io/istio/pkg/log"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+
+	"istio.io/istio/pkg/log"
 )
 
 // PatchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
