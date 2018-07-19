@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: istio
   namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": "pre-install"
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
