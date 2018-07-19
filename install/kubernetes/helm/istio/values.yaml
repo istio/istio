@@ -331,7 +331,7 @@ grafana:
     annotations: {}
     name: http
     type: ClusterIP
-    externalPort: 3000
+    externalPort:   3000
     internalPort: 3000
   ingress:
     enabled: false
@@ -353,22 +353,18 @@ prometheus:
   image:
     repository: docker.io/prom/prometheus
     tag: latest
-  ingress:
+  ingressgateway:
+    # Warning: Prometheus does not support authn/authz. Exposing
+    # Prometheus via ingressgateway in this method will allow
+    # unauthenticated access to the Prometheus UI.
     enabled: false
-    # Used to create an Ingress record.
-    #hosts:
-    #  - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
+    host: "prometheus.local"
   service:
     annotations: {}
     nodePort:
+      # Do not enable both ingressgateway and nodePort at the same
+      # time. If nodeport is enabled, ingressgateway SHOULD be 
+      # disabled.
       enabled: false
       port: 32090
 
