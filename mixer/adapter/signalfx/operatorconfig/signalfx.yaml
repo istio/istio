@@ -1,0 +1,50 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: signalfx
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  access_token: abcd
+  metrics:
+  - name: requestcount.metric.istio-system
+    type: COUNTER
+  - name: requestduration.metric.istio-system
+    type: COUNTER
+  - name: requestsize.metric.istio-system
+    type: COUNTER
+  - name: responsesize.metric.istio-system
+    type: COUNTER
+  - name: tcpbytesent.metric.istio-system
+    type: COUNTER
+  - name: tcpbytereceived.metric.istio-system
+    type: COUNTER
+  trace_sample_probability: 0.5
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: signalfxhttp
+  namespace: istio-system
+spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
+  actions:
+  - handler: handler.signalfx
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: signalfxtcp
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.signalfx
+    instances:    
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
+---

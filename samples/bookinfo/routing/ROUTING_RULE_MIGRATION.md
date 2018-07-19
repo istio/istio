@@ -4,7 +4,7 @@ The routing configuration resources in `v1alpha3` have changed as follows:
 
 1. `RouteRule` -> `VirtualService`
 2. `DestinationPolicy` -> `DestinationRule`
-3. `EgressRule` -> `ExternalService`
+3. `EgressRule` -> `ServiceEntry`
 4. `Ingress` -> `Gateway` (recommended to use)
 
 A `VirtualService` configures the set of routes to a particular traffic destination host.

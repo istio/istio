@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
@@ -89,11 +88,6 @@ const (
 	// HTTPConnectionManager is the name of HTTP filter.
 	HTTPConnectionManager = "http_connection_manager"
 
-	// HSFConnectionManager is the name of HSF filter.
-	HSFConnectionManager = "hsf_connection_manager"
-	HSFInboundProxy = "hsf_inbound_proxy"
-	HSFOutboundProxy = "hsf_outbound_proxy"
-
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
@@ -145,7 +139,6 @@ const (
 	HeaderScheme = ":scheme"
 
 	router  = "router"
-	hsfRouter = "hsf_router"
 	auto    = "auto"
 	decoder = "decoder"
 	read    = "read"
@@ -168,22 +161,8 @@ func convertDuration(d *duration.Duration) time.Duration {
 	return dur
 }
 
-func convertDurationGogo(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
-}
 func protoDurationToMS(dur *duration.Duration) int64 {
 	return int64(convertDuration(dur) / time.Millisecond)
-}
-
-func protoDurationToMSGogo(dur *types.Duration) int64 {
-	return int64(convertDurationGogo(dur) / time.Millisecond)
 }
 
 // Config defines the schema for Envoy JSON configuration format
@@ -429,7 +408,6 @@ func (host *VirtualHost) clusters() Clusters {
 type HTTPRouteConfig struct {
 	ValidateClusters bool           `json:"validate_clusters"`
 	VirtualHosts     []*VirtualHost `json:"virtual_hosts"`
-	Protocol model.Protocol `json:"-"`
 }
 
 // HTTPRouteConfigs is a map from the port number to the route config
@@ -516,7 +494,7 @@ func (rc *HTTPRouteConfig) Normalize() *HTTPRouteConfig {
 	hosts := make([]*VirtualHost, len(rc.VirtualHosts))
 	copy(hosts, rc.VirtualHosts)
 	sort.Slice(hosts, func(i, j int) bool { return hosts[i].Name < hosts[j].Name })
-	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts, Protocol: rc.Protocol}
+	return &HTTPRouteConfig{ValidateClusters: ValidateClusters, VirtualHosts: hosts}
 }
 
 // AccessLog definition.
@@ -727,12 +705,17 @@ type Listeners []*Listener
 // Normalize sorts and de-duplicates listeners by address
 func (listeners Listeners) normalize() Listeners {
 	out := make(Listeners, 0, len(listeners))
-	set := make(map[string]bool)
+	set := make(map[string]*Listener)
 	for _, listener := range listeners {
-		if !set[listener.Address] {
-			set[listener.Address] = true
-			out = append(out, listener)
+		if l, collision := set[listener.Address]; collision {
+			ol, _ := json.Marshal(*l)
+			ll, _ := json.Marshal(*listener)
+			log.Errorf("Listener collision for %s\n---\n%s\n--- rejected ---\n%s", listener.Address,
+				string(ol), string(ll))
+			continue
 		}
+		out = append(out, listener)
+		set[listener.Address] = listener
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Address < out[j].Address })
 	return out
@@ -791,7 +774,7 @@ type Cluster struct {
 	MaxRequestsPerConnection int               `json:"max_requests_per_connection,omitempty"`
 	Hosts                    []Host            `json:"hosts,omitempty"`
 	SSLContext               interface{}       `json:"ssl_context,omitempty"`
-	Features                 string            `json:"features,omitempty"`
+	HTTP2Settings            *HTTP2Settings    `json:"http2_settings,omitempty"`
 	CircuitBreaker           *CircuitBreaker   `json:"circuit_breakers,omitempty"`
 	OutlierDetection         *OutlierDetection `json:"outlier_detection,omitempty"`
 
@@ -800,6 +783,19 @@ type Cluster struct {
 	Hostname string      `json:"-"`
 	Port     *model.Port `json:"-"`
 	labels   model.Labels
+}
+
+// MakeHTTP2 marks the cluster as http2
+func (c *Cluster) MakeHTTP2() {
+	c.HTTP2Settings = &HTTP2Settings{
+		// Envoy default value of 100 is too low for data path.
+		MaxConcurrentStreams: 1073741824,
+	}
+}
+
+// HTTP2Settings is used to denote a cluster as http2
+type HTTP2Settings struct {
+	MaxConcurrentStreams int `json:"max_concurrent_streams,omitempty"`
 }
 
 // CircuitBreaker definition

@@ -23,19 +23,11 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// Fully qualified name of the template
-const TemplateName = "tracespan"
-
-// Instance is constructed by Mixer for the 'tracespan' template.
-//
-// TraceSpan represents an individual span within a distributed trace.
-//
-// When writing the configuration, the value for the fields associated with this template can either be a
-// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.adapter.model.v1beta1.Value,
-// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
+// The `tracespan` template represents an individual span within a distributed trace.
 //
 // Example config:
-// ```
+//
+// ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
 // metadata:
@@ -48,6 +40,8 @@ const TemplateName = "tracespan"
 //   spanName: request.path | "/"
 //   startTime: request.time
 //   endTime: response.time
+//   clientSpan: (context.reporter.local | true) == false
+//   rewriteClientSpanId: false
 //   spanTags:
 //     http.method: request.method | ""
 //     http.status_code: response.code | 200
@@ -60,8 +54,19 @@ const TemplateName = "tracespan"
 //     source.version: source.labels["version"] | ""
 // ```
 //
-// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
+
+// Fully qualified name of the template
+const TemplateName = "tracespan"
+
+// Instance is constructed by Mixer for the 'tracespan' template.
+//
+// TraceSpan represents an individual span within a distributed trace.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
+// then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
@@ -104,11 +109,32 @@ type Instance struct {
 	// Required.
 	EndTime time.Time
 
-	// Span tags are a set of <key, value> pairs that provide metadata for the
+	// Span tags are a set of < key, value > pairs that provide metadata for the
 	// entire span. The values can be specified in the form of expressions.
 	//
 	// Optional.
 	SpanTags map[string]interface{}
+
+	// HTTP status code used to set the span status. If unset or set to 0, the
+	// span status will be assumed to be successful.
+	HttpStatusCode int64
+
+	// client_span indicates the span kind. True for client spans and False or
+	// not provided for server spans. Using bool instead of enum is a temporary
+	// work around since mixer expression language does not yet support enum
+	// type.
+	//
+	// Optional
+	ClientSpan bool
+
+	// rewrite_client_span_id is used to indicate whether to create a new client
+	// span id to accommodate Zipkin shared span model. Some tracing systems like
+	// Stackdriver separates a RPC into client span and server span. To solve this
+	// incompatibility, deterministically rewriting both span id of client span and
+	// parent span id of server span to the same newly generated id.
+	//
+	// Optional
+	RewriteClientSpanId bool
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

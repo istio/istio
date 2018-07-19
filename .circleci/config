@@ -9,3 +9,4 @@ contexts:
     user: ""
   name: istio
 current-context: istio
+kind: Config

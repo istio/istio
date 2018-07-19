@@ -31,6 +31,7 @@ import (
 	"golang.org/x/tools/imports"
 
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
 	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -96,7 +97,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 
 func (g *Generator) generateInternal(fdsFiles map[string]string,
 	tmplContent string,
-	createModel func(parser *modelgen.FileDescriptorSetParser) (*modelgen.Model, error)) error {
+	createModel func(parser *descriptor2.FileDescriptorSetParser) (*modelgen.Model, error)) error {
 	imprts := make([]string, 0)
 	tmpl, err := template.New("MixerBootstrap").Funcs(
 		template.FuncMap{
@@ -261,7 +262,7 @@ func (g *Generator) generateInternal(fdsFiles map[string]string,
 			return fmt.Errorf("cannot parse file '%s' as a FileDescriptorSetProto. %v", fds, err)
 		}
 
-		parser := modelgen.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
+		parser := descriptor2.CreateFileDescriptorSetParser(fds, g.ImportMapping, fdsFiles[fdsPath])
 
 		var model *modelgen.Model
 		if model, err = createModel(parser); err != nil {

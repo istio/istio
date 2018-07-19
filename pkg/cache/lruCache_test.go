@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !race
-
 package cache
 
 import (
@@ -22,45 +20,36 @@ import (
 )
 
 func TestLRUBasic(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	lru := NewLRU(5*time.Minute, 1*time.Millisecond, 500)
 	testCacheBasic(lru, t)
 }
 
 func TestLRUConcurrent(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	lru := NewLRU(5*time.Minute, 1*time.Minute, 500)
 	testCacheConcurrent(lru, t)
 }
 
 func TestLRUExpiration(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	lru := NewLRU(5*time.Second, 100*time.Second, 500).(*lruWrapper)
 	testCacheExpiration(lru, lru.evictExpired, t)
 }
 
 func TestLRUEvicter(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500)
 	testCacheEvicter(lru, t)
 }
 
 func TestLRUEvictExpired(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
-	lru := NewLRU(5*time.Second, 0, 500)
+	lru := NewLRU(5*time.Second, 0, 500).(*lruCache)
 	testCacheEvictExpired(lru, t)
 }
 
 func TestLRUFinalizer(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
-	c := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
-	gate := &c.evicterTerminated
-
-	testCacheFinalizer(gate, t)
+	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
+	testCacheFinalizer(&lru.evicterTerminated, t)
 }
 
 func TestLRUBehavior(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	lru := NewLRU(5*time.Minute, 1*time.Millisecond, 3)
 
 	lru.Set("1", "1")

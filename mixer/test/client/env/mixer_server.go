@@ -86,16 +86,19 @@ type MixerServer struct {
 
 	checkReferenced *mixerpb.ReferencedAttributes
 	quotaReferenced *mixerpb.ReferencedAttributes
+
+	directive *mixerpb.RouteDirective
 }
 
 // Check is called by the mock mixer api
-func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (mockapi.CheckResponse, rpc.Status) {
-	result := mockapi.CheckResponse{
-		ValidDuration: mockapi.DefaultValidDuration,
-		ValidUseCount: mockapi.DefaultValidUseCount,
-		Referenced:    ts.checkReferenced,
+func (ts *MixerServer) Check(bag attribute.Bag) mixerpb.CheckResponse_PreconditionResult {
+	return mixerpb.CheckResponse_PreconditionResult{
+		Status:               ts.check.run(bag),
+		ValidDuration:        mockapi.DefaultValidDuration,
+		ValidUseCount:        mockapi.DefaultValidUseCount,
+		ReferencedAttributes: ts.checkReferenced,
+		RouteDirective:       ts.directive,
 	}
-	return result, ts.check.run(bag)
 }
 
 // Report is called by the mock mixer api
@@ -154,6 +157,7 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 }
 
 // Start starts the mixer server
+// TODO: Add a channel so this can return an error
 func (ts *MixerServer) Start() {
 	go func() {
 		err := ts.gs.Serve(ts.lis)
@@ -169,4 +173,14 @@ func (ts *MixerServer) Stop() {
 	log.Printf("Stop Mixer server\n")
 	ts.gs.Stop()
 	log.Printf("Stop Mixer server  -- Done\n")
+}
+
+// GetReport will return a received report
+func (ts *MixerServer) GetReport() *attribute.MutableBag {
+	return <-ts.report.ch
+}
+
+// GetCheck will return a received check
+func (ts *MixerServer) GetCheck() *attribute.MutableBag {
+	return <-ts.check.ch
 }

@@ -14,40 +14,17 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License
 
+# This file is temporary compatibility between old update version
+# and helm template based generation
+set -e
+set -o errexit
+set -o pipefail
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="istio.VERSION"
 TEMP_DIR="/tmp"
-# Setting DEST_DIR as root is deprecated, please use OUT_DIR
 DEST_DIR=$ROOT
 COMPONENT_FILES=false
-
-set -o errexit
-set -o pipefail
-set -x
-
-function usage() {
-  [[ -n "${1}" ]] && echo "${1}"
-
-  cat <<EOF
-usage: ${BASH_SOURCE[0]} [options ...]"
-  options:
-    -i ... URL to download istioctl binary
-    -p ... <hub>,<tag> for the pilot docker image
-    -x ... <hub>,<tag> for the mixer docker image
-    -c ... <hub>,<tag> for the istio-ca docker image
-    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
-    -h ... <hub>,<tag> for the hyperkube docker image
-    -o ... <hub>,<tag> for the proxy docker image
-    -n ... <namespace> namespace in which to install Istio control plane components
-    -A ... URL to download auth debian packages
-    -P ... URL to download pilot debian packages
-    -E ... URL to download proxy debian packages
-    -d ... directory to store file (optional, defaults to source code tree)
-    -D ... enable debug for proxy (optional, false or true, default is false)
-    -m ... true|false Create the individual component files as well as the all-in-one
-EOF
-  exit 2
-}
 
 # set the default values
 ISTIO_NAMESPACE="istio-system"
@@ -61,7 +38,7 @@ while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
-    c) CA_HUB_TAG="${OPTARG}";;        # Format: "<hub>,<tag>"
+    c) CITADEL_HUB_TAG="${OPTARG}";;   # Format: "<hub>,<tag>"
     a) ALL_HUB_TAG="${OPTARG}";;       # Format: "<hub>,<tag>"
     h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     o) PROXY_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
@@ -80,8 +57,8 @@ if [[ -n ${ALL_HUB_TAG} ]]; then
     PROXY_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     MIXER_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
     MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
-    CA_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    CA_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    CITADEL_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    CITADEL_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${PROXY_HUB_TAG} ]]; then
@@ -99,9 +76,9 @@ if [[ -n ${MIXER_HUB_TAG} ]]; then
     MIXER_TAG="$(echo ${MIXER_HUB_TAG}|cut -f2 -d,)"
 fi
 
-if [[ -n ${CA_HUB_TAG} ]]; then
-    CA_HUB="$(echo ${CA_HUB_TAG}|cut -f1 -d,)"
-    CA_TAG="$(echo ${CA_HUB_TAG}|cut -f2 -d,)"
+if [[ -n ${CITADEL_HUB_TAG} ]]; then
+    CITADEL_HUB="$(echo ${CITADEL_HUB_TAG}|cut -f1 -d,)"
+    CITADEL_TAG="$(echo ${CITADEL_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
@@ -109,12 +86,30 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
     HYPERKUBE_TAG="$(echo ${HYPERKUBE_HUB_TAG}|cut -f2 -d,)"
 fi
 
-# handle PROXY_DEBUG conversion to proxy_debug or proxy image
-PROXY_IMAGE="proxy"
-if [[ "${PROXY_DEBUG}" == "true" ]]; then
-    echo "# Use proxy_debug image"
-    PROXY_IMAGE="proxy_debug"
-fi
+function usage() {
+  [[ -n "${1}" ]] && echo "${1}"
+
+  cat <<EOF
+usage: ${BASH_SOURCE[0]} [options ...]"
+  options:
+    -i ... URL to download istioctl binary
+    -p ... <hub>,<tag> for the pilot docker image
+    -x ... <hub>,<tag> for the mixer docker image
+    -c ... <hub>,<tag> for the citadel docker image
+    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and citadel containers
+    -h ... <hub>,<tag> for the hyperkube docker image
+    -o ... <hub>,<tag> for the proxy docker image
+    -n ... <namespace> namespace in which to install Istio control plane components
+    -A ... URL to download auth debian packages
+    -P ... URL to download pilot debian packages
+    -E ... URL to download proxy debian packages
+    -d ... directory to store file (optional, defaults to source code tree)
+    -D ... enable debug for proxy (optional, false or true, default is false)
+    -m ... true|false Create the individual component files as well as the all-in-one
+EOF
+  exit 2
+}
+
 
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -131,110 +126,12 @@ function execute_sed() {
   mv -- $2.new $2
 }
 
-# Generated merge yaml files for easy installation
-function merge_files() {
-  SRC=$TEMP_DIR/templates
-  DEST=$DEST_DIR/install/kubernetes
-
-  # istio.yaml and istio-auth.yaml file contain cluster-wide installations
-  ISTIO=$DEST/istio.yaml
-  ISTIO_AUTH=$DEST/istio-auth.yaml
-  ISTIO_ONE_NAMESPACE=$DEST/istio-one-namespace.yaml
-  ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
-  ISTIO_SIDECAR_INJECTOR=$DEST/istio-sidecar-injector.yaml
-  ISTIO_SIDECAR_INJECTOR_CONFIGMAP_DEBUG=$DEST/istio-sidecar-injector-configmap-debug.yaml
-  ISTIO_SIDECAR_INJECTOR_CONFIGMAP_RELEASE=$DEST/istio-sidecar-injector-configmap-release.yaml
-  ISTIO_CA_PLUGIN_CERTS=$DEST/istio-ca-plugin-certs.yaml
-  ISTIO_CA_HEALTH_CHECK=$DEST/istio-ca-with-health-check.yaml
-  ISTIO_MIXER_HEALTH_CHECK=$DEST/istio-mixer-with-health-check.yaml
-  ISTIO_MIXER_VALIDATOR=$DEST/istio-mixer-validator.yaml
-
-
-  if [ "$COMPONENT_FILES" = true ]; then
-    echo "generating component files"
-      COMPONENT_DIR=$DEST/components
-      if [ ! -d "$COMPONENT_DIR" ]; then
-        mkdir -p $COMPONENT_DIR
-      fi
-      cat $SRC/istio-ns.yaml.tmpl >> $COMPONENT_DIR/istio-ns.yaml
-      cat $SRC/istio-rbac-beta.yaml.tmpl >> $COMPONENT_DIR/istio-rbac-beta.yaml
-      cat $SRC/istio-mixer.yaml.tmpl >> $COMPONENT_DIR/istio-mixer.yaml
-      cat $SRC/istio-config.yaml.tmpl >> $COMPONENT_DIR/istio-config.yaml
-      cat $SRC/istio-pilot.yaml.tmpl >> $COMPONENT_DIR/istio-pilot.yaml
-      cat $SRC/istio-ingress.yaml.tmpl >> $COMPONENT_DIR/istio-ingress.yaml
-  fi
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
-  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-config.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
-
-  cp $ISTIO $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
-
-  cp $ISTIO $ISTIO_AUTH
-  execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_AUTH
-  execute_sed "s/- istio-pilot:15007/- istio-pilot:15005/" $ISTIO_AUTH
-  execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-  execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-  execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_AUTH
-  execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_AUTH
-  execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_AUTH
-  execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
-
-  # restrict pilot controllers to a single namespace in the test file
-  execute_sed "s|args: \[\"discovery\"|args: \[\"discovery\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
-  cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
-
-  cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15007/discoveryAddress: istio-pilot.${ISTIO_NAMESPACE}:15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/- istio-pilot:15007/- istio-pilot:15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/8080 #--controlPlaneAuthPolicy/15005/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
-  execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.9+" > $ISTIO_SIDECAR_INJECTOR
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_SIDECAR_INJECTOR
-  cat ${SRC}/istio-sidecar-injector.yaml.tmpl >> $ISTIO_SIDECAR_INJECTOR
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.9+" > $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_DEBUG
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_DEBUG
-  cat ${SRC}/istio-sidecar-injector-configmap-debug.yaml.tmpl >> $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_DEBUG
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.9+" > $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_RELEASE
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_RELEASE
-  cat ${SRC}/istio-sidecar-injector-configmap-release.yaml.tmpl >> $ISTIO_SIDECAR_INJECTOR_CONFIGMAP_RELEASE
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_PLUGIN_CERTS
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_PLUGIN_CERTS
-  cat $SRC/istio-ca-plugin-certs.yaml.tmpl >> $ISTIO_CA_PLUGIN_CERTS
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CA_HEALTH_CHECK
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CA_HEALTH_CHECK
-  cat $SRC/istio-ca-with-health-check.yaml.tmpl >> $ISTIO_CA_HEALTH_CHECK
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_HEALTH_CHECK
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_HEALTH_CHECK
-  cat $SRC/istio-mixer-with-health-check.yaml.tmpl >> $ISTIO_MIXER_HEALTH_CHECK
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_MIXER_VALIDATOR
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_MIXER_VALIDATOR
-  cat $SRC/istio-mixer-validator.yaml.tmpl >> $ISTIO_MIXER_VALIDATOR
-}
-
 function update_version_file() {
   cat <<EOF > "${DEST_DIR}/${VERSION_FILE}"
 # DO NOT EDIT THIS FILE MANUALLY instead use
 # install/updateVersion.sh (see install/README.md)
-export CA_HUB="${CA_HUB}"
-export CA_TAG="${CA_TAG}"
+export CITADEL_HUB="${CITADEL_HUB}"
+export CITADEL_TAG="${CITADEL_TAG}"
 export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
 export PILOT_HUB="${PILOT_HUB}"
@@ -251,73 +148,34 @@ export HYPERKUBE_TAG="${HYPERKUBE_TAG}"
 EOF
 }
 
-#
-# Updating helm's values.yaml for the current versions in the release.
-# For development, helm command line allows overriding (-set tag, -set hub).
-function update_helm_version() {
-  # Helm version and hub only generated for the install/release.
-  if [ ${DEST_DIR} != ${ROOT} ]; then
-      local HELM_FILE=${DEST_DIR}/install/kubernetes/helm/istio/values.yaml
-      cp install/kubernetes/helm/istio/values.yaml $HELM_FILE
-      execute_sed "s|^  tag:.*|  tag: ${PILOT_TAG}|" $HELM_FILE
-  fi
-}
-
-function update_istio_install() {
-  pushd $TEMP_DIR/templates
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer-validator.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-with-health-check.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
-  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-injector-configmap-release.yaml.tmpl
-
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-pilot.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer-validator.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-mixer-with-health-check.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
-  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-with-health-check.yaml.tmpl
-
-  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-injector.yaml.tmpl
-  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-injector.yaml.tmpl
-
-  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
-  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" istio-sidecar-injector-configmap-debug.yaml.tmpl
-  execute_sed "s|{PROXY_HUB}|${PROXY_HUB}|" istio-sidecar-injector-configmap-release.yaml.tmpl
-  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" istio-sidecar-injector-configmap-release.yaml.tmpl
-
-
-  execute_sed "s|image: {PROXY_HUB}/{PROXY_IMAGE}:{PROXY_TAG}|image: ${PROXY_HUB}/${PROXY_IMAGE}:${PROXY_TAG}|" istio-ingress.yaml.tmpl
-  popd
-}
-
 function update_istio_addons() {
+  SRC_DIR=$ROOT/install/kubernetes/addons
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
-  pushd $TEMP_DIR/templates/addons
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin-to-stackdriver.yaml.tmpl > $DEST/zipkin-to-stackdriver.yaml
-  popd
+  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" $SRC_DIR/zipkin.yaml.tmpl > $DEST/zipkin.yaml
+}
+
+function gen_file() {
+    fl=$1
+    dest=$2
+    make $1   # make always places the files in install/...
+    # If the two paths are not to the same file.
+    if [[ ! install/kubernetes/$fl -ef ${dest}/install/kubernetes/$fl ]]; then
+      # Potentially overwrites the file generated by updateVersion_orig.sh.
+      cp -f install/kubernetes/$fl ${dest}/install/kubernetes/$fl
+    fi
+}
+
+function gen_istio_files() {
+    if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
+        for target in istio-demo.yaml istio-demo-auth.yaml; do
+            gen_file $target ${DEST_DIR}
+        done
+    else
+        for target in istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml istio-multicluster.yaml istio-auth-multicluster.yaml istio-remote.yaml istio-galley.yaml istio-auth-galley.yaml;do
+            gen_file $target ${DEST_DIR}
+        done
+    fi
 }
 
 function update_istio_install_docker() {
@@ -351,6 +209,22 @@ function merge_files_docker() {
   cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
 }
 
+function gen_platforms_files() {
+    for platform in consul eureka
+    do
+        cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
+        cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+        update_istio_install_docker
+        merge_files_docker $platform
+        rm -R $TEMP_DIR/templates
+    done
+}
+
+#
+# Script work begins here
+#
+
+# Create the destination dir if necessary
 if [[ "$DEST_DIR" != "$ROOT" ]]; then
   if [ ! -d "$DEST_DIR" ]; then
     mkdir -p $DEST_DIR
@@ -359,20 +233,20 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
   cp -R $ROOT/samples $DEST_DIR/
 fi
 
-mkdir -p $TEMP_DIR/templates
-cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
-update_version_file
-update_helm_version
-update_istio_install
-update_istio_addons
-merge_files
-rm -R $TEMP_DIR/templates
+# Set the HUB and TAG to be picked by the Helm template
+if [[ ! -z ${ALL_HUB_TAG} ]]; then
+    export HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    export TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+fi
 
-for platform in consul eureka
-do
-    cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
-    cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
-    update_istio_install_docker
-    merge_files_docker $platform
-    rm -R $TEMP_DIR/templates
-done
+# Update the istio.VERSION file
+update_version_file
+
+# Generate the addons which aren't covered by Helm charts (zipkin)
+update_istio_addons
+
+# Generate the istio*.yaml files
+gen_istio_files
+
+# Generate platform files (consul and eureka)
+gen_platforms_files

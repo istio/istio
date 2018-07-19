@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/cmd/node_agent_k8s/workload/handler"
 	"istio.io/istio/security/pkg/caclient"
 )
 
@@ -39,8 +38,8 @@ type Config struct {
 	// LoggingOptions is the options for Istio logging.
 	LoggingOptions *log.Options
 
-	// WorkloadOpts configures how to create handler for each workload api.
-	WorkloadOpts handler.Options
+	// SecretDirectory is the directory to to save keys/certs when using file mode SecretServer.
+	SecretDirectory string
 }
 
 // NewConfig creates a new Config instance with default values.

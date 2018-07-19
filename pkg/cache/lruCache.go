@@ -89,7 +89,7 @@ type lruCache struct {
 	defaultExpiration time.Duration
 	stopEvicter       chan bool
 	baseTimeNanos     int64
-	evicterTerminated bool // used by unit tests to verify the finalizer ran
+	evicterTerminated sync.WaitGroup // used by unit tests to verify the finalizer ran
 }
 
 // lruEntry is used to hold a value in the ordered lru list represented by the entry slice
@@ -142,14 +142,18 @@ func NewLRU(defaultExpiration time.Duration, evictionInterval time.Duration, max
 	if evictionInterval > 0 {
 		c.baseTimeNanos = time.Now().UTC().UnixNano()
 		c.stopEvicter = make(chan bool, 1)
+		c.evicterTerminated.Add(1)
 		go c.evicter(evictionInterval)
 
 		// We return a 'see-through' wrapper for the real object such that
 		// the finalizer can trigger on the wrapper. We can't set a finalizer
-		// on the main cache object because it would never fire, because the
+		// on the main cache object because it would never fire, since the
 		// evicter goroutine is keeping it alive
 		result := &lruWrapper{c}
-		runtime.SetFinalizer(result, func(w *lruWrapper) { c.stopEvicter <- true })
+		runtime.SetFinalizer(result, func(w *lruWrapper) {
+			w.stopEvicter <- true
+			w.evicterTerminated.Wait()
+		})
 		return result
 	}
 
@@ -165,7 +169,7 @@ func (c *lruCache) evicter(evictionInterval time.Duration) {
 			c.evictExpired(now)
 		case <-c.stopEvicter:
 			ticker.Stop()
-			c.evicterTerminated = true // record this global state for the sake of unit tests
+			c.evicterTerminated.Done() // record this for the sake of unit tests
 			return
 		}
 	}
@@ -182,16 +186,12 @@ func (c *lruCache) evictExpired(t time.Time) {
 	for i := int32(1); i < int32(len(c.entries)); i++ {
 		ent := &c.entries[i]
 
+		c.Lock()
 		if ent.expiration <= n {
-			c.Lock()
-
-			if ent.expiration <= n {
-				c.remove(i)
-				c.stats.Evictions++
-			}
-
-			c.Unlock()
+			c.remove(i)
+			c.stats.Evictions++
 		}
+		c.Unlock()
 	}
 }
 

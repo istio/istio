@@ -2,34 +2,58 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-ca
+  name: istio-citadel
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: istio-ca
+    istio: citadel
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        istio: istio-ca
+        istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-ca-service-account
+      serviceAccountName: istio-citadel-service-account
       containers:
-        - name: istio-ca
-          image: "{{ .Values.global.hub }}/istio-ca:{{ .Values.global.tag }}"
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
+        - name: citadel
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+            - --append-dns-names=true
             - --grpc-port=8060
-            - --grpc-hostname=istio-ca
+            - --grpc-hostname=citadel
+            - --citadel-storage-namespace={{ .Release.Namespace }}
+          {{- if .Values.selfSigned }}
             - --self-signed-ca=true
+          {{- else }}
+            - --self-signed-ca=false
+            - --signing-cert=/etc/cacerts/ca-cert.pem
+            - --signing-key=/etc/cacerts/ca-key.pem
+            - --root-cert=/etc/cacerts/root-cert.pem
+            - --cert-chain=/etc/cacerts/cert-chain.pem
+          {{- end }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+{{- if not .Values.selfSigned }}
+          volumeMounts:
+          - name: cacerts
+            mountPath: /etc/cacerts
+            readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+         secretName: cacerts
+         optional: true
+{{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

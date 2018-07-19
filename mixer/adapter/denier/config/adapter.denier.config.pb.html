@@ -1,12 +1,19 @@
 ---
 title: Denier
-overview: Adapter that always returns a precondition denial.
-location: https://istio.io/docs/reference/config/adapters/denier.html
+description: Adapter that always returns a precondition denial.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/denier.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/denier.html
 number_of_entries: 2
 ---
 <p>The <code>denier</code> adapter is designed to always return a denial to precondition
 checks. You can specify the exact error to return for these denials.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/checknothing/">checknothing template</a>,
+the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/listentry/">listentry template</a>,
+and the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/">quota template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -21,15 +28,15 @@ checks. You can specify the exact error to return for these denials.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.status">
+<tr id="Params-status">
 <td><code>status</code></td>
-<td><code><a href="#google.rpc.Status">google.rpc.Status</a></code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
 <td>
 <p>The error to return when denying a request.</p>
 
 </td>
 </tr>
-<tr id="Params.valid_duration">
+<tr id="Params-valid_duration">
 <td><code>validDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
@@ -37,7 +44,7 @@ checks. You can specify the exact error to return for these denials.</p>
 
 </td>
 </tr>
-<tr id="Params.valid_use_count">
+<tr id="Params-valid_use_count">
 <td><code>validUseCount</code></td>
 <td><code>int32</code></td>
 <td>
@@ -48,7 +55,7 @@ checks. You can specify the exact error to return for these denials.</p>
 </tbody>
 </table>
 </section>
-<h2 id="google.rpc.Status">google.rpc.Status</h2>
+<h2 id="google-rpc-Status">google.rpc.Status</h2>
 <section>
 <p>The <code>Status</code> type defines a logical error model that is suitable for different
 programming environments, including REST APIs and RPC APIs. It is used by
@@ -116,7 +123,7 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 </tr>
 </thead>
 <tbody>
-<tr id="google.rpc.Status.code">
+<tr id="google-rpc-Status-code">
 <td><code>code</code></td>
 <td><code>int32</code></td>
 <td>
@@ -124,17 +131,17 @@ be used directly after any stripping needed for security/privacy reasons.</p></l
 
 </td>
 </tr>
-<tr id="google.rpc.Status.message">
+<tr id="google-rpc-Status-message">
 <td><code>message</code></td>
 <td><code>string</code></td>
 <td>
 <p>A developer-facing error message, which should be in English. Any
 user-facing error message should be localized and sent in the
-<a href="#google.rpc.Status.details">google.rpc.Status.details</a> field, or localized by the client.</p>
+<a href="#google-rpc-Status-details">google.rpc.Status.details</a> field, or localized by the client.</p>
 
 </td>
 </tr>
-<tr id="google.rpc.Status.details">
+<tr id="google-rpc-Status-details">
 <td><code>details</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any[]</a></code></td>
 <td>

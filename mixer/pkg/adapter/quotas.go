@@ -18,6 +18,8 @@ import (
 	"time"
 
 	rpc "github.com/gogo/googleapis/google/rpc"
+
+	"istio.io/istio/mixer/pkg/status"
 )
 
 type (
@@ -51,8 +53,7 @@ type (
 	}
 )
 
-// GetStatus gets status embedded in the result.
-func (r QuotaResult) GetStatus() rpc.Status { return r.Status }
-
-// SetStatus embeds status in result.
-func (r *QuotaResult) SetStatus(s rpc.Status) { r.Status = s }
+// IsDefault returns true if the QuotaResult is in its zero state
+func (r *QuotaResult) IsDefault() bool {
+	return status.IsOK(r.Status) && r.ValidDuration == 0 && r.Amount == 0
+}

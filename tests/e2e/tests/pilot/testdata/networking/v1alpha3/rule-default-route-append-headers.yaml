@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route
+spec:
+  hosts:
+    - c
+  http:
+    - route:
+      - destination:
+          host: c
+          subset: v1
+        weight: 100
+      append_headers:
+        istio-custom-header: user-defined-value

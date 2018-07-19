@@ -24,20 +24,27 @@ import (
 	"istio.io/istio/security/pkg/util"
 )
 
-// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upper CA.
+// NewKeyCertBundleRotator is constructor for keyCertBundleRotatorImpl based on the provided configuration.
+func NewKeyCertBundleRotator(cfg *Config, retriever KeyCertRetriever, bundle pkiutil.KeyCertBundle) (*KeyCertBundleRotator, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("nil configuration passed")
+	}
+	return &KeyCertBundleRotator{
+		certUtil:  util.NewCertUtil(cfg.CSRGracePeriodPercentage),
+		retriever: retriever,
+		keycert:   bundle,
+		stopCh:    make(chan bool, 1),
+		stopped:   true,
+	}, nil
+}
+
+// KeyCertRetriever is the interface responsible for retrieve new key and certificate from upstream CA.
 type KeyCertRetriever interface {
-	Retrieve() (newCert, certChain, privateKey []byte, err error)
+	Retrieve(opt *pkiutil.CertOptions) (newCert, certChain, privateKey []byte, err error)
 }
 
-// KeyCertBundleRotator continuously interacts with the upstream CA to maintain the KeyCertBundle valid.
-type KeyCertBundleRotator interface {
-	// Start the KeyCertBundleRotator loop (blocking call).
-	Start(errCh chan<- error)
-	// Stop the KeyCertBundleRotator loop.
-	Stop()
-}
-
-type keyCertBundleRotatorImpl struct {
+// KeyCertBundleRotator automatically updates the key and cert bundle by interacting with upstream CA.
+type KeyCertBundleRotator struct {
 	// TODO: Support multiple KeyCertBundles.
 	certUtil     util.CertUtil
 	keycert      pkiutil.KeyCertBundle
@@ -47,20 +54,9 @@ type keyCertBundleRotatorImpl struct {
 	stoppedMutex sync.Mutex
 }
 
-// NewKeyCertBundleRotator creates a new keyCertBundleRotatorImpl instance.
-func NewKeyCertBundleRotator(keycert pkiutil.KeyCertBundle, certUtil util.CertUtil, r KeyCertRetriever) KeyCertBundleRotator {
-	return &keyCertBundleRotatorImpl{
-		certUtil:  certUtil,
-		keycert:   keycert,
-		stopCh:    make(chan bool, 1),
-		stopped:   true,
-		retriever: r,
-	}
-}
-
 // Start periodically rotates the KeyCertBundle by interacting with the upstream CA.
 // It is a blocking function that should run as a go routine. Thread safe.
-func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
+func (c *KeyCertBundleRotator) Start(errCh chan<- error) {
 	c.stoppedMutex.Lock()
 	if !c.stopped {
 		errCh <- fmt.Errorf("rotator already started")
@@ -69,6 +65,14 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 	}
 	c.stopped = false
 	c.stoppedMutex.Unlock()
+
+	// Make sure we mark rotator stopped after this method finishes.
+	defer func() {
+		c.stoppedMutex.Lock()
+		c.stopped = true
+		c.stoppedMutex.Unlock()
+	}()
+
 	for {
 		certBytes, _, _, _ := c.keycert.GetAllPem()
 		if len(certBytes) != 0 {
@@ -87,28 +91,33 @@ func (c *keyCertBundleRotatorImpl) Start(errCh chan<- error) {
 			}
 		}
 		log.Infof("Retrieve new key and certs.")
-		certBytes, certChainBytes, privateKeyBytes, err := c.retriever.Retrieve()
-		if err != nil {
-			errCh <- fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
+		co, coErr := c.keycert.CertOptions()
+		if coErr != nil {
+			err := fmt.Errorf("failed to extact CertOptions from bundle: %v, abort auto rotation", coErr)
+			log.Errora(err)
+			errCh <- err
+			return
+		}
+		certBytes, certChainBytes, privKeyBytes, rErr := c.retriever.Retrieve(co)
+		if rErr != nil {
+			err := fmt.Errorf("error retrieving the key and cert: %v, abort auto rotation", rErr)
+			log.Errora(err)
+			errCh <- err
 			return
 		}
 		_, _, _, rootCertBytes := c.keycert.GetAllPem()
-		if err = c.keycert.VerifyAndSetAll(certBytes, privateKeyBytes, certChainBytes, rootCertBytes); err != nil {
-			errCh <- fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", err)
-			c.stoppedMutex.Lock()
-			c.stopped = true
-			c.stoppedMutex.Unlock()
+		if vErr := c.keycert.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); vErr != nil {
+			err := fmt.Errorf("cannot verify the retrieved key and cert: %v, abort auto rotation", vErr)
+			log.Errora(err)
+			errCh <- err
 			return
 		}
 		log.Infof("Successfully retrieved new key and certs.")
 	}
 }
 
-// Stops the loop. Thread safe.
-func (c *keyCertBundleRotatorImpl) Stop() {
+// Stop stops the loop. Thread safe.
+func (c *KeyCertBundleRotator) Stop() {
 	c.stoppedMutex.Lock()
 	if !c.stopped {
 		c.stopped = true

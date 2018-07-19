@@ -40,19 +40,14 @@ func merge(series []*monitoring.TimeSeries, logger adapter.Logger) []*monitoring
 func groupBySeries(series []*monitoring.TimeSeries) map[uint64][]*monitoring.TimeSeries {
 	bySeries := make(map[uint64][]*monitoring.TimeSeries)
 	for _, ts := range series {
-		for _, ts := range series {
-			if ts.MetricKind == metricpb.MetricDescriptor_DELTA || ts.MetricKind == metricpb.MetricDescriptor_CUMULATIVE {
-				// DELTA and CUMULATIVE metrics cannot have the same start and end time, so if they are the same we munge
-				// the data by unit of least precision that Stackdriver stores (microsecond).
-				if compareUSec(ts.Points[0].Interval.StartTime, ts.Points[0].Interval.EndTime) == 0 {
-					ts.Points[0].Interval.EndTime = &timestamp.Timestamp{
-						Seconds: ts.Points[0].Interval.EndTime.Seconds,
-						Nanos:   ts.Points[0].Interval.EndTime.Nanos + usec,
-					}
+		if ts.MetricKind == metricpb.MetricDescriptor_DELTA || ts.MetricKind == metricpb.MetricDescriptor_CUMULATIVE {
+			// DELTA and CUMULATIVE metrics cannot have the same start and end time, so if they are the same we munge
+			// the data by unit of least precision that Stackdriver stores (microsecond).
+			if compareUSec(ts.Points[0].Interval.StartTime, ts.Points[0].Interval.EndTime) == 0 {
+				ts.Points[0].Interval.EndTime = &timestamp.Timestamp{
+					Seconds: ts.Points[0].Interval.EndTime.Seconds,
+					Nanos:   ts.Points[0].Interval.EndTime.Nanos + usec,
 				}
-				// Stackdriver doesn't allow DELTA custom metrics, but queries over CUMULATIVE data without overlapping time
-				// intervals have the same semantics as DELTA metrics. So we change DELTAs to CUMULATIVE to get through the API front door.
-				ts.MetricKind = metricpb.MetricDescriptor_CUMULATIVE
 			}
 		}
 		k := toKey(ts.Metric, ts.Resource)

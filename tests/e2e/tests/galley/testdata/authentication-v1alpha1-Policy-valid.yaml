@@ -1,0 +1,7 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: valid-authentication-policy
+spec:
+  targets:
+  - name: good-target

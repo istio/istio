@@ -1,0 +1,206 @@
+{{ define "content" }}
+<p>
+        Logging for this process is organized in scopes. Each scope has different
+        output controls which determine how much and what kind of logging is produced
+        by the scope.
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Scope</th>
+            <th>Description</th>
+            <th>Output Level</th>
+            <th>Stack Trace Level</th>
+            <th>Log Callers?</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {{ range $index, $value := . }}
+            <tr id="{{$value.Name}}">
+                <td>{{$value.Name}}</td>
+                <td>{{$value.Description}}</td>
+                <td class="text-center">
+                    <div class="dropdown">
+                        <button id="outputLevel" class="btn btn-istio dropdown-toggle" type="button" data-toggle="dropdown">
+                            {{$value.OutputLevel}}
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" onclick="selectOutputLevel(this, 'none')">none</a>
+                            <a class="dropdown-item" onclick="selectOutputLevel(this, 'error')">error</a>
+                            <a class="dropdown-item" onclick="selectOutputLevel(this, 'warn')">warn</a>
+                            <a class="dropdown-item" onclick="selectOutputLevel(this, 'info')">info</a>
+                            <a class="dropdown-item" onclick="selectOutputLevel(this, 'debug')">debug</a>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="text-center">
+                    <div class="dropdown">
+                        <button id="stackTraceLevel" class="btn btn-istio dropdown-toggle" type="button" data-toggle="dropdown">
+                        {{$value.StackTraceLevel}}
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" onclick="selectStackTraceLevel(this, 'none')">none</a>
+                            <a class="dropdown-item" onclick="selectStackTraceLevel(this, 'error')">error</a>
+                            <a class="dropdown-item" onclick="selectStackTraceLevel(this, 'warn')">warn</a>
+                            <a class="dropdown-item" onclick="selectStackTraceLevel(this, 'info')">info</a>
+                            <a class="dropdown-item" onclick="selectStackTraceLevel(this, 'debug')">debug</a>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="text-center">
+                    {{ if $value.LogCallers}}
+                        <input id="logCallers" onclick="toggleLogCallers(this)" type="checkbox" checked="checked">
+                    {{ else }}
+                        <input id="logCallers" onclick="toggleLogCallers(this)" type="checkbox">
+                    {{ end }}
+                </td>
+            </tr>
+        {{ end }}
+
+    </tbody>
+</table>
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshScopes() {
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
+                for (var i = 0; i < si.length; i++) {
+                    var info = si[i]
+
+                    var tr = document.getElementById(info.name);
+                    tr.querySelector("#outputLevel").innerText = info.output_level;
+                    tr.querySelector("#stackTraceLevel").innerText = info.stack_trace_level;
+                    tr.querySelector("#logCallers").checked = info.log_callers;
+                }
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    function selectOutputLevel(element, level) {
+        var scope = element.parentElement.parentElement.parentElement.parentElement.id;
+
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
+                si.output_level = level;
+
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
+                ajax.onload = onload2;
+                ajax.onerror = onerror;
+                ajax.open("PUT", url, true);
+                ajax.send(JSON.stringify(si));
+            }
+
+            function onload2() {
+                refreshScopes();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    function selectStackTraceLevel(element, level) {
+        var scope = element.parentElement.parentElement.parentElement.parentElement.id;
+
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
+                si.stack_trace_level = level;
+
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
+                ajax.onload = onload2;
+                ajax.onerror = onerror;
+                ajax.open("PUT", url, true);
+                ajax.send(JSON.stringify(si));
+            }
+
+            function onload2() {
+                refreshScopes();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    function toggleLogCallers(checkbox) {
+        var scope = checkbox.parentElement.parentElement.id;
+        var logCallers = checkbox.checked;
+
+        var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var si = JSON.parse(this.responseText);
+                si.log_callers = logCallers;
+
+                var url = window.location.protocol + "//" + window.location.host + "/scopej/" + scope;
+                var ajax = new XMLHttpRequest();
+                ajax.onload = onload2;
+                ajax.onerror = onerror;
+                ajax.open("PUT", url, true);
+                ajax.send(JSON.stringify(si));
+            }
+
+            function onload2() {
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshScopes();
+    window.setInterval(refreshScopes, 1000);
+</script>
+
+{{ end }}

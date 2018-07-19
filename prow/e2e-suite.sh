@@ -30,7 +30,16 @@ set -u
 # Print commands
 set -x
 
-TEST_TARGETS=(e2e_simple e2e_mixer e2e_bookinfo e2e_upgrade e2e_dashboard)
+TEST_TARGETS=(
+  e2e_simple
+  e2e_mixer
+  e2e_bookinfo
+  e2e_bookinfo_envoyv2_v1alpha3
+  e2e_upgrade
+  e2e_dashboard
+  e2e_pilot
+  e2e_pilotv2_v1alpha3
+)
 SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
@@ -68,6 +77,7 @@ make init
 
 trap cleanup EXIT
 get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+check_cluster
 setup_cluster
 
 # getopts only handles single character flags
@@ -77,6 +87,9 @@ for ((i=1; i<=$#; i++)); do
         # e.g. "-s e2e_mixer" will only trigger e2e mixer_test
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
         continue
+        ;;
+        --use_galley_config_validator)
+        TEST_TARGETS+=(e2e_galley)
         ;;
     esac
     E2E_ARGS+=( ${!i} )
@@ -93,7 +106,8 @@ if ${SINGLE_MODE}; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \
               E2E_ARGS="${E2E_ARGS[@]}" \
-              make "${SINGLE_TEST}"
+              JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
+              make with_junit_report TARGET="${SINGLE_TEST}"
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then

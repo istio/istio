@@ -20,8 +20,9 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
@@ -60,13 +61,6 @@ type Args struct {
 	// Configuration fetch interval in seconds
 	ConfigFetchIntervalSec uint
 
-	// Attribute that is used to identify applicable scopes.
-	ConfigIdentityAttribute string
-
-	// The domain to which all values of the ConfigIdentityAttribute belong.
-	// For kubernetes services it is svc.cluster.local
-	ConfigIdentityAttributeDomain string
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -80,8 +74,14 @@ type Args struct {
 	// The path to the file for readiness probe, similar to LivenessProbePath.
 	ReadinessProbeOptions *probe.Options
 
+	// The introspection options to use
+	IntrospectionOptions *ctrlz.Options
+
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
+
+	// Address to use for Mixer's gRPC API. This setting supercedes the API port setting.
+	APIAddress string
 
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
@@ -89,34 +89,33 @@ type Args struct {
 	// Enable profiling via web interface host:port/debug/pprof
 	EnableProfiling bool
 
-	// Enables use of pkg/runtime2, instead of pkg/runtime.
-	UseNewRuntime bool
-
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
 
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
+
+	// Maximum number of entries in the check cache
+	NumCheckCacheEntries int32
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIPort:                       9091,
-		MonitoringPort:                9093,
-		MaxMessageSize:                1024 * 1024,
-		MaxConcurrentStreams:          1024,
-		APIWorkerPoolSize:             1024,
-		AdapterWorkerPoolSize:         1024,
-		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
-		ConfigIdentityAttribute:       "destination.service",
-		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseNewRuntime:                 true,
-		LoggingOptions:                log.DefaultOptions(),
-		TracingOptions:                tracing.DefaultOptions(),
-		LivenessProbeOptions:          &probe.Options{},
-		ReadinessProbeOptions:         &probe.Options{},
-		EnableProfiling:               true,
+		APIPort:                9091,
+		MonitoringPort:         9093,
+		MaxMessageSize:         1024 * 1024,
+		MaxConcurrentStreams:   1024,
+		APIWorkerPoolSize:      1024,
+		AdapterWorkerPoolSize:  1024,
+		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
+		LoggingOptions:         log.DefaultOptions(),
+		TracingOptions:         tracing.DefaultOptions(),
+		LivenessProbeOptions:   &probe.Options{},
+		ReadinessProbeOptions:  &probe.Options{},
+		IntrospectionOptions:   ctrlz.DefaultOptions(),
+		EnableProfiling:        true,
+		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 	}
 }
 
@@ -127,6 +126,10 @@ func (a *Args) validate() error {
 
 	if a.AdapterWorkerPoolSize <= 0 {
 		return fmt.Errorf("adapter worker pool size must be >= 0 and <= 2^31-1, got pool size %d", a.AdapterWorkerPoolSize)
+	}
+
+	if a.NumCheckCacheEntries < 0 {
+		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
 	}
 
 	return nil
@@ -141,16 +144,16 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "APIWorkerPoolSize: ", a.APIWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n")
 	fmt.Fprint(buf, "APIPort: ", a.APIPort, "\n")
+	fmt.Fprint(buf, "APIAddress: ", a.APIAddress, "\n")
 	fmt.Fprint(buf, "MonitoringPort: ", a.MonitoringPort, "\n")
 	fmt.Fprint(buf, "EnableProfiling: ", a.EnableProfiling, "\n")
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
+	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
 	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
-	fmt.Fprint(buf, "ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n")
-	fmt.Fprint(buf, "ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n")
-	fmt.Fprint(buf, "UseNewRuntime: ", a.UseNewRuntime, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
+	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
 
 	return buf.String()
 }

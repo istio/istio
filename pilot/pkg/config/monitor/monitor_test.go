@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
@@ -42,6 +41,7 @@ var createConfigSet = []*model.Config{
 					Port: &networking.Port{
 						Number:   80,
 						Protocol: "HTTP",
+						Name:     "http",
 					},
 					Hosts: []string{"*.example.com"},
 				},
@@ -62,6 +62,7 @@ var updateConfigSet = []*model.Config{
 					Port: &networking.Port{
 						Number:   80,
 						Protocol: "HTTPS",
+						Name:     "http",
 					},
 					Hosts: []string{"*.example.com"},
 				},

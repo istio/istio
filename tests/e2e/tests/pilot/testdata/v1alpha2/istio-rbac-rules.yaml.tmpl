@@ -36,7 +36,7 @@ metadata:
   name: access-b
 spec:
   rules:
-  - services: ["b"]
+  - services: ["b.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -57,7 +57,7 @@ metadata:
   name: access-headless
 spec:
   rules:
-  - services: ["headless"]
+  - services: ["headless*"]
     methods: ["*"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -79,7 +79,7 @@ metadata:
   name: access-c
 spec:
   rules:
-  - services: ["c"]
+  - services: ["c.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
     paths: ["/prefix*", "*/suffix", "/good"]
 ---
@@ -103,7 +103,7 @@ metadata:
   name: access-d
 spec:
   rules:
-  - services: ["d"]
+  - services: ["d.{{ .Namespace }}.svc.cluster.local"]
     methods: ["GET"]
     constraints:
     - key: "app"

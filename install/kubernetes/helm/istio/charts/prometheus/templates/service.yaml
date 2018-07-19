@@ -1,11 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
   annotations:
     prometheus.io/scrape: 'true'
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
   labels:
     name: prometheus
-  name: prometheus
 spec:
   selector:
     app: prometheus
@@ -21,6 +25,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-nodeport
+  namespace: {{ .Release.Namespace }}
   labels:
     name: prometheus
 spec:

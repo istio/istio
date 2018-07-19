@@ -18,7 +18,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -102,17 +101,16 @@ func (mixerComp *LocalComponent) GetStatus() framework.Status {
 
 // Start brings up a local mixs using test config files in local file system
 func (mixerComp *LocalComponent) Start() (err error) {
-	wd, err := os.Getwd()
 	if err != nil {
 		log.Printf("Failed to get current directory: %s", err)
 		return
 	}
-	emptyDir := filepath.Join(wd, mixerComp.config.ConfigFileDir, "emptydir")
+	emptyDir := filepath.Join(mixerComp.config.ConfigFileDir, "emptydir")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return
 	}
-	mixerConfig := filepath.Join(wd, mixerComp.config.ConfigFileDir, "mixerconfig")
+	mixerConfig := filepath.Join(mixerComp.config.ConfigFileDir, "mixerconfig")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return
@@ -120,10 +118,6 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	mixerTestConfig := util.GetResourcePath(testConfigPath)
 	if _, err = util.Shell("cp %s/* %s", mixerTestConfig, mixerConfig); err != nil {
 		log.Printf("Failed to copy config for test: %v", err)
-		return
-	}
-	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
-		log.Printf("Failed to remove stackdriver.yaml: %v", err)
 		return
 	}
 

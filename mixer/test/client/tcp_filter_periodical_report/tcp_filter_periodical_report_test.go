@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tcpFilterPeriodicalReport
+package client_test
 
 import (
 	"fmt"
@@ -28,17 +28,19 @@ const deltaReportAttributesOkPost = `
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 191,
   "connection.received.bytes_total": 191,
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
-  "connection.id": "*"
+  "connection.id": "*",
+  "connection.event": "continue"
 }
 `
 const finalReportAttributesOkPost = `
@@ -47,18 +49,20 @@ const finalReportAttributesOkPost = `
   "context.time": "*",
   "mesh1.ip": "[1 1 1 1]",
   "source.ip": "[127 0 0 1]",
-  "source.port": "*",
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
   "connection.received.bytes": 0,
   "connection.received.bytes_total": 191,
-  "connection.sent.bytes": 138,
-  "connection.sent.bytes_total": 138,
+  "connection.sent.bytes": "*",
+  "connection.sent.bytes_total": "*",
   "connection.duration": "*",
-  "connection.id": "*"
+  "connection.id": "*",
+  "connection.event": "close"
 }
 `
 
@@ -85,9 +89,6 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	// Make sure tcp port is ready before starting the test.
-	env.WaitForPort(s.Ports().TCPProxyPort)
-
 	// Sends a request with parameter delay=3, so that server sleeps 3 seconds and sends response.
 	// Mixerclient sends a delta report after 2 seconds, and sends a final report after another 1
 	// second.
@@ -102,9 +103,5 @@ func TestTCPMixerFilterPeriodicalReport(t *testing.T) {
 	s.VerifyReport("finalReport", finalReportAttributesOkPost)
 
 	// Check stats for Check, Quota and report calls.
-	if respStats, err := s.WaitForStatsUpdateAndGetStats(2); err == nil {
-		s.VerifyStats(respStats, expectedStats)
-	} else {
-		t.Errorf("Failed to get stats from Envoy %v", err)
-	}
+	s.VerifyStats(expectedStats)
 }

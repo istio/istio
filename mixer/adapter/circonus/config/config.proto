@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Circonus
-// $overview: Adapter for circonus.com's monitoring solution.
-// $location: https://istio.io/docs/reference/config/adapters/circonus.html
+// $description: Adapter for circonus.com's monitoring solution.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/circonus.html
+// $aliases:
+// $  - /docs/reference/config/adapters/circonus.html
 
 // The `circonus` adapter enables Istio to deliver metric data to the
 // [Circonus](https://www.circonus.com) monitoring backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
 package adapter.circonus.config;
 
 import "gogoproto/gogo.proto";

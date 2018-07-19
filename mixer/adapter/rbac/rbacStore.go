@@ -15,6 +15,7 @@
 package rbac
 
 import (
+	"fmt"
 	"strings"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -24,75 +25,129 @@ import (
 
 // authorizer interface
 type authorizer interface {
-	CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error)
+	CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error)
 }
 
-// Information about a ServiceRole and associted ServiceRoleBindings
-type roleInfo struct {
+// RoleInfo contains information about a ServiceRole and associated ServiceRoleBindings.
+type RoleInfo struct {
 	// ServiceRole proto definition
-	info *rbacproto.ServiceRole
+	Info *rbacproto.ServiceRole
 
 	// A set of ServiceRoleBindings that refer to this role.
-	bindings map[string]*rbacproto.ServiceRoleBinding
+	Bindings map[string]*rbacproto.ServiceRoleBinding
 }
 
-// maps role name to role info
-type rolesByName map[string]*roleInfo
+// RolesByName maps role name to role info
+type RolesByName map[string]*RoleInfo
 
-// maps namespace to a set of roles in the namespace
-type rolesMapByNamespace map[string]rolesByName
+// RolesMapByNamespace maps namespace to a set of Roles in the namespace
+type RolesMapByNamespace map[string]RolesByName
 
-// configStore contains all ServiceRole and ServiceRoleBinding information.
-// configStore implements authorizer interface.
-type configStore struct {
-	// All the roles organized per namespace.
-	roles rolesMapByNamespace
+// ConfigStore contains all ServiceRole and ServiceRoleBinding information.
+// ConfigStore implements authorizer interface.
+type ConfigStore struct {
+	// All the Roles organized per namespace.
+	Roles RolesMapByNamespace
 }
 
 // Create a RoleInfo object.
-func newRoleInfo(spec *rbacproto.ServiceRole) *roleInfo {
-	return &roleInfo{
-		info: spec,
+func newRoleInfo(spec *rbacproto.ServiceRole) *RoleInfo {
+	return &RoleInfo{
+		Info: spec,
 	}
 }
 
 // Set a binding for a given Service role.
-func (ri *roleInfo) setBinding(name string, spec *rbacproto.ServiceRoleBinding) {
+func (ri *RoleInfo) setBinding(name string, spec *rbacproto.ServiceRoleBinding) {
 	if ri == nil {
 		return
 	}
-	if ri.bindings == nil {
-		ri.bindings = make(map[string]*rbacproto.ServiceRoleBinding)
+	if ri.Bindings == nil {
+		ri.Bindings = make(map[string]*rbacproto.ServiceRoleBinding)
 	}
-	ri.bindings[name] = spec
+	ri.Bindings[name] = spec
 }
 
 // Update roles in the RBAC store.
-func (rs *configStore) changeRoles(roles rolesMapByNamespace) {
-	rs.roles = roles
+func (rs *ConfigStore) changeRoles(roles RolesMapByNamespace) {
+	rs.Roles = roles
+}
+
+// AddServiceRole adds a new ServiceRole to RolesMapByNamespace with the specified name and namespace.
+// Return nil if added successfully, otherwise return an error.
+func (rs *RolesMapByNamespace) AddServiceRole(name, namespace string, proto *rbacproto.ServiceRole) error {
+	if rs == nil {
+		return nil
+	}
+
+	rolesByName := (*rs)[namespace]
+	if rolesByName == nil {
+		rolesByName = make(RolesByName)
+		(*rs)[namespace] = rolesByName
+	}
+
+	if _, present := rolesByName[name]; present {
+		return fmt.Errorf("duplicate ServiceRole: %v", name)
+	}
+	rolesByName[name] = newRoleInfo(proto)
+	return nil
+}
+
+// AddServiceRoleBinding adds a new ServiceRoleBinding to RolesMapByNamespace with the specified
+// name and namespace. Return nil if added successfully, otherwise return an error.
+func (rs *RolesMapByNamespace) AddServiceRoleBinding(name, namespace string, proto *rbacproto.ServiceRoleBinding) error {
+	if rs == nil {
+		return nil
+	}
+
+	if proto.RoleRef.Kind != serviceRoleKind {
+		return fmt.Errorf("roleBinding %s has role kind %s, expected %s",
+			name, proto.RoleRef.Kind, serviceRoleKind)
+	}
+
+	rolesByName := (*rs)[namespace]
+	if rolesByName == nil {
+		return fmt.Errorf("roleBinding %s is in a namespace (%s) that no valid role is defined",
+			name, namespace)
+	}
+
+	refName := proto.RoleRef.Name
+	roleInfo := rolesByName[refName]
+	if refName == "" {
+		return fmt.Errorf("roleBinding %s does not refer to a valid role name", refName)
+	}
+	if roleInfo == nil {
+		return fmt.Errorf("roleBinding %s is bound to a role that does not exist %s", name, refName)
+	}
+
+	if _, present := roleInfo.Bindings[name]; present {
+		return fmt.Errorf("duplicate RoleBinding: %v", name)
+	}
+	roleInfo.setBinding(name, proto)
+	return nil
 }
 
 // CheckPermission checks permission for a given request. This is the main API called
 // by RBAC adapter at runtime to authorize requests.
-func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter.Env) (bool, error) {
+func (rs *ConfigStore) CheckPermission(inst *authorization.Instance, logger adapter.Logger) (bool, error) {
 	namespace := inst.Action.Namespace
 	if namespace == "" {
-		return false, env.Logger().Errorf("Missing namespace")
+		return false, logger.Errorf("Missing namespace")
 	}
 
 	serviceName := inst.Action.Service
 	if serviceName == "" {
-		return false, env.Logger().Errorf("Missing service")
+		return false, logger.Errorf("Missing service")
 	}
 
 	path := inst.Action.Path
 	if path == "" {
-		return false, env.Logger().Errorf("Missing path")
+		return false, logger.Errorf("Missing path")
 	}
 
 	method := inst.Action.Method
 	if method == "" {
-		return false, env.Logger().Errorf("Missing method")
+		return false, logger.Errorf("Missing method")
 	}
 
 	extraAct := inst.Action.Properties
@@ -102,28 +157,30 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 
 	instSub := inst.Subject.Properties
 
-	rn := rs.roles[namespace]
+	rn := rs.Roles[namespace]
 	if rn == nil {
 		return false, nil
 	}
 
 	for rolename, roleInfo := range rn {
 		eligibleRole := false
-		env.Logger().Infof("Checking role: %s", rolename)
-		rules := roleInfo.info.GetRules()
+		logger.Infof("Checking role: %s", rolename)
+		rules := roleInfo.Info.GetRules()
 		for _, rule := range rules {
-			if matchRule(serviceName, path, method, extraAct, rule, env) {
+			if matchRule(serviceName, path, method, extraAct, rule, logger) {
 				eligibleRole = true
+				logger.Debugf("rule matched")
 				break
 			}
 		}
 		if !eligibleRole {
-			env.Logger().Infof("role %s is not eligible", rolename)
+			logger.Infof("role %s is not eligible", rolename)
 			continue
 		}
-		env.Logger().Infof("role %s is eligible", rolename)
-		bindings := roleInfo.bindings
+		logger.Infof("role %s is eligible", rolename)
+		bindings := roleInfo.Bindings
 		for _, binding := range bindings {
+			logger.Debugf("Checking binding %v", binding)
 			subjects := binding.GetSubjects()
 			for _, subject := range subjects {
 				foundMatch := false
@@ -144,10 +201,16 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 					}
 				}
 				subProp := subject.GetProperties()
-				if len(subProp) != 0 && checkSubject(instSub, subProp) {
-					foundMatch = true
+				if len(subProp) != 0 {
+					if checkSubject(instSub, subProp) {
+						foundMatch = true
+					} else {
+						// Found a mismatch, try next subject.
+						continue
+					}
 				}
 				if foundMatch {
+					logger.Debugf("binding matched")
 					return true, nil
 				}
 			}
@@ -157,12 +220,12 @@ func (rs *configStore) CheckPermission(inst *authorization.Instance, env adapter
 }
 
 // Helper function to check whether or not a request matches a rule in a ServiceRole specification.
-func matchRule(serviceName string, path string, method string, extraAct map[string]interface{}, rule *rbacproto.AccessRule, env adapter.Env) bool {
+func matchRule(serviceName string, path string, method string, extraAct map[string]interface{}, rule *rbacproto.AccessRule, logger adapter.Logger) bool {
 	services := rule.GetServices()
 	paths := rule.GetPaths()
 	methods := rule.GetMethods()
 	constraints := rule.GetConstraints()
-	env.Logger().Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
+	logger.Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
 
 	if stringMatch(serviceName, services) &&
 		(paths == nil || stringMatch(path, paths)) &&

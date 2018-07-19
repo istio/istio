@@ -19,31 +19,16 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 
 	"istio.io/istio/pkg/probe"
-	caclient "istio.io/istio/security/pkg/caclient/grpc"
+	"istio.io/istio/security/pkg/caclient/protocol"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/platform"
 	pb "istio.io/istio/security/proto"
 )
-
-type FakeCAGrpcClientImpl struct {
-	resp *pb.CsrResponse
-	err  error
-}
-
-func (c *FakeCAGrpcClientImpl) SetResponse(resp *pb.CsrResponse, err error) {
-	c.resp = resp
-	c.err = err
-}
-
-// SendCSR
-func (c *FakeCAGrpcClientImpl) SendCSR(req *pb.CsrRequest, pc platform.Client, caAddress string) (*pb.CsrResponse, error) {
-	return c.resp, c.err
-}
 
 func TestGcpGetServiceIdentity(t *testing.T) {
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(
@@ -62,7 +47,7 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 
 	testCases := map[string]struct {
 		resp     *pb.CsrResponse
-		err      error
+		err      string
 		expected string
 	}{
 		"Check success": {
@@ -72,50 +57,38 @@ func TestGcpGetServiceIdentity(t *testing.T) {
 				SignedCert: nil,
 				CertChain:  nil,
 			},
-			err:      nil,
 			expected: "",
 		},
 		"SendCSR failed": {
 			resp:     nil,
-			err:      fmt.Errorf("sendCSR failed"),
+			err:      "sendCSR failed",
 			expected: "sendCSR failed",
 		},
 		"gRPC server is not available": {
 			resp:     nil,
-			err:      fmt.Errorf("%v", balancer.ErrTransientFailure.Error()),
+			err:      fmt.Sprintf("%v", balancer.ErrTransientFailure.Error()),
 			expected: "",
 		},
 	}
 
 	for id, c := range testCases {
-		// override mock client
-		mockClient := FakeCAGrpcClientImpl{
-			resp: c.resp,
-			err:  c.err,
+		fakeProvider := func(_ string, _ []grpc.DialOption) (protocol.CAProtocol, error) {
+			return protocol.NewFakeProtocol(c.resp, c.err), nil
 		}
-
-		var g interface{} = &mockClient
-		client, ok := g.(caclient.CAGrpcClient)
-		if !ok {
-			t.Fatalf("%v: Failed to create a client", id)
-		}
-
 		// test liveness probe check controller
 		controller, err := NewLivenessCheckController(
 			time.Minute,
-			"localhost",
-			1234,
+			"",
 			istioCA,
 			&probe.Options{
 				Path:           "/tmp/test.key",
 				UpdateInterval: time.Minute,
 			},
-			client,
+			fakeProvider,
 		)
 		if err != nil {
 			t.Errorf("%v: Expecting an error but an Istio CA is wrongly instantiated", id)
 		}
-
 		err = controller.checkGrpcServer()
 		if len(c.expected) == 0 {
 			if err != nil {

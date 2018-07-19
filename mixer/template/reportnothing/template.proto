@@ -15,11 +15,24 @@
 syntax = "proto3";
 
 // $title: Report Nothing
-// $overview: A template that carries no data, useful for testing.
-// $location: https://istio.io/docs/reference/config/template/reportnothing.html
+// $description: A template that carries no data, useful for testing.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/reportnothing.html
+// $aliases:
+// $  - /docs/reference/config/template/reportnothing.html
 
 // The `reportnothing` template represents an empty block of data, which can useful
 // in different testing scenarios.
+//
+// Example config:
+//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: reportnothing
+// metadata:
+//   name: reportrequest
+//   namespace: istio-system
+// spec:
+// ```\
 package reportNothing;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
@@ -29,15 +42,5 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 // ReportNothing represents an empty block of data that is used for Report-capable
 // adapters which don't require any parameters. This is primarily intended for testing
 // scenarios.
-//
-// Example config:
-// ```yaml
-// apiVersion: "config.istio.io/v1alpha2"
-// kind: reportnothing
-// metadata:
-//   name: reportrequest
-//   namespace: istio-system
-// spec:
-// ```
 message Template {
 }

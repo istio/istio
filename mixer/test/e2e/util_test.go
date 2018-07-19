@@ -90,9 +90,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 	case v1beta1.TEMPLATE_VARIETY_REPORT:
 		req := istio_mixer_v1.ReportRequest{
 			Attributes: []istio_mixer_v1.CompressedAttributes{
-				getAttrBag(tt.attrs,
-					args.ConfigIdentityAttribute,
-					args.ConfigIdentityAttributeDomain)},
+				getAttrBag(tt.attrs)},
 		}
 		_, err = client.Report(context.Background(), &req)
 		tt.checkReturnError(t, err)
@@ -100,9 +98,7 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 
 	case v1beta1.TEMPLATE_VARIETY_CHECK:
 		req := istio_mixer_v1.CheckRequest{
-			Attributes: getAttrBag(tt.attrs,
-				args.ConfigIdentityAttribute,
-				args.ConfigIdentityAttributeDomain),
+			Attributes: getAttrBag(tt.attrs),
 		}
 
 		response, err := client.Check(context.Background(), &req)
@@ -145,7 +141,7 @@ func (tt *testData) checkCalls(t *testing.T, adapters []*spyAdapter.Adapter) {
 	}
 }
 
-func (tt *testData) checkReferencedAttributes(t *testing.T, actual istio_mixer_v1.ReferencedAttributes) {
+func (tt *testData) checkReferencedAttributes(t *testing.T, actual *istio_mixer_v1.ReferencedAttributes) {
 	conditions := make(map[string]istio_mixer_v1.ReferencedAttributes_Condition)
 	mapkeys := make(map[string]string)
 	for _, m := range actual.AttributeMatches {
@@ -205,9 +201,8 @@ func closeHelper(c io.Closer) {
 	}
 }
 
-func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attrs {
 		requestBag.Set(k, v)
 	}

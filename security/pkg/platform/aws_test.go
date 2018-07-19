@@ -89,7 +89,6 @@ func TestNewAwsClientImpl(t *testing.T) {
 }
 
 func TestAwsGetInstanceIdentityDocument(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/3177")
 	testCases := map[string]struct {
 		sigFile              string
 		doc                  string
@@ -199,7 +198,6 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 }
 
 func TestGetGetAgentCredential(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/3177")
 	testCases := map[string]struct {
 		sigFile            string
 		doc                string

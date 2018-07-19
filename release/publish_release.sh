@@ -271,8 +271,9 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
       docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
     if [[ "${DO_GCRHUB}" == "true" ]]; then
+      gcloud auth configure-docker -q
       docker tag "istio/${IMAGE_NAME}:${VERSION}" "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
-      gcloud docker -- push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
+      docker push "${GCR_DEST}/${IMAGE_NAME}:${VERSION}"
     fi
   done
 

@@ -57,8 +57,17 @@
     }
   },
   {
+    "op": "add",
+    "path": "/spec/imagePullSecrets",
+    "value": [
+      {
+        "name": "istio-image-pull-secrets"
+      }
+    ]
+  },
+  {
     "op": "replace",
     "path": "/metadata/annotations/sidecar.istio.io~1status",
-    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"]}"
+    "value": "{\"version\":\"unit-test-fake-version\",\"initContainers\":[\"istio-init\"],\"containers\":[\"istio-proxy\"],\"volumes\":[\"istio-envoy\",\"istio-certs\"],\"imagePullSecrets\":[\"istio-image-pull-secrets\"]}"
   }
 ]

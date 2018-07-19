@@ -15,11 +15,15 @@
 syntax = "proto3";
 
 // $title: Kubernetes Env
-// $overview: Adapter that extracts information from a Kubernetes environment.
-// $location: https://istio.io/docs/reference/config/adapters/kubernetesenv.html
+// $description: Adapter that extracts information from a Kubernetes environment.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv.html
+// $aliases:
+// $  - /docs/reference/config/adapters/kubernetesenv.html
 
 // The `kubernetesenv` adapter extracts information from a Kubernetes environment
 // and produces attribtes that can be used in downstream adapters.
+//
+// This adapter supports the [kubernetesenv template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/kubernetes/).
 package adapter.kubernetesenv.config;
 
 import "gogoproto/gogo.proto";
@@ -42,6 +46,9 @@ option (gogoproto.gostring_all) = false;
 // For all valid UIDs supplied, this adapter generates output
 // values containing information about the related pods.
 message Params {
+
+    reserved 3, 4, 5, 6;
+
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
     // be set to the path of a kubeconfig file that can be used to
@@ -60,34 +67,4 @@ message Params {
     //
     // Default: 5 minutes
     google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
-
-    // Configures the cluster domain name to use for service name normalization.
-    //
-    // Default: svc.cluster.local
-    string cluster_domain_name = 3;
-
-    // In order to extract the service associated with a source, destination, or
-    // origin, this adapter relies on pod labels. In particular, it looks for
-    // the value of a specific label, as specified by this parameter.
-    //
-    // Default: app
-    string pod_label_for_service = 4;
-
-    // In order to extract the service associated with a source, destination, or
-    // origin, this adapter relies on pod labels. In particular, it looks for
-    // the value of a specific label for istio component services, as specified 
-    // by this parameter.
-    //
-    // Default: istio
-    string pod_label_for_istio_component_service = 5;
-
-    //
-    // Default: false
-    bool lookup_ingress_source_and_origin_values = 6;
-
-    // Istio ingress service string. This is used to identify the
-    // ingress service in requests.
-    //
-    // Default: "ingress.istio-system.svc.cluster.local"
-    string fully_qualified_istio_ingress_service_name = 7;
 }

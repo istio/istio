@@ -13,7 +13,7 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-p <hub>,<tag>` new pilot image
 * `-x <hub>,<tag>` new mixer image
 * `-c <hub>,<tag>` new ca image
-* `-a <hub>,<tag>` specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
+* `-a <hub>,<tag>` specifies same hub and tag for pilot, mixer, proxy, and citadel containers
 * `-r <tag>` new tag for proxy debian package
 * `-i <url>` new `istioctl` download URL
 * `-g` create a `git commit` titled "Updating istio version" for the changes

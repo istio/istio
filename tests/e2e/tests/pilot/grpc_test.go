@@ -16,91 +16,89 @@ package pilot
 
 import (
 	"fmt"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	tutil "istio.io/istio/tests/e2e/tests/pilot/util"
+	"testing"
 )
 
-type grpc struct {
-	*tutil.Environment
-	logs *accessLogs
-}
-
-func (t *grpc) String() string {
-	return "http2-reachability"
-}
-
-func (t *grpc) Setup() error {
-	t.logs = makeAccessLogs()
-	return nil
-}
-
-func (t *grpc) Teardown() {
-}
-
-func (t *grpc) Run() error {
-	if err := t.makeRequests(); err != nil {
-		return err
-	}
-	return t.logs.check(t.Environment)
-}
-
-func (t *grpc) makeRequests() error {
-	// Auth is enabled for d:7070 using per-service policy. We expect request
-	// from non-envoy client ("t") should fail all the time.
+func TestGrpc(t *testing.T) {
 	srcPods := []string{"a", "b"}
-	dstPods := []string{"a", "b", "d"}
-	if t.Auth == meshconfig.MeshConfig_NONE {
+	dstPods := []string{"a", "b"}
+	ports := []string{"70", "7070"}
+	if !tc.Kube.AuthEnabled {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		srcPods = append(srcPods, "t")
 		dstPods = append(dstPods, "t")
 		// mTLS is not supported for headless services
 		dstPods = append(dstPods, "headless")
+	} else {
+		// Auth is enabled for d:7070 using per-service policy. We expect request
+		// from non-envoy client ("t") should fail all the time.
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/authn/service-d-mtls-policy.yaml.tmpl"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		defer cfgs.Teardown()
+		dstPods = append(dstPods, "d")
 	}
-	funcs := make(map[string]func() tutil.Status)
-	for _, src := range srcPods {
-		for _, dst := range dstPods {
-			for _, port := range []string{":70", ":7070"} {
-				for _, domain := range []string{"", "." + t.Config.Namespace} {
-					name := fmt.Sprintf("GRPC request from %s to %s%s%s", src, dst, domain, port)
-					funcs[name] = (func(src, dst, port, domain string) func() tutil.Status {
-						url := fmt.Sprintf("grpc://%s%s%s", dst, domain, port)
-						return func() tutil.Status {
-							resp := t.ClientRequest(src, url, 1, "")
-							if len(resp.ID) > 0 {
-								id := resp.ID[0]
-								if src != "t" {
-									t.logs.add(src, id, name)
-								}
-								if dst != "t" {
-									if dst == "headless" { // headless points to b
-										if src != "b" {
-											t.logs.add("b", id, name)
-										}
-									} else {
-										t.logs.add(dst, id, name)
+
+	logs := newAccessLogs()
+
+	// Run all request tests.
+	t.Run("request", func(t *testing.T) {
+		for cluster := range tc.Kube.Clusters {
+			for _, src := range srcPods {
+				for _, dst := range dstPods {
+					if src == "t" && dst == "t" {
+						// this is flaky in minikube
+						continue
+					}
+					for _, port := range ports {
+						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
+							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
+							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+								reqURL := fmt.Sprintf("grpc://%s%s:%s", dst, domain, port)
+								resp := ClientRequest(cluster, src, reqURL, 1, "")
+								if len(resp.ID) > 0 {
+									id := resp.ID[0]
+									logEntry := fmt.Sprintf("GRPC request from %s to %s%s:%s", src, dst, domain, port)
+									if src != "t" {
+										logs.add(cluster, src, id, logEntry)
 									}
+									if dst != "t" {
+										if dst == "headless" { // headless points to b
+											if src != "b" {
+												logs.add(cluster, "b", id, logEntry)
+											}
+										} else {
+											logs.add(cluster, dst, id, logEntry)
+										}
+									}
+									return nil
 								}
-								// mixer filter is invoked on the server side, that is when dst is not "t"
-								if t.Config.Mixer && dst != "t" {
-									t.logs.add("mixer", id, name)
+								if src == "t" && dst == "t" {
+									// Expected no match for t->t
+									return nil
 								}
-								return nil
-							}
-							if src == "t" && dst == "t" {
-								// Expected no match for t->t
-								return nil
-							}
-							if src == "t" && dst == "d" && port == ":7070" {
-								// Expected no match for t->d:7070 as d:7070 has mTLS enabled.
-								return nil
-							}
-							return tutil.ErrAgain
+								if src == "t" && dst == "d" && port == "7070" {
+									// Expected no match for t->d:7070 as d:7070 has mTLS enabled.
+									return nil
+								}
+								return errAgain
+							})
 						}
-					})(src, dst, port, domain)
+					}
 				}
 			}
 		}
+	})
+
+	// After all requests complete, run the check logs tests.
+	if len(logs.logs) > 0 {
+		t.Run("check", func(t *testing.T) {
+			logs.checkLogs(t)
+		})
 	}
-	return tutil.Parallel(funcs)
 }

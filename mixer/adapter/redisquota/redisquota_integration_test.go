@@ -15,7 +15,6 @@
 package redisquota
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -94,7 +93,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Request 30 when 50 is available": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key1": {
+				"requestCount": {
 					Amount:     30,
 					BestEffort: true,
 				},
@@ -105,7 +104,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			  "Returns": [
 			   {
 			    "Quota": {
-			 	"key1": {
+			 	"requestCount": {
 			 	 "ValidDuration": 30000000000,
 			 	 "Amount": 30
 			 	}
@@ -118,7 +117,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Exceed allocation request with bestEffort": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key2": {
+				"requestCount": {
 					Amount:     60,
 					BestEffort: true,
 				},
@@ -128,7 +127,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-				"key2": {
+				"requestCount": {
 				 "ValidDuration": 30000000000,
 				 "Amount": 50
 				}
@@ -141,7 +140,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		"Exceed allocation request without bestEffort": {
 			attrs: map[string]interface{}{},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"key3": {
+				"requestCount": {
 					Amount:     60,
 					BestEffort: false,
 				},
@@ -151,7 +150,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-			    "key3": {
+			    "requestCount": {
 			     "ValidDuration": 0,
 			     "Amount": 0
 			    }
@@ -167,7 +166,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 				"destination.service": "ratings",
 			},
 			quotas: map[string]istio_mixer_v1.CheckRequest_QuotaParams{
-				"overridden": {
+				"requestCount": {
 					Amount:     15,
 					BestEffort: true,
 				},
@@ -178,7 +177,7 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 			 "Returns": [
 			  {
 			   "Quota": {
-			    "overridden": {
+			    "requestCount": {
 				 "ValidDuration": 30000000000,
 				 "Amount": 12
 			    }
@@ -195,12 +194,12 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 		if err != nil {
 			t.Fatalf("Unable to start mock redis server: %v", err)
 		}
-		defer mockRedis.Close()
+
 		serviceCfg := adapterConfig
 		serviceCfg = strings.Replace(serviceCfg, "__RATE_LIMIT_ALGORITHM__", algorithm, -1)
 		serviceCfg = strings.Replace(serviceCfg, "__REDIS_SERVER_ADDRESS__", mockRedis.Addr(), -1)
 
-		t.Logf("**Executing test case '%s'**", id)
+		t.Logf("Executing test case '%s'", id)
 		adapter_integration.RunTest(
 			t,
 			GetInfo,
@@ -212,32 +211,18 @@ func runServerWithSelectedAlgorithm(t *testing.T, algorithm string) {
 						Quotas:   c.quotas,
 					},
 				},
-
-				Setup: func() (interface{}, error) {
-					mockRedis, err := miniredis.Run()
-					if err != nil {
-						t.Fatalf("Unable to start mock redis server: %v", err)
-					}
-					return mockRedis, nil
-				},
-
-				Teardown: func(ctx interface{}) {
-					ctx.(*miniredis.Miniredis).Close()
-				},
-
 				Configs: []string{
 					serviceCfg,
 				},
 				Want: c.want,
 			},
 		)
+
+		mockRedis.Close()
 	}
 }
 
 func TestFixedWindowAlgorithm(t *testing.T) {
-	if os.Getenv("RACE_TEST") == "true" {
-		t.Skip("Test fails in race testing, being fixed in issue #3789")
-	}
 	runServerWithSelectedAlgorithm(t, "ROLLING_WINDOW")
 }
 

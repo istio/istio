@@ -28,6 +28,7 @@ import (
 )
 
 // KeyCertBundle stores the cert, private key, cert chain and root cert for an entity. It is thread safe.
+// TODO(myidpt): Remove this interface.
 type KeyCertBundle interface {
 	// GetAllPem returns all key/cert PEMs in KeyCertBundle together. Getting all values together avoids inconsistency.
 	GetAllPem() (certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte)
@@ -35,9 +36,18 @@ type KeyCertBundle interface {
 	// GetAll returns all key/cert in KeyCertBundle together. Getting all values together avoids inconsistency.
 	GetAll() (cert *x509.Certificate, privKey *crypto.PrivateKey, certChainBytes, rootCertBytes []byte)
 
+	// GetCertChainPem returns the certificate chain PEM.
+	GetCertChainPem() []byte
+
+	// GetRootCertPem returns the root certificate PEM.
+	GetRootCertPem() []byte
+
 	// VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 	// Setting all values together avoids inconsistency.
 	VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
+
+	// CertOptions returns the CertOptions for rotating the current key cert.
+	CertOptions() (*CertOptions, error)
 }
 
 // KeyCertBundleImpl implements the KeyCertBundle interface.
@@ -131,6 +141,20 @@ func (b *KeyCertBundleImpl) GetAll() (cert *x509.Certificate, privKey *crypto.Pr
 	return
 }
 
+// GetCertChainPem returns the certificate chain PEM.
+func (b *KeyCertBundleImpl) GetCertChainPem() []byte {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return copyBytes(b.certChainBytes)
+}
+
+// GetRootCertPem returns the root certificate PEM.
+func (b *KeyCertBundleImpl) GetRootCertPem() []byte {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return copyBytes(b.rootCertBytes)
+}
+
 // VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 // Setting all values together avoids inconsistency.
 func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
@@ -149,6 +173,30 @@ func (b *KeyCertBundleImpl) VerifyAndSetAll(certBytes, privKeyBytes, certChainBy
 	b.privKey = &privKey
 	b.mutex.Unlock()
 	return nil
+}
+
+// CertOptions returns the certificate config based on currently stored cert.
+func (b *KeyCertBundleImpl) CertOptions() (*CertOptions, error) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	ids, err := ExtractIDs(b.cert.Extensions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract id %v", err)
+	}
+	if len(ids) != 1 {
+		return nil, fmt.Errorf("expect single id from the cert, found %v", ids)
+	}
+	size, err := GetRSAKeySize(*b.privKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get RSA key size: %v", err)
+	}
+	return &CertOptions{
+		Host:       ids[0],
+		Org:        b.cert.Issuer.Organization[0],
+		IsCA:       b.cert.IsCA,
+		TTL:        b.cert.NotAfter.Sub(b.cert.NotBefore),
+		RSAKeySize: size,
+	}, nil
 }
 
 // verify that the cert chain, root cert and key/cert match.

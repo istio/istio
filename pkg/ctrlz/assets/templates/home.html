@@ -1,0 +1,111 @@
+{{ define "title" }}Istio ControlZ{{ end }}
+{{ define "content" }}
+
+<p>
+    Make a selection in the left sidebar to inspect & control aspects of this process.
+</p>
+
+<table>
+    <tbody>
+    <tr>
+        <td>Process Name</td>
+        <td>{{.ProcessName}}</td>
+    </tr>
+
+    <tr>
+        <td>Heap Size</td>
+        <td id="HeapSize">{{.HeapSize}} bytes</td>
+    </tr>
+
+    <tr>
+        <td>Num Garbage Collections</td>
+        <td id="NumGC">{{.NumGC}}</td>
+    </tr>
+
+    <tr>
+        <td>Current Time</td>
+        <td id="CurrentTime"></td>
+    </tr>
+
+    <script>
+        // we do this so there's a useful date in the table, which avoids things shifting around during initial paint
+        var d = new Date().toLocaleString();
+        document.getElementById("CurrentTime").innerText = d;
+    </script>
+
+    <tr>
+        <td>Hostname</td>
+        <td>{{.Hostname}}</td>
+    </tr>
+
+    <tr>
+        <td>IP Address</td>
+        <td>{{.IP}}</td>
+    </tr>
+
+    </tbody>
+</table>
+
+<br/>
+<button id="terminate" class="btn btn-istio" onclick="terminateProcess()">Terminate Process</button>
+<p id="terminated" style="display:none">Process Terminated</p>
+
+{{ template "last-refresh" .}}
+
+<script>
+    "use strict"
+
+    function refreshHomeInfo() {
+        var url = window.location.protocol + "//" + window.location.host + "/homej/";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("GET", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+                var hi = JSON.parse(this.responseText);
+                document.getElementById("HeapSize").innerText = hi.HeapSize.toLocaleString() + " bytes";
+                document.getElementById("NumGC").innerText = hi.NumGC.toLocaleString();
+
+                var d = new Date(hi.CurrentTime / 1000000).toLocaleString();
+                document.getElementById("CurrentTime").innerText = d;
+
+                updateRefreshTime();
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    function terminateProcess() {
+        document.getElementById("terminate").style.display = "none";
+        document.getElementById("terminated").style.display = "block";
+
+        var url = window.location.protocol + "//" + window.location.host + "/homej/exit";
+
+        var ajax = new XMLHttpRequest();
+        ajax.onload = onload;
+        ajax.onerror = onerror;
+        ajax.open("PUT", url, true);
+        ajax.send();
+
+        function onload() {
+            if (this.status == 200) { // request succeeded
+            }
+        }
+
+        function onerror(e) {
+            console.error(e);
+        }
+    }
+
+    refreshHomeInfo();
+    window.setInterval(refreshHomeInfo, 1000);
+</script>
+
+{{ end }}

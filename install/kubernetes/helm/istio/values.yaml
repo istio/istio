@@ -5,17 +5,57 @@
 
 # Common settings.
 global:
-  # Default tag for Istio images.
+  # Default repository for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on
   hub: docker.io/istionightly
 
   # Default tag for Istio images.
-  # Should track latest released version.
-  # Currently using nightly build, for testing
-  tag: circleci-nightly
+  tag: nightly-master
+
   proxy:
-    image: proxy
+    image: proxyv2
+
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
+    enableCoreDump: false
+
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
+
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge
+      port: 9125
+
+  proxy_init:
+    image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
+  # local tests require IfNotPresent, to avoid uploading to dockerhub.
+  # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
@@ -23,130 +63,202 @@ global:
     repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
 
-  # Install istio CA.
-  securityEnabled: true
-
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
     # Default setting for service-to-service mtls. Can be set explicitly using
     # destination rules or service annotations.
     enabled: false
-    # List of fully qualified services to exclude from mtls
-    # TODO: add the templating.
-    mtlsExcludedServices:
-    - "kubernetes.default.svc.cluster.local"
 
-  # create RBAC resources. Must be set for any cluster configured with rbac.
-  rbacEnabled: true
+  nodePort: true
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any clustser configured with privte docker registry.
+  imagePullSecrets:
+    # - private-registry-key
 
   # Default is 1 second
   refreshInterval: 10s
+
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+  # Whether to restrict the applications namespace the controller manages;
+  # If not set, controller watches all namespaces
+  oneNamespace: false
+
+  # Whether to perform server-side validation of configuration.
+  configValidation: true
+
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+# Any customization for istio testing should be here
+istiotesting:
+  oneNameSpace: false
 
 #
 # ingress configuration
 #
 ingress:
   enabled: true
-  serviceAccountName: default
-  imagePullPolicy: IfNotPresent
-  autoscaleMin: 2
-  autoscaleMax: 8
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
-  nodeSelector: {}
-  service:
-    nodePort:
-      enabled: false
-      port: 32000
-
-#
-# sidecar-injector configuration
-#
-sidecar-injector:
-  enabled: false
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  nodeSelector: {}
+  autoscaleMin: 1
+  autoscaleMax: 1
+  service:
+    annotations: {}
+    loadBalancerIP: ""
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    annotations: {}
+    ports:
+    - port: 80
+      name: http
+      nodePort: 32000
+    - port: 443
+      name: https
+    selector:
+      istio: ingress
 
-  # istio egress capture whitelist
-  # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
-  # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
-  # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
-  # be allowed by the sidecar
-  includeIPRanges: {}
+#
+# Gateways Configuration
+# By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
+# You can add more gateways in addition to the defaults but make sure those are uniquely named
+# and that NodePorts are not conflicting.
+# Disable specifc gateway by setting the `enabled` to false.
+#
+gateways:
+  enabled: true
+  istio-ingressgateway:
+    enabled: true
+    labels:
+      istio: ingressgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+
+    loadBalancerIP: ""
+    serviceAnnotations: {}
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+      ## You can add custom gateway ports
+    - port: 80
+      targetPort: 80
+      name: http
+      nodePort: 31380
+    - port: 443
+      name: https
+      nodePort: 31390
+    - port: 31400
+      name: tcp
+      nodePort: 31400
+    secretVolumes:
+    - name: ingressgateway-certs
+      secretName: istio-ingressgateway-certs
+      mountPath: /etc/istio/ingressgateway-certs
+    - name: ingressgateway-ca-certs
+      secretName: istio-ingressgateway-ca-certs
+      mountPath: /etc/istio/ingressgateway-ca-certs
+  istio-egressgateway:
+    enabled: true
+    labels:
+      istio: egressgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 1
+    serviceAnnotations: {}
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      - port: 80
+        name: http
+      - port: 443
+        name: https
+    secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
+
+#
+# sidecar-injector webhook configuration
+#
+sidecarInjectorWebhook:
+  enabled: true
+  replicaCount: 1
+  image: sidecar_injector
+  enableNamespacesByDefault: false
+
+#
+# galley configuration
+#
+galley:
+  enabled: true
+  replicaCount: 1
+  image: galley
 
 #
 # mixer configuration
 #
 mixer:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  nodeSelector: {}
+  image: mixer
 
   prometheusStatsdExporter:
     repository: prom/statsd-exporter
     tag: latest
-    imagePullPolicy: IfNotPresent
-    resources: {}
 
 #
 # pilot configuration
 #
 pilot:
   enabled: true
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  nodeSelector: {}
+  image: pilot
 
 #
 # security configuration
 #
 security:
-  serviceAccountName: default # used only if RBAC is not enabled
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  nodeSelector: {}
+  image: citadel
+  selfSigned: true # indicate if self-signed CA is used.
+  cleanUpOldCA: true
 
 #
 # addons configuration
@@ -154,8 +266,9 @@ security:
 grafana:
   enabled: false
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
+  image: grafana
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
@@ -174,27 +287,17 @@ grafana:
       #   hosts:
       #     - grafana.local
 
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-  nodeSelector: {}
-
 prometheus:
-  enabled: false
+  enabled: true
   replicaCount: 1
   image:
     repository: docker.io/prom/prometheus
     tag: latest
-    pullPolicy: IfNotPresent
   ingress:
     enabled: false
     # Used to create an Ingress record.
-    hosts:
-      - prometheus.local
+    #hosts:
+    #  - prometheus.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
@@ -203,15 +306,8 @@ prometheus:
       # - secretName: prometheus-tls
       #   hosts:
       #     - prometheus.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-  nodeSelector: {}
   service:
+    annotations: {}
     nodePort:
       enabled: false
       port: 32090
@@ -219,8 +315,9 @@ prometheus:
 servicegraph:
   enabled: false
   replicaCount: 1
-  imagePullPolicy: IfNotPresent
+  image: servicegraph
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 8088
@@ -238,29 +335,29 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-  nodeSelector: {}
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
 zipkin:
+  enabled: true
+
+tracing:
   enabled: false
+  jaeger:
+    enabled: false
+    memory:
+      max_traces: 50000
   replicaCount: 1
   image:
-    repository: docker.io/openzipkin/zipkin
-    tag: latest
-    pullPolicy: IfNotPresent
+    repository: jaegertracing/all-in-one
+    tag: 1.5
   service:
+    annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
+    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -274,11 +371,26 @@ zipkin:
       # - secretName: zipkin-tls
       #   hosts:
       #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-  nodeSelector: {}
+
+kiali:
+  enabled: false
+  replicaCount: 1
+  image:
+    repository: kiali/kiali
+    tag: v0.4.0
+  ingress:
+    enabled: false
+    ## Used to create an Ingress record.
+    # hosts:
+    #  - kiali.local
+    annotations:
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    tls:
+      # Secrets must be manually created in the namespace.
+      # - secretName: kiali-tls
+      #   hosts:
+      #     - kiali.local
+  dashboard:
+    username: admin
+    password: admin

@@ -134,8 +134,8 @@ func (s *ClientServer) close() (err error) {
 // ClientServerInitParams is a collection of parameters that are passed as part of the InitializeClient call.
 type ClientServerInitParams struct {
 
-	// Setup is the YAML-serialized setup object.
-	Setup []byte
+	// Setup is the YAML-serialized load object.
+	Load []byte
 
 	// Address of the Mixer Server.
 	Address string
@@ -148,11 +148,11 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 	log.Infof("ClientServer initializing with server address: %s", params.Address)
 	_ = log.Sync()
 
-	var setup Setup
-	if err := unmarshallSetup(params.Setup, &setup); err != nil {
+	var load Load
+	if err := unmarshallLoad(params.Load, &load); err != nil {
 		return err
 	}
-	return s.client.initialize(params.Address, &setup)
+	return s.client.initialize(params.Address, &load)
 }
 
 // Shutdown is a remote RPC call that is invoked by the controller after the benchmark execution has completed.

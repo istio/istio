@@ -137,7 +137,6 @@ func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 	b.run(name, func(bb benchmark) {
 		_ = controller.runClients(bb.n())
 	})
-	b.logf("completed running test: %s", b.name())
 
 	// Even though we have a deferred close for controller, do it explicitly before leaving control to perform
 	// graceful close of clients during teardown.
@@ -168,7 +167,12 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 		globalDict[list[i]] = int32(i)
 	}
 
-	requests := setup.Load.createRequestProtos(setup.Config)
+	// there has to be just 1 load for InProcessBypassGrpc case
+	if len(setup.Loads) != 1 {
+		b.fatalf("for `InProcessBypassGrpc`, load must contain exactly 1 entry")
+		return
+	}
+	requests := setup.Loads[0].createRequestProtos()
 	bags := make([]attribute.Bag, len(requests)) // precreate bags to avoid polluting allocation data.
 	for i, r := range requests {
 		switch req := r.(type) {
@@ -189,7 +193,12 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 
 		switch r.(type) {
 		case *istio_mixer_v1.ReportRequest:
-			err = dispatcher.Report(context.Background(), bag)
+			r := dispatcher.GetReporter(context.Background())
+			err = r.Report(bag)
+			if err == nil {
+				err = r.Flush()
+			}
+			r.Done()
 
 		case *istio_mixer_v1.CheckRequest:
 			_, err = dispatcher.Check(context.Background(), bag)
@@ -207,7 +216,10 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 
 				switch r.(type) {
 				case *istio_mixer_v1.ReportRequest:
-					_ = dispatcher.Report(context.Background(), bag)
+					r := dispatcher.GetReporter(context.Background())
+					_ = r.Report(bag)
+					_ = r.Flush()
+					r.Done()
 
 				case *istio_mixer_v1.CheckRequest:
 					_, _ = dispatcher.Check(context.Background(), bag)

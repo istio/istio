@@ -22,8 +22,8 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
@@ -68,18 +68,27 @@ func ResolveConfig(kubeconfig string) (string, error) {
 	return kubeconfig, nil
 }
 
-// CreateInterface is a helper function to create Kubernetes interface
-func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
-	kube, err := ResolveConfig(kubeconfig)
+// CreateInterface is a helper function to create Kubernetes interface from kubeconfig file
+func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+	return kubernetes.NewForConfig(restConfig)
+}
 
-	config, err := clientcmd.BuildConfigFromFlags("", kube)
+// CreateInterfaceFromClusterConfig is a helper function to create Kubernetes interface from in memory cluster config struct
+func CreateInterfaceFromClusterConfig(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+	return createInterface(clusterConfig)
+}
+
+// createInterface is new function which creates rest config and kubernetes interface
+// from passed cluster's config struct
+func createInterface(clusterConfig *clientcmdapi.Config) (kubernetes.Interface, error) {
+	clientConfig := clientcmd.NewDefaultClientConfig(*clusterConfig, &clientcmd.ConfigOverrides{})
+	rest, err := clientConfig.ClientConfig()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	client, err := kubernetes.NewForConfig(config)
-	return config, client, err
+	return kubernetes.NewForConfig(rest)
 }

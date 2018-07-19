@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"f28aff3e90d1fdcd31901bd59ce8bb370d9806d7588c869545362c3b5536d1a7","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"]}'
+        sidecar.istio.io/status: '{"version":"97da22e31664d92bedf1b0432a9034c3a96298c01a5800f7e3a30035cf7b82d9","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -63,10 +63,18 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/proxy:unittest
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: REDIRECT
+        image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: Never
         name: istio-proxy
-        resources: {}
+        resources:
+          requests:
+            cpu: 10m
         securityContext:
           privileged: false
           readOnlyRootFilesystem: true
@@ -83,6 +91,16 @@ spec:
         - "15001"
         - -u
         - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - '*'
+        - -x
+        - ""
+        - -b
+        - 80,
+        - -d
+        - ""
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: Never
         name: istio-init

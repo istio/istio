@@ -36,6 +36,7 @@ spec:
   servers:
   - port:
       number: 80
+      name: http
       protocol: http
     hosts:
     - "*.example.com"
@@ -54,7 +55,7 @@ spec:
   http:
   - route:
     - destination:
-        name: some.example.internal
+        host: some.example.internal
 `
 
 func TestFileSnapshotNoFilter(t *testing.T) {

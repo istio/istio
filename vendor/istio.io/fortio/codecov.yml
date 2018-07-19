@@ -1,0 +1,6 @@
+coverage:
+  range: 60..99
+  precision: 1         # how many decimal places to display in the UI: 0 <= value <= 4
+  round: nearest       # how coverage is rounded: down/up/nearest
+  ignore:              # files and folders that will be removed during processing
+    - "**.pb.go"

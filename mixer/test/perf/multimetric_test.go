@@ -28,14 +28,12 @@ import (
 
 var baseMultiMetricSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i3Metric, i4Metric, i5Metric, i6Metric, i7Metric, r6UsingH1AndI3To7),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i3Metric, i4Metric, i5Metric, i6Metric, i7Metric, r6UsingH1AndI3To7),
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -49,7 +47,7 @@ var baseMultiMetricSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Multi_Metric(b *testing.B) {
@@ -61,12 +59,11 @@ func Benchmark_Multi_Metric(b *testing.B) {
 	perf.Run(b, &setup, settings)
 }
 
-func Benchmark_Multi_Metric_R2(b *testing.B) {
+func Benchmark_Multi_Metric_Rpc(b *testing.B) {
 	settings := baseSettings
-	settings.RunMode = perf.InProcessBypassGrpc
+	settings.RunMode = perf.InProcess
 
 	setup := baseMultiMetricSetup
-	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }

@@ -1,0 +1,28 @@
+# Base config for an ADS management server on 18000, admin port on 19000
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 19000
+dynamic_resources:
+  ads_config:
+    api_type: GRPC
+    cluster_names:
+    - xds_cluster
+  cds_config:
+    ads: {}
+  lds_config:
+    ads: {}
+node:
+  cluster: test-cluster
+  id: test-id
+static_resources:
+  clusters:
+  - connect_timeout: 1s
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: 18000
+    http2_protocol_options: {}
+    name: xds_cluster

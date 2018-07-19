@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !race
-
 package cache
 
 import (
@@ -22,40 +20,33 @@ import (
 )
 
 func TestTTLBasic(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond)
 	testCacheBasic(ttl, t)
 }
 
 func TestTTLConcurrent(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	ttl := NewTTL(5*time.Second, 1*time.Second)
 	testCacheConcurrent(ttl, t)
 }
 
 func TestTTLExpiration(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	ttl := NewTTL(5*time.Second, 100*time.Second).(*ttlWrapper)
 	testCacheExpiration(ttl, ttl.evictExpired, t)
 }
 
 func TestTTLEvicter(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond)
 	testCacheEvicter(ttl, t)
 }
 
 func TestTTLEvictExpired(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
-	ttl := NewTTL(5*time.Second, 0)
+	ttl := NewTTL(5*time.Second, 0).(*ttlCache)
 	testCacheEvictExpired(ttl, t)
 }
 
 func TestTTLFinalizer(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/4304")
-	c := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
-	gate := &c.evicterTerminated
-	testCacheFinalizer(gate, t)
+	ttl := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
+	testCacheFinalizer(&ttl.evicterTerminated, t)
 }
 
 func BenchmarkTTLGet(b *testing.B) {

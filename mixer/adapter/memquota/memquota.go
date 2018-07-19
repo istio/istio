@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/memquota/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/memquota/config/config.proto -x "-n memquota -t quota"
 
 // Package memquota provides a simple in-memory quota implementation. It's
 // trivial to set up, but it has various limitations:
@@ -81,16 +82,14 @@ func limit(cfg *config.Params_Quota, instance *quota.Instance, l adapter.Logger)
 	for idx := range cfg.Overrides {
 		o := cfg.Overrides[idx]
 		if matchDimensions(o.Dimensions, instance.Dimensions) {
-			if l.VerbosityLevel(4) {
-				l.Infof("quota override: %v selected for %v", o, *instance)
-			}
+			l.Debugf("quota override: %v selected for %v", o, *instance)
 			// all dimensions matched, we found the override.
 			return &o
 		}
 	}
-	if l.VerbosityLevel(4) {
-		l.Infof("quota default: %v selected for %v", cfg.MaxAmount, *instance)
-	}
+
+	l.Debugf("quota default: %v selected for %v", cfg.MaxAmount, *instance)
+
 	// no overrides, use default limit.
 	return cfg
 }
@@ -147,9 +146,7 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limi
 		return result, currentTime.Add(q.GetValidDuration()), q.GetValidDuration()
 	})
 
-	if h.logger.VerbosityLevel(2) {
-		h.logger.Infof(" AccessLog %d/%d %s", amount, args.QuotaAmount, key)
-	}
+	h.logger.Debugf(" AccessLog %d/%d %s", amount, args.QuotaAmount, key)
 
 	return adapter.QuotaResult{
 		Status:        status.OK,

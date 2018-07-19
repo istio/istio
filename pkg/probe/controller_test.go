@@ -24,10 +24,7 @@ import (
 	"time"
 )
 
-const (
-	testDuration     = 10 * time.Millisecond
-	testFileDuration = 100 * time.Millisecond
-)
+const testDuration = 10 * time.Millisecond
 
 var errClosed = errors.New("closed")
 
@@ -36,6 +33,7 @@ type dummyImpl struct {
 	lastStatus  error
 	changeCount int
 	updatec     chan struct{}
+	closec      chan struct{}
 }
 
 func (d *dummyImpl) GetStatus() error {
@@ -54,6 +52,7 @@ func (d *dummyImpl) onClose() error {
 	d.Lock()
 	defer d.Unlock()
 	d.lastStatus = errClosed
+	close(d.closec)
 	return nil
 }
 
@@ -62,34 +61,22 @@ func (d *dummyImpl) onUpdate(newStatus error) {
 	defer d.Unlock()
 	d.lastStatus = newStatus
 	d.changeCount++
-	if d.updatec != nil {
-		select {
-		case d.updatec <- struct{}{}:
-		default:
-		}
+	select {
+	case d.updatec <- struct{}{}:
+	default:
 	}
 }
 
-func (d *dummyImpl) wait(t *testing.T, timeout time.Duration) {
-	t.Helper()
+func (d *dummyImpl) wait() {
+	<-d.updatec
 	d.Lock()
-	if d.updatec != nil {
-		close(d.updatec)
-	}
+	defer d.Unlock()
+	close(d.updatec)
 	d.updatec = make(chan struct{})
-	d.Unlock()
-	for i := 0; i < 10; i++ {
-		select {
-		case <-d.updatec:
-			return
-		case <-time.After(timeout):
-		}
-	}
-	t.Fatal("Failed to wait")
 }
 
 func newDummyController() (Controller, *dummyImpl) {
-	d := &dummyImpl{}
+	d := &dummyImpl{updatec: make(chan struct{}), closec: make(chan struct{})}
 	c := &controller{
 		statuses: map[*Probe]error{},
 		name:     "dummy",
@@ -101,20 +88,19 @@ func newDummyController() (Controller, *dummyImpl) {
 }
 
 func TestController(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/3082")
 	c, d := newDummyController()
 	defer c.Close()
 
 	p1 := NewProbe()
 	p1.RegisterProbe(c, "p1")
-	time.Sleep(testDuration)
+	d.wait()
 	if err := d.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 
 	prevCount := d.GetCount()
 	p1.SetAvailable(nil)
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
@@ -124,19 +110,19 @@ func TestController(t *testing.T) {
 
 	p2 := NewProbe()
 	p2.RegisterProbe(c, "p2")
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 
 	p2.SetAvailable(nil)
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
 	prevCount = d.GetCount()
 
-	d.wait(t, testDuration*2)
+	d.wait()
 	if err := d.GetStatus(); err != nil {
 		t.Errorf("Got %v, want nil", err)
 	}
@@ -145,13 +131,13 @@ func TestController(t *testing.T) {
 	}
 
 	p1.SetAvailable(errors.New("dummy"))
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 
 	prevCount = d.GetCount()
-	d.wait(t, testDuration*2)
+	d.wait()
 	if err := d.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
@@ -186,18 +172,17 @@ func TestControllerRegisterTwice(t *testing.T) {
 }
 
 func TestControllerAfterClose(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/3082")
 	c, d := newDummyController()
 
 	p1 := NewProbe()
 	p1.RegisterProbe(c, "p1")
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err == nil {
 		t.Error("Got nil, want error")
 	}
 
 	p1.SetAvailable(nil)
-	d.wait(t, testDuration)
+	d.wait()
 	if err := d.GetStatus(); err != nil {
 		t.Errorf("Got %s, want nil", err)
 	}
@@ -205,7 +190,7 @@ func TestControllerAfterClose(t *testing.T) {
 	if err := c.Close(); err != nil {
 		t.Errorf("failed to close: %v", err)
 	}
-	time.Sleep(testDuration * 2)
+	<-d.closec
 	if err := d.GetStatus(); err != errClosed {
 		t.Errorf("Got %v, Want %v", err, errClosed)
 	}
@@ -222,8 +207,24 @@ func TestControllerAfterClose(t *testing.T) {
 	}
 }
 
-func TestFileControllerMethods(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/3082")
+func TestNewFileController(t *testing.T) {
+	d, err := ioutil.TempDir("", t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(d)
+	path := filepath.Join(d, "fc")
+	c := NewFileController(&Options{Path: path, UpdateInterval: testDuration})
+	fc, ok := c.(*controller).impl.(*fileController)
+	if !ok || fc == nil {
+		t.Fatalf("NewFileController should return with fileController: %+v", fc)
+	}
+	if fc.path != path {
+		t.Errorf("Want %s, Got %s", path, fc.path)
+	}
+}
+
+func TestFileController(t *testing.T) {
 	d, err := ioutil.TempDir("", t.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -231,80 +232,33 @@ func TestFileControllerMethods(t *testing.T) {
 	defer os.RemoveAll(d)
 	path := filepath.Join(d, "fc")
 	fc := &fileController{path: path}
-	client := NewFileClient(&Options{path, testFileDuration})
-	if err := client.GetStatus(); err == nil {
-		t.Error("Got nil, Want error")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("Got %v, Want not-existed", err)
 	}
 	fc.onUpdate(nil)
-	if err := client.GetStatus(); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
-	time.Sleep(testFileDuration * 3)
-	if err := client.GetStatus(); err == nil {
-		t.Error("Got nil, Want error")
-	}
-	fc.onUpdate(nil)
-	if err := client.GetStatus(); err != nil {
+	if _, err := os.Stat(path); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	fc.onUpdate(errors.New("dummy"))
-	if err := client.GetStatus(); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("Got %v, Want not-existed", err)
 	}
-}
-
-func TestFileController(t *testing.T) {
-	t.Skip("issue https://github.com/istio/istio/issues/3082")
-	d, err := ioutil.TempDir("", t.Name())
-	if err != nil {
-		t.Fatal(err)
+	fc.onUpdate(nil)
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
-	defer os.RemoveAll(d)
-	opt := &Options{filepath.Join(d, "fc"), testFileDuration}
-	fc := NewFileController(opt)
-	client := NewFileClient(opt)
-	fc.Start()
-	defer fc.Close()
-
-	p1 := NewProbe()
-	p1.RegisterProbe(fc, "p1")
-	time.Sleep(testFileDuration)
-	if err := client.GetStatus(); err == nil {
-		t.Errorf("Got nil, want error")
+	fc.onUpdate(nil)
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
 
-	p1.SetAvailable(nil)
-	time.Sleep(testFileDuration)
-	if err := client.GetStatus(); err != nil {
-		t.Errorf("Got %v, want nil", err)
+	if err := fc.onClose(); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
-
-	p2 := NewProbe()
-	p2.RegisterProbe(fc, "p2")
-	time.Sleep(testFileDuration)
-	if err := client.GetStatus(); err == nil {
-		t.Errorf("Got nil, want error")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("Got %v, Want not-existed", err)
 	}
-
-	p2.SetAvailable(nil)
-	time.Sleep(testFileDuration)
-	if err := client.GetStatus(); err != nil {
-		t.Errorf("Got %v, want nil", err)
-	}
-
-	time.Sleep(testFileDuration * 2)
-	if err := client.GetStatus(); err != nil {
-		t.Errorf("Got %v, want nil", err)
-	}
-
-	p1.SetAvailable(errors.New("dummy"))
-	time.Sleep(testFileDuration)
-	if err := client.GetStatus(); err == nil {
-		t.Error("Got nil, want error")
-	}
-
-	time.Sleep(testFileDuration * 2)
-	if err := client.GetStatus(); err == nil {
-		t.Error("Got nil, want error")
+	if err := fc.onClose(); err != nil {
+		t.Errorf("Got %v, Want nil", err)
 	}
 }

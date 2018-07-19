@@ -16,6 +16,7 @@ package external
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -24,11 +25,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func createExternalServices(externalSvcs []*networking.ExternalService, store model.IstioConfigStore, t *testing.T) {
-	for _, svc := range externalSvcs {
+func createServiceEntries(serviceEntries []*networking.ServiceEntry, store model.IstioConfigStore, t *testing.T) {
+	t.Helper()
+	for _, svc := range serviceEntries {
 		config := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:      model.ExternalService.Type,
+				Type:      model.ServiceEntry.Type,
 				Name:      svc.Hosts[0],
 				Namespace: "default",
 				Domain:    "cluster.local",
@@ -38,29 +40,38 @@ func createExternalServices(externalSvcs []*networking.ExternalService, store mo
 
 		_, err := store.Create(config)
 		if err != nil {
-			t.Errorf("error occurred crearting ExternalService config: %v", err)
+			t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 		}
 	}
 }
 
-func initConfigStore() model.IstioConfigStore {
-	configDescriptor := model.ConfigDescriptor{
-		model.ExternalService,
-	}
-	store := memory.Make(configDescriptor)
+type channelTerminal struct {
+}
+
+func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, func()) {
+	store := memory.Make(model.IstioConfigTypes)
 	configController := memory.NewController(store)
-	return model.MakeIstioStore(configController)
+
+	stop := make(chan struct{})
+	go configController.Run(stop)
+
+	istioStore := model.MakeIstioStore(configController)
+	serviceController := NewServiceDiscovery(configController, istioStore)
+	return istioStore, serviceController, func() {
+		stop <- channelTerminal{}
+	}
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
 	expectedServices := []*model.Service{
-		makeService("*.google.com", map[string]int{"http-port": 80, "http-alt-port": 8080}, model.DNSLB),
-		makeService("172.217.0.0/16", map[string]int{"tcp-444": 444}, model.DNSLB),
+		makeService("*.google.com", model.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
+		makeService("tcpstatic.com", "172.217.0.0/16", map[string]int{"tcp-444": 444}, true, model.ClientSideLB),
 	}
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
 	services, err := sd.Services()
 	if err != nil {
@@ -77,12 +88,12 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	host := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
-	service, err := sd.GetService(hostDNE)
+	service, err := sd.GetService(model.Hostname(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -90,39 +101,60 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host)
+	service, err = sd.GetService(model.Hostname(host))
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
 	}
 	if service == nil {
 		t.Errorf("GetService(%q) => should exist", host)
 	}
-	if service.Hostname != host {
+	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
 	}
 }
 
-func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
-	createExternalServices([]*networking.ExternalService{httpStatic, tcpStatic}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
-	instances, err := sd.GetProxyServiceInstances(model.Proxy{IPAddress: "2.2.2.2"})
-	if err != nil {
-		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+	tcpStaticSvc := convertServices(tcpStatic)
+	for _, svc := range tcpStaticSvc {
+		expect := model.ServiceAttributes{
+			Name:      svc.Hostname.String(),
+			Namespace: model.IstioDefaultConfigNamespace,
+		}
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
+			t.Errorf("GetServiceAttributes(%q) => %v, want %v", svc.Hostname, *attr, expect)
+		}
 	}
-
-	if len(instances) != 0 {
-		t.Error("ExternalService registry should never return something for GetProxyServiceInstances()")
+	tcpDNSSvc := convertServices(tcpDNS)
+	for _, svc := range tcpDNSSvc {
+		if attr, _ := sd.GetServiceAttributes(svc.Hostname); attr != nil {
+			t.Errorf(`GetServiceAttributes("tcpDNSSvc") => %q, want nil`, attr.Namespace)
+		}
 	}
 }
 
-func TestServiceDiscoveryInstances(t *testing.T) {
-	store := initConfigStore()
-	sd := NewServiceDiscovery(store)
+func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
 
-	createExternalServices([]*networking.ExternalService{httpDNS, tcpDNS}, store, t)
+	createServiceEntries([]*networking.ServiceEntry{httpStatic, tcpStatic}, store, t)
+
+	_, err := sd.GetProxyServiceInstances(&model.Proxy{IPAddress: "2.2.2.2"})
+	if err != nil {
+		t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
+	}
+}
+
+// Keeping this test for legacy - but it never happens in real life.
+func TestServiceDiscoveryInstances(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
 
 	expectedInstances := []*model.ServiceInstance{
 		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
@@ -133,7 +165,70 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		makeInstance(httpDNS, "de.google.com", 8080, httpDNS.Ports[1], map[string]string{"foo": "bar"}),
 	}
 
-	instances, err := sd.Instances("*.google.com", nil, nil)
+	instances, err := sd.InstancesByPort("*.google.com", 0, nil)
+	if err != nil {
+		t.Errorf("Instances() encountered unexpected error: %v", err)
+	}
+	sortServiceInstances(instances)
+	sortServiceInstances(expectedInstances)
+	if err := compare(t, instances, expectedInstances); err != nil {
+		t.Error(err)
+	}
+}
+
+// Keeping this test for legacy - but it never happens in real life.
+func TestServiceDiscoveryInstances1Port(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
+
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
+	}
+
+	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
+	if err != nil {
+		t.Errorf("Instances() encountered unexpected error: %v", err)
+	}
+	sortServiceInstances(instances)
+	sortServiceInstances(expectedInstances)
+	if err := compare(t, instances, expectedInstances); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestNonServiceConfig(t *testing.T) {
+	store, sd, stopFn := initServiceDiscovery()
+	defer stopFn()
+
+	// Create a non-service configuration element. This should not affect the service registry at all.
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.DestinationRule.Type,
+			Name:      "fakeDestinationRule",
+			Namespace: "default",
+			Domain:    "cluster.local",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "fakehost",
+		},
+	}
+	_, err := store.Create(config)
+	if err != nil {
+		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
+	}
+
+	// Now create some service entries and verify that it's added to the registry.
+	createServiceEntries([]*networking.ServiceEntry{httpDNS, tcpStatic}, store, t)
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(httpDNS, "us.google.com", 7080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "uk.google.com", 1080, httpDNS.Ports[0], nil),
+		makeInstance(httpDNS, "de.google.com", 80, httpDNS.Ports[0], map[string]string{"foo": "bar"}),
+	}
+	instances, err := sd.InstancesByPort("*.google.com", 80, nil)
 	if err != nil {
 		t.Errorf("Instances() encountered unexpected error: %v", err)
 	}

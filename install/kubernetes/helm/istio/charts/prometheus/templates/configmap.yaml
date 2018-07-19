@@ -1,8 +1,8 @@
-{{- $namespace := .Release.Namespace }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus
+  namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -24,7 +24,7 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer;prometheus
+        regex: {{ .Release.Namespace }};istio-telemetry;prometheus
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -38,9 +38,9 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer;statsd-prom
+        regex: {{ .Release.Namespace }};istio-statsd-prom-bridge;statsd-prom
 
-    - job_name: 'mixer'
+    - job_name: 'istio-policy'
       # Override the global default and scrape targets from this job every 5 seconds.
       scrape_interval: 5s
       # metrics_path defaults to '/metrics'
@@ -52,7 +52,21 @@ data:
       relabel_configs:
       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
         action: keep
-        regex: {{ .Release.Namespace }};istio-mixer;http-monitoring
+        regex: {{ .Release.Namespace }};istio-policy;http-monitoring
+
+    - job_name: 'istio-telemetry'
+      # Override the global default and scrape targets from this job every 5 seconds.
+      scrape_interval: 5s
+      # metrics_path defaults to '/metrics'
+      # scheme defaults to 'http'.
+
+      kubernetes_sd_configs:
+      - role: endpoints
+
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: {{ .Release.Namespace }};istio-telemetry;http-monitoring
 
     - job_name: 'pilot'
       # Override the global default and scrape targets from this job every 5 seconds.

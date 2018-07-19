@@ -45,8 +45,8 @@ type Control struct {
 	// EmitMarkdown controls whether to produce mankdown documentation files.
 	EmitMarkdown bool
 
-	// EmitJeyllHTML controls whether to produce Jekyll-friendly HTML documentation files.
-	EmitJekyllHTML bool
+	// EmitHTMLFragmentWithFrontMatter controls whether to produce HTML fragments with Jekyll/Hugo front matter.
+	EmitHTMLFragmentWithFrontMatter bool
 
 	// ManPageInfo provides extra information necessary when emitting man pages.
 	ManPageInfo doc.GenManHeader
@@ -68,9 +68,9 @@ func EmitCollateral(root *cobra.Command, c *Control) error {
 		}
 	}
 
-	if c.EmitJekyllHTML {
-		if err := genJekyllHTML(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
-			return fmt.Errorf("unable to output Jekyll HTML file: %v", err)
+	if c.EmitHTMLFragmentWithFrontMatter {
+		if err := genHTMLFragment(root, c.OutputDir+"/"+root.Name()+".html"); err != nil {
+			return fmt.Errorf("unable to output HTML fragment file: %v", err)
 		}
 	}
 
@@ -112,7 +112,7 @@ func findCommands(commands map[string]*cobra.Command, cmd *cobra.Command) {
 
 const help = "help"
 
-func genJekyllHTML(cmd *cobra.Command, path string) error {
+func genHTMLFragment(cmd *cobra.Command, path string) error {
 	commands := make(map[string]*cobra.Command)
 	findCommands(commands, cmd)
 
@@ -159,8 +159,8 @@ func genJekyllHTML(cmd *cobra.Command, path string) error {
 func (g *generator) genFileHeader(root *cobra.Command, numEntries int) {
 	g.emit("---")
 	g.emit("title: ", root.Name())
-	g.emit("overview: ", html.EscapeString(root.Short))
-	g.emit("layout: pkg-collateral-docs")
+	g.emit("description: ", root.Short)
+	g.emit("generator: pkg-collateral-docs")
 	g.emit("number_of_entries: ", strconv.Itoa(numEntries))
 	g.emit("---")
 }
@@ -171,7 +171,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if cmd.HasParent() {
-		g.emit("<h2 id=\"", cmd.CommandPath(), "\">", cmd.CommandPath(), "</h2>")
+		g.emit("<h2 id=\"", normalizeID(cmd.CommandPath()), "\">", cmd.CommandPath(), "</h2>")
 	}
 
 	if cmd.Long != "" {
@@ -235,7 +235,7 @@ func (g *generator) genCommand(cmd *cobra.Command) {
 	}
 
 	if len(cmd.Example) > 0 {
-		g.emit("<h3 id=\"", cmd.CommandPath(), " Examples\">", "Examples", "</h3>")
+		g.emit("<h3 id=\"", normalizeID(cmd.CommandPath()), " Examples\">", "Examples", "</h3>")
 		g.emit("<pre class=\"language-bash\"><code>", html.EscapeString(cmd.Example))
 		g.emit("</code></pre>")
 	}
@@ -324,4 +324,9 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 	}
 
 	return
+}
+
+func normalizeID(id string) string {
+	id = strings.Replace(id, " ", "-", -1)
+	return strings.Replace(id, ".", "-", -1)
 }

@@ -16,9 +16,9 @@ spec:
         fixedDelay: 7s
     route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1
   - route:
     - destination:
-        name: ratings
+        host: ratings
         subset: v1

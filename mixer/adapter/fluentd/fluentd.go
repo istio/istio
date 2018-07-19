@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/fluentd/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/fluentd/config/config.proto -x "-n fluentd -t logentry"
 
 // Package fluentd adapter for Mixer. Conforms to interfaces in
 // mixer/pkg/adapter. Accepts logentries and forwards to a listening
@@ -46,6 +47,7 @@ type (
 		logger fluentdLogger
 		types  map[string]*logentry.Type
 		env    adapter.Env
+		intDur bool
 	}
 )
 
@@ -71,8 +73,9 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, err
 	}
 	han := &handler{
-		types: b.types,
-		env:   env,
+		types:  b.types,
+		env:    env,
+		intDur: b.adpCfg.IntegerDuration,
 	}
 	han.logger, err = fluent.New(fluent.Config{FluentPort: p, FluentHost: h})
 	if err != nil {
@@ -116,15 +119,18 @@ func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
 // logentry.Handler#HandleLogEntry
 func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance) error {
 	for _, i := range insts {
-		if h.env.Logger().VerbosityLevel(4) {
-			h.env.Logger().Infof("Got a new log for fluentd, name %v", i.Name)
-		}
+		h.env.Logger().Debugf("Got a new log for fluentd, name %v", i.Name)
 
 		// Durations are not supported by msgp
 		for k, v := range i.Variables {
 			if h.types[i.Name].Variables[k] == descriptor.DURATION {
-				d := v.(time.Duration)
-				i.Variables[k] = d.String()
+				if h.intDur {
+					d := v.(time.Duration)
+					i.Variables[k] = int64(d / time.Millisecond)
+				} else {
+					d := v.(time.Duration)
+					i.Variables[k] = d.String()
+				}
 			}
 		}
 

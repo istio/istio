@@ -1,0 +1,31 @@
+# Base config for a REST xDS management server on 18001, admin port on 19000
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 19000
+dynamic_resources:
+  cds_config:
+    api_config_source:
+      api_type: REST
+      refresh_delay: {nanos: 500000000} # 1/2s
+      cluster_names:
+      - xds_cluster
+  lds_config:
+    api_config_source:
+      api_type: REST
+      refresh_delay: {nanos: 500000000} # 1/2s
+      cluster_names:
+      - xds_cluster
+node:
+  cluster: test-cluster
+  id: test-id
+static_resources:
+  clusters:
+  - connect_timeout: 1s
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: 18001
+    name: xds_cluster

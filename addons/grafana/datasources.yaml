@@ -1,3 +1,6 @@
+# config file version
+apiVersion: 1
+
 # list of datasources to insert/update depending
 # whats available in the datbase
 datasources:
@@ -8,13 +11,13 @@ datasources:
     # <string, required> access mode. direct or proxy. Required
     access: proxy
     # <int> org id. will default to org_id 1 if not specified
-    org_id: 1
+    orgId: 1
     # <string> url
     url: http://prometheus:9090
     # <bool> mark as default datasource. Max one per org
-    is_default: true
+    isDefault: true
     # <map> fields that will be converted to json and stored in json_data
-    json_data:
+    jsonData:
       timeInterval: 5s
     # <bool> allow users to edit datasources from the UI.
     editable: true

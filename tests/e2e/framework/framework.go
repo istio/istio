@@ -106,6 +106,10 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	c.Cleanup.RegisterCleanable(c.Kube)
 	c.Cleanup.RegisterCleanable(c.Kube.Istioctl)
 	c.Cleanup.RegisterCleanable(c.Kube.AppManager)
+	if c.Kube.RemoteKubeConfig != "" {
+		c.Cleanup.RegisterCleanable(c.Kube.RemoteAppManager)
+	}
+
 	return c, nil
 }
 
@@ -195,7 +199,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 		log.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
-	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace)
+	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig)
 }
 
 // RunTest sets up all registered cleanables in FIFO order

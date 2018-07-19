@@ -1,0 +1,18 @@
+{{ define "main" }}
+<main>
+    <div class="container-fluid">
+        <div class="row row-offcanvas">
+            <div class="col-0 col-md-3 col-xl-2 sidebar-offcanvas">
+                {{ template "sidebar" . }}
+            </div>
+
+            <div class="col-12 col-md-9 col-xl-10">
+                <main aria-labelledby="title">
+                    <h1 id="title">{{template "title" .}}</h1>
+                    {{ template "content" . }}
+                </main>
+            </div>
+        </div>
+    </div>
+</main>
+{{ end }}

@@ -3,3 +3,5 @@ spec:
     - name: c0
   volumes:
     - name: v0
+  imagePullSecrets:
+    - name: p0

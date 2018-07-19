@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package foo.bar;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+import "policy/v1beta1/type.proto";
+import "testdata/multiFileTwo.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
+
+
+message Template {
+    /*
+    multi line comment
+    multi line comment line 2
+    */
+    bool blacklist = 1;
+    int64 fieldInt64 = 2;
+    string fieldString = 3;
+    double fieldDouble = 4;
+
+    /*single line block comment*/
+    istio.policy.v1beta1.Value val = 5;
+
+    // single line comment
+    map<string, istio.policy.v1beta1.Value> dimensions = 6;
+
+    map<string, int64> dimensionsConstInt64Val = 7;
+    map<string, string> dimensionsConstStringVal = 8;
+    map<string, bool> dimensionsConstBoolVal = 9;
+    map<string, double> dimensionsConstDoubleVal = 10;
+
+
+    repeated Resource3 res3_list = 11;
+    map<string, Resource3> res3_map = 12;
+}

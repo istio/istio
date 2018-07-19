@@ -14,9 +14,20 @@
 
 package version
 
+import "fmt"
+import "runtime"
 import "testing"
 
 func TestBuildInfo(t *testing.T) {
+	versionedString := fmt.Sprintf(`Version: unknown
+GitRevision: unknown
+User: unknown@unknown
+Hub: unknown
+GolangVersion: %v
+BuildStatus: unknown
+`,
+		runtime.Version())
+
 	cases := []struct {
 		name     string
 		in       BuildInfo
@@ -39,14 +50,7 @@ GolangVersion: GOLANGVER
 BuildStatus: STATUS
 `},
 
-		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", `Version: unknown
-GitRevision: unknown
-User: unknown@unknown
-Hub: unknown
-GolangVersion: go1.10
-BuildStatus: unknown
-`},
-	}
+		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", versionedString}}
 
 	for _, v := range cases {
 		t.Run(v.name, func(t *testing.T) {

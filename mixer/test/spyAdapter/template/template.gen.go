@@ -18,7 +18,6 @@ package template
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -29,14 +28,16 @@ import (
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/expr"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/apa"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/check"
+
+	"istio.io/istio/mixer/test/spyAdapter/template/quota"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -216,173 +217,6 @@ var (
 				},
 			},
 
-			ProcessGenAttrs: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
-
-				var BuildTemplate func(instName string,
-					param *sampleapa.InstanceParam, path string) (
-					*sampleapa.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *sampleapa.InstanceParam, path string) (
-					*sampleapa.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var Int64PrimitiveInterface interface{}
-					var Int64Primitive int64
-					if param.Int64Primitive != "" {
-						if Int64PrimitiveInterface, err = mapper.Eval(param.Int64Primitive, attrs); err == nil {
-							Int64Primitive = Int64PrimitiveInterface.(int64)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var BoolPrimitiveInterface interface{}
-					var BoolPrimitive bool
-					if param.BoolPrimitive != "" {
-						if BoolPrimitiveInterface, err = mapper.Eval(param.BoolPrimitive, attrs); err == nil {
-							BoolPrimitive = BoolPrimitiveInterface.(bool)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var DoublePrimitiveInterface interface{}
-					var DoublePrimitive float64
-					if param.DoublePrimitive != "" {
-						if DoublePrimitiveInterface, err = mapper.Eval(param.DoublePrimitive, attrs); err == nil {
-							DoublePrimitive = DoublePrimitiveInterface.(float64)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					var StringPrimitiveInterface interface{}
-					var StringPrimitive string
-					if param.StringPrimitive != "" {
-						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
-							StringPrimitive = StringPrimitiveInterface.(string)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &sampleapa.Instance{
-
-						Name: instName,
-
-						Int64Primitive: Int64Primitive,
-
-						BoolPrimitive: BoolPrimitive,
-
-						DoublePrimitive: DoublePrimitive,
-
-						StringPrimitive: StringPrimitive,
-					}, nil
-				}
-
-				instParam := inst.(*sampleapa.InstanceParam)
-				instance, err := BuildTemplate(instName, instParam, "")
-				if err != nil {
-					return nil, err
-
-				}
-
-				out, err := handler.(sampleapa.Handler).GenerateSampleApaAttributes(ctx, instance)
-				if err != nil {
-					return nil, err
-				}
-				abag := attrs
-				const fullOutName = "sampleapa.output."
-				if out == nil {
-					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
-				} else {
-					abag = newWrapperAttrBag(
-						func(name string) (value interface{}, found bool) {
-							field := strings.TrimPrefix(name, fullOutName)
-							if len(field) != len(name) && out.WasSet(field) {
-								switch field {
-
-								case "int64Primitive":
-
-									return out.Int64Primitive, true
-
-								case "boolPrimitive":
-
-									return out.BoolPrimitive, true
-
-								case "doublePrimitive":
-
-									return out.DoublePrimitive, true
-
-								case "stringPrimitive":
-
-									return out.StringPrimitive, true
-
-								case "stringMap":
-
-									return out.StringMap, true
-
-								default:
-									return nil, false
-								}
-							}
-							return attrs.Get(name)
-						},
-						func() []string { return attrs.Names() },
-						func() { attrs.Done() },
-						func() string { return attrs.String() },
-					)
-				}
-				resultBag := attribute.GetMutableBag(nil)
-				for attrName, outExpr := range instParam.AttributeBindings {
-					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-					val, err := mapper.Eval(ex, abag)
-					if err != nil {
-						return nil, err
-					}
-					switch v := val.(type) {
-					case net.IP:
-						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-						// TODO: remove
-						if v4 := v.To4(); v4 != nil {
-							resultBag.Set(attrName, []byte(v4))
-							continue
-						}
-						resultBag.Set(attrName, []byte(v.To16()))
-					default:
-						resultBag.Set(attrName, val)
-					}
-				}
-				return resultBag, nil
-
-			},
-
-			/* runtime2 bindings */
-
 			// DispathGenAttrs dispatches the instance to the attribute producing handler.
 			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
 				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
@@ -402,7 +236,7 @@ var (
 				outBag := newWrapperAttrBag(
 					func(name string) (value interface{}, found bool) {
 						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) && out.WasSet(field) {
+						if len(field) != len(name) {
 							switch field {
 
 							case "int64Primitive":
@@ -481,7 +315,7 @@ var (
 			// See template.CreateOutputExpressionsFn for more details.
 			CreateOutputExpressions: func(
 				instanceParam proto.Message,
-				finder expr.AttributeDescriptorFinder,
+				finder ast.AttributeDescriptorFinder,
 				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_policy_v1beta1.ValueType
@@ -579,59 +413,6 @@ var (
 				castedBuilder.SetSampleCheckTypes(castedTypes)
 			},
 
-			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
-
-				var BuildTemplate func(instName string,
-					param *samplecheck.InstanceParam, path string) (
-					*samplecheck.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *samplecheck.InstanceParam, path string) (
-					*samplecheck.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var StringPrimitiveInterface interface{}
-					var StringPrimitive string
-					if param.StringPrimitive != "" {
-						if StringPrimitiveInterface, err = mapper.Eval(param.StringPrimitive, attrs); err == nil {
-							StringPrimitive = StringPrimitiveInterface.(string)
-						}
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &samplecheck.Instance{
-
-						Name: instName,
-
-						StringPrimitive: StringPrimitive,
-					}, nil
-				}
-
-				instParam := inst.(*samplecheck.InstanceParam)
-				instance, err := BuildTemplate(instName, instParam, "")
-				if err != nil {
-
-					return adapter.CheckResult{}, err
-
-				}
-				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
-
-			},
-
-			/* runtime2 bindings */
-
 			// DispatchCheck dispatches the instance to the handler.
 			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
@@ -659,6 +440,116 @@ var (
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_samplecheck_Template(expb, param.(*samplecheck.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
+		},
+
+		samplequota.TemplateName: {
+			Name:               samplequota.TemplateName,
+			Impl:               "samplequota",
+			CtrCfg:             &samplequota.InstanceParam{},
+			Variety:            istio_adapter_model_v1beta1.TEMPLATE_VARIETY_QUOTA,
+			BldrInterfaceName:  samplequota.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: samplequota.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(samplequota.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(samplequota.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+
+				var BuildTemplate func(param *samplequota.InstanceParam,
+					path string) (*samplequota.Type, error)
+
+				_ = BuildTemplate
+
+				BuildTemplate = func(param *samplequota.InstanceParam,
+					path string) (*samplequota.Type, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &samplequota.Type{}
+
+					var err error = nil
+
+					infrdType.Dimensions = make(map[string]istio_policy_v1beta1.ValueType, len(param.Dimensions))
+
+					for k, v := range param.Dimensions {
+
+						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s%s[%s]'; %v", path, "Dimensions", k, err)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				instParam := cp.(*samplequota.InstanceParam)
+
+				return BuildTemplate(instParam, "")
+			},
+
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(samplequota.HandlerBuilder)
+				castedTypes := make(map[string]*samplequota.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*samplequota.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetSampleQuotaTypes(castedTypes)
+			},
+
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*samplequota.Instance)
+
+				// Invoke the handler.
+				return handler.(samplequota.Handler).HandleSampleQuota(ctx, instance, args)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_samplequota_Template(expb, param.(*samplequota.InstanceParam))
 				if !errp.IsNil() {
 					return nil, errp.AsCompilationError(instanceName)
 				}
@@ -747,69 +638,6 @@ var (
 				}
 				castedBuilder.SetSampleReportTypes(castedTypes)
 			},
-
-			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-
-				var BuildTemplate func(instName string,
-					param *samplereport.InstanceParam, path string) (
-					*samplereport.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *samplereport.InstanceParam, path string) (
-					*samplereport.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					var Value interface{}
-					if param.Value != "" {
-						Value, err = mapper.Eval(param.Value, attrs)
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &samplereport.Instance{
-
-						Name: instName,
-
-						Value: Value,
-
-						Dimensions: Dimensions,
-					}, nil
-				}
-
-				var instances []*samplereport.Instance
-				for instName, inst := range insts {
-					instance, err := BuildTemplate(instName, inst.(*samplereport.InstanceParam), "")
-					if err != nil {
-						return err
-					}
-					instances = append(instances, instance)
-				}
-
-				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {
-					return fmt.Errorf("failed to report all values: %v", err)
-				}
-				return nil
-			},
-
-			/* runtime2 bindings */
 
 			// DispatchReport dispatches the instances to the handler.
 			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
@@ -1118,6 +946,88 @@ func (b *builder_samplecheck_Template) build(
 			return nil, template.NewErrorPath("StringPrimitive", err)
 		}
 		r.StringPrimitive = vString
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_samplequota_Template struct {
+
+	// builder for field dimensions: map[string]interface{}.
+
+	bldDimensions map[string]compiled.Expression
+} // builder_samplequota_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_samplequota_Template(
+	expb *compiled.ExpressionBuilder,
+	param *samplequota.InstanceParam) (*builder_samplequota_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_samplequota_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_policy_v1beta1.ValueType
+	_ = expType
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_samplequota_Template) build(
+	attrs attribute.Bag) (*samplequota.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &samplequota.Instance{}
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
 
 	}
 

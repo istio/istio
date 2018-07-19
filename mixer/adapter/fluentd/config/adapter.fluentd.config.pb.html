@@ -1,12 +1,17 @@
 ---
 title: Fluentd
-overview: Adapter that delivers logs to a fluentd daemon.
-location: https://istio.io/docs/reference/config/adapters/fluentd.html
+description: Adapter that delivers logs to a fluentd daemon.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/fluentd.html
 layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/fluentd.html
 number_of_entries: 1
 ---
 <p>The <code>fluentd</code> adapter is designed to deliver Istio log entries to a
 listening <a href="https://www.fluentd.org">fluentd</a> daemon.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/">logentry template</a>.</p>
 
 <h2 id="Params">Params</h2>
 <section>
@@ -27,12 +32,22 @@ a variable &ldquo;tag&rdquo;.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="Params.address">
+<tr id="Params-address">
 <td><code>address</code></td>
 <td><code>string</code></td>
 <td>
 <p>Address of listening fluentd daemon. Example: fluentd-server:24224
 Default value is localhost:24224</p>
+
+</td>
+</tr>
+<tr id="Params-integer_duration">
+<td><code>integerDuration</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Convert attributes of type duration to integers of unit ms in
+logs. Default behaviour is a string representation including
+unit.</p>
 
 </td>
 </tr>

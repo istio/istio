@@ -25,10 +25,9 @@ import (
 
 var (
 	registerCmd = &cobra.Command{
-		Use:              "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
-		Short:            "Registers a service instance (e.g. VM) joining the mesh",
-		Args:             cobra.MinimumNArgs(3),
-		PersistentPreRun: getRealKubeConfig,
+		Use:   "register <svcname> <ip> [name1:]port1 [name2:]port2 ...",
+		Short: "Registers a service instance (e.g. VM) joining the mesh",
+		Args:  cobra.MinimumNArgs(3),
 		RunE: func(c *cobra.Command, args []string) error {
 			svcName := args[0]
 			ip := args[1]
@@ -48,11 +47,12 @@ var (
 			}
 			log.Infof("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)
-			_, client, err := kube.CreateInterface(kubeconfig)
+			client, err := createInterface(kubeconfig)
 			if err != nil {
 				return err
 			}
-			return kube.RegisterEndpoint(client, namespace, svcName, ip, portsList, labels, annotations)
+			ns, _ := handleNamespaces(namespace)
+			return kube.RegisterEndpoint(client, ns, svcName, ip, portsList, labels, annotations)
 		},
 	}
 	labels      []string

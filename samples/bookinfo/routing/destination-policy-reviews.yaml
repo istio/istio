@@ -2,6 +2,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: reviews
+spec:
+  host: reviews
   trafficPolicy:
     loadBalancer:
       simple: RANDOM

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -52,7 +53,7 @@ var (
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.6",
-			ServicePort:    9080,
+			ServicePort:    9081,
 		},
 		{
 			Node:           "istio",
@@ -61,7 +62,7 @@ var (
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v2"},
 			ServiceAddress: "172.19.0.7",
-			ServicePort:    9080,
+			ServicePort:    9081,
 		},
 		{
 			Node:           "istio",
@@ -136,7 +137,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances, err := controller.Instances(hostname, []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(hostname, 0, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
@@ -152,7 +153,7 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances, err = controller.Instances(hostname, []string{}, model.LabelsCollection{
+	instances, err = controller.InstancesByPort(hostname, 0, model.LabelsCollection{
 		model.Labels{filterTagKey: filterTagVal},
 	})
 	if err != nil {
@@ -173,16 +174,17 @@ func TestInstances(t *testing.T) {
 		}
 	}
 
-	filterPort := "http"
-	instances, err = controller.Instances(hostname, []string{filterPort}, model.LabelsCollection{})
+	filterPort := 9081
+	instances, err = controller.InstancesByPort(hostname, filterPort, model.LabelsCollection{})
 	if err != nil {
 		t.Errorf("client encountered error during Instances(): %v", err)
 	}
 	if len(instances) != 2 {
+		fmt.Println(instances)
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
 	for _, inst := range instances {
-		if inst.Endpoint.ServicePort.Name != filterPort {
+		if inst.Endpoint.ServicePort.Port != filterPort {
 			t.Errorf("Instances() did not filter by port => %q, want %q",
 				inst.Endpoint.ServicePort.Name, filterPort)
 		}
@@ -197,7 +199,7 @@ func TestInstancesBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	instances, err := controller.Instances("", []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort("", 0, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when provided bad hostname")
 	}
@@ -215,7 +217,7 @@ func TestInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.Instances(serviceHostname("reviews"), []string{}, model.LabelsCollection{})
+	instances, err := controller.InstancesByPort(serviceHostname("reviews"), 0, model.LabelsCollection{})
 	if err == nil {
 		t.Error("Instances() should return error when client experiences connection problem")
 	}
@@ -300,6 +302,51 @@ func TestGetServiceNoInstances(t *testing.T) {
 	}
 }
 
+func TestGetServiceAttributes(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	attr, err := controller.GetServiceAttributes("productpage.service.consul")
+	if err != nil {
+		t.Errorf("client encountered error during GetServiceAttributes(): %v", err)
+	}
+	if attr == nil {
+		t.Error("service attributes should exist")
+	}
+
+	expect := model.ServiceAttributes{
+		Name:      serviceHostname("productpage").String(),
+		Namespace: model.IstioDefaultConfigNamespace,
+	}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes() incorrect service attributes returned => %v, want %v",
+			*attr, expect)
+	}
+}
+
+func TestGetServiceAttributesNoInstances(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Productpage = []*api.CatalogService{}
+
+	attr, err := controller.GetServiceAttributes("productpage.service.consul")
+	if err != nil {
+		t.Errorf("GetServiceAttributes() encountered unexpected error: %v", err)
+	}
+	if attr != nil {
+		t.Error("service attributes should not exist")
+	}
+}
+
 func TestServices(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
@@ -357,7 +404,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	services, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
 	if err != nil {
 		t.Errorf("client encountered error during GetProxyServiceInstances(): %v", err)
 	}
@@ -380,7 +427,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	instances, err := controller.GetProxyServiceInstances(model.Proxy{IPAddress: "172.19.0.11"})
+	instances, err := controller.GetProxyServiceInstances(&model.Proxy{IPAddress: "172.19.0.11"})
 	if err == nil {
 		t.Error("GetProxyServiceInstances() should return error when client experiences connection problem")
 	}

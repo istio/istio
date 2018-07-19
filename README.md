@@ -14,9 +14,11 @@ An open platform to connect, manage, and secure microservices.
 In addition, here are some other documents you may wish to read:
 
 - [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
-- [Istio Developer's Guide](DEV-GUIDE.md) - explains how to set up and use an Istio development environment
-- [Project Conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
-- [Creating Fast and Lean Code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
+- [Istio Developer's Guide](https://github.com/istio/istio/wiki/Dev-Guide) - explains how to set up and use an Istio development environment
+- [Project Conventions](https://github.com/istio/istio/wiki/Dev-Conventions) - describes the conventions we use within the code base
+- [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Dev-Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
+
+You'll find many other useful documents on our [Wiki](https://github.com/istio/istio/wiki).
 
 ## Introduction
 
@@ -47,7 +49,7 @@ Istio is composed of these components:
 
 - **Pilot** - A component responsible for configuring the proxies at runtime.
 
-- **CA** - A centralized component responsible for certificate issuance and rotation.
+- **Citadel** - A centralized component responsible for certificate issuance and rotation.
 
 - **Node Agent** - A per-node component responsible for certificate issuance and rotation.
 
@@ -65,12 +67,12 @@ currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [security](security/). This directory contains security related code,
-including CA (Certificate Authority), node agent, etc.
+including Citadel (acting as Certificate Authority), node agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/config/traffic-rules/routing-rules.html) into proxy specific configuration.
+[routing rules](https://istio.io/docs/reference/config/istio.networking.v1alpha3/) into proxy specific configuration.
   - [istioctl](istioctl/). This directory contains code for the
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
   - [mixer](mixer/). This directory

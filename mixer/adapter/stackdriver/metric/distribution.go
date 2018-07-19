@@ -16,6 +16,7 @@ package metric
 
 import (
 	"fmt"
+	"time"
 
 	"google.golang.org/genproto/googleapis/api/distribution"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -38,6 +39,12 @@ func toDist(val interface{}, i info) (*monitoringpb.TypedValue, error) {
 			fval = dval
 		} else {
 			return nil, fmt.Errorf("expected float64 value, got: %#v", val)
+		}
+	case descriptor.DURATION:
+		if duval, ok := val.(time.Duration); ok {
+			fval = float64(duval.Nanoseconds()) / float64(time.Millisecond)
+		} else {
+			return nil, fmt.Errorf("expected duration value, got: %#v", val)
 		}
 	}
 

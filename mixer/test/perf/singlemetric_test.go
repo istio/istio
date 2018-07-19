@@ -28,14 +28,12 @@ import (
 
 var baseSingleMetricSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i3Metric, r5UsingH1AndI3),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i3Metric, r5UsingH1AndI3),
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicReport{
@@ -49,7 +47,7 @@ var baseSingleMetricSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Single_Metric(b *testing.B) {
@@ -60,12 +58,11 @@ func Benchmark_Single_Metric(b *testing.B) {
 	perf.Run(b, &setup, settings)
 }
 
-func Benchmark_Single_Metric_R2(b *testing.B) {
+func Benchmark_Single_Metric_Rpc(b *testing.B) {
 	settings := baseSettings
-	settings.RunMode = perf.InProcessBypassGrpc
+	settings.RunMode = perf.InProcess
 
 	setup := baseSingleMetricSetup
-	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }

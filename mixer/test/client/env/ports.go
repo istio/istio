@@ -24,9 +24,11 @@ import (
 
 // All tests should be listed here to get their test ids
 const (
-	CheckCacheTest uint16 = iota
+	CheckCacheHitTest uint16 = iota
+	CheckCacheTest
 	CheckReportAttributesTest
 	CheckReportDisableTest
+	CheckReportLargePostRequestTest
 	DisableCheckCacheTest
 	DisableTCPCheckCallsTest
 	FailedRequestTest
@@ -34,12 +36,23 @@ const (
 	JWTAuthTest
 	MixerInternalFailTest
 	NetworkFailureTest
-	ReportBatchTest
-	TCPMixerFilterTest
 	QuotaCacheTest
 	QuotaCallTest
+	ReportBatchTest
 	TCPMixerFilterPeriodicalReportTest
-	TCPMixerFilterV1ConfigTest
+	TCPMixerFilterTest
+	XDSTest
+	CheckReportIstioAuthnAttributesTestOriginJwtBoundToOrigin
+	CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer
+	CheckReportIstioAuthnAttributesTestPeerJwtBoundToPeer
+	CheckReportIstioAuthnAttributesTestPeerJwtBoundToOrigin
+	IstioAuthnTestOriginRejectNoJwt
+	IstioAuthnTestPeerRejectNoJwt
+	IstioAuthnTestPeerRejectNoMtls
+	IstioAuthnTestPeerRejectNoTLS
+	RouteDirectiveTest
+	DynamicAttributeTest
+	DynamicListenerTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum
@@ -48,7 +61,7 @@ const (
 const (
 	portBase uint16 = 20000
 	// Maximum number of ports used in each test.
-	portNum uint16 = 6
+	portNum uint16 = 7
 	// Number of ports used by Envoy in each test.
 	envoyPortNum uint16 = 4
 )
@@ -61,6 +74,11 @@ type Ports struct {
 	AdminPort       uint16
 	MixerPort       uint16
 	BackendPort     uint16
+	DiscoveryPort   uint16
+
+	// Pilot ports, used when testing mixer-pilot integration.
+	PilotGrpcPort uint16
+	PilotHTTPPort uint16
 }
 
 func allocPortBase(name uint16) uint16 {
@@ -107,6 +125,7 @@ func NewPorts(name uint16) *Ports {
 		AdminPort:       base + 3,
 		MixerPort:       base + 4,
 		BackendPort:     base + 5,
+		DiscoveryPort:   base + 6,
 	}
 }
 
@@ -120,5 +139,6 @@ func NewEnvoyPorts(ports *Ports, name uint16) *Ports {
 		AdminPort:       base + 3,
 		MixerPort:       ports.MixerPort,
 		BackendPort:     ports.BackendPort,
+		DiscoveryPort:   ports.DiscoveryPort,
 	}
 }

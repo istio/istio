@@ -17,6 +17,7 @@ package util
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -32,6 +33,11 @@ const (
 	badKeyFile          = "../testdata/key-parse-fail.pem"
 	anotherKeyFile      = "../testdata/key.pem"
 	anotherRootCertFile = "../testdata/cert.pem"
+	// These key/cert contain workload key/cert, and a self-signed root cert,
+	// all with TTL 100 years.
+	rootCertFile1  = "../testdata/self-signed-root-cert.pem"
+	certChainFile1 = "../testdata/workload-cert.pem"
+	keyFile1       = "../testdata/workload-key.pem"
 )
 
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
@@ -75,6 +81,16 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 				t.Errorf("%s: rootCertBytes should not be empty", id)
 			}
 
+			chain = bundle.GetCertChainPem()
+			if len(chain) != 0 {
+				t.Errorf("%s: certChainBytes should be empty", id)
+			}
+
+			root = bundle.GetRootCertPem()
+			if len(root) == 0 {
+				t.Errorf("%s: rootCertBytes should not be empty", id)
+			}
+
 			x509Cert, privKey, chain, root := bundle.GetAll()
 			if x509Cert != nil {
 				t.Errorf("%s: cert should be nil", id)
@@ -89,6 +105,83 @@ func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
 				t.Errorf("%s: rootCertBytes should not be empty", id)
 			}
 		}
+	}
+}
+
+// The test of CertOptions
+func TestCertOptionsAndRetrieveID(t *testing.T) {
+	testCases := map[string]struct {
+		caCertFile    string
+		caKeyFile     string
+		certChainFile string
+		rootCertFile  string
+		certOptions   *CertOptions
+		expectedErr   string
+	}{
+		"No SAN": {
+			caCertFile:    rootCertFile,
+			caKeyFile:     rootKeyFile,
+			certChainFile: "",
+			rootCertFile:  rootCertFile,
+			certOptions: &CertOptions{
+				Host:       "test_ca.com",
+				TTL:        time.Hour,
+				Org:        "MyOrg",
+				IsCA:       true,
+				RSAKeySize: 512,
+			},
+			expectedErr: "failed to extract id the SAN extension does not exist",
+		},
+		"Success": {
+			caCertFile:    certChainFile1,
+			caKeyFile:     keyFile1,
+			certChainFile: "",
+			rootCertFile:  rootCertFile1,
+			certOptions: &CertOptions{
+				Host:       "watt",
+				TTL:        100 * 365 * 24 * time.Hour,
+				Org:        "Juju org",
+				IsCA:       false,
+				RSAKeySize: 2048,
+			},
+			expectedErr: "",
+		},
+	}
+	for id, tc := range testCases {
+		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
+		if err != nil {
+			t.Fatalf("%s: Unexpected error: %v", id, err)
+		}
+		opts, err := k.CertOptions()
+		if err != nil {
+			if len(tc.expectedErr) == 0 {
+				t.Errorf("%s: Unexpected error: %v", id, err)
+			} else if strings.Compare(err.Error(), tc.expectedErr) != 0 {
+				t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
+			}
+		} else if len(tc.expectedErr) != 0 {
+			t.Errorf("%s: expected error %s but have error %v", id, tc.expectedErr, err)
+		} else {
+			compareCertOptions(opts, tc.certOptions, t)
+		}
+	}
+}
+
+func compareCertOptions(actual, expected *CertOptions, t *testing.T) {
+	if actual.Host != expected.Host {
+		t.Errorf("host does not match, %s vs %s", actual.Host, expected.Host)
+	}
+	if actual.TTL != expected.TTL {
+		t.Errorf("TTL does not match")
+	}
+	if actual.Org != expected.Org {
+		t.Errorf("Org does not match")
+	}
+	if actual.IsCA != expected.IsCA {
+		t.Errorf("IsCA does not match")
+	}
+	if actual.RSAKeySize != expected.RSAKeySize {
+		t.Errorf("RSAKeySize does not match")
 	}
 }
 

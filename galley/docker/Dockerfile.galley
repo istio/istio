@@ -1,0 +1,3 @@
+FROM scratch
+ADD galley /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/galley"]

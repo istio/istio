@@ -90,9 +90,10 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
+    gcloud auth configure-docker -q
     docker load -i "${TAR_PATH}"
     docker tag "istio/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
-    gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    docker push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
 

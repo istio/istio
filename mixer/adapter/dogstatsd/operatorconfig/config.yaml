@@ -5,32 +5,39 @@ metadata:
   namespace: istio-system
 spec:
   address: "localhost:8125"
-  prefix: "service."
-  global_tags: 
+  prefix: "istio."
+  global_tags:
     service_mesh: istio
   sample_rate: 1.0
   metrics:
     requestcount.metric.istio-system:
       name: requestcount
       type: COUNTER
+      tags:
+        my: "istio_metric"
     requestduration.metric.istio-system:
       name: requestduration
       type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
     requestsize.metric.istio-system:
       name: requestsize
       type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
     responsesize.metric.istio-system:
       name: responsesize
       type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: doghttp
   namespace: istio-system
-  labels:
-    istio-protocol: http
 spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
   actions:
   - handler: handler.dogstatsd
     instances:

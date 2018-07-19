@@ -6,7 +6,7 @@ ifeq (${TEST_ENV},minikube)
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
 export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube
-MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
+MINIKUBE_FLAGS=--use_local_cluster --cluster_wide
 .PHONY: minikube
 
 # Prepare minikube
@@ -24,7 +24,7 @@ else ifeq (${TEST_ENV},minikube-none)
 # Note that tests simply use go/out, so going up 3 dirs from the os/arch/debug path
 export KUBECONFIG=${GO_TOP}/out/minikube.conf
 export TEST_ENV=minikube-none
-MINIKUBE_FLAGS=-use_local_cluster -cluster_wide
+MINIKUBE_FLAGS=--use_local_cluster --cluster_wide
 .PHONY: minikube
 
 # Prepare minikube
@@ -47,15 +47,17 @@ endif
 E2E_ARGS ?=
 
 DEFAULT_EXTRA_E2E_ARGS = ${MINIKUBE_FLAGS}
-DEFAULT_EXTRA_E2E_ARGS += --istioctl ${ISTIO_OUT}/istioctl
-DEFAULT_EXTRA_E2E_ARGS += --mixer_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --ca_tag ${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_hub ${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --ca_hub ${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --istioctl=${ISTIO_OUT}/istioctl
+DEFAULT_EXTRA_E2E_ARGS += --mixer_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
+DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
+DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -67,128 +69,151 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-# Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
+e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
-e2e_simple_run:
-	go test -v -timeout 20m ./tests/e2e/tests/simple -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+e2e_mixer: istioctl generate_yaml e2e_mixer_run
 
-e2e_mixer: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/mixer -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+e2e_galley: istioctl generate_yaml e2e_galley_run
 
-e2e_dashboard: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+e2e_dashboard: istioctl generate_yaml e2e_dashboard_run
 
-e2e_bookinfo: istioctl generate_yaml
+e2e_bookinfo: istioctl generate_yaml e2e_bookinfo_run
+
+e2e_upgrade: istioctl generate_yaml e2e_upgrade_run
+
+e2e_version_skew: istioctl generate_yaml e2e_version_skew_run
+
+e2e_all: istioctl generate_yaml e2e_all_run
+
+# *_run targets do not rebuild the artifacts and test with whatever is given
+e2e_simple_run: e2e_simple_auth_run
+
+e2e_simple_auth_run: out_dir
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+e2e_simple_noauth_run: out_dir
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+e2e_mixer_run: out_dir
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+e2e_galley_run: out_dir
+	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
+
+e2e_dashboard_run: out_dir
+	go test -v -timeout 25m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+
+e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-e2e_upgrade: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
+e2e_upgrade_run: out_dir
+	go test -v -timeout 25m ./tests/e2e/tests/upgrade -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
-e2e_version_skew: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
+e2e_version_skew_run: out_dir
+	go test -v -timeout 25m ./tests/e2e/tests/upgrade -args --smooth_check=true ${E2E_ARGS} ${EXTRA_E2E_ARGS} ${UPGRADE_E2E_ARGS}
 
-e2e_all:
-	$(MAKE) --keep-going e2e_simple e2e_mixer e2e_bookinfo e2e_dashboard e2e_upgrade
+e2e_all_run: out_dir
+	$(MAKE) --keep-going e2e_simple_run e2e_bookinfo_run e2e_dashboard_run e2e_upgrade_run e2e_version_skew_run
 
-JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit_e2e-all.xml
-e2e_all_junit_report: | $(JUNIT_REPORT)
+JUNIT_E2E_XML ?= $(ISTIO_OUT)/junit.xml
+TARGET ?= e2e_all
+with_junit_report: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_E2E_XML))
-	set -o pipefail; $(MAKE) e2e_all 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
+	set -o pipefail; $(MAKE) $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_E2E_XML))
 
-# Run the e2e tests, with auth enabled. A separate target is used for non-auth.
-e2e_pilot: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/pilot ${TESTOPTS} -hub ${HUB} -tag ${TAG}
+e2e_all_junit_report:
+	$(MAKE) with_junit_report TARGET=e2e_all
 
-e2e_pilot_noauth: istioctl generate_yaml
-	go test -v -timeout 20m ./tests/e2e/tests/pilot ${E2E_ARGS} -hub ${HUB} -tag ${TAG} --skip-cleanup -mixer=true -auth=disable -use-sidecar-injector=false
+e2e_all_run_junit_report:
+	$(MAKE) with_junit_report TARGET=e2e_all_run
 
-test/minikube/auth/e2e_simple:
-	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=true \
-	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
-	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-simple.raw
+# The pilot tests cannot currently be part of e2e_all, since they requires some additional flags.
+e2e_pilot: out_dir istioctl generate_yaml
+	go test -v -timeout 25m ./tests/e2e/tests/pilot ${E2E_ARGS} ${EXTRA_E2E_ARGS}
 
-test/minikube/noauth/e2e_simple:
-	mkdir -p ${OUT_DIR}/tests
-	set -o pipefail; go test -v -timeout 20m ./tests/e2e/tests/simple -args --auth_enable=false \
-	  --skip_cleanup  -use_local_cluster -cluster_wide -test.v \
-	  ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-simple.raw
+e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
-# Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/auth/e2e_pilot: istioctl
-	mkdir -p ${OUT_DIR}/logs
-	mkdir -p ${OUT_DIR}/tests
-	kubectl create ns pilot-auth-system || true
-	kubectl create ns pilot-auth-test || true
-	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
-		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true --auth_enable=true \
-		-errorlogsdir=${OUT_DIR}/logs \
-		--use-sidecar-injector=false \
-		-v1alpha3=true -v1alpha1=false \
-        --core-files-dir=${OUT_DIR}/logs \
-		--auth_enable=true \
-		--ns pilot-auth-system \
-		-n pilot-auth-test \
-		   ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot.raw
+e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
-# Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot_alpha1: istioctl
-	mkdir -p ${OUT_DIR}/logs
-	mkdir -p ${OUT_DIR}/tests
-	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-auth-system || true
-	kubectl create ns pilot-test || true
-	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
-		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true \
-		-errorlogsdir=${OUT_DIR}/logs \
-		--use-sidecar-injector=false \
-		--auth_enable=false \
-		-v1alpha3=false -v1alpha1=true \
-		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-auth-system \
-        -n pilot-test \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot-v1.raw
+# This is used to keep a record of the test results.
+CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
+
+## Targets for fast local development and staged CI.
+# The test take a T argument. Example:
+# make test/local/noauth/e2e_pilotv2 T=-test.run=TestPilot/ingress
 
 
-# Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/noauth/e2e_pilot: istioctl
-	mkdir -p ${OUT_DIR}/logs
-	mkdir -p ${OUT_DIR}/tests
-	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-noauth-system || true
-	kubectl create ns pilot-noauth || true
-	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
-		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true \
-		-errorlogsdir=${OUT_DIR}/logs \
-		--use-sidecar-injector=false \
-		--auth_enable=false \
-		-v1alpha3=true -v1alpha1=false \
-		--core-files-dir=${OUT_DIR}/logs \
-        	--ns pilot-noauth-system \
-        	-n pilot-noauth \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-noauth-pilot.raw
+.PHONY: out_dir
+out_dir:
+	@mkdir -p ${OUT_DIR}/{logs,tests}
 
-# Target for running e2e pilot in a minikube env. Used by CI
-test/minikube/auth/e2e_pilot_alpha1: istioctl
-	mkdir -p ${OUT_DIR}/logs
-	mkdir -p ${OUT_DIR}/tests
-	# istio-system and pilot system are not compatible. Once we merge the setup it should work.
-	kubectl create ns pilot-auth-system || true
-	kubectl create ns pilot-test || true
-	set -o pipefail; go test -test.v -timeout 20m ./tests/e2e/tests/pilot -args \
-		-hub ${HUB} -tag ${TAG} \
-		--skip-cleanup --mixer=true \
-		-errorlogsdir=${OUT_DIR}/logs \
-		--use-sidecar-injector=false \
-		--auth_enable=true \
-		-v1alpha3=false -v1alpha1=true \
-		--core-files-dir=${OUT_DIR}/logs \
-        --ns pilot-auth-system \
-        -n pilot-test \
-           ${TESTOPTS} | tee ${OUT_DIR}/tests/test-report-auth-pilot-v1.raw
+test/local/auth/e2e_simple: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/noauth/e2e_simple: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
+	--v1alpha1=false --v1alpha3=true --egress=false --ingress=false \
+	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/e2e_mixer: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/e2e_galley: out_dir istioctl generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/galley -args \
+	-use_local_cluster -cluster_wide --use_galley_config_validator -test.v ${E2E_ARGS} ${EXTRA_E2E_ARGS} \
+	${CAPTURE_LOG}
+
+# v1alpha3+envoyv2 test without MTLS
+test/local/noauth/e2e_pilotv2: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
+		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	# Run the pilot controller tests
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+
+# v1alpha3+envoyv2 test with MTLS
+test/local/auth/e2e_pilotv2: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
+		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	# Run the pilot controller tests
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+
+test/local/cloudfoundry/e2e_pilotv2: out_dir
+	sudo apt update
+	sudo apt install -y iptables
+	sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot/cloudfoundry ${T} \
+		${CAPTURE_LOG}
+	sudo iptables -t nat -F
+
+test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/bookinfo \
+		--auth_enable=true --v1alpha3=true --egress=true --ingress=false --rbac_enable=false \
+		--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
+	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/mixer \
+	--auth_enable=false --v1alpha3=true --egress=false --ingress=false --rbac_enable=false \
+	--v1alpha1=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+
+junit-report: out_dir ${ISTIO_BIN}/go-junit-report
+	${ISTIO_BIN}/go-junit-report < $(OUT_DIR)/tests/build-log.txt > $(OUT_DIR)/tests/junit.xml
+
+# Dumpsys will get as much info as possible from the test cluster
+# Can be run after tests. It will also process the auto-saved log output
+# This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
+dumpsys: out_dir
+	bin/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs

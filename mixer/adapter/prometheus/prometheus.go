@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/prometheus/config/config.proto
+// nolint: lll
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -a mixer/adapter/prometheus/config/config.proto -x "-n prometheus -t metric"
 
 // Package prometheus publishes metric values collected by Mixer for
 // ingestion by prometheus.
@@ -51,12 +52,12 @@ type (
 		// maps instance_name to collector.
 		metrics  map[string]*cinfo
 		registry *prometheus.Registry
-		srv      server
+		srv      Server
 		cfg      *config.Params
 	}
 
 	handler struct {
-		srv     server
+		srv     Server
 		metrics map[string]*cinfo
 	}
 )
@@ -69,11 +70,11 @@ var (
 )
 
 const (
-	namespace = "istio"
+	defaultNS = "istio"
 )
 
-// getInfo returns the Info associated with this adapter.
-func getInfo(addr string) (adapter.Info, server) {
+// GetInfoWithAddr returns the Info associated with this adapter.
+func GetInfoWithAddr(addr string) (adapter.Info, Server) {
 	singletonBuilder := &builder{
 		srv: newServer(addr),
 	}
@@ -95,7 +96,7 @@ func GetInfo() adapter.Info {
 	// prometheus uses a singleton http port, so we make the
 	// builder itself a singleton, when defaultAddr become configurable
 	// srv will be a map[string]server
-	ii, _ := getInfo(defaultAddr)
+	ii, _ := GetInfoWithAddr(defaultAddr)
 	return ii
 }
 
@@ -142,12 +143,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		break
 	}
 
-	if env.Logger().VerbosityLevel(4) {
-		env.Logger().Infof("%d new metrics defined", len(newMetrics))
-	}
+	env.Logger().Debugf("%d new metrics defined", len(newMetrics))
 
 	var err error
 	for _, m := range newMetrics {
+		ns := defaultNS
+		if len(m.Namespace) > 0 {
+			ns = safeName(m.Namespace)
+		}
 		mname := m.InstanceName
 		if len(m.Name) != 0 {
 			mname = m.Name
@@ -156,21 +159,21 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		switch m.Kind {
 		case config.GAUGE:
 			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
-			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newGaugeVec(ns, mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.InstanceName] = ci
 		case config.COUNTER:
-			ci.c, err = registerOrGet(b.registry, newCounterVec(mname, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newCounterVec(ns, mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
 			b.metrics[m.InstanceName] = ci
 		case config.DISTRIBUTION:
-			ci.c, err = registerOrGet(b.registry, newHistogramVec(mname, m.Description, m.LabelNames, m.Buckets))
+			ci.c, err = registerOrGet(b.registry, newHistogramVec(ns, mname, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
@@ -231,7 +234,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 
 func (h *handler) Close() error { return h.srv.Close() }
 
-func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
+func newCounterVec(namespace, name, desc string, labels []string) *prometheus.CounterVec {
 	if desc == "" {
 		desc = name
 	}
@@ -246,7 +249,7 @@ func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
 	return c
 }
 
-func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
+func newGaugeVec(namespace, name, desc string, labels []string) *prometheus.GaugeVec {
 	if desc == "" {
 		desc = name
 	}
@@ -261,7 +264,7 @@ func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
 	return c
 }
 
-func newHistogramVec(name, desc string, labels []string, bucketDef *config.Params_MetricInfo_BucketsDefinition) *prometheus.HistogramVec {
+func newHistogramVec(namespace, name, desc string, labels []string, bucketDef *config.Params_MetricInfo_BucketsDefinition) *prometheus.HistogramVec {
 	if desc == "" {
 		desc = name
 	}

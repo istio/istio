@@ -16,15 +16,36 @@ spec:
   timestamp: request.time
   variables:
     sourceIp: source.ip | ip("0.0.0.0")
+    sourceApp: source.labels["app"] | ""
+    sourcePrincipal: source.principal | ""
+    sourceWorkload: source.workload.name | ""
+    sourceNamespace: source.namespace | ""
+    sourceOwner: source.owner | ""
+    destinationApp: destination.labels["app"] | ""
     destinationIp: destination.ip | ip("0.0.0.0")
-    sourceUser: source.user | ""
+    destinationServiceHost: destination.service.host | ""
+    destinationWorkload: destination.workload.name | ""
+    destinationNamespace: destination.namespace | ""
+    destinationOwner: destination.owner | ""
+    destinationPrincipal: destination.principal | ""
+    apiName: api.service | ""
+    apiVersion: api.version | ""
+    apiClaims: request.headers["sec-istio-auth-userinfo"]| ""
+    apiKey: request.api_key | request.headers["x-api-key"] | ""
+    requestOperation: api.operation | ""
+    protocol: request.scheme | context.protocol | "http"
     method: request.method | ""
     url: request.path | ""
-    protocol: request.scheme | "http"
     responseCode: response.code | 0
     responseSize: response.size | 0
     requestSize: request.size | 0
     latency: response.duration | "0ms"
+    connectionMtls: connection.mtls | false
+    userAgent: request.useragent | ""
+    responseTimestamp: response.time
+    receivedBytes: request.total_size | connection.received.bytes | 0
+    sentBytes: response.total_size | connection.sent.bytes | 0
+    referer: request.referer | ""
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"

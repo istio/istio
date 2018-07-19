@@ -18,6 +18,12 @@ spec:
   - port: 8080
     name: http-pilot
     protocol: TCP
+  - port: 15010
+    name: grpc-pilot
+    protocol: TCP
+  - port: 15011
+    name: tls-grpc-pilot
+    protocol: TCP
   selector:
     istio: pilot
 ---
@@ -56,22 +62,25 @@ spec:
     protocol: TCP
   selector:
     istio: mixer
+    istio-mixer-type: telemetry
 
+# This points to istio-telemetry until we are able to support both
+# istio-policy and istio-telemetry as separate services for mesh expansion.
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-ca-ilb
+  name: citadel-ilb
   namespace: istio-system
   annotations:
     cloud.google.com/load-balancer-type: "internal"
   labels:
-    istio: istio-ca
+    istio: citadel
 spec:
   type: LoadBalancer
   ports:
   - port: 8060
     protocol: TCP
   selector:
-    istio: istio-ca
+    istio: citadel

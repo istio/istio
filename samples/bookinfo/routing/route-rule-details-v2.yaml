@@ -8,5 +8,5 @@ spec:
   http:
   - route:
     - destination:
-        name: details
+        host: details
         subset: v2

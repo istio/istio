@@ -16,9 +16,11 @@ package util
 
 import (
 	"crypto"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"reflect"
 )
 
 const (
@@ -86,4 +88,13 @@ func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	default:
 		return nil, fmt.Errorf("unsupported PEM block type for a private key: %s", kb.Type)
 	}
+}
+
+// GetRSAKeySize returns the size if it is RSA key, otherwise it returns an error.
+func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
+	if t := reflect.TypeOf(privKey); t != reflect.TypeOf(&rsa.PrivateKey{}) {
+		return 0, fmt.Errorf("key type is not RSA: %v", t)
+	}
+	pkey := privKey.(*rsa.PrivateKey)
+	return pkey.N.BitLen(), nil
 }

@@ -1,8 +1,0 @@
-hosts:
-- beta.world.example.com
-gateways:
-- some-gateway-wildcard
-http:
-- route:
-  - destination:
-      name: world

@@ -23,7 +23,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
 var duration19, _ = time.ParseDuration("19ms")
@@ -3054,7 +3054,7 @@ end
 			"as": "str1",
 		},
 		R: "1rts",
-		Fns: []expr.FunctionMetadata{
+		Fns: []ast.FunctionMetadata{
 			{Name: "reverse", Instance: false, ArgumentTypes: []descriptor.ValueType{descriptor.STRING}, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
@@ -3082,7 +3082,7 @@ end
 			"as": "str1",
 		},
 		R: "1rts",
-		Fns: []expr.FunctionMetadata{
+		Fns: []ast.FunctionMetadata{
 			{Name: "reverse", Instance: true, TargetType: descriptor.STRING, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
@@ -3302,6 +3302,319 @@ end`,
 		},
 		R: false,
 	},
+	{
+		E:    `conditional(true, "aa", "bb")`,
+		Type: descriptor.STRING,
+		R:    "aa",
+		IL: `
+fn eval() string
+  apush_b true
+  jz L0
+  apush_s "aa"
+  jmp L1
+L0:
+  apush_s "bb"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(false, 43, 24)`,
+		Type: descriptor.INT64,
+		R:    int64(24),
+		IL: `
+fn eval() integer
+  apush_b false
+  jz L0
+  apush_i 43
+  jmp L1
+L0:
+  apush_i 24
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, 43.25, 25.43)`,
+		Type: descriptor.DOUBLE,
+		R:    float64(25.43),
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() double
+  resolve_b "ab"
+  jz L0
+  apush_d 43.250000
+  jmp L1
+L0:
+  apush_d 25.430000
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, ab, bb)`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ab": false,
+			"bb": true,
+		},
+		IL: `
+fn eval() bool
+  resolve_b "ab"
+  jz L0
+  resolve_b "ab"
+  jmp L1
+L0:
+  resolve_b "bb"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, auri, buri)`,
+		Type: descriptor.URI,
+		R:    "http://foo",
+		I: map[string]interface{}{
+			"ab":   true,
+			"auri": "http://foo",
+			"bt":   "http://bar",
+		},
+		IL: `
+fn eval() string
+  resolve_b "ab"
+  jz L0
+  resolve_s "auri"
+  jmp L1
+L0:
+  resolve_s "buri"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, at, bt)`,
+		Type: descriptor.TIMESTAMP,
+		R:    time1977,
+		I: map[string]interface{}{
+			"ab": false,
+			"at": time1999,
+			"bt": time1977,
+		},
+		IL: `
+fn eval() interface
+  resolve_b "ab"
+  jz L0
+  resolve_f "at"
+  jmp L1
+L0:
+  resolve_f "bt"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, aip, bip)`,
+		Type: descriptor.IP_ADDRESS,
+		R:    net.IPv4(0x1, 0x2, 0x3, 0x4),
+		I: map[string]interface{}{
+			"ab":  true,
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x5, 0x6, 0x7, 0x8},
+		},
+		IL: `
+fn eval() interface
+  resolve_b "ab"
+  jz L0
+  resolve_f "aip"
+  jmp L1
+L0:
+  resolve_f "bip"
+L1:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  resolve_b "ab"
+  jz L1
+  apush_s "foo"
+  jmp L2
+L1:
+  apush_s "bar"
+L2:
+  jmp L0
+  resolve_s "bs"
+L0:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  resolve_b "ab"
+  jz L1
+  apush_s "foo"
+  jmp L0
+L1:
+  apush_s "bar"
+L0:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "boo",
+		I: map[string]interface{}{
+			"as": "boo",
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "zoo",
+		I: map[string]interface{}{
+			"bs": "zoo",
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  resolve_b "ab"
+  jz L0
+  apush_s "foo"
+  jmp L1
+L0:
+  apush_s "bar"
+L1:
+  jmp L2
+  tresolve_s "as"
+  jnz L2
+  resolve_s "bs"
+L2:
+  ret
+end
+`,
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"as": "boo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"bs": "boo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"as": "boo",
+			"bs": "zoo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"as": "boo",
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"bs": "boo",
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"as": "boo",
+			"bs": "zoo",
+			"ab": false,
+		},
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
@@ -3343,7 +3656,7 @@ type TestInfo struct {
 	conf map[string]*pb.AttributeManifest_AttributeInfo
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
-	Fns []expr.FunctionMetadata
+	Fns []ast.FunctionMetadata
 
 	// Externs holds any additional externs that should be used during evaluation.
 	Externs map[string]interface{}
@@ -3598,6 +3911,7 @@ var istio06AttributeSet = map[string]*pb.AttributeManifest_AttributeInfo{
 	"request.auth.principal":          {ValueType: descriptor.STRING},
 	"request.auth.audiences":          {ValueType: descriptor.STRING},
 	"request.auth.presenter":          {ValueType: descriptor.STRING},
+	"request.auth.claims":             {ValueType: descriptor.STRING_MAP},
 	"request.api_key":                 {ValueType: descriptor.STRING},
 	"source.ip":                       {ValueType: descriptor.IP_ADDRESS},
 	"source.labels":                   {ValueType: descriptor.STRING_MAP},

@@ -73,8 +73,28 @@ func (e *Env) Errorf(format string, args ...interface{}) error {
 	return fmt.Errorf(s)
 }
 
-// VerbosityLevel return true for test envs (all verbosity levels enabled).
-func (e *Env) VerbosityLevel(level adapter.VerbosityLevel) bool {
+// Debugf logs the provided message.
+func (e *Env) Debugf(format string, args ...interface{}) {
+	e.log(format, args...)
+}
+
+// InfoEnabled logs the provided message.
+func (e *Env) InfoEnabled() bool {
+	return true
+}
+
+// WarnEnabled logs the provided message.
+func (e *Env) WarnEnabled() bool {
+	return true
+}
+
+// ErrorEnabled logs the provided message.
+func (e *Env) ErrorEnabled() bool {
+	return true
+}
+
+// DebugEnabled logs the provided message.
+func (e *Env) DebugEnabled() bool {
 	return true
 }
 

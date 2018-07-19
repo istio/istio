@@ -17,6 +17,7 @@ package eureka
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -84,7 +85,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("GetService() should return nil on error")
 	}
 
-	instances, err := sd.Instances("hostname", nil, nil)
+	instances, err := sd.InstancesByPort("hostname", 0, nil)
 	if err == nil {
 		t.Error("Instances() should return error")
 	}
@@ -92,7 +93,7 @@ func TestServiceDiscoveryClientError(t *testing.T) {
 		t.Error("Instances() should return nil on error")
 	}
 
-	hostInstances, err := sd.GetProxyServiceInstances(model.Proxy{})
+	hostInstances, err := sd.GetProxyServiceInstances(&model.Proxy{})
 	if err == nil {
 		t.Error("GetProxyServiceInstances() should return error")
 	}
@@ -119,7 +120,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	}
 	sd := NewServiceDiscovery(cl)
 
-	service, err := sd.GetService(hostDNE)
+	service, err := sd.GetService(model.Hostname(hostDNE))
 	if err != nil {
 		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
@@ -127,15 +128,57 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host)
+	service, err = sd.GetService(model.Hostname(host))
 	if err != nil {
 		t.Errorf("GetService(%q) encountered unexpected error: %v", host, err)
 	}
 	if service == nil {
 		t.Errorf("GetService(%q) => should exist", host)
 	}
-	if service.Hostname != host {
+	if service.Hostname != model.Hostname(host) {
 		t.Errorf("GetService(%q) => %q, want %q", host, service.Hostname, host)
+	}
+}
+
+func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
+	host := "hello.world.local"
+	hostAlt := "foo.bar.local"
+	hostDNE := "does.not.exist.local"
+
+	cl := &mockClient{
+		apps: []*application{
+			{
+				Name: "APP",
+				Instances: []*instance{
+					makeInstance(host, "10.0.0.1", 9090, 8080, nil),
+					makeInstance(hostAlt, "10.0.0.2", 7070, -1, nil),
+				},
+			},
+		},
+	}
+	sd := NewServiceDiscovery(cl)
+
+	attr, err := sd.GetServiceAttributes(model.Hostname(hostDNE))
+	if err != nil {
+		t.Errorf("GetServiceAttributes() encountered unexpected error: %v", err)
+	}
+	if attr != nil {
+		t.Errorf("GetServiceAttributes(%q) => should not exist, got %v", hostDNE, *attr)
+	}
+
+	attr, err = sd.GetServiceAttributes(model.Hostname(host))
+	if err != nil {
+		t.Errorf("GetServiceAttributes(%q) encountered unexpected error: %v", host, err)
+	}
+	if attr == nil {
+		t.Errorf("GetServiceAttributes(%q) => should exist", host)
+	}
+	expect := model.ServiceAttributes{
+		Name:      model.Hostname(host).String(),
+		Namespace: model.IstioDefaultConfigNamespace,
+	}
+	if !reflect.DeepEqual(*attr, expect) {
+		t.Errorf("GetServiceAttributes(%q) => %v, want %v", host, *attr, expect)
 	}
 }
 
@@ -171,7 +214,7 @@ func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
 	}
 
 	for _, tt := range instanceTests {
-		instances, err := sd.GetProxyServiceInstances(tt.node)
+		instances, err := sd.GetProxyServiceInstances(&tt.node)
 		if err != nil {
 			t.Errorf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 		}
@@ -202,8 +245,8 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	kitKatLabels := model.Labels{"kit": "kat"}
 
 	serviceInstanceTests := []struct {
-		hostname  string
-		ports     []string
+		hostname  model.Hostname
+		port      int
 		labels    model.LabelsCollection
 		instances []*model.ServiceInstance
 	}{
@@ -226,7 +269,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 		{
 			// filter by hostname and port
 			hostname: "b.default.svc.local",
-			ports:    []string{"7070"},
+			port:     7070,
 			instances: []*model.ServiceInstance{
 				makeServiceInstance(serviceB, "10.0.0.1", 7070, nil),
 			},
@@ -234,7 +277,7 @@ func TestServiceDiscoveryInstances(t *testing.T) {
 	}
 
 	for _, c := range serviceInstanceTests {
-		instances, err := sd.Instances(c.hostname, c.ports, c.labels)
+		instances, err := sd.InstancesByPort(c.hostname, c.port, c.labels)
 		if err != nil {
 			t.Errorf("Instances() encountered unexpected error: %v", err)
 		}

@@ -31,6 +31,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
+	helper "istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	metrict "istio.io/istio/mixer/template/metric"
 )
@@ -50,6 +51,10 @@ var clientFunc = func(err error) createClientFunc {
 		return nil, err
 	}
 }
+
+var dummyShouldFill = func() bool { return true }
+var dummyMetadataFn = func() (string, error) { return "", nil }
+var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyMetadataFn, dummyMetadataFn, dummyMetadataFn)
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
 	tests := []struct {
@@ -77,7 +82,7 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 				metrics[name] = &metrict.Type{}
 			}
 			env := test.NewEnv(t)
-			b := &builder{createClient: clientFunc(nil)}
+			b := &builder{createClient: clientFunc(nil), mg: dummyMetadataGenerator}
 			b.SetMetricTypes(metrics)
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), env)
@@ -112,13 +117,65 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 func TestFactory_NewMetricsAspect_Errs(t *testing.T) {
 	err := fmt.Errorf("expected")
-	b := &builder{createClient: clientFunc(err)}
+	b := &builder{createClient: clientFunc(err), mg: dummyMetadataGenerator}
 	b.SetAdapterConfig(&config.Params{})
 	res, e := b.Build(context.Background(), test.NewEnv(t))
 	if e != nil && !strings.Contains(e.Error(), err.Error()) {
 		t.Fatalf("Expected error from factory.createClient to be propagated, got %v, %v", res, e)
 	} else if e == nil {
 		t.Fatalf("Got no error")
+	}
+}
+
+func TestMetricType(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		want string
+	}{
+		{
+			"custom metric",
+			&config.Params{
+				MetricInfo: map[string]*config.Params_MetricInfo{
+					"metric": {
+						MetricType: "istio.io/metric",
+					},
+				},
+			},
+			"istio.io/metric",
+		},
+		{
+			"metric type",
+			&config.Params{
+				MetricInfo: map[string]*config.Params_MetricInfo{
+					"metric": {},
+				},
+			},
+			customMetricPrefix + "metric",
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			metrics := map[string]*metrict.Type{"metric": {}}
+			b := &builder{createClient: clientFunc(nil), mg: dummyMetadataGenerator}
+			b.SetMetricTypes(metrics)
+			b.SetAdapterConfig(tt.cfg)
+			env := test.NewEnv(t)
+			h, err := b.Build(context.Background(), env)
+			if err != nil {
+				t.Fatalf("Failed building metric handler: %v", err)
+			}
+			info := h.(*handler).metricInfo
+			if _, found := info["metric"]; !found {
+				t.Fatalf("Failed find info for metric, got %v", info)
+			}
+
+			got := info["metric"].ttype
+			if tt.want != got {
+				t.Errorf("Bad metric type: Build(%v) => got %v, wanted %v", tt.cfg, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -178,7 +235,7 @@ func TestRecord(t *testing.T) {
 						GrowthFactor:     10,
 					}}},
 			},
-			vtype: descriptor.DOUBLE,
+			vtype: descriptor.INT64,
 		},
 		"distribution-explicit": {
 			ttype: "type",
@@ -191,7 +248,7 @@ func TestRecord(t *testing.T) {
 						Bounds: []float64{1, 10, 100},
 					}}},
 			},
-			vtype: descriptor.DOUBLE,
+			vtype: descriptor.DURATION,
 		},
 	}
 	now := time.Now()
@@ -284,7 +341,7 @@ func TestRecord(t *testing.T) {
 		{"distribution-exp", []*metrict.Instance{
 			{
 				Name:       "distribution-exp",
-				Value:      float64(99),
+				Value:      int64(99),
 				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
@@ -307,7 +364,7 @@ func TestRecord(t *testing.T) {
 		{"distribution-explicit", []*metrict.Instance{
 			{
 				Name:       "distribution-explicit",
-				Value:      float64(9),
+				Value:      9 * time.Millisecond,
 				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
@@ -332,7 +389,7 @@ func TestRecord(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			buf := &fakebuf{}
-			s := &handler{metricInfo: info, projectID: projectID, client: buf, l: test.NewEnv(t).Logger(), now: func() time.Time { return now }}
+			s := &handler{metricInfo: info, md: helper.Metadata{ProjectID: projectID}, client: buf, l: test.NewEnv(t).Logger(), now: func() time.Time { return now }}
 			_ = s.HandleMetric(context.Background(), tt.vals)
 
 			if len(buf.buf) != len(tt.expected) {
@@ -346,6 +403,138 @@ func TestRecord(t *testing.T) {
 				if !found {
 					t.Errorf("Want timeseries %v, but not present: %v", expected, buf.buf)
 				}
+			}
+		})
+	}
+}
+
+func TestProjectID(t *testing.T) {
+	createClientFn := func(pid string) createClientFunc {
+		return func(cfg *config.Params) (*monitoring.MetricClient, error) {
+			if cfg.ProjectId != pid {
+				return nil, fmt.Errorf("wanted %v got %v", pid, cfg.ProjectId)
+			}
+			return nil, nil
+		}
+	}
+	tests := []struct {
+		name string
+		cfg  *config.Params
+		pid  func() (string, error)
+		want string
+	}{
+		{
+			"empty project id",
+			&config.Params{
+				ProjectId: "",
+			},
+			func() (string, error) { return "pid", nil },
+			"pid",
+		},
+		{
+			"empty project id",
+			&config.Params{
+				ProjectId: "pid",
+			},
+			func() (string, error) { return "meta-pid", nil },
+			"pid",
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			mg := helper.NewMetadataGenerator(dummyShouldFill, tt.pid, dummyMetadataFn, dummyMetadataFn)
+			b := &builder{createClient: createClientFn(tt.want), mg: mg}
+			b.SetAdapterConfig(tt.cfg)
+			_, err := b.Build(context.Background(), test.NewEnv(t))
+			if err != nil {
+				t.Errorf("Project id is not expected: %v", err)
+			}
+		})
+	}
+}
+
+func TestProjectMetadata(t *testing.T) {
+	now := time.Now()
+	info := map[string]info{
+		"metric": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_GAUGE, Value: metricpb.MetricDescriptor_INT64},
+			vtype: descriptor.INT64,
+		},
+	}
+
+	tests := []struct {
+		name string
+		vals []*metrict.Instance
+		want *monitoredres.MonitoredResource
+	}{
+		{
+			"filled",
+			[]*metrict.Instance{
+				{
+					Name:  "metric",
+					Value: int64(1),
+					MonitoredResourceType: "mr-type",
+					MonitoredResourceDimensions: map[string]interface{}{
+						"project_id":   "id",
+						"location":     "l",
+						"cluster_name": "c",
+					},
+				},
+			},
+			&monitoredres.MonitoredResource{
+				Type: "mr-type",
+				Labels: map[string]string{
+					"project_id":   "id",
+					"location":     "l",
+					"cluster_name": "c",
+				},
+			},
+		},
+		{
+			"empty",
+			[]*metrict.Instance{
+				{
+					Name:  "metric",
+					Value: int64(1),
+					MonitoredResourceType: "mr-type",
+					MonitoredResourceDimensions: map[string]interface{}{
+						"project_id":   "",
+						"location":     "",
+						"cluster_name": "",
+					},
+				},
+			},
+			&monitoredres.MonitoredResource{
+				Type: "mr-type",
+				Labels: map[string]string{
+					"project_id":   "pid",
+					"location":     "location",
+					"cluster_name": "cluster",
+				},
+			},
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			buf := &fakebuf{}
+			s := &handler{
+				metricInfo: info,
+				md:         helper.Metadata{ProjectID: "pid", Location: "location", ClusterName: "cluster"},
+				client:     buf,
+				l:          test.NewEnv(t).Logger(),
+				now:        func() time.Time { return now },
+			}
+			_ = s.HandleMetric(context.Background(), tt.vals)
+
+			if len(buf.buf) != 1 {
+				t.Errorf("Want 1 values to send, got %d", len(buf.buf))
+			}
+			got := buf.buf[0].Resource
+			if !reflect.DeepEqual(tt.want.Labels, got.Labels) {
+				t.Errorf("Want monitored resource %v, got %v", tt.want, got)
 			}
 		})
 	}

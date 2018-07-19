@@ -3,6 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: prometheus
+  namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -20,13 +21,11 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-{{- if .Values.global.rbacEnabled }}
       serviceAccountName: prometheus
-{{ end }}
       containers:
         - name: prometheus
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -42,7 +41,11 @@ spec:
               path: /-/ready
               port: 9090
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus
@@ -50,7 +53,5 @@ spec:
       - name: config-volume
         configMap:
           name: prometheus
-    {{- if .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml .Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

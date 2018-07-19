@@ -1,0 +1,10 @@
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "per-service-disable-mtls"
+spec:
+  targets:
+  - name: "c"
+  - name: "d"
+    ports:
+    - number: 80

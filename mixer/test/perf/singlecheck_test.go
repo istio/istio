@@ -28,14 +28,12 @@ import (
 // include any expression evaluation.
 var baseSingleCheckSetup = perf.Setup{
 	Config: perf.Config{
-		Global:                  minimalServiceConfig,
-		Service:                 joinConfigs(h1Noop, i2CheckNothing, r2UsingH1AndI2),
-		IdentityAttribute:       "destination.service",
-		IdentityAttributeDomain: "svc.cluster.local",
-		SingleThreaded:          true,
+		Global:         minimalServiceConfig,
+		Service:        joinConfigs(h1Noop, i2CheckNothing, r2UsingH1AndI2),
+		SingleThreaded: true,
 	},
 
-	Load: perf.Load{
+	Loads: []perf.Load{{
 		Multiplier: 1,
 		Requests: []perf.Request{
 			perf.BasicCheck{
@@ -47,7 +45,7 @@ var baseSingleCheckSetup = perf.Setup{
 				},
 			},
 		},
-	},
+	}},
 }
 
 func Benchmark_Single_Check(b *testing.B) {
@@ -59,12 +57,11 @@ func Benchmark_Single_Check(b *testing.B) {
 	perf.Run(b, &setup, settings)
 }
 
-func Benchmark_Single_Check_R2(b *testing.B) {
+func Benchmark_Single_Check_Rpc(b *testing.B) {
 	settings := baseSettings
-	settings.RunMode = perf.InProcessBypassGrpc
+	settings.RunMode = perf.InProcess
 
 	setup := baseSingleCheckSetup
-	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }

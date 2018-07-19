@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package faultInject
+package client_test
 
 import (
 	"fmt"
@@ -60,13 +60,23 @@ const reportAttributes = `
      "content-length": "18",
      ":status": "503",
      "server": "envoy"
-  }
+  },
+  "response.total_size": "*",
+  "request.total_size": 0
 }
+`
+
+const allAbortFaultFilter = `
+- name: envoy.fault
+  config:
+    abort:
+      percent: 100
+      http_status: 503
 `
 
 func TestFaultInject(t *testing.T) {
 	s := env.NewTestSetup(env.FaultInjectTest, t)
-	s.SetFaultInject(true)
+	s.SetFiltersBeforeMixer(allAbortFaultFilter)
 	// fault injection filer is before mixer filter.
 	// If a request is rejected, per-route service config could not
 	// be used, has to use default service_configs map to send Report.

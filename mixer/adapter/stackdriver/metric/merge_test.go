@@ -217,27 +217,27 @@ func TestGroupBySeries(t *testing.T) {
 			map[uint64]ts{m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0)}}},
 		{"multiple points",
 			ts{makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 2, 2)},
-			map[uint64]ts{m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0), makeTSCumulative(m1, mr1, 2, 2, 0)}}},
+			map[uint64]ts{m1mr1: {makeTSDelta(m1, mr1, 1, 1, 0), makeTSDelta(m1, mr1, 2, 2, 0)}}},
 		{"two metrics",
 			ts{makeTS(m1, mr1, 1, 1), makeTS(m2, mr1, 1, 1)},
 			map[uint64]ts{
-				m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0)},
-				m2mr1: {makeTSCumulative(m2, mr1, 1, 1, 0)}}},
+				m1mr1: {makeTSDelta(m1, mr1, 1, 1, 0)},
+				m2mr1: {makeTSDelta(m2, mr1, 1, 1, 0)}}},
 		{"two MRs",
 			ts{makeTS(m1, mr2, 1, 1), makeTS(m1, mr1, 1, 1)},
 			map[uint64]ts{
-				m1mr2: {makeTSCumulative(m1, mr2, 1, 1, 0)},
-				m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0)}}},
+				m1mr2: {makeTSDelta(m1, mr2, 1, 1, 0)},
+				m1mr1: {makeTSDelta(m1, mr1, 1, 1, 0)}}},
 		{"disjoint",
 			ts{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1)},
 			map[uint64]ts{
-				m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0)},
-				m2mr2: {makeTSCumulative(m2, mr2, 1, 1, 0)}}},
+				m1mr1: {makeTSDelta(m1, mr1, 1, 1, 0)},
+				m2mr2: {makeTSDelta(m2, mr2, 1, 1, 0)}}},
 		{"disjoint, multiple points",
 			ts{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m1, mr1, 2, 2), makeTS(m2, mr2, 2, 2)},
 			map[uint64]ts{
-				m1mr1: {makeTSCumulative(m1, mr1, 1, 1, 0), makeTSCumulative(m1, mr1, 2, 2, 0)},
-				m2mr2: {makeTSCumulative(m2, mr2, 1, 1, 0), makeTSCumulative(m2, mr2, 2, 2, 0)}}},
+				m1mr1: {makeTSDelta(m1, mr1, 1, 1, 0), makeTSDelta(m1, mr1, 2, 2, 0)},
+				m2mr2: {makeTSDelta(m2, mr2, 1, 1, 0), makeTSDelta(m2, mr2, 2, 2, 0)}}},
 	}
 
 	for idx, tt := range tests {

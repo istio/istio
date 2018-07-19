@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -9,42 +10,33 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtls.enabed }}
-    # Mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-    mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
-  {{- end }}
-    #
-    # Edit this list to avoid using mTLS to connect to these services.
-    # Typically, these are control services (e.g kubernetes API server) that don't have istio sidecar
-    # to transparently terminate mTLS authentication.
-    # mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
+    disablePolicyChecks: {{ .Values.global.disablePolicyChecks }}
+
     # Set enableTracing to false to disable request tracing.
-    enableTracing: true
+    enableTracing: {{ .Values.global.enableTracing }}
+
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
-    mixerCheckServer: istio-mixer.{{ .Release.Namespace }}:15004
-    mixerReportServer: istio-mixer.{{ .Release.Namespace }}:15004
+    # Deprecated: mixer is using EDS
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
-    #
-    # Along with discoveryRefreshDelay, this setting determines how
-    # frequently should Envoy fetch and update its internal configuration
-    # from istio Pilot. Lower refresh delay results in higher CPU
-    # utilization and potential performance loss in exchange for faster
-    # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: {{ .Values.global.refreshInterval }}
+
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    sdsUdsPath: ""
+    
+    # How frequently should Envoy fetch key/cert from NodeAgent.
+    sdsRefreshDelay: 15s
+
     #
     defaultConfig:
-      # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress pods.
-      # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: {{ .Values.global.refreshInterval }}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
@@ -60,6 +52,19 @@ data:
       drainDuration: 45s
       parentShutdownDuration: 1m0s
       #
+      # The mode used to redirect inbound connections to Envoy. This setting
+      # has no effect on outbound traffic: iptables REDIRECT is always used for
+      # outbound connections.
+      # If "REDIRECT", use iptables REDIRECT to NAT and redirect to Envoy.
+      # The "REDIRECT" mode loses source addresses during redirection.
+      # If "TPROXY", use iptables TPROXY to redirect to Envoy.
+      # The "TPROXY" mode preserves both the source and destination IP
+      # addresses and ports, so that they can be used for advanced filtering
+      # and manipulation.
+      # The "TPROXY" mode also configures the sidecar to run with the
+      # CAP_NET_ADMIN capability, which is required to use TPROXY.
+      #interceptionMode: REDIRECT
+      #
       # Port where Envoy listens (on local host) for admin commands
       # You can exec into the istio-proxy container in a pod and
       # curl the admin port (curl http://localhost:15000/) to obtain
@@ -69,11 +74,14 @@ data:
       proxyAdminPort: 15000
       #
       # Zipkin trace collector
-      zipkinAddress: istio-zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+
+    {{- if .Values.global.proxy.envoyStatsd.enabled }}
       #
-      # Statsd metrics collector. istio mixer exposes a UDP endpoint
-      # to collect and convert statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-mixer.{{ .Release.Namespace }}:9125
+      # Statsd metrics collector converts statsd metrics into Prometheus metrics.
+      statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}.{{ .Release.Namespace }}:{{ .Values.global.proxy.envoyStatsd.port }}
+    {{- end }}
+
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
@@ -87,6 +95,5 @@ data:
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      # Port 15007 is captured by envoy, but is not yet tuned (max connections, etc)
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:8080
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}

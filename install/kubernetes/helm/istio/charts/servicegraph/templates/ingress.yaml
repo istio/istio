@@ -5,6 +5,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ template "servicegraph.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "servicegraph.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}

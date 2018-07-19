@@ -53,31 +53,35 @@ function istioDnsmasq() {
     PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    CITADEL_IP=$(kubectl get -n $NS service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
-      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
+    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
       sleep 30
     else
       break
     fi
   done
 
-  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
 
   #/etc/dnsmasq.d/kubedns
   echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
-  echo "address=/istio-mixer/$MIXER_IP" >> kubedns
+  echo "address=/istio-policy/$MIXER_IP" >> kubedns
+  echo "address=/istio-telemetry/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
-  echo "address=/istio-ca/$CA_IP" >> kubedns
+  echo "address=/istio-citadel/$CITADEL_IP" >> kubedns
+  echo "address=/istio-ca/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
   # Also generate host entries for the istio-system. The generated config will work with both
   # 'cluster-wide' and 'per-namespace'.
-  echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
+  echo "address=/istio-policy.$NS/$MIXER_IP" >> kubedns
+  echo "address=/istio-telemetry.$NS/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
-  echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
+  echo "address=/istio-citadel.$NS/$CITADEL_IP" >> kubedns
+  echo "address=/istio-ca.$NS/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
   echo "$0 machineSetup does this for you."
@@ -95,7 +99,7 @@ function istioClusterEnv() {
   CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
-  echo "CONTROL_PLANE_AUTH_POLICY=$CP_AUTH_POLICY" >> cluster.env
+  echo "ISTIO_CP_AUTH=$CP_AUTH_POLICY" >> cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
