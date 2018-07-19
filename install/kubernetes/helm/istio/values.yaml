@@ -142,6 +142,27 @@ global:
     tag: v1.7.6_coreos.0
 
 #
+# ingress configuration
+#
+ingress:
+  enabled: false
+  replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
+  service:
+    annotations: {}
+    loadBalancerIP: ""
+    type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+    ports:
+    - port: 80
+      name: http
+      nodePort: 32000
+    - port: 443
+      name: https
+    selector:
+      istio: ingress
+
+#
 # Gateways Configuration
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
 # You can add more gateways in addition to the defaults but make sure those are uniquely named
@@ -191,6 +212,11 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Ports opened for exposing grafana, kiali and other system services.
+    # User must also enable the corresponding option or deploy VirtualService configs.
+    - port: 15015
+      targetPort: 15015
+      name: http-grafana
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -221,33 +247,6 @@ gateways:
       - name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
         mountPath: /etc/istio/egressgateway-ca-certs
-
-  # This is the ingress for legacy K8S Ingress resources.
-  ingress:
-    enabled: true
-    labels:
-      app: istio-ingress
-      istio: ingress
-    replicaCount: 1
-    autoscaleMin: 1
-    autoscaleMax: 5
-    serviceAnnotations: {}
-    service:
-    loadBalancerIP: ""
-    type: LoadBalancer
-    ports:
-      - port: 80
-        name: http
-        nodePort: 32000
-      - port: 443
-        name: https
-    secretVolumes:
-    - name: ingress-certs
-      secretName: istio-ingress-certs
-      mountPath: /etc/istio/ingress-certs
-    - name: ingressgateway-ca-certs
-      secretName: istio-ingress-ca-certs
-      mountPath: /etc/istio/ingress-ca-certs
 
   # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
   # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
