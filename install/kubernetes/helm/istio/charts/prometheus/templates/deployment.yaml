@@ -22,6 +22,9 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: prometheus
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: prometheus
           image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
