@@ -2,19 +2,29 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
- name: requestcount
+ name: swprobe
  namespace: istio-system
 spec:
  value: "1"
  dimensions:
-   target: destination.service | "unknown"
+   sourceService: source.service | ""
+   sourceUID: source.uid | ""
+   destinationService: destination.service | ""
+   destinationUID: destination.uid | ""
+   requestMethod: request.method | ""
+   requestPath: request.path | ""
+   requestScheme: request.scheme | ""
+   requestTime: request.time
+   responseTime: response.time
+   responseCode: response.code | 200
+   reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
 
 ---
 # handler configuration for adapter 'metric'
 apiVersion: "config.istio.io/v1alpha2"
 kind: skywalking
 metadata:
- name: hndlrTest
+ name: swHandler
  namespace: istio-system
 spec:
  file_path: "out.txt"
@@ -28,6 +38,6 @@ metadata:
 spec:
  match: "true"
  actions:
- - handler: hndlrTest.skywalking
+ - handler: swHandler.skywalking
    instances:
-   - requestcount.metric
+   - swprobe.metric

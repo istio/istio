@@ -62,7 +62,38 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 ////////////////// Request-time Methods //////////////////////////
 // metric.Handler#HandleMetric
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+
 	for _, inst := range insts {
+		if _, ok := h.metricTypes[inst.Name]; !ok {
+			h.env.Logger().Errorf("Cannot find Type for instance %s", inst.Name)
+			continue
+		}
+
+		sourceService := inst.Dimensions["sourceService"]
+		sourceUID := inst.Dimensions["sourceUID"]
+		destinationService := inst.Dimensions["destinationService"]
+		destinationUID := inst.Dimensions["destinationUID"]
+		requestMethod := inst.Dimensions["requestMethod"]
+		requestPath := inst.Dimensions["requestPath"]
+		requestScheme := inst.Dimensions["requestScheme"]
+		requestTime := inst.Dimensions["requestTime"]
+		responseTime := inst.Dimensions["responseTime"]
+		responseCode := inst.Dimensions["responseCode"]
+		reporter := inst.Dimensions["reporter"]
+
+		h.f.WriteString(fmt.Sprintf(`sourceService: '%s'`, sourceService))
+		h.f.WriteString(fmt.Sprintf(`sourceUID: '%s'`, sourceUID))
+		h.f.WriteString(fmt.Sprintf(`destinationService: '%s'`, destinationService))
+		h.f.WriteString(fmt.Sprintf(`destinationUID: '%s'`, destinationUID))
+		h.f.WriteString(fmt.Sprintf(`requestMethod: '%s'`, requestMethod))
+		h.f.WriteString(fmt.Sprintf(`requestPath: '%s'`, requestPath))
+		h.f.WriteString(fmt.Sprintf(`requestScheme: '%s'`, requestScheme))
+		h.f.WriteString(fmt.Sprintf(`requestTime: '%s'`, requestTime))
+		h.f.WriteString(fmt.Sprintf(`responseTime: '%s'`, responseTime))
+		h.f.WriteString(fmt.Sprintf(`responseCode: '%s'`, responseCode))
+		h.f.WriteString(fmt.Sprintf(`reporter: '%s'`, reporter))
+
+		// debug only
 		h.f.WriteString(`output:`)
 		if _, ok := h.metricTypes[inst.Name]; !ok {
 			h.env.Logger().Errorf("Cannot find Type for instance %s", inst.Name)
@@ -72,9 +103,9 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 		Instance Name  :'%s'
 		Instance Value : %v,
 		Type           : %v`, inst.Name, *inst, *h.metricTypes[inst.Name]))
+
+
 	}
-
-
 
 	return nil
 }
