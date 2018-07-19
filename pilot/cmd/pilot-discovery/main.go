@@ -88,8 +88,8 @@ var (
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s, %s})",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry,
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
 			serviceregistry.CloudFoundryRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
 		"Cloud Foundry config file")
@@ -120,10 +120,6 @@ func init() {
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,
 		"Interval (in seconds) for polling the Consul service registry")
-	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Eureka.ServerURL, "eurekaserverURL", "",
-		"URL for the Eureka server")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Eureka.Interval, "eurekaserverInterval", 2*time.Second,
-		"Interval (in seconds) for polling the Eureka service registry")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.DiscoveryOptions.GrpcAddr, "grpcAddr", ":15010",

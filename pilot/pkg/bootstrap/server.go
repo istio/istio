@@ -56,7 +56,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/consul"
-	"istio.io/istio/pilot/pkg/serviceregistry/eureka"
 	"istio.io/istio/pilot/pkg/serviceregistry/external"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -76,28 +75,6 @@ var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
 
-	// ConfigDescriptor describes all supported configuration kinds.
-	// TODO: use model.IstioConfigTypes once model.IngressRule is deprecated
-	ConfigDescriptor = model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.EnvoyFilter,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
-
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
@@ -107,9 +84,9 @@ var (
 	DefaultPlugins = []string{
 		plugin.Authn,
 		plugin.Authz,
-		plugin.Envoyfilter,
 		plugin.Health,
 		plugin.Mixer,
+		plugin.Envoyfilter,
 	}
 )
 
@@ -143,17 +120,10 @@ type ConsulArgs struct {
 	Interval  time.Duration
 }
 
-// EurekaArgs provides configuration for the Eureka service registry
-type EurekaArgs struct {
-	ServerURL string
-	Interval  time.Duration
-}
-
 // ServiceArgs provides the composite configuration for all service registries in the system.
 type ServiceArgs struct {
 	Registries []string
 	Consul     ConsulArgs
-	Eureka     EurekaArgs
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -191,6 +161,7 @@ type Server struct {
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
+	kubeRegistry     *kube.Controller
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
@@ -474,7 +445,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
-		store := memory.Make(ConfigDescriptor)
+		store := memory.Make(model.IstioConfigTypes)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args, configController)
@@ -538,7 +509,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCache, error) {
 	kubeCfgFile := s.getKubeCfgFile(args)
-	configClient, err := crd.NewClient(kubeCfgFile, "", ConfigDescriptor, args.Config.ControllerOptions.DomainSuffix)
+	configClient, err := crd.NewClient(kubeCfgFile, "", model.IstioConfigTypes, args.Config.ControllerOptions.DomainSuffix)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
@@ -551,7 +522,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 }
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, ConfigDescriptor)
+	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
 	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -593,6 +564,7 @@ func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Contr
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
 		aggregate.Registry{
 			Name:             serviceregistry.KubernetesRegistry,
@@ -666,17 +638,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
-				})
-		case serviceregistry.EurekaRegistry:
-			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
-			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
-			serviceControllers.AddRegistry(
-				aggregate.Registry{
-					Name:             serviceregistry.ServiceRegistry(r),
-					ClusterID:        string(serviceregistry.EurekaRegistry),
-					Controller:       eureka.NewController(eurekaClient, args.Service.Eureka.Interval),
-					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
-					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
 
 		case serviceregistry.CloudFoundryRegistry:
@@ -799,10 +760,16 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)
+
+	if s.kubeRegistry != nil {
+		// kubeRegistry may use the environment for push status reporting.
+		// TODO: maybe all registries should have his as an optional field ?
+		s.kubeRegistry.Env = &environment
+	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
@@ -924,6 +891,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 				NextProtos:   []string{"h2", "http/1.1"},
 				ClientAuth:   tls.RequireAndVerifyClientCert,
 				ClientCAs:    caCertPool,
+        release-1.0
 			},
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.ProtoMajor == 2 && strings.HasPrefix(

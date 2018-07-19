@@ -39,8 +39,27 @@ type Client struct {
 	*rest.RESTClient
 }
 
+// ExecClient is an interface for remote execution
+type ExecClient interface {
+	EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error)
+	AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error)
+}
+
 // NewClient is the contructor for the client wrapper
 func NewClient(kubeconfig, configContext string) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient}, nil
+}
+
+// NewExecClient is the contructor for the mockable ExecClient interface
+func NewExecClient(kubeconfig, configContext string) (ExecClient, error) {
 	config, err := defaultRestConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err

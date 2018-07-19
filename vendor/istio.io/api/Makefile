@@ -78,8 +78,6 @@ protoc_gen_docs_plugin := --docs_out=warnings=true,mode=html_fragment_with_front
 #####################
 
 generate: \
-	generate-broker-go \
-	generate-broker-python \
 	generate-mcp-go \
 	generate-mcp-python \
 	generate-mesh-go \
@@ -94,32 +92,6 @@ generate: \
 	generate-authn-python \
 	generate-envoy-go \
 	generate-envoy-python
-
-#####################
-# broker/...
-#####################
-
-broker_v1_path := broker/dev
-broker_v1_protos := $(shell find $(broker_v1_path) -type f -name '*.proto' | sort)
-broker_v1_pb_gos := $(broker_v1_protos:.proto=.pb.go)
-broker_v1_pb_pythons := $(broker_v1_protos:.proto=_pb2.py)
-broker_v1_pb_doc := $(broker_v1_path)/istio.broker.dev.pb.html
-
-generate-broker-go: $(broker_v1_pb_gos) $(broker_v1_pb_doc)
-
-$(broker_v1_pb_gos) $(broker_v1_pb_doc): $(broker_v1_protos)
-	## Generate broker/dev/*.pb.go + $(broker_v1_pb_doc)
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(broker_v1_path) $^
-
-generate-broker-python: $(broker_v1_pb_pythons)
-
-$(broker_v1_pb_pythons): $(broker_v1_protos)
-	## Generate python/istio_api/broker/dev/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $^
-
-clean-broker:
-	rm -f $(broker_v1_pb_gos)
-	rm -f $(broker_v1_pb_doc)
 
 #####################
 # mcp/...
@@ -264,41 +236,27 @@ clean-mixer:
 # routing/...
 #####################
 
-routing_v1alpha1_path := routing/v1alpha1
-routing_v1alpha1_protos := $(shell find $(routing_v1alpha1_path) -type f -name '*.proto' | sort)
-routing_v1alpha1_pb_gos := $(routing_v1alpha1_protos:.proto=.pb.go)
-routing_v1alpha1_pb_pythons := $(routing_v1alpha1_protos:.proto=_pb2.py)
-routing_v1alpha1_pb_doc := $(routing_v1alpha1_path)/istio.routing.v1alpha1.pb.html
-
 routing_v1alpha3_path := networking/v1alpha3
 routing_v1alpha3_protos := $(shell find networking/v1alpha3 -type f -name '*.proto' | sort)
 routing_v1alpha3_pb_gos := $(routing_v1alpha3_protos:.proto=.pb.go)
 routing_v1alpha3_pb_pythons := $(routing_v1alpha3_protos:.proto=_pb2.py)
 routing_v1alpha3_pb_doc := $(routing_v1alpha3_path)/istio.routing.v1alpha3.pb.html
 
-generate-routing-go: $(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
-
-$(routing_v1alpha1_pb_gos) $(routing_v1alpha1_pb_doc): $(routing_v1alpha1_protos)
-	## Generate routing/v1alpha1/*.pb.go +
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha1_path) $^
+generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
 
 $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
-generate-routing-python: $(routing_v1alpha1_pb_pythons) $(routing_v1alpha3_pb_pythons)
-
-$(routing_v1alpha1_pb_pythons): $(routing_v1alpha1_protos)
-	## Generate python/istio_api/routing/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $^
+generate-routing-python: $(routing_v1alpha3_pb_pythons)
 
 $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 	## Generate python/istio_api/networking/v1alpha3/*_pb2.py
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-routing:
-	rm -f $(routing_v1alpha1_pb_gos) $(routing_v1alpha3_pb_gos)
-	rm -f $(routing_v1alpha1_pb_doc) $(routing_v1alpha3_pb_doc)
+	rm -f $(routing_v1alpha3_pb_gos)
+	rm -f $(routing_v1alpha3_pb_doc)
 
 #####################
 # rbac/...
@@ -386,8 +344,7 @@ clean-envoy:
 clean-python:
 	rm -rf python/istio_api/*
 
-clean: clean-broker \
-	clean-mcp \
+clean: 	clean-mcp \
 	clean-mesh \
 	clean-mixer \
 	clean-routing \

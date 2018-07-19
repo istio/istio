@@ -4,6 +4,10 @@ global:
   imagePullPolicy: Always
   hub: docker.io/istionightly
   tag: nightly-release-0.8
+  meshExpansion: true
+  meshExpansionILB: true
+  proxy_init:
+    image: costinm/proxy_init:tproxy
 
   proxy:
     image: proxyv2
@@ -13,28 +17,43 @@ global:
         memory: 1024Mi
 
 gateways:
-  enabled: true
+  istio-ilbgateway:
+    enabled: true
+
   istio-ingressgateway:
+    meshExpansion: true
     enabled: true
     labels:
       istio: ingressgateway
+      ver: ingress10
+      app: istio-ingressgateway
+      name: gateway
     autoscaleMin: 1
     autoscaleMax: 4
     resources:
       limits:
-        cpu: 1000m
-        memory: 128Mi
+        cpu: 4000m
+        memory: 512Mi
       requests:
-        cpu: 1000m
-        memory: 128Mi
+        cpu: 4000m
+        memory: 512Mi
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
     ports:
     - port: 80
-      name: http
+      targetPort: 80
+      name: http2
+      nodePort: 31380
     - port: 443
       name: https
+      nodePort: 31390
     - port: 31400
       name: tcp
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grcp-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
     - port: 5201
       name: tcp-iperf-cont
     - port: 5202
@@ -44,8 +63,13 @@ gateways:
     - port: 5204
       name: tcp-iperf-tls
 
+pilot:
+  replicaCount: 1
+  # Override for 0.8 upgrade
+  #image: costinm/pilot:costin-dev
+
 ingress:
-  enabled: false
+  enabled: true
 
 prometheus:
   enabled: true
@@ -55,6 +79,8 @@ sidecar-injector:
 
 grafana:
   enabled: true
+  #image: gcr.io/istio-release/grafana:release-1.0-20180710-09-15
+
 
 zipkin:
   enabled: true
@@ -63,4 +89,10 @@ servicegraph:
   enabled: true
 
 prometheus:
+  enabled: true
+
+kiali:
+  enabled: true
+
+certmanager:
   enabled: true

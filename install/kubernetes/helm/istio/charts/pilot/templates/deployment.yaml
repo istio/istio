@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-  # TODO: default tempate doesn't have this, which one is right ?
+  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -25,7 +25,11 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
@@ -40,7 +44,7 @@ spec:
           - containerPort: 15011
           readinessProbe:
             httpGet:
-              path: /v1/registration
+              path: /debug/endpointz
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -60,6 +64,10 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+{{- if .Values.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.traceSampling }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
