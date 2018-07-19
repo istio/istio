@@ -891,7 +891,6 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 				NextProtos:   []string{"h2", "http/1.1"},
 				ClientAuth:   tls.RequireAndVerifyClientCert,
 				ClientCAs:    caCertPool,
-        release-1.0
 			},
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.ProtoMajor == 2 && strings.HasPrefix(
