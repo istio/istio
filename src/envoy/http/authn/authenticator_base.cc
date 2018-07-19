@@ -59,7 +59,7 @@ bool AuthenticatorBase::validateX509(const iaapi::MutualTls& mtls,
     case iaapi::MutualTls::STRICT:
       return has_user;
     default:
-      NOT_REACHED;
+      NOT_REACHED_GCOVR_EXCL_LINE;
   }
 }
 
