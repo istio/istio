@@ -198,7 +198,7 @@ gateways:
       istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
