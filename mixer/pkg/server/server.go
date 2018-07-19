@@ -20,6 +20,10 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/mixer/pkg/config/crd"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
@@ -184,7 +188,8 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		}
 
 		reg := store.NewRegistry(config.StoreInventory()...)
-		if st, err = reg.NewStore(configStoreURL); err != nil {
+		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
+		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
