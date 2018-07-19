@@ -26,7 +26,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
 )
 
 // Environment provides an aggregate environmental API for Pilot
