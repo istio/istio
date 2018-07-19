@@ -339,7 +339,6 @@ func translateRoute(in *networking.HTTPRoute,
 		action := &route.RouteAction{
 			Cors:         translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy:  translateRetryPolicy(in.Retries),
-			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)

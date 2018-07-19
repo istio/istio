@@ -784,6 +784,10 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
+	// Allow websocket upgrades
+	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = append(connectionManager.UpgradeConfigs, websocketUpgrade)
+
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
 			Rds: &http_conn.Rds{
