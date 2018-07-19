@@ -133,7 +133,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 			if len(tcp.Match) == 0 { // implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters: buildOutboundNetworkFilters(clusterName, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop

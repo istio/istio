@@ -22,10 +22,6 @@ import (
 )
 
 func TestServiceEntry(t *testing.T) {
-	//if !tc.Egress {
-	//	t.Skipf("Skipping %s: egress=false", t.Name())
-	//}
-	//
 	// This list is ordered so that cases that use the same egress rule are adjacent. This is
 	// done to avoid applying config changes more than necessary.
 	cases := []struct {

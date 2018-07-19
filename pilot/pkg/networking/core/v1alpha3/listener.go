@@ -490,7 +490,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					destinationIPAddress = svclistenAddress
 				}
 
-
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				// Check if this TCP listener conflicts with an existing HTTP listener on 0.0.0.0:Port
