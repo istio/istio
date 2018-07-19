@@ -15,15 +15,11 @@
 package model
 
 import (
+	"encoding/json"
 	"sync"
-
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-
-	"encoding/json"
-
-	"istio.io/istio/pkg/log"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -32,7 +28,7 @@ import (
 // The struct is exposed in a debug endpoint - fields public to allow
 // easy serialization as json.
 type PushStatus struct {
-	mutex sync.Mutex `json:"-"`
+	mutex sync.Mutex
 
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.

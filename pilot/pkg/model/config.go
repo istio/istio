@@ -27,7 +27,6 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -195,6 +194,7 @@ type ConfigStoreCache interface {
 type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
+// nolint: maligned
 type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
@@ -825,47 +825,122 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 	return out
 }
 
-// QuotaSpecByDestination selects Mixerclient quota specifications
-// associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
-	if err != nil {
-		return nil
+// matchWildcardService matches destinationHost to a wildcarded svc.
+// checked values for svc
+//     '*'  matches everything
+//     '*.ns.*'  matches anything in the same namespace
+//		strings of any other form are not matched.
+func matchWildcardService(destinationHost, svc string) bool {
+	if len(svc) == 0 || !strings.Contains(svc, "*") {
+		return false
 	}
 
-	// Create a set key from a reference's name and namespace.
-	key := func(name, namespace string) string { return name + "/" + namespace }
+	if svc == "*" {
+		return true
+	}
 
+	// check for namespace match with svc like '*.ns.*'
+	// extract match substring by dropping '*'
+	if strings.HasPrefix(svc, "*") && strings.HasSuffix(svc, "*") {
+		return strings.Contains(destinationHost, svc[1:len(svc)-1])
+	}
+
+	log.Warnf("Wildcard pattern '%s' is not allowed. Only '*' or '*.<ns>.*' is allowed.", svc)
+
+	return false
+}
+
+// MatchesDestHost returns true if the service instance matches the given IstioService
+// ex: binding host(details.istio-system.svc.cluster.local) ?= instance(reviews.default.svc.cluster.local)
+func MatchesDestHost(destinationHost string, meta ConfigMeta, svc *mccpb.IstioService) bool {
+	if matchWildcardService(destinationHost, svc.Service) {
+		return true
+	}
+
+	// try exact matches
+	hostname := string(ResolveHostname(meta, svc))
+	if destinationHost == hostname {
+		return true
+	}
+	shortName := hostname[0:strings.Index(hostname, ".")]
+	if strings.HasPrefix(destinationHost, shortName) {
+		log.Warnf("Quota excluded. service: %s matches binding shortname: %s, but does not match fqdn: %s",
+			destinationHost, shortName, hostname)
+	}
+
+	return false
+}
+
+func recordSpecRef(refs map[string]bool, bindingNamespace string, quotas []*mccpb.QuotaSpecBinding_QuotaSpecReference) {
+	for _, spec := range quotas {
+		namespace := spec.Namespace
+		if namespace == "" {
+			namespace = bindingNamespace
+		}
+		refs[key(spec.Name, namespace)] = true
+	}
+}
+
+// key creates a key from a reference's name and namespace.
+func key(name, namespace string) string {
+	return name + "/" + namespace
+}
+
+// findQuotaSpecRefs returns a set of quotaSpec reference names
+func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]bool {
 	// Build the set of quota spec references bound to the service instance.
-	refs := make(map[string]struct{})
+	refs := make(map[string]bool)
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.QuotaSpecBinding)
 		for _, service := range b.Services {
-			hostname := ResolveHostname(binding.ConfigMeta, service)
-			if hostname == instance.Service.Hostname {
-				for _, spec := range b.QuotaSpecs {
-					namespace := spec.Namespace
-					if namespace == "" {
-						namespace = binding.Namespace
-					}
-					refs[key(spec.Name, namespace)] = struct{}{}
-				}
+			if MatchesDestHost(string(instance.Service.Hostname), binding.ConfigMeta, service) {
+				recordSpecRef(refs, binding.Namespace, b.QuotaSpecs)
+				// found a binding that matches the instance.
+				break
 			}
 		}
 	}
 
+	return refs
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", instance)
+	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
+	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
+
+	// Build the set of quota spec references bound to the service instance.
+	refs := findQuotaSpecRefs(instance, bindings)
+	log.Debugf("QuotaSpecByDestination refs:%v", refs)
+
 	// Append any spec that is in the set of references.
+	// Remove matching specs from refs so refs only contains dangling references.
 	var out []Config
 	for _, spec := range specs {
-		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+		refkey := key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)
+		if refs[refkey] {
 			out = append(out, spec)
+			delete(refs, refkey)
 		}
 	}
 
+	if len(refs) > 0 {
+		log.Warnf("Some matched QuotaSpecs were not found: %v", refs)
+	}
 	return out
 }
 
