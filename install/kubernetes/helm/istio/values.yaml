@@ -331,7 +331,7 @@ grafana:
     annotations: {}
     name: http
     type: ClusterIP
-    externalPort:   3000
+    externalPort: 3000
     internalPort: 3000
   ingress:
     enabled: false
