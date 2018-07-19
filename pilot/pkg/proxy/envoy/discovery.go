@@ -134,6 +134,16 @@ var (
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
 	// avoid adding a circular dependency from v1 to v2.
 	V2ClearCache func()
+
+	// DebounceAfter is the delay added to events to wait
+	// after a registry/config event for debouncing.
+	// This will delay the push by at least this interval, plus
+	// the time getting subsequent events.
+	DebounceAfter time.Duration
+
+	// Maximum time to wait for events (debouncing). Defaults to
+	// 10 seconds
+	DebounceMax time.Duration
 )
 
 func init() {
@@ -151,6 +161,22 @@ func init() {
 			clearCacheTime = t
 		}
 	}
+
+	DebounceAfter = envDuration("PILOT_DEBOUNCE_AFTER", 100 * time.Millisecond)
+	DebounceMax = envDuration("PILOT_DEBOUNCE_MAX", 10 * time.Second)
+}
+
+func envDuration(env string, def time.Duration) time.Duration {
+	envVal := os.Getenv(env)
+	if envVal == "" {
+		return def
+	}
+	d, err := time.ParseDuration(envVal)
+	if err != nil {
+		log.Warnf("Invalid value %s %s %v", env, envVal, err)
+		return def
+	}
+	return d
 }
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
@@ -431,6 +457,25 @@ func (ds *DiscoveryService) ClearCache() {
 	ds.clearCache()
 }
 
+func debouncePush(startDebounce time.Time) {
+	clearCacheMutex.Lock()
+	since := time.Since(lastClearCacheEvent)
+	clearCacheMutex.Unlock()
+
+	if since > DebounceAfter/ 2 {
+		V2ClearCache()
+	} else if time.Since(startDebounce) > DebounceMax {
+		V2ClearCache()
+	} else {
+		log.Infof("Push debounce %d: %v since last change, %v since last push",
+			clearCacheEvents,
+			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+		time.AfterFunc(DebounceAfter, func() {
+			debouncePush(startDebounce)
+		})
+	}
+}
+
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
@@ -446,7 +491,14 @@ func (ds *DiscoveryService) clearCache() {
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
-		V2ClearCache()
+
+		// Debounce: it's been more than 1 second since last event,
+		// but more events may still be in progress. Trigger
+		// 'debouncedPush' in 100 ms.
+		time.AfterFunc(100 * time.Millisecond, func() {
+			debouncePush(lastClearCacheEvent)
+		})
+
 		return
 	}
 
