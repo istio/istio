@@ -482,12 +482,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// into listener address so that there is a dedicated listener for this
 				// ip:port. This will reduce the impact of a listener reload
 				svclistenAddress := service.GetServiceAddressForProxy(node)
-				if !strings.Contains(svclistenAddress, "/") {
-					listenAddress = svclistenAddress
-				} else {
-					// Address is a CIDR. Fall back to 0.0.0.0 and
-					// filter chain match
-					destinationIPAddress = svclistenAddress
+				// We should never get an empty address.
+				// This is a safety guard, in case soem platform adapter isn't doing things
+				// properly
+				if len(svclistenAddress) > 0 {
+					if !strings.Contains(svclistenAddress, "/") {
+						listenAddress = svclistenAddress
+					} else {
+						// Address is a CIDR. Fall back to 0.0.0.0 and
+						// filter chain match
+						destinationIPAddress = svclistenAddress
+					}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
