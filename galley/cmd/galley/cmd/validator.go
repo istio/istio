@@ -228,7 +228,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			stop := make(chan struct{})
 
 			if webhookConfigFile != "" {
-				log.Infof("server-side configuration validation enabled. Using %v for validatingwebhookconfiguration",
+				log.Infof("server-side configuration validation enabled. Trying to use %v for validatingwebhookconfiguration",
 					webhookConfigFile)
 				if err := reconcileValidatingWebhookConfiguration(stop, caFile, webhookConfigFile); err != nil {
 					log.Errorf("could not start validatingwebhookconfiguration reconciliation: %v", err)
