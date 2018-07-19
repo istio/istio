@@ -74,7 +74,7 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	return nil
 }
 
-func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Config, deprecatedTCPFilterMatchAddress string,
+func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Config, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
@@ -101,14 +101,14 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					// Use the service's virtual address first.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
-					destinationCIDRs := []string{deprecatedTCPFilterMatchAddress}
+					destinationCIDRs := []string{destinationIPAddress}
 					if len(match.DestinationSubnets) > 0 {
 						destinationCIDRs = match.DestinationSubnets
 					}
 					out = append(out, &filterChainOpts{
 						sniHosts:         match.SniHosts,
 						destinationCIDRs: destinationCIDRs,
-						networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+						networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
 					})
 				}
 			}
@@ -128,9 +128,12 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
+			destinationCIDRs := []string{destinationIPAddress}
+
 			if len(tcp.Match) == 0 { // implicit match
 				out = append(out, &filterChainOpts{
-					networkFilters: buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+					destinationCIDRs: destinationCIDRs,
+					networkFilters: buildOutboundNetworkFilters(clusterName, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -139,7 +142,6 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 			// Use the service's virtual address first.
 			// But if a virtual service overrides it with its own destination subnet match
 			// give preference to the user provided one
-			destinationCIDRs := []string{deprecatedTCPFilterMatchAddress}
 			virtualServiceDestinationSubnets := make([]string, 0)
 
 			for _, match := range tcp.Match {
@@ -153,7 +155,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -166,7 +168,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(clusterName, "", listenPort),
+					networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
 				})
 			}
 		}
@@ -176,8 +178,8 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 	if !defaultRouteAdded {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
-			destinationCIDRs: []string{deprecatedTCPFilterMatchAddress},
-			networkFilters:   buildOutboundNetworkFilters(clusterName, deprecatedTCPFilterMatchAddress, listenPort),
+			destinationCIDRs: []string{destinationIPAddress},
+			networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
 		})
 	}
 

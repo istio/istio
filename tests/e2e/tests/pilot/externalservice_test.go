@@ -22,10 +22,10 @@ import (
 )
 
 func TestServiceEntry(t *testing.T) {
-	if !tc.Egress {
-		t.Skipf("Skipping %s: egress=false", t.Name())
-	}
-
+	//if !tc.Egress {
+	//	t.Skipf("Skipping %s: egress=false", t.Name())
+	//}
+	//
 	// This list is ordered so that cases that use the same egress rule are adjacent. This is
 	// done to avoid applying config changes more than necessary.
 	cases := []struct {
@@ -35,44 +35,37 @@ func TestServiceEntry(t *testing.T) {
 		shouldBeReachable bool
 	}{
 		{
-			name:              "REACHABLE_httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "REACHABLE_www.google.com",
+			config:            "testdata/networking/v1alpha3/serviceentry-google.yaml",
+			url:               "http://www.google.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_httpbin.org_443",
-			config:            "testdata/networking/v1alpha3/serviceentry-httpbin.yaml",
-			url:               "https://httpbin.org:443/headers",
+			name:              "UNREACHABLE_bing.com",
+			config:            "testdata/networking/v1alpha3/serviceentry-google.yaml",
+			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_www.httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://www.httpbin.org/headers",
+			name:              "REACHABLE_www.bing.com",
+			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-bing.yaml",
+			url:               "http://www.bing.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_httpbin.org",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-httpbin.yaml",
-			url:               "http://httpbin.org/headers",
+			name:              "UNREACHABLE_bing.com",
+			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-bing.yaml",
+			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_wikipedia_sni",
-			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-sni.yaml",
+			name:              "REACHABLE_wikipedia_range",
+			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
-		// FIXME: re-enable once we get this working
-		//{
-		//	name:              "REACHABLE_wikipedia_range",
-		//	config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-		//	url:               "https://www.wikipedia.org",
-		//	shouldBeReachable: true,
-		//},
 		{
-			name:              "UNREACHABLE_cnn",
+			name:              "UNREACHABLE_google",
 			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
 			url:               "https://cnn.com",
 			shouldBeReachable: false,
