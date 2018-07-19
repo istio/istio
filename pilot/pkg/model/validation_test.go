@@ -2304,6 +2304,18 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
+		{name: "discovery type static, tcp port, no address", in: networking.ServiceEntry{
+			Hosts: []string{"google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Protocol: "tcp", Name: "tcp-valid1"},
+			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+			valid: false},
 		{name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16"},

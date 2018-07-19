@@ -1753,13 +1753,21 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			networking.ServiceEntry_Resolution_name[int32(serviceEntry.Resolution)]))
 	}
 
+	// if service entry has TCP ports, make sure there is atleast one address
+	hasTCPPorts := false
 	for _, port := range serviceEntry.Ports {
 		errs = appendErrors(errs,
 			validatePortName(port.Name),
 			validateProtocol(port.Protocol),
 			ValidatePort(int(port.Number)))
+		if ParseProtocol(port.Protocol).IsTCP() && !ParseProtocol(port.Protocol).IsTLS() {
+			hasTCPPorts = true
+		}
 	}
 
+	if hasTCPPorts && len(serviceEntry.Addresses) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("service entries has TCP ports but no address to route to"))
+	}
 	return
 }
 
