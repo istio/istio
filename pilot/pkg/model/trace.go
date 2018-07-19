@@ -17,8 +17,6 @@ package model
 import (
 	"os"
 	"strconv"
-
-	"istio.io/istio/pkg/log"
 )
 
 // Default trace sampling, if not provided in env var.

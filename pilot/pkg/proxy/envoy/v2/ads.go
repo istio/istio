@@ -284,6 +284,8 @@ type XdsEvent struct {
 	push *model.PushStatus
 
 	pending *int32
+
+	version string
 }
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
@@ -410,7 +412,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushStatus, true)
+				err := s.pushLds(con, s.env.PushStatus, true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -515,6 +517,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 				time.Since(pushEv.push.Start), string(out))
 		}
 	}()
+	// TODO: check version, suppress if changed
 	if con.CDSWatch {
 		err := s.pushCds(con)
 		if err != nil {
@@ -534,7 +537,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if con.LDSWatch {
-		err := s.pushLds(con, pushEv.push, false)
+		err := s.pushLds(con, pushEv.push, false, pushEv.version)
 		if err != nil {
 			return err
 		}
@@ -550,17 +553,19 @@ func adsClientCount() int {
 	return n
 }
 
+// AdsPushAll is used only by tests (after refactoring)
+func AdsPushAll(s *DiscoveryServer) {
+	s.AdsPushAll(versionInfo())
+}
+
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func AdsPushAll(s *DiscoveryServer) {
-	versionMutex.Lock()
-	version = time.Now()
-	versionMutex.Unlock()
-
+func (s *DiscoveryServer) AdsPushAll(version string) {
 	s.modelMutex.RLock()
-	adsLog.Infof("XDS: Registry event, pushing. Services: %d, "+
-		"VirtualServices: %d, ConnectedEndpoints: %d", len(s.services), len(s.virtualServices), adsClientCount())
+	adsLog.Infof("XDS: Pushing %s Services: %d, "+
+		"VirtualServices: %d, ConnectedEndpoints: %d", version,
+		len(s.services), len(s.virtualServices), adsClientCount())
 	monServices.Set(float64(len(s.services)))
 	monVServices.Set(float64(len(s.virtualServices)))
 
@@ -613,6 +618,7 @@ func AdsPushAll(s *DiscoveryServer) {
 		case client.pushChannel <- &XdsEvent{
 			push:    pushStatus,
 			pending: &pendingPush,
+			version: version,
 		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
