@@ -231,7 +231,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 				log.Infof("server-side configuration validation enabled. Using %v for validatingwebhookconfiguration",
 					webhookConfigFile)
 				if err := reconcileValidatingWebhookConfiguration(stop, caFile, webhookConfigFile); err != nil {
-					log.Errorf("could not start validatingwebhookconfiguration reconcilation: %v", err)
+					log.Errorf("could not start validatingwebhookconfiguration reconciliation: %v", err)
 				}
 			} else {
 				log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
