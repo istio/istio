@@ -825,12 +825,12 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 	return out
 }
 
-// matchWildcardService returns true if wildcard matches the destination service
-// checked values are
-//     '*' which matches everything
-//     '*.ns.*' which matches anything in the same namespace
+// matchWildcardService matches destinationHost to a wildcarded svc.
+// checked values for svc
+//     '*'  matches everything
+//     '*.ns.*'  matches anything in the same namespace
 //		strings of any other form are not matched.
-func matchWildcardService(destinationHost string, svc string) bool {
+func matchWildcardService(destinationHost, svc string) bool {
 	if len(svc) == 0 || !strings.Contains(svc, "*") {
 		return false
 	}
@@ -851,8 +851,7 @@ func matchWildcardService(destinationHost string, svc string) bool {
 }
 
 // MatchesDestHost returns true if the service instance matches the given IstioService
-// 2018-07-17T23:44:08.916032Z	debug	model	model/config.go:850
-// MatchesDestHost binding host(details.istio-system.svc.cluster.local) ?= instance(reviews.default.svc.cluster.local)
+// ex: binding host(details.istio-system.svc.cluster.local) ?= instance(reviews.default.svc.cluster.local)
 func MatchesDestHost(destinationHost string, meta ConfigMeta, svc *mccpb.IstioService) bool {
 	if matchWildcardService(destinationHost, svc.Service) {
 		return true
@@ -865,7 +864,7 @@ func MatchesDestHost(destinationHost string, meta ConfigMeta, svc *mccpb.IstioSe
 	}
 	shortName := hostname[0:strings.Index(hostname, ".")]
 	if strings.HasPrefix(destinationHost, shortName) {
-		log.Warnf("Quota excluded. service: %v only matches binding shortname: %s with %s",
+		log.Warnf("Quota excluded. service: %s matches binding shortname: %s, but does not match fqdn: %s",
 			destinationHost, shortName, hostname)
 	}
 
