@@ -500,7 +500,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 
 // translateRetryPolicy translates retry policy
 func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
-	if in != nil && in.Attempts > 0 {
+	if in != nil {
 		d := util.GogoDurationToDuration(in.PerTryTimeout)
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},

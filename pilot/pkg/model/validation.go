@@ -1622,8 +1622,8 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 		return
 	}
 
-	if retries.Attempts <= 0 {
-		errs = multierror.Append(errs, errors.New("attempts must be positive"))
+	if retries.Attempts < 0 {
+		errs = multierror.Append(errs, errors.New("attempts must be non-zero"))
 	}
 	if retries.PerTryTimeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
