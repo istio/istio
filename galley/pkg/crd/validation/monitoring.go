@@ -86,13 +86,15 @@ func reportValidationHTTPError(status int) {
 	}).Add(1)
 }
 
-func ReportValidationUpdateError(err error) {
+// ReportValidationConfigUpdateError reports validation configuration update errors.
+func ReportValidationConfigUpdateError(err error) {
 	metricWebhookConfigurationUpdateError.With(prometheus.Labels{
 		"error": err.Error(),
 	}).Add(1)
 }
 
-func ReportValidationUpdate() {
+// ReportValidationConfigUpdate reports successful validation configuration updates.
+func ReportValidationConfigUpdate() {
 	metricWebhookConfigurationUpdates.Add(1)
 }
 

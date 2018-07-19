@@ -106,11 +106,11 @@ func reconcileValidatingWebhookConfiguration(stop <-chan struct{}, caCertFile, w
 	// initial load
 	desiredValidatingWebhookConfig, err := reload(caCertFile, webhookConfigFile)
 	if err != nil {
-		validation.ReportValidationUpdateError(err)
+		validation.ReportValidationConfigUpdateError(err)
 		return err
 	}
 	if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
-		validation.ReportValidationUpdateError(err)
+		validation.ReportValidationConfigUpdateError(err)
 		return err
 	}
 
@@ -118,9 +118,9 @@ func reconcileValidatingWebhookConfiguration(stop <-chan struct{}, caCertFile, w
 		if err := util.PatchValidatingWebhookConfig(validateClient, desiredValidatingWebhookConfig); err != nil {
 			log.Errorf("Could not reconcile %v validatingwebhookconfiguration: %v",
 				desiredValidatingWebhookConfig.Name, err)
-			validation.ReportValidationUpdateError(err)
+			validation.ReportValidationConfigUpdateError(err)
 		} else {
-			validation.ReportValidationUpdate()
+			validation.ReportValidationConfigUpdate()
 		}
 	}
 
@@ -137,7 +137,7 @@ func reconcileValidatingWebhookConfiguration(stop <-chan struct{}, caCertFile, w
 				loaded, err := reload(caCertFile, webhookConfigFile)
 				if err != nil {
 					log.Errorf("Could not reload ca-cert-file and validatingwebhookconfiguration: %v", err)
-					validation.ReportValidationUpdateError(err)
+					validation.ReportValidationConfigUpdateError(err)
 					break
 				}
 				desiredValidatingWebhookConfig = loaded
