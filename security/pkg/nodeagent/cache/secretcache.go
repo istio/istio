@@ -100,7 +100,9 @@ func (sc *SecretCache) GetSecret(ctx context.Context, proxyID, spiffeID, token s
 
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
-	sc.rotationTicker.Stop()
+	if sc.rotationTicker != nil {
+		sc.rotationTicker.Stop()
+	}
 }
 
 func (sc *SecretCache) keyCertRotationJob() {
@@ -137,7 +139,6 @@ func (sc *SecretCache) rotate(t time.Time) {
 					}
 
 					return
-
 				}
 
 				// If token is still valid, re-generated the secret and push change to proxy.
@@ -173,16 +174,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
+		log.Errorf("Failed to generated key cert: %v", err)
 		return nil, err
 	}
 
-	certChainPER, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
+	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
 	if err != nil {
+		log.Errorf("Failed to sign cert: %v", err)
 		return nil, err
 	}
 
 	return &sds.SecretItem{
-		CertificateChain: certChainPER,
+		CertificateChain: certChainPEM,
 		PrivateKey:       keyPEM,
 		SpiffeID:         spiffeID,
 		Token:            token,
