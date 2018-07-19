@@ -483,7 +483,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// ip:port. This will reduce the impact of a listener reload
 				svclistenAddress := service.GetServiceAddressForProxy(node)
 				// We should never get an empty address.
-				// This is a safety guard, in case soem platform adapter isn't doing things
+				// This is a safety guard, in case some platform adapter isn't doing things
 				// properly
 				if len(svclistenAddress) > 0 {
 					if !strings.Contains(svclistenAddress, "/") {
