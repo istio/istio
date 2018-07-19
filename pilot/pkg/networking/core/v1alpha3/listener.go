@@ -478,17 +478,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// As a small optimization, CIDRs with /32 prefix will be converted
 				// into listener address so that there is a dedicated listener for this
 				// ip:port. This will reduce the impact of a listener reload
-				svclistenAddress := service.GetServiceAddressForProxy(node)
+
+				var svcListenAddress string
+				// This is to maintain backward compatibility with 0.8 envoy
+				if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+					if service.Resolution != model.Passthrough {
+						svcListenAddress = service.GetServiceAddressForProxy(node)
+					}
+				} else {
+					svcListenAddress = service.GetServiceAddressForProxy(node)
+				}
+
 				// We should never get an empty address.
 				// This is a safety guard, in case some platform adapter isn't doing things
 				// properly
-				if len(svclistenAddress) > 0 {
-					if !strings.Contains(svclistenAddress, "/") {
-						listenAddress = svclistenAddress
+				if len(svcListenAddress) > 0 {
+					if !strings.Contains(svcListenAddress, "/") {
+						listenAddress = svcListenAddress
 					} else {
 						// Address is a CIDR. Fall back to 0.0.0.0 and
 						// filter chain match
-						destinationIPAddress = svclistenAddress
+						destinationIPAddress = svcListenAddress
 					}
 				}
 
@@ -520,7 +530,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs,
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy

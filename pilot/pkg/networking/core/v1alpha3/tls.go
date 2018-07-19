@@ -74,7 +74,7 @@ func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1al
 	return nil
 }
 
-func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Config, destinationIPAddress string,
+func buildOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Environment, configs []model.Config, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
@@ -108,7 +108,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					out = append(out, &filterChainOpts{
 						sniHosts:         match.SniHosts,
 						destinationCIDRs: destinationCIDRs,
-						networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
+						networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
 					})
 				}
 			}
@@ -133,7 +133,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 			if len(tcp.Match) == 0 { // implicit match
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -155,7 +155,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 					if len(match.DestinationSubnets) == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
+							networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -168,7 +168,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
+					networkFilters:   buildOutboundNetworkFilters(node, clusterName, "", listenPort),
 				})
 			}
 		}
@@ -179,7 +179,7 @@ func buildOutboundTCPFilterChainOpts(env *model.Environment, configs []model.Con
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
-			networkFilters:   buildOutboundNetworkFilters(clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFilters(node, clusterName, destinationIPAddress, listenPort),
 		})
 	}
 
