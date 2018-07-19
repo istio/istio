@@ -16,9 +16,7 @@ package pilot
 
 import (
 	"fmt"
-	"strings"
 	"testing"
-	"time"
 )
 
 func TestServiceEntry(t *testing.T) {
@@ -31,39 +29,39 @@ func TestServiceEntry(t *testing.T) {
 		shouldBeReachable bool
 	}{
 		{
-			name:              "REACHABLE_www.google.com",
-			config:            "testdata/networking/v1alpha3/serviceentry-google.yaml",
+			name:              "REACHABLE_www.google.com_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
 			url:               "http://www.google.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_bing.com",
-			config:            "testdata/networking/v1alpha3/serviceentry-google.yaml",
+			name:              "UNREACHABLE_bing.com_over_google_80",
+			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_www.bing.com",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-bing.yaml",
+			name:              "REACHABLE_www.bing.com_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
 			url:               "http://www.bing.com",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_bing.com",
-			config:            "testdata/networking/v1alpha3/serviceentry-wildcard-bing.yaml",
+			name:              "UNREACHABLE_bing.com_over_bing_wildcard_80",
+			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
-			name:              "REACHABLE_wikipedia_range",
-			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
+			name:              "REACHABLE_wikipedia.org_over_cidr_range",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
 		{
-			name:              "UNREACHABLE_google",
-			config:            "testdata/networking/v1alpha3/serviceentry-tcp-wikipedia-cidr.yaml",
-			url:               "https://cnn.com",
+			name:              "UNREACHABLE_google.com_over_cidr_range",
+			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			url:               "https://google.com",
 			shouldBeReachable: false,
 		},
 	}
@@ -106,11 +104,10 @@ func TestServiceEntry(t *testing.T) {
 
 			for cluster := range tc.Kube.Clusters {
 				// Make the requests and verify the reachability
-				for _, src := range []string{"a", "b"} {
+				for _, src := range []string{"a"} {
 					runRetriableTest(t, cluster, "from_"+src, 3, func() error {
-						trace := fmt.Sprint(time.Now().UnixNano())
-						resp := ClientRequest(cluster, src, cs.url, 1, fmt.Sprintf("-key Trace-Id -val %q", trace))
-						reachable := resp.IsHTTPOk() && strings.Contains(resp.Body, trace)
+						resp := ClientRequest(cluster, src, cs.url, 1, "")
+						reachable := resp.IsHTTPOk()
 						if reachable && !cs.shouldBeReachable {
 							return fmt.Errorf("%s is reachable from %s (should be unreachable)", cs.url, src)
 						}
