@@ -235,7 +235,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 		routes, err := istio_route.BuildHTTPRoutesForVirtualService(node, v, nameToServiceMap, port, nil, merged.Names, env.IstioConfigStore)
 		if err != nil {
-			log.Warnf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
+			log.Debugf("%s omitting routes for service %v due to error: %v", node.ID, v, err)
 			continue
 		}
 
