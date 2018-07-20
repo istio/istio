@@ -149,7 +149,7 @@ data:
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
 {{- end }}
-          {{ "[[ end -]]" }}
+        {{ "[[ end -]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
