@@ -28,6 +28,7 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/emicklei/go-restful"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -126,9 +127,29 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
+// DiscoveryServiceOptions contains options for create a new discovery
+// service instance.
+type DiscoveryServiceOptions struct {
+	// The listening address for HTTP. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	HTTPAddr string
+
+	// The listening address for GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	GrpcAddr string
+
+	// The listening address for secure GRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	SecureGrpcAddr string
+
+	// The listening address for the monitoring port. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
+	// a port number is automatically chosen.
+	MonitoringAddr string
+}
+
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	DiscoveryOptions envoy.DiscoveryServiceOptions
+	DiscoveryOptions DiscoveryServiceOptions
 	Namespace        string
 	Mesh             MeshArgs
 	Config           ConfigArgs
@@ -158,7 +179,6 @@ type Server struct {
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureGRPCServer *grpc.Server
-	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
@@ -730,6 +750,31 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 	})
 }
 
+// Flush cached discovery responses whenever services, service instances, or routing configuration changes.
+// TODO: smarter cache invalidation. this is very simplistic.
+// essentially we invalidate our cache whenever ANYTHING changes.
+func (s *Server) registerClearCacheHandlers() error {
+	serviceHandler := func(*model.Service, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+	if err := s.ServiceController.AppendServiceHandler(serviceHandler); err != nil {
+		return err
+	}
+	instanceHandler := func(*model.ServiceInstance, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+	if err := s.ServiceController.AppendInstanceHandler(instanceHandler); err != nil {
+		return err
+	}
+
+	if s.configController != nil {
+		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
+		// (especially mixerclient HTTP and quota)
+		configHandler := func(model.Config, model.Event) { s.EnvoyXdsServer.ClearCacheFunc() }
+		for _, descriptor := range model.IstioConfigTypes {
+			s.configController.RegisterEventHandler(descriptor.Type, configHandler)
+		}
+	}
+
+	return nil
+}
+
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
 		Mesh:             s.mesh,
@@ -739,26 +784,22 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	// Set up discovery service
-	discovery, err := envoy.NewDiscoveryService(
-		s.ServiceController,
-		s.configController,
-		environment,
-		args.DiscoveryOptions,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create discovery service: %v", err)
-	}
-	s.discoveryService = discovery
+	// TODO: get rid of unnecessary dependency on restful library (this a leftover from the v1 discovery service)
+	container := restful.NewContainer()
+	ws := &restful.WebService{}
+	ws.Produces(restful.MIME_JSON)
+	container.Add(ws)
 
-	s.mux = s.discoveryService.RestContainer.ServeMux
+	s.mux = container.ServeMux
+
+	if err := s.registerClearCacheHandlers(); err != nil {
+		return err
+	}
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
-	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
@@ -771,7 +812,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: discovery.RestContainer}
+		Handler: container}
 
 	listener, err := net.Listen("tcp", args.DiscoveryOptions.HTTPAddr)
 	if err != nil {

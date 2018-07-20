@@ -32,7 +32,6 @@ import (
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
@@ -195,11 +194,9 @@ func initMulticlusterPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 	serverAgrs := bootstrap.PilotArgs{
 		Namespace: "istio-system",
-		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			HTTPAddr:        ":18080", // An unused port will be chosen
-			GrpcAddr:        ":0",
-			EnableCaching:   true,
-			EnableProfiling: true,
+		DiscoveryOptions: bootstrap.DiscoveryServiceOptions{
+			HTTPAddr: ":18080", // An unused port will be chosen
+			GrpcAddr: ":0",
 		},
 		//TODO: start mixer first, get its address
 		Mesh: bootstrap.MeshArgs{
