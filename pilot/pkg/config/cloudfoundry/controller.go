@@ -35,37 +35,30 @@ type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
-type expiringConfig struct {
-	lastUpdated time.Time
-	content     *model.Config
-}
-
 type storage struct {
 	sync.RWMutex
-	virtualServices  map[string]expiringConfig
-	destinationRules map[string]expiringConfig
+	virtualServices  map[string]*model.Config
+	destinationRules map[string]*model.Config
 }
 
 type controller struct {
 	client        CopilotClient
 	store         model.ConfigStore
 	timeout       time.Duration
-	configTTL     time.Duration
 	checkInterval time.Duration
 	eventHandlers []func(model.Config, model.Event)
 	storage       storage
 }
 
-func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval, configTTL time.Duration) *controller {
+func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval time.Duration) *controller {
 	return &controller{
 		client:        client,
 		store:         store,
 		timeout:       timeout,
 		checkInterval: checkInterval,
-		configTTL:     configTTL,
 		storage: storage{
-			virtualServices:  make(map[string]expiringConfig),
-			destinationRules: make(map[string]expiringConfig),
+			virtualServices:  make(map[string]*model.Config),
+			destinationRules: make(map[string]*model.Config),
 		},
 	}
 }
@@ -90,7 +83,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 			case <-tick.C:
 				c.rebuildRules()
 				c.runHandlers()
-				c.clean()
 			}
 		}
 	}()
@@ -115,12 +107,12 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	switch typ {
 	case model.VirtualService.Type:
 		if vs, ok := c.storage.virtualServices[name]; ok {
-			config = vs.content
+			config = vs
 			found = true
 		}
 	case model.DestinationRule.Type:
 		if dr, ok := c.storage.destinationRules[name]; ok {
-			config = dr.content
+			config = dr
 			found = true
 		}
 	default:
@@ -136,11 +128,11 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	switch typ {
 	case model.VirtualService.Type:
 		for _, service := range c.storage.virtualServices {
-			configs = append(configs, *service.content)
+			configs = append(configs, *service)
 		}
 	case model.DestinationRule.Type:
 		for _, rule := range c.storage.destinationRules {
-			configs = append(configs, *rule.content)
+			configs = append(configs, *rule)
 		}
 	default:
 	}
@@ -182,8 +174,8 @@ func (c *controller) rebuildRules() {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
-	virtualServices := make(map[string]expiringConfig)
-	destinationRules := make(map[string]expiringConfig)
+	virtualServices := make(map[string]*model.Config)
+	destinationRules := make(map[string]*model.Config)
 
 	for _, route := range resp.GetRoutes() {
 		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())
@@ -192,7 +184,7 @@ func (c *controller) rebuildRules() {
 		var dr *networking.DestinationRule
 
 		if config, ok := destinationRules[destinationRuleName]; ok {
-			dr = config.content.Spec.(*networking.DestinationRule)
+			dr = config.Spec.(*networking.DestinationRule)
 		} else {
 			dr = createDestinationRule(route)
 		}
@@ -200,7 +192,7 @@ func (c *controller) rebuildRules() {
 
 		var vs *networking.VirtualService
 		if config, ok := virtualServices[virtualServiceName]; ok {
-			vs = config.content.Spec.(*networking.VirtualService)
+			vs = config.Spec.(*networking.VirtualService)
 		} else {
 			vs = createVirtualService(gatewayNames, route)
 		}
@@ -215,27 +207,21 @@ func (c *controller) rebuildRules() {
 			vs.Http = append(vs.Http, r)
 		}
 
-		virtualServices[virtualServiceName] = expiringConfig{
-			lastUpdated: time.Now(),
-			content: &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Type:    model.VirtualService.Type,
-					Version: model.VirtualService.Version,
-					Name:    virtualServiceName,
-				},
-				Spec: vs,
+		virtualServices[virtualServiceName] = &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.VirtualService.Type,
+				Version: model.VirtualService.Version,
+				Name:    virtualServiceName,
 			},
+			Spec: vs,
 		}
-		destinationRules[destinationRuleName] = expiringConfig{
-			lastUpdated: time.Now(),
-			content: &model.Config{
-				ConfigMeta: model.ConfigMeta{
-					Type:    model.DestinationRule.Type,
-					Version: model.DestinationRule.Version,
-					Name:    destinationRuleName,
-				},
-				Spec: dr,
+		destinationRules[destinationRuleName] = &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:    model.DestinationRule.Type,
+				Version: model.DestinationRule.Version,
+				Name:    destinationRuleName,
 			},
+			Spec: dr,
 		}
 	}
 
@@ -248,25 +234,6 @@ func (c *controller) rebuildRules() {
 func (c *controller) runHandlers() {
 	for _, h := range c.eventHandlers {
 		h(model.Config{}, model.EventUpdate)
-	}
-}
-
-func (c *controller) clean() {
-	c.storage.RLock()
-	defer c.storage.RUnlock()
-
-	currentTime := time.Now()
-
-	for key, item := range c.storage.destinationRules {
-		if currentTime.Sub(item.lastUpdated) > c.configTTL {
-			delete(c.storage.destinationRules, key)
-		}
-	}
-
-	for key, item := range c.storage.virtualServices {
-		if currentTime.Sub(item.lastUpdated) > c.configTTL {
-			delete(c.storage.virtualServices, key)
-		}
 	}
 }
 

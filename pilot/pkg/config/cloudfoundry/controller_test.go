@@ -20,7 +20,7 @@ func TestRegisterEventHandler(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
 
 	var callCount int
 	controller.RegisterEventHandler("virtual-service", func(model.Config, model.Event) {
@@ -41,7 +41,7 @@ func TestConfigDescriptor(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
 
 	descriptors := controller.ConfigDescriptor()
 
@@ -58,7 +58,7 @@ func TestGet(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
@@ -151,7 +151,7 @@ func TestList(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
@@ -220,7 +220,7 @@ func TestCacheClear(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
