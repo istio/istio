@@ -16,8 +16,6 @@ package errors
 
 import (
 	"fmt"
-
-	"istio.io/istio/pkg/test/envvar"
 )
 
 // UnrecognizedEnvironment error
@@ -26,10 +24,10 @@ func UnrecognizedEnvironment(name string) error {
 }
 
 // MissingKubeConfigForEnvironment error
-func MissingKubeConfigForEnvironment(env string) error {
+func MissingKubeConfigForEnvironment(env string, envvar string) error {
 	return fmt.Errorf(
 		"environment %q requires kube configuration (can be specified from command-line, or with %s)",
-		env, envvar.ISTIO_TEST_KUBE_CONFIG)
+		env, envvar)
 }
 
 // InvalidTestID error

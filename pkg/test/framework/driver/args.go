@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/errors"
+	"istio.io/istio/pkg/test/framework/errors"
 )
 
 const (
@@ -29,8 +29,8 @@ const (
 	EnvLocal = "local"
 )
 
-// Args is the set of arguments to the test driver.
-type Args struct {
+// args is the set of arguments to the test driver.
+type args struct {
 	// Environment to run the tests in. By default, a local environment will be used.
 	Environment string
 
@@ -60,15 +60,15 @@ type Args struct {
 	Tag string
 }
 
-// DefaultArgs returns the default set of arguments.
-func DefaultArgs() *Args {
-	return &Args{
+// defaultArgs returns the default set of arguments.
+func defaultArgs() *args {
+	return &args{
 		Environment: EnvLocal,
 	}
 }
 
 // Validate the arguments.
-func (a *Args) Validate() error {
+func (a *args) Validate() error {
 	switch a.Environment {
 	case EnvLocal, EnvKube:
 
@@ -77,7 +77,7 @@ func (a *Args) Validate() error {
 	}
 
 	if a.Environment == EnvKube && a.KubeConfig == "" {
-		return errors.MissingKubeConfigForEnvironment(EnvKube)
+		return errors.MissingKubeConfigForEnvironment(EnvKube, ISTIO_TEST_KUBE_CONFIG.Name())
 	}
 
 	if a.TestID == "" || len(a.TestID) > maxTestIDLength {

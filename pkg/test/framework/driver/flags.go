@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package driver
 
 import (
 	"flag"
@@ -24,11 +24,9 @@ import (
 	"github.com/spf13/pflag"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/envvar"
-	"istio.io/istio/pkg/test/impl/driver"
 )
 
-var arguments = driver.DefaultArgs()
+var arguments = defaultArgs()
 var showHelp = false
 var logOptions = log.DefaultOptions()
 
@@ -94,7 +92,7 @@ func attachFlags(stringVar func(*string, string, string, string), boolVar func(*
 
 	stringVar(&arguments.Environment, "environment", arguments.Environment,
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
-			driver.EnvLocal, driver.EnvKube))
+			EnvLocal, EnvKube))
 
 	stringVar(&arguments.KubeConfig, "config", arguments.KubeConfig,
 		"The path to the kube config file for cluster environments")
@@ -120,12 +118,12 @@ func doShowHelp() {
 `, strings.Join(lines, "\n"))
 }
 
-func applyEnvironmentVariables(a *driver.Args) {
-	if envvar.ISTIO_TEST_KUBE_CONFIG.Value() != "" {
-		a.KubeConfig = envvar.ISTIO_TEST_KUBE_CONFIG.Value()
+func applyEnvironmentVariables(a *args) {
+	if ISTIO_TEST_KUBE_CONFIG.Value() != "" {
+		a.KubeConfig = ISTIO_TEST_KUBE_CONFIG.Value()
 	}
 
-	if envvar.ISTIO_TEST_ENVIRONMENT.Value() != "" {
-		a.Environment = envvar.ISTIO_TEST_ENVIRONMENT.Value()
+	if ISTIO_TEST_ENVIRONMENT.Value() != "" {
+		a.Environment = ISTIO_TEST_ENVIRONMENT.Value()
 	}
 }

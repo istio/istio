@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/impl/driver"
+	"istio.io/istio/pkg/test/framework/driver"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
@@ -31,46 +31,25 @@ var d = driver.New()
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
-	if err := processFlags(); err != nil {
-		scope.Errorf("test.Run: log options error: '%v'", err)
-		os.Exit(-1)
+	exitcode, err := d.Run(testID, m)
+	if err != nil {
+		scope.Errorf("test.Run: %v", err)
 	}
-
-	args := *arguments
-	args.TestID = testID
-	args.M = m
-
-	scope.Debugf("test.Run: command-line flags are parsed, and logging is initialized.")
-	scope.Debugf("test.Run: log options: %+v", logOptions)
-	scope.Debugf("test.Run: driver args: %+v", args)
-
-	if err := d.Initialize(&args); err != nil {
-		scope.Errorf("test.Run: initialization error: '%v'", err)
-		os.Exit(-1)
-	}
-
-	scope.Infof(">>> Beginning test run for: '%s'", testID)
-	rt := d.Run()
-	scope.Infof("<<< Completing test run for: '%s'", testID)
-
-	os.Exit(rt)
+	os.Exit(exitcode)
 }
 
 // SuiteRequires indicates that the whole suite requires particular dependencies.
 func SuiteRequires(m *testing.M, dependencies ...dependency.Instance) {
-	// We only care that m exists at this point.
-	if m == nil {
-		panic("test.SuiteRequires: nil testing.M")
+	if err := d.SuiteRequires(dependencies); err != nil {
+		panic(err)
 	}
-
-	arguments.SuiteDependencies = append(arguments.SuiteDependencies, dependencies...)
 }
 
 // Requires ensures that the given dependencies will be satisfied. If they cannot, then the
 // test will fail.
 func Requires(t testing.TB, dependencies ...dependency.Instance) {
 	t.Helper()
-	d.InitializeTestDependencies(t, dependencies)
+	d.Requires(t, dependencies)
 }
 
 // AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
