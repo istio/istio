@@ -467,26 +467,20 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
 				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
-				break
+				destSvc, err := env.GetService(model.Hostname(upstream.Host))
+				if err != nil || destSvc == nil {
+					log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+					return nil
+				}
+
+				return buildOutboundNetworkFilters(node,
+					istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
+					"", port)
 			}
 		}
-
-		// for opaque TCP services, the first TCP match wins as we can setup
-		// a listener on a port and forward to a single backend cluster
-		if upstream != nil {
-			break
-		}
 	}
 
-	destSvc, err := env.GetService(model.Hostname(upstream.Host))
-	if err != nil || destSvc == nil {
-		log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
-		return nil
-	}
-
-	return buildOutboundNetworkFilters(node,
-		istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)),
-		"", port)
+	return nil
 }
 
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
@@ -579,14 +573,8 @@ func l4MultiMatch(predicates []*networking.L4MatchAttributes, server *networking
 }
 
 func l4SingleMatch(match *networking.L4MatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
-	portMatch := isPortMatch(match.Port, server)
-
-	// similarly, if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
-	gatewayMatch := isGatewayMatch(gatewaysForWorkload, match.Gateways)
-	if portMatch && gatewayMatch {
-		return true
-	}
-	return false
+	// if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
+	return isPortMatch(match.Port, server) && isGatewayMatch(gatewaysForWorkload, match.Gateways)
 }
 
 func isPortMatch(port uint32, server *networking.Server) bool {
