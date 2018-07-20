@@ -26,7 +26,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-	"github.com/prometheus/client_golang/prometheus"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -257,19 +256,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		select {
 		case <-keyCertTimerC:
 			keyCertTimerC = nil
-			pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
-			if err != nil {
-				metricCertKeyUpdateError.With(prometheus.Labels{"error": err.Error()}).Add(1)
-				log.Errorf("Cert/Key reload error: %v", err)
-				break
-			}
-			wh.mu.Lock()
-			wh.cert = &pair
-			wh.mu.Unlock()
-
-			metricCertKeyUpdate.Add(1)
-			log.Info("Cert and Key reloaded")
-
+			wh.reloadKeyCert()
 		case <-configTimerC:
 			configTimerC = nil
 			if err := wh.rebuildWebhookConfiguration(); err == nil {

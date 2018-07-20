@@ -15,15 +15,19 @@
 package validation
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"reflect"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistration "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 
@@ -49,7 +53,7 @@ func reconcileWebhookConfigurationHelper(
 ) (bool, error) {
 	current, err := client.Get(webhookConfiguration.Name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			if _, createErr := client.Create(webhookConfiguration); createErr != nil {
 				return false, createErr
 			}
@@ -70,11 +74,10 @@ func reconcileWebhookConfigurationHelper(
 }
 
 func (wh *Webhook) rebuildWebhookConfiguration() error {
-	webhookConfig, caCertPem, err := rebuildWebhookConfigurationHelper(
+	webhookConfig, err := rebuildWebhookConfigurationHelper(
 		wh.caFile,
 		wh.webhookConfigFile,
-		wh.ownerRefs,
-		wh.caCertPem)
+		wh.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
 		log.Errorf("%v validatingwebhookconfiguration (re)load failed: %v",
@@ -82,31 +85,48 @@ func (wh *Webhook) rebuildWebhookConfiguration() error {
 		return err
 	}
 	wh.webhookConfiguration = webhookConfig
-	wh.caCertPem = caCertPem
 
 	var webhookYAML string
 	if b, err := yaml.Marshal(wh.webhookConfiguration); err == nil {
 		webhookYAML = string(b)
 	}
 
+	reportValidationConfigLoad()
 	log.Infof("%v validatingwebhookconfiguration (re)loaded: \n%v",
 		wh.webhookConfiguration.Name, webhookYAML)
 	return nil
 }
 
+func loadCaCertPem(in io.Reader) ([]byte, error) {
+	caCertPemBytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(caCertPemBytes)
+	if block == nil {
+		return nil, errors.New("could not decode pem")
+	}
+	if block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("ca bundle contains wrong pem type: %q", block.Type)
+	}
+	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+		return nil, fmt.Errorf("ca bundle contains invalid x509 certiticate: %v", err)
+	}
+	return caCertPemBytes, nil
+}
+
 func rebuildWebhookConfigurationHelper(
 	caFile, webhookConfigFile string,
 	ownerRefs []metav1.OwnerReference,
-	prevCAPem []byte,
-) (*v1beta1.ValidatingWebhookConfiguration, []byte, error) {
+) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	var webhookConfig v1beta1.ValidatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
-		return nil, nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
+		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
 			webhookConfigFile, err)
 	}
 
@@ -124,24 +144,15 @@ func rebuildWebhookConfigurationHelper(
 	// update ownerRefs so configuration is cleaned up when the validation deployment is deleted.
 	webhookConfig.OwnerReferences = ownerRefs
 
-	caPem := prevCAPem
-
-	// load and validate ca-cert
-	caCertPemBytes, err := ioutil.ReadFile(caFile)
+	in, err := os.Open(caFile)
 	if err != nil {
-		return nil, nil, err
+		return nil, fmt.Errorf("failed to read ca bundle from %v: %v", caFile, err)
 	}
-	if block, _ := pem.Decode(caCertPemBytes); block != nil {
-		if block.Type != "CERTIFICATE" {
-			return nil, nil, fmt.Errorf("%s contains wrong pem type: %q", caFile, block.Type)
-		}
-		if _, err := x509.ParseCertificate(block.Bytes); err != nil {
-			return nil, nil, fmt.Errorf("%s contains invalid x509 certiticate: %v", caFile, err)
-		}
-		caPem = caCertPemBytes
-	}
-	if len(caPem) == 0 {
-		return nil, nil, fmt.Errorf("%s doesn't contain a valid pem encoded cert", caFile)
+	defer in.Close() // nolint: errcheck
+
+	caPem, err := loadCaCertPem(in)
+	if err != nil {
+		return nil, err
 	}
 
 	// patch the ca-cert into the user provided configuration
@@ -149,5 +160,20 @@ func rebuildWebhookConfigurationHelper(
 		webhookConfig.Webhooks[i].ClientConfig.CABundle = caPem
 	}
 
-	return &webhookConfig, nil, nil
+	return &webhookConfig, nil
+}
+
+func (wh *Webhook) reloadKeyCert() {
+	pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
+	if err != nil {
+		reportValidationCertKeyUpdateError(err)
+		log.Errorf("Cert/Key reload error: %v", err)
+		return
+	}
+	wh.mu.Lock()
+	wh.cert = &pair
+	wh.mu.Unlock()
+
+	reportValidationCertKeyUpdate()
+	log.Info("Cert and Key reloaded")
 }

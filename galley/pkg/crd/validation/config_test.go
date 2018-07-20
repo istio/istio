@@ -15,9 +15,15 @@
 package validation
 
 import (
+	"bytes"
+	"crypto/tls"
+	"fmt"
+	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/onsi/gomega"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -236,7 +242,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			defer cancel()
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			config, _, err := rebuildWebhookConfigurationHelper(wh.caFile, wh.webhookConfigFile, wh.ownerRefs, wh.caCertPem)
+			config, err := rebuildWebhookConfigurationHelper(wh.caFile, wh.webhookConfigFile, wh.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -274,6 +280,88 @@ func TestValidatingWebhookConfig(t *testing.T) {
 						t.Fatalf("Got incorrect create webhook configuration: \ngot %#v \nwant %#v",
 							got, want)
 					}
+				}
+			}
+		})
+	}
+}
+
+func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
+	t.Helper()
+	actual, err := wh.getCert(nil)
+	if err != nil {
+		t.Fatalf("fail to get certificate from webhook: %s", err)
+	}
+	expected, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		t.Fatalf("fail to load test certs.")
+	}
+	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
+}
+
+func TestReloadCert(t *testing.T) {
+	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	defer cleanup()
+	stop := make(chan struct{})
+	defer func() { close(stop) }()
+	go wh.Run(stop)
+	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
+	// Update cert/key files.
+	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
+	}
+	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
+		cleanup()
+		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
+	}
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
+	}, "10s", "100ms").Should(gomega.BeTrue())
+}
+
+func TestLoadCaCertPem(t *testing.T) {
+	cases := []struct {
+		name      string
+		want      []byte
+		wantError bool
+	}{
+		{
+			name:      "valid pem",
+			want:      testcerts.CACert,
+			wantError: false,
+		},
+		{
+			name:      "pem decode error",
+			want:      append([]byte("-----foo"), testcerts.CACert...),
+			wantError: true,
+		},
+		{
+			name:      "pem wrong type",
+			want:      []byte(strings.Replace(string(testcerts.CACert), "CERTIFICATE", "MALFORMED", -1)),
+			wantError: true,
+		},
+		{
+			name:      "invalid x509",
+			want:      testcerts.BadCert,
+			wantError: true,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %s", i, c.name), func(tt *testing.T) {
+			got, err := loadCaCertPem(bytes.NewReader(c.want))
+			if err != nil {
+				if !c.wantError {
+					tt.Fatalf("unexpected error: got error %q", err)
+				}
+			} else {
+				if c.wantError {
+					tt.Fatal("expected error")
+				}
+				if !reflect.DeepEqual(got, c.want) {
+					tt.Fatalf("got wrong ca pem: \ngot %v \nwant %s", string(got), string(c.want))
 				}
 			}
 		})
