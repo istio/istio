@@ -62,10 +62,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
 
-	// Enable websocket on default route
-	actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
-	if ok {
-		actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
+	if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+		// Enable websocket on default route
+		actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
+		if ok {
+			actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
+		}
 	}
 
 	inboundVHost := route.VirtualHost{
@@ -133,7 +135,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get list of virtual services bound to the mesh gateway
 	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(configStore, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
