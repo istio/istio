@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/driver"
 )
 
@@ -54,7 +54,7 @@ func Requires(t testing.TB, dependencies ...dependency.Instance) {
 
 // AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
 // once per test.
-func AcquireEnvironment(t testing.TB) environment.Interface {
+func AcquireEnvironment(t testing.TB) framework.Environment {
 	t.Helper()
 	return d.AcquireEnvironment(t)
 }

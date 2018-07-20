@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cluster
+package kubernetes
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/tests/util"
 )
 
@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	nilResult    = environment.AppCallResult{}
+	nilResult    = framework.AppCallResult{}
 	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
 	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
 	portRegex    = regexp.MustCompile("ServicePort=(.*)")
@@ -52,27 +52,27 @@ type endpoint struct {
 	owner *app
 }
 
-// Name implements the environment.DeployedAppEndpoint interface
+// Name implements the framework.DeployedAppEndpoint interface
 func (e *endpoint) Name() string {
 	return e.port.Name
 }
 
-// Owner implements the environment.DeployedAppEndpoint interface
-func (e *endpoint) Owner() environment.DeployedApp {
+// Owner implements the framework.DeployedAppEndpoint interface
+func (e *endpoint) Owner() framework.DeployedApp {
 	return e.owner
 }
 
-// Protocol implements the environment.DeployedAppEndpoint interface
+// Protocol implements the framework.DeployedAppEndpoint interface
 func (e *endpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-// MakeURL implements the environment.DeployedAppEndpoint interface
+// MakeURL implements the framework.DeployedAppEndpoint interface
 func (e *endpoint) MakeURL() *url.URL {
 	return e.makeURL(true)
 }
 
-// MakeShortURL implements the environment.DeployedAppEndpoint interface
+// MakeShortURL implements the framework.DeployedAppEndpoint interface
 func (e *endpoint) MakeShortURL() *url.URL {
 	return e.makeURL(false)
 }
@@ -102,9 +102,9 @@ type app struct {
 	endpoints   []*endpoint
 }
 
-var _ environment.DeployedApp = &app{}
+var _ framework.DeployedApp = &app{}
 
-func getApp(serviceName, namespace string) (environment.DeployedApp, error) {
+func getApp(serviceName, namespace string) (framework.DeployedApp, error) {
 	// Get the yaml config for the service
 	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
 	if err != nil {
@@ -159,18 +159,18 @@ func getEndpoints(owner *app, service *corev1.Service) []*endpoint {
 	return out
 }
 
-// Endpoints implements the environment.DeployedApp interface
-func (a *app) Endpoints() []environment.DeployedAppEndpoint {
-	out := make([]environment.DeployedAppEndpoint, len(a.endpoints))
+// Endpoints implements the framework.DeployedApp interface
+func (a *app) Endpoints() []framework.DeployedAppEndpoint {
+	out := make([]framework.DeployedAppEndpoint, len(a.endpoints))
 	for i, e := range a.endpoints {
 		out[i] = e
 	}
 	return out
 }
 
-// EndpointsForProtocol implements the environment.DeployedApp interface
-func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.DeployedAppEndpoint {
-	out := make([]environment.DeployedAppEndpoint, 0)
+// EndpointsForProtocol implements the framework.DeployedApp interface
+func (a *app) EndpointsForProtocol(protocol model.Protocol) []framework.DeployedAppEndpoint {
+	out := make([]framework.DeployedAppEndpoint, 0)
 	for _, e := range a.endpoints {
 		if e.Protocol() == protocol {
 			out = append(out, e)
@@ -179,8 +179,8 @@ func (a *app) EndpointsForProtocol(protocol model.Protocol) []environment.Deploy
 	return out
 }
 
-// Call implements the environment.DeployedApp interface
-func (a *app) Call(u *url.URL, count int, headers http.Header) (environment.AppCallResult, error) {
+// Call implements the framework.DeployedApp interface
+func (a *app) Call(u *url.URL, count int, headers http.Header) (framework.AppCallResult, error) {
 	// Get the pod name of the source app
 	pods, err := a.pods()
 	if err != nil {
@@ -197,7 +197,7 @@ func (a *app) Call(u *url.URL, count int, headers http.Header) (environment.AppC
 	}
 
 	// Now convert the raw result to an AppCallDetails
-	out := environment.AppCallResult{}
+	out := framework.AppCallResult{}
 	out.Body = res
 
 	ids := idRegex.FindAllStringSubmatch(res, -1)
@@ -233,7 +233,7 @@ func (a *app) Call(u *url.URL, count int, headers http.Header) (environment.AppC
 	return out, nil
 }
 
-func (a *app) CallOrFail(u *url.URL, count int, headers http.Header, t testing.TB) environment.AppCallResult {
+func (a *app) CallOrFail(u *url.URL, count int, headers http.Header, t testing.TB) framework.AppCallResult {
 	r, err := a.Call(u, count, headers)
 	if err != nil {
 		t.Fatalf("Call to app failed: app='%s', url='%s', err='%v'", a.appName, u, err)

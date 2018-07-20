@@ -12,71 +12,83 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cluster
+package local
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
+	"path"
 	"testing"
+	"time"
 
+	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/kube"
+	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/internal"
 )
 
 type deployedMixer struct {
 	conn   *grpc.ClientConn
 	client istio_mixer_v1.MixerClient
 
-	forwarder *kube.PortForwarder
-
-	args *server.Args
+	args    *server.Args
+	server  *server.Server
+	workdir string
 }
 
-var _ environment.DeployedMixer = &deployedMixer{}
+var _ framework.DeployedMixer = &deployedMixer{}
+var _ internal.Configurable = &deployedMixer{}
 var _ io.Closer = &deployedMixer{}
 
-func newMixer(kubeconfigPath string, accessor *kube.Accessor) (*deployedMixer, error) {
-	pod, err := accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type=telemetry")
+func newMixer(ctx *internal.TestContext) (*deployedMixer, error) {
+	dir, err := ctx.CreateTmpDirectory("mixer")
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Add support to connect to the Mixer istio-policy as well.
-	// See https://github.com/istio/istio/issues/6174
+	args := server.DefaultArgs()
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.ConfigStoreURL = fmt.Sprintf("fs://%s", dir)
 
-	// TODO: Right now, simply connect to the telemetry backend at port 9092. We can expand this to connect
-	// to policy backend and dynamically figure out ports later.
-	// See https://github.com/istio/istio/issues/6175
-	forwarder := kube.NewPortForwarder(kubeconfigPath, pod.Namespace, pod.Name, 9092)
+	args.Templates = generatedTmplRepo.SupportedTmplInfo
+	args.Adapters = adapter.Inventory()
 
-	if err = forwarder.Start(); err != nil {
+	mi, err := server.New(args)
+	if err != nil {
 		return nil, err
 	}
 
-	conn, err := grpc.Dial(forwarder.Address(), grpc.WithInsecure())
+	go mi.Run()
+
+	conn, err := grpc.Dial(mi.Addr().String(), grpc.WithInsecure())
 	if err != nil {
+		_ = mi.Close()
 		return nil, err
 	}
 
 	client := istio_mixer_v1.NewMixerClient(conn)
 
 	return &deployedMixer{
-		client:    client,
-		forwarder: forwarder,
-		// Use the DefaultArgs to get config identity attribute
-		args: server.DefaultArgs(),
+		conn:    conn,
+		client:  client,
+		args:    args,
+		server:  mi,
+		workdir: dir,
 	}, nil
 }
 
-// Report implementation
 func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) {
 	t.Helper()
-	scope.Debugf("Reporting attributes:\n%v\n", attributes)
 
 	req := istio_mixer_v1.ReportRequest{
 		Attributes: []istio_mixer_v1.CompressedAttributes{
@@ -91,17 +103,25 @@ func (d *deployedMixer) Report(t testing.TB, attributes map[string]interface{}) 
 	}
 }
 
-// Close implementation.
-func (d *deployedMixer) Close() (err error) {
-	if d.conn != nil {
-		err = d.conn.Close()
+func (d *deployedMixer) ApplyConfig(cfg string) error {
+	file := path.Join(d.workdir, "config.yaml")
+	err := ioutil.WriteFile(file, []byte(cfg), os.ModePerm)
+
+	if err == nil {
+		// TODO: Implement a mechanism for reliably waiting for the configuration to disseminate in the system.
+		// We can use CtrlZ to expose the config state of Mixer.
+		// See https://github.com/istio/istio/issues/6169 and https://github.com/istio/istio/issues/6170.
+		time.Sleep(time.Second * 3)
 	}
 
-	if d.forwarder != nil {
-		d.forwarder.Close()
-	}
+	return err
+}
 
-	return
+func (d *deployedMixer) Close() error {
+	err := d.conn.Close()
+	err = multierr.Append(err, d.server.Close())
+
+	return err
 }
 
 func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {

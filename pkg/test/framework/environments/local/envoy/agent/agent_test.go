@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/test/local/envoy"
-	"istio.io/istio/pkg/test/local/envoy/agent"
-	"istio.io/istio/pkg/test/local/envoy/agent/pilot"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent/pilot"
 	"istio.io/istio/pkg/test/service/echo"
 	"istio.io/istio/pkg/test/service/echo/proto"
 )

@@ -16,20 +16,24 @@ package kube
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
-
-	"istio.io/istio/pkg/test/internal"
 )
 
 // ApplyContents applies the given config contents using kubectl.
 func ApplyContents(kubeconfig string, ns string, contents string) error {
-	tmpfile, err := internal.WriteTempFile(os.TempDir(), "kubeapply", ".yaml", contents)
+	f, err := ioutil.TempFile(os.TempDir(), "kubectl")
 	if err != nil {
 		return err
 	}
-	defer tmpfile.Delete()
+	defer func() { _ = os.Remove(f.Name()) }()
 
-	return Apply(kubeconfig, ns, string(tmpfile))
+	_, err = f.WriteString(contents)
+	if err != nil {
+		return err
+	}
+
+	return Apply(kubeconfig, ns, f.Name())
 }
 
 // Apply the config in the given filename using kubectl.

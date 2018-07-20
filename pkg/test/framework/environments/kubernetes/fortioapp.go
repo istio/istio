@@ -12,14 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cluster
+package kubernetes
 
 import (
 	"fmt"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/tests/util"
 )
 
@@ -31,7 +31,7 @@ type fortioapp struct {
 }
 
 // NewFortioApp creates a new fortioapp object from the given service config
-func NewFortioApp(meta model.ConfigMeta, serverAddress string, labels []string) environment.DeployedFortioApp {
+func NewFortioApp(meta model.ConfigMeta, serverAddress string, labels []string) framework.DeployedFortioApp {
 	a := &fortioapp{}
 	a.name = meta.Name
 	a.namespace = meta.Namespace
@@ -51,23 +51,23 @@ func getPods() ([]string, error) {
 }
 
 // CallFortio implements the environment.DeployedApp interface
-func (f *fortioapp) CallFortio(arg string, path string) (environment.FortioAppCallResult, error) {
+func (f *fortioapp) CallFortio(arg string, path string) (framework.FortioAppCallResult, error) {
 	pods, err := getPods()
 	if err != nil {
-		return environment.FortioAppCallResult{}, err
+		return framework.FortioAppCallResult{}, err
 	}
 	if len(pods) != 1 {
-		return environment.FortioAppCallResult{}, fmt.Errorf("expected only one pod instance, but %d", len(pods))
+		return framework.FortioAppCallResult{}, fmt.Errorf("expected only one pod instance, but %d", len(pods))
 	}
 
 	pod := pods[0]
 
 	response, err := util.Shell("kubectl exec -n %s %s -c %s -- /usr/local/bin/fortio %s %s/%s", f.namespace, pod, f.name, f.serverAddress, arg, path)
 	if err != nil {
-		return environment.FortioAppCallResult{}, err
+		return framework.FortioAppCallResult{}, err
 	}
 
-	out := environment.FortioAppCallResult{
+	out := framework.FortioAppCallResult{
 		Raw: response,
 	}
 	return out, nil

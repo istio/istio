@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package environment
+package framework
 
 import (
 	"net/http"
@@ -29,8 +29,8 @@ const (
 	httpOK = "200"
 )
 
-// Interface is a common interface for all testing environments.
-type Interface interface {
+// Environment is a common interface for all testing environments.
+type Environment interface {
 
 	// Configure applies the given configuration to the mesh. The configuration is in Kubernetes style
 	// serialized YAML format.

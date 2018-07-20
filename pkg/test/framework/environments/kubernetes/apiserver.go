@@ -12,10 +12,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cluster
+package kubernetes
 
 import (
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/kube"
 )
 
@@ -24,7 +24,7 @@ type deployedAPIServer struct {
 	accessor *kube.Accessor
 }
 
-var _ environment.DeployedAPIServer = &deployedAPIServer{}
+var _ framework.DeployedAPIServer = &deployedAPIServer{}
 
 func newAPIServer(env *Environment) (*deployedAPIServer, error) {
 	config, err := kube.CreateConfig(env.ctx.KubeConfigPath())

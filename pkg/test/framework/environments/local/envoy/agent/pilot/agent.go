@@ -40,10 +40,10 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/local/envoy"
-	"istio.io/istio/pkg/test/local/envoy/agent"
-	"istio.io/istio/pkg/test/local/envoy/agent/pilot/reserveport"
-	"istio.io/istio/pkg/test/local/envoy/discovery"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent/pilot/reserveport"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/discovery"
 	"istio.io/istio/pkg/test/protocol"
 )
 

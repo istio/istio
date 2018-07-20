@@ -23,11 +23,11 @@ import (
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/cluster"
 	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/environment"
-	"istio.io/istio/pkg/test/internal"
-	"istio.io/istio/pkg/test/local"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/internal"
 )
 
 const (
@@ -50,7 +50,7 @@ type Driver interface {
 
 	// AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
 	// once per test.
-	AcquireEnvironment(t testing.TB) environment.Interface
+	AcquireEnvironment(t testing.TB) framework.Environment
 }
 
 // internal state for the driver.
@@ -187,7 +187,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 }
 
 // AcquireEnvironment implementation
-func (d *driver) AcquireEnvironment(t testing.TB) environment.Interface {
+func (d *driver) AcquireEnvironment(t testing.TB) framework.Environment {
 	t.Helper()
 	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.ctx.TestID())
 	d.lock.Lock()
@@ -256,7 +256,7 @@ func (d *driver) initialize(a *args) error {
 	case EnvLocal:
 		env = local.NewEnvironment()
 	case EnvKube:
-		env = cluster.NewEnvironment()
+		env = kubernetes.NewEnvironment()
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
 	}

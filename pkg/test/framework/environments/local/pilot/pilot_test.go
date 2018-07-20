@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/framework"
 )
 
 func TestLocalPilot(t *testing.T) {
@@ -84,7 +84,7 @@ func TestLocalPilot(t *testing.T) {
 	t.Fatal(fmt.Errorf("service entry not found in pilot discovery service"))
 }
 
-func newPilot(t *testing.T) (environment.DeployedPilot, func()) {
+func newPilot(t *testing.T) (framework.DeployedPilot, func()) {
 	t.Helper()
 	mesh := model.DefaultMeshConfig()
 	options := envoy.DiscoveryServiceOptions{
