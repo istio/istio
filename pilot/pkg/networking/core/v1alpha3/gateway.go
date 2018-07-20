@@ -222,6 +222,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
 	virtualServices := env.VirtualServices(merged.Names)
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
+	vhostDomains := map[string]bool{}
+
 	for _, v := range virtualServices {
 		vs := v.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
@@ -236,6 +238,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		}
 
 		for vsvcHost, gatewayHost := range matchingHosts {
+			_, f := vhostDomains[vsvcHost]
+			if f {
+				// RDS would reject this, resulting in all vhosts rejection.
+				push.Add(model.DuplicatedDomains, vsvcHost, node,
+					fmt.Sprintf("%s duplicate domain %s for %s", node.ID, vsvcHost, v.Name))
+				continue
+			}
+			vhostDomains[vsvcHost] = true
 			host := route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", v.Name, port),
 				Domains: []string{vsvcHost},
