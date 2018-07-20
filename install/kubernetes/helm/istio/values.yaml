@@ -325,6 +325,8 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  # Enabled Health Check will add the livenessProbe to the Citadel container
+  healthCheckEnabled: false
 
 #
 # addons configuration
