@@ -138,21 +138,25 @@ var (
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
-	// the time getting subsequent events.
+	// the time getting subsequent events. If no change is
+	// detected the push will happen, otherwise we'll keep
+	// delaying until things settle.
 	DebounceAfter time.Duration
 
-	// Maximum time to wait for events (debouncing). Defaults to
-	// 10 seconds
+	// DebounceMax is the maximum time to wait for events
+	// while debouncing. Defaults to 10 seconds. If events keep
+	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
 )
 
 func init() {
-	prometheus.MustRegister(cacheSizeGauge)
-	prometheus.MustRegister(cacheHitCounter)
-	prometheus.MustRegister(cacheMissCounter)
-	prometheus.MustRegister(callCounter)
-	prometheus.MustRegister(errorCounter)
-	prometheus.MustRegister(resourceCounter)
+	// No longer used. Will be removed in 1.1
+	//prometheus.MustRegister(cacheSizeGauge)
+	//prometheus.MustRegister(cacheHitCounter)
+	//prometheus.MustRegister(cacheMissCounter)
+	//prometheus.MustRegister(callCounter)
+	//prometheus.MustRegister(errorCounter)
+	//prometheus.MustRegister(resourceCounter)
 
 	cacheSquash := os.Getenv("PILOT_CACHE_SQUASH")
 	if len(cacheSquash) > 0 {
