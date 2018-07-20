@@ -634,7 +634,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
 					Name:             serviceregistry.ServiceRegistry(r),
-					ClusterID:        string(serviceregistry.ConsulRegistry),
 					ServiceDiscovery: conctl,
 					ServiceAccounts:  conctl,
 					Controller:       conctl,
@@ -654,8 +653,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
 			serviceControllers.AddRegistry(aggregate.Registry{
-				Name:      serviceregistry.ServiceRegistry(r),
-				ClusterID: string(serviceregistry.CloudFoundryRegistry),
+				Name: serviceregistry.ServiceRegistry(r),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
@@ -676,7 +674,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	// add service entry registry to aggregator by default
 	serviceEntryRegistry := aggregate.Registry{
 		Name:             "ServiceEntries",
-		ClusterID:        "ServiceEntries",
 		Controller:       serviceEntryStore,
 		ServiceDiscovery: serviceEntryStore,
 		ServiceAccounts:  serviceEntryStore,
@@ -727,7 +724,6 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 	serviceControllers.AddRegistry(aggregate.Registry{
 		Name:             serviceregistry.ConfigRegistry,
-		ClusterID:        string(serviceregistry.ConfigRegistry),
 		ServiceDiscovery: serviceEntryStore,
 		ServiceAccounts:  serviceEntryStore,
 		Controller:       serviceEntryStore,

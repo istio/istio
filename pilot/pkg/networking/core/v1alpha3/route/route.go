@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -484,15 +483,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
-		out.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 	}
 
 	return out
