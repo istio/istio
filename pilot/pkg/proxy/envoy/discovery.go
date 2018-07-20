@@ -162,8 +162,8 @@ func init() {
 		}
 	}
 
-	DebounceAfter = envDuration("PILOT_DEBOUNCE_AFTER", 100 * time.Millisecond)
-	DebounceMax = envDuration("PILOT_DEBOUNCE_MAX", 10 * time.Second)
+	DebounceAfter = envDuration("PILOT_DEBOUNCE_AFTER", 100*time.Millisecond)
+	DebounceMax = envDuration("PILOT_DEBOUNCE_MAX", 10*time.Second)
 }
 
 func envDuration(env string, def time.Duration) time.Duration {
@@ -457,14 +457,19 @@ func (ds *DiscoveryService) ClearCache() {
 	ds.clearCache()
 }
 
+// debouncePush is called on clear cache, to initiate a push.
 func debouncePush(startDebounce time.Time) {
 	clearCacheMutex.Lock()
 	since := time.Since(lastClearCacheEvent)
 	clearCacheMutex.Unlock()
 
-	if since > DebounceAfter/ 2 {
-		V2ClearCache()
-	} else if time.Since(startDebounce) > DebounceMax {
+	if since > DebounceAfter/2 ||
+		time.Since(startDebounce) > DebounceMax {
+		clearCacheMutex.Lock()
+		clearCacheTimerSet = false
+		lastClearCache = time.Now()
+		clearCacheMutex.Unlock()
+
 		V2ClearCache()
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
@@ -484,6 +489,20 @@ func (ds *DiscoveryService) clearCache() {
 
 	clearCacheEvents++
 
+	if DebounceAfter > 0 {
+		lastClearCacheEvent = time.Now()
+
+		if !clearCacheTimerSet {
+			clearCacheTimerSet = true
+			time.AfterFunc(DebounceAfter, func() {
+				debouncePush(lastClearCacheEvent)
+			})
+		} // else: debunce in progress - it'll keep delaying the push
+
+		return
+	}
+
+	// Old code, for safety
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
 		log.Infof("Push %d: %v since last change, %v since last push",
@@ -492,16 +511,7 @@ func (ds *DiscoveryService) clearCache() {
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
 
-		// Debounce: it's been more than 1 second since last event,
-		// but more events may still be in progress. Trigger
-		// 'debouncedPush' in 100 ms.
-		if DebounceAfter > 0 {
-			time.AfterFunc(DebounceAfter, func() {
-				debouncePush(lastClearCacheEvent)
-			})
-		} else {
-			V2ClearCache()
-		}
+		V2ClearCache()
 
 		return
 	}
