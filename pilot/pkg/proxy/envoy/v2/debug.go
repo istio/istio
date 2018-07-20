@@ -82,6 +82,7 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
+	ProxyVersion    string `json:"proxy_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -102,8 +103,10 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
+			proxyVersion, _ := con.modelNode.GetProxyVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
+				ProxyVersion:    proxyVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
