@@ -473,7 +473,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	}
 
 	virtualServices := env.VirtualServices(gatewaysForWorkload)
-	upstreams := make([]*networking.Destination, 0, len(virtualServices))
+	var upstream *networking.Destination
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
@@ -483,32 +483,30 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		}
 
 		// ensure we satisfy the rule's l4 match conditions, if any exist
+		// For the moment, there can be only one match that succeeds
+		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4Match(tcp.Match, server, gatewaysForWorkload) {
-				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
+				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
+				break
 			}
 		}
 
-		// TODO: detect conflicting upstreams
-	}
-
-	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
-	byHost := make(map[model.Hostname]*networking.Destination, len(upstreams))
-	for _, dest := range upstreams {
-		byHost[model.Hostname(dest.Host)] = dest
-	}
-
-	filters := make([]listener.Filter, 0, len(byHost))
-	for host, dest := range byHost {
-		upstream, err := env.GetService(host)
-		if err != nil || upstream == nil {
-			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
-			continue
+		// for opaque TCP services, the first TCP match wins as we can setup
+		// a listener on a port and forward to a single backend cluster
+		if upstream != nil {
+			break
 		}
-		filters = append(filters, buildOutboundNetworkFilters(node,
-			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)), "", port)...)
 	}
-	return filters
+
+	destSvc, err := env.GetService(model.Hostname(upstream.Host))
+	if err != nil || upstream == nil {
+		log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+		return nil
+	}
+
+	return buildOutboundNetworkFilters(node,
+			istio_route.GetDestinationCluster(upstream, destSvc, int(server.Port.Number)), "", port)
 }
 
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
@@ -539,7 +537,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 
 		// ensure we satisfy the rule's tls match conditions, if any exist
 		for _, tls := range vsvc.Tls {
-			if tlsMatch(tls.Match, server, gatewaysForWorkload, sniHostsSet) {
+			if tlsMatch(tls.Match, server, gatewaysForWorkload) {
 				upstreams = append(upstreams, gatherDestinations(tls.Route)...)
 			}
 		}
@@ -606,7 +604,7 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 	return len(predicates) == 0
 }
 
-func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool, sniHostsSet []string) bool {
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
 	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
 		gatewayServerHosts[model.Hostname(host)] = true
@@ -616,9 +614,6 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		// TODO: implement more matches, like CIDR ranges, etc.
-
-		// the match's sni hosts includes hosts advertised by server
-		sniHostsMatch := sniHostsKey(match.SniHosts) == sniHostsKey(sniHostsSet)
 
 		// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
 		portMatch := match.Port == 0
@@ -634,7 +629,7 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 			}
 		}
 
-		if sniHostsMatch && portMatch && gatewayMatch {
+		if portMatch && gatewayMatch {
 			return true
 		}
 	}
