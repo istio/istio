@@ -10,8 +10,8 @@ spec:
   match:
     request:
       headers:
-        end-user:
-          exact: jason
+        cookie:
+          regex: "^(.*?;)?(user=jason)(;.*)?$"
   route:
   - labels:
       version: v1
