@@ -37,9 +37,16 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+{{- if not .Values.sidecar }}
+          - --secureGrpcAddr
+          - "15011"
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
+{{- if not .Values.sidecar }}
+          - containerPort: 15011
+{{- end }}
           readinessProbe:
             httpGet:
               path: /debug/endpointz
@@ -78,6 +85,7 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- if .Values.sidecar }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -125,6 +133,7 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
       volumes:
       - name: config-volume
         configMap:
