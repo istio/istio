@@ -242,7 +242,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			defer cancel()
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			config, err := rebuildWebhookConfigurationHelper(wh.caFile, wh.webhookConfigFile, wh.ownerRefs)
+			config, err := rebuildWebhookConfigHelper(wh.caFile, wh.webhookConfigFile, wh.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -251,9 +251,9 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			config.Name = want.Name
 
 			validateClient := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-			updated, err := reconcileWebhookConfigurationHelper(validateClient, config)
+			updated, err := createOrUpdateWebhookConfigHelper(validateClient, config)
 			if err != nil {
-				t.Fatalf("reconcileWebhookConfigurationHelper failed: %v", err)
+				t.Fatalf("createOrUpdateWebhookConfigHelper failed: %v", err)
 			}
 
 			if tc.updated != updated {

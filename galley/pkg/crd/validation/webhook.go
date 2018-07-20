@@ -202,8 +202,8 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 	if wh.webhookConfigFile != "" {
 		log.Info("server-side configuration validation enabled")
-		if err = wh.rebuildWebhookConfiguration(); err == nil {
-			wh.reconcileWebhookConfiguration()
+		if err = wh.rebuildWebhookConfig(); err == nil {
+			wh.createOrUpdateWebhookConfig()
 		}
 	} else {
 		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
@@ -257,12 +257,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.reloadKeyCert()
 		case <-configTimerC:
 			configTimerC = nil
-			if err := wh.rebuildWebhookConfiguration(); err == nil {
-				wh.reconcileWebhookConfiguration()
+			if err := wh.rebuildWebhookConfig(); err == nil {
+				wh.createOrUpdateWebhookConfig()
 			}
 		case <-reconcileTickerC:
 			if wh.webhookConfiguration != nil {
-				wh.reconcileWebhookConfiguration()
+				wh.createOrUpdateWebhookConfig()
 			}
 		case event, more := <-wh.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {

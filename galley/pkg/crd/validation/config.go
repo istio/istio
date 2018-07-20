@@ -34,9 +34,9 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func (wh *Webhook) reconcileWebhookConfiguration() {
+func (wh *Webhook) createOrUpdateWebhookConfig() {
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
-	updated, err := reconcileWebhookConfigurationHelper(client, wh.webhookConfiguration)
+	updated, err := createOrUpdateWebhookConfigHelper(client, wh.webhookConfiguration)
 	if err != nil {
 		log.Errorf("%v validatingwebhookconfiguration update failed: %v",
 			wh.webhookConfiguration.Name, err)
@@ -47,7 +47,9 @@ func (wh *Webhook) reconcileWebhookConfiguration() {
 	}
 }
 
-func reconcileWebhookConfigurationHelper(
+// Create the specified validatingwebhookconfiguration resource or, if the resource
+// already exists, update it's contents with the desired state.
+func createOrUpdateWebhookConfigHelper(
 	client admissionregistration.ValidatingWebhookConfigurationInterface,
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration,
 ) (bool, error) {
@@ -62,6 +64,8 @@ func reconcileWebhookConfigurationHelper(
 		return false, err
 	}
 
+	// Minimize the diff between the actual vs. desired state. Only copy the relevant fields
+	// that we want reconciled and ignore everything else, e.g. labels, selectors.
 	updated := current.DeepCopyObject().(*v1beta1.ValidatingWebhookConfiguration)
 	updated.Webhooks = webhookConfiguration.Webhooks
 	updated.OwnerReferences = webhookConfiguration.OwnerReferences
@@ -73,8 +77,9 @@ func reconcileWebhookConfigurationHelper(
 	return false, nil
 }
 
-func (wh *Webhook) rebuildWebhookConfiguration() error {
-	webhookConfig, err := rebuildWebhookConfigurationHelper(
+// Rebuild the validatingwebhookconfiguratio and save for subsequent calls to createOrUpdateWebhookConfig.
+func (wh *Webhook) rebuildWebhookConfig() error {
+	webhookConfig, err := rebuildWebhookConfigHelper(
 		wh.caFile,
 		wh.webhookConfigFile,
 		wh.ownerRefs)
@@ -86,17 +91,20 @@ func (wh *Webhook) rebuildWebhookConfiguration() error {
 	}
 	wh.webhookConfiguration = webhookConfig
 
+	// pretty-print the validatingwebhookconfiguration as YAML
 	var webhookYAML string
 	if b, err := yaml.Marshal(wh.webhookConfiguration); err == nil {
 		webhookYAML = string(b)
 	}
-
-	reportValidationConfigLoad()
 	log.Infof("%v validatingwebhookconfiguration (re)loaded: \n%v",
 		wh.webhookConfiguration.Name, webhookYAML)
+
+	reportValidationConfigLoad()
+
 	return nil
 }
 
+// Load the CA Cert PEM from the input reader. This also verifies that the certiticate is a validate x509 cert.
 func loadCaCertPem(in io.Reader) ([]byte, error) {
 	caCertPemBytes, err := ioutil.ReadAll(in)
 	if err != nil {
@@ -115,7 +123,11 @@ func loadCaCertPem(in io.Reader) ([]byte, error) {
 	return caCertPemBytes, nil
 }
 
-func rebuildWebhookConfigurationHelper(
+// Rebuild the desired validatingwebhookconfiguration from the specified CA
+// and webhook config files. This also ensures the OwnerReferences is set
+// so that the cluster-scoped validatingwebhookconfiguration is properly
+// cleaned up when istio-galley is deleted.
+func rebuildWebhookConfigHelper(
 	caFile, webhookConfigFile string,
 	ownerRefs []metav1.OwnerReference,
 ) (*v1beta1.ValidatingWebhookConfiguration, error) {
@@ -130,7 +142,7 @@ func rebuildWebhookConfigurationHelper(
 			webhookConfigFile, err)
 	}
 
-	// fill in missing defaults
+	// fill in missing defaults to minimize desired vs. actual diffs later.
 	for i := 0; i < len(webhookConfig.Webhooks); i++ {
 		if webhookConfig.Webhooks[i].FailurePolicy == nil {
 			failurePolicy := v1beta1.Fail
@@ -163,6 +175,7 @@ func rebuildWebhookConfigurationHelper(
 	return &webhookConfig, nil
 }
 
+// Reload the server's cert/key for TLS from file.
 func (wh *Webhook) reloadKeyCert() {
 	pair, err := tls.LoadX509KeyPair(wh.certFile, wh.keyFile)
 	if err != nil {

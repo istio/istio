@@ -431,7 +431,6 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-
 	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(k.Namespace)
