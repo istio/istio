@@ -84,7 +84,13 @@ func (wh *Webhook) rebuildWebhookConfiguration() error {
 	wh.webhookConfiguration = webhookConfig
 	wh.caCertPem = caCertPem
 
-	log.Infof("%v validatingwebhookconfiguration reloaded: %#v", wh.webhookConfiguration.Name, webhookConfig)
+	var webhookYAML string
+	if b, err := yaml.Marshal(wh.webhookConfiguration); err == nil {
+		webhookYAML = string(b)
+	}
+
+	log.Infof("%v validatingwebhookconfiguration (re)loaded: \n%v",
+		wh.webhookConfiguration.Name, webhookYAML)
 	return nil
 }
 

@@ -29,11 +29,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clientset "k8s.io/client-go/kubernetes"
 
@@ -198,11 +198,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		wh.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
 				galleyDeployment,
-				schema.GroupVersionKind{
-					Group:   "extensions",
-					Version: "v1beta1",
-					Kind:    "Deployment",
-				},
+				extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
 			),
 		}
 	}
@@ -226,6 +222,12 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	return wh, nil
 }
 
+func (wh *Webhook) stop() {
+	wh.keyCertWatcher.Close() // nolint: errcheck
+	wh.configWatcher.Close()  // nolint: errcheck
+	wh.server.Close()         // nolint: errcheck
+}
+
 // Run implements the webhook server
 func (wh *Webhook) Run(stop <-chan struct{}) {
 	go func() {
@@ -233,9 +235,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
 		}
 	}()
-	defer wh.keyCertWatcher.Close() // nolint: errcheck
-	defer wh.configWatcher.Close()  // nolint: errcheck
-	defer wh.server.Close()         // nolint: errcheck
+	defer wh.stop()
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
@@ -268,9 +268,10 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.mu.Unlock()
 
 			metricCertKeyUpdate.Add(1)
-			log.Error("Cert and Key reloaded")
+			log.Info("Cert and Key reloaded")
 
 		case <-configTimerC:
+			configTimerC = nil
 			if err := wh.rebuildWebhookConfiguration(); err == nil {
 				wh.reconcileWebhookConfiguration()
 			}
@@ -278,12 +279,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			if wh.webhookConfiguration != nil {
 				wh.reconcileWebhookConfiguration()
 			}
-		case event := <-wh.keyCertWatcher.Event:
-			if (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
+		case event, more := <-wh.keyCertWatcher.Event:
+			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
 			}
-		case event := <-wh.configWatcher.Event:
-			if (event.IsModify() || event.IsCreate()) && configTimerC == nil {
+		case event, more := <-wh.configWatcher.Event:
+			if more && (event.IsModify() || event.IsCreate()) && configTimerC == nil {
 				configTimerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.keyCertWatcher.Error:

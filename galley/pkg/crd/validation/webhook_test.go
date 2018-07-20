@@ -33,7 +33,7 @@ import (
 	"github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/api/extensions/v1beta1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -94,7 +94,7 @@ var (
 		},
 	}
 
-	dummyDeployment = &v1beta1.Deployment{
+	dummyDeployment = &extensionsv1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-galley",
 			Namespace: "istio-system",
@@ -168,10 +168,13 @@ func createTestWebhook(t testing.TB, cl clientset.Interface, config *admissionre
 	wh, err := NewWebhook(options)
 	if err != nil {
 		cleanup()
-		t.Fatalf("NewController() failed: %v", err)
+		t.Fatalf("NewWebhook() failed: %v", err)
 	}
 
-	return wh, cleanup
+	return wh, func() {
+		cleanup()
+		wh.stop()
+	}
 }
 
 func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {

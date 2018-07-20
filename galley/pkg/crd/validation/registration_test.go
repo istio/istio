@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -39,11 +39,7 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(
 					dummyDeployment,
-					schema.GroupVersionKind{
-						Group:   "extensions",
-						Version: "v1beta1",
-						Kind:    "Deployment",
-					},
+					extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
 				),
 			},
 		},
@@ -122,6 +118,10 @@ func TestValidatingWebhookConfig(t *testing.T) {
 			},
 		},
 	}
+
+	missingDefaults := want.DeepCopyObject().(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+	missingDefaults.Webhooks[0].NamespaceSelector = nil
+	missingDefaults.Webhooks[0].FailurePolicy = nil
 
 	ts := []struct {
 		name    string
