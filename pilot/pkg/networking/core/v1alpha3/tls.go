@@ -85,8 +85,6 @@ func buildOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Environment, 
 	// Otherwise we treat ports marked as TLS as opaque TCP services, subject to same port
 	// collision handling.
 	if virtualService != nil {
-		// TODO: Make SNI compatible with RBAC. Deprecated tcp route configs are incompatible with SNI.
-		// RBAC requires deprecated tcp route configs, so RBAC is incompatible with SNI.
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
