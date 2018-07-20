@@ -502,14 +502,6 @@ func (k *KubeInfo) Teardown() error {
 		time.Sleep(1 * time.Second)
 	}
 
-	// webhooks may recreate webhook configuration as part of reconciliation. Delete the config after the webhook pods are stopped.
-	if _, err := util.Shell("kubectl --kubeconfig %s delete validatingwebhookconfiguration istio-galley --ignore-not-found", k.KubeConfig); err != nil { // nolint: lll
-		log.Warnf("Could not delete validatingwebhookconfiguration istio-galley: %v", err)
-	}
-	if _, err := util.Shell("kubectl --kubeconfig %s delete mutatingwebhookconfiguration istio-sidecar-injector --ignore-not-found", k.KubeConfig); err != nil { // nolint: lll
-		log.Warnf("Could not delete mutatingwebhookconfiguration istio-sidecar-injector: %v", err)
-	}
-
 	if !namespaceDeleted {
 		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts)
 		return nil
