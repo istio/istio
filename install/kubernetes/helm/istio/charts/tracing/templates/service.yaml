@@ -35,6 +35,7 @@ items:
       release: {{ .Release.Name }}
       heritage: {{ .Release.Service }}
   spec:
+    type: {{ .Values.service.uiType }}
     ports:
       - name: http-query
         port: 80

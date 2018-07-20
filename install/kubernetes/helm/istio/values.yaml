@@ -430,6 +430,7 @@ tracing:
     annotations: {}
     name: http
     type: ClusterIP
+    uiType: ClusterIP
     externalPort: 9411
     internalPort: 9411
     uiPort: 16686
