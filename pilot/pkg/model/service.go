@@ -156,6 +156,8 @@ const (
 	ProtocolMongo Protocol = "Mongo"
 	// ProtocolRedis declares that the port carries redis traffic
 	ProtocolRedis Protocol = "Redis"
+	// ProtocolX declares that the port carries whatever protocol traffic
+	ProtocolX Protocol = "X"
 	// ProtocolUnsupported - value to signify that the protocol is unsupported
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
@@ -215,6 +217,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolRedis
 	case "bolt":
 		return ProtocolBOLT
+	case "x":
+		return ProtocolX
 	}
 
 	return ProtocolUnsupported
@@ -240,6 +244,7 @@ func (p Protocol) IsHTTP() bool {
 	}
 }
 
+// IsRPC is true for protocols that use RPC as transport protocol
 func (p Protocol) IsRPC() bool {
 	switch p {
 	case ProtocolBOLT:
@@ -253,6 +258,16 @@ func (p Protocol) IsRPC() bool {
 func (p Protocol) IsTCP() bool {
 	switch p {
 	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsX is true for protocols that use X as transport protocol
+func (p Protocol) IsX() bool {
+	switch p {
+	case ProtocolX:
 		return true
 	default:
 		return false

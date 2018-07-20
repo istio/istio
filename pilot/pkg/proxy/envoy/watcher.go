@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path"
 	"time"
+	"strings"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -264,6 +265,14 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 	}
 }
 
+func (proxy envoy) args4Mosn(fname string, epoch int) []string {
+	return []string{ "start",
+		"--config", fname,
+		"--service-cluster", proxy.config.ServiceCluster,
+		"--service-node", proxy.node,
+	}
+}
+
 func (proxy envoy) args(fname string, epoch int) []string {
 	startupArgs := []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
@@ -307,11 +316,17 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	}
 
 	// spin up a new Envoy process
-	args := proxy.args(fname, epoch)
-	if len(proxy.config.CustomConfigFile) == 0 {
-		args = append(args, "--v2-config-only")
+	var args []string
+	if strings.HasSuffix(strings.ToLower(proxy.config.BinaryPath), "mosnd") {
+		args = proxy.args4Mosn(fname, epoch)
+		log.Infof("Mosn command: %v", args)
+	}else {
+		args := proxy.args(fname, epoch)
+		if len(proxy.config.CustomConfigFile) == 0 {
+			args = append(args, "--v2-config-only")
+		}
+		log.Infof("Envoy command: %v", args)
 	}
-	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
 	cmd := exec.Command(proxy.config.BinaryPath, args...)

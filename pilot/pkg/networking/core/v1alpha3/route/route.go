@@ -119,7 +119,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	for fqdn := range missing {
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() {
+			if port.Protocol.IsHTTP() || port.Protocol.IsX(){
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := fmt.Sprintf("%s:%d/*", svc.Hostname, port.Port)
 				out = append(out, VirtualHostWrapper{
@@ -205,7 +205,7 @@ func buildVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || port.Protocol.IsRPC() {
+			if port.Protocol.IsHTTP() || port.Protocol.IsRPC() || port.Protocol.IsX() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}

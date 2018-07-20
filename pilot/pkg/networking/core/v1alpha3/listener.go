@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -30,6 +31,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	x_proxy "github.com/alipay/sofa-mosn/pkg/xds-config-model/filter/network/x_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,6 +47,8 @@ const (
 	fileAccessLog = "envoy.file_access_log"
 
 	envoyHTTPConnectionManager = "envoy.http_connection_manager"
+
+	mosnXProxy = "x_proxy"
 
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
@@ -251,8 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			ip:             endpoint.Address,
-			port:           12222,
-			bindToPort:     true,
+			port:           endpoint.Port,
 			protocol:       protocol,
 		}
 
@@ -307,7 +310,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env model.Env
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				networkFilters: buildInboundNetworkFilters(instance),
 			}}
-
+		case plugin.ListenerTypeX:
+			listenerOpts.filterChainOpts = []*filterChainOpts{{
+				xOpts: &xListenerOpts{
+					routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
+					xProtocol:        parseSubProtocol(endpoint.ServicePort.Name),
+					direction:        x_proxy.INGRESS,
+				}},
+			}
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 			continue
@@ -385,8 +395,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				proxy:          node,
 				proxyInstances: proxyInstances,
 				ip:             WildcardAddress,
-				port:           12223,
-				bindToPort:     true,
+				port:           servicePort.Port,
 				protocol:       servicePort.Protocol,
 			}
 
@@ -448,6 +457,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env model.En
 				}
 
 				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs, addresses, service, servicePort, proxyLabels, meshGateway)
+			case plugin.ListenerTypeX:
+				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
+				if l, exists := listenerMap[listenerMapKey]; exists {
+					if !listenerTypeMap[listenerMapKey].IsX() {
+						conflictingOutbound.Add(1)
+						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
+							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
+					}
+					// Skip building listener for the same http port
+					continue
+				}
+
+				operation := x_proxy.EGRESS
+
+				listenerOpts.protocol = servicePort.Protocol
+				listenerOpts.filterChainOpts = []*filterChainOpts{{
+					xOpts: &xListenerOpts{
+						routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(
+							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
+						direction:        operation,
+						xProtocol:        parseSubProtocol(servicePort.Name),
+					},
+				}}
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -581,7 +613,7 @@ func buildSidecarInboundMgmtListeners(managementPorts model.PortList, management
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolX:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{
@@ -631,6 +663,14 @@ type httpListenerOpts struct {
 	statPrefix string
 }
 
+type xListenerOpts struct {
+	routeConfig      *xdsapi.RouteConfiguration
+	direction        x_proxy.XProxy_Tracing_OperationName
+	xProtocol        string
+	xProxy           *x_proxy.XProxy
+	statPrefix string
+}
+
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
 	sniHosts          []string
@@ -638,6 +678,7 @@ type filterChainOpts struct {
 	tlsContext        *auth.DownstreamTlsContext
 	httpOpts          *httpListenerOpts
 	networkFilters    []listener.Filter
+	xOpts             *xListenerOpts
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -713,6 +754,63 @@ func buildHTTPConnectionManager(env model.Environment, httpOpts *httpListenerOpt
 		log.Infof("LDS: %s \n", string(connectionManagerJSON))
 	}
 	return connectionManager
+}
+
+func buildXProxy(env model.Environment, xOpts *xListenerOpts, streamFilters []*x_proxy.StreamFilter) *x_proxy.XProxy {
+
+	refresh := time.Duration(env.Mesh.RdsRefreshDelay.Seconds) * time.Second
+	if refresh == 0 {
+		// envoy crashes if 0. Will go away once we move to v2
+		refresh = 5 * time.Second
+	}
+
+	if xOpts.xProxy == nil {
+		xOpts.xProxy = &x_proxy.XProxy{}
+	}
+
+	xProxy := xOpts.xProxy
+	xProxy.AccessLog = []*accesslog.AccessLog{}
+	xProxy.StreamFilters = streamFilters
+
+	if xOpts.direction == x_proxy.INGRESS {
+		xProxy.DownstreamProtocol = x_proxy.Http2
+		xProxy.UpstreamProtocol = x_proxy.X
+	}else{
+		xProxy.DownstreamProtocol = x_proxy.X
+		xProxy.UpstreamProtocol = x_proxy.Http2
+	}
+
+	xProxy.XProtocol = xOpts.xProtocol
+	xProxy.StatPrefix = fmt.Sprintf("%s-%s", xOpts.statPrefix, xProxy.XProtocol)
+
+	if xProxy.RouteSpecifier == nil {
+		xProxy.RouteSpecifier = &x_proxy.XProxy_RouteConfig{RouteConfig: xOpts.routeConfig}
+	}
+
+	if env.Mesh.AccessLogFile != "" {
+		fl := &fileaccesslog.FileAccessLog{
+			Path: env.Mesh.AccessLogFile,
+		}
+
+		xProxy.AccessLog = []*accesslog.AccessLog{
+			{
+				Config: util.MessageToStruct(fl),
+				Name:   fileAccessLog,
+			},
+		}
+	}
+
+	if env.Mesh.EnableTracing {
+		xProxy.Tracing = &x_proxy.XProxy_Tracing{
+			OperationName: xOpts.direction,
+		}
+	}
+
+	if verboseDebug {
+		connectionManagerJSON, _ := json.MarshalIndent(xProxy, "  ", "  ")
+		log.Infof("LDS: %s \n", string(connectionManagerJSON))
+	}
+	return xProxy
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
@@ -815,6 +913,30 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 				log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", 1+len(chain.HTTP), l.Name, i)
 			}
 		}
+
+		if opt.xOpts != nil {
+			opt.xOpts.statPrefix = l.Name
+			xProxy := buildXProxy(opts.env, opt.xOpts, chain.X)
+			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
+				Name:   mosnXProxy,
+				Config: util.MessageToStruct(xProxy),
+			})
+			log.Debugf("attached X filter with %d x_filter options to listener %q filter chain %d", 1+len(chain.X), l.Name, i)
+		}
 	}
 	return nil
+}
+
+func parseSubProtocol(name string) string {
+	sub := name
+	i := strings.Index(name, "-")
+	if i >= 0 {
+		sub = name[i+1:]
+	}
+	i = strings.Index(sub, "-")
+	if i >= 0 {
+		sub = sub[:i]
+		return sub
+	}
+	return "unknown"
 }
