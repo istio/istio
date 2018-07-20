@@ -117,20 +117,18 @@ type Webhook struct {
 	// mixer
 	validator store.BackendValidator
 
-	healthCheckInterval time.Duration
-	healthCheckFile     string
-	server              *http.Server
-	keyCertWatcher      *fsnotify.Watcher
-	configWatcher       *fsnotify.Watcher
-	certFile            string
-	keyFile             string
-	caFile              string
-	webhookConfigFile   string
-	clientset           clientset.Interface
-	deploymentNamespace string
-	deploymentName      string
-
-	caCertPem            []byte
+	healthCheckInterval  time.Duration
+	healthCheckFile      string
+	server               *http.Server
+	keyCertWatcher       *fsnotify.Watcher
+	configWatcher        *fsnotify.Watcher
+	certFile             string
+	keyFile              string
+	caFile               string
+	webhookConfigFile    string
+	clientset            clientset.Interface
+	deploymentNamespace  string
+	deploymentName       string
 	ownerRefs            []v1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
 }
