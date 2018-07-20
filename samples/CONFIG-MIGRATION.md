@@ -194,8 +194,8 @@ spec:
   precedence: 2
   match:
     httpHeaders:
-      end-user:
-        exact: jason
+      cookie:
+        regex: "^(.*?;)?(user=jason)(;.*)?$"
   route:
   - tags:
       version: v1
@@ -218,8 +218,8 @@ spec:
   match:
     request:
       headers:
-        end-user:
-          exact: jason
+        cookie:
+          regex: ^(.*?;)?(user=jason)(;.*)?$
   route:
   - labels:
       version: v1
