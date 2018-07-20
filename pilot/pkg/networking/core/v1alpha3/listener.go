@@ -419,7 +419,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
-			// TODO(rshriram) Nuke after Piotr's changes get in
 			var destinationIPAddress string
 			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
@@ -791,6 +790,10 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
+
+	// Allow websocket upgrades
+	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
