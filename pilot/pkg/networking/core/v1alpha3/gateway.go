@@ -411,7 +411,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 
 		// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
 		if server.Tls == nil {
-			if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, nil); len(filters) > 0 {
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       nil,
 					tlsContext:     nil,
@@ -422,7 +422,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 			// and forward to backend
 			// Validation ensures that non-passthrough servers will have certs
-			if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, nil); len(filters) > 0 {
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       getSNIHostsForServer(server),
 					tlsContext:     buildGatewayListenerTLSContext(server),
@@ -443,10 +443,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			// Build a filter chain for each SNI host set, where the target cluster is decided by the virtual
 			// service that refers to this list of SNI values.
 			for _, sniMatchBlock := range sniMatchBlocks {
-				if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, sniMatchBlock); len(filters) > 0 {
+				if filters := buildGatewayNetworkFiltersFromTLSRoutes(node, env, server, gatewaysForWorkload, sniMatchBlock); len(filters) > 0 {
 					opts = append(opts, &filterChainOpts{
 						sniHosts:       sniMatchBlock,
-						tlsContext:     buildGatewayListenerTLSContext(server),
+						tlsContext:     nil, // NO TLS context because this is passthrough
 						networkFilters: filters,
 					})
 				}
@@ -456,19 +456,45 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	return opts
 }
 
-// buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
-// them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(node *model.Proxy, env *model.Environment, server *networking.Server, gatewaysForWorkload map[string]bool, sniHostsSet []string) []listener.Filter {
+// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
+// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
+// server's port and hostnames, and produces network filters for each destination from the filtered services
+func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+	gatewaysForWorkload map[string]bool) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := getTCPServerDestinationsFromVirtualServices(env, server, gatewaysForWorkload, sniHostsSet)
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	for _, host := range server.Hosts {
+		gatewayServerHosts[model.Hostname(host)] = true
+	}
+
+	virtualServices := env.VirtualServices(gatewaysForWorkload)
+	upstreams := make([]*networking.Destination, 0, len(virtualServices))
+	for _, spec := range virtualServices {
+		vsvc := spec.Spec.(*networking.VirtualService)
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+		if len(matchingHosts) == 0 {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
+
+		// ensure we satisfy the rule's l4 match conditions, if any exist
+		for _, tcp := range vsvc.Tcp {
+			if l4Match(tcp.Match, server, gatewaysForWorkload) {
+				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
+			}
+		}
+
+		// TODO: detect conflicting upstreams
+	}
+
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
-	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
-	for _, dest := range dests {
+	byHost := make(map[model.Hostname]*networking.Destination, len(upstreams))
+	for _, dest := range upstreams {
 		byHost[model.Hostname(dest.Host)] = dest
 	}
 
@@ -485,10 +511,16 @@ func buildGatewayNetworkFilters(node *model.Proxy, env *model.Environment, serve
 	return filters
 }
 
-// getTCPServerDestinationsFromVirtualServices filters virtual services by gateway names, then determines if any match the (TCP) server
-// TODO: move up to more general location so this can be re-used in sidecars
-func getTCPServerDestinationsFromVirtualServices(env *model.Environment, server *networking.Server,
-	gatewaysForWorkload map[string]bool, sniHostsSet []string) []*networking.Destination {
+// buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
+// It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
+// server's port and hostnames, and produces network filters for each destination from the filtered services
+func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+	gatewaysForWorkload map[string]bool, sniHostsSet []string) []listener.Filter {
+	port := &model.Port{
+		Name:     server.Port.Name,
+		Port:     int(server.Port.Number),
+		Protocol: model.ParseProtocol(server.Port.Protocol),
+	}
 
 	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
@@ -512,16 +544,26 @@ func getTCPServerDestinationsFromVirtualServices(env *model.Environment, server 
 			}
 		}
 
-		// ensure we satisfy the rule's l4 match conditions, if any exist
-		for _, tcp := range vsvc.Tcp {
-			if l4Match(tcp.Match, server, gatewaysForWorkload) {
-				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
-			}
-		}
-
 		// TODO: detect conflicting upstreams
 	}
-	return upstreams
+
+	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
+	byHost := make(map[model.Hostname]*networking.Destination, len(upstreams))
+	for _, dest := range upstreams {
+		byHost[model.Hostname(dest.Host)] = dest
+	}
+
+	filters := make([]listener.Filter, 0, len(byHost))
+	for host, dest := range byHost {
+		upstream, err := env.GetService(host)
+		if err != nil || upstream == nil {
+			log.Debugf("failed to retrieve service for destination %q: %v", host, err)
+			continue
+		}
+		filters = append(filters, buildOutboundNetworkFilters(node,
+			istio_route.GetDestinationCluster(dest, upstream, int(server.Port.Number)), "", port)...)
+	}
+	return filters
 }
 
 func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
@@ -536,7 +578,6 @@ func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtua
 	return matchingHosts
 }
 
-// TODO: move up to more general location so this can be re-used in other service matching
 func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
@@ -565,7 +606,6 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 	return len(predicates) == 0
 }
 
-// TODO: move up to more general location so this can be re-used in other service matching
 func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool, sniHostsSet []string) bool {
 	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
