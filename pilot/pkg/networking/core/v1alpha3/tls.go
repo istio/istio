@@ -25,15 +25,16 @@ import (
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
 func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollection, gateways map[string]bool, port int) bool {
+	if match == nil {
+		return true
+	}
+
 	gatewayMatch := len(match.Gateways) == 0
 	for _, gateway := range match.Gateways {
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := true
-	if gateways[model.IstioMeshGateway] { // only check source labels if this is a mesh gateway
-		labelMatch = proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
-	}
+	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
