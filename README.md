@@ -1,5 +1,9 @@
 # SOFAMesh
 
+[![CircleCI](https://circleci.com/gh/alipay/sofa-mesh.svg?style=shield)](https://circleci.com/gh/alipay/sofa-mesh)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alipay/sofa-mesh)](https://goreportcard.com/report/github.com/alipay/sofa-mesh)
+[![codecov.io](https://codecov.io/github/alipay/sofa-mosn/coverage.svg?branch=master)](https://codecov.io/github/alipay/sofa-mesh?branch=master)
+
 SOFAMesh 是基于 Istio 改进和扩展而来的 Service Mesh 大规模落地实践方案。在继承 Istio 强大功能和丰富特性的基础上，为满足大规模部署下的性能要求以及应对落地实践中的实际情况，有如下改进：
 
 - 采用 Golang 编写的 [MOSN](https://github.com/alipay/sofa-mosn) 取代 [Envoy](https://github.com/envoyproxy/envoy)
