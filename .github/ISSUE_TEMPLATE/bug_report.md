@@ -21,3 +21,9 @@ Did you install the stable istio.yaml, istio-auth.yaml.... or if using the Helm 
 
 **Environment**
 Which environment, cloud vendor, OS, etc are you using?
+
+**Cluster state**
+Follow
+[instructions](http://preliminary.istio.io/help/bugs/#generating-a-cluster-state-archive)
+to generate "istio-dump.tar.gz", then attach it here by dragging and dropping
+the file onto this issue.
