@@ -56,18 +56,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gateways := env.Gateways(workloadLabels)
-	if len(gateways) == 0 {
+	gatewaysForWorkload := env.Gateways(workloadLabels)
+	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
 	}
 
-	merged := model.MergeGateways(gateways...)
-	log.Debugf("buildGatewayListeners: gateways after merging: %v", merged)
+	mergedGateway := model.MergeGateways(gatewaysForWorkload...)
+	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
 	errs := &multierror.Error{}
-	listeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
-	for portNumber, servers := range merged.Servers {
+	listeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
+	for portNumber, servers := range mergedGateway.Servers {
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
 		if protocol == model.ProtocolHTTPS {
 			// Gateway terminates TLS connection if TLS mode is not Passthrough So, its effectively a H2 listener.
@@ -94,9 +94,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
-			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers, merged.Names)
+			// virtualService.HTTP applies here for both plain text HTTP and HTTPS termination
+			opts.filterChainOpts = configgen.createGatewayHTTPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
 		case plugin.ListenerProtocolTCP:
-			opts.filterChainOpts = createGatewayTCPFilterChainOpts(node, env, push, servers, merged.Names)
+			// virtualService.TLS/virtualService.TCP applies here
+			opts.filterChainOpts = configgen.createGatewayTCPFilterChainOpts(node, env, push, servers, mergedGateway.Names)
 		default:
 			log.Warnf("buildGatewayListeners: unknown listener type %v", listenerType)
 			continue
@@ -165,7 +167,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		log.Info(err.Error())
 	}
 
-	validatedListeners := make([]*xdsapi.Listener, 0, len(merged.Servers))
+	validatedListeners := make([]*xdsapi.Listener, 0, len(mergedGateway.Servers))
 	for _, l := range listeners {
 		if err := l.Validate(); err != nil {
 			log.Warnf("buildGatewayListeners: error validating listener %s: %v.. Skipping.", l.Name, err)
@@ -300,12 +302,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	return routeCfg, nil
 }
 
-// to process HTTP and HTTPS servers
+// to process HTTP and HTTPS servers along with virtualService.HTTP rules
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server, gatewaysForWorkload map[string]bool) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
-	// Are we processing plaintext servers or TLS servers?
+	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if model.ParseProtocol(servers[0].Port.Protocol).IsHTTP() {
 		rdsName := model.GatewayRDSRouteName(servers[0])
@@ -323,13 +325,15 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		}
 		httpListeners = append(httpListeners, o)
 	} else {
-		// Build a filter chain for each TLS server
+		// Build a filter chain for each HTTPS server
+		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
+		// where HTTPS server's TLS mode is not passthrough and not nil
 		for _, server := range servers {
 			o := &filterChainOpts{
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
-				sniHosts:   getSNIHosts(server), // TODO: build SNI hosts based on virtual services
+				sniHosts:   getSNIHostsForServer(server),
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
 					rds:              model.GatewayRDSRouteName(server),
@@ -345,6 +349,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 }
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
+	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
@@ -394,22 +399,57 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 	}
 }
 
-func createGatewayTCPFilterChainOpts(
-	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server, gatewayNames map[string]bool) []*filterChainOpts {
+func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
+	node *model.Proxy, env *model.Environment, push *model.PushStatus, servers []*networking.Server,
+	gatewaysForWorkload map[string]bool) []*filterChainOpts {
 
 	opts := make([]*filterChainOpts, 0, len(servers))
 	for _, server := range servers {
-		// Get the set of SNI host sets that we filter on for this server.
-		sniHostSets := getSNIHostSets(env, server, gatewayNames)
+		// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
+		// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
+		// Handle the TLS termination or opaque TCP first.
 
-		// Build a filter chain for each SNI host set.
-		for _, sniHostSet := range sniHostSets {
-			if filters := buildGatewayNetworkFilters(node, env, server, gatewayNames, sniHostSet); len(filters) > 0 {
+		// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
+		if server.Tls == nil {
+			if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, nil); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
-					sniHosts:       sniHostSet,
+					sniHosts:       nil,
+					tlsContext:     nil,
+					networkFilters: filters,
+				})
+			}
+		} else if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
+			// and forward to backend
+			// Validation ensures that non-passthrough servers will have certs
+			if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, nil); len(filters) > 0 {
+				opts = append(opts, &filterChainOpts{
+					sniHosts:       getSNIHostsForServer(server),
 					tlsContext:     buildGatewayListenerTLSContext(server),
 					networkFilters: filters,
 				})
+			}
+		} else {
+			// Passthrough server.
+			// Get "sets" of SNI matches based on virtual services with TLS blocks and the server's hosts
+			// setup a filter chain for each such set. We talk about sets here because the server's host could
+			// specify a wildcard like *.com, while the virtual services could be splitting this up into
+			// two pieces like foo.com goes to service1, and bar.com goes to service2. In this case, we need
+			// two filter chains, one for each set defined by the virtual services.
+
+			// Get the list of SNI matches for this server. Each match is made of one or more hosts.
+			sniMatchBlocks := getSNIMatchesFromVirtualServices(env, server, gatewaysForWorkload)
+
+			// Build a filter chain for each SNI host set, where the target cluster is decided by the virtual
+			// service that refers to this list of SNI values.
+			for _, sniMatchBlock := range sniMatchBlocks {
+				if filters := buildGatewayNetworkFilters(node, env, server, gatewaysForWorkload, sniMatchBlock); len(filters) > 0 {
+					opts = append(opts, &filterChainOpts{
+						sniHosts:       sniMatchBlock,
+						tlsContext:     buildGatewayListenerTLSContext(server),
+						networkFilters: filters,
+					})
+				}
 			}
 		}
 	}
@@ -418,14 +458,14 @@ func createGatewayTCPFilterChainOpts(
 
 // buildGatewayNetworkFilters retrieves all VirtualServices bound to the set of Gateways for this workload, filters
 // them by this server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFilters(node *model.Proxy, env *model.Environment, server *networking.Server, gatewayNames map[string]bool, sniHostsSet []string) []listener.Filter {
+func buildGatewayNetworkFilters(node *model.Proxy, env *model.Environment, server *networking.Server, gatewaysForWorkload map[string]bool, sniHostsSet []string) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
 		Protocol: model.ParseProtocol(server.Port.Protocol),
 	}
 
-	dests := getVirtualServiceTCPDestinations(env, server, gatewayNames, sniHostsSet)
+	dests := getTCPServerDestinationsFromVirtualServices(env, server, gatewaysForWorkload, sniHostsSet)
 	// de-dupe destinations by hostname; we'll take a random destination if multiple claim the same host
 	byHost := make(map[model.Hostname]*networking.Destination, len(dests))
 	for _, dest := range dests {
@@ -445,21 +485,21 @@ func buildGatewayNetworkFilters(node *model.Proxy, env *model.Environment, serve
 	return filters
 }
 
-// getVirtualServiceTCPDestinations filters virtual services by gateway names, then determines if any match the (TCP) server
+// getTCPServerDestinationsFromVirtualServices filters virtual services by gateway names, then determines if any match the (TCP) server
 // TODO: move up to more general location so this can be re-used in sidecars
-func getVirtualServiceTCPDestinations(env *model.Environment, server *networking.Server,
-	gateways map[string]bool, sniHostsSet []string) []*networking.Destination {
+func getTCPServerDestinationsFromVirtualServices(env *model.Environment, server *networking.Server,
+	gatewaysForWorkload map[string]bool, sniHostsSet []string) []*networking.Destination {
 
-	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayHosts[model.Hostname(host)] = true
+		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := env.VirtualServices(gateways)
+	virtualServices := env.VirtualServices(gatewaysForWorkload)
 	upstreams := make([]*networking.Destination, 0, len(virtualServices))
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
-		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
 		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
@@ -467,14 +507,14 @@ func getVirtualServiceTCPDestinations(env *model.Environment, server *networking
 
 		// ensure we satisfy the rule's tls match conditions, if any exist
 		for _, tls := range vsvc.Tls {
-			if tlsMatch(tls.Match, server, gateways, sniHostsSet) {
+			if tlsMatch(tls.Match, server, gatewaysForWorkload, sniHostsSet) {
 				upstreams = append(upstreams, gatherDestinations(tls.Route)...)
 			}
 		}
 
 		// ensure we satisfy the rule's l4 match conditions, if any exist
 		for _, tcp := range vsvc.Tcp {
-			if l4Match(tcp.Match, server, gateways) {
+			if l4Match(tcp.Match, server, gatewaysForWorkload) {
 				upstreams = append(upstreams, gatherDestinations(tcp.Route)...)
 			}
 		}
@@ -484,10 +524,10 @@ func getVirtualServiceTCPDestinations(env *model.Environment, server *networking
 	return upstreams
 }
 
-func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
+func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
 	matchingHosts := make(map[string]model.Hostname, 0)
 	for _, vsvcHost := range virtualServiceHosts {
-		for gatewayHost := range gatewayHosts {
+		for gatewayHost := range gatewayServerHosts {
 			if gatewayHost.Matches(model.Hostname(vsvcHost)) {
 				matchingHosts[vsvcHost] = gatewayHost
 			}
@@ -497,7 +537,7 @@ func pickMatchingGatewayHosts(gatewayHosts map[model.Hostname]bool, virtualServi
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewayNames map[string]bool) bool {
+func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool) bool {
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
@@ -513,7 +553,7 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+				gatewayMatch = gatewayMatch || gatewaysForWorkload[gateway]
 			}
 		}
 
@@ -526,10 +566,10 @@ func l4Match(predicates []*networking.L4MatchAttributes, server *networking.Serv
 }
 
 // TODO: move up to more general location so this can be re-used in other service matching
-func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewayNames map[string]bool, sniHostsSet []string) bool {
-	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Server, gatewaysForWorkload map[string]bool, sniHostsSet []string) bool {
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayHosts[model.Hostname(host)] = true
+		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
 	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
@@ -550,7 +590,7 @@ func tlsMatch(predicates []*networking.TLSMatchAttributes, server *networking.Se
 		gatewayMatch := len(match.Gateways) == 0
 		if len(match.Gateways) > 0 {
 			for _, gateway := range match.Gateways {
-				gatewayMatch = gatewayMatch || gatewayNames[gateway]
+				gatewayMatch = gatewayMatch || gatewaysForWorkload[gateway]
 			}
 		}
 
@@ -570,7 +610,7 @@ func gatherDestinations(weights []*networking.DestinationWeight) []*networking.D
 	return dests
 }
 
-func getSNIHosts(server *networking.Server) []string {
+func getSNIHostsForServer(server *networking.Server) []string {
 	if server.Tls == nil {
 		return nil
 	}
@@ -592,25 +632,21 @@ func sniHostsKey(sniHosts []string) string {
 // This function would return two sets of SNI hosts, a and b, corresponding to the virtual service defined in 2.
 // No SNI host sets are generated for c or d, because both are missing either a virtual service or a virtual service
 // with a TLS block.
-func getSNIHostSets(env *model.Environment, server *networking.Server, gateways map[string]bool) [][]string {
-	if server.Tls == nil || server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
-		return [][]string{nil}
-	}
-
+func getSNIMatchesFromVirtualServices(env *model.Environment, server *networking.Server, gatewaysForWorkload map[string]bool) [][]string {
 	have := make(map[string]bool)
 
-	gatewayHosts := make(map[model.Hostname]bool, len(server.Hosts))
+	gatewayServerHosts := make(map[model.Hostname]bool, len(server.Hosts))
 	for _, host := range server.Hosts {
-		gatewayHosts[model.Hostname(host)] = true
+		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := env.VirtualServices(gateways)
+	virtualServices := env.VirtualServices(gatewaysForWorkload)
 
 	out := make([][]string, 0)
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 
-		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vsvc.Hosts)
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
 		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
@@ -618,7 +654,7 @@ func getSNIHostSets(env *model.Environment, server *networking.Server, gateways 
 
 		for _, tls := range vsvc.Tls {
 			for _, match := range tls.Match {
-				if matchTLS(match, nil, gateways, int(server.Port.Number)) {
+				if matchTLS(match, nil, gatewaysForWorkload, int(server.Port.Number)) {
 					key := sniHostsKey(match.SniHosts)
 					if !have[key] {
 						out = append(out, match.SniHosts)
