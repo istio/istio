@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, onConnect bool) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, onConnect bool, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 
 	rawListeners, err := s.generateRawListeners(con, push)
@@ -32,7 +32,11 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 		return err
 	}
 	con.HTTPListeners = rawListeners
-	response := ldsDiscoveryResponse(rawListeners, *con.modelNode)
+	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
+	if version != versionInfo() {
+		// Just report for now - after debugging we can suppress the push.
+		adsLog.Warnf("LDS: overlap %s %s %s", con.ConID, version, versionInfo())
+	}
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
@@ -68,10 +72,10 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) *xdsapi.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy, version string) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(),
 	}
 	for _, ll := range ls {
