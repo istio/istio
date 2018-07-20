@@ -40,9 +40,10 @@ var (
 
 			// TODO(quanlin): use real caClient when it's ready.
 			caClient := &mockCAClient{}
-			st := cache.NewSecretCache(caClient, cacheOptions)
+			sc := cache.NewSecretCache(caClient, cacheOptions)
+			defer sc.Close()
 
-			server, err := sds.NewServer(serverOptions, st)
+			server, err := sds.NewServer(serverOptions, sc)
 			defer server.Stop()
 			if err != nil {
 				return fmt.Errorf("failed to create sds service: %v", err)
@@ -57,7 +58,7 @@ var (
 
 func init() {
 	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
-		"/tmp/sdsuds.sock", "Unix domain socket through which SDS server communicates with proxies")
+		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
 	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
 		time.Hour, "Secret's TTL")

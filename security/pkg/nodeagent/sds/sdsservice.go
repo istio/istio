@@ -31,7 +31,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
@@ -64,9 +63,6 @@ type sdsEvent struct {
 }
 
 type sdsConnection struct {
-	// PeerAddr is the address of the client envoy, from network layer.
-	PeerAddr string
-
 	// Time of connection, for debugging.
 	Connect time.Time
 
@@ -75,9 +71,6 @@ type sdsConnection struct {
 
 	// Sending on this channel results in  push.
 	pushChannel chan *sdsEvent
-
-	// doneChannel will be closed when the client is closed.
-	doneChannel chan int
 
 	// SDS streams implement this interface.
 	stream discoveryStream
@@ -106,28 +99,20 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 	ctx := stream.Context()
 	token, err := getCredentialToken(ctx)
 	if err != nil {
+		log.Errorf("Failed to get credential token: %v", err)
 		return err
 	}
 
-	peerAddr := "Unknown peer address"
-	peerInfo, ok := peer.FromContext(ctx)
-	if ok {
-		peerAddr = peerInfo.Addr.String()
-	}
-
-	var discReq *xdsapi.DiscoveryRequest
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-
-	con := newSDSConnection(peerAddr, stream)
-	defer close(con.doneChannel)
+	con := newSDSConnection(stream)
 
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
 		// Block until a request is received.
 		select {
-		case discReq, ok = <-reqChannel:
+		case discReq, ok := <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
 				return receiveError
@@ -135,6 +120,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			spiffeID, err := parseDiscoveryRequest(discReq)
 			if err != nil {
+				log.Errorf("Failed to parse discovery request: %v", err)
 				continue
 			}
 			con.proxyID = discReq.Node.Id
@@ -157,7 +143,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if con.secret == nil {
 				// Secret is nil indicates close streaming connection to proxy, so that proxy
 				// could connect again with updated token.
-				return fmt.Errorf("streaming connection closed")
+				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
 			}
 
 			if err := pushSDS(con); err != nil {
@@ -171,11 +157,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	token, err := getCredentialToken(ctx)
 	if err != nil {
+		log.Errorf("Failed to get credential token: %v", err)
 		return nil, err
 	}
 
 	spiffeID, err := parseDiscoveryRequest(discReq)
 	if err != nil {
+		log.Errorf("Failed to parse discovery request: %v", err)
 		return nil, err
 	}
 
@@ -191,14 +179,14 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 // NotifyProxy send notification to proxy about secret update,
 // SDS will close streaming connection is secret is nil.
 func NotifyProxy(proxyID string, secret *SecretItem) error {
-	cli := sdsClients[proxyID]
-	if cli == nil {
-		log.Infof("No sdsclient with id %q can be found", proxyID)
-		return fmt.Errorf("no sdsclient with id %q can be found", proxyID)
+	conn := sdsClients[proxyID]
+	if conn == nil {
+		log.Errorf("No connection with id %q can be found", proxyID)
+		return fmt.Errorf("no connection with id %q can be found", proxyID)
 	}
-	cli.secret = secret
+	conn.secret = secret
 
-	cli.pushChannel <- &sdsEvent{}
+	conn.pushChannel <- &sdsEvent{}
 	return nil
 }
 
@@ -210,6 +198,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*spiffeID*
 	if len(discReq.ResourceNames) != 1 || !strings.HasPrefix(discReq.ResourceNames[0], util.URIScheme) {
 		return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
 	}
+
 	return discReq.ResourceNames[0], nil
 }
 
@@ -242,6 +231,8 @@ func removeConn(proxyID string) {
 }
 
 func pushSDS(con *sdsConnection) error {
+	log.Infof("SDS: push for proxy:%q", con.proxyID)
+
 	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
@@ -253,7 +244,6 @@ func pushSDS(con *sdsConnection) error {
 		return err
 	}
 
-	log.Infof("SDS: push for proxy:%q addr:%q", con.proxyID, con.PeerAddr)
 	return nil
 }
 
@@ -299,11 +289,9 @@ func sdsDiscoveryResponse(s *SecretItem, proxyID string) (*xdsapi.DiscoveryRespo
 	return resp, nil
 }
 
-func newSDSConnection(peerAddr string, stream discoveryStream) *sdsConnection {
+func newSDSConnection(stream discoveryStream) *sdsConnection {
 	return &sdsConnection{
-		doneChannel: make(chan int, 1),
 		pushChannel: make(chan *sdsEvent, 1),
-		PeerAddr:    peerAddr,
 		Connect:     time.Now(),
 		stream:      stream,
 	}
@@ -315,11 +303,11 @@ func receiveThread(con *sdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
-				log.Infof("SDS: %q terminated %v", con.PeerAddr, err)
+				log.Infof("SDS: connection with %q terminated %v", con.proxyID, err)
 				return
 			}
 			*errP = err
-			log.Errorf("SDS: %q terminated with errors %v", con.PeerAddr, err)
+			log.Errorf("SDS: connection with %q terminated with errors %v", con.proxyID, err)
 			return
 		}
 		reqChannel <- req
