@@ -80,7 +80,6 @@ docker.proxy_debug: tools/deb/envoy_bootstrap_v2.json
 docker.proxy_debug: ${ISTIO_ENVOY_DEBUG_PATH}
 docker.proxy_debug: $(ISTIO_OUT)/pilot-agent
 docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
-docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
@@ -104,7 +103,6 @@ docker.proxyv2: tools/deb/envoy_bootstrap_v2.json
 docker.proxyv2: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxyv2: $(ISTIO_OUT)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
-docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
@@ -121,7 +119,6 @@ docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
 docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
-docker.proxytproxy: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxytproxy: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxytproxy: tools/deb/istio-iptables.sh
 docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl

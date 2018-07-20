@@ -132,7 +132,6 @@ func startEnvoy() error {
 }
 
 // startPilot with defaults:
-// - http port 15007
 // - grpc on 15010
 // - grpcs in 15011 - certs from PILOT_CERT_DIR or ./tests/testdata/certs/pilot
 // - mixer set to localhost:9091 (runs in-process),
@@ -148,7 +147,6 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			HTTPAddr:        ":15007",
 			GrpcAddr:        ":15010",
 			SecureGrpcAddr:  ":15011",
 			EnableCaching:   true,

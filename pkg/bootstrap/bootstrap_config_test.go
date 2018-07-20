@@ -122,9 +122,9 @@ func TestGetHostPort(t *testing.T) {
 		},
 		{
 			name:         "Valid host/port",
-			addr:         "istio-pilot:15005",
+			addr:         "istio-pilot:15011",
 			expectedHost: "istio-pilot",
-			expectedPort: "15005",
+			expectedPort: "15011",
 			errStr:       "",
 		},
 		{
@@ -176,12 +176,12 @@ func TestGetHostPort(t *testing.T) {
 
 func TestStoreHostPort(t *testing.T) {
 	opts := map[string]interface{}{}
-	StoreHostPort("istio-pilot", "15005", "foo", opts)
+	StoreHostPort("istio-pilot", "15011", "foo", opts)
 	actual, ok := opts["foo"]
 	if !ok {
 		t.Fatalf("expected to have map entry foo populated")
 	}
-	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15005}"
+	expected := "{\"address\": \"istio-pilot\", \"port_value\": 15011}"
 	if actual != expected {
 		t.Errorf("expected value %q, got %q", expected, actual)
 	}
