@@ -76,9 +76,6 @@ var (
 	// FilepathWalkInterval dictates how often the file system is walked for config
 	FilepathWalkInterval = 100 * time.Millisecond
 
-	// CopilotSyncInterval
-	CopilotSyncInterval = 1 * time.Second
-
 	// PilotCertDir is the default location for mTLS certificates used by pilot
 	// Visible for tests - at runtime can be set by PILOT_CERT_DIR environment variable.
 	PilotCertDir = "/etc/certs/"
@@ -475,7 +472,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 				s.configController,
-				cf.NewController(client, configController, 30*time.Second, 30*time.Second),
+				cf.NewController(client, configController, 30*time.Second, 10*time.Second),
 			})
 			if err != nil {
 				return err
@@ -657,6 +654,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				},
 				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
 					Client:      client,
+					RoutesRepo:  cloudfoundry.NewRoutesRepo(client),
 					ServicePort: cfConfig.ServicePort,
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),

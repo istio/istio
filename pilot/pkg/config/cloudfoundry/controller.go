@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -138,7 +137,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	}
 	c.storage.RUnlock()
 
-	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
+	// sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
 
 	return configs, nil
 }
