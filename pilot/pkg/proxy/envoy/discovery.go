@@ -467,13 +467,16 @@ func debouncePush(startDebounce time.Time) {
 	since := time.Since(lastClearCacheEvent)
 	clearCacheMutex.Unlock()
 
-	if since > DebounceAfter/2 ||
+	if since > 1 * time.Second ||
 		time.Since(startDebounce) > DebounceMax {
 		clearCacheMutex.Lock()
 		clearCacheTimerSet = false
 		lastClearCache = time.Now()
 		clearCacheMutex.Unlock()
 
+		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
+			clearCacheEvents,
+			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		V2ClearCache()
 	} else {
 		log.Infof("Push debounce %d: %v since last change, %v since last push",
