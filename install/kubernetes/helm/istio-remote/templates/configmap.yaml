@@ -94,9 +94,9 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if .Values.global.remotePilotCreateSvcEndpoint }}
-      discoveryAddress: {{ $defPilotHostname }}:15005
+      discoveryAddress: {{ $defPilotHostname }}:15011
       {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15005
+      discoveryAddress: {{ $pilotAddress }}:15011
       {{- end }}
     {{- else }}
       #
@@ -105,8 +105,8 @@ data:
       #
       # Address where istio Pilot service is running
       {{- if .Values.global.remotePilotCreateSvcEndpoint }}
-      discoveryAddress: {{ $defPilotHostname }}:15007
+      discoveryAddress: {{ $defPilotHostname }}:15010
       {{- else }}
-      discoveryAddress: {{ $pilotAddress }}:15007
+      discoveryAddress: {{ $pilotAddress }}:15010
       {{- end }}
     {{- end }}

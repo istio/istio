@@ -57,13 +57,12 @@ services:
         aliases:
           - istio-pilot
     expose:
-      - "15003"
-      - "15005"
-      - "15007"
+      - "15011"
+      - "15010"
     ports:
-      - "8081:15007"
+      - "8081:15010"
     command: ["discovery",
-              "--httpAddr", ":15007",
+              "--httpAddr", ":15010",
               "--registries", "Consul",
               "--consulserverURL", "http://consul:8500",
               "--kubeconfig", "/etc/istio/config/kubeconfig"

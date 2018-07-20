@@ -69,4 +69,4 @@ defaultConfig:
   controlPlaneAuthPolicy: NONE
   #
   # Address where istio Pilot service is running
-  discoveryAddress: istio-pilot:15007
+  discoveryAddress: istio-pilot:15010

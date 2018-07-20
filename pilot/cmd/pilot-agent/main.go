@@ -157,11 +157,11 @@ var (
 					parts := strings.Split(discoveryHostname, ".")
 					if len(parts) == 1 {
 						// namespace of pilot is not part of discovery address use
-						// pod namespace e.g. istio-pilot:15005
+						// pod namespace e.g. istio-pilot:15011
 						ns = os.Getenv("POD_NAMESPACE")
 					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
-						// e.g. istio-pilot.istio-system:15005
+						// e.g. istio-pilot.istio-system:15011
 						ns = parts[1]
 					} else {
 						// discovery address is a remote address. For remote clusters

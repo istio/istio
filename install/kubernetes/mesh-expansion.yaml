@@ -12,12 +12,6 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - name: https-pilot
-    port: 15005
-    protocol: TCP
-  - port: 8080
-    name: http-pilot
-    protocol: TCP
   - port: 15010
     name: grpc-pilot
     protocol: TCP
