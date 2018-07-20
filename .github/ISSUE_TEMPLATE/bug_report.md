@@ -24,6 +24,6 @@ Which environment, cloud vendor, OS, etc are you using?
 
 **Cluster state**
 If you're running on Kubernetes, consider [following the
-instructions](http://preliminary.istio.io/help/bugs/#generating-a-cluster-state-archive)
+instructions](http://istio.io/help/bugs/#generating-a-cluster-state-archive)
 to generate "istio-dump.tar.gz", then attach it here by dragging and dropping
 the file onto this issue.
