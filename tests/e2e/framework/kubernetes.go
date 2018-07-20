@@ -63,6 +63,7 @@ const (
 	caKeyFileName                  = "samples/certs/ca-key.pem"
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
+	helmInstallerName              = "helm"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -305,9 +306,9 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if *installer == "helm" {
+		if *installer == helmInstallerName {
 			// install helm tiller first
-			yamlDir := filepath.Join(istioInstallDir+"/helm", helmServiceAccountFile)
+			yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
 			baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
 			if err = k.deployTiller(baseHelmServiceAccountYaml); err != nil {
 				log.Error("Failed to deploy helm tiller.")
@@ -430,11 +431,15 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-	if *installer == "helm" {
+	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(k.Namespace)
 		if err != nil {
 			return nil
+		}
+
+		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Failed to delete namespace %s", k.Namespace)
 		}
 	} else {
 		if *useAutomaticInjection {
@@ -684,6 +689,18 @@ func (k *KubeInfo) deployIstio() error {
 	}
 
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
+}
+
+// DeployTiller deploys tiller in Istio mesh or returns error
+func (k *KubeInfo) DeployTiller() error {
+	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
+	if *installer == helmInstallerName {
+		return nil
+	}
+
+	yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
+	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
+	return k.deployTiller(baseHelmServiceAccountYaml)
 }
 
 func (k *KubeInfo) deployTiller(yamlFileName string) error {

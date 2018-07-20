@@ -34,8 +34,9 @@ var (
 	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.Mutex
-	// version is update by registry events.
-	version = time.Now()
+
+	// version is the timestamp of the last registry event.
+	version = "0"
 
 	periodicRefreshMetrics = 10 * time.Second
 )
@@ -119,8 +120,8 @@ func (s *DiscoveryServer) periodicRefresh() {
 	ticker := time.NewTicker(periodicRefreshDuration)
 	defer ticker.Stop()
 	for range ticker.C {
-		adsLog.Infof("ADS: periodic push of envoy configs")
-		AdsPushAll(s)
+		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
+		s.AdsPushAll(versionInfo())
 	}
 }
 
@@ -142,7 +143,9 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	defer ticker.Stop()
 	for range ticker.C {
 		push := s.env.PushStatus
-		model.LastPushStatus = push
+		if push.End != timeZero {
+			model.LastPushStatus = push
+		}
 		push.UpdateMetrics()
 		// TODO: env to customize
 		if time.Since(push.Start) > 30*time.Second {
@@ -169,7 +172,12 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// saved.
 		s.env.PushStatus = model.NewStatus()
 
-		AdsPushAll(s)
+		// TODO: propagate K8S version and use it instead
+		versionMutex.Lock()
+		version = time.Now().Format(time.RFC3339)
+		versionMutex.Unlock()
+
+		s.AdsPushAll(versionInfo())
 	}
 }
 
@@ -201,5 +209,5 @@ func nonce() string {
 func versionInfo() string {
 	versionMutex.Lock()
 	defer versionMutex.Unlock()
-	return version.String()
+	return version
 }

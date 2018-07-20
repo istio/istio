@@ -28,7 +28,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"

@@ -62,7 +62,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL) (store.Backend, error) {
+func NewStore(u *url.URL, gv *schema.GroupVersion) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout
@@ -79,7 +79,7 @@ func NewStore(u *url.URL) (store.Backend, error) {
 		return nil, err
 	}
 	conf.APIPath = "/apis"
-	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
+	conf.GroupVersion = gv
 	s := &Store{
 		conf:                 conf,
 		retryTimeout:         retryTimeout,
@@ -87,6 +87,7 @@ func NewStore(u *url.URL) (store.Backend, error) {
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 		Probe:                probe.NewProbe(),
+		apiGroupVersion:      gv.String(),
 	}
 	if len(namespaces) > 0 {
 		s.ns = map[string]bool{}
