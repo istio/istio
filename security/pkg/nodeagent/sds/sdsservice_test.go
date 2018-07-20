@@ -157,6 +157,10 @@ func TestStreamSecretsPush(t *testing.T) {
 	if _, err = stream.Recv(); err == nil {
 		t.Errorf("stream.Recv failed, expected error")
 	}
+
+	if len(sdsClients) != 0 {
+		t.Errorf("sdsClients, got %d, expected 0", len(sdsClients))
+	}
 }
 
 func verifySDSSResponse(t *testing.T, resp *api.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) {
