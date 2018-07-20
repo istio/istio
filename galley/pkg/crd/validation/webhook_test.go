@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/ghodss/yaml"
+	"github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/api/extensions/v1beta1"
@@ -582,25 +582,6 @@ wCR1yrefT1NHuIScGaBXUGAV4JAx37pfg84hDD73T2j1TDD3Lrmsb9WCP+L26TG6
 ICN61cIhgz8wChQpF8/fFAI5Fjbjrz5C1Xw/EUHLf/TTn/7Yfp2BHsGm126Et+k+
 +MLBzBfrHKwPaGqDvNHUDrI6c3GI0Qp7jW93FbL5ul8JQ+AowoMF2dIEbN9qQEVP
 ZOQ5UvU=
------END CERTIFICATE-----`)
-
-	caFile = []byte(`-----BEGIN CERTIFICATE-----
-MIIC5TCCAc2gAwIBAgIQcxWnwL74pkg4ETpznO3amTANBgkqhkiG9w0BAQsFADAc
-MRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDAeFw0xODA3MTkxOTIwMTVaFw0x
-OTA3MTkxOTIwMTVaMBwxGjAYBgNVBAoTEWs4cy5jbHVzdGVyLmxvY2FsMIIBIjAN
-BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1QmcorM5+KmDMJcJH2goZQ7VQuRL
-D8ZEvaqAt1hnDtVTfMmvoi0hkqagVkgI7ZzWD4ZcVHPu5vEiPK+17VzoltirTdAy
-3JdXeSQ8xjd5ZxiGo3XfyQv4piE5pnZgYu4NeYecXmArqn/TUepZZZGZwAxbeK1l
-/ADPsEiO4Of0iAMiEd5vs/lo8+b+SAC8hqXP7vy5osFCexWuoj18Y7CLRogCD+bh
-JIi2PoJfPw0JC4tD3/yhHeV4P9d0ODzE/NDxdjom/zzYd7GD+ofuKGZydYjaPGSt
-xaZQh/hrvELVYbW00v+ezZ/EYeRTFN6Ajz48lRxnXBAGSpVpRyihnEfX0QIDAQAB
-oyMwITAOBgNVHQ8BAf8EBAMCAgQwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0B
-AQsFAAOCAQEAuThfjx9/BGSa1FAYkZeYZdSUjp3Pb+d/PdQSTa8Ejyi/d2r6R6g+
-Ps9+t+0SnLyAFu77A6xI+vz0RPrv+dyvS5UyTKQAR5wrC6cublzweNorkhMiE2pu
-66WFmJYgAVBl69pETIk8NZBbyvrYEng70SH04Av1oFCPtZmmlKqTneyRHpSozzC3
-RS5wr4W7kR2Vf/peu/BCBvSwGb32VNpkOc9/Nf9Hv1CiTfmeDlmXplOsZ6VWLW9n
-fdS4nj6BM7ZmGfJ6HS4pG7ik/7M+7gam73A1PrOka0nTwHy9hB8FjfuwygyItCeO
-yeV/kXsb9LFDyOmrQulnxFQUzskyUQwbIg==
 -----END CERTIFICATE-----`)
 )
 

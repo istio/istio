@@ -108,5 +108,3 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		})
 	}
 }
-
-

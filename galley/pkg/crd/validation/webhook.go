@@ -87,10 +87,21 @@ type WebhookParameters struct {
 	// that is periodically updated.
 	HealthCheckFile string
 
-	WebhookConfigFile   string
-	CACertFile          string
+	// WebhookConfigFile is the path to the validatingwebhookconfiguration
+	// file that should be used for self-registration.
+	WebhookConfigFile string
+
+	// CACertFile is the path to the x509 CA bundle file.
+	CACertFile string
+
+	// DeploymentNamespace is the namespace in which the validation deployment resides.
 	DeploymentNamespace string
-	DeploymentName      string
+
+	// DeploymentName is the name of the validation deployment. This, along with
+	// DeploymentNamespace, is used to set the ownerReference in the
+	// validatingwebhookconfiguration. This enables k8s to clean-up the cluster-scoped
+	// validatingwebhookconfiguration when the deployment is deleted.
+	DeploymentName string
 
 	Clientset clientset.Interface
 }
@@ -125,11 +136,6 @@ type Webhook struct {
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
 }
 
-var (
-	timeNewTicker = time.NewTicker
-	timeAfter     = time.After
-)
-
 // NewWebhook creates a new instance of the admission webhook controller.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	pair, err := tls.LoadX509KeyPair(p.CertFile, p.KeyFile)
@@ -151,6 +157,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	// configuration must be updated whenever the caBundle changes.
+	// NOTE: Use a separate watcher to differentiate config/ca from cert/key updates. This is
+	// useful to avoid unnecessary updates and, more importantly, makes its easier to more
+	// accurately capture logs/metrics when files change.
 	configWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -200,10 +209,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 
 	if wh.webhookConfigFile != "" {
 		log.Info("server-side configuration validation enabled")
-		if err = wh.rebuildWebhookConfiguration(); err != nil {
-			log.Errorf("could not start config reconciliation: %v. Disabling validation", err) // nolint: lll
-			wh.webhookConfigFile = ""
-		} else {
+		if err = wh.rebuildWebhookConfiguration(); err == nil {
 			wh.reconcileWebhookConfiguration()
 		}
 	} else {
@@ -228,11 +234,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 		}
 	}()
 	defer wh.keyCertWatcher.Close() // nolint: errcheck
+	defer wh.configWatcher.Close()  // nolint: errcheck
 	defer wh.server.Close()         // nolint: errcheck
 
 	var healthC <-chan time.Time
 	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := timeNewTicker(wh.healthCheckInterval)
+		t := time.NewTicker(wh.healthCheckInterval)
 		healthC = t.C
 		defer t.Stop()
 	}
@@ -243,7 +250,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {
-		reconcileTickerC = timeNewTicker(time.Second).C
+		reconcileTickerC = time.NewTicker(time.Second).C
 	}
 
 	for {
@@ -264,12 +271,13 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			log.Error("Cert and Key reloaded")
 
 		case <-configTimerC:
-			if err := wh.rebuildWebhookConfiguration(); err != nil {
-				break
+			if err := wh.rebuildWebhookConfiguration(); err == nil {
+				wh.reconcileWebhookConfiguration()
 			}
-			wh.reconcileWebhookConfiguration()
 		case <-reconcileTickerC:
-			wh.reconcileWebhookConfiguration()
+			if wh.webhookConfiguration != nil {
+				wh.reconcileWebhookConfiguration()
+			}
 		case event := <-wh.keyCertWatcher.Event:
 			if (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
