@@ -20,7 +20,7 @@ func TestRegisterEventHandler(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
 
 	var callCount int
 	controller.RegisterEventHandler("virtual-service", func(model.Config, model.Event) {
@@ -41,7 +41,7 @@ func TestConfigDescriptor(t *testing.T) {
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
 
 	descriptors := controller.ConfigDescriptor()
 
@@ -58,7 +58,7 @@ func TestGet(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
@@ -151,7 +151,7 @@ func TestList(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
@@ -208,6 +208,50 @@ func TestList(t *testing.T) {
 
 		return configs, err
 	}).Should(gomega.HaveLen(2))
+}
+
+func TestCacheClear(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	mockCopilotClient := &fakes.CopilotClient{}
+	configDescriptor := model.ConfigDescriptor{
+		model.DestinationRule,
+		model.VirtualService,
+		model.Gateway,
+	}
+	store := memory.Make(configDescriptor)
+
+	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond, 100*time.Millisecond)
+
+	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
+
+	for idx, response := range routeResponses {
+		mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+	}
+
+	for _, gatewayConfig := range gatewayConfigs {
+		_, err := store.Create(gatewayConfig)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }()
+
+	controller.Run(stop)
+
+	var configs []model.Config
+	g.Eventually(func() ([]model.Config, error) {
+		var err error
+		configs, err = controller.List("virtual-service", "")
+
+		return configs, err
+	}).Should(gomega.HaveLen(2))
+
+	g.Eventually(func() ([]model.Config, error) {
+		var err error
+		configs, err = controller.List("virtual-service", "")
+
+		return configs, err
+	}, "2s").Should(gomega.BeEmpty())
 }
 
 var routes = []*copilotapi.RouteWithBackends{

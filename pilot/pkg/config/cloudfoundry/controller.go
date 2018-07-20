@@ -35,37 +35,47 @@ type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
+type expiringConfig struct {
+	lastUpdated time.Time
+	content     *model.Config
+}
+
+type storage struct {
+	sync.RWMutex
+	virtualServices  map[string]expiringConfig
+	destinationRules map[string]expiringConfig
+}
+
 type controller struct {
 	client        CopilotClient
 	store         model.ConfigStore
 	timeout       time.Duration
+	configTTL     time.Duration
 	checkInterval time.Duration
-	sync.Mutex
-	virtualServices  map[string]*model.Config
-	destinationRules map[string]*model.Config
-	eventHandlers    []func(model.Config, model.Event)
+	eventHandlers []func(model.Config, model.Event)
+	storage       storage
 }
 
-func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval time.Duration) *controller {
+func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval, configTTL time.Duration) *controller {
 	return &controller{
-		client:           client,
-		store:            store,
-		timeout:          timeout,
-		checkInterval:    checkInterval,
-		virtualServices:  make(map[string]*model.Config),
-		destinationRules: make(map[string]*model.Config),
+		client:        client,
+		store:         store,
+		timeout:       timeout,
+		checkInterval: checkInterval,
+		configTTL:     configTTL,
+		storage: storage{
+			virtualServices:  make(map[string]expiringConfig),
+			destinationRules: make(map[string]expiringConfig),
+		},
 	}
 }
 
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
-	c.Lock()
-	defer c.Unlock()
-
 	c.eventHandlers = append(c.eventHandlers, f)
 }
 
 func (c *controller) HasSynced() bool {
-	return len(c.virtualServices) > 0 && len(c.destinationRules) > 0
+	return len(c.storage.virtualServices) > 0 && len(c.storage.destinationRules) > 0
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
@@ -80,6 +90,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 			case <-tick.C:
 				c.rebuildRules()
 				c.runHandlers()
+				c.clean()
 			}
 		}
 	}()
@@ -93,8 +104,8 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 }
 
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
-	c.Lock()
-	defer c.Unlock()
+	c.storage.RLock()
+	defer c.storage.RUnlock()
 
 	var (
 		config *model.Config
@@ -103,13 +114,13 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 
 	switch typ {
 	case model.VirtualService.Type:
-		if vs, ok := c.virtualServices[name]; ok {
-			config = vs
+		if vs, ok := c.storage.virtualServices[name]; ok {
+			config = vs.content
 			found = true
 		}
 	case model.DestinationRule.Type:
-		if dr, ok := c.destinationRules[name]; ok {
-			config = dr
+		if dr, ok := c.storage.destinationRules[name]; ok {
+			config = dr.content
 			found = true
 		}
 	default:
@@ -119,22 +130,21 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 }
 
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
-	c.Lock()
-	defer c.Unlock()
-
 	var configs []model.Config
 
+	c.storage.RLock()
 	switch typ {
 	case model.VirtualService.Type:
-		for _, service := range c.virtualServices {
-			configs = append(configs, *service)
+		for _, service := range c.storage.virtualServices {
+			configs = append(configs, *service.content)
 		}
 	case model.DestinationRule.Type:
-		for _, rule := range c.destinationRules {
-			configs = append(configs, *rule)
+		for _, rule := range c.storage.destinationRules {
+			configs = append(configs, *rule.content)
 		}
 	default:
 	}
+	c.storage.RUnlock()
 
 	sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
 
@@ -154,9 +164,6 @@ func (c *controller) Delete(typ, name, namespace string) error {
 }
 
 func (c *controller) rebuildRules() {
-	c.Lock()
-	defer c.Unlock()
-
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
@@ -175,16 +182,17 @@ func (c *controller) rebuildRules() {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
-	virtualServices := make(map[string]*model.Config)
-	destinationRules := make(map[string]*model.Config)
+	virtualServices := make(map[string]expiringConfig)
+	destinationRules := make(map[string]expiringConfig)
 
 	for _, route := range resp.GetRoutes() {
 		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())
 		virtualServiceName := fmt.Sprintf("virtual-service-for-%s", route.GetHostname())
 
 		var dr *networking.DestinationRule
+
 		if config, ok := destinationRules[destinationRuleName]; ok {
-			dr = config.Spec.(*networking.DestinationRule)
+			dr = config.content.Spec.(*networking.DestinationRule)
 		} else {
 			dr = createDestinationRule(route)
 		}
@@ -192,7 +200,7 @@ func (c *controller) rebuildRules() {
 
 		var vs *networking.VirtualService
 		if config, ok := virtualServices[virtualServiceName]; ok {
-			vs = config.Spec.(*networking.VirtualService)
+			vs = config.content.Spec.(*networking.VirtualService)
 		} else {
 			vs = createVirtualService(gatewayNames, route)
 		}
@@ -207,31 +215,58 @@ func (c *controller) rebuildRules() {
 			vs.Http = append(vs.Http, r)
 		}
 
-		virtualServices[virtualServiceName] = &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.VirtualService.Type,
-				Version: model.VirtualService.Version,
-				Name:    virtualServiceName,
+		virtualServices[virtualServiceName] = expiringConfig{
+			lastUpdated: time.Now(),
+			content: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:    model.VirtualService.Type,
+					Version: model.VirtualService.Version,
+					Name:    virtualServiceName,
+				},
+				Spec: vs,
 			},
-			Spec: vs,
 		}
-		destinationRules[destinationRuleName] = &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    destinationRuleName,
+		destinationRules[destinationRuleName] = expiringConfig{
+			lastUpdated: time.Now(),
+			content: &model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:    model.DestinationRule.Type,
+					Version: model.DestinationRule.Version,
+					Name:    destinationRuleName,
+				},
+				Spec: dr,
 			},
-			Spec: dr,
 		}
 	}
 
-	c.virtualServices = virtualServices
-	c.destinationRules = destinationRules
+	c.storage.Lock()
+	c.storage.virtualServices = virtualServices
+	c.storage.destinationRules = destinationRules
+	c.storage.Unlock()
 }
 
 func (c *controller) runHandlers() {
 	for _, h := range c.eventHandlers {
 		h(model.Config{}, model.EventUpdate)
+	}
+}
+
+func (c *controller) clean() {
+	c.storage.RLock()
+	defer c.storage.RUnlock()
+
+	currentTime := time.Now()
+
+	for key, item := range c.storage.destinationRules {
+		if currentTime.Sub(item.lastUpdated) > c.configTTL {
+			delete(c.storage.destinationRules, key)
+		}
+	}
+
+	for key, item := range c.storage.virtualServices {
+		if currentTime.Sub(item.lastUpdated) > c.configTTL {
+			delete(c.storage.virtualServices, key)
+		}
 	}
 }
 

@@ -475,7 +475,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 				s.configController,
-				cf.NewController(client, configController, 60*time.Second, 30*time.Second),
+				cf.NewController(client, configController, 30*time.Second, 30*time.Second, 120*time.Second),
 			})
 			if err != nil {
 				return err
