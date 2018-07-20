@@ -10,21 +10,16 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   mesh: |-
-  {{- if .Values.global.mtls.enabled }}
-    # Mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-  {{- end }}
-
   {{- if .Values.global.remotePolicyAddress }}
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: false
-  {{- end }}  
+  {{- end }}
 
   {{- if .Values.global.remoteZipkinAddress }}
     # Set enableTracing to false to disable request tracing.
     enableTracing: true
-  {{- end }}  
+  {{- end }}
     #
     # To disable the mixer completely (including metrics), comment out
     # the following lines
