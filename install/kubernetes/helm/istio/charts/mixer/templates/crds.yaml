@@ -16,7 +16,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -37,7 +36,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -58,7 +56,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -79,7 +76,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -100,7 +96,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -121,7 +116,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -142,7 +136,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -163,7 +156,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -184,7 +176,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -205,7 +196,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -226,7 +216,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -247,7 +236,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -268,7 +256,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -285,7 +272,6 @@ spec:
     kind: redisquota
     plural: redisquotas
     singular: redisquota
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -306,7 +292,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 
 ---
@@ -328,7 +313,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -349,7 +333,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -370,7 +353,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -391,7 +373,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -412,7 +393,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -433,7 +413,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -454,7 +433,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -475,7 +453,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -496,7 +473,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -517,7 +493,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -538,7 +513,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -559,7 +533,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -580,7 +553,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -601,7 +573,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -622,7 +593,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -643,7 +613,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -664,7 +633,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 
@@ -685,7 +653,6 @@ spec:
     categories:
     - istio-io
     - rbac-istio-io
-  scope: Namespaced
   version: v1alpha1
 ---
 
@@ -706,7 +673,6 @@ spec:
     categories:
     - istio-io
     - rbac-istio-io
-  scope: Namespaced
   version: v1alpha1
 ---
 
@@ -727,7 +693,6 @@ spec:
     categories:
     - istio-io
     - rbac-istio-io
-  scope: Namespaced
   version: v1alpha1
 ---
 kind: CustomResourceDefinition
@@ -747,7 +712,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 kind: CustomResourceDefinition
@@ -767,7 +731,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 kind: CustomResourceDefinition
@@ -787,7 +750,6 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
 kind: CustomResourceDefinition
@@ -807,6 +769,5 @@ spec:
     categories:
     - istio-io
     - policy-istio-io
-  scope: Namespaced
   version: v1alpha2
 ---
