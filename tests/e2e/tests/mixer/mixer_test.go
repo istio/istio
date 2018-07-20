@@ -1057,7 +1057,9 @@ func TestMixerReportingToMixer(t *testing.T) {
 	}
 
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
-	logs, err := util.Shell(`kubectl -n %s logs -l istio-mixer-type=telemetry -c mixer --tail 1000 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, checkPath, reportPath)
+	logs, err :=
+		util.Shell(`kubectl -n %s logs -l istio-mixer-type=telemetry -c mixer --tail 1000 | grep -e "%s" -e "%s"`,
+			tc.Kube.Namespace, checkPath, reportPath)
 	if err != nil {
 		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
 	}
