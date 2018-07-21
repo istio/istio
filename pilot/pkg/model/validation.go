@@ -407,8 +407,8 @@ func validateServer(server *networking.Server) (errs error) {
 	} else {
 		for _, host := range server.Hosts {
 			// short name hosts are not allowed in gateways
-			if !strings.Contains(host, ".") {
-				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
+			if host != "*" && !strings.Contains(host, ".") {
+				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts", host))
 			}
 			if err := ValidateWildcardDomain(host); err != nil {
 				errs = appendErrors(errs, err)
