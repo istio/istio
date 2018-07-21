@@ -773,7 +773,8 @@ type buildListenerOpts struct {
 	tlsMultiplexed  bool
 }
 
-func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,
+	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
