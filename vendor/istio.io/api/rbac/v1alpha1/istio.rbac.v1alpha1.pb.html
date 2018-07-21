@@ -1,7 +1,7 @@
 ---
 title: RBAC
 description: Configuration for Role Based Access Control
-location: https://istio.io/docs/reference/config/istio.rbac.v1alpha1.html
+location: https://istio.io/docs/reference/config/authorization/istio.rbac.v1alpha1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
 number_of_entries: 9
@@ -10,44 +10,23 @@ number_of_entries: 9
 objects.</p>
 
 <p>A ServiceRole specification includes a list of rules (permissions). Each rule has
-the following standard fields:
-* services: a list of services.
-* methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.
-* paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-  presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.</p>
+the following standard fields:</p>
 
-<p>In addition to the standard fields, operators can use custom fields in the &ldquo;constraints&rdquo;
-section. The name of a custom field must match one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part
-of the &ldquo;authorization&rdquo; template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
+<ul>
+<li>services: a list of services.</li>
+<li>methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.</li>
+<li>paths: HTTP paths or gRPC methods. Note that gRPC methods should be
+presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.</li>
+</ul>
 
-<p>For example, suppose we define an instance of the &ldquo;authorization&rdquo; template, named &ldquo;requestcontext&rdquo;.</p>
-
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
-kind: authorization
-metadata:
-  name: requestcontext
-  namespace: istio-system
-spec:
-  subject:
-    user: source.user | &quot;&quot;
-    groups: &quot;&quot;
-    properties:
-      service: source.service | &quot;&quot;
-      namespace: source.namespace | &quot;&quot;
-  action:
-    namespace: destination.namespace | &quot;&quot;
-    service: destination.service | &quot;&quot;
-    method: request.method | &quot;&quot;
-    path: request.path | &quot;&quot;
-    properties:
-      version: request.headers[&quot;version&quot;] | &quot;&quot;
-</code></pre>
+<p>In addition to the standard fields, operators can also use custom keys in the <code>constraints</code> field,
+the supported keys are listed in the &ldquo;constraints and properties&rdquo; page.</p>
 
 <p>Below is an example of ServiceRole object &ldquo;product-viewer&rdquo;, which has &ldquo;read&rdquo; (&ldquo;GET&rdquo; and &ldquo;HEAD&rdquo;)
 access to &ldquo;products.svc.cluster.local&rdquo; service at versions &ldquo;v1&rdquo; and &ldquo;v2&rdquo;. &ldquo;path&rdquo; is not specified,
 so it applies to any path in the service.</p>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -57,24 +36,29 @@ spec:
   - services: [&quot;products.svc.cluster.local&quot;]
     methods: [&quot;GET&quot;, &quot;HEAD&quot;]
     constraints:
-    - key: &quot;version&quot;
+    - key: &quot;destination.labels[version]&quot;
       value: [&quot;v1&quot;, &quot;v2&quot;]
 </code></pre>
 
-<p>A ServiceRoleBinding specification includes two parts:
-* &ldquo;roleRef&rdquo; refers to a ServiceRole object in the same namespace.
-* A list of &ldquo;subjects&rdquo; that are assigned the roles.</p>
+<p>A ServiceRoleBinding specification includes two parts:</p>
 
-<p>A subject is represented with a set of &ldquo;properties&rdquo;. The name of a property must match one of
-the fields (&ldquo;user&rdquo; or &ldquo;groups&rdquo; or one of the &ldquo;properties&rdquo;) in the &ldquo;subject&rdquo; part of the &ldquo;authorization&rdquo;
-template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
+<ul>
+<li>The <code>roleRef</code> field that refers to a ServiceRole object in the same namespace.</li>
+<li>A list of <code>subjects</code> that are assigned the roles.</li>
+</ul>
+
+<p>In addition to a simple <code>user</code> field, operators can also use custom keys in the <code>properties</code> field,
+the supported keys are listed in the &ldquo;constraints and properties&rdquo; page.</p>
 
 <p>Below is an example of ServiceRoleBinding object &ldquo;test-binding-products&rdquo;, which binds two subjects
-to ServiceRole &ldquo;product-viewer&rdquo;:
-* User &ldquo;alice@yahoo.com&rdquo;
-* &ldquo;reviews&rdquo; service in &ldquo;abc&rdquo; namespace.</p>
+to ServiceRole &ldquo;product-viewer&rdquo;:</p>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<ul>
+<li>User &ldquo;alice@yahoo.com&rdquo;</li>
+<li>Services in &ldquo;abc&rdquo; namespace.</li>
+</ul>
+
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -83,8 +67,7 @@ spec:
   subjects:
   - user: alice@yahoo.com
   - properties:
-      service: &quot;reviews&quot;
-      namespace: &quot;abc&quot;
+      source.namespace: &quot;abc&quot;
   roleRef:
     kind: ServiceRole
     name: &quot;products-viewer&quot;
@@ -146,7 +129,7 @@ If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
 <td><code><a href="#AccessRule-Constraint">AccessRule.Constraint[]</a></code></td>
 <td>
 <p>Optional. Extra constraints in the ServiceRole specification.
-The above ServiceRole examples shows an example of constraint &ldquo;version&rdquo;.</p>
+The above ServiceRole example shows an example of constraint &ldquo;version&rdquo;.</p>
 
 </td>
 </tr>
@@ -155,9 +138,7 @@ The above ServiceRole examples shows an example of constraint &ldquo;version&rdq
 </section>
 <h2 id="AccessRule-Constraint">AccessRule.Constraint</h2>
 <section>
-<p>Definition of a custom constraint. The key of a custom constraint must match
-one of the &ldquo;properties&rdquo; in the &ldquo;action&rdquo; part of the &ldquo;authorization&rdquo; template
-(https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
+<p>Definition of a custom constraint. The supported keys are listed in the &ldquo;constraint and properties&rdquo; page.</p>
 
 <table class="message-fields">
 <thead>
@@ -202,10 +183,10 @@ existing one, the user should either delete the existing one or change the exist
 <p>Below is an example of RbacConfig object &ldquo;istio-rbac-config&rdquo; which enables Istio RBAC for all
 services in the default namespace.</p>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha1&quot;
+<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
 kind: RbacConfig
 metadata:
-  name: istio-rbac-config
+  name: default
   namespace: istio-system
 spec:
   mode: ON_WITH_INCLUSION
@@ -425,10 +406,8 @@ object.</p>
 </section>
 <h2 id="Subject">Subject</h2>
 <section>
-<p>Subject defines an identity or a group of identities. The identity is either a user or
-a group or identified by a set of &ldquo;properties&rdquo;. The name of the &ldquo;properties&rdquo; must match
-the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;authorization&rdquo; template
-(https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).</p>
+<p>Subject defines an identity. The identity is either a user or identified by a set of <code>properties</code>.
+The supported keys in <code>properties</code> are listed in &ldquo;constraint and properties&rdquo; page.</p>
 
 <table class="message-fields">
 <thead>
@@ -447,22 +426,12 @@ the &ldquo;properties&rdquo; in the &ldquo;subject&rdquo; part of the &ldquo;aut
 
 </td>
 </tr>
-<tr id="Subject-group">
-<td><code>group</code></td>
-<td><code>string</code></td>
-<td>
-<p>Optional. The group that the subject belongs to.</p>
-
-</td>
-</tr>
 <tr id="Subject-properties">
 <td><code>properties</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>Optional. The set of properties that identify the subject.
-In the above ServiceRoleBinding example, the second subject has two properties:
-    service: &ldquo;reviews&rdquo;
-    namespace: &ldquo;abc&rdquo;</p>
+The above ServiceRoleBinding example shows an example of property &ldquo;source.namespace&rdquo;.</p>
 
 </td>
 </tr>

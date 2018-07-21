@@ -35,7 +35,7 @@ properties:
   instanceType:
     type: string
     description: Node machineType
-    default: n1-standard-2
+    default: n1-standard-1
     x-googleProperty:
       type: GCE_MACHINE_TYPE
       zoneProperty: zone
@@ -43,10 +43,9 @@ properties:
   installIstioRelease:
     type: string
     description: Install Istio Release version.
-    default: 0.6.0
+    default: 1.0.0
     enum:
-      - 0.6.0
-      - 0.5.1
+      - 1.0.0
 
   enableBookInfoSample:
     type: boolean
@@ -73,9 +72,9 @@ properties:
     description: Enable Grafana for metrics/logs
     default: true
 
-  enableZipkin:
+  enableTracing:
     type: boolean
-    description: Enable Zipkin for metrics/logs
+    description: Enable Tracing
     default: true
 
   enableServiceGraph:

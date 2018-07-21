@@ -21,7 +21,6 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
 import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.CookieParam;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -33,7 +32,6 @@ import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.ResponseProcessingException;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Application;
-import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -84,7 +82,7 @@ public class LibertyRestEndpoint extends Application {
     	return result;
     }
     
-    private JsonObject getRatings(String productId, Cookie user, String xreq, String xtraceid, String xspanid,
+    private JsonObject getRatings(String productId, String user, String xreq, String xtraceid, String xspanid,
                                   String xparentspanid, String xsampled, String xflags, String xotspan){
       ClientBuilder cb = ClientBuilder.newBuilder();
       String timeout = star_color.equals("black") ? "10000" : "2500";
@@ -115,7 +113,7 @@ public class LibertyRestEndpoint extends Application {
         builder.header("x-ot-span-context",xotspan);
       }
       if(user!=null) {
-        builder.cookie(user);
+        builder.header("end-user", user);
       }
       Response r = builder.get();
       int statusCode = r.getStatusInfo().getStatusCode();
@@ -140,7 +138,7 @@ public class LibertyRestEndpoint extends Application {
     @GET
     @Path("/reviews/{productId}")
     public Response bookReviewsById(@PathParam("productId") int productId,
-                                    @CookieParam("user") Cookie user,
+                                    @HeaderParam("end-user") String user,
                                     @HeaderParam("x-request-id") String xreq,
                                     @HeaderParam("x-b3-traceid") String xtraceid,
                                     @HeaderParam("x-b3-spanid") String xspanid,
