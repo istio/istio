@@ -413,8 +413,8 @@ servicegraph:
 
 tracing:
   enabled: false
+  provider: jaeger
   jaeger:
-    enabled: false
     memory:
       max_traces: 50000
     ingress:
