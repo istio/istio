@@ -39,7 +39,7 @@ spec:
 {{- end }}
 {{- if not .Values.sidecar }}
           - --secureGrpcAddr
-          - "15011"
+          - ":15011"
 {{- end }}
           ports:
           - containerPort: 8080
