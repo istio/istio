@@ -17,6 +17,9 @@ spec:
         istio: galley
     spec:
       serviceAccountName: istio-galley-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: validator
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
@@ -27,17 +30,21 @@ spec:
           command:
           - /usr/local/bin/galley
           - validator
-          - --webhook-name=istio-galley
-          - --pilot-webhook-name=pilot.validation.istio.io
-          - --mixer-webhook-name=mixer.validation.istio.io
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
           - --healthCheckInterval=2s
           - --healthCheckFile=/health
+{{- if .Values.global.configValidation }}
+          - --webhook-config-file
+          - /etc/istio/config/validatingwebhookconfiguration.yaml
+{{- end }}
           volumeMounts:
           - name: certs
             mountPath: /etc/istio/certs
+            readOnly: true
+          - name: config
+            mountPath: /etc/istio/config
             readOnly: true
           livenessProbe:
             exec:
@@ -67,5 +74,8 @@ spec:
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account
+      - name: config
+        configMap:
+          name: istio-galley-configuration
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
