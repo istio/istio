@@ -3,6 +3,10 @@
 # Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
 cluster_flavour: ocp
 
+# istio release version to install
+# The default is the latest release version
+istio_release_tag: latest
+
 # The GitHub token to use when calling GitHub's API
 # The token is needed in order to avoid getting Rate Limited by GitHub's API
 # Rate Limiting can easily occur in large corporate environments
