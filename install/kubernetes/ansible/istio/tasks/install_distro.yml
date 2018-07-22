@@ -27,3 +27,4 @@
 
 - name: Add istio bin dir to PATH
   import_tasks: add_to_path.yml
+
