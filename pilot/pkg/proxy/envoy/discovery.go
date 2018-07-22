@@ -402,6 +402,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		return nil, err
 	}
 
+	// Flush cached discovery responses when detecting jwt public key change.
+	model.JwtKeyResolver.PushFunc = out.ClearCache
+
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
