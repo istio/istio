@@ -23,6 +23,9 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-pilot-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.image }}

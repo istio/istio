@@ -17,6 +17,9 @@ spec:
         istio: sidecar-injector
     spec:
       serviceAccountName: istio-sidecar-injector-service-account
+ {{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: sidecar-injector-webhook
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
