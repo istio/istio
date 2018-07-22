@@ -1671,8 +1671,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	}
 
 	if cidrFound {
-		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
-			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
 		}
 	}
 

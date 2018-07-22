@@ -260,6 +260,21 @@ func (f *Builder) Jmp(label string) {
 	f.jump(Jmp, label)
 }
 
+// AddString appends the "add_s" instruction to the byte code.
+func (f *Builder) AddString() {
+	f.op0(AddS)
+}
+
+// AddDouble appends the "add_d" instruction to the byte code.
+func (f *Builder) AddDouble() {
+	f.op0(AddD)
+}
+
+// AddInteger appends the "add_i" instruction to the byte code.
+func (f *Builder) AddInteger() {
+	f.op0(AddI)
+}
+
 func (f *Builder) jump(op Opcode, label string) {
 	adr, exists := f.labels[label]
 	if !exists {

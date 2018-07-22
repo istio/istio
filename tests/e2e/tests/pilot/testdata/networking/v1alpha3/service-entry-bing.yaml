@@ -1,12 +1,12 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: wikipedia-sni
+  name: service-entry-bing
 spec:
   hosts:
-  - www.wikipedia.org
+    - www.bing.com
   ports:
-    - number: 443
-      protocol: HTTPS
-      name: https-port
+  - number: 443
+    name: https
+    protocol: TLS
   resolution: DNS

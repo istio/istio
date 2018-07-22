@@ -1,10 +1,10 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: httpbin
+  name: bing-wildcard
 spec:
   hosts:
-    - "httpbin.org"
+    - "*.bing.com"
   ports:
     - number: 80
       name: http-port
