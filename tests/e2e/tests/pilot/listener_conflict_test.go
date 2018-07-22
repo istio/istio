@@ -116,7 +116,7 @@ func TestListenerConflicts(t *testing.T) {
 
 				if accepted == newService.fullName() {
 					// We should never accept the port from the newer service.
-					return fmt.Errorf("expected to reject listener for %s, but it was accepted", accepted)
+					return fmt.Errorf("expected to reject listener for %s, but it was accepted %v", accepted, pushStatus)
 				}
 				if accepted != oldService.fullName() {
 					// Possibly a rejection for a different service? Just go to the next event.
@@ -134,7 +134,7 @@ func TestListenerConflicts(t *testing.T) {
 				return nil
 			}
 
-			return fmt.Errorf("failed to find ADS push status in pilot logs")
+			return fmt.Errorf("failed to find ADS push status in pilot logs %v", pushStatuses)
 		})
 	}
 }

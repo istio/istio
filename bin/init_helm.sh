@@ -35,7 +35,9 @@ GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
-HELM_VER=v2.7.2
+# Current version is 2.9.1, with 2.10RC available
+# 2.7.2 was released in Nov 2017
+HELM_VER=v2.8.2
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
