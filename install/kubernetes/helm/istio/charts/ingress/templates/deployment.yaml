@@ -19,6 +19,9 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-ingress-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: {{ template "istio.name" . }}
           image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
