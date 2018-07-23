@@ -1119,6 +1119,12 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
+		{"invalid short name host",
+			&networking.Server{
+				Hosts: []string{"foo"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"short names"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
