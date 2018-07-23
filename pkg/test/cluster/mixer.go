@@ -24,8 +24,8 @@ import (
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/cluster/kube"
 	"istio.io/istio/pkg/test/environment"
+	"istio.io/istio/pkg/test/kube"
 )
 
 type deployedMixer struct {
