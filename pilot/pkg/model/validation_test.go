@@ -2944,6 +2944,18 @@ func TestValidateRbacConfig(t *testing.T) {
 			name:     DefaultRbacConfigName,
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
 		},
+		{
+			caseName:     "empty exclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			expectErrMsg: "exclusion cannot be null (use 'exclusion: {}' for none)",
+		},
+		{
+			caseName:     "empty inclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: "inclusion cannot be null (use 'inclusion: {}' for none)",
+		},
 	}
 	for _, c := range cases {
 		err := ValidateRbacConfig(c.name, c.namespace, c.in)
