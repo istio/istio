@@ -68,7 +68,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
 				return nil
 			}
@@ -103,7 +103,7 @@ func TestGateway_HTTPSIngress(t *testing.T) {
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v2"] >= 95 {
 				return nil
 			}
@@ -138,7 +138,7 @@ func TestGateway_TCPIngress(t *testing.T) {
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
 			}
-			log.Infof("request counts %v", count)
+			log.Infof("request counts %+v", count)
 			if count["v1"] >= 95 {
 				return nil
 			}
@@ -254,7 +254,7 @@ cleanup:
 			}
 			if count["200"] != len(resp.Code) {
 				// have entries other than 200
-				t.Errorf("Got non 200 status code while changing rules: %v", count)
+				t.Errorf("Got non 200 status code while changing rules: %+v", count)
 			} else {
 				log.Infof("No 503s were encountered while changing rules (total %d requests)", len(resp.Code))
 			}

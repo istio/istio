@@ -465,12 +465,6 @@ func (k *KubeInfo) Teardown() error {
 				log.Errorf("Failed to delete namespace %s", k.Namespace)
 				return err
 			}
-			if *multiClusterDir != "" {
-				if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
-					log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
-					return err
-				}
-			}
 
 			// ClusterRoleBindings are not namespaced and need to be deleted separately
 			if _, err := util.Shell("kubectl get --kubeconfig=%s clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
@@ -487,6 +481,11 @@ func (k *KubeInfo) Teardown() error {
 				log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
 				return err
 			}
+		}
+	}
+	if *multiClusterDir != "" {
+		if err := util.DeleteNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
+			log.Errorf("Failed to delete namespace %s on remote cluster", k.Namespace)
 		}
 	}
 
