@@ -26,7 +26,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -45,6 +44,10 @@ type Environment struct {
 
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
+
+	// PushStatus holds informations during push generation. It is reset on config change, at the beginning
+	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
+	PushStatus *PushStatus
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -100,6 +103,12 @@ func (node *Proxy) ServiceNode() string {
 		string(node.Type), node.IPAddress, node.ID, node.Domain,
 	}, serviceNodeSeparator)
 
+}
+
+// GetProxyVersion returns the proxy version string identifier, and whether it is present.
+func (node *Proxy) GetProxyVersion() (string, bool) {
+	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return version, found
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

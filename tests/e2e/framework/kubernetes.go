@@ -63,6 +63,7 @@ const (
 	caKeyFileName                  = "samples/certs/ca-key.pem"
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
+	helmInstallerName              = "helm"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -70,20 +71,22 @@ const (
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
-	mixerTag     = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
-	pilotHub     = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
-	pilotTag     = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
-	proxyHub     = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
-	proxyTag     = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
-	caHub        = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
-	caTag        = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
-	galleyHub    = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
-	galleyTag    = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
-	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacEnable   = flag.Bool("rbac_enable", true, "Enable rbac")
-	localCluster = flag.Bool("use_local_cluster", false,
+	namespace          = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub           = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub")
+	mixerTag           = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag")
+	pilotHub           = flag.String("pilot_hub", os.Getenv("HUB"), "Pilot hub")
+	pilotTag           = flag.String("pilot_tag", os.Getenv("TAG"), "Pilot tag")
+	proxyHub           = flag.String("proxy_hub", os.Getenv("HUB"), "Proxy hub")
+	proxyTag           = flag.String("proxy_tag", os.Getenv("TAG"), "Proxy tag")
+	caHub              = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag              = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
+	galleyHub          = flag.String("galley_hub", os.Getenv("HUB"), "Galley hub")
+	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
+	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
+	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
+	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
+	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
+	localCluster       = flag.Bool("use_local_cluster", false,
 		"Whether the cluster is local or not (i.e. the test is running within the cluster). If running on minikube, this should be set to true.")
 	skipSetup                = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 	sidecarInjectorFile      = flag.String("sidecar_injector_file", defaultSidecarInjectorFile, "Sidecar injector yaml file")
@@ -266,6 +269,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}, nil
 }
 
+// IsClusterWide indicates whether or not the environment is configured for a cluster-wide deployment.
+func (k *KubeInfo) IsClusterWide() bool {
+	return *clusterWide
+}
+
 // IstioSystemNamespace returns the namespace used for the Istio system components.
 func (k *KubeInfo) IstioSystemNamespace() string {
 	if *clusterWide {
@@ -298,9 +306,9 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if *installer == "helm" {
+		if *installer == helmInstallerName {
 			// install helm tiller first
-			yamlDir := filepath.Join(istioInstallDir+"/helm", helmServiceAccountFile)
+			yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
 			baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
 			if err = k.deployTiller(baseHelmServiceAccountYaml); err != nil {
 				log.Error("Failed to deploy helm tiller.")
@@ -423,11 +431,15 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-	if *installer == "helm" {
+	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(k.Namespace)
 		if err != nil {
 			return nil
+		}
+
+		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Failed to delete namespace %s", k.Namespace)
 		}
 	} else {
 		if *useAutomaticInjection {
@@ -679,6 +691,18 @@ func (k *KubeInfo) deployIstio() error {
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
+// DeployTiller deploys tiller in Istio mesh or returns error
+func (k *KubeInfo) DeployTiller() error {
+	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
+	if *installer == helmInstallerName {
+		return nil
+	}
+
+	yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
+	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
+	return k.deployTiller(baseHelmServiceAccountYaml)
+}
+
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	// apply helm service account
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
@@ -849,11 +873,23 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		}
 		if *proxyHub != "" && *proxyTag != "" {
 			//Need to be updated when the string "proxy" is changed as the default image name
-			content = updateImage("proxy", *proxyHub, *proxyTag, content)
+			content = updateImage("proxy_init", *proxyHub, *proxyTag, content)
+		}
+		if *proxyHub != "" && *proxyTag != "" {
+			//Need to be updated when the string "proxy" is changed as the default image name
+			content = updateImage("proxyv2", *proxyHub, *proxyTag, content)
+		}
+		if *sidecarInjectorHub != "" && *sidecarInjectorTag != "" {
+			//Need to be updated when the string "proxy" is changed as the default image name
+			content = updateImage("sidecar_injector", *sidecarInjectorHub, *sidecarInjectorTag, content)
 		}
 		if *caHub != "" && *caTag != "" {
 			//Need to be updated when the string "citadel" is changed
 			content = updateImage("citadel", *caHub, *caTag, content)
+		}
+		if *galleyHub != "" && *galleyTag != "" {
+			//Need to be updated when the string "citadel" is changed
+			content = updateImage("galley", *galleyHub, *galleyTag, content)
 		}
 		if *imagePullPolicy != "" {
 			content = updateImagePullPolicy(*imagePullPolicy, content)

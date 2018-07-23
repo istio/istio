@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -84,6 +85,9 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -354,6 +358,7 @@ const (
 // - consul: defaults to 'instance.Datacenter'
 //
 // This is used by EDS to group the endpoints by AZ and by .
+// TODO: remove me?
 func (si *ServiceInstance) GetAZ() string {
 	if si.AvailabilityZone != "" {
 		return si.AvailabilityZone
@@ -742,6 +747,9 @@ func IsValidSubsetKey(s string) bool {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
+	if len(parts) < 4 {
+		return
+	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]

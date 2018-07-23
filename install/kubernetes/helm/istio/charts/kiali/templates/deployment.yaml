@@ -20,8 +20,11 @@ spec:
         app: kiali
     spec:
       serviceAccountName: kiali-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
-      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+      - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
         name: kiali
         command:
         - "/opt/kiali/kiali"
