@@ -17,6 +17,7 @@ package mixer
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -42,13 +43,6 @@ type attribute = *mpb.Attributes_AttributeValue
 type attributes map[string]attribute
 
 const (
-	//mixerPortName       = "grpc-mixer"
-	// defined in install/kubernetes/helm/istio/charts/mixer/templates/service.yaml
-	mixerPortNumber = 9091
-
-	//mixerMTLSPortName   = "grpc-mixer-mtls"
-	mixerMTLSPortNumber = 15004
-
 	// mixer filter name
 	mixer = "mixer"
 
@@ -126,7 +120,7 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs, in.ProxyInstances)
+		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -180,18 +174,16 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
+func buildUpstreamName(address string) string {
+	host, port, _ := net.SplitHostPort(address)
+	v, _ := strconv.Atoi(port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
+}
+
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
-	policy, _, _ := net.SplitHostPort(mesh.MixerCheckServer)
-	telemetry, _, _ := net.SplitHostPort(mesh.MixerReportServer)
-
-	port := mixerPortNumber
-	if mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS {
-		port = mixerMTLSPortNumber
-	}
-
 	res := &mccpb.TransportConfig{
-		CheckCluster:      model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(policy), port),
-		ReportCluster:     model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(telemetry), port),
+		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
+		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
@@ -320,7 +312,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes, instances []*model.ServiceInstance) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		Config: util.MessageToStruct(&mccpb.TcpClientConfig{

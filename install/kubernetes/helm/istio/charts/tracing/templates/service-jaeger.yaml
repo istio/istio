@@ -1,4 +1,4 @@
-{{ if .Values.jaeger.enabled }}
+{{ if eq .Values.provider "jaeger" }}
 
 apiVersion: v1
 kind: List

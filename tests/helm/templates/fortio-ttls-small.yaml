@@ -1,0 +1,108 @@
+# This replaces the "auth.istio.io/8080: MUTUAL_TLS|NONE" service annotation
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: fortiottlssmall
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+  peer_is_optional: true
+  targets:
+  - name: fortiottlssmall
+    ports:
+    - number: 8080
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: fortiottlssmall
+spec:
+  host:  fortiottlssmall.test.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortiottlssmall
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8081
+    targetPort: 8080
+    name: http-echo1
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortiottlssmall
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortiottlssmall
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/proxyCPU: 100m
+        sidecar.istio.io/proxyMemory: 128M
+        sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
+        sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
+        sidecar.istio.io/discoveryAddress: pilot.istio-system:15012
+      labels:
+        app: fortiottlssmall
+        version: ttlssmall
+    spec:
+      containers:
+      - name: fortio
+        image: istio/fortio:latest
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+        resources:
+          requests:
+            cpu: 100m
+            memory: "1G"
+          limits:
+            cpu: 100m
+            memory: "1G"
+
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-ttlssmall
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-ttlssmall
+        version: v1-ttlssmall
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "10"
+          - http://fortiottlssmall.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 100m
+            memory: "128Mi"
+          limits:
+            cpu: 100m
+            memory: "128Mi"

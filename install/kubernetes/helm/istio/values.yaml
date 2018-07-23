@@ -1,12 +1,12 @@
 # Common settings.
 global:
-  # Default repository for Istio images.
+  # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: docker.io/istionightly
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: nightly-release-1.0
+  tag: release-1.0-latest-daily
 
   proxy:
     image: proxyv2
@@ -62,11 +62,6 @@ global:
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    repository: quay.io/coreos/hyperkube
-    tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -128,6 +123,19 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -139,7 +147,7 @@ ingress:
   enabled: false
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
+  autoscaleMax: 5
   service:
     annotations: {}
     loadBalancerIP: ""
@@ -217,7 +225,7 @@ gateways:
       istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
@@ -297,6 +305,8 @@ galley:
 mixer:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
   image: mixer
 
   istio-policy:
@@ -318,7 +328,7 @@ mixer:
       targetAverageValue: 2500Mi
 
   prometheusStatsdExporter:
-    repository: prom/statsd-exporter
+    hub: docker.io/prom
     tag: latest
 
 #
@@ -327,7 +337,10 @@ mixer:
 pilot:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
   image: pilot
+  sidecar: true
   traceSampling: 100.0
 
 #
@@ -368,9 +381,9 @@ grafana:
 prometheus:
   enabled: true
   replicaCount: 1
-  image:
-    repository: docker.io/prom/prometheus
-    tag: latest
+  hub: docker.io/prom
+  tag: latest
+
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -416,13 +429,10 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
-  enabled: true
-
 tracing:
   enabled: false
+  provider: jaeger
   jaeger:
-    enabled: false
     memory:
       max_traces: 50000
     ingress:
@@ -439,9 +449,8 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  image:
-    repository: jaegertracing/all-in-one
-    tag: 1.5
+  hub: docker.io/jaegertracing
+  tag: 1.5
   service:
     annotations: {}
     name: http
@@ -466,9 +475,8 @@ tracing:
 kiali:
   enabled: false
   replicaCount: 1
-  image:
-    repository: kiali/kiali
-    tag: v0.5.0
+  hub: docker.io/kiali
+  tag: v0.5.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -484,41 +492,17 @@ kiali:
       #     - kiali.local
   dashboard:
     username: admin
+    # Default admin password for kiali. Must be set during setup, and
+    # changed by overriding the secret
     password: admin
 
+# Certmanager uses ACME to sign certificates. Since Istio gateways are
+# mounting the TLS secrets the Certificate CRDs must be created in the
+# istio-system namespace. Once the certificate has been created, the
+# gateway must be updated by adding 'secretVolumes'. After the gateway
+# restart, DestinationRules can be created using the ACME-signed certificates.
 certmanager:
   enabled: false
-  replicaCount: 1
-  image:
-    repository: quay.io/jetstack/cert-manager-controller
-    tag: v0.3.1
-  # Override the namespace used to store DNS provider credentials etc. for ClusterIssuer
-  # resources. By default, the same namespace as cert-manager is deployed within is used.
-  clusterResourceNamespace: ""
-  leaderElection:
-    # Override the namespace used to store the ConfigMap for leader election
-    namespace: ""
-  certificateResourceShortNames: ["cert", "certs"]
-  extraArgs: []
-  serviceAccountName: certmanager
+  hub: quay.io/jetstack
+  tag: v0.3.1
   resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #   cpu: 10m
-    #   memory: 32Mi
-  podAnnotations: {}
-    # sidecar.istio.io/inject: "true"
-  podLabels: {}
-  # Optional DNS settings, useful if you have a public and private DNS zone for
-  # the same domain on Route 53. What follows is an example of ensuring
-  # cert-manager can access an ingress or DNS TXT records at all times.
-  # NOTE: This requires Kubernetes 1.10 or `CustomPodDNS` feature gate enabled for
-  # the cluster to work.
-  # podDnsPolicy: "None"
-  # podDnsConfig:
-  #   nameservers:
-  #     - "1.1.1.1"
-  #     - "8.8.8.8"
-  nodeSelector: {}
