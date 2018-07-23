@@ -27,7 +27,6 @@ import (
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model/test"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -84,7 +83,7 @@ type ConfigMeta struct {
 	ResourceVersion string `json:"resourceVersion,omitempty"`
 
 	// CreationTimestamp records the creation time
-	CreationTimestamp meta_v1.Time `json:"resourceVersion,omitempty"`
+	CreationTimestamp meta_v1.Time `json:"creationTimestamp,omitempty"`
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
@@ -195,6 +194,7 @@ type ConfigStoreCache interface {
 type ConfigDescriptor []ProtoSchema
 
 // ProtoSchema provides description of the configuration schema and its key function
+// nolint: maligned
 type ProtoSchema struct {
 	// ClusterScoped is true for resource in cluster-level.
 	ClusterScoped bool
@@ -298,23 +298,14 @@ const (
 	// Default API version of an Istio config proto message.
 	istioAPIVersion = "v1alpha2"
 
-	// HeaderURI is URI HTTP header
-	HeaderURI = "uri"
-
-	// HeaderAuthority is authority HTTP header
-	HeaderAuthority = "authority"
-
-	// HeaderMethod is method HTTP header
-	HeaderMethod = "method"
-
-	// HeaderScheme is scheme HTTP header
-	HeaderScheme = "scheme"
-
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
 
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
+
+	// IstioSystemNamespace is the namespace where Istio's components are deployed
+	IstioSystemNamespace = "istio-system"
 )
 
 /*
@@ -463,8 +454,8 @@ var (
 	ServiceRole = ProtoSchema{
 		Type:        "service-role",
 		Plural:      "service-roles",
-		Group:       "config",
-		Version:     istioAPIVersion,
+		Group:       "rbac",
+		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
 	}
@@ -474,8 +465,8 @@ var (
 		ClusterScoped: false,
 		Type:          "service-role-binding",
 		Plural:        "service-role-bindings",
-		Group:         "config",
-		Version:       istioAPIVersion,
+		Group:         "rbac",
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
 	}
@@ -485,8 +476,8 @@ var (
 		ClusterScoped: true,
 		Type:          "rbac-config",
 		Plural:        "rbac-configs",
-		Group:         "config",
-		Version:       istioAPIVersion,
+		Group:         "rbac",
+		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateRbacConfig,
 	}
@@ -594,6 +585,14 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 	return configs
 }
 
+// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
+func sortConfigByCreationTime(configs []Config) []Config {
+	sort.SliceStable(configs, func(i, j int) bool {
+		return configs[i].CreationTimestamp.Before(&configs[j].CreationTimestamp)
+	})
+	return configs
+}
+
 // TODO: move the logic to v2, read all VirtualServices once at startup and per
 // change event and pass them to the config generator. Model calls to List are
 // extremely expensive - and for larger number of services it doesn't make sense
@@ -605,6 +604,7 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
@@ -694,6 +694,7 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
 	for _, config := range configs {
 		gateway := config.Spec.(*networking.Gateway)
@@ -710,26 +711,32 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 	return out
 }
 
-// NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
-// is undefined.
 func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {
 	configs, err := store.List(EnvoyFilter.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
+
+	// When there are multiple envoy filter configurations for a workload
+	// merge them instead of randomly picking one
+	mergedFilterConfig := &networking.EnvoyFilter{}
+
 	for _, config := range configs {
 		filter := config.Spec.(*networking.EnvoyFilter)
-		if filter.GetWorkloadLabels() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			return &config
+		// if there is no workload selector, the filter applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		if filter.GetWorkloadLabels() != nil {
+			workloadSelector := Labels(filter.GetWorkloadLabels())
+			if !workloadLabels.IsSupersetOf(workloadSelector) {
+				continue
+			}
 		}
-		workloadSelector := Labels(filter.GetWorkloadLabels())
-		if workloadLabels.IsSupersetOf(workloadSelector) {
-			return &config
-		}
+		mergedFilterConfig.Filters = append(mergedFilterConfig.Filters, filter.Filters...)
 	}
-	return nil
+
+	return &Config{Spec: mergedFilterConfig}
 }
 
 func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
@@ -738,6 +745,7 @@ func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
 		return nil
 	}
 
+	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
 	byHosts := make(map[Hostname]*Config, len(configs))
 	for i := range configs {
@@ -817,47 +825,122 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 	return out
 }
 
-// QuotaSpecByDestination selects Mixerclient quota specifications
-// associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
-	if err != nil {
-		return nil
+// matchWildcardService matches destinationHost to a wildcarded svc.
+// checked values for svc
+//     '*'  matches everything
+//     '*.ns.*'  matches anything in the same namespace
+//		strings of any other form are not matched.
+func matchWildcardService(destinationHost, svc string) bool {
+	if len(svc) == 0 || !strings.Contains(svc, "*") {
+		return false
 	}
 
-	// Create a set key from a reference's name and namespace.
-	key := func(name, namespace string) string { return name + "/" + namespace }
+	if svc == "*" {
+		return true
+	}
 
+	// check for namespace match with svc like '*.ns.*'
+	// extract match substring by dropping '*'
+	if strings.HasPrefix(svc, "*") && strings.HasSuffix(svc, "*") {
+		return strings.Contains(destinationHost, svc[1:len(svc)-1])
+	}
+
+	log.Warnf("Wildcard pattern '%s' is not allowed. Only '*' or '*.<ns>.*' is allowed.", svc)
+
+	return false
+}
+
+// MatchesDestHost returns true if the service instance matches the given IstioService
+// ex: binding host(details.istio-system.svc.cluster.local) ?= instance(reviews.default.svc.cluster.local)
+func MatchesDestHost(destinationHost string, meta ConfigMeta, svc *mccpb.IstioService) bool {
+	if matchWildcardService(destinationHost, svc.Service) {
+		return true
+	}
+
+	// try exact matches
+	hostname := string(ResolveHostname(meta, svc))
+	if destinationHost == hostname {
+		return true
+	}
+	shortName := hostname[0:strings.Index(hostname, ".")]
+	if strings.HasPrefix(destinationHost, shortName) {
+		log.Warnf("Quota excluded. service: %s matches binding shortname: %s, but does not match fqdn: %s",
+			destinationHost, shortName, hostname)
+	}
+
+	return false
+}
+
+func recordSpecRef(refs map[string]bool, bindingNamespace string, quotas []*mccpb.QuotaSpecBinding_QuotaSpecReference) {
+	for _, spec := range quotas {
+		namespace := spec.Namespace
+		if namespace == "" {
+			namespace = bindingNamespace
+		}
+		refs[key(spec.Name, namespace)] = true
+	}
+}
+
+// key creates a key from a reference's name and namespace.
+func key(name, namespace string) string {
+	return name + "/" + namespace
+}
+
+// findQuotaSpecRefs returns a set of quotaSpec reference names
+func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]bool {
 	// Build the set of quota spec references bound to the service instance.
-	refs := make(map[string]struct{})
+	refs := make(map[string]bool)
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.QuotaSpecBinding)
 		for _, service := range b.Services {
-			hostname := ResolveHostname(binding.ConfigMeta, service)
-			if hostname == instance.Service.Hostname {
-				for _, spec := range b.QuotaSpecs {
-					namespace := spec.Namespace
-					if namespace == "" {
-						namespace = binding.Namespace
-					}
-					refs[key(spec.Name, namespace)] = struct{}{}
-				}
+			if MatchesDestHost(string(instance.Service.Hostname), binding.ConfigMeta, service) {
+				recordSpecRef(refs, binding.Namespace, b.QuotaSpecs)
+				// found a binding that matches the instance.
+				break
 			}
 		}
 	}
 
+	return refs
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", instance)
+	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination bindings[%d] %v", len(bindings), bindings)
+	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
+	if err != nil {
+		log.Warnf("Unable to fetch QuotaSpecs: %v", err)
+		return nil
+	}
+
+	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
+
+	// Build the set of quota spec references bound to the service instance.
+	refs := findQuotaSpecRefs(instance, bindings)
+	log.Debugf("QuotaSpecByDestination refs:%v", refs)
+
 	// Append any spec that is in the set of references.
+	// Remove matching specs from refs so refs only contains dangling references.
 	var out []Config
 	for _, spec := range specs {
-		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+		refkey := key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)
+		if refs[refkey] {
 			out = append(out, spec)
+			delete(refs, refkey)
 		}
 	}
 
+	if len(refs) > 0 {
+		log.Warnf("Some matched QuotaSpecs were not found: %v", refs)
+	}
 	return out
 }
 
