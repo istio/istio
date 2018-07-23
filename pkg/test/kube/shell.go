@@ -39,8 +39,10 @@ func executeArgs(name string, args ...string) (string, error) {
 	c := exec.Command(name, args...)
 	b, err := c.CombinedOutput()
 
-	if scope.DebugEnabled() {
+	if c.ProcessState.Success() {
 		scope.Debugf("Command[%s] => %s", name, string(b))
+	} else {
+		scope.Debugf("Command[%s] => (FAILED) %s", name, string(b))
 	}
 
 	return string(b), err
