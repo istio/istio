@@ -234,6 +234,12 @@
   revision = "83389a148052d74ac602f5f1d62f86ff2f3c4aa5"
 
 [[projects]]
+  name = "github.com/docker/go-units"
+  packages = ["."]
+  revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
+  version = "v0.3.3"
+
+[[projects]]
   branch = "master"
   name = "github.com/docker/spdystream"
   packages = [
@@ -1603,6 +1609,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a53387525fe93d996ca46dc1e3c4f78a55f011cd5da37dd3abc997d48fb822a4"
+  inputs-digest = "7a552993175d59f0a9a1b1ce574ec337d621fbed56988efa3798bdbd5d15332e"
   solver-name = "gps-cdcl"
   solver-version = 1
