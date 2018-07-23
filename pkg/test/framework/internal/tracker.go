@@ -20,7 +20,7 @@ import (
 	"go.uber.org/multierr"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)

@@ -24,7 +24,7 @@ import (
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/kube"
 )
 
@@ -37,7 +37,7 @@ type deployedMixer struct {
 	args *server.Args
 }
 
-var _ framework.DeployedMixer = &deployedMixer{}
+var _ environment.DeployedMixer = &deployedMixer{}
 var _ io.Closer = &deployedMixer{}
 
 func newMixer(kubeconfigPath string, accessor *kube.Accessor) (*deployedMixer, error) {

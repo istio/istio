@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 type deployedPilot struct {
@@ -36,7 +36,7 @@ type deployedPilot struct {
 }
 
 // NewPilot creates a new local pilot instance.
-func NewPilot(args Args) (framework.DeployedPilot, error) {
+func NewPilot(args Args) (environment.DeployedPilot, error) {
 	// Use an in-memory config store.
 	configController := memory.NewController(memory.Make(model.IstioConfigTypes))
 

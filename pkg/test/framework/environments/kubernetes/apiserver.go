@@ -15,7 +15,7 @@
 package kubernetes
 
 import (
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/kube"
 )
 
@@ -24,7 +24,7 @@ type deployedAPIServer struct {
 	accessor *kube.Accessor
 }
 
-var _ framework.DeployedAPIServer = &deployedAPIServer{}
+var _ environment.DeployedAPIServer = &deployedAPIServer{}
 
 func newAPIServer(env *Environment) (*deployedAPIServer, error) {
 	config, err := kube.CreateConfig(env.ctx.KubeConfigPath())

@@ -17,9 +17,9 @@ package galley
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	test.Run("galley_test", m)
+	framework.Run("galley_test", m)
 }

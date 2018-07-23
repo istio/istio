@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/fakes/policy"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
 )
@@ -83,7 +83,7 @@ type policyBackend struct {
 	forwarder           *kube.PortForwarder
 }
 
-var _ framework.DeployedPolicyBackend = &policyBackend{}
+var _ environment.DeployedPolicyBackend = &policyBackend{}
 var _ io.Closer = &policyBackend{}
 
 func newPolicyBackend(e *Environment) (*policyBackend, error) {

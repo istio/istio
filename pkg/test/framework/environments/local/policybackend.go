@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/fakes/policy"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 type policyBackend struct {
@@ -35,7 +35,7 @@ type policyBackend struct {
 	controller *policy.Controller
 }
 
-var _ framework.DeployedPolicyBackend = &policyBackend{}
+var _ environment.DeployedPolicyBackend = &policyBackend{}
 
 func newPolicyBackend(port int) (*policyBackend, error) {
 

@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
 	generatedTmplRepo "istio.io/istio/mixer/template"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
 )
 
@@ -45,7 +45,7 @@ type deployedMixer struct {
 	workdir string
 }
 
-var _ framework.DeployedMixer = &deployedMixer{}
+var _ environment.DeployedMixer = &deployedMixer{}
 var _ internal.Configurable = &deployedMixer{}
 var _ io.Closer = &deployedMixer{}
 

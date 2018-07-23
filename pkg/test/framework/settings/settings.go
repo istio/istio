@@ -12,12 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package driver
+package settings
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/errors"
 )
 
@@ -29,8 +29,13 @@ const (
 	EnvLocal = "local"
 )
 
-// args is the set of arguments to the test driver.
-type args struct {
+const (
+	// MaxTestIDLength is the maximum length allowed for testID.
+	MaxTestIDLength = 30
+)
+
+// Settings is the set of arguments to the test driver.
+type Settings struct {
 	// Environment to run the tests in. By default, a local environment will be used.
 	Environment string
 
@@ -60,15 +65,32 @@ type args struct {
 	Tag string
 }
 
+// Construct returns settings built from flags and environment variables.
+func Construct(testID string) (*Settings, error) {
+	if err := processFlags(); err != nil {
+		return nil, err
+	}
+
+	// Make a local copy.
+	s := *arguments
+	s.TestID = testID
+
+	if err := s.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &s, nil
+}
+
 // defaultArgs returns the default set of arguments.
-func defaultArgs() *args {
-	return &args{
+func defaultArgs() *Settings {
+	return &Settings{
 		Environment: EnvLocal,
 	}
 }
 
 // Validate the arguments.
-func (a *args) Validate() error {
+func (a *Settings) Validate() error {
 	switch a.Environment {
 	case EnvLocal, EnvKube:
 
@@ -80,8 +102,8 @@ func (a *args) Validate() error {
 		return errors.MissingKubeConfigForEnvironment(EnvKube, ISTIO_TEST_KUBE_CONFIG.Name())
 	}
 
-	if a.TestID == "" || len(a.TestID) > maxTestIDLength {
-		return errors.InvalidTestID(maxTestIDLength)
+	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {
+		return errors.InvalidTestID(MaxTestIDLength)
 	}
 
 	return nil

@@ -15,14 +15,14 @@
 package internal
 
 import (
-	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 // Environment is the internal interface that should be implemented by Environments. This is used by the
 // driver to communicate with the environments in a standard way.
 type Environment interface {
-	framework.Environment
+	environment.Environment
 
 	// Initialize the environment. This is called once during the lifetime of the suite.
 	Initialize(ctx *TestContext) error

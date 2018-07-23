@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package driver
+package framework
 
 import (
 	"fmt"
@@ -22,36 +22,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/settings"
 )
-
-const (
-	maxTestIDLength = 30
-)
-
-var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
-var lab = log.RegisterScope("testframework-lab", "Scope for normal log reporting to be used by the lab", 0)
-
-// Driver for the test framework.
-type Driver interface {
-	// Run the tests by calling into testing.M. This must be called exactly once.
-	Run(testID string, m *testing.M) (int, error)
-
-	// SuiteRequires indicates that the whole suite requires particular dependencies.
-	SuiteRequires(dependencies []dependency.Instance) error
-
-	// Requires checks and initializes the supplied dependencies appropriately.
-	Requires(t testing.TB, dependencies []dependency.Instance)
-
-	// AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
-	// once per test.
-	AcquireEnvironment(t testing.TB) framework.Environment
-}
 
 // internal state for the driver.
 type state int
@@ -72,8 +49,8 @@ const (
 type driver struct {
 	lock sync.Mutex
 
-	args *args
-	ctx  *internal.TestContext
+	settings *settings.Settings
+	ctx      *internal.TestContext
 
 	// The names of the tests that we've encountered so far.
 	testNames map[string]struct{}
@@ -81,88 +58,40 @@ type driver struct {
 	state state
 }
 
-var _ Driver = &driver{}
-
 // New returns a new driver instance.
-func New() Driver {
+func newDriver() *driver {
 	return &driver{
 		testNames: make(map[string]struct{}),
 		state:     created,
 	}
 }
 
-//
-//// Initialize implements same-named Driver method.
-//func (d *driver) Initialize(a *args) error {
-//	scope.Debugf("Enter: driver.Initialize (%s)", a.TestID)
-//	d.lock.Lock()
-//	defer d.lock.Unlock()
-//
-//	if d.ctx != nil {
-//		return errors.New("test driver is already initialized")
-//	}
-//
-//	// Make a copy of the args
-//	args := &(*a)
-//	if err := args.Validate(); err != nil {
-//		return err
-//	}
-//
-//	// Initialize the environment.
-//	var env internal.Environment
-//	switch a.Environment {
-//	case EnvLocal:
-//		env = local.NewEnvironment()
-//	case EnvKube:
-//		env = cluster.NewEnvironment()
-//	default:
-//		return fmt.Errorf("unrecognized environment: %s", a.Environment)
-//	}
-//
-//	// Create the context, but do not attach it to the member fields before initializing.
-//	ctx := internal.NewTestContext(
-//		args.TestID,
-//		generateRunID(args.TestID),
-//		a.WorkDir,
-//		a.Hub,
-//		a.Tag,
-//		a.KubeConfig,
-//		env)
-//
-//	if err := env.Initialize(ctx); err != nil {
-//		return err
-//	}
-//
-//	d.ctx = ctx
-//	d.args = args
-//
-//	return nil
-//}
-
 // Run implements same-named Driver method.
 func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	d.lock.Lock()
 	// do not defer unlock. We will explicitly unlock before starting test runs.
 	if d.state != created {
+		d.lock.Unlock()
 		return -1, fmt.Errorf("driver.Run must be called only once")
 	}
 	d.state = running
 
-	args, err := calculateArgs(testID, m)
+	s, err := settings.Construct(testID)
 	if err != nil {
 		d.lock.Unlock()
 		return -1, err
 	}
-	scope.Debugf("driver args: %+v", args)
+	scope.Debugf("driver settings: %+v", s)
+	d.settings = s
 
-	if err = d.initialize(args); err != nil {
+	if err = d.initialize(); err != nil {
 		d.lock.Unlock()
 		return -2, err
 	}
 
-	for _, dep := range d.args.SuiteDependencies {
+	for _, dep := range d.settings.SuiteDependencies {
 		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
-			log.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
+			scope.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
 			return -3, err
 		}
 	}
@@ -179,7 +108,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 
 	d.state = completed
 
-	if !d.args.NoCleanup {
+	if !d.settings.NoCleanup {
 		d.ctx.Tracker().Cleanup()
 	}
 
@@ -187,7 +116,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 }
 
 // AcquireEnvironment implementation
-func (d *driver) AcquireEnvironment(t testing.TB) framework.Environment {
+func (d *driver) AcquireEnvironment(t testing.TB) environment.Environment {
 	t.Helper()
 	scope.Debugf("Enter: driver.AcquireEnvionment (%s)", d.ctx.TestID())
 	d.lock.Lock()
@@ -224,7 +153,7 @@ func (d *driver) SuiteRequires(dependencies []dependency.Instance) error {
 		return fmt.Errorf("test driver is not in a valid state")
 	}
 
-	arguments.SuiteDependencies = append(arguments.SuiteDependencies, dependencies...)
+	d.settings.SuiteDependencies = append(d.settings.SuiteDependencies, dependencies...)
 	return nil
 }
 
@@ -242,33 +171,33 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
 		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
-			log.Errorf("Failed to initialize dependency '%s': %v", dep, err)
+			scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
 	}
 }
 
-func (d *driver) initialize(a *args) error {
+func (d *driver) initialize() error {
 
 	// Initialize the environment.
 	var env internal.Environment
-	switch a.Environment {
-	case EnvLocal:
+	switch d.settings.Environment {
+	case settings.EnvLocal:
 		env = local.NewEnvironment()
-	case EnvKube:
+	case settings.EnvKube:
 		env = kubernetes.NewEnvironment()
 	default:
-		return fmt.Errorf("unrecognized environment: %s", a.Environment)
+		return fmt.Errorf("unrecognized environment: %s", d.settings.Environment)
 	}
 
 	// Create the context, but do not attach it to the member fields before initializing.
 	ctx := internal.NewTestContext(
-		a.TestID,
-		generateRunID(a.TestID),
-		a.WorkDir,
-		a.Hub,
-		a.Tag,
-		a.KubeConfig,
+		d.settings.TestID,
+		generateRunID(d.settings.TestID),
+		d.settings.WorkDir,
+		d.settings.Hub,
+		d.settings.Tag,
+		d.settings.KubeConfig,
 		env)
 
 	if err := env.Initialize(ctx); err != nil {
@@ -276,7 +205,6 @@ func (d *driver) initialize(a *args) error {
 	}
 
 	d.ctx = ctx
-	d.args = a
 
 	return nil
 }
@@ -286,21 +214,6 @@ func generateRunID(testID string) string {
 	u = strings.Replace(u, "-", "", -1)
 	testID = strings.Replace(testID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
-	padding := maxTestIDLength - len(testID)
+	padding := settings.MaxTestIDLength - len(testID)
 	return fmt.Sprintf("%s-%s", testID, u[0:padding])
-}
-
-func calculateArgs(testID string, m *testing.M) (*args, error) {
-	if err := processFlags(); err != nil {
-		return nil, err
-	}
-
-	if err := arguments.Validate(); err != nil {
-		return nil, err
-	}
-
-	arguments.TestID = testID
-	arguments.M = m
-
-	return arguments, nil
 }

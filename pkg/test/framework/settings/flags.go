@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package driver
+package settings
 
 import (
 	"flag"
@@ -118,7 +118,7 @@ func doShowHelp() {
 `, strings.Join(lines, "\n"))
 }
 
-func applyEnvironmentVariables(a *args) {
+func applyEnvironmentVariables(a *Settings) {
 	if ISTIO_TEST_KUBE_CONFIG.Value() != "" {
 		a.KubeConfig = ISTIO_TEST_KUBE_CONFIG.Value()
 	}

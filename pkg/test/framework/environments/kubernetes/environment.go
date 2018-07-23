@@ -25,8 +25,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
@@ -58,7 +58,7 @@ type Environment struct {
 	TestNamespace string
 }
 
-var _ framework.Environment = &Environment{}
+var _ environment.Environment = &Environment{}
 var _ internal.Environment = &Environment{}
 var _ io.Closer = &Environment{}
 
@@ -154,16 +154,16 @@ func (e *Environment) Reset() error {
 }
 
 // GetMixer returns a deployed Mixer instance in the environment.
-func (e *Environment) GetMixer() (framework.DeployedMixer, error) {
+func (e *Environment) GetMixer() (environment.DeployedMixer, error) {
 	s, err := e.get(dependency.Mixer)
 	if err != nil {
 		return nil, err
 	}
-	return s.(framework.DeployedMixer), nil
+	return s.(environment.DeployedMixer), nil
 }
 
 // GetMixerOrFail returns a deployed Mixer instance in the framework, or fails the test if unsuccessful.
-func (e *Environment) GetMixerOrFail(t testing.TB) framework.DeployedMixer {
+func (e *Environment) GetMixerOrFail(t testing.TB) environment.DeployedMixer {
 	t.Helper()
 
 	m, err := e.GetMixer()
@@ -175,16 +175,16 @@ func (e *Environment) GetMixerOrFail(t testing.TB) framework.DeployedMixer {
 }
 
 // GetPilot returns a deployed Pilot instance in the environment.
-func (e *Environment) GetPilot() (framework.DeployedPilot, error) {
+func (e *Environment) GetPilot() (environment.DeployedPilot, error) {
 	s, err := e.get(dependency.Pilot)
 	if err != nil {
 		return nil, err
 	}
-	return s.(framework.DeployedPilot), nil
+	return s.(environment.DeployedPilot), nil
 }
 
 // GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
-func (e *Environment) GetPilotOrFail(t testing.TB) framework.DeployedPilot {
+func (e *Environment) GetPilotOrFail(t testing.TB) environment.DeployedPilot {
 	t.Helper()
 
 	m, err := e.GetPilot()
@@ -196,18 +196,18 @@ func (e *Environment) GetPilotOrFail(t testing.TB) framework.DeployedPilot {
 }
 
 // GetAPIServer returns a handle to the ambient API Server in the environment.
-func (e *Environment) GetAPIServer() (framework.DeployedAPIServer, error) {
+func (e *Environment) GetAPIServer() (environment.DeployedAPIServer, error) {
 	a, err := e.get(dependency.APIServer)
 	if err != nil {
 		return nil, err
 	}
 
-	return a.(framework.DeployedAPIServer), nil
+	return a.(environment.DeployedAPIServer), nil
 }
 
 // GetAPIServerOrFail returns a handle to the ambient API Server in the environment, or fails the test if
 // unsuccessful.
-func (e *Environment) GetAPIServerOrFail(t testing.TB) framework.DeployedAPIServer {
+func (e *Environment) GetAPIServerOrFail(t testing.TB) environment.DeployedAPIServer {
 	t.Helper()
 
 	m, err := e.GetAPIServer()
@@ -219,12 +219,12 @@ func (e *Environment) GetAPIServerOrFail(t testing.TB) framework.DeployedAPIServ
 }
 
 // GetApp returns a fake testing app object for the given name.
-func (e *Environment) GetApp(name string) (framework.DeployedApp, error) {
+func (e *Environment) GetApp(name string) (environment.DeployedApp, error) {
 	return getApp(name, e.TestNamespace)
 }
 
 // GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
-func (e *Environment) GetAppOrFail(name string, t testing.TB) framework.DeployedApp {
+func (e *Environment) GetAppOrFail(name string, t testing.TB) environment.DeployedApp {
 	t.Helper()
 	a, err := getApp(name, e.TestNamespace)
 	if err != nil {
@@ -234,14 +234,14 @@ func (e *Environment) GetAppOrFail(name string, t testing.TB) framework.Deployed
 }
 
 // GetFortioApp returns a Fortio App object for the given name.
-func (e *Environment) GetFortioApp(name string) (framework.DeployedFortioApp, error) {
+func (e *Environment) GetFortioApp(name string) (environment.DeployedFortioApp, error) {
 	// TODO: Implement or remove the method
 	// See https://github.com/istio/istio/issues/6171
 	panic("Not yet implemented")
 }
 
 // GetFortioAppOrFail returns a Fortio App object for the given name, or fails the test if unsuccessful.
-func (e *Environment) GetFortioAppOrFail(name string, t testing.TB) framework.DeployedFortioApp {
+func (e *Environment) GetFortioAppOrFail(name string, t testing.TB) environment.DeployedFortioApp {
 	t.Helper()
 	a, err := e.GetFortioApp(name)
 	if err != nil {
@@ -251,16 +251,16 @@ func (e *Environment) GetFortioAppOrFail(name string, t testing.TB) framework.De
 }
 
 // GetFortioApps returns a set of Fortio Apps based on the given selector.
-func (e *Environment) GetFortioApps(selector string, t testing.TB) []framework.DeployedFortioApp {
+func (e *Environment) GetFortioApps(selector string, t testing.TB) []environment.DeployedFortioApp {
 	// TODO: Implement or remove the method
 	// See https://github.com/istio/istio/issues/6171
 	panic("Not yet implemented")
 }
 
 // GetPolicyBackendOrFail returns the mock policy backend that is used by Mixer for policy checks and reports.
-func (e *Environment) GetPolicyBackendOrFail(t testing.TB) framework.DeployedPolicyBackend {
+func (e *Environment) GetPolicyBackendOrFail(t testing.TB) environment.DeployedPolicyBackend {
 	t.Helper()
-	return e.getOrFail(t, dependency.PolicyBackend).(framework.DeployedPolicyBackend)
+	return e.getOrFail(t, dependency.PolicyBackend).(environment.DeployedPolicyBackend)
 }
 
 func (e *Environment) get(dep dependency.Instance) (interface{}, error) {

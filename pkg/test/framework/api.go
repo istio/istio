@@ -12,21 +12,21 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package test
+package framework
 
 import (
 	"os"
 	"testing"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/dependency"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/driver"
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
+var lab = log.RegisterScope("testframework-lab", "Scope for normal log reporting to be used by the lab", 0)
 
-var d = driver.New()
+var d = newDriver()
 
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
@@ -39,7 +39,7 @@ func Run(testID string, m *testing.M) {
 }
 
 // SuiteRequires indicates that the whole suite requires particular dependencies.
-func SuiteRequires(m *testing.M, dependencies ...dependency.Instance) {
+func SuiteRequires(_ *testing.M, dependencies ...dependency.Instance) {
 	if err := d.SuiteRequires(dependencies); err != nil {
 		panic(err)
 	}
@@ -54,7 +54,7 @@ func Requires(t testing.TB, dependencies ...dependency.Instance) {
 
 // AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
 // once per test.
-func AcquireEnvironment(t testing.TB) framework.Environment {
+func AcquireEnvironment(t testing.TB) environment.Environment {
 	t.Helper()
 	return d.AcquireEnvironment(t)
 }

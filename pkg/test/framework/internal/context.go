@@ -14,7 +14,7 @@
 
 package internal
 
-import "istio.io/istio/pkg/test/dependency"
+import "istio.io/istio/pkg/test/framework/dependency"
 
 // TestContext provides the ambient context to internal code.
 type TestContext struct {
