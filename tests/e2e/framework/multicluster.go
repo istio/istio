@@ -87,12 +87,12 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		"istio-pilot":              "remotePilotAddress",
 		"istio-policy":             "remotePolicyAddress",
 		"istio-statsd-prom-bridge": "proxy.envoyStatsd.host",
-		"istio-ingress":            "ingressEndpoint",
 		"istio-ingressgateway":     "ingressGatewayEndpoint",
 		"istio-telemetry":          "remoteTelemetryAddress",
 		"zipkin":                   "remoteZipkinAddress",
 	}
 	var helmSetContent string
+	var ingressGatewayAddr string
 	for svc, helmVal := range svcToHelmVal {
 		var ip string
 		ip, err = k.getEndpointIPForService(svc)
@@ -101,6 +101,9 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 			log.Infof("Service %s has an endpoint IP %s", svc, ip)
 			if svc == "istio-statsd-prom-bridge" {
 				helmSetContent += " --set global.proxy.envoyStatsd.enabled=true"
+			}
+			if svc == "istio-ingressgateway" {
+				ingressGatewayAddr = ip
 			}
 		} else {
 			log.Infof("Endpoint for service %s not found", svc)
@@ -122,6 +125,9 @@ func (k *KubeInfo) generateRemoteIstio(dst string, useAutoInject bool, proxyHub,
 		log.Errorf("cannot write remote into generated yaml file %s: %v", dst, err)
 		return err
 	}
+	if ingressGatewayAddr != "" {
+		k.appendIngressGateway(dst, ingressGatewayAddr)
+	}
 	return nil
 }
 
@@ -142,4 +148,58 @@ func (k *KubeInfo) createCacerts(remoteCluster bool) (err error) {
 		log.Infof("Created Cacerts with namespace %s in %s cluster", k.Namespace, cluster)
 	}
 	return err
+}
+
+func (k *KubeInfo) appendIngressGateway(dst, ingressAddr string) (err error) {
+	var ingressGwSvc = `
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: %s
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tcp
+      port: 31400
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+
+subsets:
+- addresses:
+  - ip: %s
+  ports:
+    -
+      name: http2
+      port: 80
+    -
+      name: https
+      port: 443
+    -
+      name: tcp
+      port: 31400
+`
+	f, err := os.OpenFile(dst, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err = f.WriteString(fmt.Sprintf(ingressGwSvc, k.Namespace, ingressAddr)); err != nil {
+		return err
+	}
+	return nil
 }
