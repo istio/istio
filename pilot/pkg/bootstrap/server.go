@@ -472,7 +472,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
 				s.configController,
-				cf.NewController(client, configController, 30*time.Second, 10*time.Second),
+				cf.NewController(client, configController, log.RegisterScope("cloudfoundry", "cloudfoundry debugging", 0), 30*time.Second, 10*time.Second),
 			})
 			if err != nil {
 				return err

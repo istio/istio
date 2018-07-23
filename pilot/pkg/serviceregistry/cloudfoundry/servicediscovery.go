@@ -140,7 +140,7 @@ func (sd *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*mode
 	svc, _ := sd.GetService(hostname)
 	if svc != nil {
 		return &model.ServiceAttributes{
-			Name:      hostname.String(),
+			Name:      string(hostname),
 			Namespace: model.IstioDefaultConfigNamespace}, nil
 	}
 	return nil, nil
@@ -163,7 +163,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 	instances := make([]*model.ServiceInstance, 0)
 	var matchedRoutes []*copilotapi.RouteWithBackends
 	for _, route := range resp.GetRoutes() {
-		if route.Hostname == hostname.String() {
+		if route.Hostname == string(hostname) {
 			matchedRoutes = append(matchedRoutes, route)
 		}
 	}
@@ -216,7 +216,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 
 	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
 		for _, backend := range internalRoute.GetBackends().Backends {
-			if internalRoute.Hostname == hostname.String() {
+			if internalRoute.Hostname == string(hostname) {
 				instances = append(instances, &model.ServiceInstance{
 					Endpoint: model.NetworkEndpoint{
 						Address:     backend.Address,

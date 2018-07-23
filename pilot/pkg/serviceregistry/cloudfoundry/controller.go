@@ -66,26 +66,15 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 
 // Run will loop, calling handlers in response to changes, until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	// cache := &copilotapi.RoutesResponse{}
 	for {
 		select {
 		case <-c.Ticker.Chan():
-			// backendSets, err := c.Client.Routes(context.Background(), &copilotapi.RoutesRequest{})
-			// if err != nil {
-			// 	log.Warnf("periodic copilot routes poll failed: %s", err)
-			// 	continue
-			// }
-
-			// if !reflect.DeepEqual(backendSets, cache) {
-			// 	cache = backendSets
-			// Clear service discovery cache
 			for _, h := range c.serviceHandlers {
 				go h(&model.Service{}, model.EventAdd)
 			}
 			for _, h := range c.instanceHandlers {
 				go h(&model.ServiceInstance{}, model.EventAdd)
 			}
-			// }
 		case <-stop:
 			c.Ticker.Stop()
 			return

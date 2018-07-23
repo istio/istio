@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-var unsupportedErr = errors.New("this operation is not supported by the cloudfoundry copilot controller")
+var errUnsupported = errors.New("this operation is not supported by the cloudfoundry copilot controller")
 
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
 //go:generate counterfeiter -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
@@ -40,19 +40,28 @@ type storage struct {
 	destinationRules map[string]*model.Config
 }
 
+//go:generate counterfeiter -o fakes/logger.go --fake-name Logger . logger
+type logger interface {
+	Warnf(template string, args ...interface{})
+	Infof(template string, args ...interface{})
+}
+
 type controller struct {
 	client        CopilotClient
 	store         model.ConfigStore
+	logger        logger
 	timeout       time.Duration
 	checkInterval time.Duration
 	eventHandlers []func(model.Config, model.Event)
 	storage       storage
 }
 
-func NewController(client CopilotClient, store model.ConfigStore, timeout, checkInterval time.Duration) *controller {
+// NewController provides a new CF controller
+func NewController(client CopilotClient, store model.ConfigStore, logger logger, timeout, checkInterval time.Duration) *controller {
 	return &controller{
 		client:        client,
 		store:         store,
+		logger:        logger,
 		timeout:       timeout,
 		checkInterval: checkInterval,
 		storage: storage{
@@ -62,14 +71,21 @@ func NewController(client CopilotClient, store model.ConfigStore, timeout, check
 	}
 }
 
+// RegisterEventHandler will save event handler off to controller struct
+// we call handler on a time interval instead within Run
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	c.eventHandlers = append(c.eventHandlers, f)
 }
 
+// HasSynced demonstrates whether we have route data or not - meaning
+// we've successfuclly queried the copilot for data
 func (c *controller) HasSynced() bool {
 	return len(c.storage.virtualServices) > 0 && len(c.storage.destinationRules) > 0
 }
 
+// Run kicks off the async copilot fetch plus running
+// the cache clearing event handler that causes the rest of
+// pilot to repopulate the rules to push data to envoy
 func (c *controller) Run(stop <-chan struct{}) {
 	tick := time.NewTicker(c.checkInterval)
 
@@ -87,6 +103,8 @@ func (c *controller) Run(stop <-chan struct{}) {
 	}()
 }
 
+// ConfigDescriptors supported by the CF Controller are only virtual-services
+// and destination-rules
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	return model.ConfigDescriptor{
 		model.VirtualService,
@@ -94,6 +112,9 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 	}
 }
 
+// Get has been optimized for the current cloudfoundry case of
+// no namespace and only two specific types. We  have also
+// left these in maps for faster lookup
 func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	c.storage.RLock()
 	defer c.storage.RUnlock()
@@ -115,43 +136,55 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 			found = true
 		}
 	default:
+		c.logger.Infof("get type not supported: %s", typ)
 	}
 
 	return config, found
 }
 
+// List also ignores namespace to return all the rules of a particular type
+// we've paid some attention here to avoid locking too long and also
+// avoid allocation performance hits
 func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 	var configs []model.Config
+	var index int
 
 	c.storage.RLock()
 	switch typ {
 	case model.VirtualService.Type:
+		configs = make([]model.Config, len(c.storage.virtualServices))
 		for _, service := range c.storage.virtualServices {
-			configs = append(configs, *service)
+			configs[index] = *service
+			index++
 		}
+
 	case model.DestinationRule.Type:
+		configs = make([]model.Config, len(c.storage.destinationRules))
 		for _, rule := range c.storage.destinationRules {
-			configs = append(configs, *rule)
+			configs[index] = *rule
+			index++
 		}
 	default:
+		c.logger.Infof("list type not supported: %s", typ)
 	}
 	c.storage.RUnlock()
-
-	// sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
 
 	return configs, nil
 }
 
+// Create is not implemented, this is handled by rebuildRules
 func (c *controller) Create(config model.Config) (string, error) {
-	return "", unsupportedErr
+	return "", errUnsupported
 }
 
+// Update is not implemented, copilot is the source of truth
 func (c *controller) Update(config model.Config) (string, error) {
-	return "", unsupportedErr
+	return "", errUnsupported
 }
 
+// Delete is not implemented, again copilot is the source of truth
 func (c *controller) Delete(typ, name, namespace string) error {
-	return unsupportedErr
+	return errUnsupported
 }
 
 func (c *controller) rebuildRules() {
@@ -160,12 +193,12 @@ func (c *controller) rebuildRules() {
 
 	resp, err := c.client.Routes(ctx, new(copilotapi.RoutesRequest))
 	if err != nil {
-		panic(err)
+		c.logger.Warnf("failed to fetch routes from copilot: %s", err)
 	}
 
 	gateways, err := c.store.List(model.Gateway.Type, model.NamespaceAll)
 	if err != nil {
-		panic(err)
+		c.logger.Warnf("failed to list gateways: %s", err)
 	}
 
 	var gatewayNames []string
@@ -173,8 +206,8 @@ func (c *controller) rebuildRules() {
 		gatewayNames = append(gatewayNames, gwConfig.Name)
 	}
 
-	virtualServices := make(map[string]*model.Config)
-	destinationRules := make(map[string]*model.Config)
+	virtualServices := make(map[string]*model.Config, len(resp.GetRoutes()))
+	destinationRules := make(map[string]*model.Config, len(resp.GetRoutes()))
 
 	for _, route := range resp.GetRoutes() {
 		destinationRuleName := fmt.Sprintf("dest-rule-for-%s", route.GetHostname())

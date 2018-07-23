@@ -1,6 +1,9 @@
 package cloudfoundry_test
 
 import (
+	"errors"
+	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -17,10 +20,11 @@ import (
 func TestRegisterEventHandler(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
 	var callCount int
 	controller.RegisterEventHandler("virtual-service", func(model.Config, model.Event) {
@@ -38,10 +42,11 @@ func TestRegisterEventHandler(t *testing.T) {
 func TestConfigDescriptor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
 	configDescriptor := model.ConfigDescriptor{}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
 	descriptors := controller.ConfigDescriptor()
 
@@ -49,8 +54,8 @@ func TestConfigDescriptor(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
 	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
 	configDescriptor := model.ConfigDescriptor{
 		model.DestinationRule,
 		model.VirtualService,
@@ -58,92 +63,116 @@ func TestGet(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
-	for idx, response := range routeResponses {
-		mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
-	}
+	t.Run("invalid type", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
+		stop := make(chan struct{})
+		defer func() { stop <- struct{}{} }()
 
-	stop := make(chan struct{})
-	defer func() { stop <- struct{}{} }()
+		controller.Run(stop)
 
-	controller.Run(stop)
+		g.Eventually(func() string {
+			controller.Get("unknown-type", "virtual-service-for-some-external-route.example.com", "")
 
-	var config *model.Config
-	g.Eventually(func() bool {
-		var found bool
-		config, found = controller.Get("virtual-service", "virtual-service-for-some-external-route.example.com", "")
+			if logger.InfofCallCount() == 0 {
+				return ""
+			}
 
-		return found
-	}).Should(gomega.BeTrue())
+			format, message := logger.InfofArgsForCall(0)
+			return fmt.Sprintf(format, message...)
+		}).Should(gomega.Equal("get type not supported: unknown-type"))
+	})
 
-	vs := config.Spec.(*networking.VirtualService)
-	g.Expect(vs.Hosts[0]).To(gomega.Equal("some-external-route.example.com"))
-	g.Expect(vs.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
+	t.Run("valid type", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 
-	g.Expect(vs.Http).To(gomega.HaveLen(2))
-	g.Expect(vs.Http).To(gomega.Equal([]*networking.HTTPRoute{
-		{
-			Match: []*networking.HTTPMatchRequest{
-				{
-					Uri: &networking.StringMatch{
-						MatchType: &networking.StringMatch_Prefix{
-							Prefix: "/some/path",
-						},
-					},
-				},
-			},
-			Route: []*networking.DestinationWeight{
-				{
-					Destination: &networking.Destination{
-						Host: "some-external-route.example.com",
-						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 8080,
+		for idx, response := range routeResponses {
+			mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+		}
+
+		for _, gatewayConfig := range gatewayConfigs {
+			_, err := store.Create(gatewayConfig)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+
+		stop := make(chan struct{})
+		defer func() { stop <- struct{}{} }()
+
+		controller.Run(stop)
+
+		var config *model.Config
+		g.Eventually(func() bool {
+			var found bool
+			config, found = controller.Get("virtual-service", "virtual-service-for-some-external-route.example.com", "")
+
+			return found
+		}).Should(gomega.BeTrue())
+
+		vs := config.Spec.(*networking.VirtualService)
+		g.Expect(vs.Hosts[0]).To(gomega.Equal("some-external-route.example.com"))
+		g.Expect(vs.Gateways).To(gomega.ConsistOf([]string{"some-gateway", "some-other-gateway"}))
+
+		g.Expect(vs.Http).To(gomega.HaveLen(2))
+		g.Expect(vs.Http).To(gomega.Equal([]*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/some/path",
 							},
 						},
-						Subset: "some-guid-a",
 					},
 				},
-			},
-		},
-		{
-			Route: []*networking.DestinationWeight{
-				{
-					Destination: &networking.Destination{
-						Host: "some-external-route.example.com",
-						Port: &networking.PortSelector{
-							Port: &networking.PortSelector_Number{
-								Number: 8080,
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Host: "some-external-route.example.com",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 8080,
+								},
 							},
+							Subset: "some-guid-a",
 						},
-						Subset: "some-guid-z",
 					},
 				},
 			},
-		},
-	}))
+			{
+				Route: []*networking.DestinationWeight{
+					{
+						Destination: &networking.Destination{
+							Host: "some-external-route.example.com",
+							Port: &networking.PortSelector{
+								Port: &networking.PortSelector_Number{
+									Number: 8080,
+								},
+							},
+							Subset: "some-guid-z",
+						},
+					},
+				},
+			},
+		}))
 
-	g.Eventually(func() bool {
-		var found bool
-		config, found = controller.Get("destination-rule", "dest-rule-for-some-external-route.example.com", "")
+		g.Eventually(func() bool {
+			var found bool
+			config, found = controller.Get("destination-rule", "dest-rule-for-some-external-route.example.com", "")
 
-		return found
-	}).Should(gomega.BeTrue())
+			return found
+		}).Should(gomega.BeTrue())
 
-	g.Expect(config).NotTo(gomega.BeNil())
+		g.Expect(config).NotTo(gomega.BeNil())
+	})
 }
 
 func TestList(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
 	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
 	configDescriptor := model.ConfigDescriptor{
 		model.DestinationRule,
 		model.VirtualService,
@@ -151,68 +180,94 @@ func TestList(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
-	for idx, response := range routeResponses {
-		mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
-	}
+	t.Run("invalid type", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 
-	for _, gatewayConfig := range gatewayConfigs {
-		_, err := store.Create(gatewayConfig)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-	}
+		stop := make(chan struct{})
+		defer func() { stop <- struct{}{} }()
 
-	stop := make(chan struct{})
-	defer func() { stop <- struct{}{} }()
+		controller.Run(stop)
 
-	controller.Run(stop)
+		g.Eventually(func() string {
+			controller.List("unknown-type", "")
 
-	var configs []model.Config
-	g.Eventually(func() ([]model.Config, error) {
-		var err error
-		configs, err = controller.List("destination-rule", "")
+			if logger.InfofCallCount() == 0 {
+				return ""
+			}
 
-		return configs, err
-	}).Should(gomega.HaveLen(2))
+			format, message := logger.InfofArgsForCall(0)
+			return fmt.Sprintf(format, message...)
+		}).Should(gomega.Equal("list type not supported: unknown-type"))
+	})
 
-	rule := configs[1].Spec.(*networking.DestinationRule)
+	t.Run("valid type", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 
-	g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
-	g.Expect(rule.Subsets).To(gomega.HaveLen(2))
-	g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
-		{
-			Name:   "some-guid-a",
-			Labels: map[string]string{"cfapp": "some-guid-a"},
-		},
-		{
-			Name:   "some-guid-z",
-			Labels: map[string]string{"cfapp": "some-guid-z"},
-		},
-	}))
+		for idx, response := range routeResponses {
+			mockCopilotClient.RoutesReturnsOnCall(idx, response, nil)
+		}
 
-	rule = configs[0].Spec.(*networking.DestinationRule)
-	g.Expect(rule.Host).To(gomega.Equal("other.example.com"))
-	g.Expect(rule.Subsets).To(gomega.HaveLen(1))
-	g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
-		{
-			Name:   "some-guid-x",
-			Labels: map[string]string{"cfapp": "some-guid-x"},
-		},
-	}))
+		for _, gatewayConfig := range gatewayConfigs {
+			_, err := store.Create(gatewayConfig)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		}
 
-	g.Eventually(func() ([]model.Config, error) {
-		var err error
-		configs, err = controller.List("virtual-service", "")
+		stop := make(chan struct{})
+		defer func() { stop <- struct{}{} }()
 
-		return configs, err
-	}).Should(gomega.HaveLen(2))
+		controller.Run(stop)
+
+		var configs []model.Config
+		g.Eventually(func() ([]model.Config, error) {
+			var err error
+			configs, err = controller.List("destination-rule", "")
+
+			return configs, err
+		}).Should(gomega.HaveLen(2))
+
+		sort.Slice(configs, func(i, j int) bool { return configs[i].Key() < configs[j].Key() })
+		rule := configs[1].Spec.(*networking.DestinationRule)
+
+		g.Expect(rule.Host).To(gomega.Equal("some-external-route.example.com"))
+		g.Expect(rule.Subsets).To(gomega.HaveLen(2))
+		g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
+			{
+				Name:   "some-guid-a",
+				Labels: map[string]string{"cfapp": "some-guid-a"},
+			},
+			{
+				Name:   "some-guid-z",
+				Labels: map[string]string{"cfapp": "some-guid-z"},
+			},
+		}))
+
+		rule = configs[0].Spec.(*networking.DestinationRule)
+		g.Expect(rule.Host).To(gomega.Equal("other.example.com"))
+		g.Expect(rule.Subsets).To(gomega.HaveLen(1))
+		g.Expect(rule.Subsets).To(gomega.ConsistOf([]*networking.Subset{
+			{
+				Name:   "some-guid-x",
+				Labels: map[string]string{"cfapp": "some-guid-x"},
+			},
+		}))
+
+		g.Eventually(func() ([]model.Config, error) {
+			var err error
+			configs, err = controller.List("virtual-service", "")
+
+			return configs, err
+		}).Should(gomega.HaveLen(2))
+	})
 }
 
 func TestCacheClear(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
 	configDescriptor := model.ConfigDescriptor{
 		model.DestinationRule,
 		model.VirtualService,
@@ -220,7 +275,7 @@ func TestCacheClear(t *testing.T) {
 	}
 	store := memory.Make(configDescriptor)
 
-	controller := cloudfoundry.NewController(mockCopilotClient, store, 100*time.Millisecond, 100*time.Millisecond)
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
 	routeResponses := []*copilotapi.RoutesResponse{{Routes: routes}}
 
@@ -252,6 +307,59 @@ func TestCacheClear(t *testing.T) {
 
 		return configs, err
 	}, "2s").Should(gomega.BeEmpty())
+}
+
+func TestStoreFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
+	store := &fakes.Store{}
+
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
+
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }()
+
+	store.ListReturns([]model.Config{}, errors.New("store failed"))
+	controller.Run(stop)
+
+	g.Eventually(func() string {
+		if logger.WarnfCallCount() == 0 {
+			return ""
+		}
+
+		format, message := logger.WarnfArgsForCall(0)
+		return fmt.Sprintf(format, message...)
+	}).Should(gomega.Equal("failed to list gateways: store failed"))
+}
+
+func TestCopilotFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	mockCopilotClient := &fakes.CopilotClient{}
+	logger := &fakes.Logger{}
+	configDescriptor := model.ConfigDescriptor{
+		model.DestinationRule,
+		model.VirtualService,
+		model.Gateway,
+	}
+	store := memory.Make(configDescriptor)
+
+	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
+
+	stop := make(chan struct{})
+	defer func() { stop <- struct{}{} }()
+
+	mockCopilotClient.RoutesReturns(&copilotapi.RoutesResponse{}, errors.New("copilot failed"))
+	controller.Run(stop)
+
+	g.Eventually(func() string {
+		if logger.WarnfCallCount() == 0 {
+			return ""
+		}
+
+		format, message := logger.WarnfArgsForCall(0)
+		return fmt.Sprintf(format, message...)
+	}).Should(gomega.Equal("failed to fetch routes from copilot: copilot failed"))
 }
 
 var routes = []*copilotapi.RouteWithBackends{

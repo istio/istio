@@ -312,3 +312,13 @@ func TestHostnamesSortOrder(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkSort(b *testing.B) {
+	unsorted := Hostnames{"foo.com", "bar.com", "*.com", "*.foo.com", "*", "baz.bar.com"}
+
+	for n := 0; n < b.N; n++ {
+		given := make(Hostnames, len(unsorted))
+		copy(given, unsorted)
+		sort.Sort(given)
+	}
+}
