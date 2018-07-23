@@ -64,7 +64,7 @@ func TestTypes_LookupByTypeURL(t *testing.T) {
 
 func TestTypes_TypeURLs(t *testing.T) {
 	for _, url := range Types.TypeURLs() {
-		_, found := Types.Lookup(url)
+		_, found := Types.Lookup(url.String())
 
 		if !found {
 			t.Fatalf("Expected info not found: %v", url)

@@ -96,8 +96,10 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 	}
 
 	e := resource.Event{
-		ID:   rid,
 		Kind: kind,
+		Entry: resource.Entry{
+			ID: rid,
+		},
 	}
 	if u != nil {
 		item, err := l.spec.Converter(l.spec.Target, u)
@@ -105,7 +107,7 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 			log.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
 			return
 		}
-		e.Item = item
+		e.Entry.Item = item
 	}
 
 	log.Debugf("Dispatching source event: %v", e)

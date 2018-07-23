@@ -56,13 +56,13 @@ func newState(schema *resource.Schema) *State {
 }
 
 func (s *State) apply(event resource.Event) bool {
-	pks := s.getResourceTypeState(event.ID.TypeURL)
+	pks := s.getResourceTypeState(event.Entry.ID.TypeURL)
 
 	switch event.Kind {
 	case resource.Added, resource.Updated:
 
 		// Check to see if the version has changed.
-		if curVersion := pks.versions[event.ID.FullName]; curVersion == event.ID.Version {
+		if curVersion := pks.versions[event.Entry.ID.FullName]; curVersion == event.Entry.ID.Version {
 			scope.Debugf("Received event for the current, known version: %v", event)
 			return false
 		}
@@ -74,12 +74,12 @@ func (s *State) apply(event resource.Event) bool {
 			return false
 		}
 
-		pks.entries[event.ID.FullName] = entry
-		pks.versions[event.ID.FullName] = event.ID.Version
+		pks.entries[event.Entry.ID.FullName] = entry
+		pks.versions[event.Entry.ID.FullName] = event.Entry.ID.Version
 
 	case resource.Deleted:
-		delete(pks.entries, event.ID.FullName)
-		delete(pks.versions, event.ID.FullName)
+		delete(pks.entries, event.Entry.ID.FullName)
+		delete(pks.versions, event.Entry.ID.FullName)
 
 	default:
 		scope.Errorf("Unknown event kind: %v", event.Kind)
@@ -122,15 +122,15 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 			entries = append(entries, entry)
 		}
 
-		version := fmt.Sprintf("%d", state.version)
-		b.Set(typeURL.String(), version, entries)
+		version := resource.Version(fmt.Sprintf("%d", state.version))
+		b.Set(typeURL, version, entries)
 	}
 
 	return b.Build()
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
-	serialized, err := proto.Marshal(event.Item)
+	serialized, err := proto.Marshal(event.Entry.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source event: %v", event)
 		return nil, false
@@ -138,10 +138,10 @@ func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {
 
 	entry := &mcp.Envelope{
 		Metadata: &mcp.Metadata{
-			Name: event.ID.FullName,
+			Name: event.Entry.ID.FullName,
 		},
 		Resource: &types.Any{
-			TypeUrl: event.ID.TypeURL.String(),
+			TypeUrl: event.Entry.ID.TypeURL.String(),
 			Value:   serialized,
 		},
 	}

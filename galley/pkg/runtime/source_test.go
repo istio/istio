@@ -142,12 +142,12 @@ func captureChannelOutput(t *testing.T, ch chan resource.Event, count int) strin
 
 		switch e.Kind {
 		case resource.Added, resource.Updated:
-			if e.Item == nil {
+			if e.Entry.Item == nil {
 				t.Fatalf("Invalid event received: event should have item: %v", e)
 			}
 
 		case resource.Deleted, resource.FullSync:
-			if e.Item != nil {
+			if e.Entry.Item != nil {
 				t.Fatalf("Invalid event received: event should *not* have item: %v", e)
 			}
 

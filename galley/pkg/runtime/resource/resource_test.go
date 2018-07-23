@@ -153,7 +153,7 @@ func TestNewTypeURL(t *testing.T) {
 
 	for _, g := range goodurls {
 		t.Run(g, func(t *testing.T) {
-			_, err := newTypeURL(g)
+			_, err := ParseTypeURL(g)
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
@@ -170,7 +170,7 @@ func TestNewTypeURL(t *testing.T) {
 
 	for _, g := range badurls {
 		t.Run(g, func(t *testing.T) {
-			_, err := newTypeURL(g)
+			_, err := ParseTypeURL(g)
 			if err == nil {
 				t.Fatal("expected error not found")
 			}

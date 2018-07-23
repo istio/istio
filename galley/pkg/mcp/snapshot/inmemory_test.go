@@ -22,7 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
+)
+
+var (
+	typeURL = resource.MustTypeURL("type.googleapis.com/type")
 )
 
 func TestInMemoryBuilder(t *testing.T) {
@@ -42,15 +48,15 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 	b := NewInMemoryBuilder()
 
 	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
-	b.Set("type", "v1", items)
+	b.Set(typeURL, "v1", items)
 	sn := b.Build()
 
-	if sn.Version("type") != "v1" {
-		t.Fatalf("Unexpected version: %v", sn.Version("type"))
+	if sn.Version(typeURL) != "v1" {
+		t.Fatalf("Unexpected version: %v", sn.Version(typeURL))
 	}
 
-	actual := sn.Resources("type")
-	if !reflect.DeepEqual(items, sn.Resources("type")) {
+	actual := sn.Resources(typeURL)
+	if !reflect.DeepEqual(items, sn.Resources(typeURL)) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, items)
 	}
 }
@@ -58,17 +64,17 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
 
 	sn := b.Build()
 
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "foo"},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Resource: &types.Any{TypeUrl: typeURL.String(), Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources(typeURL)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -77,18 +83,18 @@ func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	_ = b.SetEntry("type", "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
 
 	sn := b.Build()
 
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "foo"},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Resource: &types.Any{TypeUrl: typeURL.String(), Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources(typeURL)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -97,7 +103,7 @@ func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	err := b.SetEntry("type", "foo", nil)
+	err := b.SetEntry(typeURL, "foo", nil)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -106,17 +112,17 @@ func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	b.DeleteEntry("type", "bar")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	b.DeleteEntry(typeURL, "bar")
 	sn := b.Build()
 
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "foo"},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Resource: &types.Any{TypeUrl: typeURL.String(), Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources(typeURL)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -125,7 +131,7 @@ func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	b.DeleteEntry("type", "bar")
+	b.DeleteEntry(typeURL, "bar")
 	sn := b.Build()
 
 	if len(sn.envelopes) != 0 {
@@ -140,8 +146,8 @@ func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	b.DeleteEntry("type", "foo")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	b.DeleteEntry(typeURL, "foo")
 	sn := b.Build()
 
 	if len(sn.envelopes) != 0 {
@@ -156,18 +162,18 @@ func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	_ = b.SetEntry("type", "bar", &types.Any{})
-	b.DeleteEntry("type", "foo")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "bar", &types.Any{})
+	b.DeleteEntry(typeURL, "foo")
 	sn := b.Build()
 
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "bar"},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Resource: &types.Any{TypeUrl: typeURL.String(), Value: []byte{}},
 		},
 	}
-	actual := sn.Resources("type")
+	actual := sn.Resources(typeURL)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
@@ -176,21 +182,21 @@ func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 func TestInMemoryBuilder_SetVersion(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	b.SetVersion(typeURL, "v1")
 	sn := b.Build()
 
-	if sn.Version("type") != "v1" {
-		t.Fatalf("Unexpected version: %s", sn.Version("type"))
+	if sn.Version(typeURL) != "v1" {
+		t.Fatalf("Unexpected version: %s", sn.Version(typeURL))
 	}
 }
 
 func TestInMemory_Clone(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	_ = b.SetEntry("type", "bar", &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "bar", &types.Any{})
+	b.SetVersion(typeURL, "v1")
 	sn := b.Build()
 
 	sn2 := sn.Clone()
@@ -198,15 +204,15 @@ func TestInMemory_Clone(t *testing.T) {
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "bar"},
-			Resource: &types.Any{TypeUrl: "type"},
+			Resource: &types.Any{TypeUrl: typeURL.String()},
 		},
 		{
 			Metadata: &mcp.Metadata{Name: "foo"},
-			Resource: &types.Any{TypeUrl: "type"},
+			Resource: &types.Any{TypeUrl: typeURL.String()},
 		},
 	}
 
-	actual := sn2.Resources("type")
+	actual := sn2.Resources(typeURL)
 
 	sort.Slice(actual, func(i, j int) bool {
 		return strings.Compare(
@@ -218,17 +224,17 @@ func TestInMemory_Clone(t *testing.T) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
 
-	if sn2.Version("type") != "v1" {
-		t.Fatalf("Unexpected version: %s", sn2.Version("type"))
+	if sn2.Version(typeURL) != "v1" {
+		t.Fatalf("Unexpected version: %s", sn2.Version(typeURL))
 	}
 }
 
 func TestInMemory_Builder(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	_ = b.SetEntry("type", "bar", &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "bar", &types.Any{})
+	b.SetVersion(typeURL, "v1")
 	sn := b.Build()
 
 	b = sn.Builder()
@@ -238,15 +244,15 @@ func TestInMemory_Builder(t *testing.T) {
 	expected := []*mcp.Envelope{
 		{
 			Metadata: &mcp.Metadata{Name: "bar"},
-			Resource: &types.Any{TypeUrl: "type"},
+			Resource: &types.Any{TypeUrl: typeURL.String()},
 		},
 		{
 			Metadata: &mcp.Metadata{Name: "foo"},
-			Resource: &types.Any{TypeUrl: "type"},
+			Resource: &types.Any{TypeUrl: typeURL.String()},
 		},
 	}
 
-	actual := sn2.Resources("type")
+	actual := sn2.Resources(typeURL)
 
 	sort.Slice(actual, func(i, j int) bool {
 		return strings.Compare(
@@ -258,17 +264,17 @@ func TestInMemory_Builder(t *testing.T) {
 		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
 	}
 
-	if sn2.Version("type") != "v1" {
-		t.Fatalf("Unexpected version: %s", sn2.Version("type"))
+	if sn2.Version(typeURL) != "v1" {
+		t.Fatalf("Unexpected version: %s", sn2.Version(typeURL))
 	}
 }
 
 func TestInMemory_String(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", &types.Any{})
-	_ = b.SetEntry("type", "bar", &types.Any{})
-	b.SetVersion("type", "v1")
+	_ = b.SetEntry(typeURL, "foo", &types.Any{})
+	_ = b.SetEntry(typeURL, "bar", &types.Any{})
+	b.SetVersion(typeURL, "v1")
 	sn := b.Build()
 
 	// Shouldn't crash

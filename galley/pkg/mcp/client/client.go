@@ -28,6 +28,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+
 	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
@@ -39,18 +41,10 @@ const (
 	typeURLBase = "type.googleapis.com/"
 )
 
-// Object contains a decoded versioned object with metadata received from the server.
-type Object struct {
-	MessageName string
-	Metadata    *mcp.Metadata
-	Resource    proto.Message
-	Version     string
-}
-
 // Change is a collection of configuration objects of the same protobuf message type.
 type Change struct {
-	MessageName string
-	Objects     []*Object
+	TypeURL resource.TypeURL
+	Objects []resource.Entry
 
 	// TODO(ayj) add incremental add/remove enum when the mcp protocol supports it.
 }
@@ -61,7 +55,7 @@ type Updater interface {
 	// from the server. The caller should return an error if any of the provided
 	// configuration resources are invalid or cannot be applied. The client will
 	// propagate errors back to the server accordingly.
-	Update(*Change) error
+	Update(Change) error
 }
 
 type perTypeState struct {
@@ -198,9 +192,15 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		defer handleResponseDoneProbe()
 	}
 
+	typeURL, err := resource.ParseTypeURL(response.TypeUrl)
+	if err != nil {
+		errDetails := status.Errorf(codes.InvalidArgument, "invalid type_url: %v", response.TypeUrl)
+		return c.sendNACKRequest(response, "", errDetails)
+	}
+
 	state, ok := c.state[response.TypeUrl]
 	if !ok {
-		errDetails := status.Error(codes.Unimplemented, "unsupported type_url: %v")
+		errDetails := status.Errorf(codes.Unimplemented, "unsupported type_url: %v", response.TypeUrl)
 		return c.sendNACKRequest(response, "", errDetails)
 	}
 
@@ -210,10 +210,11 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		responseMessageName = response.TypeUrl[slash+1:]
 	}
 
-	change := &Change{
-		MessageName: responseMessageName,
-		Objects:     make([]*Object, 0, len(response.Envelopes)),
+	change := Change{
+		TypeURL: typeURL,
+		Objects: make([]resource.Entry, 0, len(response.Envelopes)),
 	}
+
 	for _, envelope := range response.Envelopes {
 		var message proto.Message
 
@@ -247,13 +248,15 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 			return c.sendNACKRequest(response, state.version(), errDetails)
 		}
 
-		object := &Object{
-			MessageName: responseMessageName,
-			Metadata:    envelope.Metadata,
-			Resource:    message,
-			Version:     response.VersionInfo,
+		entry := resource.Entry{
+			ID: resource.VersionedKey{
+				Version: resource.Version(response.VersionInfo),
+				Key:     resource.Key{TypeURL: typeURL, FullName: envelope.Metadata.Name},
+			},
+			Metadata: envelope.Metadata,
+			Item: message,
 		}
-		change.Objects = append(change.Objects, object)
+		change.Objects = append(change.Objects, entry)
 	}
 
 	if err := c.updater.Update(change); err != nil {

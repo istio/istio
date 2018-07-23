@@ -166,11 +166,13 @@ func TestSchema_TypeURLs(t *testing.T) {
 	s := b.Build()
 
 	actual := s.TypeURLs()
-	sort.Strings(actual)
+	sort.Slice(actual, func(i, j int) bool {
+		return strings.Compare(actual[i].String(), actual[j].String()) < 0
+	})
 
-	expected := []string{
-		"type.googleapis.com/google.protobuf.Empty",
-		"type.googleapis.com/google.protobuf.Struct",
+	expected := []TypeURL{
+		MustTypeURL("type.googleapis.com/google.protobuf.Empty"),
+		MustTypeURL("type.googleapis.com/google.protobuf.Struct"),
 	}
 
 	if !reflect.DeepEqual(actual, expected) {

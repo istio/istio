@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	prlang "github.com/golang/protobuf/proto"
+	mcp "istio.io/api/config/mcp/v1alpha1"
 )
 
 // TypeURL of the resource.
@@ -48,8 +49,9 @@ type VersionedKey struct {
 
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
-	ID   VersionedKey
-	Item prlang.Message
+	ID       VersionedKey
+	Metadata *mcp.Metadata
+	Item     prlang.Message
 }
 
 // Info is the type metadata for an Entry.
@@ -63,8 +65,8 @@ type Info struct {
 	goType reflect.Type
 }
 
-// newTypeURL validates the passed in url as a type url, and returns a strongly typed version.
-func newTypeURL(rawurl string) (TypeURL, error) {
+// ParseTypeURL validates the passed in url as a type url, and returns a strongly typed version.
+func ParseTypeURL(rawurl string) (TypeURL, error) {
 	candidate, err := url.Parse(rawurl)
 	if err != nil {
 		return TypeURL{}, err
@@ -82,6 +84,16 @@ func newTypeURL(rawurl string) (TypeURL, error) {
 	return TypeURL{rawurl}, nil
 }
 
+// MustTypeURL calls ParseTypeURL and panics if the latter returns an error.
+func MustTypeURL(rawurl string) TypeURL {
+	u, err := ParseTypeURL(rawurl)
+	if err != nil {
+		panic(fmt.Sprintf("resource.MustTypeURL: %v", err))
+	}
+
+	return u
+}
+
 // MessageName portion of the type URL.
 func (t TypeURL) MessageName() string {
 	parts := strings.Split(t.string, "/")
@@ -91,6 +103,11 @@ func (t TypeURL) MessageName() string {
 // String interface method implementation.
 func (t TypeURL) String() string {
 	return t.string
+}
+
+// String interface method implementation.
+func (v Version) String() string {
+	return string(v)
 }
 
 // String interface method implementation.

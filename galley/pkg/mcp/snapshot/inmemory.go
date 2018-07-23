@@ -24,12 +24,13 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/config/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // InMemory Snapshot implementation
 type InMemory struct {
-	envelopes map[string][]*mcp.Envelope
-	versions  map[string]string
+	envelopes map[resource.TypeURL][]*mcp.Envelope
+	versions  map[resource.TypeURL]resource.Version
 }
 
 var _ Snapshot = &InMemory{}
@@ -42,8 +43,8 @@ type InMemoryBuilder struct {
 // NewInMemoryBuilder creates and returns a new InMemoryBuilder.
 func NewInMemoryBuilder() *InMemoryBuilder {
 	snapshot := &InMemory{
-		envelopes: make(map[string][]*mcp.Envelope),
-		versions:  make(map[string]string),
+		envelopes: make(map[resource.TypeURL][]*mcp.Envelope),
+		versions:  make(map[resource.TypeURL]resource.Version),
 	}
 
 	return &InMemoryBuilder{
@@ -52,14 +53,14 @@ func NewInMemoryBuilder() *InMemoryBuilder {
 }
 
 // Set the values for a given type. If Set is called after a call to Freeze, then this method panics.
-func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.Envelope) {
+func (b *InMemoryBuilder) Set(typeURL resource.TypeURL, version resource.Version, resources []*mcp.Envelope) {
 	b.snapshot.envelopes[typeURL] = resources
 	b.snapshot.versions[typeURL] = version
 }
 
 // SetEntry sets a single entry. Note that this is a slow operation, as update requires scanning
 // through existing entries.
-func (b *InMemoryBuilder) SetEntry(typeURL string, name string, m proto.Message) error {
+func (b *InMemoryBuilder) SetEntry(typeURL resource.TypeURL, name string, m proto.Message) error {
 	contents, err := proto.Marshal(m)
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func (b *InMemoryBuilder) SetEntry(typeURL string, name string, m proto.Message)
 		},
 		Resource: &types.Any{
 			Value:   contents,
-			TypeUrl: typeURL,
+			TypeUrl: typeURL.String(),
 		},
 	}
 
@@ -89,8 +90,8 @@ func (b *InMemoryBuilder) SetEntry(typeURL string, name string, m proto.Message)
 	return nil
 }
 
-// DeleteEntry deletes the entry with the given typeuRL, name
-func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
+// DeleteEntry deletes the entry with the given typeURL, name
+func (b *InMemoryBuilder) DeleteEntry(typeURL resource.TypeURL, name string) {
 
 	entries, found := b.snapshot.envelopes[typeURL]
 	if !found {
@@ -114,7 +115,7 @@ func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
 }
 
 // SetVersion ets the version for the given type URL.
-func (b *InMemoryBuilder) SetVersion(typeURL string, version string) {
+func (b *InMemoryBuilder) SetVersion(typeURL resource.TypeURL, version resource.Version) {
 	b.snapshot.versions[typeURL] = version
 }
 
@@ -129,20 +130,20 @@ func (b *InMemoryBuilder) Build() *InMemory {
 }
 
 // Resources is an implementation of Snapshot.Resources
-func (s *InMemory) Resources(typeURL string) []*mcp.Envelope {
+func (s *InMemory) Resources(typeURL resource.TypeURL) []*mcp.Envelope {
 	return s.envelopes[typeURL]
 }
 
 // Version is an implementation of Snapshot.Version
-func (s *InMemory) Version(typeURL string) string {
+func (s *InMemory) Version(typeURL resource.TypeURL) resource.Version {
 	return s.versions[typeURL]
 }
 
 // Clone this snapshot.
 func (s *InMemory) Clone() *InMemory {
 	c := &InMemory{
-		envelopes: make(map[string][]*mcp.Envelope),
-		versions:  make(map[string]string),
+		envelopes: make(map[resource.TypeURL][]*mcp.Envelope),
+		versions:  make(map[resource.TypeURL]resource.Version),
 	}
 
 	for k, v := range s.versions {
@@ -172,13 +173,15 @@ func (s *InMemory) Builder() *InMemoryBuilder {
 func (s *InMemory) String() string {
 	var b bytes.Buffer
 
-	var messages []string
-	for message := range s.envelopes {
-		messages = append(messages, message)
+	var typeUrls []resource.TypeURL
+	for typeURL := range s.envelopes {
+		typeUrls = append(typeUrls, typeURL)
 	}
-	sort.Strings(messages)
+	sort.Slice(typeUrls, func(i, j int) bool {
+		return strings.Compare(typeUrls[i].String(), typeUrls[j].String()) < 0
+	})
 
-	for i, n := range messages {
+	for i, n := range typeUrls {
 		fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
 
 		envs := s.envelopes[n]
