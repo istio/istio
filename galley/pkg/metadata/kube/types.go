@@ -47,7 +47,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -58,7 +58,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -69,7 +69,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -80,7 +80,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -91,7 +91,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -102,7 +102,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -113,7 +113,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -124,7 +124,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -135,7 +135,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -146,7 +146,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -157,7 +157,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -168,7 +168,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -179,7 +179,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -190,7 +190,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -201,7 +201,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -212,7 +212,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -223,7 +223,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
-		Converter: converter.Get("old-mixer-adapter"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -234,7 +234,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -245,7 +245,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -256,7 +256,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -267,7 +267,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -278,7 +278,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -289,7 +289,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -300,7 +300,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -311,7 +311,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -322,7 +322,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -333,7 +333,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -344,7 +344,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -355,7 +355,7 @@ func init() {
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
-		Converter: converter.Get("old-mixer-template"),
+		Converter: converter.Get("legacy-mixer-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
