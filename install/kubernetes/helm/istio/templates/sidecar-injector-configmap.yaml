@@ -3,8 +3,6 @@ kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": "pre-install"
   labels:
     app: {{ template "istio.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
