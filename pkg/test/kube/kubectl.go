@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"fmt"
 	"os"
 
 	"istio.io/istio/pkg/test/internal"
@@ -33,6 +34,9 @@ func ApplyContents(kubeconfig string, ns string, contents string) error {
 
 // Apply the config in the given filename using kubectl.
 func Apply(kubeconfig string, ns string, filename string) error {
-	_, err := execute("kubectl apply --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
-	return err
+	s, err := execute("kubectl apply --kubeconfig=%s -n %s -f %s", kubeconfig, ns, filename)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%v: %s", err, s)
 }
