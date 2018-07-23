@@ -18,10 +18,6 @@ spec:
       resource:
         name: cpu
         targetAverageUtilization: {{ $spec.cpu.targetAverageUtilization }}
-    - type: Resource
-      resource:
-        name: memory
-        targetAverageValue: {{ $spec.memory.targetAverageValue }}
 ---
 {{- end }}
 {{- end }}

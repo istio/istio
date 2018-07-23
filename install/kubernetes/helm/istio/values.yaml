@@ -315,8 +315,6 @@ mixer:
     autoscaleMax: 5
     cpu:
       targetAverageUtilization: 80
-    memory:
-      targetAverageValue: 2500Mi
 
   istio-telemetry:
     autoscaleEnabled: true
@@ -324,8 +322,6 @@ mixer:
     autoscaleMax: 5
     cpu:
       targetAverageUtilization: 80
-    memory:
-      targetAverageValue: 2500Mi
 
   prometheusStatsdExporter:
     hub: docker.io/prom
