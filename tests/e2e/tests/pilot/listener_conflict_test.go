@@ -15,14 +15,15 @@
 package pilot
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
-	"text/template"
 
-	"encoding/json"
-	"regexp"
+	"bytes"
+	"text/template"
+	"time"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
@@ -63,10 +64,32 @@ var (
 type serviceInfo struct {
 	ServiceName string
 	Namespace   string
+	yaml        string
+	t           *testing.T
 }
 
 func (i *serviceInfo) fullName() string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", i.ServiceName, i.Namespace)
+}
+
+func (i *serviceInfo) start() {
+	i.yaml = i.generateYaml()
+	if err := util.KubeApplyContents("", i.yaml, tc.Kube.KubeConfig); err != nil {
+		i.t.Fatal(err)
+	}
+}
+
+func (i *serviceInfo) stop() {
+	util.KubeDeleteContents("", i.yaml, tc.Kube.KubeConfig)
+}
+
+func (i *serviceInfo) generateYaml() string {
+	var tmp bytes.Buffer
+	err := template.Must(template.New("inject").Parse(conflictServiceTemplate)).Execute(&tmp, i)
+	if err != nil {
+		i.t.Fatal(err)
+	}
+	return tmp.String()
 }
 
 func TestListenerConflicts(t *testing.T) {
@@ -83,58 +106,57 @@ func TestListenerConflicts(t *testing.T) {
 		ServiceName: fmt.Sprintf("service2"),
 		Namespace:   fmt.Sprintf("%s-conflict-2", tc.Info.RunID),
 	}
-	for _, c := range []*serviceInfo{oldService, newService} {
-		yaml := getConflictServiceYaml(c, t)
-		kubeApplyConflictService(yaml, t)
-		defer util.KubeDeleteContents("", yaml, tc.Kube.KubeConfig)
-	}
+
+	// Create the older of thw two services. It's "old" because it will have an older creationTimestamp.
+	oldService.start()
+	defer oldService.stop()
+
+	// Sleep a couple of seconds before pushing the next service. This ensures the creationTimestamps are different.
+	time.Sleep(2 * time.Second)
+
+	// Now create the "new" service.
+	newService.start()
+	defer newService.stop()
 
 	for cluster := range tc.Kube.Clusters {
 		testName := oldService.ServiceName
 		runRetriableTest(t, cluster, testName, 5, func() error {
-			// Scrape the pilot logs and verify that the newer service is filtered in favor of the older service.
-			logs := getPilotLogs(t)
-			pushStatuses, err := getPushStatus(logs)
+			pushStatus, pushStatusJSON, err := getPushStatus()
+			if err != nil {
+				return err
+			}
+			conflict, ok := pushStatus.ProxyStatus[metricName]
+			if !ok {
+				return fmt.Errorf("unable to find push status metric %s. PushStatusJSON=%s", metricName, pushStatusJSON)
+			}
+			event, ok := conflict[listenerName]
+			if !ok {
+				return fmt.Errorf("unable to find push status conflict %s. PushStatusJSON=%s", listenerName, pushStatusJSON)
+			}
+
+			accepted, rejected, numServices, err := parseEventMessageFields(event.Message)
 			if err != nil {
 				return err
 			}
 
-			for _, pushStatus := range pushStatuses {
-				conflict, ok := pushStatus.ProxyStatus[metricName]
-				if !ok {
-					continue
-				}
-				event, ok := conflict[listenerName]
-				if !ok {
-					continue
-				}
-
-				accepted, rejected, numServices, err := parseEventMessageFields(event.Message)
-				if err != nil {
-					return err
-				}
-
-				if accepted == newService.fullName() {
-					// We should never accept the port from the newer service.
-					return fmt.Errorf("expected to reject listener for %s, but it was accepted", accepted)
-				}
-				if accepted != oldService.fullName() {
-					// Possibly a rejection for a different service? Just go to the next event.
-					continue
-				}
-
-				// The old service was accepted. The rejection should be the new service.
-				if rejected != newService.fullName() {
-					return fmt.Errorf("expected to reject listener for %s, but rejected %s", newService.fullName(), rejected)
-				}
-				if numServices != "1" {
-					return fmt.Errorf("expected 1 TCP services, but found %s", numServices)
-				}
-
-				return nil
+			if accepted == newService.fullName() {
+				// We should never accept the port from the newer service.
+				return fmt.Errorf("expected to reject listener for %s, but it was accepted. PushStatusJSON=%s", accepted, pushStatusJSON)
+			}
+			if accepted != oldService.fullName() {
+				// Possibly a rejection for a different service? Just go to the next event.
+				return fmt.Errorf("unexpected service accepted %s. PushStatusJSON=%s", metricName, pushStatusJSON)
 			}
 
-			return fmt.Errorf("failed to find ADS push status in pilot logs")
+			// The old service was accepted. The rejection should be the new service.
+			if rejected != newService.fullName() {
+				return fmt.Errorf("expected to reject listener for %s, but rejected %s. PushStatusJSON=%s", newService.fullName(), rejected, pushStatusJSON)
+			}
+			if numServices != "1" {
+				return fmt.Errorf("expected 1 TCP services, but found %s. PushStatusJSON=%s", numServices, pushStatusJSON)
+			}
+
+			return nil
 		})
 	}
 }
@@ -152,73 +174,41 @@ func parseEventMessageFields(message string) (accepted string, rejected string, 
 	return
 }
 
-func getPushStatus(logs string) ([]*model.PushStatus, error) {
-	lines := strings.Split(logs, "\n")
-	statuses := make([]*model.PushStatus, 0)
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if strings.Contains(line, "ads\tPush finished") {
-			// Gather the push status JSON.
-			pushStatusJSON := "{\n"
-			i++
-			for ; i < len(lines); i++ {
-				line = lines[i]
-				if strings.HasPrefix(line, "}") {
-					// Found the end of the json.
-					pushStatusJSON += "}"
-
-					// Parse the push status.
-					pushStatus := &model.PushStatus{}
-					if err := json.Unmarshal([]byte(pushStatusJSON), pushStatus); err != nil {
-						return nil, err
-					}
-					statuses = append(statuses, pushStatus)
-					break
-				}
-				// This line is part of the push status.
-				pushStatusJSON += line
-			}
-		}
+func getPushStatus() (*model.PushStatus, string, error) {
+	pods, err := getPilotPods()
+	if err != nil {
+		return nil, "", err
+	}
+	pod := pods[0]
+	result, err := util.PodExec(tc.Kube.Namespace, pod, "discovery", "curl http://127.0.0.1:8080/debug/push_status", true, tc.Kube.KubeConfig)
+	if err != nil {
+		return nil, "", err
 	}
 
-	if len(statuses) == 0 {
-		return nil, fmt.Errorf("no push status found in logs")
+	pushStatusStartIndex := strings.Index(result, "{")
+	if pushStatusStartIndex < 0 {
+		return nil, "", fmt.Errorf("unable to locate PushStatus. Exec result: %s", result)
+	}
+	pushStatusEndIndex := strings.LastIndex(result, "}")
+	if pushStatusEndIndex < 0 {
+		return nil, "", fmt.Errorf("unable to locate PushStatus. Exec result: %s", result)
+	}
+	pushStatusJSON := result[pushStatusStartIndex : pushStatusEndIndex+1]
+
+	// Parse the push status.
+	pushStatus := &model.PushStatus{}
+	if err := json.Unmarshal([]byte(pushStatusJSON), pushStatus); err != nil {
+		return nil, "", err
 	}
 
-	return statuses, nil
+	return pushStatus, pushStatusJSON, nil
 }
 
-func getPilotLogs(t *testing.T) string {
-	logs := ""
-	pods := getPilotPods(t)
-	for _, pod := range pods {
-		logs += util.GetPodLogs(tc.Kube.Namespace, pod, "discovery", false, false, tc.Kube.KubeConfig)
-	}
-	return logs
-}
-
-func getPilotPods(t *testing.T) []string {
+func getPilotPods() ([]string, error) {
 	res, err := util.Shell("kubectl get pods -n %s --kubeconfig=%s --selector istio=pilot -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}'",
 		tc.Kube.Namespace, tc.Kube.KubeConfig)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return strings.Split(res, " ")
-}
-
-func kubeApplyConflictService(yaml string, t *testing.T) {
-	t.Helper()
-	if err := util.KubeApplyContents("", yaml, tc.Kube.KubeConfig); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func getConflictServiceYaml(params interface{}, t *testing.T) string {
-	t.Helper()
-	var tmp bytes.Buffer
-	err := template.Must(template.New("inject").Parse(conflictServiceTemplate)).Execute(&tmp, params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return tmp.String()
+	return strings.Split(res, " "), nil
 }
