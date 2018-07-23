@@ -66,7 +66,7 @@ class RequestHandlerImplTest : public ::testing::Test {
 TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
-  EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should not be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
@@ -81,7 +81,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
 TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
-  EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
+  EXPECT_CALL(mock_data, GetPrincipal(_, _)).Times(2);
 
   // Check should be called.
   EXPECT_CALL(*mock_client_, Check(_, _, _, _))
@@ -111,7 +111,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerReport) {
   EXPECT_CALL(*mock_client_, Report(_)).Times(1);
 
   auto handler = controller_->CreateRequestHandler();
-  handler->Report(&mock_data);
+  handler->Report(&mock_data, ReportData::CONTINUE);
 }
 
 }  // namespace tcp

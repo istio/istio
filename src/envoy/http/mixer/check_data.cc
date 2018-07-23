@@ -65,8 +65,8 @@ bool CheckData::GetSourceIpPort(std::string* ip, int* port) const {
   return false;
 }
 
-bool CheckData::GetSourceUser(std::string* user) const {
-  return Utils::GetSourceUser(connection_, user);
+bool CheckData::GetPrincipal(bool peer, std::string* user) const {
+  return Utils::GetPrincipal(connection_, peer, user);
 }
 
 std::map<std::string, std::string> CheckData::GetRequestHeaders() const {
@@ -76,6 +76,10 @@ std::map<std::string, std::string> CheckData::GetRequestHeaders() const {
 }
 
 bool CheckData::IsMutualTLS() const { return Utils::IsMutualTLS(connection_); }
+
+bool CheckData::GetRequestedServerName(std::string* name) const {
+  return Utils::GetRequestedServerName(connection_, name);
+}
 
 bool CheckData::FindHeaderByType(HttpCheckData::HeaderType header_type,
                                  std::string* value) const {

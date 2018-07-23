@@ -27,8 +27,9 @@ namespace tcp {
 class MockCheckData : public CheckData {
  public:
   MOCK_CONST_METHOD2(GetSourceIpPort, bool(std::string* ip, int* port));
-  MOCK_CONST_METHOD1(GetSourceUser, bool(std::string* user));
+  MOCK_CONST_METHOD2(GetPrincipal, bool(bool peer, std::string* user));
   MOCK_CONST_METHOD0(IsMutualTLS, bool());
+  MOCK_CONST_METHOD1(GetRequestedServerName, bool(std::string* name));
   MOCK_CONST_METHOD0(GetConnectionId, std::string());
 };
 

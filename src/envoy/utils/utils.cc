@@ -90,20 +90,27 @@ bool GetDestinationUID(const envoy::api::v2::core::Metadata& metadata,
   return true;
 }
 
-bool GetSourceUser(const Network::Connection* connection, std::string* user) {
+bool GetPrincipal(const Network::Connection* connection, bool peer,
+                  std::string* principal) {
   if (connection) {
     Ssl::Connection* ssl = const_cast<Ssl::Connection*>(connection->ssl());
     if (ssl != nullptr) {
-      std::string result = ssl->uriSanPeerCertificate();
-      if (result.empty()) {  // empty source user is not allowed
+      std::string result;
+      if (peer) {
+        result = ssl->uriSanPeerCertificate();
+      } else {
+        result = ssl->uriSanLocalCertificate();
+      }
+
+      if (result.empty()) {  // empty result is not allowed
         return false;
       }
       if (result.length() >= kSPIFFEPrefix.length() &&
           result.compare(0, kSPIFFEPrefix.length(), kSPIFFEPrefix) == 0) {
         // Strip out the prefix "spiffe://" in the identity.
-        *user = result.substr(kSPIFFEPrefix.size());
+        *principal = result.substr(kSPIFFEPrefix.size());
       } else {
-        *user = result;
+        *principal = result;
       }
       return true;
     }
@@ -114,6 +121,16 @@ bool GetSourceUser(const Network::Connection* connection, std::string* user) {
 bool IsMutualTLS(const Network::Connection* connection) {
   return connection != nullptr && connection->ssl() != nullptr &&
          connection->ssl()->peerCertificatePresented();
+}
+
+bool GetRequestedServerName(const Network::Connection* connection,
+                            std::string* name) {
+  if (connection) {
+    *name = std::string(connection->requestedServerName());
+    return true;
+  }
+
+  return false;
 }
 
 Status ParseJsonMessage(const std::string& json, Message* output) {

@@ -90,6 +90,12 @@ attributes {
   }
 }
 attributes {
+  key: "connection.requested_server_name"
+  value {
+    string_value: "www.google.com"
+  }
+}
+attributes {
   key: "source.principal"
   value {
     string_value: "test_user"
@@ -99,6 +105,18 @@ attributes {
   key: "source.user"
   value {
     string_value: "test_user"
+  }
+}
+attributes {
+  key: "origin.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "destination.principal"
+  value {
+    string_value: "destination_user"
   }
 }
 attributes {
@@ -278,14 +296,29 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
 
 TEST(AttributesBuilderTest, TestCheckAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, GetSourceUser(_))
-      .WillOnce(Invoke([](std::string *user) -> bool {
-        *user = "test_user";
+  EXPECT_CALL(mock_data, GetPrincipal(_, _))
+      .WillRepeatedly(Invoke([](bool peer, std::string *user) -> bool {
+        if (peer) {
+          *user = "test_user";
+        } else {
+          *user = "destination_user";
+        }
         return true;
       }));
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
+  EXPECT_CALL(mock_data, GetRequestedServerName(_))
+      .WillOnce(Invoke([](std::string *name) -> bool {
+        *name = "www.google.com";
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -341,6 +374,17 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
+  EXPECT_CALL(mock_data, GetRequestedServerName(_))
+      .WillOnce(Invoke([](std::string *name) -> bool {
+        *name = "www.google.com";
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
+        *ip = "1.2.3.4";
+        *port = 8080;
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -398,6 +442,10 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   (*expected_attributes
         .mutable_attributes())[utils::AttributeName::kRequestAuthRawClaims]
       .set_string_value("test_raw_claims");
+
+  // strip destination.principal for JWT-based authn
+  (*expected_attributes.mutable_attributes())
+      .erase(utils::AttributeName::kDestinationPrincipal);
 
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));

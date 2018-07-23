@@ -43,7 +43,8 @@ bool AuthenticatorBase::validateX509(const iaapi::MutualTls& mtls,
   const bool has_user =
       connection->ssl() != nullptr &&
       connection->ssl()->peerCertificatePresented() &&
-      Utils::GetSourceUser(connection, payload->mutable_x509()->mutable_user());
+      Utils::GetPrincipal(connection, true,
+                          payload->mutable_x509()->mutable_user());
 
   ENVOY_LOG(debug, "validateX509 mode {}: ssl={}, has_user={}",
             iaapi::MutualTls::Mode_Name(mtls.mode()),
@@ -58,7 +59,7 @@ bool AuthenticatorBase::validateX509(const iaapi::MutualTls& mtls,
     case iaapi::MutualTls::STRICT:
       return has_user;
     default:
-      NOT_REACHED;
+      NOT_REACHED_GCOVR_EXCL_LINE;
   }
 }
 

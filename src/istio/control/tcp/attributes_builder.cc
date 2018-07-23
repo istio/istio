@@ -37,24 +37,38 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
   // it
   if (check_data->GetSourceIpPort(&source_ip, &source_port)) {
     builder.AddBytes(utils::AttributeName::kSourceIp, source_ip);
+    // connection remote IP is always reported as origin IP
+    builder.AddBytes(utils::AttributeName::kOriginIp, source_ip);
   }
 
   // TODO(diemtvu): add TCP authn filter similar to http case, and use authn
   // result output here instead.
   std::string source_user;
-  if (check_data->GetSourceUser(&source_user)) {
+  if (check_data->GetPrincipal(true, &source_user)) {
     // TODO(diemtvu): remove kSourceUser once migration to source.principal is
     // over. https://github.com/istio/istio/issues/4689
     builder.AddString(utils::AttributeName::kSourceUser, source_user);
     builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
   }
+
+  std::string destination_principal;
+  if (check_data->GetPrincipal(false, &destination_principal)) {
+    builder.AddString(utils::AttributeName::kDestinationPrincipal,
+                      destination_principal);
+  }
+
   builder.AddBool(utils::AttributeName::kConnectionMtls,
                   check_data->IsMutualTLS());
+
+  std::string requested_server_name;
+  if (check_data->GetRequestedServerName(&requested_server_name)) {
+    builder.AddString(utils::AttributeName::kConnectionRequestedServerName,
+                      requested_server_name);
+  }
 
   builder.AddTimestamp(utils::AttributeName::kContextTime,
                        std::chrono::system_clock::now());
   builder.AddString(utils::AttributeName::kContextProtocol, "tcp");
-  builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionOpen);
 
   // Get unique downstream connection ID, which is <uuid>-<connection id>.
   std::string connection_id = check_data->GetConnectionId();
@@ -62,7 +76,7 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData* check_data) {
 }
 
 void AttributesBuilder::ExtractReportAttributes(
-    ReportData* report_data, bool is_final_report,
+    ReportData* report_data, ReportData::ConnectionEvent event,
     ReportData::ReportInfo* last_report_info) {
   utils::AttributesBuilder builder(&request_->attributes);
 
@@ -77,7 +91,7 @@ void AttributesBuilder::ExtractReportAttributes(
   builder.AddInt64(utils::AttributeName::kConnectionSendTotalBytes,
                    info.send_bytes);
 
-  if (is_final_report) {
+  if (event == ReportData::ConnectionEvent::CLOSE) {
     builder.AddDuration(utils::AttributeName::kConnectionDuration,
                         info.duration);
     if (!request_->check_status.ok()) {
@@ -87,6 +101,8 @@ void AttributesBuilder::ExtractReportAttributes(
                         request_->check_status.ToString());
     }
     builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionClose);
+  } else if (event == ReportData::ConnectionEvent::OPEN) {
+    builder.AddString(utils::AttributeName::kConnectionEvent, kConnectionOpen);
   } else {
     last_report_info->received_bytes = info.received_bytes;
     last_report_info->send_bytes = info.send_bytes;

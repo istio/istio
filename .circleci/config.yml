@@ -8,6 +8,7 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config
       - checkout
       - restore_cache:
           keys:

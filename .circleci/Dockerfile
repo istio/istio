@@ -14,7 +14,7 @@ RUN sudo sh -c 'echo "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-5.
 
 RUN sudo apt-get update && \
     sudo apt-get -y install \
-    wget software-properties-common make cmake python python-pip \
+    wget software-properties-common make cmake python python-pip pkg-config \
     zlib1g-dev bash-completion bc libtool automake zip time g++-6 gcc-6 \
     clang-5.0 rsync
 

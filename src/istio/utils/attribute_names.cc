@@ -21,6 +21,7 @@ namespace utils {
 // Define attribute names
 const char AttributeName::kSourceUser[] = "source.user";
 const char AttributeName::kSourcePrincipal[] = "source.principal";
+const char AttributeName::kDestinationPrincipal[] = "destination.principal";
 
 const char AttributeName::kRequestHeaders[] = "request.headers";
 const char AttributeName::kRequestHost[] = "request.host";
@@ -49,6 +50,7 @@ const char AttributeName::kSourcePort[] = "source.port";
 const char AttributeName::kDestinationIp[] = "destination.ip";
 const char AttributeName::kDestinationPort[] = "destination.port";
 const char AttributeName::kDestinationUID[] = "destination.uid";
+const char AttributeName::kOriginIp[] = "origin.ip";
 const char AttributeName::kConnectionReceviedBytes[] =
     "connection.received.bytes";
 const char AttributeName::kConnectionReceviedTotalBytes[] =
@@ -58,6 +60,9 @@ const char AttributeName::kConnectionSendTotalBytes[] =
     "connection.sent.bytes_total";
 const char AttributeName::kConnectionDuration[] = "connection.duration";
 const char AttributeName::kConnectionMtls[] = "connection.mtls";
+const char AttributeName::kConnectionRequestedServerName[] =
+    "connection.requested_server_name";
+
 // Downstream TCP connection id.
 const char AttributeName::kConnectionId[] = "connection.id";
 const char AttributeName::kConnectionEvent[] = "connection.event";

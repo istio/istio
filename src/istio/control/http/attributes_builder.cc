@@ -128,11 +128,17 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
     builder.AddStringMap(utils::AttributeName::kRequestAuthClaims, payload);
   }
   std::string source_user;
-  if (check_data->GetSourceUser(&source_user)) {
+  if (check_data->GetPrincipal(true, &source_user)) {
     // TODO(diemtvu): remove kSourceUser once migration to source.principal is
     // over. https://github.com/istio/istio/issues/4689
     builder.AddString(utils::AttributeName::kSourceUser, source_user);
     builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
+  }
+
+  std::string destination_principal;
+  if (check_data->GetPrincipal(false, &destination_principal)) {
+    builder.AddString(utils::AttributeName::kDestinationPrincipal,
+                      destination_principal);
   }
 }  // namespace http
 
@@ -154,8 +160,21 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
 
   utils::AttributesBuilder builder(&request_->attributes);
 
+  // connection remote IP is always reported as origin IP
+  std::string source_ip;
+  int source_port;
+  if (check_data->GetSourceIpPort(&source_ip, &source_port)) {
+    builder.AddBytes(utils::AttributeName::kOriginIp, source_ip);
+  }
+
   builder.AddBool(utils::AttributeName::kConnectionMtls,
                   check_data->IsMutualTLS());
+
+  std::string requested_server_name;
+  if (check_data->GetRequestedServerName(&requested_server_name)) {
+    builder.AddString(utils::AttributeName::kConnectionRequestedServerName,
+                      requested_server_name);
+  }
 
   builder.AddTimestamp(utils::AttributeName::kRequestTime,
                        std::chrono::system_clock::now());

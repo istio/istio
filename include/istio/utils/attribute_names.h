@@ -27,6 +27,7 @@ struct AttributeName {
   // https://github.com/istio/istio/issues/4689
   static const char kSourceUser[];
   static const char kSourcePrincipal[];
+  static const char kDestinationPrincipal[];
 
   static const char kRequestHeaders[];
   static const char kRequestHost[];
@@ -59,12 +60,14 @@ struct AttributeName {
   static const char kDestinationIp[];
   static const char kDestinationPort[];
   static const char kDestinationUID[];
+  static const char kOriginIp[];
   static const char kConnectionReceviedBytes[];
   static const char kConnectionReceviedTotalBytes[];
   static const char kConnectionSendBytes[];
   static const char kConnectionSendTotalBytes[];
   static const char kConnectionDuration[];
   static const char kConnectionMtls[];
+  static const char kConnectionRequestedServerName[];
   static const char kConnectionId[];
   // Record TCP connection status: open, continue, close
   static const char kConnectionEvent[];
