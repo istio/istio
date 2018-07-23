@@ -19,17 +19,26 @@ spec:
     - "fortio.{{ .Values.domain }}"
     - "fortio2.{{ .Values.domain }}"
     - "fortiotls.{{ .Values.domain }}"
+    - "fortiottls.{{ .Values.domain }}"
     - "fortionoistio.{{ .Values.domain }}"
+    - "fortionoistio1.{{ .Values.domain }}"
     - "bookinfo.{{ .Values.domain }}"
     - "httpbin.{{ .Values.domain }}"
     - "fortio080.{{ .Values.domain }}"
     - "fortio10rc1.{{ .Values.domain }}"
     - "fortiomaster.{{ .Values.domain }}"
     - "fortiocli.{{ .Values.domain }}"
+    - "fortio-tproxy.{{ .Values.domain }}"
   - port:
       number: 5201
       protocol: TCP
       name: tcp-iperf3
+    hosts:
+    - "*"
+  - port:
+      number: 5202
+      protocol: TCP
+      name: tcp-iperf3-noistio
     hosts:
     - "*"
   - port:

@@ -97,7 +97,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -127,7 +127,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         ports:
          - containerPort: 8080
          - containerPort: 8079
@@ -154,7 +154,7 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: {{ .Values.fortioImage }}
         ports:
          - containerPort: 8080
          - containerPort: 8079
