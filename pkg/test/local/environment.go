@@ -42,8 +42,8 @@ var _ environment.Interface = &Environment{}
 var _ internal.Environment = &Environment{}
 
 // NewEnvironment returns a new instance of local environment.
-func NewEnvironment() (*Environment, error) {
-	return &Environment{}, nil
+func NewEnvironment() *Environment {
+	return &Environment{}
 }
 
 // Initialize the environment. This is called once during the lifetime of the suite.
@@ -66,6 +66,9 @@ func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependen
 
 	case dependency.Pilot:
 		return newPilot()
+
+	case dependency.APIServer:
+		return nil, fmt.Errorf("local environment does not support running with a cluster")
 
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
@@ -210,6 +213,29 @@ func (e *Environment) get(dep dependency.Instance) (interface{}, error) {
 	}
 
 	return s, nil
+}
+
+// GetAPIServer returns a handle to the ambient API Server in the environment.
+func (e *Environment) GetAPIServer() (environment.DeployedAPIServer, error) {
+	a, err := e.get(dependency.APIServer)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.(environment.DeployedAPIServer), nil
+}
+
+// GetAPIServerOrFail returns a handle to the ambient API Server in the environment, or fails the test if
+// unsuccessful.
+func (e *Environment) GetAPIServerOrFail(t testing.TB) environment.DeployedAPIServer {
+	t.Helper()
+
+	m, err := e.GetAPIServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return m
 }
 
 func (e *Environment) getOrFail(t testing.TB, dep dependency.Instance) interface{} {

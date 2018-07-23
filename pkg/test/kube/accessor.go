@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/log"
 )
@@ -36,11 +36,7 @@ type Accessor struct {
 }
 
 // NewAccessor returns a new instance of an accessor.
-func NewAccessor(configPath string) (*Accessor, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", configPath)
-	if err != nil {
-		return nil, err
-	}
+func NewAccessor(config *rest.Config) (*Accessor, error) {
 
 	set, err := kubernetes.NewForConfig(config)
 	if err != nil {

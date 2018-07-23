@@ -38,4 +38,9 @@ const (
 
 	// PolicyBackend indicates a dependency on the mock policy backend.
 	PolicyBackend = Instance("policyBackend")
+
+	// APIServer indicates that there is a dependency on having an API Server available.
+	// In cluster mode, this is satisfied via existing API Server. In local model, this is satisfied
+	// via a minikube installation.
+	APIServer = Instance("apiserver")
 )

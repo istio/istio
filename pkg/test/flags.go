@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/envvar"
 	"istio.io/istio/pkg/test/impl/driver"
 )
 
@@ -54,6 +55,9 @@ func init() {
 }
 
 func processFlags() error {
+	// First, apply the environment variables.
+	applyEnvironmentVariables(arguments)
+
 	flag.Parse()
 	if err := cmdForLog.PersistentFlags().Parse(os.Args[1:]); err != nil {
 		if err == pflag.ErrHelp {
@@ -114,4 +118,14 @@ func doShowHelp() {
 %s
 
 `, strings.Join(lines, "\n"))
+}
+
+func applyEnvironmentVariables(a *driver.Args) {
+	if envvar.ISTIO_TEST_KUBE_CONFIG.Value() != "" {
+		a.KubeConfig = envvar.ISTIO_TEST_KUBE_CONFIG.Value()
+	}
+
+	if envvar.ISTIO_TEST_ENVIRONMENT.Value() != "" {
+		a.Environment = envvar.ISTIO_TEST_ENVIRONMENT.Value()
+	}
 }

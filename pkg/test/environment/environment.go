@@ -49,6 +49,13 @@ type Interface interface {
 	// GetPilotOrFail returns a deployed Pilot instance in the environment, or fails the test if unsuccessful.
 	GetPilotOrFail(t testing.TB) DeployedPilot
 
+	// GetAPIServer returns a handle to the ambient API Server in the environment.
+	GetAPIServer() (DeployedAPIServer, error)
+
+	// GetAPIServerOrFail returns a handle to the ambient API Server in the environment, or fails the test if
+	// unsuccessful.
+	GetAPIServerOrFail(t testing.TB) DeployedAPIServer
+
 	// GetApp returns a fake testing app object for the given name.
 	GetApp(name string) (DeployedApp, error)
 	// GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.
@@ -102,6 +109,16 @@ type DeployedPolicyBackend interface {
 	// CreateConfigSnippet for the Mixer adapter to talk to this policy backend.
 	// The supplied name will be the name of the handler.
 	CreateConfigSnippet(name string) string
+}
+
+// DeployedAPIServer represents an in-cluster API Server, or the Minikube for the local testing case.
+// Note that this should *NOT* be used to configure components, that should be done through top-level APIs.
+// This is mainly available to trigger non-config related operations, and integration testing of components
+// that are on the config path.
+type DeployedAPIServer interface {
+	Deployed
+
+	ApplyYaml(yml string) error
 }
 
 // DeployedAppEndpoint represents a single endpoint in a DeployedApp.

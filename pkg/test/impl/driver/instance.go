@@ -40,8 +40,8 @@ var scope = log.RegisterScope("testframework", "General scope for the test frame
 type driver struct {
 	lock sync.Mutex
 
-	args          *Args
-	ctx           *internal.TestContext
+	args *Args
+	ctx  *internal.TestContext
 
 	// The names of the tests that we've encountered so far.
 	testNames map[string]struct{}
@@ -76,18 +76,13 @@ func (d *driver) Initialize(a *Args) error {
 
 	// Initialize the environment.
 	var env internal.Environment
-	var err error
 	switch a.Environment {
 	case EnvLocal:
-		env, err = local.NewEnvironment()
+		env = local.NewEnvironment()
 	case EnvKube:
-		env, err = cluster.NewEnvironment(a.KubeConfig)
+		env = cluster.NewEnvironment()
 	default:
 		return fmt.Errorf("unrecognized environment: %s", a.Environment)
-	}
-
-	if err != nil {
-		return fmt.Errorf("unable to initialize environment '%s': %v", a.Environment, err)
 	}
 
 	// Create the context, but do not attach it to the member fields before initializing.
@@ -97,9 +92,10 @@ func (d *driver) Initialize(a *Args) error {
 		a.WorkDir,
 		a.Hub,
 		a.Tag,
+		a.KubeConfig,
 		env)
 
-	if err = env.Initialize(ctx); err != nil {
+	if err := env.Initialize(ctx); err != nil {
 		return err
 	}
 

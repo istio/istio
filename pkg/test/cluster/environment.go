@@ -21,15 +21,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/cluster/kube"
 	"istio.io/istio/pkg/test/dependency"
 	"istio.io/istio/pkg/test/environment"
 	"istio.io/istio/pkg/test/internal"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/tmpl"
 )
 
@@ -42,8 +41,7 @@ type Environment struct {
 	accessor *kube.Accessor
 
 	// Both rest.Config and kube config path is used by different parts of the code.
-	config         *rest.Config
-	kubeConfigPath string
+	config *rest.Config
 
 	// The namespace where the Istio components reside in a typical deployment. This is typically
 	// "istio-system" in a standard deployment.
@@ -65,27 +63,26 @@ var _ internal.Environment = &Environment{}
 var _ io.Closer = &Environment{}
 
 // NewEnvironment returns a new instance of cluster environment.
-func NewEnvironment(kubeConfigPath string) (*Environment, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-	if err != nil {
-		return nil, err
-	}
+func NewEnvironment() *Environment {
 
-	accessor, err := kube.NewAccessor(kubeConfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Environment{
-		config:         config,
-		accessor:       accessor,
-		kubeConfigPath: kubeConfigPath,
-	}, nil
+	return &Environment{}
 }
 
 // Initialize the environment. This is called once during the lifetime of the suite.
 func (e *Environment) Initialize(ctx *internal.TestContext) error {
+	config, err := kube.CreateConfig(ctx.KubeConfigPath())
+	if err != nil {
+		return err
+	}
+
+	accessor, err := kube.NewAccessor(config)
+	if err != nil {
+		return err
+	}
+
 	e.ctx = ctx
+	e.config = config
+	e.accessor = accessor
 
 	return e.allocateDependencyNamespace()
 }
@@ -101,7 +98,10 @@ func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependen
 		return newPolicyBackend(e)
 
 	case dependency.Mixer:
-		return newMixer(e.kubeConfigPath, e.accessor)
+		return newMixer(e.ctx.KubeConfigPath(), e.accessor)
+
+	case dependency.APIServer:
+		return newAPIServer(e)
 
 	default:
 		return nil, fmt.Errorf("unrecognized dependency: %v", d)
@@ -112,7 +112,7 @@ func (e *Environment) InitializeDependency(ctx *internal.TestContext, d dependen
 func (e *Environment) Configure(t testing.TB, config string) {
 	t.Helper()
 	scope.Debugf("Applying configuration: \n%s\n", config)
-	err := kube.ApplyContents(e.kubeConfigPath, e.TestNamespace, config)
+	err := kube.ApplyContents(e.ctx.KubeConfigPath(), e.TestNamespace, config)
 	if err != nil {
 		t.Fatalf("Error applying configuration: %v", err)
 	}
@@ -195,6 +195,29 @@ func (e *Environment) GetPilotOrFail(t testing.TB) environment.DeployedPilot {
 	return m
 }
 
+// GetAPIServer returns a handle to the ambient API Server in the environment.
+func (e *Environment) GetAPIServer() (environment.DeployedAPIServer, error) {
+	a, err := e.get(dependency.APIServer)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.(environment.DeployedAPIServer), nil
+}
+
+// GetAPIServerOrFail returns a handle to the ambient API Server in the environment, or fails the test if
+// unsuccessful.
+func (e *Environment) GetAPIServerOrFail(t testing.TB) environment.DeployedAPIServer {
+	t.Helper()
+
+	m, err := e.GetAPIServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return m
+}
+
 // GetApp returns a fake testing app object for the given name.
 func (e *Environment) GetApp(name string) (environment.DeployedApp, error) {
 	return getApp(name, e.TestNamespace)
@@ -267,7 +290,9 @@ func (e *Environment) deleteTestNamespace() error {
 	if err == nil {
 		e.TestNamespace = ""
 
-		err = e.accessor.WaitForNamespaceDeletion(ns)
+		// TODO: Waiting for deletion is taking a long time. This is probably not
+		// needed for the general case. We should consider simply not doing this.
+		// err = e.accessor.WaitForNamespaceDeletion(ns)
 	}
 
 	return err
