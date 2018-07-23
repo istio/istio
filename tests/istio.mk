@@ -233,12 +233,18 @@ helm/install:
 	  --set global.imagePullPolicy=Always \
 	  ${HELM_ARGS}
 
+# Upgrade istio. Options must be set:
+#  "make helm/upgrade HELM_ARGS="--values myoverride.yaml"
 helm/upgrade:
 	${HELM} upgrade \
 	  --set global.hub=${HUB} \
 	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
 	  ${HELM_ARGS} \
 	  istio-system install/kubernetes/helm/istio
 
-hem/delete:
+# Delete istio installed with helm
+# Note that for Helm 2.10, the CRDs are not cleared
+helm/delete:
 	${HELM} delete --purge istio-system
+	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

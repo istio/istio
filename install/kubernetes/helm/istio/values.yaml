@@ -337,10 +337,15 @@ pilot:
   enabled: true
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 5
+  autoscaleMax: 1
   image: pilot
   sidecar: true
   traceSampling: 100.0
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 800m
+      memory: 512Mi
 
 #
 # security configuration
