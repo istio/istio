@@ -92,6 +92,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	for _, dep := range d.settings.SuiteDependencies {
 		if err := d.ctx.Tracker().Initialize(d.ctx, d.ctx.Environment(), dep); err != nil {
 			scope.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
+			d.lock.Unlock()
 			return -3, err
 		}
 	}
