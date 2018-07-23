@@ -2,6 +2,9 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-citadel-{{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-6"
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}

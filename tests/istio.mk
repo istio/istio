@@ -217,3 +217,28 @@ junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys: out_dir
 	tools/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs
+
+# Run once for each cluster, to install helm on the cluster
+helm/init: ${HELM}
+	kubectl apply -n kube-system -f install/kubernetes/helm/helm-service-account.yaml
+	helm init --upgrade --service-account tiller
+
+# Install istio for the first time
+helm/install:
+	${HELM} install \
+	  install/kubernetes/helm/istio \
+	  --name istio-system --namespace istio-system \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS}
+
+helm/upgrade:
+	${HELM} upgrade \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  ${HELM_ARGS} \
+	  istio-system install/kubernetes/helm/istio
+
+hem/delete:
+	${HELM} delete --purge istio-system

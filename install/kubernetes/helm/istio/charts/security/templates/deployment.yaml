@@ -4,6 +4,9 @@ kind: Deployment
 metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
   labels:
     app: {{ template "security.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
