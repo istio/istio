@@ -1,6 +1,9 @@
 {{- define "policy_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -12,7 +15,11 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -32,6 +39,12 @@
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 9093
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
         image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
@@ -79,6 +92,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -97,7 +116,11 @@
     {{- end }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -117,8 +140,14 @@
         volumeMounts:
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 9093
+          initialDelaySeconds: 5
+          periodSeconds: 5
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -164,6 +193,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 
