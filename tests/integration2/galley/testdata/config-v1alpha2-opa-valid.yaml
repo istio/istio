@@ -1,0 +1,81 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: opa
+metadata:
+  name: valid-opa
+spec:
+  policy:
+    - |+
+      package mixerauthz
+      import data.service_graph
+      import data.org_chart
+
+      # Deny request by default.
+      default allow = false
+
+      # Allow request if...
+      allow {
+          service_graph.allow  # service graph policy allows, and...
+          org_chart.allow      # org chart policy allows.
+      }
+    - |+
+      package org_chart
+
+      parsed_path = p {
+          trim(input.action.path, "/", trimmed)
+          split(trimmed, "/", p)
+      }
+
+      employees = {
+          "bob": {"manager": "janet", "roles": ["engineering"]},
+          "alice": {"manager": "janet", "roles": ["engineering"]},
+          "janet": {"roles": ["engineering"]},
+          "ken": {"roles": ["hr"]},
+      }
+
+      # Allow access to non-sensitive APIs.
+      allow { not is_sensitive_api }
+
+      is_sensitive_api {
+          parsed_path[0] = "reviews"
+      }
+
+      # Allow users access to sensitive APIs serving their own data.
+      allow {
+          parsed_path = ["reviews", user]
+          input.subject.user = user
+      }
+
+      # Allow managers access to sensitive APIs serving their reports' data.
+      allow {
+          parsed_path = ["reviews", user]
+          input.subject.user = employees[user].manager
+      }
+
+      # Allow HR to access all APIs.
+      allow {
+          is_hr
+      }
+
+      is_hr {
+          employees[input.subject.user].roles[_] = "hr"
+      }
+    - |+
+      package service_graph
+
+      service_graph = {
+          "landing_page": ["details", "reviews"],
+          "reviews": ["ratings"],
+      }
+
+      default allow = false
+
+      allow {
+          input.action.properties.target = "landing_page"
+      }
+
+      allow {
+          allowed_targets = service_graph[input.action.properties.source]
+          input.action.properties.target = allowed_targets[_]
+      }
+  checkMethod: "data.mixerauthz.allow"
+  failClose: true
