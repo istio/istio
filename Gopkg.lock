@@ -723,8 +723,8 @@
     "types",
     "util"
   ]
-  revision = "688594c3786b0805d061a0de387f6a265a7fa9d0"
-  version = "v0.7.1"
+  revision = "877d39f035d1756b07a6ce8582bf793b7f2c1714"
+  version = "v0.8.2"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -1561,8 +1561,8 @@
     "pkg/timeconv",
     "pkg/version"
   ]
-  revision = "a80231648a1473929271764b920a8e346f6de844"
-  version = "v2.8.2"
+  revision = "20adb27c7c5868466912eebdf6664e7390ebe710"
+  version = "v2.9.1"
 
 [[projects]]
   name = "k8s.io/ingress"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a53387525fe93d996ca46dc1e3c4f78a55f011cd5da37dd3abc997d48fb822a4"
+  inputs-digest = "b7133cda4d931d9902fa1ee6e13696ac5f25e84208990bf26665901936152a71"
   solver-name = "gps-cdcl"
   solver-version = 1
