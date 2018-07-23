@@ -101,6 +101,8 @@ spec:
         name: init-two
         resources: {}
       - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         - -p
         - "15001"
         - -u

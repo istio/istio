@@ -88,6 +88,8 @@ spec:
           readOnly: true
       initContainers:
       - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         - -p
         - "15001"
         - -u
@@ -210,6 +212,8 @@ spec:
           readOnly: true
       initContainers:
       - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         - -p
         - "15001"
         - -u
