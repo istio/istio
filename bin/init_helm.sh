@@ -41,7 +41,7 @@ export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 # For pre-2.10,
 #HELM_VER=v2.9.1
 
-HELM_VER=v2.10.0-rc.1
+HELM_VER=${HELM_VER:-v2.10.0-rc.1}
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
@@ -76,6 +76,9 @@ if [ ! -f ${ISTIO_OUT}/version.helm.${HELM_VER} ] ; then
     cd ${TD} && \
         curl -Lo ${TD}/helm.tgz https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VER}-${LOCAL_OS}-amd64.tar.gz && \
         tar xfz helm.tgz && \
-        mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm && \
-        rm -rf ${TD} && touch ${ISTIO_OUT}/version.helm.${HELM_VER}
+        mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm-${HELM_VER} && \
+        cp ${ISTIO_OUT}/helm-${HELM_VER} ${ISTIO_OUT}/helm && \
+        rm -rf ${TD} && \
+        rm ${ISTIO_OUT}/version.helm.* && \
+        touch ${ISTIO_OUT}/version.helm.${HELM_VER}
 fi
