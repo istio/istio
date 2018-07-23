@@ -393,10 +393,9 @@ jobs:
           command: |
             mkdir -p /go/out/tests
             trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
-            make sync
             make localTestEnv
             set -o pipefail
-            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
+            make -k pilot-racetest mixer-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS

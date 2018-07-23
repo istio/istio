@@ -30,9 +30,10 @@ import (
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, node model.Proxy, routeName string) (*xdsapi.RouteConfiguration, error) {
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
-	proxyInstances, err := env.GetProxyServiceInstances(&node)
+	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
 		return nil, err
 	}
@@ -46,25 +47,27 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env model.Environment, nod
 	case model.Sidecar:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, proxyInstances, services, routeName)
+		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
 	return nil, nil
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env model.Environment,
-	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
+	node *model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
 
-	// Enable websocket on default route
-	actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
-	if ok {
-		actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
+	if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+		// Enable websocket on default route
+		actionRoute, ok := defaultRoute.Action.(*route.Route_Route)
+		if ok {
+			actionRoute.Route.UseWebsocket = &types.BoolValue{Value: true}
+		}
 	}
 
 	inboundVHost := route.VirtualHost{
@@ -82,8 +85,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
-			Node:             &node,
+			Env:              env,
+			Node:             node,
 			ServiceInstance:  instance,
 			Service:          instance.Service,
 		}
@@ -95,7 +98,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env mod
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
@@ -132,7 +135,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 
 	// Get list of virtual services bound to the mesh gateway
 	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(configStore, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -179,8 +182,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
-			Node:             &node,
+			Env:              env,
+			Node:             node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
@@ -190,12 +193,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env mo
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
-func generateVirtualHostDomains(service *model.Service, port int, node model.Proxy) []string {
+func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
 	domains := []string{service.Hostname.String(), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(service.Hostname.String(), port, node.Domain)...)
 
 	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
-		svcAddr := service.GetServiceAddressForProxy(&node)
+		svcAddr := service.GetServiceAddressForProxy(node)
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)
 		if cidr.PrefixLen.Value == 32 {

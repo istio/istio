@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
+  revision = "8cef83f9eabf344b48191d3b9929287988782e54"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -610,8 +610,7 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "163f41321a19dd09362d4c63cc2489db2015f1f4"
-  version = "0.3.2"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -887,7 +886,7 @@
     "timekeeper",
     "trace"
   ]
-  revision = "23eb012a5fd9ba184a3baa1ee092fe384a1dbf86"
+  revision = "b1be94c3ec8d1fdeccd62735b851489f0b3798e0"
   version = "v1.1.6"
 
 [[projects]]
@@ -1291,24 +1290,22 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "broker/dev",
-    "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
+    "mcp/v1alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
     "mixer/v1/config/client",
     "networking/v1alpha3",
     "policy/v1beta1",
-    "rbac/v1alpha1",
-    "routing/v1alpha1"
+    "rbac/v1alpha1"
   ]
-  revision = "2d182f5d150eaa9ac276347df8f0154f209973dc"
+  revision = "6a128c56f81639e234cc34dbf40af9532008e467"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1328,7 +1325,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "release-1.10"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -1362,6 +1358,7 @@
     "storage/v1beta1"
   ]
   revision = "8b7507fac302640dd5f1efbf9643199952cc58db"
+  version = "kubernetes-1.10.4"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1606,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "346348e33c5dd182dfc8f81ac793dc616c8e640625bc671402d085785f030264"
+  inputs-digest = "a53387525fe93d996ca46dc1e3c4f78a55f011cd5da37dd3abc997d48fb822a4"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -13,7 +13,6 @@ import (
 	_ "istio.io/api/networking/v1alpha3"
 	_ "istio.io/api/policy/v1beta1"
 	_ "istio.io/api/rbac/v1alpha1"
-	_ "istio.io/api/routing/v1alpha1"
 )
 
 // Types of known resources.
@@ -39,7 +38,4 @@ func init() {
 	Types.Register("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig", false)
 	Types.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole", false)
 	Types.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding", false)
-	Types.Register("type.googleapis.com/istio.routing.v1alpha1.DestinationPolicy", false)
-	Types.Register("type.googleapis.com/istio.routing.v1alpha1.EgressRule", false)
-	Types.Register("type.googleapis.com/istio.routing.v1alpha1.RouteRule", false)
 }
