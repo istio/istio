@@ -215,10 +215,10 @@ gateways:
     # the gateway configration for the various components are enabled.
     - port: 15030
       targetPort: 15030
-      name: http-prometheus
+      name: http2-prometheus
     - port: 15031
       targetPort: 15031
-      name: http-grafana
+      name: http2-grafana
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -344,27 +344,31 @@ security:
 #
 # addons configuration
 #
+telemetry-gateway:
+  gatewayName: ingressgateway
+  grafanaEnabled: false
+  prometheusEnabled: false
+
 grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  security:
+    enabled: false
+    adminUser: admin
+    adminPass: admin
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
-  ingressgateway:
-    enabled: false
 
 prometheus:
   enabled: true
   replicaCount: 1
   hub: docker.io/prom
   tag: latest
-
-  ingressgateway:
-    enabled: false
 
   service:
     annotations: {}
