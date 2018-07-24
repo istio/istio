@@ -36,19 +36,15 @@ var (
 	inFilenames        []string
 	outConvertFilename string
 	convertIngressCmd  = &cobra.Command{
-		Use:   "convert-networking-config",
-		Short: "Convert networking configs from v1alpha1 to v1alpha3",
-		Long: "Converts sets of v1alpha1 configs to v1alpha3 equivalents on a best effort basis. " +
-			"The output should be considered a starting point for your v1alpha3 configs and probably " +
+		Use:   "convert-ingress-to-gateway",
+		Short: "Convert Ingress configuration into Istio Gateway configuration",
+		Long: "Converts Ingresses into Istio Gateway and VirtualService configuration on a best effort basis. " +
+			"The output should be considered a starting point for your Istio configuration and probably " +
 			"require some minor modification. " +
-			"Warnings will (hopefully) be generated where configs cannot be converted perfectly, " +
-			"or in certain edge cases. " +
-			"The input must be the set of configs that would be in place in an environment at a given " +
-			"time. " +
-			"This allows the command to attempt to create and merge output configs intelligently." +
-			"Output configs are given the namespace and domain of the first input config " +
-			"so it is recommended that input configs be part of the same namespace and domain.",
-		Example: "istioctl experimental convert-networking-config -f v1alpha1/default-route.yaml -f v1alpha1/header-delay.yaml",
+			"Warnings will be generated where configs cannot be converted perfectly. " +
+			"The input must be a Kubernetes deployment description of an Ingress. " +
+			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
+		Example: "istioctl experimental convert-ingress-to-gateway -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")
@@ -97,12 +93,6 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	configDescriptor := model.ConfigDescriptor{
 		model.VirtualService,
 		model.Gateway,
-		model.ServiceEntry,
-		model.DestinationRule,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
 	}
 
 	configs, ingresses, err := readConfigs(readers)

@@ -40,7 +40,7 @@ func TestConvertIngress(t *testing.T) {
 		t.Run(tc.out, func(t *testing.T) {
 			readers := make([]io.Reader, 0, len(tc.in))
 			for _, filename := range tc.in {
-				file, err := os.Open("testdata/v1alpha1/" + filename)
+				file, err := os.Open("testdata/ingress/" + filename)
 				if err != nil {
 					t.Fatal(err)
 				}
