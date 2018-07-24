@@ -21,6 +21,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -141,6 +142,13 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
 											TargetUri:  "/tmp/sdsuds.sock",
 											StatPrefix: SDSStatPrefix,
+											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+												&core.GrpcService_GoogleGrpc_CallCredentials{
+													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+														GoogleComputeEngine: &types.Empty{},
+													},
+												},
+											},
 										},
 									},
 								},

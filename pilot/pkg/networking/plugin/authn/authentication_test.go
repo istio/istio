@@ -940,6 +940,13 @@ func TestBuildListenerTLSContex(t *testing.T) {
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														TargetUri:  "/tmp/sdsuds.sock",
 														StatPrefix: model.SDSStatPrefix,
+														CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+															&core.GrpcService_GoogleGrpc_CallCredentials{
+																CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+																	GoogleComputeEngine: &types.Empty{},
+																},
+															},
+														},
 													},
 												},
 											},
