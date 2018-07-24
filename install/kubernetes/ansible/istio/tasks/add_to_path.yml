@@ -1,3 +1,7 @@
+- name: Set istio dir
+  set_fact:
+    istio_dir: "{{ istio_k8s_dir | dirname | dirname }}"
+
 - name: Add Istio to PATH
   shell: |
     ISTIO_BIN_DIR=$(cd {{ istio_dir }}/bin; pwd)
