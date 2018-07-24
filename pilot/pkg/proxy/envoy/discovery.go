@@ -27,8 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/emicklei/go-restful"
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -504,10 +504,10 @@ func (ds *DiscoveryService) clearCache() {
 
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
-			go func(lcce time.Time) {
-				time.Sleep(DebounceAfter)
+			lcce := lastClearCacheEvent
+			time.AfterFunc(DebounceAfter, func() {
 				debouncePush(lcce)
-			}(lastClearCacheEvent)
+			})
 		} // else: debunce in progress - it'll keep delaying the push
 
 		return
