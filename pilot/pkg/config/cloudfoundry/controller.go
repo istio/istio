@@ -232,11 +232,11 @@ func (c *Controller) rebuildRules() {
 			vs = createVirtualService(gatewayNames, route)
 		}
 
-		r := createRoute(route)
+		r := createHTTPRoute(route)
 		r.Route[0].Destination.Subset = route.GetCapiProcessGuid()
 
 		if route.GetPath() != "" {
-			r.Match = createMatchRequest(route)
+			r.Match = createHTTPMatchRequest(route)
 			vs.Http = append([]*networking.HTTPRoute{r}, vs.Http...)
 		} else {
 			vs.Http = append(vs.Http, r)
@@ -279,7 +279,7 @@ func createVirtualService(gatewayNames []string, route *copilotapi.RouteWithBack
 	}
 }
 
-func createRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
+func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
 	return &networking.HTTPRoute{
 		Route: []*networking.DestinationWeight{
 			{
@@ -296,7 +296,7 @@ func createRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute {
 	}
 }
 
-func createMatchRequest(route *copilotapi.RouteWithBackends) []*networking.HTTPMatchRequest {
+func createHTTPMatchRequest(route *copilotapi.RouteWithBackends) []*networking.HTTPMatchRequest {
 	return []*networking.HTTPMatchRequest{
 		{
 			Uri: &networking.StringMatch{
