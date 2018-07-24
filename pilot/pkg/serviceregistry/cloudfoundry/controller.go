@@ -17,8 +17,6 @@ package cloudfoundry
 import (
 	"time"
 
-	copilotapi "code.cloudfoundry.org/copilot/api"
-
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -46,7 +44,6 @@ func NewTicker(d time.Duration) Ticker {
 
 // Controller communicates with Cloud Foundry and monitors for changes
 type Controller struct {
-	Client           copilotapi.IstioCopilotClient
 	Ticker           Ticker
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler

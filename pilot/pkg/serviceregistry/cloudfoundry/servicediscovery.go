@@ -17,10 +17,8 @@ package cloudfoundry
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
-	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -29,58 +27,23 @@ const (
 	cfLabel = "cfapp"
 )
 
-//go:generate counterfeiter -o ./fakes/copilot_client.go --fake-name CopilotClient . copilotClient
-// CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
-type copilotClient interface {
-	copilotapi.IstioCopilotClient
+//go:generate counterfeiter -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
+type routeCacher interface {
+	Get() (*copilotapi.RoutesResponse, error)
+	GetInternal() (*copilotapi.InternalRoutesResponse, error)
 }
 
 // ServiceDiscovery implements the model.ServiceDiscovery interface for Cloud Foundry
 type ServiceDiscovery struct {
-	Client copilotClient
-
-	RoutesRepo RoutesRepo
+	RoutesRepo routeCacher
 
 	// Cloud Foundry currently only supports applications exposing a single HTTP or TCP port
 	// It is typically 8080
 	ServicePort int
 }
 
-type RoutesRepo struct {
-	client      copilotapi.IstioCopilotClient
-	repo        *copilotapi.RoutesResponse
-	lastUpdated time.Time
-}
-
-func NewRoutesRepo(client copilotapi.IstioCopilotClient) RoutesRepo {
-	return RoutesRepo{
-		client:      client,
-		repo:        &copilotapi.RoutesResponse{},
-		lastUpdated: time.Now().Add(time.Duration(-60 * time.Second)),
-	}
-}
-
-func (r *RoutesRepo) Get() (*copilotapi.RoutesResponse, error) {
-	now := time.Now()
-	if now.Sub(r.lastUpdated) > 30*time.Second {
-		fmt.Println("GET: retrieving routes from copilot")
-
-		resp, err := r.client.Routes(context.Background(), new(copilotapi.RoutesRequest))
-		if err != nil {
-			return nil, fmt.Errorf("getting services from copilot: %s", err)
-		}
-		r.repo = resp
-		r.lastUpdated = now
-	} else {
-		fmt.Println("GET: CACHED!!!")
-	}
-
-	return r.repo, nil
-}
-
 // Services implements a service catalog operation
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
-	// resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	resp, err := sd.RoutesRepo.Get()
 	if err != nil {
 		return nil, fmt.Errorf("getting services: %s", err)
@@ -97,7 +60,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 		})
 	}
 
-	internalRoutesResp, err := sd.Client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))
+	internalRoutesResp, err := sd.RoutesRepo.GetInternal()
 	if err != nil {
 		return nil, fmt.Errorf("getting services: %s", err)
 	}
@@ -153,8 +116,6 @@ func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ mod
 
 // InstancesByPort implements a service catalog operation
 func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
-	fmt.Println("InstancesByPort!!")
 	resp, err := sd.RoutesRepo.Get()
 	if err != nil {
 		return nil, fmt.Errorf("getting routes: %s", err)
@@ -203,7 +164,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 		}
 	}
 
-	internalRoutesResp, err := sd.Client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))
+	internalRoutesResp, err := sd.RoutesRepo.GetInternal()
 	if err != nil {
 		return nil, fmt.Errorf("getting internal routes: %s", err)
 	}

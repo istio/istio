@@ -650,11 +650,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				Name: serviceregistry.ServiceRegistry(r),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-					Client: client,
 				},
 				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					Client:      client,
-					RoutesRepo:  cloudfoundry.NewRoutesRepo(client),
+					RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
 					ServicePort: cfConfig.ServicePort,
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
