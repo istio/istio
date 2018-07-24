@@ -262,6 +262,31 @@ func TestHostnameMatches(t *testing.T) {
 	}
 }
 
+func BenchmarkMatch(b *testing.B) {
+	tests := []struct {
+		a, z    Hostname
+		matches bool
+	}{
+		{"foo.com", "foo.com", true},
+		{"*.com", "foo.com", true},
+		{"*.foo.com", "bar.foo.com", true},
+		{"*", "foo.com", true},
+		{"*", "*.com", true},
+		{"*", "", true},
+		{"*.com", "*.foo.com", true},
+		{"foo.com", "*.foo.com", false},
+		{"*.foo.bar.baz", "baz", true},
+	}
+	for n := 0; n < b.N; n++ {
+		for _, test := range tests {
+			doesMatch := test.a.Matches(test.z)
+			if doesMatch != test.matches {
+				b.Fatalf("does not match")
+			}
+		}
+	}
+}
+
 func TestHostnamesSortOrder(t *testing.T) {
 	tests := []struct {
 		in, want Hostnames

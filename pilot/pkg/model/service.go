@@ -486,33 +486,31 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
-	wildcardHost := string(h[0])
-
-	if wildcardHost == "*" && len(o) == 0 {
+	hWildcard := string(h[0]) == "*"
+	if hWildcard && len(o) == 0 {
 		return true
 	}
 
-	wildcardMatch := string(o[0])
-
-	if wildcardHost != "*" && wildcardMatch != "*" {
+	oWildcard := string(o[0]) == "*"
+	if !hWildcard && !oWildcard {
+		// both are non-wildcards, so do normal string comparison
 		return h == o
 	}
 
-	la, sa := wildcardHost == "*", wildcardMatch == "*"
 	longer, shorter := string(h), string(o)
-	if la {
+	if hWildcard {
 		longer = string(h[1:])
 	}
-	if sa {
+	if oWildcard {
 		shorter = string(o[1:])
 	}
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
-		la, sa = sa, la
+		hWildcard, oWildcard = oWildcard, hWildcard
 	}
 
 	matches := strings.HasSuffix(longer, shorter)
-	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
+	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
 		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
 		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
 		return false
