@@ -211,6 +211,14 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Telemetry-related ports are enabled in gateway - but will only redirect if
+    # the gateway configration for the various components are enabled.
+    - port: 15030
+      targetPort: 15030
+      name: http2-prometheus
+    - port: 15031
+      targetPort: 15031
+      name: http2-grafana
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -350,29 +358,25 @@ security:
 #
 # addons configuration
 #
+telemetry-gateway:
+  gatewayName: ingressgateway
+  grafanaEnabled: false
+  prometheusEnabled: false
+
 grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  security:
+    enabled: false
+    adminUser: admin
+    adminPassword: admin
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - grafana.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: grafana-tls
-      #   hosts:
-      #     - grafana.local
 
 prometheus:
   enabled: true
@@ -380,19 +384,6 @@ prometheus:
   hub: docker.io/prom
   tag: latest
 
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    #hosts:
-    #  - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
   service:
     annotations: {}
     nodePort:
