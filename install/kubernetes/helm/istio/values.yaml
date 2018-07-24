@@ -25,7 +25,7 @@ global:
     accessLogFile: "/dev/stdout"
 
     # If set, newly injected sidecars will have core dumps enabled.
-    enableCoreDump: false
+    enableCoreDump: true
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
