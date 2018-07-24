@@ -2,15 +2,15 @@
 // source: mixer/adapter/skywalking/config/config.proto
 
 /*
-Package config is a generated protocol buffer package.
+	Package config is a generated protocol buffer package.
 
-SkyWalking config package
+	SkyWalking config package
 
-It is generated from these files:
-	mixer/adapter/skywalking/config/config.proto
+	It is generated from these files:
+		mixer/adapter/skywalking/config/config.proto
 
-It has these top-level messages:
-	Params
+	It has these top-level messages:
+		Params
 */
 package config
 
@@ -37,7 +37,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Param for SkyWalking probe
 type Params struct {
 	// Path of the file to save the information about runtime requests.
-	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath      string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	ServerAddress string `protobuf:"bytes,2,opt,name=server_address,json=serverAddress,proto3" json:"server_address,omitempty"`
 }
 
 func (m *Params) Reset()                    { *m = Params{} }
@@ -47,6 +48,13 @@ func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int
 func (m *Params) GetFilePath() string {
 	if m != nil {
 		return m.FilePath
+	}
+	return ""
+}
+
+func (m *Params) GetServerAddress() string {
+	if m != nil {
+		return m.ServerAddress
 	}
 	return ""
 }
@@ -76,15 +84,19 @@ func (this *Params) Equal(that interface{}) bool {
 	if this.FilePath != that1.FilePath {
 		return false
 	}
+	if this.ServerAddress != that1.ServerAddress {
+		return false
+	}
 	return true
 }
 func (this *Params) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 5)
+	s := make([]string, 0, 6)
 	s = append(s, "&config.Params{")
 	s = append(s, "FilePath: "+fmt.Sprintf("%#v", this.FilePath)+",\n")
+	s = append(s, "ServerAddress: "+fmt.Sprintf("%#v", this.ServerAddress)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -117,6 +129,12 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.FilePath)))
 		i += copy(dAtA[i:], m.FilePath)
 	}
+	if len(m.ServerAddress) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerAddress)))
+		i += copy(dAtA[i:], m.ServerAddress)
+	}
 	return i, nil
 }
 
@@ -133,6 +151,10 @@ func (m *Params) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.FilePath)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.ServerAddress)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
@@ -158,6 +180,7 @@ func (this *Params) String() string {
 	}
 	s := strings.Join([]string{`&Params{`,
 		`FilePath:` + fmt.Sprintf("%v", this.FilePath) + `,`,
+		`ServerAddress:` + fmt.Sprintf("%v", this.ServerAddress) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -227,6 +250,35 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.FilePath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServerAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServerAddress = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -357,16 +409,18 @@ var (
 func init() { proto.RegisterFile("mixer/adapter/skywalking/config/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 168 bytes of a gzipped FileDescriptorProto
+	// 196 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0xc9, 0xcd, 0xac, 0x48,
 	0x2d, 0xd2, 0x4f, 0x4c, 0x49, 0x2c, 0x28, 0x49, 0x2d, 0xd2, 0x2f, 0xce, 0xae, 0x2c, 0x4f, 0xcc,
 	0xc9, 0xce, 0xcc, 0x4b, 0xd7, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x84, 0x51, 0x7a, 0x05, 0x45, 0xf9,
-	0x25, 0xf9, 0x42, 0x92, 0x50, 0x75, 0x7a, 0x08, 0x75, 0x7a, 0x10, 0x05, 0x4a, 0xaa, 0x5c, 0x6c,
+	0x25, 0xf9, 0x42, 0x92, 0x50, 0x75, 0x7a, 0x08, 0x75, 0x7a, 0x10, 0x05, 0x4a, 0x3e, 0x5c, 0x6c,
 	0x01, 0x89, 0x45, 0x89, 0xb9, 0xc5, 0x42, 0xd2, 0x5c, 0x9c, 0x69, 0x99, 0x39, 0xa9, 0xf1, 0x05,
 	0x89, 0x25, 0x19, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0x9c, 0x41, 0x1c, 0x20, 0x81, 0x80, 0xc4, 0x92,
-	0x0c, 0x27, 0x93, 0x0b, 0x0f, 0xe5, 0x18, 0x6e, 0x3c, 0x94, 0x63, 0xf8, 0xf0, 0x50, 0x8e, 0xb1,
-	0xe1, 0x91, 0x1c, 0xe3, 0x8a, 0x47, 0x72, 0x8c, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7,
-	0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x8b, 0x47, 0x72, 0x0c, 0x1f, 0x1e, 0xc9, 0x31, 0x4e, 0x78, 0x2c,
-	0xc7, 0x10, 0xc5, 0x06, 0x31, 0x3c, 0x89, 0x0d, 0x6c, 0xbd, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff,
-	0xfc, 0x21, 0xc6, 0xa4, 0xae, 0x00, 0x00, 0x00,
+	0x0c, 0x21, 0x55, 0x2e, 0xbe, 0xe2, 0xd4, 0xa2, 0xb2, 0xd4, 0xa2, 0xf8, 0xc4, 0x94, 0x94, 0xa2,
+	0xd4, 0xe2, 0x62, 0x09, 0x26, 0xb0, 0x0a, 0x5e, 0x88, 0xa8, 0x23, 0x44, 0xd0, 0xc9, 0xe4, 0xc2,
+	0x43, 0x39, 0x86, 0x1b, 0x0f, 0xe5, 0x18, 0x3e, 0x3c, 0x94, 0x63, 0x6c, 0x78, 0x24, 0xc7, 0xb8,
+	0xe2, 0x91, 0x1c, 0xe3, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7,
+	0xf8, 0xe2, 0x91, 0x1c, 0xc3, 0x87, 0x47, 0x72, 0x8c, 0x13, 0x1e, 0xcb, 0x31, 0x44, 0xb1, 0x41,
+	0xdc, 0x90, 0xc4, 0x06, 0x76, 0xa5, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xd7, 0xb3, 0x63, 0xd9,
+	0xd5, 0x00, 0x00, 0x00,
 }

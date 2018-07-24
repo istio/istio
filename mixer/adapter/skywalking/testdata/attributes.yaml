@@ -27,3 +27,5 @@ spec:
         valueType: TIMESTAMP
       context.reporter.kind:
         valueType: STRING
+      api.protocol:
+        valueType: STRING

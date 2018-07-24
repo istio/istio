@@ -4,13 +4,16 @@ package skywalking
 import (
 	"context"
 
-	// "github.com/gogo/protobuf/types"
 	"fmt"
 	"os"
 	"path/filepath"
 	"istio.io/istio/mixer/adapter/skywalking/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
+	"google.golang.org/grpc"
+	pb "istio.io/istio/mixer/adapter/skywalking/protocol"
+	"time"
+	"io"
 )
 
 type (
@@ -22,6 +25,7 @@ type (
 		f           *os.File
 		metricTypes map[string]*metric.Type
 		env         adapter.Env
+		client      pb.ServiceMeshMetricServiceClient
 	}
 )
 
@@ -36,7 +40,18 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	var err error
 	var file *os.File
 	file, err = os.Create(b.adpCfg.FilePath)
-	return &handler{f: file, metricTypes: b.metricTypes, env: env}, err
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	conn, err := grpc.Dial(b.adpCfg.ServerAddress, opts...)
+
+	if err != nil {
+		env.Logger().Errorf("fail to dial: %v", err)
+	}
+
+	c := pb.NewServiceMeshMetricServiceClient(conn)
+
+	return &handler{f: file, metricTypes: b.metricTypes, env: env, client: c}, err
 
 }
 
@@ -62,29 +77,84 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 ////////////////// Request-time Methods //////////////////////////
 // metric.Handler#HandleMetric
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
+	var clientStream pb.ServiceMeshMetricService_CollectClient
+	waitc := make(chan struct{})
 
 	for _, inst := range insts {
 		if _, ok := h.metricTypes[inst.Name]; !ok {
 			h.env.Logger().Errorf("Cannot find Type for instance %s", inst.Name)
 			continue
 		}
+		if (clientStream == nil) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-		sourceService := inst.Dimensions["sourceService"]
-		sourceUID := inst.Dimensions["sourceUID"]
-		destinationService := inst.Dimensions["destinationService"]
-		destinationUID := inst.Dimensions["destinationUID"]
-		requestMethod := inst.Dimensions["requestMethod"]
-		requestPath := inst.Dimensions["requestPath"]
-		requestScheme := inst.Dimensions["requestScheme"]
-		requestTime := inst.Dimensions["requestTime"]
-		responseTime := inst.Dimensions["responseTime"]
-		responseCode := inst.Dimensions["responseCode"]
+			clientStream, err := h.client.Collect(ctx)
+			if err != nil {
+				h.env.Logger().Errorf("%v.Collect(_) = _, %v", h.client, err)
+			}
+
+			go func() {
+				for {
+					// Don't have any downstream(_) right now.
+					_, err := clientStream.CloseAndRecv()
+					if err == io.EOF {
+						// read done.
+						close(waitc)
+						return
+					}
+					if err != nil {
+						h.env.Logger().Errorf("Failed to receive the downstream : %v", err)
+					}
+				}
+			}()
+		}
+
+		requestMethod := inst.Dimensions["requestMethod"].(string)
+		requestPath := inst.Dimensions["requestPath"].(string)
+		requestScheme := inst.Dimensions["requestScheme"].(string)
+		requestTime := inst.Dimensions["requestTime"].(int64)
+		responseTime := inst.Dimensions["responseTime"].(int64)
+		responseCode := inst.Dimensions["responseCode"].(int32)
 		reporter := inst.Dimensions["reporter"]
+		protocol := inst.Dimensions["apiProtocol"].(string)
 
-		h.f.WriteString(fmt.Sprintf(`sourceService: '%s'`, sourceService))
-		h.f.WriteString(fmt.Sprintf(`sourceUID: '%s'`, sourceUID))
-		h.f.WriteString(fmt.Sprintf(`destinationService: '%s'`, destinationService))
-		h.f.WriteString(fmt.Sprintf(`destinationUID: '%s'`, destinationUID))
+		var endpoint string
+		var status bool
+		var netProtocol pb.Protocol
+		if (protocol == "http" || protocol == "https") {
+			endpoint = requestScheme + "/" + requestMethod + "/" + requestPath
+			status = responseCode >= 200 && responseCode < 400
+			netProtocol = pb.Protocol_HTTP;
+		} else {
+			//grpc
+			endpoint = protocol + "/" + requestPath
+			netProtocol = pb.Protocol_gRPC;
+		}
+		latency := int32(responseTime - requestTime)
+
+		var detectPoint pb.DetectPoint
+		if (reporter == "source") {
+			detectPoint = pb.DetectPoint_client
+		} else {
+			detectPoint = pb.DetectPoint_server
+		}
+
+		var metric = pb.ServiceMeshMetric{
+			SourceServiceName:     inst.Dimensions["sourceService"].(string),
+			SourceServiceInstance: inst.Dimensions["sourceUID"].(string),
+			DestServiceName:       inst.Dimensions["destinationService"].(string),
+			DestServiceInstance:   inst.Dimensions["destinationUID"].(string),
+			Endpoint:              endpoint,
+			Latency:               latency,
+			ResponseCode:          responseCode,
+			Status:                status,
+			Protocol:              netProtocol,
+			DetectPoint:           detectPoint,
+		}
+
+		clientStream.Send(&metric)
+
 		h.f.WriteString(fmt.Sprintf(`requestMethod: '%s'`, requestMethod))
 		h.f.WriteString(fmt.Sprintf(`requestPath: '%s'`, requestPath))
 		h.f.WriteString(fmt.Sprintf(`requestScheme: '%s'`, requestScheme))
@@ -104,7 +174,11 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 		Instance Value : %v,
 		Type           : %v`, inst.Name, *inst, *h.metricTypes[inst.Name]))
 
+	}
 
+	if (clientStream != nil) {
+		clientStream.CloseSend()
+		<-waitc
 	}
 
 	return nil
