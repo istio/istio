@@ -178,7 +178,7 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -186,7 +186,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -217,3 +217,34 @@ junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys: out_dir
 	tools/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs
+
+# Run once for each cluster, to install helm on the cluster
+helm/init: ${HELM}
+	kubectl apply -n kube-system -f install/kubernetes/helm/helm-service-account.yaml
+	helm init --upgrade --service-account tiller
+
+# Install istio for the first time
+helm/install:
+	${HELM} install \
+	  install/kubernetes/helm/istio \
+	  --name istio-system --namespace istio-system \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS}
+
+# Upgrade istio. Options must be set:
+#  "make helm/upgrade HELM_ARGS="--values myoverride.yaml"
+helm/upgrade:
+	${HELM} upgrade \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS} \
+	  istio-system install/kubernetes/helm/istio
+
+# Delete istio installed with helm
+# Note that for Helm 2.10, the CRDs are not cleared
+helm/delete:
+	${HELM} delete --purge istio-system
+	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

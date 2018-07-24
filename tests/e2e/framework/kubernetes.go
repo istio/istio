@@ -63,6 +63,7 @@ const (
 	caKeyFileName                  = "samples/certs/ca-key.pem"
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
+	helmInstallerName              = "helm"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -268,6 +269,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}, nil
 }
 
+// IsClusterWide indicates whether or not the environment is configured for a cluster-wide deployment.
+func (k *KubeInfo) IsClusterWide() bool {
+	return *clusterWide
+}
+
 // IstioSystemNamespace returns the namespace used for the Istio system components.
 func (k *KubeInfo) IstioSystemNamespace() string {
 	if *clusterWide {
@@ -300,9 +306,9 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if *installer == "helm" {
+		if *installer == helmInstallerName {
 			// install helm tiller first
-			yamlDir := filepath.Join(istioInstallDir+"/helm", helmServiceAccountFile)
+			yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
 			baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
 			if err = k.deployTiller(baseHelmServiceAccountYaml); err != nil {
 				log.Error("Failed to deploy helm tiller.")
@@ -425,11 +431,15 @@ func (k *KubeInfo) Teardown() error {
 	if *skipSetup || *skipCleanup {
 		return nil
 	}
-	if *installer == "helm" {
+	if *installer == helmInstallerName {
 		// clean up using helm
 		err := util.HelmDelete(k.Namespace)
 		if err != nil {
 			return nil
+		}
+
+		if err := util.DeleteNamespace(k.Namespace, k.KubeConfig); err != nil {
+			log.Errorf("Failed to delete namespace %s", k.Namespace)
 		}
 	} else {
 		if *useAutomaticInjection {
@@ -643,7 +653,7 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
 		}
@@ -681,6 +691,18 @@ func (k *KubeInfo) deployIstio() error {
 	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
 }
 
+// DeployTiller deploys tiller in Istio mesh or returns error
+func (k *KubeInfo) DeployTiller() error {
+	// no need to deploy tiller when Istio is deployed using helm as Tiller is already deployed as part of it.
+	if *installer == helmInstallerName {
+		return nil
+	}
+
+	yamlDir := filepath.Join(istioInstallDir+"/"+helmInstallerName, helmServiceAccountFile)
+	baseHelmServiceAccountYaml := filepath.Join(k.ReleaseDir, yamlDir)
+	return k.deployTiller(baseHelmServiceAccountYaml)
+}
+
 func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	// apply helm service account
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
@@ -698,6 +720,14 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
+
+	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
+		log.Errorf("Failed to apply %s", yamlFileName)
+		return err
+	}
+
 	// install istio helm chart, which includes addon
 	isSecurityOn := false
 	if *authEnable {
@@ -725,13 +755,11 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set istiotesting.oneNameSpace=true"
 	}
 
-	// create the namespace
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
-		return err
-	}
+	// CRDs installed ahead of time with 2.9.x
+	setValue += " --set global.crds=false"
 
-	// helm install dry run
+	// helm install dry run - dry run seems to have problems
+	// with CRDs even in 2.9.2, pre-install is not executed
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
 	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {

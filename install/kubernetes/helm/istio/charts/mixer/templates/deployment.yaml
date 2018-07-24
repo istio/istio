@@ -1,6 +1,9 @@
 {{- define "policy_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -12,7 +15,11 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -85,6 +92,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -103,7 +116,11 @@
     {{- end }}
       containers:
       - name: mixer
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9093
@@ -176,6 +193,12 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15093
+          initialDelaySeconds: 5
+          periodSeconds: 5
 {{- end }}
 
 
@@ -200,6 +223,7 @@ spec:
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}

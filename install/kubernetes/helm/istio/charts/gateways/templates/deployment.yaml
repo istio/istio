@@ -24,8 +24,12 @@ spec:
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: {{ $key }}-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: {{ $spec.labels.istio }}
           image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"

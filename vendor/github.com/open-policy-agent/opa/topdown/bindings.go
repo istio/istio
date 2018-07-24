@@ -95,12 +95,7 @@ func (u *bindings) plugNamespaced(a *ast.Term, caller *bindings) *ast.Term {
 		if a != b || u != next {
 			return next.plugNamespaced(b, caller)
 		}
-		if caller != nil && caller != u {
-			if name, ok := b.Value.(ast.Var); ok {
-				return ast.NewTerm(ast.Var(string(name) + fmt.Sprint(u.id)))
-			}
-		}
-		return b
+		return u.namespaceVar(b, caller)
 	case ast.Array:
 		cpy := *a
 		arr := make(ast.Array, len(v))
@@ -110,6 +105,9 @@ func (u *bindings) plugNamespaced(a *ast.Term, caller *bindings) *ast.Term {
 		cpy.Value = arr
 		return &cpy
 	case ast.Object:
+		if a.IsGround() {
+			return a
+		}
 		cpy := *a
 		cpy.Value, _ = v.Map(func(k, v *ast.Term) (*ast.Term, *ast.Term, error) {
 			return u.plugNamespaced(k, caller), u.plugNamespaced(v, caller), nil
@@ -124,14 +122,67 @@ func (u *bindings) plugNamespaced(a *ast.Term, caller *bindings) *ast.Term {
 	case ast.Ref:
 		cpy := *a
 		ref := make(ast.Ref, len(v))
-		ref[0] = v[0]
+		ref[0] = u.namespaceVar(v[0], caller)
 		for i := 1; i < len(ref); i++ {
 			ref[i] = u.plugNamespaced(v[i], caller)
 		}
 		cpy.Value = ref
 		return &cpy
+
+	// NOTE(tsandall): comprehensions are plugged when they're contained in
+	// partial evaluation results. If comprehensions are partially evaluated at
+	// some point, then they will not need to be plugged and these branches can
+	// go away.
+	case *ast.ArrayComprehension:
+		ac := *v
+		ac.Body = u.plugBody(v.Body, caller)
+		ac.Term = u.plugNamespaced(v.Term, caller)
+		cpy := *a
+		cpy.Value = &ac
+		return &cpy
+	case *ast.SetComprehension:
+		sc := *v
+		sc.Body = u.plugBody(v.Body, caller)
+		sc.Term = u.plugNamespaced(v.Term, caller)
+		cpy := *a
+		cpy.Value = &sc
+		return &cpy
+	case *ast.ObjectComprehension:
+		oc := *v
+		oc.Body = u.plugBody(v.Body, caller)
+		oc.Key = u.plugNamespaced(v.Key, caller)
+		oc.Value = u.plugNamespaced(v.Value, caller)
+		cpy := *a
+		cpy.Value = &oc
+		return &cpy
+
 	}
 	return a
+}
+
+// NOTE(tsandall): see note in plugNamespaced about comprehensions.
+func (u *bindings) plugBody(body ast.Body, caller *bindings) ast.Body {
+	cpy := make(ast.Body, len(body))
+	for i := range body {
+		cpy[i] = u.plugExpr(body[i], caller)
+	}
+	return cpy
+}
+
+func (u *bindings) plugExpr(expr *ast.Expr, caller *bindings) *ast.Expr {
+	cpy := *expr
+	switch terms := expr.Terms.(type) {
+	case *ast.Term:
+		cpy.Terms = u.plugNamespaced(terms, caller)
+	case []*ast.Term:
+		sl := make([]*ast.Term, len(terms))
+		sl[0] = terms[0]
+		for i := 1; i < len(sl); i++ {
+			sl[i] = u.plugNamespaced(terms[i], caller)
+		}
+		cpy.Terms = sl
+	}
+	return &cpy
 }
 
 func (u *bindings) bind(a *ast.Term, b *ast.Term, other *bindings) *undo {
@@ -188,6 +239,21 @@ func (u *bindings) String() string {
 		return false
 	})
 	return fmt.Sprintf("({%v}, %v)", strings.Join(buf, ", "), u.id)
+}
+
+func (u *bindings) namespaceVar(v *ast.Term, caller *bindings) *ast.Term {
+	name, ok := v.Value.(ast.Var)
+	if !ok {
+		panic("illegal value")
+	}
+	if caller != nil && caller != u {
+		// Root documents (i.e., data, input) should never be namespaced because they
+		// are globally unique.
+		if !ast.RootDocumentNames.Contains(v) {
+			return ast.NewTerm(ast.Var(string(name) + fmt.Sprint(u.id)))
+		}
+	}
+	return v
 }
 
 type value struct {

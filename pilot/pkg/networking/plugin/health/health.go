@@ -48,8 +48,8 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 			},
 			Headers: []*envoy_api_v2_route.HeaderMatcher{
 				{
-					Name:  ":path",
-					Value: probe.Path,
+					Name:                 ":path",
+					HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
 				},
 			},
 		}),

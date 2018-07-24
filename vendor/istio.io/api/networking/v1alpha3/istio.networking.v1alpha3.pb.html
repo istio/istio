@@ -686,9 +686,10 @@ backward compatibility across different Istio releases. In other words,
 this configuration is subject to change based on internal implementation
 of Istio networking subsystem.</p>
 
-<p>NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
-The behavior is undefined if multiple EnvoyFilter configurations are
-specified for the same workload.</p>
+<p>NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
+configurations will be processed sequentially in order of creation time.
+The behavior is undefined if multiple EnvoyFilter configurations conflict
+with each other.</p>
 
 <p>The following example for Kubernetes enables Envoy&rsquo;s Lua filter for all
 inbound calls arriving at service port 8080 of the reviews service pod with
@@ -1394,8 +1395,8 @@ unspecified, all request will be delayed.</p>
 <p>HttpMatchRequest specifies a set of criterion to be met in order for the
 rule to be applied to the HTTP request. For example, the following
 restricts the rule to match only requests where the URL path
-starts with /ratings/v2/ and the request contains a <code>cookie</code> with value
-<code>user=jason</code>.</p>
+starts with /ratings/v2/ and the request contains a custom <code>end-user</code> header
+with value <code>jason</code>.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1407,8 +1408,8 @@ spec:
   http:
   - match:
     - headers:
-        cookie:
-          regex: &quot;^(.*?;)?(user=jason)(;.*)?&quot;
+        end-user:
+          exact: jason
       uri:
         prefix: &quot;/ratings/v2/&quot;
     route:

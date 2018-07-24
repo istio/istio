@@ -15,15 +15,11 @@
 package model
 
 import (
+	"encoding/json"
 	"sync"
-
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-
-	"encoding/json"
-
-	"istio.io/istio/pkg/log"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -32,7 +28,7 @@ import (
 // The struct is exposed in a debug endpoint - fields public to allow
 // easy serialization as json.
 type PushStatus struct {
-	mutex sync.Mutex `json:"-"`
+	mutex sync.Mutex
 
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
@@ -143,6 +139,12 @@ var (
 	ProxyStatusClusterNoInstances = newPushMetric(
 		"pilot_eds_no_instances",
 		"Number of clusters without instances.",
+	)
+
+	// DuplicatedDomains tracks rejected VirtualServices due to duplicated hostname.
+	DuplicatedDomains = newPushMetric(
+		"pilot_vservice_dup_domain",
+		"Virtual services with dup domains.",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.

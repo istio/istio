@@ -114,9 +114,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	// ensure services are ordered to simplify generation logic
-	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
-
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -193,8 +190,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			protocol:       model.ProtocolHTTP,
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
-					routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances,
-						services, RDSHttpProxy),
 					rds:              RDSHttpProxy,
 					useRemoteAddress: useRemoteAddress,
 					direction:        traceOperation,
@@ -227,7 +222,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
-	listenerMap := make(map[string]*xdsapi.Listener)
+	listenerMap := make(map[string]*model.ServiceInstance)
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -261,9 +256,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
-		if _, exists := listenerMap[listenerMapKey]; exists {
+		if old, exists := listenerMap[listenerMapKey]; exists {
 			env.PushStatus.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
-				fmt.Sprintf("Rejected %s for %s", instance.Service.Hostname, listenerMapKey))
+				fmt.Sprintf("Rejected %s, used %s for %s", instance.Service.Hostname, old.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
 		}
@@ -327,7 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			log.Warna("buildSidecarInboundListeners ", err.Error())
 		} else {
 			listeners = append(listeners, mutable.Listener)
-			listenerMap[listenerMapKey] = mutable.Listener
+			listenerMap[listenerMapKey] = instance
 		}
 	}
 	return listeners
@@ -424,8 +419,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
-			// TODO(rshriram) Nuke after Piotr's changes get in
-			var deprecatedTCPFilterMatchAddress string
+			var destinationIPAddress string
 			var listenerMapKey string
 			listenerOpts := buildListenerOpts{
 				env:            env,
@@ -470,40 +464,46 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				listenerOpts.protocol = servicePort.Protocol
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
-						rds: fmt.Sprintf("%d", servicePort.Port),
-						routeConfig: configgen.buildSidecarOutboundHTTPRouteConfig(
-							env, node, proxyInstances, services, fmt.Sprintf("%d", servicePort.Port)),
+						rds:              fmt.Sprintf("%d", servicePort.Port),
 						useRemoteAddress: useRemoteAddress,
 						direction:        operation,
 					},
 				}}
 			case plugin.ListenerProtocolTCP:
 				// Determine the listener address
-				// If its a passthrough service, then we listen on 0.0.0.0
-				// and use original dst cluster
-				// If its anything else, we listen on the service VIP if and only
+				// we listen on the service VIP if and only
 				// if the address is an IP address. If its a CIDR, we listen on
 				// 0.0.0.0, and setup a filter chain match for the CIDR range.
-				// TODO(rshriram) Once Piotr's PR gets in, change this logic
-				// to establish filter chains based on the CIDR of passthrough services
-				// instead of forcing all of them to be 0.0.0.0
-				// We should be able to do the same even for static services with
-				// CIDR addresses.
-				if service.Resolution != model.Passthrough {
-					svclistenAddress := service.GetServiceAddressForProxy(node)
-					if !strings.Contains(svclistenAddress, "/") {
-						listenAddress = svclistenAddress
+				// As a small optimization, CIDRs with /32 prefix will be converted
+				// into listener address so that there is a dedicated listener for this
+				// ip:port. This will reduce the impact of a listener reload
+
+				var svcListenAddress string
+				// This is to maintain backward compatibility with 0.8 envoy
+				if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+					if service.Resolution != model.Passthrough {
+						svcListenAddress = service.GetServiceAddressForProxy(node)
+					}
+				} else {
+					svcListenAddress = service.GetServiceAddressForProxy(node)
+				}
+
+				// We should never get an empty address.
+				// This is a safety guard, in case some platform adapter isn't doing things
+				// properly
+				if len(svcListenAddress) > 0 {
+					if !strings.Contains(svcListenAddress, "/") {
+						listenAddress = svcListenAddress
 					} else {
 						// Address is a CIDR. Fall back to 0.0.0.0 and
-						// filter in the tcp proxy
-						deprecatedTCPFilterMatchAddress = listenAddress
+						// filter chain match
+						destinationIPAddress = svcListenAddress
 					}
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				// Check if this TCP listener conflicts with an existing HTTP listener on 0.0.0.0:Port
-				//
 				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
 					// Check for port collisions between TCP/TLS and HTTP.
 					// If configured correctly, TCP/TLS ports may not collide.
@@ -529,8 +529,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(env, configs,
-					deprecatedTCPFilterMatchAddress, service, servicePort, proxyLabels, meshGateway)
+				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs,
+					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue
@@ -567,6 +567,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				log.Warna("buildSidecarOutboundListeners: ", err.Error())
 				continue
 			}
+
+			// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
+			// filter chain matche, into a single filter chain and array of destinationcidr matches
 
 			// We checked TCP over HTTP, and HTTP over TCP conflicts above.
 			// The code below checks for TCP over TCP conflicts and merges listeners
@@ -770,7 +773,8 @@ type buildListenerOpts struct {
 	tlsMultiplexed  bool
 }
 
-func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,
+	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
@@ -787,6 +791,12 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
+
+	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
+		// Allow websocket upgrades
+		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	}
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
@@ -878,8 +888,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		if len(chain.destinationCIDRs) > 0 {
 			sort.Strings(chain.destinationCIDRs)
 			for _, d := range chain.destinationCIDRs {
+				if len(d) == 0 {
+					continue
+				}
 				cidr := util.ConvertAddressToCidr(d)
-				if cidr != nil {
+				if cidr != nil && cidr.AddressPrefix != model.UnspecifiedIP {
 					match.PrefixRanges = append(match.PrefixRanges, cidr)
 				}
 			}
@@ -938,7 +951,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = l.Name
-			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),

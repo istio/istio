@@ -13,6 +13,8 @@ const (
 	evalOpBuiltinCall      = "eval_op_builtin_call"
 	evalOpVirtualCacheHit  = "eval_op_virtual_cache_hit"
 	evalOpVirtualCacheMiss = "eval_op_virtual_cache_miss"
+	evalOpBaseCacheHit     = "eval_op_base_cache_hit"
+	evalOpBaseCacheMiss    = "eval_op_base_cache_miss"
 )
 
 // Instrumentation implements helper functions to instrument query evaluation

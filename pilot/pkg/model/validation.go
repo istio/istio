@@ -406,12 +406,39 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
+			// short name hosts are not allowed in gateways
+			if host != "*" && !strings.Contains(host, ".") {
+				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
+			}
 			if err := ValidateWildcardDomain(host); err != nil {
 				errs = appendErrors(errs, err)
 			}
 		}
 	}
-	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
+	portErr := validateServerPort(server.Port)
+	if portErr != nil {
+		errs = appendErrors(errs, portErr)
+	}
+	errs = appendErrors(errs, validateTLSOptions(server.Tls))
+
+	// If port is HTTPS or TLS, make sure that server has TLS options
+	if portErr == nil {
+		protocol := ParseProtocol(server.Port.Protocol)
+		if protocol.IsTLS() && server.Tls == nil {
+			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
+		} else if !protocol.IsTLS() && server.Tls != nil {
+			// only tls redirect is allowed if this is a HTTP server
+			if protocol.IsHTTP() {
+				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
+					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
+					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+			}
+		}
+	}
+	return errs
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -1169,12 +1196,21 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	if _, ok := msg.(*rbac.RbacConfig); !ok {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
 	if name != DefaultRbacConfigName {
 		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
+		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
+		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
 	}
 
 	return nil
@@ -1648,8 +1684,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	}
 
 	if cidrFound {
-		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
-			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
 		}
 	}
 

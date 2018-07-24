@@ -1,12 +1,25 @@
 # Common settings.
 global:
-  # Default repository for Istio images.
+  # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: docker.io/istionightly
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: nightly-release-1.0
+  tag: release-1.0-latest-daily
+
+  # Gateway used for legacy k8s Ingress resources. By default it is
+  # using 'istio:ingress', to match 0.8 config. It requires that
+  # ingress.enabled is set to true. You can also set it
+  # to ingressgateway, or any other gateway you define in the 'gateway'
+  # section.
+  ingressSelector: ingress
+
+  # IngressHttps will add port 443 on the ingress and ingressgateway.
+  # It REQUIRES that the certificates are installed  in the
+  # expected secrets - enabling this option without certificates
+  # will result in LDS rejection and the ingress will not work.
+  ingressHttps: false
 
   proxy:
     image: proxyv2
@@ -62,11 +75,6 @@ global:
   # local tests require IfNotPresent, to avoid uploading to dockerhub.
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
-
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    repository: quay.io/coreos/hyperkube
-    tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -128,9 +136,24 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
-# Any customization for istio testing should be here
-istiotesting:
-  oneNameSpace: false
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
+  # Include the crd definition when generating the template.
+  # For 'helm template' and helm install > 2.10 it should be true.
+  # For helm < 2.9, crds must be installed ahead of time with
+  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+  # and this options must be set off.
+  crds: true
 
 #
 # ingress configuration
@@ -139,7 +162,7 @@ ingress:
   enabled: false
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
+  autoscaleMax: 5
   service:
     annotations: {}
     loadBalancerIP: ""
@@ -203,6 +226,14 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Telemetry-related ports are enabled in gateway - but will only redirect if
+    # the gateway configration for the various components are enabled.
+    - port: 15030
+      targetPort: 15030
+      name: http2-prometheus
+    - port: 15031
+      targetPort: 15031
+      name: http2-grafana
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -210,6 +241,7 @@ gateways:
     - name: ingressgateway-ca-certs
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
+
   istio-egressgateway:
     enabled: true
     labels:
@@ -217,7 +249,7 @@ gateways:
       istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
@@ -232,6 +264,7 @@ gateways:
       - name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
         mountPath: /etc/istio/egressgateway-ca-certs
+
   # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
   # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
   # as non-mtls ports to support upgrades and gradual transition.
@@ -274,6 +307,8 @@ gateways:
       - name: ilbgateway-ca-certs
         secretName: istio-ilbgateway-ca-certs
         mountPath: /etc/istio/ilbgateway-ca-certs
+
+
 #
 # sidecar-injector webhook configuration
 #
@@ -297,10 +332,26 @@ galley:
 mixer:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
   image: mixer
 
+  istio-policy:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
+  istio-telemetry:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
   prometheusStatsdExporter:
-    repository: prom/statsd-exporter
+    hub: docker.io/prom
     tag: latest
 
 #
@@ -309,8 +360,16 @@ mixer:
 pilot:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 1
   image: pilot
+  sidecar: true
   traceSampling: 100.0
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 800m
+      memory: 512Mi
 
 #
 # security configuration
@@ -323,49 +382,32 @@ security:
 #
 # addons configuration
 #
+telemetry-gateway:
+  gatewayName: ingressgateway
+  grafanaEnabled: false
+  prometheusEnabled: false
+
 grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  security:
+    enabled: false
+    adminUser: admin
+    adminPassword: admin
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - grafana.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: grafana-tls
-      #   hosts:
-      #     - grafana.local
 
 prometheus:
   enabled: true
   replicaCount: 1
-  image:
-    repository: docker.io/prom/prometheus
-    tag: latest
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    #hosts:
-    #  - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
+  hub: docker.io/prom
+  tag: latest
+
   service:
     annotations: {}
     nodePort:
@@ -398,13 +440,10 @@ servicegraph:
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
-  enabled: true
-
 tracing:
   enabled: false
+  provider: jaeger
   jaeger:
-    enabled: false
     memory:
       max_traces: 50000
     ingress:
@@ -421,9 +460,8 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  image:
-    repository: jaegertracing/all-in-one
-    tag: 1.5
+  hub: docker.io/jaegertracing
+  tag: 1.5
   service:
     annotations: {}
     name: http
@@ -448,9 +486,8 @@ tracing:
 kiali:
   enabled: false
   replicaCount: 1
-  image:
-    repository: kiali/kiali
-    tag: v0.5.0
+  hub: docker.io/kiali
+  tag: v0.5.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -466,41 +503,17 @@ kiali:
       #     - kiali.local
   dashboard:
     username: admin
-    password: admin
+    # Default admin passphrase for kiali. Must be set during setup, and
+    # changed by overriding the secret
+    passphrase: admin
 
+# Certmanager uses ACME to sign certificates. Since Istio gateways are
+# mounting the TLS secrets the Certificate CRDs must be created in the
+# istio-system namespace. Once the certificate has been created, the
+# gateway must be updated by adding 'secretVolumes'. After the gateway
+# restart, DestinationRules can be created using the ACME-signed certificates.
 certmanager:
   enabled: false
-  replicaCount: 1
-  image:
-    repository: quay.io/jetstack/cert-manager-controller
-    tag: v0.3.1
-  # Override the namespace used to store DNS provider credentials etc. for ClusterIssuer
-  # resources. By default, the same namespace as cert-manager is deployed within is used.
-  clusterResourceNamespace: ""
-  leaderElection:
-    # Override the namespace used to store the ConfigMap for leader election
-    namespace: ""
-  certificateResourceShortNames: ["cert", "certs"]
-  extraArgs: []
-  serviceAccountName: certmanager
+  hub: quay.io/jetstack
+  tag: v0.3.1
   resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #   cpu: 10m
-    #   memory: 32Mi
-  podAnnotations: {}
-    # sidecar.istio.io/inject: "true"
-  podLabels: {}
-  # Optional DNS settings, useful if you have a public and private DNS zone for
-  # the same domain on Route 53. What follows is an example of ensuring
-  # cert-manager can access an ingress or DNS TXT records at all times.
-  # NOTE: This requires Kubernetes 1.10 or `CustomPodDNS` feature gate enabled for
-  # the cluster to work.
-  # podDnsPolicy: "None"
-  # podDnsConfig:
-  #   nameservers:
-  #     - "1.1.1.1"
-  #     - "8.8.8.8"
-  nodeSelector: {}
