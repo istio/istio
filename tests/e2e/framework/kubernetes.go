@@ -720,6 +720,12 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
+		log.Errorf("Failed to apply %s", yamlFileName)
+		return err
+	}
+
 	// install istio helm chart, which includes addon
 	isSecurityOn := false
 	if *authEnable {
@@ -747,24 +753,21 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set istiotesting.oneNameSpace=true"
 	}
 
-	// create the namespace
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
-		return err
-	}
+	// CRDs installed ahead of time with 2.9.x
+	setValue += " --set crds=false"
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
-	//err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
-	//if err != nil {
-	//	// dry run fail, let's fail early
-	//	log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
-	//	return err
-	//}
+	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	if err != nil {
+		// dry run fail, let's fail early
+		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
+		return err
+	}
 
 	// helm install
-	err := util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {
 		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
 		return err
