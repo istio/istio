@@ -33,7 +33,7 @@ data:
 
     {{- if .Values.ingress.enabled }}
     # This is the ingress service name, update if you used a different name
-    ingressService: istio-ingress
+    ingressService: istio-{{ .Values.global.ingressSelector }}
     {{- end }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
