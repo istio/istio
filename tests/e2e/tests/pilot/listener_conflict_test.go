@@ -178,7 +178,7 @@ func TestListenerConflicts(t *testing.T) {
 			}
 
 			if err != nil {
-				return multierror.Prefix(err, fmt.Sprintf("pilot PushStatus failed. Result=%s %v", infos.String(), pushStatuses))
+				return multierror.Prefix(err, fmt.Sprintf("pilot PushStatus failed. Result=%s", infos.String()))
 			}
 			return nil
 		})
