@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 type testData string
@@ -58,7 +58,7 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
-	test.Requires(t, dependency.APIServer)
+	framework.Requires(t, dependency.APIServer)
 
 	dataset := loadTestData(t)
 
@@ -75,7 +75,7 @@ func TestValidation(t *testing.T) {
 				t.SkipNow()
 				return
 			}
-			env := test.AcquireEnvironment(t)
+			env := framework.AcquireEnvironment(t)
 
 			yml, err := d.load()
 			if err != nil {

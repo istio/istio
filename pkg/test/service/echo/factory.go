@@ -16,7 +16,7 @@ package echo
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/local/envoy/agent"
+	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent"
 	"istio.io/istio/pkg/test/protocol"
 )
 
