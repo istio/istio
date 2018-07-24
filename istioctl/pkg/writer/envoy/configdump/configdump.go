@@ -15,79 +15,44 @@
 package configdump
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 
-	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+
+	"istio.io/istio/istioctl/pkg/util/configdump"
 )
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
 type ConfigWriter struct {
 	Stdout     io.Writer
-	configDump *adminapi.ConfigDump
+	configDump *configdump.Wrapper
 }
-
-const (
-	clustersKey  = "clusters"
-	listenersKey = "listeners"
-	routesKey    = "routes"
-	bootstrapKey = "bootstrap"
-)
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	buffer := bytes.NewBuffer(b)
-	c.configDump = &adminapi.ConfigDump{}
-	jsonum := &jsonpb.Unmarshaler{}
-	err := jsonum.Unmarshal(buffer, c.configDump)
+	cd := configdump.Wrapper{}
+	err := json.Unmarshal(b, &cd)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
+	c.configDump = &cd
 	return nil
 }
 
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintBootstrapDump() error {
-	return c.genericPrinter(bootstrapKey)
-}
-
-func (c *ConfigWriter) genericPrinter(configKey string) error {
 	if c.configDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
-	scopedDump, ok := c.configDump.Configs[configKey]
-	if !ok {
-		return fmt.Errorf("unable to find %v in Envoy config dump", configKey)
+	bootstrapDump, err := c.configDump.GetBootstrapConfigDump()
+	if err != nil {
+		return err
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	if err := jsonm.Marshal(c.Stdout, &scopedDump); err != nil {
-		return fmt.Errorf("unable to marshal %v in Envoy config dump", configKey)
+	if err := jsonm.Marshal(c.Stdout, bootstrapDump); err != nil {
+		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
 	return nil
-}
-
-// protoMessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes correctly
-type protoMessageSlice []interface{}
-
-func (pSLice protoMessageSlice) MarshalJSON() ([]byte, error) {
-	buffer := bytes.NewBufferString("[")
-	sliceLength := len(pSLice)
-	jsonm := &jsonpb.Marshaler{}
-	for index, msg := range pSLice {
-		p, ok := msg.(proto.Message)
-		if !ok {
-			return nil, fmt.Errorf("object at index %v doesn't statisfy proto.Message interface", index)
-		}
-		if err := jsonm.Marshal(buffer, p); err != nil {
-			return nil, err
-		}
-		if index < sliceLength-1 {
-			buffer.WriteString(",")
-		}
-	}
-	buffer.WriteString("]")
-	return buffer.Bytes(), nil
 }

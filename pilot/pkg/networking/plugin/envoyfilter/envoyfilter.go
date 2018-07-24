@@ -54,12 +54,14 @@ func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plug
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (envoyfilterplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
+func (envoyfilterplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
@@ -74,7 +76,7 @@ func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, rou
 }
 
 // OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (envoyfilterplugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (envoyfilterplugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
 

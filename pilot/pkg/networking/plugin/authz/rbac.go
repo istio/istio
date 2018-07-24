@@ -244,7 +244,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 }
 
 // OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnFilterChains(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
+func (Plugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
 
@@ -281,7 +281,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -294,7 +294,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -320,7 +320,7 @@ func isRbacEnabled(svc string, ns string, store model.IstioConfigStore) bool {
 		configProto = config.Spec.(*rbacproto.RbacConfig)
 	}
 	if configProto == nil {
-		rbacLog.Infof("disabled, no RbacConfig")
+		rbacLog.Debugf("disabled, no RbacConfig")
 		return false
 	}
 

@@ -48,6 +48,14 @@ var (
 		Type:   "Star Trek",
 		Labels: map[string]string{"ship": "USS Enterprise (NCC-1701-D)"},
 	}
+	m3 = &metric.Metric{
+		Type:   "Star Trek",
+		Labels: map[string]string{"series": "Star Trek: Deep Space Nine", "captain": "Benjamin Sisko"},
+	}
+	mr3 = &monitoredres.MonitoredResource{
+		Type:   "Star Trek",
+		Labels: map[string]string{"ship": "USS Defiant (NX-74205)"},
+	}
 )
 
 // shorthand to save us some chars in test cases

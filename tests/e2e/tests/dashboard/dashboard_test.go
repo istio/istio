@@ -39,13 +39,13 @@ import (
 )
 
 const (
-	istioMeshDashboard    = "addons/grafana/dashboards/istio-mesh-dashboard.json"
-	httpWorkloadDashboard = "addons/grafana/dashboards/istio-http-grpc-workload-dashboard.json"
-	tcpWorkloadDashboard  = "addons/grafana/dashboards/istio-tcp-workload-dashboard.json"
-	mixerDashboard        = "addons/grafana/dashboards/mixer-dashboard.json"
-	pilotDashboard        = "addons/grafana/dashboards/pilot-dashboard.json"
-	fortioYaml            = "tests/e2e/tests/dashboard/fortio-rules.yaml"
-	netcatYaml            = "tests/e2e/tests/dashboard/netcat-rules.yaml"
+	istioMeshDashboard = "addons/grafana/dashboards/istio-mesh-dashboard.json"
+	serviceDashboard   = "addons/grafana/dashboards/istio-service-dashboard.json"
+	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
+	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
+	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
+	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
+	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
 	prometheusPort = "9090"
 )
@@ -53,14 +53,20 @@ const (
 var (
 	replacer = strings.NewReplacer(
 		"$workload", "echosrv.*",
+		"$service", "echosrv.*",
+		"$srcwl", "istio-ingressgateway.*",
 		"$adapter", "kubernetesenv",
 		`connection_mtls=\"true\"`, "",
 		`connection_mtls=\"false\"`, "",
+		`source_workload_namespace=~"$srcns"`, "",
+		`destination_workload_namespace=~"$dstns"`, "",
+		//		"$dstwl", "",
 		`\`, "",
 	)
 
 	tcpReplacer = strings.NewReplacer(
 		"echosrv", "netcat-srv",
+		"istio-ingressgateway", "netcat-client",
 	)
 
 	tc *testConfig
@@ -90,10 +96,10 @@ func TestDashboards(t *testing.T) {
 		metricPort int
 	}{
 		{"Istio", istioMeshDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"HTTP Service", httpWorkloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
-		{"TCP Service", tcpWorkloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Service", serviceDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
+		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
-		//		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
+		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
 	}
 
 	for _, testCase := range cases {

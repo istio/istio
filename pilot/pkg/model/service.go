@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -84,6 +85,9 @@ type Service struct {
 	// or use the passthrough model (i.e. proxy will forward the traffic to the network endpoint requested
 	// by the caller)
 	Resolution Resolution
+
+	// CreationTime records the time this service was created, if available.
+	CreationTime time.Time `json:"creationTime,omitempty"`
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -143,9 +147,9 @@ const (
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	ProtocolTCP Protocol = "TCP"
-	// ProtocolTCPTLS declares that the port carries TLS traffic on top of TCP
-	// TLS traffic is assumed to contain SNI as part of the handshake
-	ProtocolTCPTLS Protocol = "TCP_TLS"
+	// ProtocolTLS declares that the port carries TLS traffic.
+	// TLS traffic is assumed to contain SNI as part of the handshake.
+	ProtocolTLS Protocol = "TLS"
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
@@ -204,8 +208,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolHTTP2
 	case "https":
 		return ProtocolHTTPS
-	case "tcp_tls":
-		return ProtocolTCPTLS
+	case "tls":
+		return ProtocolTLS
 	case "mongo":
 		return ProtocolMongo
 	case "redis":
@@ -238,7 +242,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTCPTLS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
 		return true
 	default:
 		return false
@@ -248,7 +252,7 @@ func (p Protocol) IsTCP() bool {
 // IsTLS is true for protocols on top of TLS (e.g. HTTPS)
 func (p Protocol) IsTLS() bool {
 	switch p {
-	case ProtocolHTTPS, ProtocolTCPTLS:
+	case ProtocolHTTPS, ProtocolTLS:
 		return true
 	default:
 		return false
@@ -354,6 +358,7 @@ const (
 // - consul: defaults to 'instance.Datacenter'
 //
 // This is used by EDS to group the endpoints by AZ and by .
+// TODO: remove me?
 func (si *ServiceInstance) GetAZ() string {
 	if si.AvailabilityZone != "" {
 		return si.AvailabilityZone
@@ -539,7 +544,7 @@ func (h Hostnames) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-// SubsetOf is true if the tag has identical values for the keys
+// SubsetOf is true if the label has identical values for the keys
 func (l Labels) SubsetOf(that Labels) bool {
 	for k, v := range l {
 		if that[k] != v {
@@ -742,6 +747,9 @@ func IsValidSubsetKey(s string) bool {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
+	if len(parts) < 4 {
+		return
+	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]

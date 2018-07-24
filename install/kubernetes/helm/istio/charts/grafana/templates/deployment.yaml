@@ -17,9 +17,16 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
@@ -39,7 +46,11 @@ spec:
           - name: GF_PATHS_DATA
             value: /data/grafana
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: data
             mountPath: /data/grafana

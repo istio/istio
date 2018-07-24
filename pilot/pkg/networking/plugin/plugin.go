@@ -51,7 +51,7 @@ func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
 		return ListenerProtocolHTTP
-	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTCPTLS,
+	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLS,
 		model.ProtocolMongo, model.ProtocolRedis:
 		return ListenerProtocolTCP
 	default:
@@ -80,6 +80,9 @@ type InputParams struct {
 	// For outbound/inbound sidecars this is the service port (not endpoint port)
 	// For inbound listener on gateway, this is the gateway server port
 	Port *model.Port
+
+	// Push holds stats and other information about the current push.
+	Push *model.PushStatus
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -122,11 +125,11 @@ type Plugin interface {
 	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
-	OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+	OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
-	OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
+	OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is

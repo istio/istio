@@ -19,7 +19,7 @@ func init() {
 		Plural:    "policies",
 		Version:   "v1alpha1",
 		Group:     "authentication.istio.io",
-		Target:    getTargetFor("istio.authentication.v1alpha1.Policy"),
+		Target:    getTargetFor("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -30,7 +30,7 @@ func init() {
 		Plural:    "meshpolicies",
 		Version:   "v1alpha1",
 		Group:     "authentication.istio.io",
-		Target:    getTargetFor("istio.authentication.v1alpha1.Policy"),
+		Target:    getTargetFor("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -41,7 +41,7 @@ func init() {
 		Plural:    "signalfxs",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -52,7 +52,7 @@ func init() {
 		Plural:    "fluentds",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -63,7 +63,7 @@ func init() {
 		Plural:    "opas",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -74,7 +74,7 @@ func init() {
 		Plural:    "circonuses",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -85,7 +85,7 @@ func init() {
 		Plural:    "kubernetesenvs",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -96,7 +96,7 @@ func init() {
 		Plural:    "statsds",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -107,7 +107,7 @@ func init() {
 		Plural:    "bypasses",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -118,7 +118,7 @@ func init() {
 		Plural:    "adapters",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -129,7 +129,7 @@ func init() {
 		Plural:    "prometheuses",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -140,7 +140,7 @@ func init() {
 		Plural:    "deniers",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -151,7 +151,7 @@ func init() {
 		Plural:    "stdios",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -162,7 +162,7 @@ func init() {
 		Plural:    "listcheckers",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -173,7 +173,7 @@ func init() {
 		Plural:    "servicecontrols",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -184,7 +184,7 @@ func init() {
 		Plural:    "stackdrivers",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -195,7 +195,7 @@ func init() {
 		Plural:    "solarwindses",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -206,7 +206,7 @@ func init() {
 		Plural:    "noops",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -217,7 +217,7 @@ func init() {
 		Plural:    "memquotas",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Info"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info"),
 		Converter: converter.Get("old-mixer-adapter"),
 	})
 
@@ -228,7 +228,7 @@ func init() {
 		Plural:    "tracespans",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -239,7 +239,7 @@ func init() {
 		Plural:    "apikeys",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -250,7 +250,7 @@ func init() {
 		Plural:    "authorizations",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -261,7 +261,7 @@ func init() {
 		Plural:    "templates",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -272,7 +272,7 @@ func init() {
 		Plural:    "checknothings",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -283,7 +283,7 @@ func init() {
 		Plural:    "logentries",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -294,7 +294,7 @@ func init() {
 		Plural:    "metrics",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -305,7 +305,7 @@ func init() {
 		Plural:    "quotas",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -316,7 +316,7 @@ func init() {
 		Plural:    "reportnothings",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -327,7 +327,7 @@ func init() {
 		Plural:    "servicecontrolreports",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -338,7 +338,7 @@ func init() {
 		Plural:    "kuberneteses",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -349,7 +349,7 @@ func init() {
 		Plural:    "listentries",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.adapter.model.v1beta1.Template"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template"),
 		Converter: converter.Get("old-mixer-template"),
 	})
 
@@ -360,7 +360,7 @@ func init() {
 		Plural:    "httpapispecs",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.v1.config.client.HTTPAPISpec"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -371,7 +371,7 @@ func init() {
 		Plural:    "httpapispecbindings",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.v1.config.client.HTTPAPISpecBinding"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpecBinding"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -382,7 +382,7 @@ func init() {
 		Plural:    "quotaspecs",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.v1.config.client.QuotaSpec"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -393,7 +393,7 @@ func init() {
 		Plural:    "quotaspecbindings",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.mixer.v1.config.client.QuotaSpecBinding"),
+		Target:    getTargetFor("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpecBinding"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -404,7 +404,7 @@ func init() {
 		Plural:    "destinationrules",
 		Version:   "v1alpha3",
 		Group:     "networking.istio.io",
-		Target:    getTargetFor("istio.networking.v1alpha3.DestinationRule"),
+		Target:    getTargetFor("type.googleapis.com/istio.networking.v1alpha3.DestinationRule"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -415,7 +415,7 @@ func init() {
 		Plural:    "envoyfilters",
 		Version:   "v1alpha3",
 		Group:     "networking.istio.io",
-		Target:    getTargetFor("istio.networking.v1alpha3.EnvoyFilter"),
+		Target:    getTargetFor("type.googleapis.com/istio.networking.v1alpha3.EnvoyFilter"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -426,7 +426,7 @@ func init() {
 		Plural:    "gateways",
 		Version:   "v1alpha3",
 		Group:     "networking.istio.io",
-		Target:    getTargetFor("istio.networking.v1alpha3.Gateway"),
+		Target:    getTargetFor("type.googleapis.com/istio.networking.v1alpha3.Gateway"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -437,7 +437,7 @@ func init() {
 		Plural:    "serviceentries",
 		Version:   "v1alpha3",
 		Group:     "networking.istio.io",
-		Target:    getTargetFor("istio.networking.v1alpha3.ServiceEntry"),
+		Target:    getTargetFor("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -448,7 +448,7 @@ func init() {
 		Plural:    "virtualservices",
 		Version:   "v1alpha3",
 		Group:     "networking.istio.io",
-		Target:    getTargetFor("istio.networking.v1alpha3.VirtualService"),
+		Target:    getTargetFor("type.googleapis.com/istio.networking.v1alpha3.VirtualService"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -459,7 +459,7 @@ func init() {
 		Plural:    "attributemanifests",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.policy.v1beta1.AttributeManifest"),
+		Target:    getTargetFor("type.googleapis.com/istio.policy.v1beta1.AttributeManifest"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -470,7 +470,7 @@ func init() {
 		Plural:    "handlers",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.policy.v1beta1.Handler"),
+		Target:    getTargetFor("type.googleapis.com/istio.policy.v1beta1.Handler"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -481,7 +481,7 @@ func init() {
 		Plural:    "instances",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.policy.v1beta1.Instance"),
+		Target:    getTargetFor("type.googleapis.com/istio.policy.v1beta1.Instance"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -492,7 +492,7 @@ func init() {
 		Plural:    "rules",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.policy.v1beta1.Rule"),
+		Target:    getTargetFor("type.googleapis.com/istio.policy.v1beta1.Rule"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -501,9 +501,9 @@ func init() {
 		ListKind:  "rbacList",
 		Singular:  "rbac",
 		Plural:    "rbacs",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.rbac.v1alpha1.RbacConfig"),
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
+		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -512,9 +512,9 @@ func init() {
 		ListKind:  "ServiceRoleList",
 		Singular:  "servicerole",
 		Plural:    "serviceroles",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.rbac.v1alpha1.ServiceRole"),
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
+		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole"),
 		Converter: converter.Get("identity"),
 	})
 
@@ -523,42 +523,9 @@ func init() {
 		ListKind:  "ServiceRoleBindingList",
 		Singular:  "servicerolebinding",
 		Plural:    "servicerolebindings",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.rbac.v1alpha1.ServiceRoleBinding"),
-		Converter: converter.Get("identity"),
-	})
-
-	Types.add(ResourceSpec{
-		Kind:      "DestinationPolicy",
-		ListKind:  "DestinationPolicyList",
-		Singular:  "destinationpolicy",
-		Plural:    "destinationpolicies",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.routing.v1alpha1.DestinationPolicy"),
-		Converter: converter.Get("identity"),
-	})
-
-	Types.add(ResourceSpec{
-		Kind:      "EgressRule",
-		ListKind:  "EgressRuleList",
-		Singular:  "egressrule",
-		Plural:    "egressrules",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.routing.v1alpha1.EgressRule"),
-		Converter: converter.Get("identity"),
-	})
-
-	Types.add(ResourceSpec{
-		Kind:      "RouteRule",
-		ListKind:  "RouteRuleList",
-		Singular:  "routerule",
-		Plural:    "routerules",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    getTargetFor("istio.routing.v1alpha1.RouteRule"),
+		Version:   "v1alpha1",
+		Group:     "rbac.istio.io",
+		Target:    getTargetFor("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding"),
 		Converter: converter.Get("identity"),
 	})
 

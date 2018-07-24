@@ -1,0 +1,89 @@
+{{- if .Values.global.mtls.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-security-post-install-account
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio-security-post-install-{{ .Release.Namespace }}
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: ["authentication.istio.io"] # needed to create default authn policy
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.istio.io"] # needed to create security destination rules
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get"]
+- apiGroups: ["extensions"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-security-post-install-role-binding-{{ .Release.Namespace }}
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-security-post-install-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-security-post-install-account
+    namespace: {{ .Release.Namespace }}
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-security-post-install
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      name: istio-security-post-install
+      labels:
+        app: istio-security
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: istio-security-post-install-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]
+          volumeMounts:
+            - mountPath: "/tmp/security"
+              name: tmp-configmap-security
+      volumes:
+        - name: tmp-configmap-security
+          configMap:
+            name: istio-security-custom-resources
+      restartPolicy: OnFailure
+{{- end }}

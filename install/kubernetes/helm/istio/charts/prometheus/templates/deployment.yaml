@@ -22,9 +22,12 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: prometheus
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: prometheus
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention=6h'
@@ -41,7 +44,11 @@ spec:
               path: /-/ready
               port: 9090
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/prometheus

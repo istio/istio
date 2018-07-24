@@ -13,6 +13,9 @@ spec:
     kind: rule
     plural: rules
     singular: rule
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -31,6 +34,9 @@ spec:
     kind: attributemanifest
     plural: attributemanifests
     singular: attributemanifest
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -49,6 +55,9 @@ spec:
     kind: bypass
     plural: bypasses
     singular: bypass
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -67,6 +76,9 @@ spec:
     kind: circonus
     plural: circonuses
     singular: circonus
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -85,6 +97,9 @@ spec:
     kind: denier
     plural: deniers
     singular: denier
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -103,6 +118,9 @@ spec:
     kind: fluentd
     plural: fluentds
     singular: fluentd
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -121,6 +139,9 @@ spec:
     kind: kubernetesenv
     plural: kubernetesenvs
     singular: kubernetesenv
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -139,6 +160,9 @@ spec:
     kind: listchecker
     plural: listcheckers
     singular: listchecker
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -157,6 +181,9 @@ spec:
     kind: memquota
     plural: memquotas
     singular: memquota
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -175,6 +202,9 @@ spec:
     kind: noop
     plural: noops
     singular: noop
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -193,6 +223,9 @@ spec:
     kind: opa
     plural: opas
     singular: opa
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -211,6 +244,9 @@ spec:
     kind: prometheus
     plural: prometheuses
     singular: prometheus
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -229,6 +265,26 @@ spec:
     kind: rbac
     plural: rbacs
     singular: rbac
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: redisquotas.config.istio.io
+  labels:
+    package: redisquota
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: redisquota
+    plural: redisquotas
+    singular: redisquota
   scope: Namespaced
   version: v1alpha2
 ---
@@ -247,6 +303,9 @@ spec:
     kind: servicecontrol
     plural: servicecontrols
     singular: servicecontrol
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 
@@ -266,6 +325,9 @@ spec:
     kind: signalfx
     plural: signalfxs
     singular: signalfx
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -284,6 +346,9 @@ spec:
     kind: solarwinds
     plural: solarwindses
     singular: solarwinds
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -302,6 +367,9 @@ spec:
     kind: stackdriver
     plural: stackdrivers
     singular: stackdriver
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -320,6 +388,9 @@ spec:
     kind: statsd
     plural: statsds
     singular: statsd
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -338,6 +409,9 @@ spec:
     kind: stdio
     plural: stdios
     singular: stdio
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -356,6 +430,9 @@ spec:
     kind: apikey
     plural: apikeys
     singular: apikey
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -374,6 +451,9 @@ spec:
     kind: authorization
     plural: authorizations
     singular: authorization
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -392,6 +472,9 @@ spec:
     kind: checknothing
     plural: checknothings
     singular: checknothing
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -410,6 +493,9 @@ spec:
     kind: kubernetes
     plural: kuberneteses
     singular: kubernetes
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -428,6 +514,9 @@ spec:
     kind: listentry
     plural: listentries
     singular: listentry
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -446,6 +535,30 @@ spec:
     kind: logentry
     plural: logentries
     singular: logentry
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: edges.config.istio.io
+  labels:
+    app: {{ template "mixer.name" . }}
+    package: edge
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: edge
+    plural: edges
+    singular: edge
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -464,6 +577,9 @@ spec:
     kind: metric
     plural: metrics
     singular: metric
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -482,6 +598,9 @@ spec:
     kind: quota
     plural: quotas
     singular: quota
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -500,6 +619,9 @@ spec:
     kind: reportnothing
     plural: reportnothings
     singular: reportnothing
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -518,6 +640,9 @@ spec:
     kind: servicecontrolreport
     plural: servicecontrolreports
     singular: servicecontrolreport
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -536,6 +661,9 @@ spec:
     kind: tracespan
     plural: tracespans
     singular: tracespan
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -543,37 +671,64 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: serviceroles.config.istio.io
+  name: rbacconfigs.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
+  names:
+    kind: RbacConfig
+    plural: rbacconfigs
+    singular: rbacconfig
+    categories:
+    - istio-io
+    - rbac-istio-io
+  scope: Namespaced
+  version: v1alpha1
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: serviceroles.rbac.istio.io
+  labels:
+    app: {{ template "mixer.name" . }}
+    package: istio.io.mixer
+    istio: rbac
+spec:
+  group: rbac.istio.io
   names:
     kind: ServiceRole
     plural: serviceroles
     singular: servicerole
+    categories:
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha1
 ---
 
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: servicerolebindings.config.istio.io
+  name: servicerolebindings.rbac.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: config.istio.io
+  group: rbac.istio.io
   names:
     kind: ServiceRoleBinding
     plural: servicerolebindings
     singular: servicerolebinding
+    categories:
+    - istio-io
+    - rbac-istio-io
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha1
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -589,6 +744,9 @@ spec:
     kind: adapter
     plural: adapters
     singular: adapter
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -606,6 +764,9 @@ spec:
     kind: instance
     plural: instances
     singular: instance
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -623,6 +784,9 @@ spec:
     kind: template
     plural: templates
     singular: template
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---
@@ -640,6 +804,9 @@ spec:
     kind: handler
     plural: handlers
     singular: handler
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: v1alpha2
 ---

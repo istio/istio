@@ -17,9 +17,11 @@ syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
-// $title: Route Rules v1alpha3
+// $title: Traffic Routing
 // $description: Configuration affecting traffic routing
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
+// $aliases:
+// $  - /docs/reference/config/istio.routing.v1alpha1/
 
 // Configuration affecting traffic routing. Here are a few terms useful to define
 // in the context of traffic routing.
@@ -389,10 +391,10 @@ message HTTPRoute {
   // Additional HTTP headers to add before forwarding a request to the
   // destination service.
   map<string, string> append_headers = 11;
-  
+
   // Http headers to remove before returning the response to the caller
   // $hide_from_docs
-  map<string, string> remove_response_headers = 12;
+  repeated string remove_response_headers = 12;
 }
 
 // Describes match conditions and actions for routing unterminated TLS
@@ -427,10 +429,10 @@ message HTTPRoute {
 //         host: reviews.prod.svc.cluster.local
 // ```
 message TLSRoute {
-  // Match conditions to be satisfied for the rule to be activated. All
-  // conditions inside a single match block have AND semantics, while the
-  // list of match blocks have OR semantics. The rule is matched if any one
-  // of the match blocks succeed.
+  // REQUIRED. Match conditions to be satisfied for the rule to be
+  // activated. All conditions inside a single match block have AND
+  // semantics, while the list of match blocks have OR semantics. The rule
+  // is matched if any one of the match blocks succeed.
   repeated TLSMatchAttributes match = 1;
 
   // The destination to which the connection should be forwarded to.
@@ -478,8 +480,8 @@ message TCPRoute {
 // HttpMatchRequest specifies a set of criterion to be met in order for the
 // rule to be applied to the HTTP request. For example, the following
 // restricts the rule to match only requests where the URL path
-// starts with /ratings/v2/ and the request contains a `cookie` with value
-// `user=jason`.
+// starts with /ratings/v2/ and the request contains a custom `end-user` header
+// with value `jason`.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -492,8 +494,8 @@ message TCPRoute {
 //   http:
 //   - match:
 //     - headers:
-//         cookie:
-//           regex: "^(.*?;)?(user=jason)(;.*)?"
+//         end-user:
+//           exact: jason
 //       uri:
 //         prefix: "/ratings/v2/"
 //     route:
@@ -546,7 +548,7 @@ message HTTPMatchRequest {
   // - `regex: "value"` for ECMAscript style regex-based match
   //
   StringMatch authority = 4;
-  
+
   // The header keys must be lowercase and use hyphen as the separator,
   // e.g. _x-request-id_.
   //
@@ -659,18 +661,16 @@ message DestinationWeight {
 // L4 connection match attributes. Note that L4 connection matching support
 // is incomplete.
 message L4MatchAttributes {
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 1;
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnets = 1;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they support,
   // in these cases it is not required to explicitly select the port.
   uint32 port = 2;
 
-  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx 
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
   // form or just a.b.c.d
   // $hide_from_docs
   string source_subnet = 3;
@@ -689,33 +689,36 @@ message L4MatchAttributes {
 
 // TLS connection match attributes.
 message TLSMatchAttributes {
-  // IPv4 or IPv6 ip address of destination with optional subnet.  E.g.,
-  // a.b.c.d/xx form or just a.b.c.d. This is only valid when the
-  // destination service has several IPs and the application explicitly
-  // specifies a particular IP.
-  string destination_subnet = 1;
+  // REQUIRED. SNI (server name indicator) to match on. Wildcard prefixes
+  // can be used in the SNI value. E.g., *.com will match foo.example.com
+  // as well as example.com.
+  repeated string sni_hosts = 1;
+
+  // IPv4 or IPv6 ip addresses of destination with optional subnet.  E.g.,
+  // a.b.c.d/xx form or just a.b.c.d.
+  repeated string destination_subnets = 2;
 
   // Specifies the port on the host that is being addressed. Many services
   // only expose a single port or label ports with the protocols they
   // support, in these cases it is not required to explicitly select the
   // port.
-  uint32 port = 2;
+  uint32 port = 3;
 
-  // SNI (server name indicator) to match on. Wildcard prefixes can be used
-  // in the SNI value. E.g., *.com will match foo.example.com as well as
-  // example.com.
-  repeated string sni_hosts = 3;
+  // IPv4 or IPv6 ip address of source with optional subnet. E.g., a.b.c.d/xx
+  // form or just a.b.c.d
+  // $hide_from_docs
+  string source_subnet = 4;
 
   // One or more labels that constrain the applicability of a rule to
   // workloads with the given labels. If the VirtualService has a list of
   // gateways specified at the top, it should include the reserved gateway
   // `mesh` in order for this field to be applicable.
-  map<string, string> source_labels = 4;
+  map<string, string> source_labels = 5;
 
   // Names of gateways where the rule should be applied to. Gateway names
   // at the top of the VirtualService (if any) are overridden. The gateway
   // match is independent of sourceLabels.
-  repeated string gateways = 5;
+  repeated string gateways = 6;
 }
 
 // HTTPRedirect can be used to send a 301 redirect response to the caller,
@@ -746,12 +749,12 @@ message HTTPRedirect {
   // value. Note that the entire path will be replaced, irrespective of the
   // request URI being matched as an exact path or prefix.
   string uri = 1;
-   
+
   // On a redirect, overwrite the Authority/Host portion of the URL with
   // this value.
   string authority = 2;
 }
- 
+
 // HTTPRewrite can be used to rewrite specific parts of a HTTP request
 // before forwarding the request to the destination. Rewrite primitive can
 // be used only with the DestinationWeights. The following example

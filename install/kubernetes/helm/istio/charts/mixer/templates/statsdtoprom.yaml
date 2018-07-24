@@ -50,7 +50,7 @@ spec:
     {{- end }}
       containers:
       - name: {{ $statsdname }}
-        image: "{{ $.Values.prometheusStatsdExporter.repository }}:{{ $.Values.prometheusStatsdExporter.tag}}"
+        image: "{{ $.Values.prometheusStatsdExporter.hub }}/statsd-exporter:{{ $.Values.prometheusStatsdExporter.tag }}"
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9102
@@ -59,7 +59,11 @@ spec:
         args:
         - '-statsd.mapping-config=/etc/statsd/mapping.conf'
         resources:
-{{ toYaml $.Values.prometheusStatsdExporter.resources | indent 12 }}
+{{- if .Values.prometheusStatsdExporter.resources }}
+{{ toYaml .Values.prometheusStatsdExporter.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{- end }}
         volumeMounts:
         - name: config-volume
           mountPath: /etc/statsd

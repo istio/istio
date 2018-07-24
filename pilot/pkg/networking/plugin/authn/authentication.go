@@ -456,6 +456,12 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
+		// TODO(incfly): incorporate this in the 
+		// if in.Node.Type == model.Sidecar {
+		// 	// Add TLS context only for sidecars. Not for gateways that already have TLS context
+		// 	chain := &mutable.Listener.FilterChains[i]
+		// 	chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
+		// }
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
@@ -471,7 +477,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -484,6 +490,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

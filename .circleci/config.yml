@@ -221,14 +221,7 @@ jobs:
   e2e-pilot-cloudfoundry-v1alpha3-v2:
     <<: *integrationDefaults
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out
-          mkdir -p /home/circleci/logs
+      - <<: *initWorkingDir
       - checkout
       - attach_workspace:
           at: /go
@@ -240,6 +233,9 @@ jobs:
             export PATH=$GOPATH/bin:$PATH
             make localTestEnv
             make test/local/cloudfoundry/e2e_pilotv2
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
+      - <<: *markJobFinishesOnGCS
       - store_artifacts:
           path: /go/out/logs
       - store_artifacts:
@@ -397,10 +393,9 @@ jobs:
           command: |
             mkdir -p /go/out/tests
             trap "go-junit-report </go/out/tests/build-log.txt > /go/out/tests/junit.xml" EXIT
-            make sync
             make localTestEnv
             set -o pipefail
-            make -k pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
+            make -k pilot-racetest mixer-racetest security-racetest T=-v | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS

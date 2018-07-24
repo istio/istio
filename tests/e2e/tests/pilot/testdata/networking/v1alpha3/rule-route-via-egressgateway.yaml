@@ -1,0 +1,74 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route-via-egressgateway
+spec:
+  hosts:
+    - "*.bookinfo.com"
+    - www.google.com
+    - www.bing.com
+  gateways:
+  # Pinned to both the sidecars (mesh) and egress gateway
+  - istio-egressgateway
+  - mesh
+  http:
+    - match:
+      - gateways:
+        - mesh # from sidecars, route to egress gateway service
+        port: 80
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 80
+        weight: 100
+    - match:
+      - gateways: # from egress gateway, route to actual service entry
+                  # for testing purposes, we route to service t
+        - istio-egressgateway
+        authority:
+          regex: ".*?[.]eu[.]bookinfo[.]com"
+        port: 80
+      route:
+      - destination:
+          host: "*.eu.bookinfo.com"
+          port:
+            number: 80
+        weight: 100
+      appendHeaders:
+        handled-by-egress-gateway: "true"
+  tls:
+    - match:
+      - gateways:
+        - mesh
+        port: 443
+        sniHosts:
+        - www.google.com
+        - www.bing.com
+      route:
+      - destination:
+          host: istio-egressgateway.istio-system.svc.cluster.local
+          port:
+            number: 443
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+        sniHosts:
+        - www.google.com
+      route:
+      - destination:
+          host: www.google.com
+          port:
+            number: 443
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+        sniHosts:
+        - www.bing.com
+      route:
+      - destination:
+          host: www.bing.com
+          port:
+            number: 443

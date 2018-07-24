@@ -17,9 +17,12 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: jaeger
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.hub }}/all-in-one:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
@@ -49,6 +52,10 @@ spec:
               path: /
               port: {{ .Values.service.uiPort }}
           resources:
+{{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

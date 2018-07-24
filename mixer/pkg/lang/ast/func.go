@@ -68,6 +68,16 @@ func intrinsics() []FunctionMetadata {
 			ReturnType:    config.STRING,
 			ArgumentTypes: []config.ValueType{config.STRING_MAP, config.STRING},
 		},
+		{
+			Name:          "conditional",
+			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
+			ArgumentTypes: []config.ValueType{config.BOOL, config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "ADD",
+			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
 	}
 }
 

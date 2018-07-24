@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default-route
+spec:
+  hosts:
+    - c
+  http:
+    - match:
+      - headers:
+          testwebsocket:
+            exact: enabled
+      route:
+      - destination:
+          host: c
+          subset: v1

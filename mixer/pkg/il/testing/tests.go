@@ -3302,6 +3302,553 @@ end`,
 		},
 		R: false,
 	},
+	{
+		E:    `conditional(true, "aa", "bb")`,
+		Type: descriptor.STRING,
+		R:    "aa",
+		IL: `
+fn eval() string
+  apush_b true
+  jz L0
+  apush_s "aa"
+  jmp L1
+L0:
+  apush_s "bb"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(false, 43, 24)`,
+		Type: descriptor.INT64,
+		R:    int64(24),
+		IL: `
+fn eval() integer
+  apush_b false
+  jz L0
+  apush_i 43
+  jmp L1
+L0:
+  apush_i 24
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, 43.25, 25.43)`,
+		Type: descriptor.DOUBLE,
+		R:    float64(25.43),
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() double
+  resolve_b "ab"
+  jz L0
+  apush_d 43.250000
+  jmp L1
+L0:
+  apush_d 25.430000
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, ab, bb)`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ab": false,
+			"bb": true,
+		},
+		IL: `
+fn eval() bool
+  resolve_b "ab"
+  jz L0
+  resolve_b "ab"
+  jmp L1
+L0:
+  resolve_b "bb"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, auri, buri)`,
+		Type: descriptor.URI,
+		R:    "http://foo",
+		I: map[string]interface{}{
+			"ab":   true,
+			"auri": "http://foo",
+			"bt":   "http://bar",
+		},
+		IL: `
+fn eval() string
+  resolve_b "ab"
+  jz L0
+  resolve_s "auri"
+  jmp L1
+L0:
+  resolve_s "buri"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, at, bt)`,
+		Type: descriptor.TIMESTAMP,
+		R:    time1977,
+		I: map[string]interface{}{
+			"ab": false,
+			"at": time1999,
+			"bt": time1977,
+		},
+		IL: `
+fn eval() interface
+  resolve_b "ab"
+  jz L0
+  resolve_f "at"
+  jmp L1
+L0:
+  resolve_f "bt"
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `conditional(ab, aip, bip)`,
+		Type: descriptor.IP_ADDRESS,
+		R:    net.IPv4(0x1, 0x2, 0x3, 0x4),
+		I: map[string]interface{}{
+			"ab":  true,
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x5, 0x6, 0x7, 0x8},
+		},
+		IL: `
+fn eval() interface
+  resolve_b "ab"
+  jz L0
+  resolve_f "aip"
+  jmp L1
+L0:
+  resolve_f "bip"
+L1:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  resolve_b "ab"
+  jz L1
+  apush_s "foo"
+  jmp L2
+L1:
+  apush_s "bar"
+L2:
+  jmp L0
+  resolve_s "bs"
+L0:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | conditional(ab, "foo", "bar") | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  resolve_b "ab"
+  jz L1
+  apush_s "foo"
+  jmp L0
+L1:
+  apush_s "bar"
+L0:
+  ret
+end
+`,
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "boo",
+		I: map[string]interface{}{
+			"as": "boo",
+		},
+	},
+	{
+		E:    `as | bs | conditional(ab, "foo", "bar")`,
+		Type: descriptor.STRING,
+		R:    "zoo",
+		I: map[string]interface{}{
+			"bs": "zoo",
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		IL: `
+fn eval() string
+  resolve_b "ab"
+  jz L0
+  apush_s "foo"
+  jmp L1
+L0:
+  apush_s "bar"
+L1:
+  jmp L2
+  tresolve_s "as"
+  jnz L2
+  resolve_s "bs"
+L2:
+  ret
+end
+`,
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"as": "boo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"bs": "boo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "foo",
+		I: map[string]interface{}{
+			"as": "boo",
+			"bs": "zoo",
+			"ab": true,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"as": "boo",
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"bs": "boo",
+			"ab": false,
+		},
+	},
+	{
+		E:    `conditional(ab, "foo", "bar") | as | bs`,
+		Type: descriptor.STRING,
+		R:    "bar",
+		I: map[string]interface{}{
+			"as": "boo",
+			"bs": "zoo",
+			"ab": false,
+		},
+	},
+	{
+		E:    `as + bs`,
+		Type: descriptor.STRING,
+		R:    "ab",
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		IL: `
+fn eval() string
+  resolve_s "as"
+  resolve_s "bs"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `as + "b"`,
+		Type: descriptor.STRING,
+		R:    "ab",
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		IL: `
+fn eval() string
+  resolve_s "as"
+  apush_s "b"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `"b" + as`,
+		Type: descriptor.STRING,
+		R:    "ba",
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		IL: `
+fn eval() string
+  apush_s "b"
+  resolve_s "as"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `"a" + "b"`,
+		Type: descriptor.STRING,
+		R:    "ab",
+		IL: `
+fn eval() string
+  apush_s "a"
+  apush_s "b"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `as | "unknown" + "b"`,
+		Type: descriptor.STRING,
+		R:    "ab",
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  apush_s "unknown"
+L0:
+  apush_s "b"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `as | "a" + "b"`,
+		Type: descriptor.STRING,
+		R:    "ab",
+	},
+	{
+		E:    `as | "a" + bs + "c"`,
+		Type: descriptor.STRING,
+		R:    "abc",
+		I: map[string]interface{}{
+			"bs": "b",
+		},
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  apush_s "a"
+L0:
+  resolve_s "bs"
+  add_s
+  apush_s "c"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `as + (bs | "b") + "c"`,
+		Type: descriptor.STRING,
+		R:    "abc",
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		IL: `
+fn eval() string
+  resolve_s "as"
+  tresolve_s "bs"
+  jnz L0
+  apush_s "b"
+L0:
+  add_s
+  apush_s "c"
+  add_s
+  ret
+end
+`,
+	},
+	{
+		E:    `ai + bi`,
+		Type: descriptor.INT64,
+		R:    int64(3),
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `
+fn eval() integer
+  resolve_i "ai"
+  resolve_i "bi"
+  add_i
+  ret
+end
+`,
+	},
+	{
+		E:    `ai + 2`,
+		Type: descriptor.INT64,
+		R:    int64(3),
+		I: map[string]interface{}{
+			"ai": int64(1),
+		},
+		IL: `
+fn eval() integer
+  resolve_i "ai"
+  apush_i 2
+  add_i
+  ret
+end
+`,
+	},
+	{
+		E:    `ad + bd`,
+		Type: descriptor.DOUBLE,
+		R:    float64(3.0),
+		I: map[string]interface{}{
+			"ad": float64(1),
+			"bd": float64(2),
+		},
+		IL: `
+fn eval() double
+  resolve_d "ad"
+  resolve_d "bd"
+  add_d
+  ret
+end
+`,
+	},
+	{
+		E:    `ad + 2.0`,
+		Type: descriptor.DOUBLE,
+		R:    float64(3.0),
+		I: map[string]interface{}{
+			"ad": float64(1),
+		},
+		IL: `
+fn eval() double
+  resolve_d "ad"
+  apush_d 2.000000
+  add_d
+  ret
+end
+`,
+	},
+	{
+		E:          `1 + "b"`,
+		CompileErr: `ADD(1, "b") arg 2 ("b") typeError got STRING, expected INT64`,
+	},
+	{
+		E: `1 + as`,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		CompileErr: `ADD(1, $as) arg 2 ($as) typeError got STRING, expected INT64`,
+	},
+	{
+		E: `as + 1.0`,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+	},
+	{
+		E: `as + 1.0`,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+	},
+	{
+		E: `ab + bb`,
+		I: map[string]interface{}{
+			"ab": false,
+			"bb": true,
+		},
+		CompileErr: `internal compiler error -- Add for type not yet implemented: bool`,
+	},
+	{
+		E: `+as`,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		CompileErr: `ADD($as) arity mismatch. Got 1 arg(s), expected 2 arg(s)`,
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending

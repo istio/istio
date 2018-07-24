@@ -1,33 +1,31 @@
-# Use --set or additional values.yaml file to configure settings.
-# This file no longer uses sed, updateVersions.sh or istio.VERSIONS
-# TODO: evaluate if we need individual overrides for each component version, istio
-# is not typically tested with a mix of versions. Only supported case is version upgrade.
-
 # Common settings.
 global:
-  # Default repository for Istio images.
+  # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
-  # Daily builds from prow are on gcr.io, and nightly builds from circle on
-  # docker.io/istionightly
-  hub: docker.io/istio
+  # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  # Should track latest released version in the branch.
-  tag: 0.8.latest
+  tag: release-1.0-latest-daily
+
   proxy:
     image: proxyv2
+
+    # Resources for the sidecar.
     resources:
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 10m
+      #  memory: 128Mi
       # limits:
       #   cpu: 100m
       #   memory: 128Mi
 
-    # istio-sidecar-injector configmap stores configuration for sidecar injection.
-    # This config map is used by istioctl kube-inject and the injector webhook.
+    # Configures the access log for each sidecar. Setting it to an empty string will
+    # disable access log for sidecar.
+    accessLogFile: "/dev/stdout"
+
+    # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
-    replicaCount: 1
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
@@ -44,7 +42,9 @@ global:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     includeInboundPorts: "*"
     excludeInboundPorts: ""
-    policy: enabled
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
 
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
@@ -55,6 +55,7 @@ global:
       port: 9125
 
   proxy_init:
+    # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
 
   # imagePullPolicy is applied to istio control plane components.
@@ -62,14 +63,16 @@ global:
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
-  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
-  hyperkube:
-    repository: quay.io/coreos/hyperkube
-    tag: v1.7.6_coreos.0
-
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
+  # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
+  enableTracing: true
 
   # Default mtls policy. If true, mtls between services will be enabled by default.
   mtls:
@@ -77,16 +80,11 @@ global:
     # destination rules or service annotations.
     enabled: false
 
-  nodePort: true
-
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any clustser configured with privte docker registry.
   imagePullSecrets:
     # - private-registry-key
-
-  # Default is 1 second
-  refreshInterval: 10s
 
   # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
   #   0 - Never scheduled
@@ -105,6 +103,39 @@ global:
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
+  # If set to true, the pilot and citadel mtls will be exposed on the
+  # ingress gateway
+  meshExpansion: false
+
+  # If set to true, the pilot and citadel mtls and the plain text pilot ports
+  # will be exposed on an internal gateway
+  meshExpansionILB: false
+
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
 # Any customization for istio testing should be here
 istiotesting:
   oneNameSpace: false
@@ -113,22 +144,14 @@ istiotesting:
 # ingress configuration
 #
 ingress:
-  enabled: true
+  enabled: false
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 1
-  resources: {}
-# limits:
-#  cpu: 100m
-#  memory: 128Mi
-# requests:
-#  cpu: 100m
-#  memory: 128Mi
+  autoscaleMax: 5
   service:
     annotations: {}
     loadBalancerIP: ""
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
-    annotations: {}
     ports:
     - port: 80
       name: http
@@ -147,22 +170,32 @@ ingress:
 #
 gateways:
   enabled: true
+
   istio-ingressgateway:
     enabled: true
     labels:
+      app: istio-ingressgateway
       istio: ingressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
+    autoscaleMax: 5
     resources: {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      #requests:
+      #  cpu: 1800m
+      #  memory: 256Mi
+
     loadBalancerIP: ""
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+
     ports:
       ## You can add custom gateway ports
     - port: 80
       targetPort: 80
-      name: http
+      name: http2
       nodePort: 31380
     - port: 443
       name: https
@@ -170,6 +203,14 @@ gateways:
     - port: 31400
       name: tcp
       nodePort: 31400
+    # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
+    # to pilot/citadel if global.meshExpansion settings are enabled.
+    - port: 15011
+      targetPort: 15011
+      name: tcp-pilot-grpc-tls
+    - port: 8060
+      targetPort: 8060
+      name: tcp-citadel-grpc-tls
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -180,16 +221,16 @@ gateways:
   istio-egressgateway:
     enabled: true
     labels:
+      app: istio-egressgateway
       istio: egressgateway
     replicaCount: 1
     autoscaleMin: 1
-    autoscaleMax: 1
-    resources: {}
+    autoscaleMax: 5
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
       - port: 80
-        name: http
+        name: http2
       - port: 443
         name: https
     secretVolumes:
@@ -199,7 +240,48 @@ gateways:
       - name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
         mountPath: /etc/istio/egressgateway-ca-certs
-
+  # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
+  # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
+  # as non-mtls ports to support upgrades and gradual transition.
+  istio-ilbgateway:
+      enabled: false
+      labels:
+        app: istio-ilbgateway
+        istio: ilbgateway
+      replicaCount: 1
+      autoscaleMin: 1
+      autoscaleMax: 5
+      resources:
+        requests:
+          cpu: 800m
+          memory: 512Mi
+        #limits:
+        #  cpu: 1800m
+        #  memory: 256Mi
+      loadBalancerIP: ""
+      serviceAnnotations:
+        cloud.google.com/load-balancer-type: "internal"
+      type: LoadBalancer
+      ports:
+      ## You can add custom gateway ports - google ILB default quota is 5 ports,
+      - port: 15011
+        name: grpc-pilot-mtls
+      # Insecure port - only for migration from 0.8. Will be removed in 1.1
+      - port: 15010
+        name: grpc-pilot
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      # Port 5353 is forwarded to kube-dns
+      - port: 5353
+        name: tcp-dns
+      secretVolumes:
+      - name: ilbgateway-certs
+        secretName: istio-ilbgateway-certs
+        mountPath: /etc/istio/ilbgateway-certs
+      - name: ilbgateway-ca-certs
+        secretName: istio-ilbgateway-ca-certs
+        mountPath: /etc/istio/ilbgateway-ca-certs
 #
 # sidecar-injector webhook configuration
 #
@@ -207,13 +289,7 @@ sidecarInjectorWebhook:
   enabled: true
   replicaCount: 1
   image: sidecar_injector
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  enableNamespacesByDefault: false
 
 #
 # galley configuration
@@ -222,13 +298,6 @@ galley:
   enabled: true
   replicaCount: 1
   image: galley
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
 #
 # mixer configuration
@@ -236,19 +305,13 @@ galley:
 mixer:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
   image: mixer
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
 
   prometheusStatsdExporter:
-    repository: prom/statsd-exporter
+    hub: docker.io/prom
     tag: latest
-    resources: {}
 
 #
 # pilot configuration
@@ -256,14 +319,11 @@ mixer:
 pilot:
   enabled: true
   replicaCount: 1
+  autoscaleMin: 1
+  autoscaleMax: 5
   image: pilot
-  resources: {}
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
+  sidecar: true
+  traceSampling: 100.0
 
 #
 # security configuration
@@ -271,15 +331,7 @@ pilot:
 security:
   replicaCount: 1
   image: citadel
-  resources: {}
   selfSigned: true # indicate if self-signed CA is used.
-  # limits:
-  #  cpu: 100m
-  #  memory: 128Mi
-  # requests:
-  #  cpu: 100m
-  #  memory: 128Mi
-  cleanUpOldCA: true
 
 #
 # addons configuration
@@ -308,20 +360,12 @@ grafana:
       #   hosts:
       #     - grafana.local
 
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
-
 prometheus:
   enabled: true
   replicaCount: 1
-  image:
-    repository: docker.io/prom/prometheus
-    tag: latest
+  hub: docker.io/prom
+  tag: latest
+
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -335,13 +379,6 @@ prometheus:
       # - secretName: prometheus-tls
       #   hosts:
       #     - prometheus.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   service:
     annotations: {}
     nodePort:
@@ -371,29 +408,31 @@ servicegraph:
       # - secretName: servicegraph-tls
       #   hosts:
       #     - servicegraph.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   # prometheus addres
   prometheusAddr: http://prometheus:9090
 
-zipkin:
-  enabled: true
-
 tracing:
   enabled: false
+  provider: jaeger
   jaeger:
-    enabled: false
     memory:
       max_traces: 50000
+    ingress:
+      enabled: false
+      # Used to create an Ingress record.
+      hosts:
+        - jaeger.local
+      annotations:
+        # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+      tls:
+        # Secrets must be manually created in the namespace.
+        # - secretName: jaeger-tls
+        #   hosts:
+        #     - jaeger.local
   replicaCount: 1
-  image:
-    repository: jaegertracing/all-in-one
-    tag: 1.5
+  hub: docker.io/jaegertracing
+  tag: 1.5
   service:
     annotations: {}
     name: http
@@ -405,29 +444,21 @@ tracing:
     enabled: false
     # Used to create an Ingress record.
     hosts:
-      - zipkin.local
+      - tracing.local
     annotations:
       # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
     tls:
       # Secrets must be manually created in the namespace.
-      # - secretName: zipkin-tls
+      # - secretName: tracing-tls
       #   hosts:
-      #     - zipkin.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
+      #     - tracing.local
 
 kiali:
   enabled: false
   replicaCount: 1
-  image:
-    repository: kiali/kiali
-    tag: 0.3.1.Alpha
+  hub: docker.io/kiali
+  tag: v0.5.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -441,13 +472,19 @@ kiali:
       # - secretName: kiali-tls
       #   hosts:
       #     - kiali.local
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
   dashboard:
     username: admin
+    # Default admin password for kiali. Must be set during setup, and
+    # changed by overriding the secret
     password: admin
+
+# Certmanager uses ACME to sign certificates. Since Istio gateways are
+# mounting the TLS secrets the Certificate CRDs must be created in the
+# istio-system namespace. Once the certificate has been created, the
+# gateway must be updated by adding 'secretVolumes'. After the gateway
+# restart, DestinationRules can be created using the ACME-signed certificates.
+certmanager:
+  enabled: false
+  hub: quay.io/jetstack
+  tag: v0.3.1
+  resources: {}

@@ -54,6 +54,10 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
+	if len(addr) == 0 {
+		return nil
+	}
+
 	cidr := &core.CidrRange{
 		AddressPrefix: addr,
 		PrefixLen: &types.UInt32Value{

@@ -15,17 +15,20 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 )
 
 var (
 	statusCmd = &cobra.Command{
-		Use:   "proxy-status [<pod-name>]",
+		Use:   "proxy-status [<proxy-name>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh
@@ -34,23 +37,41 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 		Example: `# Retrieve sync status for all Envoys in a mesh
 	istioctl proxy-status
 
-# Retrieve sync status for a single Envoy
-	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59
+# Retrieve sync diff for a single Envoy and Pilot
+	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubernetes.NewClient(kubeconfig, configContext)
+			kubeClient, err := clientExecFactory(kubeconfig, configContext)
 			if err != nil {
 				return err
 			}
-			statuses, pilotErr := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
-			if pilotErr != nil {
+			if len(args) > 0 {
+				parsedProxy := strings.Split(args[0], ".")
+				if len(parsedProxy) != 2 {
+					return fmt.Errorf("unable to parse %v into a pod name and namespace", args[0])
+				}
+				path := fmt.Sprintf("config_dump")
+				envoyDump, err := kubeClient.EnvoyDo(parsedProxy[0], parsedProxy[1], "GET", path, nil)
+				if err != nil {
+					return err
+				}
+				path = fmt.Sprintf("/debug/config_dump?proxyID=%v", args[0])
+				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+				if err != nil {
+					return err
+				}
+				c, err := compare.NewComparator(os.Stdout, pilotDumps, envoyDump)
+				if err != nil {
+					return err
+				}
+				return c.Diff()
+			}
+			statuses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+			if err != nil {
 				return err
 			}
-			sw := pilot.StatusWriter{Writer: os.Stdout}
-			if len(args) > 0 {
-				return sw.PrintSingle(statuses, args[0])
-			}
+			sw := pilot.StatusWriter{Writer: c.OutOrStdout()}
 			return sw.PrintAll(statuses)
 		},
 	}
@@ -58,4 +79,8 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
+}
+
+func newExecClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
+	return kubernetes.NewExecClient(kubeconfig, configContext)
 }

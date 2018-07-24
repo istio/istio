@@ -21,7 +21,7 @@ import (
 // getIdentityNamespace returns the namespace scope for the attribute bag
 func getIdentityNamespace(attrs attribute.Bag) (namespace string, err error) {
 	reporterType := "inbound"
-	if typeValue, ok := attrs.Get("context.reporter.type"); ok {
+	if typeValue, ok := attrs.Get("context.reporter.kind"); ok {
 		if v, isString := typeValue.(string); isString {
 			reporterType = v
 		}
