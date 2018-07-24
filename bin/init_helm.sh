@@ -79,6 +79,5 @@ if [ ! -f ${ISTIO_OUT}/version.helm.${HELM_VER} ] ; then
         mv ${LOCAL_OS}-amd64/helm ${ISTIO_OUT}/helm-${HELM_VER} && \
         cp ${ISTIO_OUT}/helm-${HELM_VER} ${ISTIO_OUT}/helm && \
         rm -rf ${TD} && \
-        rm ${ISTIO_OUT}/version.helm.* && \
         touch ${ISTIO_OUT}/version.helm.${HELM_VER}
 fi
