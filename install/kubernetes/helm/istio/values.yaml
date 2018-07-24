@@ -496,9 +496,9 @@ kiali:
       #     - kiali.local
   dashboard:
     username: admin
-    # Default admin password for kiali. Must be set during setup, and
+    # Default admin passphrase for kiali. Must be set during setup, and
     # changed by overriding the secret
-    password: admin
+    passphrase: admin
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

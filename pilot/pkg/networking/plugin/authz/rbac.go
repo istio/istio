@@ -295,6 +295,10 @@ func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push 
 
 // isServiceInList checks if a given service or namespace is found in the RbacConfig target list.
 func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Target) bool {
+	if li == nil {
+		return false
+	}
+
 	for _, ns := range li.Namespaces {
 		if namespace == ns {
 			return true

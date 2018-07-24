@@ -197,7 +197,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
-  version = "0.7.1"
+  version = "0.8.2"
 
 [[constraint]]
   branch = "master"
@@ -322,7 +322,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  version = "2.8.2"
+  version = "2.9.1"
 
 [[constraint]]
   name = "k8s.io/ingress"
