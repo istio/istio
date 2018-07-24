@@ -1196,12 +1196,21 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	if _, ok := msg.(*rbac.RbacConfig); !ok {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
 	if name != DefaultRbacConfigName {
 		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
+		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
+		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
 	}
 
 	return nil
