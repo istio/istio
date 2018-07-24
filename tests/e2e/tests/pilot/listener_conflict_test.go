@@ -154,7 +154,7 @@ func TestListenerConflicts(t *testing.T) {
 
 				if accepted == newService.fullName() {
 					// We should never accept the port from the newer service.
-					err = multierror.Prefix(err, fmt.Sprintf("expected to reject listener for %s, but it was accepted", accepted))
+					err = multierror.Prefix(err, fmt.Sprintf("expected to reject listener for %s, but it was accepted %v", accepted, pushStatus))
 					// No need to check others statuses - this shouldn't happen.
 					break
 				}
