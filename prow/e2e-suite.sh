@@ -104,6 +104,9 @@ for ((i=1; i<=$#; i++)); do
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
+        --timeout) ((i++)); E2E_TIMEOUT=${!i}
+        continue
+        ;;
         --use_galley_config_validator)
         TEST_TARGETS+=(e2e_galley)
         ;;
@@ -123,7 +126,7 @@ if ${SINGLE_MODE}; then
             time ISTIO_DOCKER_HUB=$HUB \
               E2E_ARGS="${E2E_ARGS[@]}" \
               JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
-              make with_junit_report TARGET="${SINGLE_TEST}"
+              make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
@@ -137,5 +140,5 @@ else
     time ISTIO_DOCKER_HUB=$HUB \
       E2E_ARGS="${E2E_ARGS[@]}" \
       JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
-      make e2e_all_junit_report
+      make e2e_all_junit_report ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
 fi
