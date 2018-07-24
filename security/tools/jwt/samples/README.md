@@ -38,17 +38,17 @@ TOKEN=$(curl https://raw.githubusercontent.com/istio/istio/master/security/tools
 curl --header "Authorization: Bearer $TOKEN" $INGRESS_HOST/headers -s -o /dev/null -w "%{http_code}\n"
 ```
 
-Alternatively, user can also use the `gen-jwt.py` script to create new test token:
+Alternatively, you can use the `gen-jwt.py` script to create new test token:
 
 ```
-./gen-jwt.py key.pem --expire=300 --iss "new-issuer@secure.istio.io"
+TOKEN=$(./gen-jwt.py key.pem --expire=300 --iss "new-issuer@secure.istio.io")
 ```
 
-> Run the following command to install python dependences.
+> Before you start, run the following command to install python dependences.
 
-```
-  pip install jwcrypto
-```
+    ```
+    pip install jwcrypto
+    ```
 
 ## Regenerate private key and JWKS (for developer use only)
 
@@ -58,7 +58,7 @@ Alternatively, user can also use the `gen-jwt.py` script to create new test toke
 openssl genrsa -out key.pem 2048
 ```
 
-1. Run gen-jwt.py with `--jkws` to output new public key set and new JWT
+2. Run gen-jwt.py with `--jkws` to create new public key set and demo JWT
 
 ```
 gen-jwt.py key.pem -jwks=./jwks.json --expire=3153600000 --claims=foo:bar > demo.jwt
