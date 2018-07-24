@@ -65,8 +65,8 @@ type Settings struct {
 	Tag string
 }
 
-// Construct returns settings built from flags and environment variables.
-func Construct(testID string) (*Settings, error) {
+// New returns settings built from flags and environment variables.
+func New(testID string) (*Settings, error) {
 	if err := processFlags(); err != nil {
 		return nil, err
 	}

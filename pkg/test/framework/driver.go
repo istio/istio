@@ -76,7 +76,7 @@ func (d *driver) Run(testID string, m *testing.M) (int, error) {
 	}
 	d.state = running
 
-	s, err := settings.Construct(testID)
+	s, err := settings.New(testID)
 	if err != nil {
 		d.lock.Unlock()
 		return -1, err
