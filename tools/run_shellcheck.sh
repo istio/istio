@@ -1,4 +1,6 @@
 #!/bin/sh
+#
+# Runs shellcheck on all shell scripts in the istio repository.
 
 TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
