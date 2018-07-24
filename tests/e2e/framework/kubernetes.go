@@ -721,6 +721,8 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 
 func (k *KubeInfo) deployIstioWithHelm() error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
+
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
 		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
@@ -754,7 +756,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// CRDs installed ahead of time with 2.9.x
-	setValue += " --set crds=false"
+	setValue += " --set global.crds=false"
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
