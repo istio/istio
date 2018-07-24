@@ -17,7 +17,7 @@
 """Python script generates a JWT signed with custom private key.
 
 Example:
-./gen-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.json
+./gen-jwt.py  --iss example-issuer --aud foo,bar --claims=email:foo@google.com,dead:beef key.pem
 """
 import argparse
 import time
@@ -25,7 +25,7 @@ import time
 from jwcrypto import jwt, jwk
 
 def main(args):
-    """Generates a signed JSON Web Token using a Google API Service Account."""
+    """Generates a signed JSON Web Token from local private key."""
     with open(args.key) as f:
         pem_data = f.read()
     f.closed
