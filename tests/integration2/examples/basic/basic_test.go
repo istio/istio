@@ -18,22 +18,22 @@ package basic
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	test.Run("basic_test", m)
+	framework.Run("basic_test", m)
 }
 
 func TestBasic(t *testing.T) {
 	// Call test.Requires to explicitly initialize dependencies that the test needs.
-	test.Requires(t, dependency.Mixer)
+	framework.Requires(t, dependency.Mixer)
 
 	// To access dependencies, and environment specific-functionality, call test.AcquireEnvironment.
 	// This cleans up any environment specific settings and reinitializes the dependencies internally.
-	env := test.AcquireEnvironment(t)
+	env := framework.AcquireEnvironment(t)
 
 	// Call environment.Configure to set Istio-wide configuration for the test.
 	env.Configure(t, `

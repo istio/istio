@@ -12,14 +12,25 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package galley
+package errors
 
 import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
+	"fmt"
 )
 
-func TestMain(m *testing.M) {
-	framework.Run("galley_test", m)
+// UnrecognizedEnvironment error
+func UnrecognizedEnvironment(name string) error {
+	return fmt.Errorf("unrecognized environment: %q", name)
+}
+
+// MissingKubeConfigForEnvironment error
+func MissingKubeConfigForEnvironment(env string, envvar string) error {
+	return fmt.Errorf(
+		"environment %q requires kube configuration (can be specified from command-line, or with %s)",
+		env, envvar)
+}
+
+// InvalidTestID error
+func InvalidTestID(maxLength int) error {
+	return fmt.Errorf("testID must be non-empty and cannot be longer than %d characters", maxLength)
 }
