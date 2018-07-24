@@ -140,7 +140,7 @@ func (e TriggerEvent) DataChanged() bool {
 // TriggerConfig contains the trigger registration configuration.
 type TriggerConfig struct {
 
-	// OnCommit is invoked when a transaction is succesfully committed. The
+	// OnCommit is invoked when a transaction is successfully committed. The
 	// callback is invoked with a handle to the write transaction that
 	// successfully committed before other clients see the changes.
 	OnCommit func(ctx context.Context, txn Transaction, event TriggerEvent)
