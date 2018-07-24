@@ -80,10 +80,10 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 	return out, nil
 }
 
-// ConvertIngressV1alpha3 (and the two functions below that it calls) could be replaced with
+// convertIngressV1alpha3 (and the two functions below that it calls) could be replaced with
 // the version in _pilot/pkg/kube/ingress/conversion.go_ if the generation of VirtualServices
 // was restored.
-func ConvertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
+func convertIngressV1alpha3(ingress v1beta1.Ingress, domainSuffix string) (model.Config, model.Config) {
 	gateway := &networking.Gateway{
 		Selector: model.IstioIngressWorkloadLabels,
 	}
