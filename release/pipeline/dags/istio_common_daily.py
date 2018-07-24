@@ -26,6 +26,14 @@ from airflow.operators.python_operator import BranchPythonOperator
 
 import environment_config
 
+def test_daily_config_settings(config_settings):
+  tmp_settings = dict(config_settings)
+  for key in environment_config.get_default_config_keys():
+    # pop throws keyerror if it cant find key, which is what we want
+    tmp_settings.pop(key)
+  if len(tmp_settings) != 0:
+    raise ValueError('daily config settings has unexpected keys')
+
 
 def ReportDailySuccessful(task_instance, **kwargs):
   """Set this release as the candidate if it is the latest."""
@@ -107,12 +115,6 @@ rm  docker_tars.txt docker_images.txt
 
 def DailyPipeline(branch):
   def DailyGenerateTestArgs(**kwargs):
-    daily_params = dict(
-      GCS_DAILY_PATH='daily-build/{version}',
-      MFEST_COMMIT='{branch}@{{{timestamp}}}',
-      VERIFY_CONSISTENCY='false',
-      VERSION='{branch}-{date_string}')
-
     """Loads the configuration that will be used for this Iteration."""
     conf = kwargs['dag_run'].conf
     if conf is None:
@@ -125,31 +127,33 @@ def DailyPipeline(branch):
 
     version = conf.get('VERSION')
     if version is None:
-      version = daily_params['VERSION'].format(
-        branch=branch, date_string=date_string)
+      # VERSION is of the form '{branch}-{date_string}'
+      version = '%s-%s' % (branch, date_string)
 
     gcs_path = conf.get('GCS_DAILY_PATH')
     if gcs_path is None:
-       gcs_path = daily_params['GCS_DAILY_PATH'].format(
-                      version=version)
+       # GCS_DAILY_PATH is of the form 'daily-build/{version}'
+       gcs_path = 'daily-build/%s' % (version)
 
     mfest_commit = conf.get('MFEST_COMMIT')
     if mfest_commit is None:
        timestamp = time.mktime(date.timetuple())
-       mfest_commit = daily_params['MFEST_COMMIT'].format(
-          branch=branch, timestamp=timestamp)
+       # MFEST_COMMIT is of the form '{branch}@{{{timestamp}}}',
+       mfest_commit = '%s@{%s}' % (branch, timestamp)
 
     default_conf = environment_config.get_default_config(
         branch=branch,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
-        verify_consistency=daily_params['VERIFY_CONSISTENCY'],
+        pipeline_type='daily',
+        verify_consistency='false',
         version=version)
 
     config_settings = dict()
     for name in default_conf.iterkeys():
       config_settings[name] = conf.get(name) or default_conf[name]
-    config_settings['PIPELINE_TYPE'] = 'daily'
+
+    test_daily_config_settings(config_settings)
     return config_settings
 
   dag_name = 'istio_daily_' + branch

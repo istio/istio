@@ -23,18 +23,27 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 import istio_common_dag
 
+monthly_extra_params = ['DOCKER_HUB', 'GCR_RELEASE_DEST', 'GCS_GITHUB_PATH',
+                        'RELEASE_PROJECT_ID', 'GCS_MONTHLY_RELEASE_PATH']
+bash_settings_prefix = istio_common_dag.get_bash_settings_template(
+        environment_config.get_default_config_keys(),
+        monthly_extra_params)
+
+def test_monthly_config_settings(config_settings):
+  tmp_settings = dict(config_settings)
+  for key in monthly_extra_params:
+    # pop throws keyerror if it cant find key, which is what we want
+    tmp_settings.pop(key)
+  for key in environment_config.get_default_config_keys():
+    # pop throws keyerror if it cant find key, which is what we want
+    tmp_settings.pop(key)
+  if len(tmp_settings) != 0:
+    raise ValueError('monthly config settings has unexpected keys')
 
 def MonthlyPipeline():
   MONTHLY_RELEASE_TRIGGER = '15 17 * * 4#3'
 
   def MonthlyGenerateTestArgs(**kwargs):
-    release_params = dict(
-      DOCKER_HUB='istio',
-      GCR_RELEASE_DEST='istio-io',
-      GCS_GITHUB_PATH='istio-secrets/github.txt.enc',
-      GCS_MONTHLY_RELEASE_PATH='istio-release/releases/{version}',
-      RELEASE_PROJECT_ID='istio-io',
-      VERIFY_CONSISTENCY='true')
 
     """Loads the configuration that will be used for this Iteration."""
     conf = kwargs['dag_run'].conf
@@ -48,8 +57,8 @@ def MonthlyPipeline():
       raise ValueError('version needs to be provided')
     Variable.set('monthly-version', 'INVALID')
 
-    GCS_MONTHLY_STAGE_PATH='prerelease/{version}'
-    gcs_path = GCS_MONTHLY_STAGE_PATH.format(version=version)
+    #GCS_MONTHLY_STAGE_PATH is of the form ='prerelease/{version}'
+    gcs_path = 'prerelease/%s' % (version)
 
     branch = conf.get('BRANCH') or istio_common_dag.GetVariableOrDefault('monthly-branch', None)
     if not branch or branch == 'INVALID':
@@ -61,19 +70,26 @@ def MonthlyPipeline():
         branch=branch,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
-        verify_consistency=release_params['VERIFY_CONSISTENCY'],
+        pipeline_type='monthly',
+        verify_consistency='true',
         version=version)
 
     config_settings = dict()
     for name in default_conf.iterkeys():
       config_settings[name] = conf.get(name) or default_conf[name]
 
-    monthly_conf = dict(release_params)
-    monthly_conf['GCS_MONTHLY_RELEASE_PATH'] = release_params['GCS_MONTHLY_RELEASE_PATH'].format(
-		version=config_settings['VERSION'])
-    for name in release_params.iterkeys():
+    # These are the extra params that are passed to the dags for monthly release
+    monthly_conf = dict()
+    monthly_conf['DOCKER_HUB'              ] = 'istio',
+    monthly_conf['GCR_RELEASE_DEST'        ] = 'istio-io',
+    monthly_conf['GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc',
+    monthly_conf['RELEASE_PROJECT_ID'      ] = 'istio-io'
+    # GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
+    monthly_conf['GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
+    for name in monthly_conf.iterkeys():
       config_settings[name] = conf.get(name) or monthly_conf[name]
-    config_settings['PIPELINE_TYPE'] = 'monthly'
+
+    test_monthly_config_settings(config_settings)
     return config_settings
 
   dag, tasks = istio_common_dag.MakeCommonDag(

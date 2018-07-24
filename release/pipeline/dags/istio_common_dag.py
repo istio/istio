@@ -72,6 +72,26 @@ def GetVariableOrDefault(var, default):
   except KeyError:
     return default
 
+def GetBashCommitTemplate(*lists):
+  return """{% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
+            export m_commit="{{ m_commit }}"
+         """
+
+def GetBashSettingsTemplate(*lists):
+  template_list="{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}"
+  keys = environment_config.get_default_config_keys():
+  for lst in lists:
+    if type(lst) is not list:
+      raise TypeError('unexpected input')
+    for key in lst:
+      keys.append(key)
+  #end lists loop
+  export_list = []
+  for key in keys:
+     export_list.append("export %s={{ settings.%s }}" % (key, key))
+  return "\n".join(export_list)
+
+
 def MakeCommonDag(dag_args_func, name,
                   schedule_interval='15 9 * * *'):
   """Creates the shared part of the daily/release dags.
