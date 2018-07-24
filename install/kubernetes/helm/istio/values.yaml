@@ -356,7 +356,7 @@ grafana:
   security:
     enabled: false
     adminUser: admin
-    adminPass: admin
+    adminPassword: admin
   service:
     annotations: {}
     name: http
