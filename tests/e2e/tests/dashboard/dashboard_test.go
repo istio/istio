@@ -44,6 +44,7 @@ const (
 	workloadDashboard  = "addons/grafana/dashboards/istio-workload-dashboard.json"
 	mixerDashboard     = "addons/grafana/dashboards/mixer-dashboard.json"
 	pilotDashboard     = "addons/grafana/dashboards/pilot-dashboard.json"
+	galleyDashboard    = "addons/grafana/dashboards/galley-dashboard.json"
 	fortioYaml         = "tests/e2e/tests/dashboard/fortio-rules.yaml"
 	netcatYaml         = "tests/e2e/tests/dashboard/netcat-rules.yaml"
 
@@ -100,6 +101,7 @@ func TestDashboards(t *testing.T) {
 		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
+		{"Galley", galleyDashboard, func(queries []string) []string { return queries }, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -254,6 +256,12 @@ func pilotQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "update_failure") {
+			continue
+		}
+		if strings.Contains(query, "pilot_xds_push_errors") {
+			continue
+		}
+		if strings.Contains(query, "_reject") {
 			continue
 		}
 		filtered = append(filtered, query)
