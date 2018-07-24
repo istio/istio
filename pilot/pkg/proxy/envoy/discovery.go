@@ -504,9 +504,10 @@ func (ds *DiscoveryService) clearCache() {
 
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
-			time.AfterFunc(DebounceAfter, func() {
-				debouncePush(lastClearCacheEvent)
-			})
+			go func(lcce time.Time) {
+				time.Sleep(DebounceAfter)
+				debouncePush(lcce)
+			}(lastClearCacheEvent)
 		} // else: debunce in progress - it'll keep delaying the push
 
 		return
