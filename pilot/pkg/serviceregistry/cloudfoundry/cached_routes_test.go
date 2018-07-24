@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry"
 	"istio.io/istio/pilot/pkg/serviceregistry/cloudfoundry/fakes"
 )
