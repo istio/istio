@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -42,9 +43,15 @@ func TestRegisterEventHandler(t *testing.T) {
 
 	controller := cloudfoundry.NewController(mockCopilotClient, store, logger, 100*time.Millisecond, 100*time.Millisecond)
 
-	var callCount int
+	var (
+		callCount int
+		m         sync.Mutex
+	)
+
 	controller.RegisterEventHandler("virtual-service", func(model.Config, model.Event) {
+		m.Lock()
 		callCount++
+		m.Unlock()
 	})
 
 	stop := make(chan struct{})
@@ -52,7 +59,11 @@ func TestRegisterEventHandler(t *testing.T) {
 
 	controller.Run(stop)
 
-	g.Eventually(func() int { return callCount }).Should(gomega.Equal(1))
+	g.Eventually(func() int {
+		m.Lock()
+		defer m.Unlock()
+		return callCount
+	}).Should(gomega.Equal(1))
 }
 
 func TestConfigDescriptor(t *testing.T) {
