@@ -130,7 +130,7 @@ func TestServiceDiscoveryGetServiceAttributes(t *testing.T) {
 	tcpStaticSvc := convertServices(tcpStatic, tnow)
 	for _, svc := range tcpStaticSvc {
 		expect := model.ServiceAttributes{
-			Name:      svc.Hostname.String(),
+			Name:      string(svc.Hostname),
 			Namespace: model.IstioDefaultConfigNamespace,
 		}
 		if attr, _ := sd.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
