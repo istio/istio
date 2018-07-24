@@ -23,9 +23,9 @@ The `demo.jwt` contains a signed-JWT token with following payload:
 
 ```json
 {
-  "exp": 4685983040,
+  "exp": 4685989700,
   "foo": "bar",
-  "iat": 1532383040,
+  "iat": 1532389700,
   "iss": "testing@secure.istio.io",
   "sub": "testing@secure.istio.io"
 }
