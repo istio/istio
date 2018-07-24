@@ -309,6 +309,20 @@ mixer:
   autoscaleMax: 5
   image: mixer
 
+  istio-policy:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
+  istio-telemetry:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
   prometheusStatsdExporter:
     hub: docker.io/prom
     tag: latest
