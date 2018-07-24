@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
