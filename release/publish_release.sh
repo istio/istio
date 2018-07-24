@@ -296,7 +296,7 @@ fi
 
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
-  SHA=`grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \"`
+  SHA=$(grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \")
 
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then

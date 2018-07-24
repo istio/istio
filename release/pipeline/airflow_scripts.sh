@@ -21,9 +21,9 @@ function get_git_commit_cmd() {
     pushd green-builds
     git checkout $BRANCH
     git checkout $MFEST_COMMIT || exit 3
-    ISTIO_SHA=`grep $GITHUB_ORG/$GITHUB_REPO $MFEST_FILE | cut -f 6 -d \\"` || exit 4
-    API_SHA=`  grep $GITHUB_ORG/api          $MFEST_FILE | cut -f 6 -d \\"` || exit 5
-    PROXY_SHA=`grep $GITHUB_ORG/proxy        $MFEST_FILE | cut -f 6 -d \\"` || exit 6
+    ISTIO_SHA=$(grep $GITHUB_ORG/$GITHUB_REPO $MFEST_FILE | cut -f 6 -d \") || exit 4
+    API_SHA=$(  grep $GITHUB_ORG/api          $MFEST_FILE | cut -f 6 -d \") || exit 5
+    PROXY_SHA=$(grep $GITHUB_ORG/proxy        $MFEST_FILE | cut -f 6 -d \") || exit 6
     if [ -z ${ISTIO_SHA} ] || [ -z ${API_SHA} ] || [ -z ${PROXY_SHA} ]; then
       echo "ISTIO_SHA:$ISTIO_SHA API_SHA:$API_SHA PROXY_SHA:$PROXY_SHA some shas not found"
       exit 7
@@ -32,11 +32,11 @@ function get_git_commit_cmd() {
 
     git clone $ISTIO_REPO istio-code -b $BRANCH
     pushd istio-code/release
-    ISTIO_HEAD_SHA=`git rev-parse HEAD`
+    ISTIO_HEAD_SHA=$(git rev-parse HEAD)
     git checkout ${ISTIO_SHA} || exit 8
 
-    TS_SHA=` git show -s --format=%ct ${ISTIO_SHA}`
-    TS_HEAD=`git show -s --format=%ct ${ISTIO_HEAD_SHA}`
+    TS_SHA=$( git show -s --format=%ct ${ISTIO_SHA})
+    TS_HEAD=$(git show -s --format=%ct ${ISTIO_HEAD_SHA})
     DIFF_SEC=$((TS_HEAD - TS_SHA))
     DIFF_DAYS=$(($DIFF_SEC/86400))
     if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
@@ -46,12 +46,12 @@ function get_git_commit_cmd() {
     popd #istio-code/release
 
     if [ "$VERIFY_CONSISTENCY" = "true" ]; then
-      PROXY_REPO=`dirname $ISTIO_REPO`/proxy
+      PROXY_REPO=$(dirname $ISTIO_REPO)/proxy
       echo $PROXY_REPO
       git clone $PROXY_REPO proxy-code -b $BRANCH
       pushd proxy-code
-      PROXY_HEAD_SHA=`git rev-parse HEAD`
-      PROXY_HEAD_API_SHA=`grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"'`
+      PROXY_HEAD_SHA=$(git rev-parse HEAD)
+      PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
       popd
       if [ "$PROXY_HEAD_SHA" != "$PROXY_SHA" ]; then
         echo "inconsistent shas     PROXY_HEAD_SHA     $PROXY_HEAD_SHA != $PROXY_SHA PROXY_SHA" 1>&2

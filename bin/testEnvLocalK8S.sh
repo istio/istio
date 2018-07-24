@@ -56,7 +56,7 @@ function ensureK8SCerts() {
     cd easy-rsa-master/easyrsa3
 
     ./easyrsa init-pki > /dev/null
-    ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass > /dev/null
+    ./easyrsa --batch "--req-cn=${MASTER_IP}@$(date +%s)" build-ca nopass > /dev/null
     ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" \
         --days=10000 build-server-full server nopass > /dev/null
 

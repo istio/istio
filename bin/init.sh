@@ -43,7 +43,7 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 export GOARCH=${GOARCH:-'amd64'}
 
 # Determine the OS. Matches logic in the Makefile.
-LOCAL_OS=${LOCAL_OS:-"`uname`"}
+LOCAL_OS=${LOCAL_OS:-"$(uname)"}
 case $LOCAL_OS in
   'Linux')
     export GOOS=${GOOS:-"linux"}

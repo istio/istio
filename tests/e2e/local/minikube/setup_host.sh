@@ -71,7 +71,7 @@ done
 
 #Setup port forwarding
 echo "Setting up port forwarding"
-POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
+POD=$(kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}')
 kubectl port-forward --namespace kube-system $POD 5000:5000 &
 
 echo "Host Setup Completed"

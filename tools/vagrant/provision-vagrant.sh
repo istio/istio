@@ -61,7 +61,7 @@ curl -L -O https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.t
 tar xzf easy-rsa.tar.gz && \
 cd easy-rsa-master/easyrsa3 && \
 ./easyrsa init-pki && \
-./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass && \
+./easyrsa --batch "--req-cn=${MASTER_IP}@$(date +%s)" build-ca nopass && \
 ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass && \
 cp /tmp/easy-rsa-master/easyrsa3/pki/ca.crt /tmp/apiserver/ca.crt && \
 cp /tmp/easy-rsa-master/easyrsa3/pki/issued/server.crt /tmp/apiserver/server.crt && \
