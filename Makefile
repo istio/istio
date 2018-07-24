@@ -37,7 +37,7 @@ GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
-GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+GO_TOP := $(realpath ${GOPATH} | cut -d ':' -f1)
 export GO_TOP
 
 # Note that disabling cgo here adversely affects go get.  Instead we'll rely on this
