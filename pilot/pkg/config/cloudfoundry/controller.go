@@ -47,7 +47,9 @@ type logger interface {
 	Infof(template string, args ...interface{})
 }
 
-type controller struct {
+// Controller holds the storage of both virtual-services and
+// destination-rules
+type Controller struct {
 	client        CopilotClient
 	store         model.ConfigStore
 	logger        logger
@@ -58,8 +60,8 @@ type controller struct {
 }
 
 // NewController provides a new CF controller
-func NewController(client CopilotClient, store model.ConfigStore, logger logger, timeout, checkInterval time.Duration) *controller {
-	return &controller{
+func NewController(client CopilotClient, store model.ConfigStore, logger logger, timeout, checkInterval time.Duration) *Controller {
+	return &Controller{
 		client:        client,
 		store:         store,
 		logger:        logger,
@@ -74,20 +76,20 @@ func NewController(client CopilotClient, store model.ConfigStore, logger logger,
 
 // RegisterEventHandler will save event handler off to controller struct
 // we call handler on a time interval instead within Run
-func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
+func (c *Controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	c.eventHandlers = append(c.eventHandlers, f)
 }
 
 // HasSynced demonstrates whether we have route data or not - meaning
 // we've successfuclly queried the copilot for data
-func (c *controller) HasSynced() bool {
+func (c *Controller) HasSynced() bool {
 	return len(c.storage.virtualServices) > 0 && len(c.storage.destinationRules) > 0
 }
 
 // Run kicks off the async copilot fetch plus running
 // the cache clearing event handler that causes the rest of
 // pilot to repopulate the rules to push data to envoy
-func (c *controller) Run(stop <-chan struct{}) {
+func (c *Controller) Run(stop <-chan struct{}) {
 	tick := time.NewTicker(c.checkInterval)
 
 	go func() {
@@ -104,9 +106,9 @@ func (c *controller) Run(stop <-chan struct{}) {
 	}()
 }
 
-// ConfigDescriptors supported by the CF Controller are only virtual-services
+// ConfigDescriptor supported by the CF Controller are only virtual-services
 // and destination-rules
-func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
+func (c *Controller) ConfigDescriptor() model.ConfigDescriptor {
 	return model.ConfigDescriptor{
 		model.VirtualService,
 		model.DestinationRule,
@@ -116,7 +118,7 @@ func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
 // Get has been optimized for the current cloudfoundry case of
 // no namespace and only two specific types. We  have also
 // left these in maps for faster lookup
-func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
+func (c *Controller) Get(typ, name, namespace string) (*model.Config, bool) {
 	c.storage.RLock()
 	defer c.storage.RUnlock()
 
@@ -146,7 +148,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 // List also ignores namespace to return all the rules of a particular type
 // we've paid some attention here to avoid locking too long and also
 // avoid allocation performance hits
-func (c *controller) List(typ, namespace string) ([]model.Config, error) {
+func (c *Controller) List(typ, namespace string) ([]model.Config, error) {
 	var configs []model.Config
 	var index int
 
@@ -174,21 +176,21 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 }
 
 // Create is not implemented, this is handled by rebuildRules
-func (c *controller) Create(config model.Config) (string, error) {
+func (c *Controller) Create(config model.Config) (string, error) {
 	return "", errUnsupported
 }
 
 // Update is not implemented, copilot is the source of truth
-func (c *controller) Update(config model.Config) (string, error) {
+func (c *Controller) Update(config model.Config) (string, error) {
 	return "", errUnsupported
 }
 
 // Delete is not implemented, again copilot is the source of truth
-func (c *controller) Delete(typ, name, namespace string) error {
+func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
 }
 
-func (c *controller) rebuildRules() {
+func (c *Controller) rebuildRules() {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
@@ -264,7 +266,7 @@ func (c *controller) rebuildRules() {
 	c.storage.Unlock()
 }
 
-func (c *controller) runHandlers() {
+func (c *Controller) runHandlers() {
 	for _, h := range c.eventHandlers {
 		h(model.Config{}, model.EventUpdate)
 	}

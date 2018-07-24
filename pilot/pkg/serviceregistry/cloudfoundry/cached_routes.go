@@ -33,7 +33,9 @@ type logger interface {
 	Infoa(args ...interface{})
 }
 
-type cachedRoutes struct {
+// CachedRoutes keeps track of last updated time
+// and refresh time for talking to copilot
+type CachedRoutes struct {
 	client           copilotClient
 	repo             *copilotapi.RoutesResponse
 	logger           logger
@@ -41,10 +43,11 @@ type cachedRoutes struct {
 	lastUpdated      time.Time
 }
 
-func NewCachedRoutes(client copilotClient, logger logger, routeRefreshTime string) *cachedRoutes {
+// NewCachedRoutes provides a route cacher that slows the rate of calls to copilot
+func NewCachedRoutes(client copilotClient, logger logger, routeRefreshTime string) *CachedRoutes {
 	refresh, _ := time.ParseDuration(routeRefreshTime)
 
-	return &cachedRoutes{
+	return &CachedRoutes{
 		client:           client,
 		repo:             &copilotapi.RoutesResponse{},
 		logger:           logger,
@@ -53,7 +56,9 @@ func NewCachedRoutes(client copilotClient, logger logger, routeRefreshTime strin
 	}
 }
 
-func (r *cachedRoutes) Get() (*copilotapi.RoutesResponse, error) {
+// Get fetches a new set of cloudfoundry route data periodically
+// storing it off to the cache and return the route response
+func (r *CachedRoutes) Get() (*copilotapi.RoutesResponse, error) {
 	now := time.Now()
 	if now.Sub(r.lastUpdated) > r.routeRefreshTime {
 		r.logger.Infoa("retrieving routes from copilot")
@@ -71,6 +76,8 @@ func (r *cachedRoutes) Get() (*copilotapi.RoutesResponse, error) {
 	return r.repo, nil
 }
 
-func (r *cachedRoutes) GetInternal() (*copilotapi.InternalRoutesResponse, error) {
+// GetInternal is only a wrapper for now but may provide caching
+// in the future
+func (r *CachedRoutes) GetInternal() (*copilotapi.InternalRoutesResponse, error) {
 	return r.client.InternalRoutes(context.Background(), new(copilotapi.InternalRoutesRequest))
 }
