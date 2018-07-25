@@ -198,38 +198,38 @@ func init() {
 		fmt.Sprintf("The issuer organization used in self-signed CA certificate (default to %s)",
 			selfSignedCAOrgDefault))
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", defaultSelfSignedCACertTTL,
-		"The TTL of self-signed CA root certificate")
+		"The TTL of self-signed CA root certificate. The default value is 365 days.")
 
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
 	flags.StringVar(&opts.cAClientConfig.Org, "org", "", "Organization for the cert")
 	flags.DurationVar(&opts.cAClientConfig.RequestedCertTTL, "requested-ca-cert-ttl", defaultRequestedCACertTTL,
-		"The requested TTL for the workload")
-	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+		"The requested TTL for the workload. The default value is 365 days.")
+	flags.IntVar(&opts.cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key. The default value is 2048-bit.")
 
 	// Certificate signing configuration.
 	flags.DurationVar(&opts.workloadCertTTL, "workload-cert-ttl", defaultWorkloadCertTTL,
-		"The TTL of issued workload certificates")
+		"The TTL of issued workload certificates. The default value is 90 days.")
 	flags.DurationVar(&opts.maxWorkloadCertTTL, "max-workload-cert-ttl", defaultMaxWorkloadCertTTL,
-		"The max TTL of issued workload certificates")
+		"The max TTL of issued workload certificates. The default value is 90 days.")
 	flags.Float32Var(&opts.workloadCertGracePeriodRatio, "workload-cert-grace-period-ratio",
 		defaultWorkloadCertGracePeriodRatio, "The workload certificate rotation grace period, as a ratio of the "+
-			"workload certificate TTL.")
+			"workload certificate TTL. The default value is 0.5")
 	flags.DurationVar(&opts.workloadCertMinGracePeriod, "workload-cert-min-grace-period",
-		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
+		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period. The default value is 10 minutes.")
 
 	// gRPC server for signing CSRs.
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identites.")
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
-	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
+	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. The default value is 8060. "+
 		"If unspecified, Citadel will not serve GRPC requests.")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 
 	// Monitoring configuration
-	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. "+
+	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. The default value is 9093. "+
 		"If unspecified, Citadel will disable monitoring.")
 	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Citadel.")
 
@@ -239,7 +239,7 @@ func init() {
 	flags.DurationVar(&opts.LivenessProbeOptions.UpdateInterval, "liveness-probe-interval", 0,
 		"Interval of updating file for the liveness probe.")
 	flags.DurationVar(&opts.probeCheckInterval, "probe-check-interval", defaultProbeCheckInterval,
-		"Interval of checking the liveness of the CA.")
+		"Interval of checking the liveness of the CA. The default value is 30 seconds.")
 
 	flags.BoolVar(&opts.appendDNSNames, "append-dns-names", true,
 		"Append DNS names to the certificates for webhook services.")

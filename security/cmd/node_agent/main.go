@@ -54,21 +54,21 @@ func init() {
 	cAClientConfig := &naConfig.CAClientConfig
 	flags.StringVar(&cAClientConfig.Org, "org", "", "Organization for the cert")
 	flags.DurationVar(&cAClientConfig.RequestedCertTTL, "workload-cert-ttl", 90*24*time.Hour,
-		"The requested TTL for the workload")
-	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
+		"The requested TTL for the workload. The default value is 90 days.")
+	flags.IntVar(&cAClientConfig.RSAKeySize, "key-size", 2048, "Size of generated private key. The default value is 2048-bit.")
 	flags.StringVar(&cAClientConfig.CAAddress,
 		"ca-address", "istio-citadel:8060", "Istio CA address")
 
 	flags.StringVar(&cAClientConfig.Env, "env", "unspecified",
-		"Node Environment : unspecified | onprem | gcp | aws")
-	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s")
+		"Node Environment : unspecified | onprem | gcp | aws. The default value is: unspecified.")
+	flags.StringVar(&cAClientConfig.Platform, "platform", "vm", "The platform istio runs on: vm | k8s. The default value is: vm.")
 
 	flags.StringVar(&cAClientConfig.CertChainFile, "cert-chain",
 		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
 	flags.StringVar(&cAClientConfig.KeyFile,
-		"key", "/etc/certs/key.pem", "Node Agent private key file")
+		"key", "/etc/certs/key.pem", "Node Agent private key file. The default value is: /etc/certs/key.pem.")
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
-		"/etc/certs/root-cert.pem", "Root Certificate file")
+		"/etc/certs/root-cert.pem", "Root Certificate file. The default value is: /etc/certs/root-cert.pem.")
 
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
