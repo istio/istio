@@ -12,36 +12,68 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - bazel-cache-{{ checksum "WORKSPACE" }}
-      - restore_cache:
-          keys:
-            - repo-cache-{{ checksum "WORKSPACE" }}
+            - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
       # To build docker containers or run tests in a docker
       - setup_remote_docker
       - run: rm ~/.gitconfig
       - run: make check
-      - run: make deb BAZEL_BUILD_ARGS="-j 4"
+      - run: make deb
       - run: make test
-      - run: make test_asan
-      - run: make test_tsan
       - save_cache:
-          key: repo-cache-{{ checksum "WORKSPACE" }}
-          paths:
-            - /home/circleci/.repo
-      - save_cache:
-          key: bazel-cache-{{ checksum "WORKSPACE" }}
+          key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel
       - store_artifacts:
           path: /home/circleci/project/bazel-bin/tools/deb/istio-proxy.deb
           destination: /proxy/deb
       - store_artifacts:
-          path: /home/circleci/project/bazel-bin/src/envoy/mixer/envoy
+          path: /home/circleci/project/bazel-bin/src/envoy/envoy
           destination: /proxy/bin
+  linux_asan:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_asan-bazel-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: rm ~/.gitconfig
+      - run: make test_asan
+      - save_cache:
+          key: linux_asan-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+  linux_tsan:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: rm ~/.gitconfig
+      - run: make test_tsan
+      - save_cache:
+          key: linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
   macos:
     macos:
       xcode: "9.3.0"
     environment:
+      - BAZEL_STARTUP_ARGS: "--output_base /Users/distiller/.cache/bazel"
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     steps:
       - run: sudo ntpdate -vu time.apple.com
@@ -49,17 +81,20 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - bazel-cache-{{ checksum "WORKSPACE" }}-macos
+            - macos_fastbuild_v2-bazel-cache-{{ checksum "WORKSPACE" }}
       - run: rm ~/.gitconfig
+      - run: make build_envoy
       - run: make test
       - save_cache:
-          key: bazel-cache-{{ checksum "WORKSPACE" }}-macos
+          key: macos_fastbuild_v2-bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
-            - /home/circleci/.cache/bazel
+            - /Users/distiller/.cache/bazel
 
 workflows:
   version: 2
   all:
     jobs:
       - build
+      - linux_asan
+      - linux_tsan
       - macos

@@ -28,7 +28,7 @@ build:
 
 # Build only envoy - fast
 build_envoy:
-	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //src/envoy/mixer:envoy
+	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //src/envoy:envoy
 
 clean:
 	@bazel clean
@@ -50,7 +50,7 @@ artifacts: build
 	@script/push-debian.sh -c opt -p $(ARTIFACTS_DIR)
 
 deb:
-	@bazel build tools/deb:istio-proxy ${BAZEL_BUILD_ARGS}
+	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //tools/deb:istio-proxy
 
 
 .PHONY: build clean test check artifacts
