@@ -101,7 +101,7 @@ func TestDashboards(t *testing.T) {
 		// {"Workload", workloadDashboard, func(queries []string) []string { return queries }, "istio-telemetry", 42422},
 		{"Mixer", mixerDashboard, mixerQueryFilterFn, "istio-telemetry", 9093},
 		{"Pilot", pilotDashboard, pilotQueryFilterFn, "istio-pilot", 9093},
-		{"Galley", galleyDashboard, func(queries []string) []string { return queries }, "istio-galley", 9093},
+		{"Galley", galleyDashboard, galleyQueryFilterFn, "istio-galley", 9093},
 	}
 
 	for _, testCase := range cases {
@@ -262,6 +262,23 @@ func pilotQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "_reject") {
+			continue
+		}
+		filtered = append(filtered, query)
+	}
+	return filtered
+}
+
+func galleyQueryFilterFn(queries []string) []string {
+	filtered := make([]string, 0, len(queries))
+	for _, query := range queries {
+		if strings.Contains(query, "validation_cert_key_update_errors") {
+			continue
+		}
+		if strings.Contains(query, "validation_failed") {
+			continue
+		}
+		if strings.Contains(query, "validation_http_error") {
 			continue
 		}
 		filtered = append(filtered, query)
