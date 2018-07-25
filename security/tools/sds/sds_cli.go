@@ -26,6 +26,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	disapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -35,10 +36,19 @@ import (
 
 var fakeCredentialToken = "fakeToken"
 
-func sdsRequest(socket string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
+func sdsRequest(socket string, sdsCert string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithInsecure())
+	if sdsCert != "" {
+		creds, err := credentials.NewClientTLSFromFile(sdsCert, "")
+		if err != nil {
+			panic(err.Error())
+		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
+	}
+
 	opts = append(opts, grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 		return net.DialTimeout("unix", socket, timeout)
 	}))
@@ -70,6 +80,10 @@ func sdsRequest(socket string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryRe
 func main() {
 	sdsSocket := flag.String("socket", "/var/run/sds/uds_path", "SDS socket")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
+
+	// Local test through TLS using /etc/istio/nodeagent-root-cert.pem
+	sdsCertFile := flag.String("certFile", "", "cert file used to send secure gRPC request to SDS server")
+
 	flag.Parse()
 
 	req := &xdsapi.DiscoveryRequest{
@@ -78,7 +92,7 @@ func main() {
 			Id: "sidecar~127.0.0.1~id~local",
 		},
 	}
-	resp := sdsRequest(*sdsSocket, req)
+	resp := sdsRequest(*sdsSocket, *sdsCertFile, req)
 
 	strResponse, _ := model.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
