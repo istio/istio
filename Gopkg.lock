@@ -1305,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "6a128c56f81639e234cc34dbf40af9532008e467"
+  revision = "670a6f948defb085dfedd012cae7704404bb7265"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b7133cda4d931d9902fa1ee6e13696ac5f25e84208990bf26665901936152a71"
+  inputs-digest = "37d162eb4b65cc5d429f9df45d2ad4999383685776ff2e438720faa056eb1540"
   solver-name = "gps-cdcl"
   solver-version = 1

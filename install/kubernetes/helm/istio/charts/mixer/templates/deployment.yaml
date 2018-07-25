@@ -223,6 +223,7 @@ spec:
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
