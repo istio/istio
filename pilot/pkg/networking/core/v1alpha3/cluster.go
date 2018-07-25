@@ -241,7 +241,7 @@ func convertIstioMutual(hostname model.Hostname, port *model.Port, destinationRu
 			} else {
 				// use the Istio service name as the SNI value. This will largely be ignored
 				// but still useful when we decide to route to a remote gateway
-				newTLS.Sni = fmt.Sprint("%s:%d", string(hostname), port.Port)
+				newTLS.Sni = fmt.Sprintf("%s:%d", string(hostname), port.Port)
 			}
 			*tls = *newTLS
 		}
