@@ -67,13 +67,17 @@ def get_book_details(id, headers)
     return {
         'id' => id,
         'author': 'William Shakespeare',
-        'year': 1595,
-        'type' => 'paperback',
-        'pages' => 200,
-        'publisher' => 'PublisherA',
-        'language' => 'English',
-        'ISBN-10' => '1234567890',
-        'ISBN-13' => '123-1234567890'
+        'year': 1249,
+        'name' => 'Tao Li',
+	'address' => '1000 Isito Ave, San Francisco, CA, 94014',
+        'card' => '0000 1111 2222 3333',
+        'expire' => '02/20',
+        'book1' => 'The Nightingale',
+        'auth1' => 'Author: Krishtin Hannah; ISBN: 9780679890478',
+        'book2' => 'The President Is Missing',
+        'auth2' => 'Author: Stephanie Li; ISBN: 1280679235890',
+        'book3' => 'Monster Manual',
+        'auth3' => 'Author: Adam Rubin; ISBN: 4580681979890'
     }
 end
 
@@ -103,7 +107,7 @@ def fetch_details_from_external_service(isbn, id, headers)
     book = json['items'][0]['volumeInfo']
 
     language = book['language'] === 'en'? 'English' : 'unknown'
-    type = book['printType'] === 'BOOK'? 'paperback' : 'unknown'
+    type = book['printType'] === 'BOOK'? 'Tao Li' : 'unknown'
     isbn10 = get_isbn(book, 'ISBN_10')
     isbn13 = get_isbn(book, 'ISBN_13')
 

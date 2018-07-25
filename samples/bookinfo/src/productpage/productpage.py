@@ -132,21 +132,18 @@ def logout():
     return response
 
 
-@app.route('/productpage')
+@app.route('/productpage/123456')
 def front():
     product_id = 0 # TODO: replace default value
     headers = getForwardHeaders(request)
     user = request.cookies.get("user", "")
     product = getProduct(product_id)
     detailsStatus, details = getProductDetails(product_id, headers)
-    reviewsStatus, reviews = getProductReviews(product_id, headers)
     return render_template(
         'productpage.html',
         detailsStatus=detailsStatus,
-        reviewsStatus=reviewsStatus,
         product=product,
         details=details,
-        reviews=reviews,
         user=user)
 
 
@@ -183,8 +180,8 @@ def getProducts():
     return [
         {
             'id': 0,
-            'title': 'The Comedy of Errors',
-            'descriptionHtml': '<a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare\'s</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.'
+            'title': 'Awesone Online Bookstore',
+            'descriptionHtml': 'At <b>Awesome Online Bookstore</b>, every type of reader can satisfy one-of-a-kind book cravings. Whether your personal passions lean toward new releases by the hottest authors or classics from the old masters, you will find it on Alibris. We have the biggest bestsellers to the hardest-to-find, out-of-print rarities brought to you by thousands of Booksellers around the world. Awesome Online Bookstore is where your page-turning prayers will be answered at amazingly low prices. So look around and let Awesome Online Bookstore help you find your next favorite book.'
         }
     ]
 
@@ -251,8 +248,8 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     p = int(sys.argv[1])
-    sys.stderr = Writer('stderr.log')
-    sys.stdout = Writer('stdout.log')
+    #sys.stderr = Writer('stderr.log')
+    #sys.stdout = Writer('stdout.log')
     print "start at port %s" % (p)
     app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
 

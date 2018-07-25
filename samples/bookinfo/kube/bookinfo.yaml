@@ -42,115 +42,8 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v1:1.5.0
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
----
-##################################################################################################
-# Ratings service
-##################################################################################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: ratings
-  labels:
-    app: ratings
-spec:
-  ports:
-  - port: 9080
-    name: http
-  selector:
-    app: ratings
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: ratings-v1
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: ratings
-        version: v1
-    spec:
-      containers:
-      - name: ratings
-        image: istio/examples-bookinfo-ratings-v1:1.5.0
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
----
-##################################################################################################
-# Reviews service
-##################################################################################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: reviews
-  labels:
-    app: reviews
-spec:
-  ports:
-  - port: 9080
-    name: http
-  selector:
-    app: reviews
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: reviews-v1
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: reviews
-        version: v1
-    spec:
-      containers:
-      - name: reviews
-        image: istio/examples-bookinfo-reviews-v1:1.5.0
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: reviews-v2
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: reviews
-        version: v2
-    spec:
-      containers:
-      - name: reviews
-        image: istio/examples-bookinfo-reviews-v2:1.5.0
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: reviews-v3
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: reviews
-        version: v3
-    spec:
-      containers:
-      - name: reviews
-        image: istio/examples-bookinfo-reviews-v3:1.5.0
+        image: gcr.io/gcp-next-demo-210723/examples-bookinfo-details-v1:1.3.1
+        #image: istio/examples-bookinfo-details-v1:1.5.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -185,7 +78,8 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: istio/examples-bookinfo-productpage-v1:1.5.0
+        image: gcr.io/gcp-next-demo-210723/examples-bookinfo-productpage-v1:1.3.1
+        #image: istio/examples-bookinfo-productpage-v1:1.5.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

@@ -25,7 +25,7 @@ spec:
   rules:
   - http:
       paths:
-      - path: /productpage
+      - path: /productpage/123456
         backend:
           serviceName: productpage
           servicePort: 9080

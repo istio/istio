@@ -33,7 +33,7 @@ def main(args):
     now = int(time.time())
     payload = {
         # expire in one hour.
-        "exp": now + 3600,
+        "exp": now + 240 * 3600,
         "iat": now,
     }
     if args.iss:

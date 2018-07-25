@@ -31,7 +31,7 @@ $('#login-modal').on('shown.bs.modal', function () {
 <nav class="navbar navbar-inverse navbar-static-top">
     <div class="container">
         <div class="navbar-header">
-            <a class="navbar-brand" href="#">BookInfo Sample</a>
+            <a class="navbar-brand" href="#"></a>
         </div>
         {% if user: %}
         <p class="navbar-text navbar-right">
@@ -94,9 +94,9 @@ $('#login-modal').on('shown.bs.modal', function () {
 <div class="container-fluid">
   <div class="row">
     <div class="col-md-12">
-      <h3 class="text-center text-primary">{{ product.title }}</h3>
+      <h3 class="text-center text-primary" style="font-size:250%;">{{ product.title }}</h3>
       {% autoescape false %}
-        <p>Summary: {{ product.descriptionHtml }}</p>
+        <p style="font-size:120%;">{{ product.descriptionHtml }}</p>
       {% endautoescape %}
     </div>
   </div>
@@ -104,17 +104,19 @@ $('#login-modal').on('shown.bs.modal', function () {
   <div class="row">
     <div class="col-md-6">
       {% if detailsStatus == 200: %}
-        <h4 class="text-center text-primary">Book Details</h4>
+        <h4 class="text-left text-primary" style="font-size:150%">Personal Information</h4>
         <dl>
-          <dt>Type:</dt>{{ details.type }}
-          <dt>Pages:</dt>{{ details.pages }}
-          <dt>Publisher:</dt>{{ details.publisher }}
-          <dt>Language:</dt>{{ details.language }}
-          <dt>ISBN-10:</dt>{{ details['ISBN-10'] }}
-          <dt>ISBN-13:</dt>{{ details['ISBN-13'] }}
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Name:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.name }}</dd>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Address:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.address }}</dd>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Credit Card Number:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.card }}</dd>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Expire:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.expire }}</dd>
         </dl>
       {% else %}
-        <h4 class="text-center text-primary">Error fetching product details!</h4>
+        <h4 class="text-center text-primary">Error fetching credit card details!</h4>
         {% if details: %}
           <p>{{ details.error }}</p>
         {% endif %}
@@ -122,37 +124,27 @@ $('#login-modal').on('shown.bs.modal', function () {
     </div>
 
     <div class="col-md-6">
-      {% if reviewsStatus == 200: %}
-        <h4 class="text-center text-primary">Book Reviews</h4>
-        {% for review in reviews.reviews %}
-          <blockquote>
-            <p>{{ review.text }}</p>
-            <small>{{ review.reviewer }}</small>
-            {% if review.rating: %}
-              {% if review.rating.stars: %}
-                <font color="{{ review.rating.color }}">
-                  <!-- full stars: -->
-                  {% for n in range(review.rating.stars)  %}
-                    <span class="glyphicon glyphicon-star"></span>
-                  {% endfor %}
-                  <!-- empty stars: -->
-                  {% for n in range(5 - review.rating.stars) %}
-                    <span class="glyphicon glyphicon-star-empty"></span>
-                  {% endfor %}
-                </font>
-              {% elif review.rating.error: %}
-                <p><i>{{ review.rating.error }}</i></p>
-              {% endif %}
-            {% endif %}
-          </blockquote>
-        {% endfor %}
+      {% if detailsStatus == 200: %}
+        <h4 class="text-left text-primary" style="font-size:150%">Purchase History</h4>
+        <dl>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Book 1:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:3px">{{ details.book1 }}</dd>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.auth1 }}</dd>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Book 2:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:3px">{{ details.book2 }}</dd>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.auth2 }}</dd>
+          <dt style="font-family:verdana;font-size:130%;padding-bottom:3px">Book 3:</dt>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:3px">{{ details.book3 }}</dd>
+          <dd style="font-family:verdana;font-size:130%;padding-bottom:10px;font-style:italic;">{{ details.auth3 }}</dd>
+        </dl>
       {% else %}
-        <h4 class="text-center text-primary">Error fetching product reviews!</h4>
-        {% if reviews: %}
-          <p>{{ reviews.error }}</p>
+        <h4 class="text-center text-primary">Error fetching credit card details!</h4>
+        {% if details: %}
+          <p>{{ details.error }}</p>
         {% endif %}
       {% endif %}
     </div>
+
   </div>
 </div>
 {% endblock %}

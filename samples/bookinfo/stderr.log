@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "productpage.py", line 258, in <module>
+    app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
+  File "/usr/local/google/home/lita/.local/lib/python2.7/site-packages/flask/app.py", line 938, in run
+    cli.show_server_banner(self.env, self.debug, self.name, False)
+  File "/usr/local/google/home/lita/.local/lib/python2.7/site-packages/flask/cli.py", line 629, in show_server_banner
+    click.echo(message)
+  File "/usr/local/google/home/lita/.local/lib/python2.7/site-packages/click/utils.py", line 260, in echo
+    file.flush()
+  File "/usr/local/google/home/lita/.local/lib/python2.7/site-packages/click/_compat.py", line 90, in __getattr__
+    return getattr(self._stream, name)
+AttributeError: 'Writer' object has no attribute 'flush'
