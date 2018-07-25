@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"path"
 	"time"
 
@@ -102,7 +103,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				// NOTE : this thing is modifying destination rules in place. Not a good idea
 				// when we start caching stuff.
-				convertIstioMutual(destinationRule, upstreamServiceAccounts)
+				convertIstioMutual(service.Hostname, port, destinationRule, upstreamServiceAccounts)
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port)
 
 				for _, subset := range destinationRule.Subsets {
@@ -226,13 +227,23 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
+func convertIstioMutual(hostname model.Hostname, port *model.Port, destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
 	converter := func(tls *networking.TLSSettings) {
 		if tls == nil {
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			*tls = *buildIstioMutualTLS(tls, upstreamServiceAccount)
+			newTLS := buildIstioMutualTLS(upstreamServiceAccount)
+			// Allow user specified SNIs in the istio mtls settings - which is useful
+			// for routing via gateways
+			if len(tls.Sni) > 0 {
+				newTLS.Sni = tls.Sni
+			} else {
+				// use the Istio service name as the SNI value. This will largely be ignored
+				// but still useful when we decide to route to a remote gateway
+				newTLS.Sni = fmt.Sprint("%s:%d", string(hostname), port.Port)
+			}
+			*tls = *newTLS
 		}
 	}
 
@@ -250,16 +261,13 @@ func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamSer
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(tls *networking.TLSSettings, upstreamServiceAccount []string) *networking.TLSSettings {
+func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
 		SubjectAltNames:   upstreamServiceAccount,
-		// Allow user specified SNIs in the istio mtls settings - which is useful
-		// for routing via gateways
-		Sni: tls.Sni,
 	}
 }
 
