@@ -272,6 +272,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 					Port:             endpoint.ServicePort,
 				}
 				chains := p.OnFilterChains(params)
+				// TODO(incfly): finish the logic here, consume the FilterChain.RequiredListenerFilters.
 				if len(chains) != 0 {
 				}
 			}
