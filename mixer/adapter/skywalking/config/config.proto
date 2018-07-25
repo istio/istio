@@ -7,9 +7,6 @@ option go_package="config";
 
 // Param for SkyWalking probe
 message Params {
-    // Path of the file to save the information about runtime requests.
-    string file_path = 1;
-
     // Server Address of SkyWalking backend
-    string server_address = 2;
+    string server_address = 1;
 }

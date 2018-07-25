@@ -29,7 +29,6 @@ metadata:
  namespace: istio-system
 spec:
  server_address: "localhost:11800"
- file_path: "out.txt"
 ---
 # rule to dispatch to your handler
 apiVersion: "config.istio.io/v1alpha2"
