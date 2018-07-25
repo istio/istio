@@ -16,7 +16,7 @@ the following standard fields:</p>
 <li>services: a list of services.</li>
 <li>methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.</li>
 <li>paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.</li>
+presented in the form of &ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.</li>
 </ul>
 
 <p>In addition to the standard fields, operators can also use custom keys in the <code>constraints</code> field,
@@ -105,7 +105,7 @@ If set to [&ldquo;*&rdquo;], it refers to all services in the namespace.</p>
 <td>
 <p>Optional. A list of HTTP paths or gRPC methods.
 gRPC methods must be presented as fully-qualified name in the form of
-packageName.serviceName/methodName.
+&ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.
 Exact match, prefix match, and suffix match are supported for paths.
 For example, the path &ldquo;/books/review&rdquo; matches
 &ldquo;/books/review&rdquo; (exact match), or &ldquo;/books/<em>&rdquo; (prefix match),
