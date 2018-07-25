@@ -36,15 +36,15 @@ var (
 	inFilenames        []string
 	outConvertFilename string
 	convertIngressCmd  = &cobra.Command{
-		Use:   "convert-ingress-to-gateway",
-		Short: "Convert Ingress configuration into Istio Gateway configuration",
-		Long: "Converts Ingresses into Istio Gateway and VirtualService configuration on a best effort basis. " +
+		Use:   "convert-ingress",
+		Short: "Convert Ingress configuration into Istio VirtualService configuration",
+		Long: "Converts Ingresses into VirtualService configuration on a best effort basis. " +
 			"The output should be considered a starting point for your Istio configuration and probably " +
 			"require some minor modification. " +
 			"Warnings will be generated where configs cannot be converted perfectly. " +
-			"The input must be a Kubernetes deployment description of an Ingress. " +
+			"The input must be a Kubernetes Ingress. " +
 			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
-		Example: "istioctl experimental convert-ingress-to-gateway -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
+		Example: "istioctl experimental convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")
@@ -211,12 +211,6 @@ func validateConfigs(configs []model.Config) error {
 		switch config.Type {
 		case model.VirtualService.Type:
 			err = model.ValidateVirtualService(config.Name, config.Namespace, config.Spec)
-		case model.Gateway.Type:
-			err = model.ValidateGateway(config.Name, config.Namespace, config.Spec)
-		case model.ServiceEntry.Type:
-			err = model.ValidateServiceEntry(config.Name, config.Namespace, config.Spec)
-		case model.DestinationRule.Type:
-			err = model.ValidateDestinationRule(config.Name, config.Namespace, config.Spec)
 		}
 		if err != nil {
 			errs = multierror.Append(err, errs)
