@@ -266,7 +266,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: stdiohttp
+  name: stdio
   namespace: {{ .Release.Namespace }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
