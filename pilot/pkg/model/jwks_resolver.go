@@ -50,14 +50,14 @@ const (
 
 	// JwtPubKeyExpireDuration is the expire duration for JWT public key in the cache.
 	// After this duration expire, refresher job will fetch key for the cached item again.
-	JwtPubKeyExpireDuration = time.Hour
+	JwtPubKeyExpireDuration = time.Minute * 5
 
 	// JwtPubKeyEvictionDuration is the life duration for cached item.
 	// Cached item will be removed from the cache if it hasn't been used longer than JwtPubKeyEvictionDuration.
 	JwtPubKeyEvictionDuration = 24 * 7 * time.Hour
 
 	// JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
-	JwtPubKeyRefreshInterval = time.Minute * 20
+	JwtPubKeyRefreshInterval = time.Minute * 5
 )
 
 var (
@@ -120,7 +120,8 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 			// TODO: pilot needs to include a collection of root CAs to make external
 			// https web request(https://github.com/istio/istio/issues/1419).
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+				DisableKeepAlives: true,
 			},
 		},
 	}
@@ -135,6 +136,7 @@ func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Dura
 				TLSClientConfig: &tls.Config{
 					RootCAs: caCertPool,
 				},
+				DisableKeepAlives: true,
 			},
 		}
 	}
@@ -334,6 +336,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 				})
 
 				if oldPubKey != newPubKey {
+					log.Infof("Public key from %q is updated, old key %q, new key %q", jwksURI, oldPubKey, newPubKey)
 					hasChange = true
 				}
 			}()
@@ -349,6 +352,7 @@ func (r *jwksResolver) refresh(t time.Time) {
 		atomic.AddUint64(&r.keyChangedCount, 1)
 		// Push public key changes to sidecars.
 		if r.PushFunc != nil {
+			log.Infof("Push jwt public key change")
 			r.PushFunc()
 		}
 	}
