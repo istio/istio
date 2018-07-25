@@ -336,7 +336,8 @@ func (r *jwksResolver) refresh(t time.Time) {
 				})
 
 				if oldPubKey != newPubKey {
-					log.Infof("Public key from %q is updated, old key %q, new key %q", jwksURI, oldPubKey, newPubKey)
+					log.Infof("Public key from %q is updated", jwksURI)
+					log.Debugf("%q: old key %q, new key %q", jwksURI, oldPubKey, newPubKey)
 					hasChange = true
 				}
 			}()
