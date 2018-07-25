@@ -1024,6 +1024,8 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 }
 
 func TestRedisQuota(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
