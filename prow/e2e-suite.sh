@@ -47,8 +47,8 @@ SINGLE_MODE=false
 RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
 OWNER="${OWNER:-e2e-suite}"
 PILOT_CLUSTER="${PILOT_CLUSTER:-}"
-USE_MASON_RESOURCE=${USE_MASON_RESOURCE:-True}
-CLEAN_CLUSTERS=${CLEAN_CLUSTERS:-True}
+USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
+CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 
 source "${ROOT}/prow/lib.sh"
@@ -56,10 +56,10 @@ source "${ROOT}/prow/mason_lib.sh"
 source "${ROOT}/prow/cluster_lib.sh"
 
 function cleanup() {
-  if [[ "$CLEAN_CLUSTERS" == "True" ]]; then
+  if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
     unsetup_clusters
   fi
-  if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
+  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
     mason_cleanup
     cat "${FILE_LOG}"
   fi
@@ -67,7 +67,7 @@ function cleanup() {
 
 trap cleanup EXIT
 
-if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
+if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
@@ -77,7 +77,7 @@ if [[ "$USE_MASON_RESOURCE" == "True" ]]; then
 
   get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
 else
-  GIT_SHA=${GIT_SHA:-$TAG}
+  GIT_SHA="${GIT_SHA:-$TAG}"
 fi
 
 

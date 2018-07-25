@@ -16,10 +16,10 @@
 
 # set this to the new multicluster-e2e type
 export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-export OWNER=istio-pilot-multicluster-e2e
+export OWNER="istio-pilot-multicluster-e2e"
 
 export SETUP_CLUSTERREG="True"
-CLUSTERREG_DIR=${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}
+CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 export CLUSTERREG_DIR
 
 #echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
