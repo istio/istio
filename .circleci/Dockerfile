@@ -10,24 +10,24 @@ FROM circleci/openjdk:latest
 
 # clang is used for TSAN and ASAN tests
 RUN sudo sh -c 'curl http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -'
-RUN sudo sh -c 'echo "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-5.0 main" > /etc/apt/sources.list.d/llvm.list'
+RUN sudo sh -c 'echo "deb http://apt.llvm.org/stretch/ llvm-toolchain-stretch-6.0 main" > /etc/apt/sources.list.d/llvm.list'
 
 RUN sudo apt-get update && \
     sudo apt-get -y install \
     wget software-properties-common make cmake python python-pip pkg-config \
     zlib1g-dev bash-completion bc libtool automake zip time g++-6 gcc-6 \
-    clang-5.0 rsync
+    clang-6.0 rsync
 
 # ~100M, depends on g++, zlib1g-dev, bash-completions
-RUN curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.11.0/bazel_0.11.0-linux-x86_64.deb && \
+RUN curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && \
     sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
 
 
 # Instead of "apt-get -y install  golang"
 RUN cd /tmp && \
-    wget https://redirector.gvt1.com/edgedl/go/go1.9.2.linux-amd64.tar.gz && \
+    wget https://redirector.gvt1.com/edgedl/go/go1.10.3.linux-amd64.tar.gz && \
     sudo rm -rf /usr/local/go && \
-    sudo tar -C /usr/local -xzf go1.9.2.linux-amd64.tar.gz && \
+    sudo tar -C /usr/local -xzf go1.10.3.linux-amd64.tar.gz && \
     sudo chown -R circleci /usr/local/go && \
     sudo ln -s /usr/local/go/bin/go /usr/local/bin
 
