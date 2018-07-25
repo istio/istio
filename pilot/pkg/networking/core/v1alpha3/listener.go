@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"reflect"
+	"sort"
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -761,12 +761,12 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts          []string
-	destinationCIDRs  []string
-	tlsContext        *auth.DownstreamTlsContext
-	httpOpts          *httpListenerOpts
-	match             *listener.FilterChainMatch
-	networkFilters    []listener.Filter
+	sniHosts         []string
+	destinationCIDRs []string
+	tlsContext       *auth.DownstreamTlsContext
+	httpOpts         *httpListenerOpts
+	match            *listener.FilterChainMatch
+	networkFilters   []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener

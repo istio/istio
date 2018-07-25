@@ -456,7 +456,7 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		// TODO(incfly): incorporate this in the 
+		// TODO(incfly): incorporate this in the
 		// if in.Node.Type == model.Sidecar {
 		// 	// Add TLS context only for sidecars. Not for gateways that already have TLS context
 		// 	chain := &mutable.Listener.FilterChains[i]
