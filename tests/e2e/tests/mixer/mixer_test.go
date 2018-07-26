@@ -1179,7 +1179,7 @@ func TestRedisQuotaRollingWindow(t *testing.T) {
 
 func TestRedisQuotaFixedWindow(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/6309")
-	
+
 	testRedisQuota(t, redisQuotaFixedWindowRule)
 }
 
