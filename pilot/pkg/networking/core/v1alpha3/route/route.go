@@ -346,29 +346,6 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 		}
 		if !is10Proxy {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
-			if len(in.AppendHeaders) > 0 {
-				action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-				for key, value := range in.AppendHeaders {
-					action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
-						Header: &core.HeaderValue{
-							Key:   key,
-							Value: value,
-						},
-					})
-				}
-			}
-		} else {
-			if len(in.AppendHeaders) > 0 {
-				out.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-				for key, value := range in.AppendHeaders {
-					out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, &core.HeaderValueOption{
-						Header: &core.HeaderValue{
-							Key:   key,
-							Value: value,
-						},
-					})
-				}
-			}
 		}
 
 		if in.Timeout != nil {
@@ -394,6 +371,18 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			action.PrefixRewrite = rewrite.Uri
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewrite{
 				HostRewrite: rewrite.Authority,
+			}
+		}
+
+		if len(in.AppendHeaders) > 0 {
+			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
+			for key, value := range in.AppendHeaders {
+				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+					Header: &core.HeaderValue{
+						Key:   key,
+						Value: value,
+					},
+				})
 			}
 		}
 
