@@ -17,8 +17,10 @@ package v2
 import (
 	"errors"
 	"io"
+	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
+	"github.com/istio/fortio/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -214,6 +217,9 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+
+	// pushMutex prevents 2 overlapping pushes for this connection.
+	pushMutex sync.Mutex
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -507,6 +513,10 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 }
 
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	// Prevent 2 overlapping pushes
+	con.pushMutex.Lock()
+	defer con.pushMutex.Unlock()
+
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
@@ -517,7 +527,13 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 				time.Since(pushEv.push.Start), string(out))
 		}
 	}()
-	// TODO: check version, suppress if changed
+	// check version, suppress if changed.
+	currentVersion := versionInfo()
+	if pushEv.version != currentVersion {
+		log.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
+		return nil
+	}
+
 	if con.CDSWatch {
 		err := s.pushCds(con)
 		if err != nil {
@@ -609,7 +625,24 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 
 	pendingPush := int32(len(tmpMap))
 
+	// Experimental throttles for the push, to deal with memory spikes.
+	// If it works will be replaced with a rate control.
+	pushThrottleCountEnv := os.Getenv("PILOT_PUSH_THROTTLE_COUNT")
+	pushThrottle := 0
+	if pushThrottleCountEnv != "" {
+		var err error
+		pushThrottle, err = strconv.Atoi(pushThrottleCountEnv)
+		if err != nil {
+			log.Warnf("Invalid push throttle %s", pushThrottleCountEnv)
+		}
+	}
+
+	i := 0
 	for _, c := range tmpMap {
+		i++
+		if pushThrottle > 0 && i % pushThrottle == 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
