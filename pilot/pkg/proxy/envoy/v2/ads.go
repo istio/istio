@@ -640,7 +640,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 	i := 0
 	for _, c := range tmpMap {
 		i++
-		if pushThrottle > 0 && i % pushThrottle == 0 {
+		if pushThrottle > 0 && i%pushThrottle == 0 {
 			time.Sleep(100 * time.Millisecond)
 		}
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
