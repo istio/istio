@@ -17,8 +17,8 @@ package showcase
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 var svcCfg = ""
@@ -26,9 +26,9 @@ var svcCfg = ""
 // Reimplement TestSvc2Svc in a_simple-1_test.go
 func TestSvcLoading(t *testing.T) {
 	// This Requires statement should ensure that all elements are in runnig states
-	test.Requires(t, dependency.FortioApps, dependency.Pilot)
+	framework.Requires(t, dependency.FortioApps, dependency.Pilot)
 
-	env := test.AcquireEnvironment(t)
+	env := framework.AcquireEnvironment(t)
 	env.Configure(t, svcCfg)
 
 	apps := env.GetFortioApps("app=echosrv", t)

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/log"
