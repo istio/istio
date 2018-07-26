@@ -570,7 +570,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 	_, is10Proxy := node.GetProxyVersion()
 
