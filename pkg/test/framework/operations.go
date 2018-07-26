@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/dependency"
-	"istio.io/istio/pkg/test/framework/environment"
+	env "istio.io/istio/pkg/test/framework/environment"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
@@ -54,7 +54,7 @@ func Requires(t testing.TB, dependencies ...dependency.Instance) {
 
 // AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
 // once per test.
-func AcquireEnvironment(t testing.TB) environment.Environment {
+func AcquireEnvironment(t testing.TB) env.Environment {
 	t.Helper()
 	return d.AcquireEnvironment(t)
 }

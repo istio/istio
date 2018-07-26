@@ -15,23 +15,23 @@
 package settings
 
 import (
-	"testing"
+	"fmt"
+	"strings"
 
-	"istio.io/istio/pkg/test/framework/dependency"
+	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/framework/errors"
-)
-
-const (
-	// EnvKube is the kubernetes environment
-	EnvKube = "kube"
-
-	// EnvLocal is the local environment
-	EnvLocal = "local"
 )
 
 const (
 	// MaxTestIDLength is the maximum length allowed for testID.
 	MaxTestIDLength = 30
+
+	// Local environment name
+	Local = "local"
+
+	// Kubernetes environment name
+	Kubernetes = "kubernetes"
 )
 
 // Settings is the set of arguments to the test driver.
@@ -45,14 +45,11 @@ type Settings struct {
 	// TestID is the id of the test suite. This should supplied by the author once, and must be immutable.
 	TestID string
 
+	// RunID is the id of the current run.
+	RunID string
+
 	// Do not cleanup the resources after the test run.
 	NoCleanup bool
-
-	// M is testing.M
-	M *testing.M
-
-	// SuiteDependencies is the set of dependencies the suite needs.
-	SuiteDependencies []dependency.Instance
 
 	// Local working directory root for creating temporary directories / files in. If left empty,
 	// os.TempDir() will be used.
@@ -74,6 +71,7 @@ func New(testID string) (*Settings, error) {
 	// Make a local copy.
 	s := *arguments
 	s.TestID = testID
+	s.RunID = generateRunID(testID)
 
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -85,21 +83,21 @@ func New(testID string) (*Settings, error) {
 // defaultArgs returns the default set of arguments.
 func defaultArgs() *Settings {
 	return &Settings{
-		Environment: EnvLocal,
+		Environment: Local,
 	}
 }
 
 // Validate the arguments.
 func (a *Settings) Validate() error {
 	switch a.Environment {
-	case EnvLocal, EnvKube:
+	case Local, Kubernetes:
 
 	default:
 		return errors.UnrecognizedEnvironment(a.Environment)
 	}
 
-	if a.Environment == EnvKube && a.KubeConfig == "" {
-		return errors.MissingKubeConfigForEnvironment(EnvKube, ISTIO_TEST_KUBE_CONFIG.Name())
+	if a.Environment == Kubernetes && a.KubeConfig == "" {
+		return errors.MissingKubeConfigForEnvironment(Kubernetes, ISTIO_TEST_KUBE_CONFIG.Name())
 	}
 
 	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {
@@ -107,4 +105,13 @@ func (a *Settings) Validate() error {
 	}
 
 	return nil
+}
+
+func generateRunID(testID string) string {
+	u := uuid.New().String()
+	u = strings.Replace(u, "-", "", -1)
+	testID = strings.Replace(testID, "_", "-", -1)
+	// We want at least 6 characters of uuid padding
+	padding := MaxTestIDLength - len(testID)
+	return fmt.Sprintf("%s-%s", testID, u[0:padding])
 }

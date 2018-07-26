@@ -12,37 +12,37 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kubernetes
+package apiserver
 
 import (
+	"fmt"
+
 	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/kube"
 )
 
+// InitKube initializes a new API Server component for the kubernetes environment.
+func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+	kubeEnv, ok := ctx.Environment().(*kubernetes.Implementation)
+	if !ok {
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentName())
+	}
+
+	return &deployedAPIServer{
+		ctx: ctx,
+		env: kubeEnv,
+	}, nil
+}
+
 type deployedAPIServer struct {
-	env      *Environment
-	accessor *kube.Accessor
+	ctx environment.ComponentContext
+	env *kubernetes.Implementation
 }
 
 var _ environment.DeployedAPIServer = &deployedAPIServer{}
 
-func newAPIServer(env *Environment) (*deployedAPIServer, error) {
-	config, err := kube.CreateConfig(env.ctx.KubeConfigPath())
-	if err != nil {
-		return nil, err
-	}
-	accessor, err := kube.NewAccessor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &deployedAPIServer{
-		env:      env,
-		accessor: accessor,
-	}, nil
-}
-
-// ApplyYaml applys the given Yaml context against the target API Server.
+// ApplyYaml applies the given Yaml context against the target API Server.
 func (a *deployedAPIServer) ApplyYaml(yml string) error {
-	return kube.ApplyContents(a.env.ctx.KubeConfigPath(), a.env.TestNamespace, yml)
+	return kube.ApplyContents(a.ctx.Settings().KubeConfig, a.env.TestNamespace, yml)
 }
