@@ -99,10 +99,11 @@ func getTopics() []topic {
 	var topics []topic
 
 	topicMutex.Lock()
+	defer topicMutex.Unlock()
+
 	for _, t := range allTopics {
 		topics = append(topics, topic{Name: t.Title(), URL: "/" + t.Prefix() + "z/"})
 	}
-	topicMutex.Unlock()
 
 	return topics
 }
@@ -110,8 +111,9 @@ func getTopics() []topic {
 // RegisterTopic registers a new Control-Z topic for the current process.
 func RegisterTopic(t fw.Topic) {
 	topicMutex.Lock()
+	defer topicMutex.Unlock()
+
 	allTopics = append(allTopics, t)
-	topicMutex.Unlock()
 }
 
 // Run starts up the ControlZ listeners.
@@ -193,7 +195,7 @@ func Run(o *Options, customTopics []fw.Topic) {
 
 // Stop terminates ControlZ.
 //
-// Stop is hot normally used by programs that expose ControlZ, it is primarily intended to be
+// Stop is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func Stop() {
 	wait := false
@@ -203,6 +205,7 @@ func Stop() {
 		server.Close()
 		wait = true
 	} else {
+		// prevent any in-progress calls to Run from succeeding
 		abort = true
 	}
 	shutdownMutex.Unlock()
