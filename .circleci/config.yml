@@ -349,8 +349,7 @@ jobs:
           command: |
             make localTestEnv
             cd /go/src/istio.io/istio
-            # Not failing if coverage number changes - integration tests are still not counted,
-            MAXPROCS=6 bin/codecov.sh || true
+            MAXPROCS=6 bin/codecov.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
