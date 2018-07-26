@@ -23,18 +23,16 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 import istio_common_dag
 
-monthly_extra_params = ['DOCKER_HUB', 'GCR_RELEASE_DEST', 'GCS_GITHUB_PATH',
-                        'RELEASE_PROJECT_ID', 'GCS_MONTHLY_RELEASE_PATH']
-bash_settings_prefix = istio_common_dag.get_bash_settings_template(
-        environment_config.get_default_config_keys(),
-        monthly_extra_params)
+#bash_settings_prefix = istio_common_dag.GetBashSettingsTemplate(monthly_extra_params) KPTD
 
-def test_monthly_config_settings(config_settings):
+monthly_extra_params = ['DOCKER_HUB', 'GCR_RELEASE_DEST', 'GCS_GITHUB_PATH',
+                          'RELEASE_PROJECT_ID', 'GCS_MONTHLY_RELEASE_PATH']
+def testMonthlyConfigSettings(config_settings):
   tmp_settings = dict(config_settings)
   for key in monthly_extra_params:
     # pop throws keyerror if it cant find key, which is what we want
     tmp_settings.pop(key)
-  for key in environment_config.get_default_config_keys():
+  for key in environment_config.GetDefaultAirflowConfigKeys():
     # pop throws keyerror if it cant find key, which is what we want
     tmp_settings.pop(key)
   if len(tmp_settings) != 0:
@@ -66,7 +64,7 @@ def MonthlyPipeline():
     Variable.set('monthly-branch', 'INVALID')
     mfest_commit = conf.get('MFEST_COMMIT') or branch
 
-    default_conf = environment_config.get_default_config(
+    default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
@@ -89,13 +87,14 @@ def MonthlyPipeline():
     for name in monthly_conf.iterkeys():
       config_settings[name] = conf.get(name) or monthly_conf[name]
 
-    test_monthly_config_settings(config_settings)
+    testMonthlyConfigSettings(config_settings)
     return config_settings
 
-  dag, tasks = istio_common_dag.MakeCommonDag(
+  dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
     MonthlyGenerateTestArgs,
     'istio_monthly_dag',
-    schedule_interval=MONTHLY_RELEASE_TRIGGER)
+    schedule_interval=MONTHLY_RELEASE_TRIGGER,
+    extra_param_lst=monthly_extra_params)
 
   release_push_github_docker_template = """
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}

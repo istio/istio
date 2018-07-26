@@ -25,10 +25,11 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import BranchPythonOperator
 
 import environment_config
+import istio_common_dag
 
-def test_daily_config_settings(config_settings):
+def testDailyConfigSettings(config_settings):
   tmp_settings = dict(config_settings)
-  for key in environment_config.get_default_config_keys():
+  for key in environment_config.GetDefaultAirflowConfigKeys():
     # pop throws keyerror if it cant find key, which is what we want
     tmp_settings.pop(key)
   if len(tmp_settings) != 0:
@@ -141,7 +142,7 @@ def DailyPipeline(branch):
        # MFEST_COMMIT is of the form '{branch}@{{{timestamp}}}',
        mfest_commit = '%s@{%s}' % (branch, timestamp)
 
-    default_conf = environment_config.get_default_config(
+    default_conf = environment_config.GetDefaultAirflowConfig(
         branch=branch,
         gcs_path=gcs_path,
         mfest_commit=mfest_commit,
@@ -153,11 +154,11 @@ def DailyPipeline(branch):
     for name in default_conf.iterkeys():
       config_settings[name] = conf.get(name) or default_conf[name]
 
-    test_daily_config_settings(config_settings)
+    testDailyConfigSettings(config_settings)
     return config_settings
 
   dag_name = 'istio_daily_' + branch
-  dag, tasks = istio_common_dag.MakeCommonDag(
+  dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
        DailyGenerateTestArgs,
        name=dag_name, schedule_interval='15 9 * * *')
   tasks['mark_daily_complete'] = MakeMarkComplete(dag)

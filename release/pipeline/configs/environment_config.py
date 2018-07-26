@@ -30,7 +30,7 @@ airflow_fixed_config = dict(
     TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
 
-def get_default_config(branch, gcs_path, mfest_commit, pipeline_type
+def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
 			verify_consistency, version):
   """Return a dict of the configuration for the Pipeline."""
   config = dict(airflow_fixed_config)
@@ -59,8 +59,8 @@ def get_default_config(branch, gcs_path, mfest_commit, pipeline_type
   return config
 
 
-def get_default_config_keys():
+def GetDefaultAirflowConfigKeys():
   """Return a list of the keys of configuration for the Pipeline."""
-  dc = get_default_config(branch="", gcs_path="", mfest_commit="", pipeline_type=""
+  dc = GetDefaultAirflowConfig(branch="", gcs_path="", mfest_commit="", pipeline_type="",
 			verify_consistency="", version="")
   return list(dc.keys())
