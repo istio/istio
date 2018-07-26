@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"crypto/sha1"
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -327,6 +328,23 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
 		for _, server := range servers {
+			// Workaround for race condition in Envoy where two listeners share same RDS object (l1, l2, rA).
+			// When one of them (l1) is being updated/drained and an RDS update (rA) arrives at same time,
+			// a race condition causes RDS update to refer to the no-longer-existing listener (l1-drained) -
+			// which in turn results in a segfault.
+			// This could happen when someone renames a server's port causing listener update (e.g., https-foo to https-bar),
+			// and renames another server's port to be the same as the previous port name (https->https-foo). If l1 was using server1
+			// with rds https.443.https-foo and l2 was using rds https.443.https, this renaming would result in
+			// new LDS push to the listener l1 , with same RDS resource name as the one referred to by the first listener that is being
+			// drained/updated.
+			// This does not happen for sidecars or HTTP gateways as all servers share same RDS (http.portnum)
+			// For https, we have RDS per server as each of them resides on a different filter chain with different
+			// sets of servers.
+			// Do not use timestamp or resource versions instead of SHA. It will cause unnecessary listener reloads
+			// in Envoy and break streaming gRPC connections.
+			serverBytes, _ := server.Marshal()
+			serverHash := sha1.Sum(serverBytes)
+			rdsName := fmt.Sprintf("%s-%x", model.GatewayRDSRouteName(server), serverHash[:4])
 			o := &filterChainOpts{
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
@@ -334,7 +352,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				sniHosts:   getSNIHostsForServer(server),
 				tlsContext: buildGatewayListenerTLSContext(server),
 				httpOpts: &httpListenerOpts{
-					rds:              model.GatewayRDSRouteName(server),
+					rds:              rdsName,
 					useRemoteAddress: true,
 					direction:        http_conn.EGRESS, // viewed as from gateway to internal
 				},
