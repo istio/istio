@@ -64,6 +64,18 @@ func TestServiceEntry(t *testing.T) {
 			url:               "https://google.com",
 			shouldBeReachable: false,
 		},
+		{
+			name:              "REACHABLE_google.com_over_google_sni",
+			config:            "testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+			url:               "https://www.google.com",
+			shouldBeReachable: true,
+		},
+		{
+			name:              "UNREACHABLE_wikipedia.org_over_google_sni",
+			config:            "testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+			url:               "https://wikipedia.org",
+			shouldBeReachable: false,
+		},
 	}
 
 	var cfgs *deployableConfig
