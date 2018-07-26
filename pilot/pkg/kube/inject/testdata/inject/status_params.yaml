@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: statusPort
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: status
+    spec:
+      containers:
+      - name: status
+        image: "fake.docker.io/google-samples/traffic-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 80
