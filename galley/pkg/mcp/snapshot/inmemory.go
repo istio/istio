@@ -20,6 +20,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 
@@ -27,43 +30,143 @@ import (
 type InMemory struct {
 	envelopes map[string][]*mcp.Envelope
 	versions  map[string]string
-
-	frozen bool
 }
 
 var _ Snapshot = &InMemory{}
 
-// NewInMemory creates a new InMemory snapshot implementation
-func NewInMemory() *InMemory {
-	return &InMemory{
+// InMemoryBuilder is a builder for an InMemory snapshot.
+type InMemoryBuilder struct {
+	snapshot *InMemory
+}
+
+// NewInMemoryBuilder creates and returns a new InMemoryBuilder.
+func NewInMemoryBuilder() *InMemoryBuilder {
+	snapshot := &InMemory{
 		envelopes: make(map[string][]*mcp.Envelope),
 		versions:  make(map[string]string),
 	}
-}
 
-// Resources is an implementation of Snapshot.Resources
-func (s *InMemory) Resources(typ string) []*mcp.Envelope {
-	return s.envelopes[typ]
-}
-
-// Version is an implementation of Snapshot.Version
-func (s *InMemory) Version(typ string) string {
-	return s.versions[typ]
+	return &InMemoryBuilder{
+		snapshot: snapshot,
+	}
 }
 
 // Set the values for a given type. If Set is called after a call to Freeze, then this method panics.
-func (s *InMemory) Set(typ string, version string, resources []*mcp.Envelope) {
-	if s.frozen {
-		panic("InMemory.Set: Snapshot is frozen")
-	}
-
-	s.envelopes[typ] = resources
-	s.versions[typ] = version
+func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.Envelope) {
+	b.snapshot.envelopes[typeURL] = resources
+	b.snapshot.versions[typeURL] = version
 }
 
-// Freeze the snapshot, so that it won't get mutated anymore.
-func (s *InMemory) Freeze() {
-	s.frozen = true
+// SetEntry sets a single entry. Note that this is a slow operation, as update requires scanning
+// through existing entries.
+func (b *InMemoryBuilder) SetEntry(typeURL string, name string, m proto.Message) error {
+	contents, err := proto.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	e := &mcp.Envelope{
+		Metadata: &mcp.Metadata{
+			Name: name,
+		},
+		Resource: &types.Any{
+			Value:   contents,
+			TypeUrl: typeURL,
+		},
+	}
+
+	entries := b.snapshot.envelopes[typeURL]
+
+	for i, prev := range entries {
+		if prev.Metadata.Name == e.Metadata.Name {
+			entries[i] = e
+			return nil
+		}
+	}
+
+	entries = append(entries, e)
+	b.snapshot.envelopes[typeURL] = entries
+	return nil
+}
+
+// DeleteEntry deletes the entry with the given typeuRL, name
+func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
+
+	entries, found := b.snapshot.envelopes[typeURL]
+	if !found {
+		return
+	}
+
+	for i, e := range entries {
+		if e.Metadata.Name == name {
+			if len(entries) == 1 {
+				delete(b.snapshot.envelopes, typeURL)
+				delete(b.snapshot.versions, typeURL)
+				return
+			}
+
+			entries = append(entries[:i], entries[i+1:]...)
+			b.snapshot.envelopes[typeURL] = entries
+
+			return
+		}
+	}
+}
+
+// SetVersion ets the version for the given type URL.
+func (b *InMemoryBuilder) SetVersion(typeURL string, version string) {
+	b.snapshot.versions[typeURL] = version
+}
+
+// Build the snapshot and return.
+func (b *InMemoryBuilder) Build() *InMemory {
+	sn := b.snapshot
+
+	// Avoid mutation after build
+	b.snapshot = nil
+
+	return sn
+}
+
+// Resources is an implementation of Snapshot.Resources
+func (s *InMemory) Resources(typeURL string) []*mcp.Envelope {
+	return s.envelopes[typeURL]
+}
+
+// Version is an implementation of Snapshot.Version
+func (s *InMemory) Version(typeURL string) string {
+	return s.versions[typeURL]
+}
+
+// Clone this snapshot.
+func (s *InMemory) Clone() *InMemory {
+	c := &InMemory{
+		envelopes: make(map[string][]*mcp.Envelope),
+		versions:  make(map[string]string),
+	}
+
+	for k, v := range s.versions {
+		c.versions[k] = v
+	}
+
+	for k, v := range s.envelopes {
+		envs := make([]*mcp.Envelope, len(v))
+		for i, e := range v {
+			envs[i] = proto.Clone(e).(*mcp.Envelope)
+		}
+		c.envelopes[k] = envs
+	}
+
+	return c
+}
+
+// Builder returns a new builder instance, based on the contents of this snapshot.
+func (s *InMemory) Builder() *InMemoryBuilder {
+	snapshot := s.Clone()
+
+	return &InMemoryBuilder{
+		snapshot: snapshot,
+	}
 }
 
 func (s *InMemory) String() string {

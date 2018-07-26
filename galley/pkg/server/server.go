@@ -23,11 +23,13 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/kube/source"
+	"istio.io/istio/galley/pkg/metadata"
+
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
@@ -59,7 +61,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		logConfigure:          log.Configure,
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
-		newSource:             kube.NewSource,
+		newSource:             source.New,
 		netListen:             net.Listen,
 	}
 }
@@ -89,7 +91,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	distributor := snapshot.New()
 	s.processor = runtime.NewProcessor(src, distributor)
 
-	s.mcp = server.New(distributor, resource.Types.TypeURLs())
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs())
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))

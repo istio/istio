@@ -64,7 +64,7 @@ type protoDef struct {
 
 func main() {
 	if len(os.Args) != 5 {
-		fmt.Printf(usage)
+		fmt.Print(usage)
 		fmt.Printf("%v\n", os.Args)
 		os.Exit(-1)
 	}
@@ -78,7 +78,7 @@ func main() {
 		isRuntime = true
 	default:
 		fmt.Printf("Unknown target: %v", os.Args[2])
-		fmt.Printf(usage)
+		fmt.Print(usage)
 		os.Exit(-1)
 	}
 
@@ -184,49 +184,60 @@ func readMetadata(path string) (*metadata, error) {
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/runtime/resource/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
 //
 
-package resource
+package metadata
 
 import (
 // Pull in all the known proto types to ensure we get their types registered.
 {{range .ProtoGoPackages}}	_ "{{.}}"
+	"istio.io/istio/galley/pkg/runtime/resource"
 {{end}}
 )
 
 // Types of known resources.
-var Types = NewSchema()
+var Types *resource.Schema
 
 func init() {
-{{range .ProtoDefs}}	Types.Register("type.googleapis.com/{{.MessageName}}", {{.Gogo}})
-{{end}}}
+	b := resource.NewSchemaBuilder()
+{{range .ProtoDefs}}	b.Register("type.googleapis.com/{{.MessageName}}", {{.Gogo}})
+{{end}}
+    Types = b.Build()
+}
 `
 
 const kubeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
-//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh kube pkg/kube/types.go
+//go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh kube pkg/metadata/kube/types.go
 //
 
 package kube
 
+import (
+	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/converter"
+)
+
 // Types in the schema.
-var Types = Schema{}
+var Types *kube.Schema
 
 func init() {
+	b := kube.NewSchemaBuilder()
 {{range .Items}}
-	Types.add(ResourceSpec{
+	b.Add(kube.ResourceSpec{
 		Kind:       "{{.Kind}}",
 		ListKind:   "{{.ListKind}}",
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
-		Target:     getTargetFor("type.googleapis.com/{{.Proto}}"),
+		Target:     metadata.Types.Get("type.googleapis.com/{{.Proto}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
 {{end}}
+	Types = b.Build()
 }
 `
 
