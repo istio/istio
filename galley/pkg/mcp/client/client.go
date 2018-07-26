@@ -120,7 +120,7 @@ type recentRequestsJournal struct {
 	items      []RecentRequestInfo
 }
 
-func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) {
+func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
 	r.itemsMutex.Lock()
 	defer r.itemsMutex.Unlock()
 
