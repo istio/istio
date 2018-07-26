@@ -37,7 +37,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -262,6 +261,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
+			// TODO(incfly): finish the logic here, consume the FilterChain.RequiredListenerFilters.
+			allChains := []plugin.FilterChain{}
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
 					ListenerProtocol: listenerType,
@@ -272,33 +273,54 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 					Port:             endpoint.ServicePort,
 				}
 				chains := p.OnFilterChains(params)
-				// TODO(incfly): finish the logic here, consume the FilterChain.RequiredListenerFilters.
-				if len(chains) != 0 {
+				if len(chains) == 0 {
+					continue
 				}
-			}
-			found := false
-			for _, p := range configgen.Plugins {
-				if authnPolicy, ok := p.(authn.Plugin); ok {
-					matches, tls, requireTLSInspector := authnPolicy.SetupFilterChains(
-						env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
-					listenerOpts.requireTLSInspector = requireTLSInspector
-					for i, match := range matches {
-						listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-							httpOpts:   httpOpts,
-							match:      match,
-							tlsContext: tls[i],
-						})
-					}
-					found = true
+				if len(allChains) != 0 {
+					log.Errorf("Found two plugin returns non empty filter chains")
+					allChains = []plugin.FilterChain{}
 					break
 				}
+				allChains = chains
 			}
-			if !found {
-				log.Errorf("Do not found authentication plugin!")
-				listenerOpts.filterChainOpts = []*filterChainOpts{
-					{httpOpts: httpOpts},
-				}
+			// Construct the default filter chain.
+			if len(allChains) == 0 {
+				log.Infof("Use default filter chain for %v", endpoint)
+				allChains = []plugin.FilterChain{plugin.FilterChain{}}
 			}
+			for _, chain := range allChains {
+				fmt.Printf("endpint %v, chain %v\n", endpoint, chain)
+				listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+					httpOpts:        httpOpts,
+					tlsContext:      chain.TLSContext,
+					match:           chain.FilterChainMatch,
+					listenerFilters: chain.RequiredListenerFilters,
+				})
+			}
+
+			// found := false
+			// for _, p := range configgen.Plugins {
+			// 	if authnPolicy, ok := p.(authn.Plugin); ok {
+			// 		matches, tls, requireTLSInspector := authnPolicy.SetupFilterChains(
+			// 			env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
+			// 		listenerOpts.requireTLSInspector = requireTLSInspector
+			// 		for i, match := range matches {
+			// 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+			// 				httpOpts:   httpOpts,
+			// 				match:      match,
+			// 				tlsContext: tls[i],
+			// 			})
+			// 		}
+			// 		found = true
+			// 		break
+			// 	}
+			// }
+			// if !found {
+			// 	log.Errorf("Do not found authentication plugin!")
+			// 	listenerOpts.filterChainOpts = []*filterChainOpts{
+			// 		{httpOpts: httpOpts},
+			// 	}
+			// }
 		case plugin.ListenerProtocolTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				networkFilters: buildInboundNetworkFilters(instance),
@@ -767,6 +789,7 @@ type filterChainOpts struct {
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	match            *listener.FilterChainMatch
+	listenerFilters  []listener.ListenerFilter
 	networkFilters   []listener.Filter
 }
 
@@ -866,18 +889,26 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 
+	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
-	if opts.requireTLSInspector {
-		listenerFilters = []listener.ListenerFilter{
-			{
-				Name:   authn.EnvoyTLSInspectorFilterName,
-				Config: &google_protobuf.Struct{},
-			},
-		}
-	}
+	// var listenerFilters []listener.ListenerFilter
+	// if opts.requireTLSInspector {
+	// 	listenerFilters = []listener.ListenerFilter{
+	// 		{
+	// 			Name:   authn.EnvoyTLSInspectorFilterName,
+	// 			Config: &google_protobuf.Struct{},
+	// 		},
+	// 	}
+	// }
 
 	for _, chain := range opts.filterChainOpts {
+		listenerFilters = append(listenerFilters, chain.listenerFilters...)
 		match := &listener.FilterChainMatch{}
+		needMatch := false
+		if chain.match != nil {
+			needMatch = true
+			match = chain.match
+		}
 		if len(chain.sniHosts) > 0 {
 			sort.Strings(chain.sniHosts)
 			fullWildcardFound := false
@@ -893,7 +924,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.ServerNames = chain.sniHosts
 			}
 		}
-
 		if len(chain.destinationCIDRs) > 0 {
 			sort.Strings(chain.destinationCIDRs)
 			for _, d := range chain.destinationCIDRs {
@@ -909,7 +939,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 		// TODO(incfly): might need to tweak logic here, since empty match is needed
 		// for multiplexing.
-		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+		if !needMatch && reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
 		filterChains = append(filterChains, listener.FilterChain{

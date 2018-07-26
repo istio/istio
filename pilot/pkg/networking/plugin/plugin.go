@@ -93,7 +93,7 @@ type FilterChain struct {
 	TLSContext *auth.DownstreamTlsContext
 	// RequiredListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
-	RequiredListenerFilters []*listener.ListenerFilter
+	RequiredListenerFilters []listener.ListenerFilter
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.

@@ -145,7 +145,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 					{
 						FilterChainMatch: alpnIstioMatch,
 						TLSContext:       tls,
-						RequiredListenerFilters: []*ldsv2.ListenerFilter{
+						RequiredListenerFilters: []ldsv2.ListenerFilter{
 							{
 								Name:   EnvoyTLSInspectorFilterName,
 								Config: &types.Struct{},
@@ -154,12 +154,6 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 					},
 					{
 						FilterChainMatch: &ldsv2.FilterChainMatch{},
-						RequiredListenerFilters: []*ldsv2.ListenerFilter{
-							{
-								Name:   EnvoyTLSInspectorFilterName,
-								Config: &types.Struct{},
-							},
-						},
 					},
 				}
 			}
@@ -456,7 +450,8 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		// TODO(incfly): incorporate this in the
+		// TODO(incfly): delete and incmorprate this check in the OnFilterChains handling.
+		// 0723 HERE: WIP, must handle this, otherwise multiplexing not working.
 		// if in.Node.Type == model.Sidecar {
 		// 	// Add TLS context only for sidecars. Not for gateways that already have TLS context
 		// 	chain := &mutable.Listener.FilterChains[i]
@@ -473,6 +468,48 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		}
 	}
 
+	return nil
+}
+
+// TODO(incfly): delete this, just to get the test passing.
+func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType) *auth.DownstreamTlsContext {
+	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
+		return nil
+	}
+	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, proxyType); requireTLS {
+		return &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.CertChainFilename,
+							},
+						},
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.KeyFilename,
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: model.AuthCertsPath + model.RootCertFilename,
+							},
+						},
+					},
+				},
+				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
+				AlpnProtocols: []string{"h2", "http/1.1"},
+			},
+			RequireClientCertificate: &types.BoolValue{
+				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
+			},
+		}
+	}
 	return nil
 }
 
