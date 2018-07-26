@@ -12,38 +12,48 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pilot
+package local
 
 import (
 	"context"
+	"net"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/framework/environment"
 )
 
-type deployedPilot struct {
-	model.ConfigStoreCache
-	server *bootstrap.Server
-	client *pilotClient
-	stop   chan struct{}
+// PilotConfig provides the options for creating a local pilot.
+type PilotConfig struct {
+	Namespace string
+	Mesh      *meshconfig.MeshConfig
+	Options   envoy.DiscoveryServiceOptions
 }
 
-// NewPilot creates a new local pilot instance.
-func NewPilot(args Args) (environment.DeployedPilot, error) {
+type deployedPilot struct {
+	model.ConfigStoreCache
+	server   *bootstrap.Server
+	client   *pilotClient
+	stopChan chan struct{}
+}
+
+// NewPilot creates a new local pilot instance. The returned object implements io.Closer.
+func NewPilot(cfg PilotConfig) (dp environment.DeployedPilot, err error) {
 	// Use an in-memory config store.
 	configController := memory.NewController(memory.Make(model.IstioConfigTypes))
 
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        args.Namespace,
-		DiscoveryOptions: args.Options,
-		MeshConfig:       args.Mesh,
+		Namespace:        cfg.Namespace,
+		DiscoveryOptions: cfg.Options,
+		MeshConfig:       cfg.Mesh,
 		Config: bootstrap.ConfigArgs{
 			Controller: configController,
 		},
@@ -61,24 +71,26 @@ func NewPilot(args Args) (environment.DeployedPilot, error) {
 		return nil, err
 	}
 
-	client, err := newPilotClient(server.GRPCListeningAddr.String())
+	client, err := newPilotClient(server.GRPCListeningAddr.(*net.TCPAddr))
 	if err != nil {
 		return nil, err
 	}
 
 	// Start the server
-	stop := make(chan struct{})
-	_, err = server.Start(stop)
+	stopChan := make(chan struct{})
+	_, err = server.Start(stopChan)
 	if err != nil {
 		return nil, err
 	}
 
-	return &deployedPilot{
+	p := &deployedPilot{
 		ConfigStoreCache: configController,
 		server:           server,
 		client:           client,
-		stop:             stop,
-	}, nil
+		stopChan:         stopChan,
+	}
+
+	return p, nil
 }
 
 // CallDiscovery implements the DeployedPilot interface.
@@ -86,19 +98,21 @@ func (p *deployedPilot) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.Dis
 	return p.client.callDiscovery(req)
 }
 
-// Stop stops the pilot server. TODO(nmittler): Need to make this part of the API.
-func (p *deployedPilot) Stop() {
+// Stop stops the pilot server.
+func (p *deployedPilot) Close() error {
 	p.client.close()
-	p.stop <- struct{}{}
+	p.stopChan <- struct{}{}
+	return nil
 }
 
 type pilotClient struct {
-	conn   *grpc.ClientConn
-	stream adsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	discoveryAddr *net.TCPAddr
+	conn          *grpc.ClientConn
+	stream        adsapi.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 }
 
-func newPilotClient(grpcAddr string) (*pilotClient, error) {
-	conn, err := grpc.Dial(grpcAddr, grpc.WithInsecure())
+func newPilotClient(discoveryAddr *net.TCPAddr) (*pilotClient, error) {
+	conn, err := grpc.Dial(discoveryAddr.String(), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +124,9 @@ func newPilotClient(grpcAddr string) (*pilotClient, error) {
 	}
 
 	return &pilotClient{
-		conn:   conn,
-		stream: stream,
+		conn:          conn,
+		stream:        stream,
+		discoveryAddr: discoveryAddr,
 	}, nil
 }
 

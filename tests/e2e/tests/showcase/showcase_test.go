@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 // Capturing TestMain allows us to:
@@ -31,36 +31,31 @@ func TestMain(m *testing.M) {
 	// Indicates that all tests in the suite requires a particular dependency.
 	//test.SuiteRequires(m, dependency.GKE)
 
-	test.Run("showcase_test", m)
-}
-
-// Ignore this test with a reason. Uses Go's "Skip"
-func TestIgnored(t *testing.T) {
-	test.Ignore(t, "bad test")
+	framework.Run("showcase_test", m)
 }
 
 // Requirement checks and ensures that the specified requirement can be satisfied.
 // In this case, the "Apps" and "Pilot" dependencies will be initialized (once per running suite) and be
 // available for use.
 func TestRequirement_Apps(t *testing.T) {
-	test.Requires(t, dependency.Apps, dependency.Pilot)
+	framework.Requires(t, dependency.Apps, dependency.Pilot)
 
 }
 
 // Require (specifically) a GKE cluster.
 func TestRequirement_GKE(t *testing.T) {
-	test.Requires(t, dependency.GKE) // We specifically need GKE
+	framework.Requires(t, dependency.GKE) // We specifically need GKE
 
 	// ....
 }
 
 func TestFull(t *testing.T) {
-	test.Requires(t, dependency.Apps, dependency.Pilot, dependency.Mixer, dependency.PolicyBackend)
+	framework.Requires(t, dependency.Apps, dependency.Pilot, dependency.Mixer, dependency.PolicyBackend)
 
 	// Environment is the main way to interact with Istio components and the testing apparatus. Environment
 	// encapsulates the specifics (i.e. whether it is based on local processes, or cluster) but exposes a
 	// uniform an API.
-	env := test.AcquireEnvironment(t)
+	env := framework.AcquireEnvironment(t)
 
 	// Configure the environment for this particular test.
 	cfg := `

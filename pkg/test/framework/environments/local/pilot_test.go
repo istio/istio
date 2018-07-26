@@ -12,10 +12,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package pilot
+package local_test
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -26,12 +27,15 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/environments/local"
 )
 
 func TestLocalPilot(t *testing.T) {
 	// Create and start the pilot discovery service.
-	pilot, stopFunc := newPilot(t)
-	defer stopFunc()
+	pilot := newPilot(t)
+	defer func() {
+		pilot.(io.Closer).Close()
+	}()
 
 	// Add a service entry.
 	_, err := pilot.Create(model.Config{
@@ -84,7 +88,7 @@ func TestLocalPilot(t *testing.T) {
 	t.Fatal(fmt.Errorf("service entry not found in pilot discovery service"))
 }
 
-func newPilot(t *testing.T) (environment.DeployedPilot, func()) {
+func newPilot(t *testing.T) environment.DeployedPilot {
 	t.Helper()
 	mesh := model.DefaultMeshConfig()
 	options := envoy.DiscoveryServiceOptions{
@@ -94,7 +98,7 @@ func newPilot(t *testing.T) (environment.DeployedPilot, func()) {
 		SecureGrpcAddr: ":0",
 	}
 
-	pilot, err := NewPilot(Args{
+	pilot, err := local.NewPilot(local.PilotConfig{
 		Namespace: "istio-system",
 		Mesh:      &mesh,
 		Options:   options,
@@ -104,9 +108,5 @@ func newPilot(t *testing.T) (environment.DeployedPilot, func()) {
 		t.Fatal(err)
 	}
 
-	stopFunc := func() {
-		pilot.(*deployedPilot).Stop()
-	}
-
-	return pilot, stopFunc
+	return pilot
 }

@@ -36,13 +36,5 @@ type PortManager interface {
 
 // NewPortManager allocates a new PortManager
 func NewPortManager() (mgr PortManager, err error) {
-	var pool []ReservedPort
-	pool, err = allocatePool(poolSize)
-	if err != nil {
-		return nil, err
-	}
-
-	return &managerImpl{
-		pool: pool,
-	}, nil
+	return &managerImpl{}, nil
 }

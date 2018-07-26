@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/environments/local/pilot"
 	"istio.io/istio/pkg/test/framework/internal"
 	"istio.io/istio/pkg/test/framework/tmpl"
 )
@@ -250,7 +249,7 @@ func newPilot() (environment.DeployedPilot, error) {
 	// TODO(nmittler): We need a way to know whether or not mixer will be required.
 	mesh := model.DefaultMeshConfig()
 
-	args := pilot.Args{
+	return NewPilot(PilotConfig{
 		Namespace: namespace,
 		Options: envoy.DiscoveryServiceOptions{
 			HTTPAddr:       ":0",
@@ -259,6 +258,5 @@ func newPilot() (environment.DeployedPilot, error) {
 			SecureGrpcAddr: ":0",
 		},
 		Mesh: &mesh,
-	}
-	return pilot.NewPilot(args)
+	})
 }
