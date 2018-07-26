@@ -139,7 +139,7 @@ type Plugin interface {
 	// OnInboundRouteConfiguration is called whenever a new set of virtual hosts are added to the inbound path.
 	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
 
-	// OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
+	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
-	OnFilterChains(in *InputParams) []FilterChain
+	OnInboundFilterChains(in *InputParams) []FilterChain
 }

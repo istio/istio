@@ -271,7 +271,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 					ServiceInstance:  instance,
 					Port:             endpoint.ServicePort,
 				}
-				chains := p.OnFilterChains(params)
+				chains := p.OnInboundFilterChains(params)
 				if len(chains) == 0 {
 					continue
 				}

@@ -164,8 +164,8 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 	return nil
 }
 
-// OnFilterChains setups filter chains based on the authentication policy.
-func (Plugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+// OnInboundFilterChains setups filter chains based on the authentication policy.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	hostname := in.ServiceInstance.Service.Hostname
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)

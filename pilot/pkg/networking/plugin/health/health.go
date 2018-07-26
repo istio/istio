@@ -137,7 +137,7 @@ func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push 
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
-// OnFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (Plugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
