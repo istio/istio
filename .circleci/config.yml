@@ -354,7 +354,7 @@ jobs:
       - run:
           name: Uploading code coverage to codecov.io
           when: always
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.txt
+          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.cov
       - store_artifacts:
           path: /go/out/codecov
 
