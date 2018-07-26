@@ -899,7 +899,7 @@ func TestBuildFilterChains(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
-					RequiredListenerFilters: []*listener.ListenerFilter{
+					RequiredListenerFilters: []listener.ListenerFilter{
 						{
 							Name:   "envoy.listener.tls_inspector",
 							Config: &types.Struct{},
@@ -908,7 +908,7 @@ func TestBuildFilterChains(t *testing.T) {
 				},
 				{
 					FilterChainMatch: &listener.FilterChainMatch{},
-					RequiredListenerFilters: []*listener.ListenerFilter{
+					RequiredListenerFilters: []listener.ListenerFilter{
 						{
 							Name:   "envoy.listener.tls_inspector",
 							Config: &types.Struct{},

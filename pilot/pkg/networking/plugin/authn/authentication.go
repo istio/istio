@@ -29,7 +29,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -171,72 +170,6 @@ func (Plugin) OnFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)
 	return setupFilterChains(authnPolicy)
-}
-
-// SetupFilterChains returns a FilterChainMatch and corresponding TLSContext for each filter chain, and a bool
-// to indicate whether the `tls_inspector` listener filter is needed.
-func (Plugin) SetupFilterChains(mesh *meshconfig.MeshConfig, store model.IstioConfigStore,
-	hostname model.Hostname, port *model.Port) ([]*ldsv2.FilterChainMatch, []*auth.DownstreamTlsContext, bool) {
-	matches := []*ldsv2.FilterChainMatch{nil}
-	tlsSettings := []*auth.DownstreamTlsContext{nil}
-
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
-	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
-		return matches, tlsSettings, false
-	}
-	alpnIstioMatch := &ldsv2.FilterChainMatch{
-		ApplicationProtocols: util.ALPNInMesh,
-	}
-	tls := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.CertChainFilename,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.KeyFilename,
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.AuthCertsPath + model.RootCertFilename,
-						},
-					},
-				},
-			},
-			AlpnProtocols: util.ALPNHttp,
-		},
-		RequireClientCertificate: &types.BoolValue{
-			Value: true,
-		},
-	}
-	for _, method := range authnPolicy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
-				log.Infof("Allow only istio mutual TLS traffic %v %v\n", hostname, port)
-				return []*ldsv2.FilterChainMatch{nil},
-					[]*auth.DownstreamTlsContext{tls}, false
-			}
-			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
-				log.Infof("Allow both, ALPN istio and legacy traffic %v %v\n", hostname, port)
-				return []*ldsv2.FilterChainMatch{alpnIstioMatch, {}},
-					[]*auth.DownstreamTlsContext{tls, nil}, true
-			}
-		default:
-			continue
-		}
-	}
-	// No peer authentication found.
-	return matches, tlsSettings, false
 }
 
 // JwksURIClusterName returns cluster name for the jwks URI. This should be used
@@ -450,13 +383,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
 	for i := range mutable.Listener.FilterChains {
-		// TODO(incfly): delete and incmorprate this check in the OnFilterChains handling.
-		// 0723 HERE: WIP, must handle this, otherwise multiplexing not working.
-		// if in.Node.Type == model.Sidecar {
-		// 	// Add TLS context only for sidecars. Not for gateways that already have TLS context
-		// 	chain := &mutable.Listener.FilterChains[i]
-		// 	chain.TlsContext = buildListenerTLSContext(authnPolicy, chain.FilterChainMatch, in.Node.Type)
-		// }
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := BuildJwtFilter(authnPolicy); filter != nil {
@@ -468,48 +394,6 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 		}
 	}
 
-	return nil
-}
-
-// TODO(incfly): delete this, just to get the test passing.
-func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.FilterChainMatch, proxyType model.NodeType) *auth.DownstreamTlsContext {
-	if match != nil && match.TransportProtocol == EnvoyRawBufferMatch {
-		return nil
-	}
-	if requireTLS, mTLSParams := RequireTLS(authenticationPolicy, proxyType); requireTLS {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.CertChainFilename,
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.KeyFilename,
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: model.AuthCertsPath + model.RootCertFilename,
-							},
-						},
-					},
-				},
-				// Same as ListenersALPNProtocols defined in listener. Need to move that constant else where in order to share.
-				AlpnProtocols: []string{"h2", "http/1.1"},
-			},
-			RequireClientCertificate: &types.BoolValue{
-				Value: !(mTLSParams != nil && mTLSParams.AllowTls),
-			},
-		}
-	}
 	return nil
 }
 

@@ -261,7 +261,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
-			// TODO(incfly): finish the logic here, consume the FilterChain.RequiredListenerFilters.
 			allChains := []plugin.FilterChain{}
 			for _, p := range configgen.Plugins {
 				params := &plugin.InputParams{
@@ -891,15 +890,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 
 	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
-	// var listenerFilters []listener.ListenerFilter
-	// if opts.requireTLSInspector {
-	// 	listenerFilters = []listener.ListenerFilter{
-	// 		{
-	// 			Name:   authn.EnvoyTLSInspectorFilterName,
-	// 			Config: &google_protobuf.Struct{},
-	// 		},
-	// 	}
-	// }
 
 	for _, chain := range opts.filterChainOpts {
 		listenerFilters = append(listenerFilters, chain.listenerFilters...)
@@ -937,8 +927,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 
-		// TODO(incfly): might need to tweak logic here, since empty match is needed
-		// for multiplexing.
 		if !needMatch && reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
