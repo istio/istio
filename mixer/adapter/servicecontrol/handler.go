@@ -106,7 +106,7 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 // nolint:golint
 // Disable lint warning of HandleApiKey name
 func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (adapter.CheckResult, error) {
-	svcProc, err := h.getServiceProcessor(ctx)
+	svcProc, err := h.getServiceProcessor(instance.Api)
 	if err != nil {
 		return adapter.CheckResult{
 			Status: status.WithPermissionDenied(err.Error()),
@@ -117,24 +117,34 @@ func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (
 
 // HandleServicecontrolReport handles reporting metrics and logs.
 func (h *handler) HandleServicecontrolReport(ctx context.Context, instances []*servicecontrolreport.Instance) error {
-	svcProc, err := h.getServiceProcessor(ctx)
-	if err != nil {
-		return err
+	// TODO: this is inefficient as it dispatches each report individually, instead of grouping them by the service
+	for _, instance := range instances {
+		svcProc, err := h.getServiceProcessor(instance.ApiService)
+		if err != nil {
+			return err
+		}
+		if err = svcProc.ProcessReport(ctx, []*servicecontrolreport.Instance{instance}); err != nil {
+			return err
+		}
 	}
-	return svcProc.ProcessReport(ctx, instances)
+	return nil
 }
 
 // HandleQuota handles rate limiting quota.
 func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance,
 	args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	svcProc, err := h.getServiceProcessor(ctx)
-	if err != nil {
-		return adapter.QuotaResult{
-			// This map to rpc.INTERNAL.
-			Status: status.WithError(err),
-		}, nil
-	}
-	return svcProc.ProcessQuota(ctx, instance, args)
+
+	/*
+		svcProc, err := h.getServiceProcessor(instance.Api)
+		if err != nil {
+			return adapter.QuotaResult{
+				// This map to rpc.INTERNAL.
+				Status: status.WithError(err),
+			}, nil
+		}
+		return svcProc.ProcessQuota(ctx, instance, args)
+	*/
+	return adapter.QuotaResult{}, errors.New("not implemented")
 }
 
 // Close closes a handler.
@@ -149,13 +159,7 @@ func (h *handler) Close() error {
 	return nil
 }
 
-func (h *handler) getServiceProcessor(ctx context.Context) (*serviceProcessor, error) {
-	requestData, ok := adapter.RequestDataFromContext(ctx)
-	if !ok {
-		return nil, errors.New(`no RequestData found in context`)
-	}
-
-	serviceFullName := requestData.DestinationService.FullName
+func (h *handler) getServiceProcessor(serviceFullName string) (*serviceProcessor, error) {
 	if _, ok := h.ctx.serviceConfigIndex[serviceFullName]; !ok {
 		return nil, fmt.Errorf("unknown service %v", serviceFullName)
 	}
