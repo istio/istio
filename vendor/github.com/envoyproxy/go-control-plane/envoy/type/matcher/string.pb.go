@@ -15,12 +15,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
-
 // Specifies the way to match a string.
 type StringMatcher struct {
 	// Types that are valid to be assigned to MatchPattern:
@@ -28,44 +22,13 @@ type StringMatcher struct {
 	//	*StringMatcher_Prefix
 	//	*StringMatcher_Suffix
 	//	*StringMatcher_Regex
-	MatchPattern         isStringMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
-	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
-	XXX_unrecognized     []byte                       `json:"-"`
-	XXX_sizecache        int32                        `json:"-"`
+	MatchPattern isStringMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
 }
 
-func (m *StringMatcher) Reset()         { *m = StringMatcher{} }
-func (m *StringMatcher) String() string { return proto.CompactTextString(m) }
-func (*StringMatcher) ProtoMessage()    {}
-func (*StringMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_string_188eea03d226878f, []int{0}
-}
-func (m *StringMatcher) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *StringMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_StringMatcher.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *StringMatcher) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StringMatcher.Merge(dst, src)
-}
-func (m *StringMatcher) XXX_Size() int {
-	return m.Size()
-}
-func (m *StringMatcher) XXX_DiscardUnknown() {
-	xxx_messageInfo_StringMatcher.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StringMatcher proto.InternalMessageInfo
+func (m *StringMatcher) Reset()                    { *m = StringMatcher{} }
+func (m *StringMatcher) String() string            { return proto.CompactTextString(m) }
+func (*StringMatcher) ProtoMessage()               {}
+func (*StringMatcher) Descriptor() ([]byte, []int) { return fileDescriptorString, []int{0} }
 
 type isStringMatcher_MatchPattern interface {
 	isStringMatcher_MatchPattern()
@@ -200,19 +163,19 @@ func _StringMatcher_OneofSizer(msg proto.Message) (n int) {
 	// match_pattern
 	switch x := m.MatchPattern.(type) {
 	case *StringMatcher_Exact:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Exact)))
 		n += len(x.Exact)
 	case *StringMatcher_Prefix:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Prefix)))
 		n += len(x.Prefix)
 	case *StringMatcher_Suffix:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Suffix)))
 		n += len(x.Suffix)
 	case *StringMatcher_Regex:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(4<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Regex)))
 		n += len(x.Regex)
 	case nil:
@@ -246,9 +209,6 @@ func (m *StringMatcher) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn1
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -299,9 +259,6 @@ func (m *StringMatcher) Size() (n int) {
 	_ = l
 	if m.MatchPattern != nil {
 		n += m.MatchPattern.Size()
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -505,7 +462,6 @@ func (m *StringMatcher) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -620,11 +576,9 @@ var (
 	ErrIntOverflowString   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() {
-	proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_string_188eea03d226878f)
-}
+func init() { proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptorString) }
 
-var fileDescriptor_string_188eea03d226878f = []byte{
+var fileDescriptorString = []byte{
 	// 214 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0x2f,

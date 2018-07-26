@@ -42,34 +42,10 @@ func (m *ThriftProxy) Validate() error {
 		return nil
 	}
 
-	if _, ok := ThriftProxy_TransportType_name[int32(m.GetTransport())]; !ok {
-		return ThriftProxyValidationError{
-			Field:  "Transport",
-			Reason: "value must be one of the defined enum values",
-		}
-	}
-
-	if _, ok := ThriftProxy_ProtocolType_name[int32(m.GetProtocol())]; !ok {
-		return ThriftProxyValidationError{
-			Field:  "Protocol",
-			Reason: "value must be one of the defined enum values",
-		}
-	}
-
 	if len(m.GetStatPrefix()) < 1 {
 		return ThriftProxyValidationError{
 			Field:  "StatPrefix",
 			Reason: "value length must be at least 1 bytes",
-		}
-	}
-
-	if v, ok := interface{}(m.GetRouteConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ThriftProxyValidationError{
-				Field:  "RouteConfig",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
 		}
 	}
 
