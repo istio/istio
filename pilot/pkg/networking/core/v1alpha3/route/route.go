@@ -125,7 +125,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
 				})
 			}
 		}
@@ -583,19 +583,31 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 // BuildDefaultHTTPRoute builds a default route.
 func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	return &route.Route{
+	_, is10Proxy := node.GetProxyVersion()
+
+	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier:            &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:              &notimeout,
-				MaxGrpcTimeout:       &notimeout,
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
 			},
 		},
 	}
+
+	if is10Proxy {
+		defaultRoute.Action = &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
+			},
+		}
+	}
+	return defaultRoute
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault

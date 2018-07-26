@@ -104,14 +104,14 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
-		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:                 ports,
-		Address:               addr,
-		ExternalName:          model.Hostname(external),
-		ServiceAccounts:       serviceaccounts,
-		MeshExternal:          meshExternal,
-		Resolution:            resolution,
-		CreationTime:          svc.CreationTimestamp.Time,
+		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:           ports,
+		Address:         addr,
+		ExternalName:    model.Hostname(external),
+		ServiceAccounts: serviceaccounts,
+		MeshExternal:    meshExternal,
+		Resolution:      resolution,
+		CreationTime:    svc.CreationTimestamp.Time,
 	}
 }
 

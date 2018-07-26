@@ -799,7 +799,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 		// disable stream idle timeouts for now
 		notimeout := 0 * time.Second
-		connectionManager.StreamIdleTimeout = &notimeout
+		connectionManager.IdleTimeout = &notimeout
 	}
 
 	if httpOpts.rds != "" {
