@@ -20,13 +20,14 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	test.Requires(t, dependency.PolicyBackend, dependency.Mixer, dependency.Kube)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer, dependency.Kube)
 
-	env := test.AcquireEnvironment(t)
+	env := framework.AcquireEnvironment(t)
 
 	m := env.GetMixerOrFail(t)
 

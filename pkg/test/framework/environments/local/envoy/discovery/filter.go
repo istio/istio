@@ -93,6 +93,11 @@ func (p *Filter) StreamAggregatedResources(stream ads.AggregatedDiscoveryService
 	}
 }
 
+// IncrementalAggregatedResources implements the ADS interface.
+func (p *Filter) IncrementalAggregatedResources(ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+	return status.Errorf(codes.Unimplemented, "not implemented")
+}
+
 func (p *Filter) getFilterFunc() FilterFunc {
 	// If no filtering function was supplied, use Identity.
 	if p.FilterFunc != nil {

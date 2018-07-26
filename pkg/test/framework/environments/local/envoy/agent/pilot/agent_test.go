@@ -12,17 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package agent_test
+package pilot_test
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	routeapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -56,18 +59,33 @@ func TestAgent(t *testing.T) {
 
 	// Configure the agent factory with Pilot's discovery address
 	agentFactory := (&pilot.Factory{
-
 		DiscoveryAddress: discoveryAddr,
 	}).NewAgent
 
 	appFactory := (&echo.Factory{
 		Ports: model.PortList{
 			{
-				Name:     "http-1",
+				Name:     "http",
 				Protocol: model.ProtocolHTTP,
 			},
 			{
-				Name:     "command-interface",
+				Name:     "http-two",
+				Protocol: model.ProtocolHTTP,
+			},
+			{
+				Name:     "tcp",
+				Protocol: model.ProtocolTCP,
+			},
+			{
+				Name:     "https",
+				Protocol: model.ProtocolHTTPS,
+			},
+			{
+				Name:     "http2-example",
+				Protocol: model.ProtocolHTTP2,
+			},
+			{
+				Name:     "grpc",
 				Protocol: model.ProtocolGRPC,
 			},
 		},
@@ -81,7 +99,7 @@ func TestAgent(t *testing.T) {
 	}
 	defer func() {
 		for _, a := range agents {
-			a.Stop()
+			a.Close()
 		}
 	}()
 
@@ -99,12 +117,15 @@ func TestAgent(t *testing.T) {
 				}
 
 				if time.Now().After(endTime) {
+					logConfigs(agents)
 					t.Fatal("failed to configure Envoys")
 				}
 				time.Sleep(retryInterval)
 			}
 		}
 	}
+
+	logConfigs(agents)
 
 	// Verify that we can send traffic between services.
 	for _, src := range agents {
@@ -115,10 +136,22 @@ func TestAgent(t *testing.T) {
 
 			testName := fmt.Sprintf("%v_%s_%s", model.ProtocolHTTP, src.GetConfig().Name, dst.GetConfig().Name)
 			t.Run(testName, func(t *testing.T) {
-				makeRequest(src, dst, model.ProtocolHTTP, t)
+				makeHTTPRequest(src, dst, model.ProtocolHTTP, t)
 			})
 		}
 	}
+}
+
+func logConfigs(agents []agent.Agent) {
+	out := ""
+	for _, a := range agents {
+		dump, _ := envoy.GetConfigDumpStr(a.GetAdminPort())
+		out += fmt.Sprintf("NM: %s Config: %s\n", a.GetConfig().Name, dump)
+	}
+
+	f := bufio.NewWriter(os.Stdout)
+	f.WriteString(out)
+	f.Flush()
 }
 
 func newAgent(serviceName string, factory agent.Factory, appFactory agent.ApplicationFactory, configStore model.ConfigStore, t *testing.T) agent.Agent {
@@ -131,10 +164,17 @@ func newAgent(serviceName string, factory agent.Factory, appFactory agent.Applic
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	msg := fmt.Sprintf("NM: %s ports:\n", serviceName)
+	for _, p := range a.GetPorts() {
+		msg += fmt.Sprintf("   [%v]: %d->%d\n", p.Protocol, p.ProxyPort, p.ApplicationPort)
+	}
+	fmt.Println(msg)
+
 	return a
 }
 
-func makeRequest(src agent.Agent, dst agent.Agent, protocol model.Protocol, t *testing.T) {
+func makeHTTPRequest(src agent.Agent, dst agent.Agent, protocol model.Protocol, t *testing.T) {
 	t.Helper()
 
 	// Get the port information for the desired protocol on the destination agent.
@@ -177,26 +217,88 @@ func isAgentConfiguredForService(src agent.Agent, target agent.Agent, t *testing
 	}
 
 	for _, port := range target.GetPorts() {
-		// TODO(nmittler): Verify inbound/outbound listeners exist for the target service port
-		if !isClusterPresent(cfg, target.GetConfig().Name, fqd, uint32(port.ProxyPort), t) {
+		clusterName := fmt.Sprintf("outbound|%d||%s.%s", port.ProxyPort, target.GetConfig().Name, fqd)
+		if !isClusterPresent(cfg, clusterName) {
 			return false
+		}
+
+		var listenerName string
+		if port.Protocol.IsHTTP() {
+			listenerName = fmt.Sprintf("0.0.0.0_%d", port.ProxyPort)
+		} else {
+			listenerName = fmt.Sprintf("127.0.0.1_%d", port.ProxyPort)
+		}
+		if !isOutboundListenerPresent(cfg, listenerName) {
+			return false
+		}
+
+		if port.Protocol.IsHTTP() {
+			if !isOutboundRoutePresent(cfg, clusterName) {
+				return false
+			}
 		}
 	}
 
 	return true
 }
 
-func isClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, serviceName, domain string, servicePort uint32, t *testing.T) bool {
-	t.Helper()
+func isClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
 	clusters := envoy_admin_v2alpha.ClustersConfigDump{}
 	if err := clusters.Unmarshal(cfg.Configs["clusters"].Value); err != nil {
-		t.Fatal(err)
+		return false
 	}
 
-	edsServiceName := fmt.Sprintf("outbound|%d||%s.%s", servicePort, serviceName, domain)
 	for _, c := range clusters.DynamicActiveClusters {
-		if c.Cluster != nil && c.Cluster.EdsClusterConfig != nil && c.Cluster.EdsClusterConfig.ServiceName == edsServiceName {
+		if c.Cluster == nil {
+			continue
+		}
+		if c.Cluster.Name == clusterName || (c.Cluster.EdsClusterConfig != nil && c.Cluster.EdsClusterConfig.ServiceName == clusterName) {
 			return true
+		}
+	}
+	return false
+}
+
+func isOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName string) bool {
+	listeners := envoy_admin_v2alpha.ListenersConfigDump{}
+	if err := listeners.Unmarshal(cfg.Configs["listeners"].Value); err != nil {
+		return false
+	}
+
+	for _, l := range listeners.DynamicActiveListeners {
+		if l.Listener != nil && l.Listener.Name == listenerName {
+			return true
+		}
+	}
+	return false
+}
+
+func isOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
+	routes := envoy_admin_v2alpha.RoutesConfigDump{}
+	if err := routes.Unmarshal(cfg.Configs["routes"].Value); err != nil {
+		return false
+	}
+
+	// Look for a route that targets the given outbound cluster.
+	for _, r := range routes.DynamicRouteConfigs {
+		if r.RouteConfig != nil {
+			for _, vh := range r.RouteConfig.VirtualHosts {
+				for _, route := range vh.Routes {
+					actionRoute, ok := route.Action.(*routeapi.Route_Route)
+					if !ok {
+						continue
+					}
+
+					cluster, ok := actionRoute.Route.ClusterSpecifier.(*routeapi.RouteAction_Cluster)
+					if !ok {
+						continue
+					}
+
+					if cluster.Cluster == clusterName {
+						return true
+					}
+				}
+			}
 		}
 	}
 	return false

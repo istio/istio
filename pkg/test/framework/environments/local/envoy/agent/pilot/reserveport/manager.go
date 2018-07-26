@@ -30,8 +30,16 @@ func (m *managerImpl) ReservePort() (ReservedPort, error) {
 	defer m.mutex.Unlock()
 
 	if m.index >= len(m.pool) {
-		return nil, fmt.Errorf("no ports available")
+		// Re-create the pool.
+		var err error
+		m.pool, err = allocatePool(poolSize)
+		if err != nil {
+			return nil, err
+		}
+		m.index = 0
+		// Don't need to free the pool, since all ports have been reserved.
 	}
+
 	p := m.pool[m.index]
 	if p == nil {
 		return nil, fmt.Errorf("attempting to reserve port after manager closed")

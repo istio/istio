@@ -104,9 +104,9 @@ func (b *batch) run() ([]string, error) {
 }
 
 // stop terminates the batch processor.
-func (b *batch) stop() error {
+func (b *batch) Close() error {
 	if b.client != nil {
-		return b.client.stop()
+		return b.client.Close()
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ type response string
 
 type client interface {
 	makeRequest(req *request) (response, error)
-	stop() error
+	Close() error
 }
 
 type httpClient struct {
@@ -190,7 +190,7 @@ func (c *httpClient) makeRequest(req *request) (response, error) {
 	return response(outBuffer.String()), nil
 }
 
-func (c *httpClient) stop() error {
+func (c *httpClient) Close() error {
 	return nil
 }
 
@@ -219,7 +219,7 @@ func (c *grpcClient) makeRequest(req *request) (response, error) {
 	return response(outBuffer.String()), nil
 }
 
-func (c *grpcClient) stop() error {
+func (c *grpcClient) Close() error {
 	return c.conn.Close()
 }
 
@@ -272,7 +272,7 @@ func (c *websocketClient) makeRequest(req *request) (response, error) {
 	return response(outBuffer.String()), nil
 }
 
-func (c *websocketClient) stop() error {
+func (c *websocketClient) Close() error {
 	return nil
 }
 

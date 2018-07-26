@@ -18,16 +18,16 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/dependency"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 var cfg = ""
 
 func TestHTTPWithMTLS(t *testing.T) {
-	test.Requires(t, dependency.Apps, dependency.Pilot, dependency.MTLS)
+	framework.Requires(t, dependency.Apps, dependency.Pilot, dependency.MTLS)
 
-	env := test.AcquireEnvironment(t)
+	env := framework.AcquireEnvironment(t)
 	env.Configure(t, cfg)
 
 	appa := env.GetAppOrFail("a", t)

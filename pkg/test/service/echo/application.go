@@ -55,7 +55,7 @@ func (a *Application) GetPorts() model.PortList {
 func (a *Application) Start() (err error) {
 	defer func() {
 		if err != nil {
-			a.Stop()
+			a.Close()
 		}
 	}()
 
@@ -71,11 +71,17 @@ func (a *Application) Start() (err error) {
 			client:  a.Client,
 		}
 		switch p.Protocol {
+		case model.ProtocolTCP:
+			fallthrough
 		case model.ProtocolHTTP:
+			fallthrough
+		case model.ProtocolHTTPS:
 			a.servers[i] = &httpServer{
 				port: p,
 				h:    handler,
 			}
+		case model.ProtocolHTTP2:
+			fallthrough
 		case model.ProtocolGRPC:
 			a.servers[i] = &grpcServer{
 				port:    p,
@@ -97,8 +103,8 @@ func (a *Application) Start() (err error) {
 	return nil
 }
 
-// Stop stops this application
-func (a *Application) Stop() (err error) {
+// Close stops this application
+func (a *Application) Close() (err error) {
 	for i, s := range a.servers {
 		if s != nil {
 			err = multierror.Append(err, s.stop())
@@ -111,7 +117,10 @@ func (a *Application) Stop() (err error) {
 func (a *Application) validate() error {
 	for _, port := range a.Ports {
 		switch port.Protocol {
+		case model.ProtocolTCP:
 		case model.ProtocolHTTP:
+		case model.ProtocolHTTPS:
+		case model.ProtocolHTTP2:
 		case model.ProtocolGRPC:
 		default:
 			return fmt.Errorf("protocol %v not currently supported", port.Protocol)

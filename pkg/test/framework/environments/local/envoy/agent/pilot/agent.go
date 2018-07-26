@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -33,11 +34,17 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapi_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	xdsapi_listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	envoy_filter_http "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	envoy_filter_tcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
+	envoy_util "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/jsonpb"
+	google_protobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
-	"istio.io/api/networking/v1alpha3"
+	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/environments/local/envoy"
@@ -52,7 +59,7 @@ const (
 	serviceCluster       = "local"
 	proxyType            = "sidecar"
 	localIPAddress       = "127.0.0.1"
-	localCIDR            = "127.0.0.1/8"
+	localCIDR            = "127.0.0.1/32"
 	maxStreams           = 100000
 	listenerType         = "type.googleapis.com/envoy.api.v2.Listener"
 	routeType            = "type.googleapis.com/envoy.api.v2.RouteConfiguration"
@@ -83,8 +90,9 @@ dynamic_resources:
   ads_config:
     api_type: GRPC
     refresh_delay: 1s
-    cluster_names:
-    - xds-grpc
+    grpc_services:
+    - envoy_grpc:
+        cluster_name: xds-grpc
 static_resources:
   clusters:
   - name: xds-grpc
@@ -115,9 +123,14 @@ static_resources:
     use_original_dst: true
     filter_chains:
     - filters:
+      {{- if $p.Protocol.IsHTTP }}
       - name: envoy.http_connection_manager
         config:
           codec_type: auto
+          {{- if $p.Protocol.IsHTTP2 }}
+          http2_protocol_options:
+            max_concurrent_streams: 1073741824
+          {{- end }}
           stat_prefix: ingress_http
           route_config:
             name: service_{{$serviceName}}_{{$p.ProxyPort}}_to_{{$p.ApplicationPort}}
@@ -137,15 +150,20 @@ static_resources:
             config: {}
           - name: envoy.router
             config: {}
+      {{- else }}
+      - name: envoy.tcp_proxy
+        config:
+          stat_prefix: ingress_tcp
+          cluster: service_{{$serviceName}}_{{$p.ApplicationPort}}
+      {{- end }}
   {{- end -}}
 `
 )
 
 var (
 	// The Template object parsed from the template string
-	envoyYamlTemplate              = getEnvoyYamlTemplate()
-	inboundListenerNamePattern, _  = regexp.Compile("127.0.0.1_[0-9]+")
-	outboundListenerNamePattern, _ = regexp.Compile("0.0.0.0_[0-9]+")
+	envoyYamlTemplate                  = getEnvoyYamlTemplate()
+	outboundHTTPListenerNamePattern, _ = regexp.Compile("0.0.0.0_[0-9]+")
 )
 
 func getEnvoyYamlTemplate() *template.Template {
@@ -176,7 +194,7 @@ func (f *Factory) NewAgent(meta model.ConfigMeta, appFactory agent.ApplicationFa
 	}
 	defer func() {
 		if err != nil {
-			_ = a.Stop()
+			_ = a.Close()
 		}
 	}()
 
@@ -251,9 +269,9 @@ func (a *pilotAgent) GetPorts() []*agent.MappedPort {
 }
 
 // Stop implements the agent.Agent interface.
-func (a *pilotAgent) Stop() (err error) {
+func (a *pilotAgent) Close() (err error) {
 	if a.app != nil {
-		err = a.app.Stop()
+		err = a.app.Close()
 	}
 	if a.discoveryFilterGrpcServer != nil {
 		a.discoveryFilterGrpcServer.Stop()
@@ -322,16 +340,16 @@ func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore,
 	// Create the service entry for this service.
 	a.serviceEntry = model.Config{
 		ConfigMeta: meta,
-		Spec: &v1alpha3.ServiceEntry{
+		Spec: &istio_networking_api.ServiceEntry{
 			Hosts: []string{
 				fmt.Sprintf("%s.%s", meta.Name, getFQD(meta)),
 			},
 			Addresses: []string{
 				localCIDR,
 			},
-			Resolution: v1alpha3.ServiceEntry_STATIC,
-			Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
-			Endpoints: []*v1alpha3.ServiceEntry_Endpoint{
+			Resolution: istio_networking_api.ServiceEntry_STATIC,
+			Location:   istio_networking_api.ServiceEntry_MESH_INTERNAL,
+			Endpoints: []*istio_networking_api.ServiceEntry_Endpoint{
 				{
 					Address: localIPAddress,
 				},
@@ -393,7 +411,7 @@ func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore,
 	}
 
 	// Update the config entry with the ports.
-	a.serviceEntry.Spec.(*v1alpha3.ServiceEntry).Ports = a.getConfigPorts()
+	a.serviceEntry.Spec.(*istio_networking_api.ServiceEntry).Ports = a.getConfigPorts()
 
 	// Now add a service entry for this agent.
 	_, err = configStore.Create(a.serviceEntry)
@@ -403,10 +421,10 @@ func (a *pilotAgent) start(meta model.ConfigMeta, configStore model.ConfigStore,
 	return err
 }
 
-func (a *pilotAgent) getConfigPorts() []*v1alpha3.Port {
-	ports := make([]*v1alpha3.Port, len(a.ports))
+func (a *pilotAgent) getConfigPorts() []*istio_networking_api.Port {
+	ports := make([]*istio_networking_api.Port, len(a.ports))
 	for i, p := range a.ports {
-		ports[i] = &v1alpha3.Port{
+		ports[i] = &istio_networking_api.Port{
 			Name:     p.Name,
 			Protocol: string(p.Protocol),
 			Number:   uint32(p.ProxyPort),
@@ -466,6 +484,96 @@ func (a *pilotAgent) getDiscoveryPort() int {
 	//return addr.Port
 }
 
+func isVirtualListener(l *xdsapi.Listener) bool {
+	return l.Name == "virtual"
+}
+
+func getTCPProxyClusterName(filter *xdsapi_listener.Filter) (string, error) {
+	// First, check if it's using the deprecated v1 format.
+	fields := filter.Config.Fields
+	deprecatedV1, ok := fields["deprecated_v1"]
+	if ok && deprecatedV1.GetBoolValue() {
+		v, ok := fields["value"]
+		if !ok {
+			return "", errors.New("value field missing")
+		}
+		v, ok = v.GetStructValue().Fields["route_config"]
+		if !ok {
+			return "", errors.New("route_config field missing")
+		}
+		v, ok = v.GetStructValue().Fields["routes"]
+		if !ok {
+			return "", errors.New("routes field missing")
+		}
+		vs := v.GetListValue().Values
+		for _, v = range vs {
+			v, ok = v.GetStructValue().Fields["cluster"]
+			if ok {
+				return v.GetStringValue(), nil
+			}
+		}
+		return "", errors.New("cluster field missing")
+	}
+
+	cfg := &envoy_filter_tcp.TcpProxy{}
+	err := envoy_util.StructToMessage(filter.Config, cfg)
+	if err != nil {
+		return "", err
+	}
+	return cfg.Cluster, nil
+}
+
+func isInboundListener(l *xdsapi.Listener) (bool, error) {
+	filter := l.FilterChains[0].Filters[0]
+	switch filter.Name {
+	case envoy_util.HTTPConnectionManager:
+		cfg := &envoy_filter_http.HttpConnectionManager{}
+		err := envoy_util.StructToMessage(filter.Config, cfg)
+		if err != nil {
+			return false, err
+		}
+		rcfg := cfg.GetRouteConfig()
+		if rcfg != nil {
+			if strings.HasPrefix(rcfg.Name, "inbound") {
+				return true, nil
+			}
+		}
+		return false, nil
+	case envoy_util.TCPProxy:
+		clusterName, err := getTCPProxyClusterName(&filter)
+		if err != nil {
+			return false, err
+		}
+		return strings.HasPrefix(clusterName, "inbound"), nil
+	}
+
+	return false, fmt.Errorf("unable to determine whether the listener is inbound: %s", listenerJSON(l))
+}
+
+func isOutboundListener(l *xdsapi.Listener) (bool, error) {
+	filter := l.FilterChains[0].Filters[0]
+	switch filter.Name {
+	case envoy_util.HTTPConnectionManager:
+		return outboundHTTPListenerNamePattern.MatchString(l.Name), nil
+	case envoy_util.TCPProxy:
+		clusterName, err := getTCPProxyClusterName(&filter)
+		if err != nil {
+			return false, err
+		}
+		return strings.HasPrefix(clusterName, "outbound"), nil
+	}
+
+	return false, fmt.Errorf("unable to determine whether the listener is outbound: %s", listenerJSON(l))
+}
+
+func listenerJSON(l *xdsapi.Listener) string {
+	m := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	str, _ := m.MarshalToString(l)
+	return str
+}
+
 func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
 	newResponse := xdsapi.DiscoveryResponse{
 		TypeUrl:     resp.TypeUrl,
@@ -482,16 +590,17 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 				return nil, err
 			}
 
-			// Filter out unnecessary listeners.
-			switch {
-			case l.Name == "virtual":
+			if isVirtualListener(l) {
 				// Exclude the iptables-mapped listener from the Envoy configuration. It's hard-coded to port 15001,
 				// which will likely fail to be bound.
 				continue
-			case l.Name == "127.0.0.1_3333" || l.Name == "127.0.0.1_9999":
-				// Exclude listeners for the management ports.
-				continue
-			case inboundListenerNamePattern.Match([]byte(l.Name)):
+			}
+
+			inbound, err := isInboundListener(l)
+			if err != nil {
+				return nil, err
+			}
+			if inbound {
 				// This is a dynamic listener generated by Pilot for an inbound port. All inbound ports for the local
 				// proxy are built into the static config, so we can safely ignore this listener.
 				//
@@ -501,34 +610,20 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 				// incorrectly generating inbound listeners for other services. These listeners shouldn't cause any
 				// problems, but filtering them out here for correctness and clarity of the Envoy config.
 				continue
-			case outboundListenerNamePattern.Match([]byte(l.Name)):
-				portFromPilot := l.Address.GetSocketAddress().GetPortValue()
-				boundPort, ok := a.boundPortMap[portFromPilot]
+			}
 
-				// Bind a real port for the outbound listener if we haven't already.
-				if !ok {
-					var err error
-					boundPort, err = a.findFreePort()
-					if err != nil {
-						return nil, err
-					}
-					a.boundPortMap[portFromPilot] = boundPort
-				}
-
-				// Store the bound port in the listener.
-				l.Address.GetSocketAddress().PortSpecifier.(*xdsapi_core.SocketAddress_PortValue).PortValue = uint32(boundPort)
-				l.DeprecatedV1.BindToPort.Value = true
-
-				// Output this content of the any.
-				b, err := l.Marshal()
-				if err != nil {
+			outbound, err := isOutboundListener(l)
+			if err != nil {
+				return nil, err
+			}
+			if outbound {
+				// Bind a real outbound port for this listener.
+				if err := a.bindOutboundPort(&any, l); err != nil {
 					return nil, err
 				}
-				any.Value = b
-				newResponse.Resources = append(newResponse.Resources, any)
-			default:
-				newResponse.Resources = append(newResponse.Resources, any)
 			}
+
+			newResponse.Resources = append(newResponse.Resources, any)
 		case clusterType:
 			// Remove any management clusters.
 			c := &xdsapi.Cluster{}
@@ -541,8 +636,6 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 			default:
 				newResponse.Resources = append(newResponse.Resources, any)
 			}
-		default:
-			newResponse.Resources = append(newResponse.Resources, any)
 		}
 		newResponse.Resources = append(newResponse.Resources, any)
 	}
@@ -591,6 +684,33 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 	}
 
 	return &newResponse, nil
+}
+
+func (a *pilotAgent) bindOutboundPort(any *google_protobuf6.Any, l *xdsapi.Listener) error {
+	portFromPilot := l.Address.GetSocketAddress().GetPortValue()
+	boundPort, ok := a.boundPortMap[portFromPilot]
+
+	// Bind a real port for the outbound listener if we haven't already.
+	if !ok {
+		var err error
+		boundPort, err = a.findFreePort()
+		if err != nil {
+			return err
+		}
+		a.boundPortMap[portFromPilot] = boundPort
+	}
+
+	// Store the bound port in the listener.
+	l.Address.GetSocketAddress().PortSpecifier.(*xdsapi_core.SocketAddress_PortValue).PortValue = uint32(boundPort)
+	l.DeprecatedV1.BindToPort.Value = true
+
+	// Output this content of the any.
+	b, err := l.Marshal()
+	if err != nil {
+		return err
+	}
+	any.Value = b
+	return nil
 }
 
 func (a *pilotAgent) createPorts(servicePorts model.PortList) (adminPort int, mappedPorts []*agent.MappedPort, err error) {
