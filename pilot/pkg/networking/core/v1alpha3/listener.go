@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -796,6 +797,9 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		// Allow websocket upgrades
 		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+		// disable stream idle timeouts for now
+		notimeout := 0 * time.Second
+		connectionManager.StreamIdleTimeout = &notimeout
 	}
 
 	if httpOpts.rds != "" {

@@ -329,6 +329,8 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
+	_, is10Proxy := node.GetProxyVersion()
+
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -342,18 +344,48 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+		if !is10Proxy {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
+			if len(in.AppendHeaders) > 0 {
+				action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
+				for key, value := range in.AppendHeaders {
+					action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
+						Header: &core.HeaderValue{
+							Key:   key,
+							Value: value,
+						},
+					})
+				}
+			}
+		} else {
+			if len(in.AppendHeaders) > 0 {
+				out.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
+				for key, value := range in.AppendHeaders {
+					out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, &core.HeaderValueOption{
+						Header: &core.HeaderValue{
+							Key:   key,
+							Value: value,
+						},
+					})
+				}
+			}
 		}
+
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -362,18 +394,6 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			action.PrefixRewrite = rewrite.Uri
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewrite{
 				HostRewrite: rewrite.Authority,
-			}
-		}
-
-		if len(in.AppendHeaders) > 0 {
-			action.RequestHeadersToAdd = make([]*core.HeaderValueOption, 0)
-			for key, value := range in.AppendHeaders {
-				action.RequestHeadersToAdd = append(action.RequestHeadersToAdd, &core.HeaderValueOption{
-					Header: &core.HeaderValue{
-						Key:   key,
-						Value: value,
-					},
-				})
 			}
 		}
 
@@ -445,9 +465,9 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			return out.Headers[i].Value < out.Headers[j].Value
-		}
+		// TODO: match by values as well. But we have about 5-6 types of values
+		// in a header matcher. Not sorting by values "might" cause unnecessary
+		// RDS churn in some cases.
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 
@@ -570,8 +590,9 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		},
 		Action: &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-				Timeout:          &notimeout,
+				ClusterSpecifier:            &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:              &notimeout,
+				MaxGrpcTimeout:       &notimeout,
 			},
 		},
 	}
