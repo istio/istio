@@ -150,7 +150,7 @@ func validatorCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	}
 
 	validatorCmd.PersistentFlags().StringVar(&webhookConfigFile,
-		"webhook-config-file", "/etc/istio/config",
+		"webhook-config-file", "",
 		"File that contains k8s validatingwebhookconfiguration yaml. Validation is disabled if file is not specified")
 	validatorCmd.PersistentFlags().UintVar(&port, "port", 443,
 		"HTTPS port of the validation service. Must be 443 if service has more than one port ")
