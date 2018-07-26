@@ -70,5 +70,5 @@ func (r *Registry) Init(d dependency.Instance, ctx environment.ComponentContext)
 	return init(ctx)
 }
 
-// InitFn is a function for initializing a component using local environment.
+// InitFn is a function for initializing a registered component.
 type InitFn func(ctx environment.ComponentContext) (interface{}, error)
