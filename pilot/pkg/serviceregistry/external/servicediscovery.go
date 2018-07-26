@@ -235,30 +235,38 @@ func (d *ServiceEntryStore) update() {
 	}
 	d.storeMutex.RUnlock()
 
-	d.storeMutex.Lock()
-	defer d.storeMutex.Unlock()
-	d.instances = map[string][]*model.ServiceInstance{}
-	d.ip2instance = map[string][]*model.ServiceInstance{}
+	di := map[string][]*model.ServiceInstance{}
+	dip := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
 			key := instance.Service.Hostname.String()
-			out, found := d.instances[key]
+			out, found := di[key]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			d.instances[key] = out
+			di[key] = out
 
-			byip, found := d.instances[instance.Endpoint.Address]
+			byip, found := di[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}
 			byip = append(byip, instance)
-			d.ip2instance[instance.Endpoint.Address] = byip
+			dip[instance.Endpoint.Address] = byip
 		}
 	}
+
+	d.storeMutex.Lock()
+	d.instances = di
+	d.ip2instance = dip
+	// Without this pilot will become very unstable even with few 100 ServiceEntry
+	// objects - the N_clusters * N_update generates too much garbage
+	// ( yaml to proto)
+	// This is reset on any change in ServiceEntries
+	d.updateNeeded = false
+	d.storeMutex.Unlock()
 }
 
 // returns true if an instance's port matches with any in the provided list
