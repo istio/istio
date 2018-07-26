@@ -28,7 +28,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
-	"github.com/istio/fortio/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -61,6 +60,8 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
+	suppressPush = true
 )
 
 var (
@@ -143,6 +144,12 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+
+	// Experimental env to disable push supression
+	// By default a pod will not receive a push from an older version if a
+	// push for a newer version has started. This behavior can be disabled
+	// for testing or in special cases (bugs or corner cases found, etc)
+	suppressPush = os.Getenv("PILOT_SKIP_SUPRESS") == ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -513,9 +520,12 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 }
 
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
-	// Prevent 2 overlapping pushes
-	con.pushMutex.Lock()
-	defer con.pushMutex.Unlock()
+	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
+	// (as fail-safe in case of bugs)
+	if suppressPush {
+		con.pushMutex.Lock()
+		defer con.pushMutex.Unlock()
+	}
 
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)
@@ -529,8 +539,8 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
-	if pushEv.version != currentVersion {
-		log.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
+	if suppressPush && pushEv.version != currentVersion {
+		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
 		return nil
 	}
 
@@ -633,7 +643,7 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 		var err error
 		pushThrottle, err = strconv.Atoi(pushThrottleCountEnv)
 		if err != nil {
-			log.Warnf("Invalid push throttle %s", pushThrottleCountEnv)
+			adsLog.Warnf("Invalid push throttle %s", pushThrottleCountEnv)
 		}
 	}
 
