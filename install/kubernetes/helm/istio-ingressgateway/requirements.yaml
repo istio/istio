@@ -1,0 +1,8 @@
+dependencies:
+  - name: gateways
+    version: 1.0.0
+    # repository: file://../gateways
+    condition: gateways.enabled
+  - name: certmanager
+    version: 0.1.0
+    condition: certmanager.enabled
