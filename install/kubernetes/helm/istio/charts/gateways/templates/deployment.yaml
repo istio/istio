@@ -65,12 +65,12 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - istio-pilot:15005
+          - istio-pilot.istio-system:15005
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot:8080
+          - istio-pilot.istio-system:8080
         {{- end }}
           resources:
 {{- if $spec.resources }}
