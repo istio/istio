@@ -145,11 +145,11 @@ func init() {
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
 
-	// Experimental env to disable push supression
+	// Experimental env to disable push suppression
 	// By default a pod will not receive a push from an older version if a
 	// push for a newer version has started. This behavior can be disabled
 	// for testing or in special cases (bugs or corner cases found, etc)
-	suppressPush = os.Getenv("PILOT_SKIP_SUPRESS") == ""
+	suppressPush = os.Getenv("PILOT_SKIP_SUPPRESS") == ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
