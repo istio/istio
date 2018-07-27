@@ -76,7 +76,7 @@ spec:
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
-            value: {{ $val }}
+            value: "{{ $val }}"
           {{- end }}
           {{- end }}
 {{- if .Values.traceSampling }}
