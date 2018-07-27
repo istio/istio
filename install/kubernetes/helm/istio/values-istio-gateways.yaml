@@ -40,6 +40,25 @@ global:
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
+    # istio egress capture whitelist
+    # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
+    # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
+    # would only capture egress traffic on those two IP Ranges, all other outbound traffic would
+    # be allowed by the sidecar
+    includeIPRanges: "*"
+    excludeIPRanges: ""
+
+    # istio ingress capture whitelist
+    # examples:
+    #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""
+    #     Redirect all inbound traffic to Envoy:   --includeInboundPorts="*"
+    #     Redirect only selected ports:            --includeInboundPorts="80,8080"
+    includeInboundPorts: "*"
+    excludeInboundPorts: ""
+
+    # This controls the 'policy' in the sidecar injector.
+    autoInject: enabled
+
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
     # would be <host>:<port>).
     # Can also be disabled (e.g. when Mixer is not installed).
@@ -57,8 +76,22 @@ global:
   # TODO: Switch to Always as default, and override in the local tests.
   imagePullPolicy: IfNotPresent
 
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: false
+
+  # disablePolicyChecks disables mixer policy checks.
+  # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
+  disablePolicyChecks: false
+
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
+
+  # Default mtls policy. If true, mtls between services will be enabled by default.
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: false
 
   # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
@@ -102,6 +135,11 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
+  hyperkube:
+    hub: quay.io/coreos
+    tag: v1.7.6_coreos.0
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
@@ -183,13 +221,105 @@ gateways:
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
 
-# Certmanager uses ACME to sign certificates. Since Istio gateways are
-# mounting the TLS secrets the Certificate CRDs must be created in the
-# istio-system namespace. Once the certificate has been created, the
-# gateway must be updated by adding 'secretVolumes'. After the gateway
-# restart, DestinationRules can be created using the ACME-signed certificates.
+  istio-egressgateway:
+    enabled: true
+    labels:
+      app: istio-egressgateway
+      istio: egressgateway
+    replicaCount: 1
+    autoscaleMin: 1
+    autoscaleMax: 5
+    serviceAnnotations: {}
+    type: ClusterIP #change to NodePort or LoadBalancer if need be
+    ports:
+      - port: 80
+        name: http2
+      - port: 443
+        name: https
+    secretVolumes:
+      - name: egressgateway-certs
+        secretName: istio-egressgateway-certs
+        mountPath: /etc/istio/egressgateway-certs
+      - name: egressgateway-ca-certs
+        secretName: istio-egressgateway-ca-certs
+        mountPath: /etc/istio/egressgateway-ca-certs
+
+  # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
+  # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
+  # as non-mtls ports to support upgrades and gradual transition.
+  istio-ilbgateway:
+      enabled: false
+      labels:
+        app: istio-ilbgateway
+        istio: ilbgateway
+      replicaCount: 1
+      autoscaleMin: 1
+      autoscaleMax: 5
+      resources:
+        requests:
+          cpu: 800m
+          memory: 512Mi
+        #limits:
+        #  cpu: 1800m
+        #  memory: 256Mi
+      loadBalancerIP: ""
+      serviceAnnotations:
+        cloud.google.com/load-balancer-type: "internal"
+      type: LoadBalancer
+      ports:
+      ## You can add custom gateway ports - google ILB default quota is 5 ports,
+      - port: 15011
+        name: grpc-pilot-mtls
+      # Insecure port - only for migration from 0.8. Will be removed in 1.1
+      - port: 15010
+        name: grpc-pilot
+      - port: 8060
+        targetPort: 8060
+        name: tcp-citadel-grpc-tls
+      # Port 5353 is forwarded to kube-dns
+      - port: 5353
+        name: tcp-dns
+      secretVolumes:
+      - name: ilbgateway-certs
+        secretName: istio-ilbgateway-certs
+        mountPath: /etc/istio/ilbgateway-certs
+      - name: ilbgateway-ca-certs
+        secretName: istio-ilbgateway-ca-certs
+        mountPath: /etc/istio/ilbgateway-ca-certs
+
+# all other components are disabled except the gateways
+ingress:
+  enabled: false
+
+security:
+  enabled: false
+
+sidecarInjectorWebhook:
+  enabled: false
+
+galley:
+  enabled: false
+
+mixer:
+  enabled: false
+
+pilot:
+  enabled: false
+
+grafana:
+  enabled: false
+
+prometheus:
+  enabled: false
+
+servicegraph:
+  enabled: false
+
+tracing:
+  enabled: false
+
+kiali:
+  enabled: false
+
 certmanager:
   enabled: false
-  hub: quay.io/jetstack
-  tag: v0.3.1
-  resources: {}

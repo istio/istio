@@ -1,6 +1,0 @@
-apiVersion: v1
-description: A Helm chart for Kubernetes
-name: certmanager
-version: 0.1.0
-appVersion: latest
-tillerVersion: ">=2.7.2"
