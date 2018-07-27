@@ -20,7 +20,6 @@ import (
 	"strconv"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -32,7 +31,7 @@ var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionD
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
@@ -41,22 +40,6 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 		}
 	}
 
-	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
-		hostname, port.Port, mesh.AuthPolicy)
-	return legacyAuthenticationPolicyToPolicy(mesh.AuthPolicy)
-}
-
-// If input legacy is MeshConfig_MUTUAL_TLS, return a authentication policy equivalent to it. Else,
-// returns nil (implies no authentication is used)
-func legacyAuthenticationPolicyToPolicy(legacy meshconfig.MeshConfig_AuthPolicy) *authn.Policy {
-	if legacy == meshconfig.MeshConfig_MUTUAL_TLS {
-		return &authn.Policy{
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					&authn.MutualTls{},
-				}}},
-		}
-	}
 	return nil
 }
 
