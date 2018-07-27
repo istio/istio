@@ -23,8 +23,6 @@ from airflow.operators.python_operator import PythonOperator
 import environment_config
 import istio_common_dag
 
-#bash_settings_prefix = istio_common_dag.GetBashSettingsTemplate(monthly_extra_params) KPTD
-
 monthly_extra_params = ['DOCKER_HUB', 'GCR_RELEASE_DEST', 'GCS_GITHUB_PATH',
                           'RELEASE_PROJECT_ID', 'GCS_MONTHLY_RELEASE_PATH']
 def testMonthlyConfigSettings(config_settings):
@@ -90,58 +88,17 @@ def MonthlyPipeline():
     testMonthlyConfigSettings(config_settings)
     return config_settings
 
+  def ReportMonthlySuccessful(task_instance, **kwargs):
+    del kwargs
+
   dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
     MonthlyGenerateTestArgs,
     'istio_monthly_dag',
     schedule_interval=MONTHLY_RELEASE_TRIGGER,
     extra_param_lst=monthly_extra_params)
 
-  release_push_github_docker_template = """
-{% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
-gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
-chmod u+x *
-./start_gcb_publish.sh \
--p "{{ settings.RELEASE_PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
--v "{{ settings.VERSION }}" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
--b "{{ settings.GCS_MONTHLY_RELEASE_PATH }}" -r "{{ settings.GCR_RELEASE_DEST }}" \
--g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
--t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
--h "{{ settings.GITHUB_ORG }}" -i "{{ settings.GITHUB_REPO }}" \
--d "{{ settings.DOCKER_HUB}}" -w
-"""
-
-  github_and_docker_release = BashOperator(
-    task_id='github_and_docker_release',
-    bash_command=release_push_github_docker_template,
-    dag=dag)
-  tasks['github_and_docker_release'] = github_and_docker_release
-
-  release_tag_github_template = """
-{% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
-gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
-chmod u+x *
-./start_gcb_tag.sh \
--p "{{ settings.RELEASE_PROJECT_ID }}" \
--h "{{ settings.GITHUB_ORG }}" -a "{{ settings.SVC_ACCT }}"  \
--v "{{ settings.VERSION }}"   -e "istio_releaser_bot@example.com" \
--n "IstioReleaserBot" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
--g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
--t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" -w
-"""
-
-  github_tag_repos = BashOperator(
-    task_id='github_tag_repos',
-    bash_command=release_tag_github_template,
-    dag=dag)
-  tasks['github_tag_repos'] = github_tag_repos
-
-
-  def ReportMonthlySuccessful(task_instance, **kwargs):
-    del kwargs
+  addAirflowBashOperator('release_push_github_docker_template', 'github_and_docker_release', need_commit=True)
+  addAirflowBashOperator('release_tag_github_template', 'github_tag_repos', need_commit=True)
 
   mark_monthly_complete = PythonOperator(
     task_id='mark_monthly_complete',
@@ -162,7 +119,6 @@ chmod u+x *
   tasks['mark_monthly_complete'          ].set_upstream(tasks['github_tag_repos'])
 
   return dag
-
 
 
 

@@ -59,7 +59,7 @@ def ReportDailySuccessful(task_instance, **kwargs):
   return 'skip_tag_daily_gcr'
 
 
-def MakeMarkComplete(dag):
+def MakeMarkComplete(dag, addAirflowBashOperator):
   """Make the final sequence of the daily graph."""
   mark_complete = BranchPythonOperator(
       task_id='mark_complete',
@@ -68,37 +68,7 @@ def MakeMarkComplete(dag):
       dag=dag,
   )
 
-  gcr_tag_success = r"""
-{% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-set -x
-pwd; ls
-
-gsutil ls gs://{{ settings.GCS_FULL_STAGING_PATH }}/docker/           > docker_tars.txt
-cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
-                        sed -E "s/docker\/(([a-z]|[0-9]|-|_)*).tar.gz/\1/g" > docker_images.txt
-
-  gcloud auth configure-docker  -q
-  cat docker_images.txt | \
-  while read -r docker_image;do
-    gcloud container images add-tag \
-    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}" \
-    "gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.BRANCH }}-latest-daily" --quiet;
-    #pull_source="gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:{{ settings.VERSION }}"
-    #push_dest="  gcr.io/{{ settings.GCR_STAGING_DEST }}/${docker_image}:latest_{{ settings.BRANCH }}";
-    #docker pull $pull_source
-    #docker tag  $pull_source $push_dest
-    #docker push $push_dest
-  done
-
-cat docker_tars.txt docker_images.txt
-rm  docker_tars.txt docker_images.txt
-"""
-
-  tag_daily_grc = BashOperator(
-      task_id='tag_daily_gcr',
-      bash_command=gcr_tag_success,
-      dag=dag,
-  )
+  addAirflowBashOperator('gcr_tag_success', 'tag_daily_gcr')
   # skip_grc = DummyOperator(
   #     task_id='skip_tag_daily_gcr',
   #     dag=dag,
@@ -108,7 +78,6 @@ rm  docker_tars.txt docker_images.txt
   #     dag=dag,
   #     trigger_rule="one_success",
   # )
-  mark_complete >> tag_daily_grc
   # mark_complete >> skip_grc >> end
   return mark_complete
 
@@ -161,7 +130,7 @@ def DailyPipeline(branch):
   dag, tasks, addAirflowBashOperator = istio_common_dag.MakeCommonDag(
        DailyGenerateTestArgs,
        name=dag_name, schedule_interval='15 9 * * *')
-  tasks['mark_daily_complete'] = MakeMarkComplete(dag)
+  tasks['mark_daily_complete'] = MakeMarkComplete(dag, addAirflowBashOperator)
 
   #tasks['generate_workflow_args']
   tasks['get_git_commit'                 ].set_upstream(tasks['generate_workflow_args'])
@@ -170,5 +139,6 @@ def DailyPipeline(branch):
   tasks['modify_values_helm'             ].set_upstream(tasks['run_release_qualification_tests'])
   tasks['copy_files_for_release'         ].set_upstream(tasks['modify_values_helm'])
   tasks['mark_daily_complete'            ].set_upstream(tasks['copy_files_for_release'])
+  tasks['tag_daily_gcr'                  ].set_upstream(tasks['mark_daily_complete'])
 
   return dag
