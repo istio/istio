@@ -18,3 +18,7 @@ rules:
   resources: ["deployments"]
   resourceNames: ["istio-galley"]
   verbs: ["get"]
+- apiGroups: ["*"]
+  resources: ["endpoints"]
+  resourceNames: ["istio-galley"]
+  verbs: ["get"]

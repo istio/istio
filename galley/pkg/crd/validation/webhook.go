@@ -50,7 +50,8 @@ var (
 )
 
 const (
-	watchDebounceDelay = 100 * time.Millisecond
+	watchDebounceDelay     = 100 * time.Millisecond
+	waitEndpointReadyDelay = 100 * time.Millisecond
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -131,6 +132,7 @@ type Webhook struct {
 	deploymentName       string
 	ownerRefs            []v1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
+	endpointReadyOnce    bool
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
@@ -200,15 +202,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 	}
 
-	if wh.webhookConfigFile != "" {
-		log.Info("server-side configuration validation enabled")
-		if err = wh.rebuildWebhookConfig(); err == nil {
-			wh.createOrUpdateWebhookConfig()
-		}
-	} else {
-		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
-	}
-
 	// mtls disabled because apiserver webhook cert usage is still TBD.
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
@@ -244,6 +237,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	// use a timer to debounce file updates
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
+
+	if wh.webhookConfigFile != "" {
+		log.Info("server-side configuration validation enabled")
+	} else {
+		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
+	}
 
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {

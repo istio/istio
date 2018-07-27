@@ -34,11 +34,48 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// Check if the galley validation endpoint is ready to receive requests.
+func (wh *Webhook) endpointReady() error {
+	endpoints, err := wh.clientset.CoreV1().Endpoints(wh.deploymentNamespace).Get(wh.deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("%s/%v endpoint ready check failed: %v", wh.deploymentNamespace, wh.deploymentName, err)
+	}
+
+	if len(endpoints.Subsets) == 0 {
+		return fmt.Errorf("%s/%v endpoint not ready: not subsets", wh.deploymentNamespace, wh.deploymentName)
+	}
+
+	for _, subset := range endpoints.Subsets {
+		if len(subset.Addresses) > 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s/%v endpoint not ready: no ready addresses", wh.deploymentNamespace, wh.deploymentName)
+}
+
 func (wh *Webhook) createOrUpdateWebhookConfig() {
 	if wh.webhookConfiguration == nil {
 		log.Error("validatingwebhookconfiguration update failed: no configuration loaded")
 		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
 		return
+	}
+
+	// During initial Istio installation its possible for custom
+	// resources to be created concurrently with galley startup. This
+	// can lead to validation failures with "no endpoints available"
+	// if the webhook is registered before the endpoint is visible to
+	// the rest of the system. Minimize this problem by waiting the
+	// galley endpoint is available at least once before
+	// self-registering. Subsequent Istio upgrades rely on deployment
+	// rolling updates to set maxUnavailable to at least one.
+	if !wh.endpointReadyOnce {
+		if err := wh.endpointReady(); err != nil {
+			log.Warnf("%v validatingwebhookconfiguration update deferred: %v/%v endpoint not ready: %v",
+				wh.deploymentNamespace, wh.deploymentName, err)
+			reportValidationConfigUpdateError(errors.New("endpoint not ready"))
+			return
+		}
+		wh.endpointReadyOnce = true
 	}
 
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
