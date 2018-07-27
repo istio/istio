@@ -61,7 +61,7 @@ var (
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
 
-	suppressPush = true
+	allowConcurrentPush = false
 )
 
 var (
@@ -149,7 +149,9 @@ func init() {
 	// By default a pod will not receive a push from an older version if a
 	// push for a newer version has started. This behavior can be disabled
 	// for testing or in special cases (bugs or corner cases found, etc)
-	suppressPush = os.Getenv("PILOT_SKIP_SUPPRESS") == ""
+	// Setting the env variable to any non-empty value will result in 0.8
+	// behaviour, default is to cancel old pushes when possible and lock.
+	allowConcurrentPush = os.Getenv("PILOT_ALLOW_CONCURRENT") != ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -522,7 +524,7 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
 	// (as fail-safe in case of bugs)
-	if suppressPush {
+	if !allowConcurrentPush {
 		con.pushMutex.Lock()
 		defer con.pushMutex.Unlock()
 	}
@@ -539,7 +541,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	}()
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
-	if suppressPush && pushEv.version != currentVersion {
+	if !allowConcurrentPush && pushEv.version != currentVersion {
 		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
 		return nil
 	}
