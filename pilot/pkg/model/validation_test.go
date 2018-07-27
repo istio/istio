@@ -1892,7 +1892,28 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: true},
+		{name: "invalid traffic policy, nil entries", in: networking.TrafficPolicy{},
+			valid: false},
 
+		{name: "invalid traffic policy, missing port in port level settings", in: networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: &networking.LoadBalancerSettings_Simple{
+							Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+						},
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+					},
+					OutlierDetection: &networking.OutlierDetection{
+						ConsecutiveErrors: 5,
+					},
+				},
+			},
+		},
+			valid: false},
 		{name: "invalid traffic policy, bad connection pool", in: networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{

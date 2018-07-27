@@ -367,3 +367,20 @@ func TestLoadCaCertPem(t *testing.T) {
 		})
 	}
 }
+
+func TestInitialConfigLoadError(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("configuration should not panic on invalid configuration: %v", r)
+		}
+	}()
+
+	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	defer cleanup()
+
+	wh.webhookConfigFile = ""
+	wh.webhookConfiguration = nil
+	if err := wh.rebuildWebhookConfig(); err == nil {
+		t.Fatal("unexpected success: rebuildWebhookConfig() should have failed given invalid config files")
+	}
+}
