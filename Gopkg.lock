@@ -369,8 +369,8 @@
     "sortkeys",
     "types"
   ]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/gogo/status"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "abdddd9b5003cdacd0e4588ad6d92aaeaf268fa8a0ff88377a137629c40f2f8d"
+  inputs-digest = "9afa51a3054527efadf4f0364a24a3549bdb57e5175b1ac8787d465ac8d5bb79"
   solver-name = "gps-cdcl"
   solver-version = 1

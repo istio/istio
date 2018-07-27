@@ -38,7 +38,7 @@ option (gogoproto.marshaler_all) = true;
 option (gogoproto.sizer_all) = true;
 option (gogoproto.unmarshaler_all) = true;
 option (gogoproto.populate_all) = true;
-option (gogoproto.testgen_all) = true;
+// TODO: renable this once https://github.com/gogo/protobuf/issues/388 is fixed: option (gogoproto.testgen_all) = true;
 
 message M {
     repeated bytes arr = 1 [(gogoproto.customtype) = "MyType", (gogoproto.nullable) = false];

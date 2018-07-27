@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/template/apikey.html
-number_of_entries: 2
+number_of_entries: 1
 ---
 <p>The <code>apikey</code> template represents a single API key, which is used for authorization checks.</p>
 
@@ -72,37 +72,9 @@ spec:
 </tr>
 <tr id="Template-timestamp">
 <td><code>timestamp</code></td>
-<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>Timestamp of API call.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
-<section>
-<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
-<em>ValueType.TIMESTAMP</em></p>
-
-<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
-type TimeStamp</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio-policy-v1beta1-TimeStamp-value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
-<td>
-<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
 
 </td>
 </tr>

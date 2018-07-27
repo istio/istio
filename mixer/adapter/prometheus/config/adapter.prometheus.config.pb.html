@@ -56,8 +56,8 @@ shape here, it will not be populated at runtime.</p>
 <td><code>string</code></td>
 <td>
 <p>Optional. The namespace is used as a prefix on the metric names.
-An example: for a metric named &ldquo;request<em>count&rdquo; with a namespace of &ldquo;istio&rdquo;,
-the full metric name becomes &ldquo;istio</em>request_count&rdquo;.
+An example: for a metric named &ldquo;requests<em>total&rdquo; with a namespace of &ldquo;istio&rdquo;,
+the full metric name becomes &ldquo;istio</em>requests_total&rdquo;.
 NOTE: The specificed namespace should be a prometheus-safe name. If not, the adapter
 will attempt to convert the namespace to a prometheus-safe name.
 NOTE: Changing the value for this will potentially impact downstream integrations
