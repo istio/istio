@@ -352,7 +352,7 @@ mixer:
 
   prometheusStatsdExporter:
     hub: docker.io/prom
-    tag: latest
+    tag: v0.6.0
 
 #
 # pilot configuration
@@ -406,7 +406,7 @@ prometheus:
   enabled: true
   replicaCount: 1
   hub: docker.io/prom
-  tag: latest
+  tag: v2.3.1
 
   service:
     annotations: {}
