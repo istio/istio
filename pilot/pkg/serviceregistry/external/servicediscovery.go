@@ -259,6 +259,7 @@ func (d *ServiceEntryStore) update() {
 			d.ip2instance[instance.Endpoint.Address] = byip
 		}
 	}
+	d.updateNeeded = false
 }
 
 // returns true if an instance's port matches with any in the provided list
