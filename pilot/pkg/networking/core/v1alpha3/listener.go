@@ -296,30 +296,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 					listenerFilters: chain.RequiredListenerFilters,
 				})
 			}
-
-			// found := false
-			// for _, p := range configgen.Plugins {
-			// 	if authnPolicy, ok := p.(authn.Plugin); ok {
-			// 		matches, tls, requireTLSInspector := authnPolicy.SetupFilterChains(
-			// 			env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort)
-			// 		listenerOpts.requireTLSInspector = requireTLSInspector
-			// 		for i, match := range matches {
-			// 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-			// 				httpOpts:   httpOpts,
-			// 				match:      match,
-			// 				tlsContext: tls[i],
-			// 			})
-			// 		}
-			// 		found = true
-			// 		break
-			// 	}
-			// }
-			// if !found {
-			// 	log.Errorf("Do not found authentication plugin!")
-			// 	listenerOpts.filterChainOpts = []*filterChainOpts{
-			// 		{httpOpts: httpOpts},
-			// 	}
-			// }
 		case plugin.ListenerProtocolTCP:
 			listenerOpts.filterChainOpts = []*filterChainOpts{{
 				networkFilters: buildInboundNetworkFilters(instance),
