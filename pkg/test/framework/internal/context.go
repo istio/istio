@@ -14,72 +14,36 @@
 
 package internal
 
-import "istio.io/istio/pkg/test/framework/dependency"
+import (
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/settings"
+)
 
 // TestContext provides the ambient context to internal code.
 type TestContext struct {
-	testID         string
-	runID          string
-	workDir        string
-	hub            string
-	tag            string
-	env            Environment
-	deps           Tracker
-	kubeConfigPath string
+	settings settings.Settings
+	impl     environment.Implementation
+	Tracker  Tracker
 }
 
+var _ environment.ComponentContext = &TestContext{}
+
 // NewTestContext initializes and returns a new instance of TestContext.
-func NewTestContext(testID, runID, workDir, hub, tag string, kubeConfigPath string, env Environment) *TestContext {
+func NewTestContext(s settings.Settings, impl environment.Implementation) *TestContext {
 	return &TestContext{
-		testID:         testID,
-		runID:          runID,
-		workDir:        workDir,
-		hub:            hub,
-		tag:            tag,
-		env:            env,
-		kubeConfigPath: kubeConfigPath,
-		deps:           make(map[dependency.Instance]interface{}),
+		settings: s,
+		impl:     impl,
+		Tracker:  make(map[dependency.Instance]interface{}),
 	}
 }
 
-// TestID of the current test.
-func (t *TestContext) TestID() string {
-	return t.testID
+// Settings returns current settings.
+func (t *TestContext) Settings() settings.Settings {
+	return t.settings
 }
 
-// RunID of the current run.
-func (t *TestContext) RunID() string {
-	return t.runID
-}
-
-// Environment interface for internal use.
-func (t *TestContext) Environment() Environment {
-	return t.env
-}
-
-// Hub environment variable.
-func (t *TestContext) Hub() string {
-	return t.hub
-}
-
-// Tag environment variable.
-func (t *TestContext) Tag() string {
-	return t.tag
-}
-
-// KubeConfigPath parameter.
-func (t *TestContext) KubeConfigPath() string {
-	return t.kubeConfigPath
-}
-
-// CreateTmpDirectory allows creation of temporary directories.
-func (t *TestContext) CreateTmpDirectory(name string) (string, error) {
-	scope.Debugf("Enter: TestContext.CreateTmpDirectory (%s)", t.testID)
-
-	return createTmpDirectory(t.workDir, t.runID, name)
-}
-
-// Tracker returns the ambient Tracker.
-func (t *TestContext) Tracker() Tracker {
-	return t.deps
+// Environment returns current environment implementation.
+func (t *TestContext) Environment() environment.Implementation {
+	return t.impl
 }

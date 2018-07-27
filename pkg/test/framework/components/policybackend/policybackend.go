@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kubernetes
+package policybackend
 
 import (
 	"encoding/json"
@@ -26,11 +26,16 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
 )
+
+var scope = log.RegisterScope("policybackend", "Policy backend test component", 0)
 
 const template = `
 # Test Policy Backend
@@ -81,15 +86,56 @@ type policyBackend struct {
 	dependencyNamespace string
 	controller          *policy.Controller
 	forwarder           *kube.PortForwarder
+
+	// local only settings
+	port    int
+	backend *policy.Backend
+
+	local bool
 }
 
 var _ environment.DeployedPolicyBackend = &policyBackend{}
 var _ io.Closer = &policyBackend{}
 
-func newPolicyBackend(e *Environment) (*policyBackend, error) {
+// InitLocal initializes a new Policy Backend component for the local environment.
+func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
+	_, ok := ctx.Environment().(*local.Implementation)
+	if !ok {
+		return nil, fmt.Errorf("expected environment not found")
+	}
+
+	port := policy.DefaultPort // TODO: Allow dynamically allocated ports.
+	backend := policy.NewPolicyBackend(port)
+
+	err := backend.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	controller, err := policy.NewController(fmt.Sprintf(":%d", port))
+	if err != nil {
+		_ = backend.Close()
+		return nil, err
+	}
+
+	return &policyBackend{
+		port:       port,
+		backend:    backend,
+		controller: controller,
+		local:      true,
+	}, nil
+}
+
+// InitKube initializes a new Mixer component for the kubernetes environment.
+func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+	e, ok := ctx.Environment().(*kubernetes.Implementation)
+	if !ok {
+		return nil, fmt.Errorf("expected environment not found")
+	}
+
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
-		"Hub":             e.ctx.Hub(),
-		"Tag":             e.ctx.Tag(),
+		"Hub":             ctx.Settings().Hub,
+		"Tag":             ctx.Settings().Tag,
 		"deployment":      "policy-backend",
 		"ImagePullPolicy": "Always",
 		"app":             "policy-backend",
@@ -101,31 +147,31 @@ func newPolicyBackend(e *Environment) (*policyBackend, error) {
 		return nil, err
 	}
 
-	if err = kube.ApplyContents(e.ctx.KubeConfigPath(), e.DependencyNamespace, result); err != nil {
+	if err = kube.ApplyContents(ctx.Settings().KubeConfig, e.DependencyNamespace, result); err != nil {
 		return nil, err
 	}
 
-	pod, err := e.accessor.WaitForPodBySelectors(e.DependencyNamespace, "app=policy-backend", "version=test")
+	pod, err := e.Accessor.WaitForPodBySelectors(e.DependencyNamespace, "app=policy-backend", "version=test")
 	if err != nil {
 		return nil, err
 	}
 
-	if err = e.accessor.WaitUntilPodIsRunning(e.DependencyNamespace, pod.Name); err != nil {
+	if err = e.Accessor.WaitUntilPodIsRunning(e.DependencyNamespace, pod.Name); err != nil {
 		return nil, err
 	}
 
-	if err = e.accessor.WaitUntilPodIsReady(e.DependencyNamespace, pod.Name); err != nil {
+	if err = e.Accessor.WaitUntilPodIsReady(e.DependencyNamespace, pod.Name); err != nil {
 		return nil, err
 	}
 
-	svc, err := e.accessor.GetService(e.DependencyNamespace, "policy-backend")
+	svc, err := e.Accessor.GetService(e.DependencyNamespace, "policy-backend")
 	if err != nil {
 		return nil, err
 	}
 	addressInCluster := fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
 	scope.Debugf("Policy Backend in-cluster address: %s", addressInCluster)
 
-	forwarder := kube.NewPortForwarder(e.ctx.KubeConfigPath(), pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
+	forwarder := kube.NewPortForwarder(ctx.Settings().KubeConfig, pod.Namespace, pod.Name, int(svc.Spec.Ports[0].TargetPort.IntVal))
 	if err = forwarder.Start(); err != nil {
 		return nil, err
 	}
@@ -141,6 +187,7 @@ func newPolicyBackend(e *Environment) (*policyBackend, error) {
 		dependencyNamespace: e.DependencyNamespace,
 		controller:          controller,
 		forwarder:           forwarder,
+		local:               false,
 	}, nil
 }
 
@@ -232,6 +279,18 @@ func (p *policyBackend) accumulateReports(t testing.TB, count int) []proto.Messa
 
 // CreateConfigSnippetImplementation
 func (p *policyBackend) CreateConfigSnippet(name string) string {
+	if p.local {
+		return fmt.Sprintf(
+			`apiVersion: "config.istio.io/v1alpha2"
+kind: bypass
+metadata:
+  name: %s
+  namespace: istio-system
+spec:
+  backend_address: 127.0.0.1:%d
+`, name, p.port)
+	}
+
 	return fmt.Sprintf(
 		`apiVersion: "config.istio.io/v1alpha2"
 kind: bypass

@@ -16,3 +16,8 @@ package dependency
 
 // Instance represents an external dependency that a test might need.
 type Instance string
+
+// String returns the name of this instance.
+func (i Instance) String() string {
+	return string(i)
+}
