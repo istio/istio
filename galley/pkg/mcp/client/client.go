@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -97,6 +98,51 @@ type Client struct {
 	state      map[string]*perTypeState
 	clientInfo *mcp.Client
 	updater    Updater
+
+	journal  recentRequestsJournal
+	metadata map[string]string
+}
+
+// RecentRequestInfo is metadata about a request that the client has sent.
+type RecentRequestInfo struct {
+	Time    time.Time
+	Request *mcp.MeshConfigRequest
+}
+
+// Acked indicates whether the message was an ack or not.
+func (r RecentRequestInfo) Acked() bool {
+	return r.Request.ErrorDetail != nil
+}
+
+// recentRequestsJournal captures debug metadata about the latest requests that was sent by this client.
+type recentRequestsJournal struct {
+	itemsMutex sync.Mutex
+	items      []RecentRequestInfo
+}
+
+func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
+	r.itemsMutex.Lock()
+	defer r.itemsMutex.Unlock()
+
+	item := RecentRequestInfo{
+		Time:    time.Now(),
+		Request: proto.Clone(req).(*mcp.MeshConfigRequest),
+	}
+
+	r.items = append(r.items, item)
+	for len(r.items) > 20 {
+		r.items = r.items[1:]
+	}
+}
+
+func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
+	r.itemsMutex.Lock()
+	defer r.itemsMutex.Unlock()
+
+	result := make([]RecentRequestInfo, len(r.items))
+	copy(result, r.items)
+
+	return result
 }
 
 // New creates a new instance of the MCP client for the specified message types.
@@ -109,7 +155,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 	}
 	for k, v := range metadata {
 		clientInfo.Metadata.Fields[k] = &types.Value{
-			&types.Value_StringValue{v},
+			Kind: &types.Value_StringValue{StringValue: v},
 		}
 	}
 
@@ -124,6 +170,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 		state:      state,
 		clientInfo: clientInfo,
 		updater:    updater,
+		metadata:   metadata,
 	}
 }
 
@@ -141,6 +188,8 @@ func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version strin
 		ResponseNonce: response.Nonce,
 		ErrorDetail:   errorDetails.Proto(),
 	}
+	c.journal.record(req)
+
 	return c.stream.Send(req)
 }
 
@@ -219,6 +268,8 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		VersionInfo:   response.VersionInfo,
 		ResponseNonce: response.Nonce,
 	}
+	c.journal.record(req)
+
 	if err := c.stream.Send(req); err != nil {
 		return err
 	}
@@ -351,4 +402,36 @@ func (c *Client) Run(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// SnapshotRequestInfo returns a snapshot of the last known set of request results.
+func (c *Client) SnapshotRequestInfo() []RecentRequestInfo {
+	return c.journal.snapshot()
+}
+
+// Metadata that is originally supplied when creating this client.
+func (c *Client) Metadata() map[string]string {
+	r := make(map[string]string, len(c.metadata))
+	for k, v := range c.metadata {
+		r[k] = v
+	}
+
+	return r
+}
+
+// ID is the node id for this client.
+func (c *Client) ID() string {
+	return c.clientInfo.Id
+}
+
+// SupportedTypeURLs returns the TypeURLs that this client requests.
+func (c *Client) SupportedTypeURLs() []string {
+	result := make([]string, 0, len(c.state))
+
+	for k := range c.state {
+		result = append(result, k)
+	}
+	sort.Strings(result)
+
+	return result
 }
