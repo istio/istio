@@ -788,7 +788,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 }
 
-func TestBuildFilterChains(t *testing.T) {
+func TestOnInboundFilterChains(t *testing.T) {
 	tlsContext := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
@@ -908,12 +908,6 @@ func TestBuildFilterChains(t *testing.T) {
 				},
 				{
 					FilterChainMatch: &listener.FilterChainMatch{},
-					RequiredListenerFilters: []listener.ListenerFilter{
-						{
-							Name:   "envoy.listener.tls_inspector",
-							Config: &types.Struct{},
-						},
-					},
 				},
 			},
 		},

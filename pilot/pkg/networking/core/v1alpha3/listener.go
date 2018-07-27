@@ -931,7 +931,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			match = nil
 		}
 		filterChains = append(filterChains, listener.FilterChain{
-			FilterChainMatch: chain.match,
+			FilterChainMatch: match,
 			TlsContext:       chain.tlsContext,
 		})
 	}
