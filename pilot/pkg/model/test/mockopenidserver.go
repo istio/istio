@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -29,8 +30,9 @@ import (
 )
 
 var (
-	portBase   uint16 = 20000
-	cfgContent        = "{\"jwks_uri\": \"%s\"}"
+	portBase    uint16 = 20000
+	cfgContent         = "{\"jwks_uri\": \"%s\"}"
+	serverMutex        = &sync.Mutex{}
 )
 
 const (
@@ -55,17 +57,30 @@ type MockOpenIDDiscoveryServer struct {
 }
 
 // NewServer creates a mock openID discovery server.
-func NewServer() (*MockOpenIDDiscoveryServer, error) {
+func NewServer(start bool) (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
 	port, err := allocPort()
 	if err != nil {
 		log.Errorf("Server failed to pick an available port: %v", err)
 		return nil, err
 	}
 
-	return &MockOpenIDDiscoveryServer{
+	server, err := &MockOpenIDDiscoveryServer{
 		Port: port,
 		URL:  fmt.Sprintf("http://localhost:%d", port),
 	}, nil
+
+	if err != nil {
+		log.Errorf("Failed to create a new mock server", err)
+		return nil, err
+	}
+
+	if start {
+		return server, server.Start()
+	}
+	return server, nil
 }
 
 // Start starts the mock server.
