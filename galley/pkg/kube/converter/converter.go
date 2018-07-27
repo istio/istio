@@ -18,7 +18,10 @@ import (
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/kube/converter/legacy"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -27,9 +30,8 @@ import (
 type Fn func(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error)
 
 var converters = map[string]Fn{
-	"identity":           identity,
-	"old-mixer-adapter":  mixerAdapter,
-	"old-mixer-template": mixerTemplate,
+	"identity":              identity,
+	"legacy-mixer-resource": legacyMixerResource,
 }
 
 // Get returns the named converter function, or panics if it is not found.
@@ -46,12 +48,15 @@ func identity(destination resource.Info, u *unstructured.Unstructured) (proto.Me
 	return toProto(destination, u.Object["spec"])
 }
 
-func mixerTemplate(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	// TODO
-	panic("mixer instance converter NYI")
-}
+func legacyMixerResource(_ resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
+	spec := u.Object["spec"]
+	s := &types.Struct{}
+	if err := toproto(s, true, spec); err != nil {
+		return nil, err
+	}
 
-func mixerAdapter(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	// TODO
-	panic("mixer instance converter NYI")
+	return &legacy.LegacyMixerResource{
+		Kind:     u.GetKind(),
+		Contents: s,
+	}, nil
 }

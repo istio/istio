@@ -15,6 +15,8 @@
 package source
 
 import (
+	"sort"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,12 +29,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+var scope = log.RegisterScope("kube-source", "Source for Kubernetes", 0)
+
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
 	ifaces kube.Interfaces
 	ch     chan resource.Event
 
-	listeners map[resource.TypeURL]*listener
+	listeners []*listener
 }
 
 var _ runtime.Source = &sourceImpl{}
@@ -44,17 +48,26 @@ func New(k kube.Interfaces, resyncPeriod time.Duration) (runtime.Source, error) 
 
 func newSource(k kube.Interfaces, resyncPeriod time.Duration, specs []kube.ResourceSpec) (runtime.Source, error) {
 	s := &sourceImpl{
-		ifaces:    k,
-		listeners: make(map[resource.TypeURL]*listener),
+		ifaces: k,
 	}
 
-	for _, spec := range specs {
+	sort.Slice(specs, func(i, j int) bool {
+		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
+	})
+
+	scope.Infof("Registering the following resources:")
+	for i, spec := range specs {
+		scope.Infof("[%d]", i)
+		scope.Infof("  Source:    %s", spec.CanonicalResourceName())
+		scope.Infof("  Type URL:  %s", spec.Target.TypeURL)
+
 		l, err := newListener(k, resyncPeriod, spec, s.process)
 		if err != nil {
+			scope.Errorf("Error registering listener: %v", err)
 			return nil, err
 		}
 
-		s.listeners[spec.Target.TypeURL] = l
+		s.listeners = append(s.listeners, l)
 	}
 
 	return s, nil
@@ -102,12 +115,12 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 	if u != nil {
 		item, err := l.spec.Converter(l.spec.Target, u)
 		if err != nil {
-			log.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
+			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
 			return
 		}
 		e.Item = item
 	}
 
-	log.Debugf("Dispatching source event: %v", e)
+	scope.Debugf("Dispatching source event: %v", e)
 	s.ch <- e
 }
