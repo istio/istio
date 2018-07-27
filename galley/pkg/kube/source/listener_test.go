@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package source
 
 import (
 	"errors"
@@ -28,12 +28,14 @@ import (
 	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/galley/pkg/kube"
+
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/common"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
 
-var info = ResourceSpec{
+var info = kube.ResourceSpec{
 	Kind:     "kind",
 	ListKind: "listkind",
 	Group:    "group",

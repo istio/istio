@@ -12,12 +12,15 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package source
 
 import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/kube"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -26,7 +29,7 @@ import (
 
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
-	ifaces Interfaces
+	ifaces kube.Interfaces
 	ch     chan resource.Event
 
 	listeners map[resource.TypeURL]*listener
@@ -34,12 +37,12 @@ type sourceImpl struct {
 
 var _ runtime.Source = &sourceImpl{}
 
-// NewSource returns a Kubernetes implementation of runtime.Source.
-func NewSource(k Interfaces, resyncPeriod time.Duration) (runtime.Source, error) {
-	return newSource(k, resyncPeriod, Types.All())
+// New returns a Kubernetes implementation of runtime.Source.
+func New(k kube.Interfaces, resyncPeriod time.Duration) (runtime.Source, error) {
+	return newSource(k, resyncPeriod, kube_meta.Types.All())
 }
 
-func newSource(k Interfaces, resyncPeriod time.Duration, specs []ResourceSpec) (runtime.Source, error) {
+func newSource(k kube.Interfaces, resyncPeriod time.Duration, specs []kube.ResourceSpec) (runtime.Source, error) {
 	s := &sourceImpl{
 		ifaces:    k,
 		listeners: make(map[resource.TypeURL]*listener),

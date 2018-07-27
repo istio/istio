@@ -19,29 +19,25 @@ import (
 	"testing"
 )
 
-func TestEntries_All(t *testing.T) {
-	e := &Schema{}
-
-	i1 := ResourceSpec{Kind: "foo"}
-	i2 := ResourceSpec{Kind: "bar"}
-
-	e.entries = append(e.entries, i1)
-	e.entries = append(e.entries, i2)
-
-	r := e.All()
-
-	expected := []ResourceSpec{i1, i2}
-	if !reflect.DeepEqual(expected, r) {
-		t.Fatalf("Mismatch Expected:\n%v\nActual:\n%v\n", expected, r)
+func TestSchemaBuilder(t *testing.T) {
+	spec := ResourceSpec{
+		Kind:     "kind",
+		Version:  "version",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+		Group:    "groupd",
 	}
-}
 
-func TestGetTargetFor(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatal("Should have panicked")
-		}
-	}()
+	b := NewSchemaBuilder()
+	b.Add(spec)
+	s := b.Build()
 
-	getTargetFor("shazbat")
+	actual := s.All()
+
+	expected := []ResourceSpec{spec}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
+	}
 }

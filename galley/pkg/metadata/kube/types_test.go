@@ -12,26 +12,16 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package resource
+package kube
 
-import "testing"
+import (
+	"testing"
+)
 
-func TestTypes_Info(t *testing.T) {
-	for _, info := range Types.All() {
-		i, found := Types.Lookup(info.TypeURL.String())
-		if !found {
-			t.Fatalf("Unable to find by lookup: %q", info.TypeURL.String())
-		}
-		if i != info {
-			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
-		}
-	}
-}
-
-func TestTypes_Lookup(t *testing.T) {
-	for _, info := range Types.All() {
-		if _, found := Types.Lookup(info.TypeURL.string); !found {
-			t.Fatalf("expected info not found for: %s", info.TypeURL.string)
+func TestEntries_Binding(t *testing.T) {
+	for _, e := range Types.All() {
+		if e.Target.TypeURL.String() == "" {
+			t.Fatalf("Invalid binding to empty target: %v", e)
 		}
 	}
 }

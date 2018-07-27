@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kube
+package source
 
 import (
 	"reflect"
@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/galley/pkg/kube"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
@@ -39,7 +41,7 @@ type listener struct {
 	// Lock for changing the running state of the listener
 	stateLock sync.Mutex
 
-	spec ResourceSpec
+	spec kube.ResourceSpec
 
 	resyncPeriod time.Duration
 
@@ -61,7 +63,7 @@ type listener struct {
 
 // newListener returns a new instance of an listener.
 func newListener(
-	ifaces Interfaces, resyncPeriod time.Duration, spec ResourceSpec, processor processorFn) (*listener, error) {
+	ifaces kube.Interfaces, resyncPeriod time.Duration, spec kube.ResourceSpec, processor processorFn) (*listener, error) {
 
 	log.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 
