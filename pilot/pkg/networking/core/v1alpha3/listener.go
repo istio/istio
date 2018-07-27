@@ -147,7 +147,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		var transparent *google_protobuf.BoolValue
 		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
-			transparent = &google_protobuf.BoolValue{true}
+			transparent = &google_protobuf.BoolValue{Value: true}
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -155,7 +155,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
-			UseOriginalDst: &google_protobuf.BoolValue{true},
+			UseOriginalDst: &google_protobuf.BoolValue{Value: true},
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -790,7 +790,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
+	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
 
 	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
 		// Allow websocket upgrades
@@ -841,7 +841,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 				Value: tc.OverallSampling,
 			},
 		}
-		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
+		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
 	if verboseDebug {
