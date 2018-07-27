@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"istio.io/istio/galley/pkg/mcp/client"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
 )
 
@@ -31,7 +32,14 @@ type configzTopic struct {
 
 var _ fw.Topic = &configzTopic{}
 
-// CreateTopic creates and returns a configz topic from the given MCP client.
+// Register the Configz topic for the given client.
+// TODO: Multi-client registration is currently not supported. We should update the topic, so that we can
+// show output from multiple clients.
+func Register(c *client.Client) {
+	ctrlz.RegisterTopic(CreateTopic(c))
+}
+
+// CreateTopic creates and returns a configz topic from the given MCP client. It does not do any registration.
 func CreateTopic(c *client.Client) fw.Topic {
 	return &configzTopic{
 		cl: c,
