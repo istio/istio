@@ -496,10 +496,19 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.User != "" {
-		// Generate the user field with attrSrcPrincipal in the metadata.
-		id := principalForKeyValue(attrSrcPrincipal, subject.User)
-		if id != nil {
-			ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+		if subject.User == "*" {
+			// Generate an any rule to grant access permission to anyone if the value is "*".
+			ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			})
+		} else {
+			// Generate the user field with attrSrcPrincipal in the metadata.
+			id := principalForKeyValue(attrSrcPrincipal, subject.User)
+			if id != nil {
+				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+			}
 		}
 	}
 
