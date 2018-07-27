@@ -77,13 +77,6 @@ function get_git_commit_cmd() {
     git rev-parse HEAD
 }
 
-#  get_git_commit = BashOperator(
-#      task_id='get_git_commit',
-#      bash_command=get_git_commit_cmd,
-#      xcom_push=True,
-#      dag=common_dag)
-#  tasks['get_git_commit'] = get_git_commit
-
 function build_template() {
     # TODO: Merge these json/script changes into istio/istio master and change these path back.
     # Currently we did changes and push those to a test-version folder manually
@@ -92,13 +85,9 @@ function build_template() {
     chmod u+x *
 
     ./start_gcb_build.sh -w -p $PROJECT_ID -r $GCR_STAGING_DEST -s $GCS_BUILD_PATH \
-    -v "$VERSION" -u "$MFEST_URL" -t "{{ m_commit }}" -m "$MFEST_FILE" -a $SVC_ACCT
+    -v "$VERSION" -u "$MFEST_URL" -t "$m_commit" -m "$MFEST_FILE" -a $SVC_ACCT
   # NOTE: if you add commands to build_template after start_gcb_build.sh then take care to preserve its return value
 }
-
-#  build = BashOperator(
-#      task_id='run_cloud_builder', bash_command=build_template, dag=common_dag)
-#  tasks['run_cloud_builder'] = build
 
 function test_command() {
     cp /home/airflow/gcs/data/githubctl ./githubctl
@@ -115,13 +104,6 @@ function test_command() {
     --base_branch="$BRANCH"
 }
 
-#  run_release_qualification_tests = BashOperator(
-#      task_id='run_release_qualification_tests',
-#      bash_command=test_command,
-#      retries=0,
-#      dag=common_dag)
-#  tasks['run_release_qualification_tests'] = run_release_qualification_tests
-
 function modify_values_command() {
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
     chmod u+x modify_values.sh
@@ -134,19 +116,11 @@ function modify_values_command() {
     ./modify_values.sh -h "${hub}" -t $VERSION -p gs://$GCS_BUILD_BUCKET/$GCS_STAGING_PATH -v $VERSION
 }
 
-#  modify_values = BashOperator(
-#    task_id='modify_values_helm', bash_command=modify_values_command, dag=common_dag)
-#  tasks['modify_values_helm'] = modify_values
-
-
 function gcr_tag_success() {
-#KPTD {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
+  pwd; ls
 
-set -x
-pwd; ls
-
-gsutil ls gs://$GCS_FULL_STAGING_PATH/docker/           > docker_tars.txt
-cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
+  gsutil ls gs://$GCS_FULL_STAGING_PATH/docker/           > docker_tars.txt
+  cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
                         sed -E "s/docker\/(([a-z]|[0-9]|-|_)*).tar.gz/\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
@@ -162,56 +136,35 @@ cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
     #docker push $push_dest
   done
 
-cat docker_tars.txt docker_images.txt
-rm  docker_tars.txt docker_images.txt
+  cat docker_tars.txt docker_images.txt
+  rm  docker_tars.txt docker_images.txt
 }
-
-#  tag_daily_grc = BashOperator(
-#      task_id='tag_daily_gcr',
-#      bash_command=gcr_tag_success,
-#      dag=dag)
 
 function release_push_github_docker_template() {
-#KPTD {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-#KPTD {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
+  gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
+  gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
+  chmod u+x *
 
-gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
-gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
-chmod u+x *
-./start_gcb_publish.sh \
--p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT"  \
--v "$VERSION" -s "$GCS_FULL_STAGING_PATH" \
--b "$GCS_MONTHLY_RELEASE_PATH" -r "$GCR_RELEASE_DEST" \
--g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
--t "{{ m_commit }}" -m "$MFEST_FILE" \
--h "$GITHUB_ORG" -i "$GITHUB_REPO" \
--d "$DOCKER_HUB}}" -w
+  ./start_gcb_publish.sh \
+    -p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT"  \
+    -v "$VERSION" -s "$GCS_FULL_STAGING_PATH" \
+    -b "$GCS_MONTHLY_RELEASE_PATH" -r "$GCR_RELEASE_DEST" \
+    -g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
+    -t "$m_commit" -m "$MFEST_FILE" \
+    -h "$GITHUB_ORG" -i "$GITHUB_REPO" \
+    -d "$DOCKER_HUB}}" -w
 }
-
-#  github_and_docker_release = BashOperator(
-#    task_id='github_and_docker_release',
-#    bash_command=release_push_github_docker_template,
-#    dag=dag)
-#  tasks['github_and_docker_release'] = github_and_docker_release
 
 function release_tag_github_template() {
-#KPTD {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
-#KPTD {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
-gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
-chmod u+x *
-./start_gcb_tag.sh \
--p "$RELEASE_PROJECT_ID" \
--h "$GITHUB_ORG" -a "$SVC_ACCT"  \
--v "$VERSION"   -e "istio_releaser_bot@example.com" \
--n "IstioReleaserBot" -s "$GCS_FULL_STAGING_PATH" \
--g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
--t "{{ m_commit }}" -m "$MFEST_FILE" -w
+  gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
+  gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
+  chmod u+x *
+
+  ./start_gcb_tag.sh \
+    -p "$RELEASE_PROJECT_ID" \
+    -h "$GITHUB_ORG" -a "$SVC_ACCT"  \
+    -v "$VERSION"   -e "istio_releaser_bot@example.com" \
+    -n "IstioReleaserBot" -s "$GCS_FULL_STAGING_PATH" \
+    -g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
+    -t "$m_commit" -m "$MFEST_FILE" -w
 }
-
-#  github_tag_repos = BashOperator(
-#    task_id='github_tag_repos',
-#    bash_command=release_tag_github_template,
-#    dag=dag)
-#  tasks['github_tag_repos'] = github_tag_repos
-
