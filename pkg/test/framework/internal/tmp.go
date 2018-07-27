@@ -67,11 +67,11 @@ func (t TempFile) Delete() {
 	}
 }
 
-// createTmpDirectory creates a temporary directory for running local programs, or storing logs.
+// CreateTmpDirectory creates a temporary directory for running local programs, or storing logs.
 // By default, the root of the tmp dir will be established by os.TempDir(). If workdir flag is specified,
 // it will be used instead.
 // The directory will be of the form <root>/<runID>/<name>/.
-func createTmpDirectory(workdir string, runID string, name string) (string, error) {
+func CreateTmpDirectory(workdir string, runID string, name string) (string, error) {
 
 	dir := workdir
 	if dir == "" {

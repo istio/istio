@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
@@ -28,16 +29,19 @@ var scope = log.RegisterScope("testframework", "General scope for the test frame
 // Tracker keeps track of the state information for dependencies
 type Tracker map[dependency.Instance]interface{}
 
+// DependencyInitFn is an external function for initializing a dependency.
+type DependencyInitFn func(dep dependency.Instance, env environment.ComponentContext) (interface{}, error)
+
 // Initialize a test dependency and start tracking it.
-func (t Tracker) Initialize(ctx *TestContext, env Environment, dep dependency.Instance) error {
+func (t Tracker) Initialize(dep dependency.Instance, ctx environment.ComponentContext, fn DependencyInitFn) error {
 	if _, ok := t[dep]; ok {
 		scope.Debugf("Dependency already initialized: %v", dep)
 		return nil
 	}
 
-	s, err := env.InitializeDependency(ctx, dep)
+	s, err := fn(dep, ctx)
 	if err != nil {
-		scope.Debugf("Error initializing dependency '%v': %v", dep, err)
+		scope.Errorf("Error initializing dependency '%v': %v", dep, err)
 		return err
 	}
 
@@ -56,13 +60,13 @@ func (t Tracker) All() []interface{} {
 }
 
 // Reset the all Resettable resources.
-func (t Tracker) Reset(ctx *TestContext) error {
+func (t Tracker) Reset() error {
 	var er error
 
 	for k, v := range t {
 		if cl, ok := v.(Resettable); ok {
 			scope.Debugf("Resetting state for dependency: %s", k)
-			if err := cl.Reset(ctx); err != nil {
+			if err := cl.Reset(); err != nil {
 				scope.Errorf("Error resetting dependency state: %s: %v", k, err)
 				er = multierr.Append(er, err)
 			}

@@ -18,8 +18,8 @@ const (
 	// Apps is a dependency on fake networked apps. This can be used to mimic traffic thru a mesh.
 	Apps = Instance("apps")
 
-	// Kube is required for running the test.
-	Kube = Instance("kube")
+	// Kubernetes is required for running the test.
+	Kubernetes = Instance("kubernetes")
 
 	// GKE dependency
 	GKE = Instance("gke")

@@ -25,7 +25,7 @@ import (
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer, dependency.Kube)
+	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer, dependency.Kubernetes)
 
 	env := framework.AcquireEnvironment(t)
 

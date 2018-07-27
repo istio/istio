@@ -16,5 +16,5 @@ package internal
 
 // Resettable interface is implemented by resources that needs to be reset before reuse.
 type Resettable interface {
-	Reset(ctx *TestContext) error
+	Reset() error
 }
