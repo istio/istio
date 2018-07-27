@@ -769,7 +769,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
-	s.EnvoyXdsServer.ConfigController = &s.configController
+	s.EnvoyXdsServer.ConfigController = s.configController
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
