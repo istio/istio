@@ -117,7 +117,11 @@ func builtinSubstring(a, b, c ast.Value) (ast.Value, error) {
 	if length < 0 {
 		s = ast.String(base[startIndex:])
 	} else {
-		s = ast.String(base[startIndex : startIndex+length])
+		upto := startIndex + length
+		if len(base) < upto {
+			upto = len(base)
+		}
+		s = ast.String(base[startIndex:upto])
 	}
 
 	return s, nil
@@ -189,6 +193,9 @@ func builtinSplit(a, b ast.Value) (ast.Value, error) {
 		return nil, err
 	}
 	d, err := builtins.StringOperand(b, 2)
+	if err != nil {
+		return nil, err
+	}
 	elems := strings.Split(string(s), string(d))
 	arr := make(ast.Array, len(elems))
 	for i := range arr {
@@ -241,17 +248,26 @@ func builtinSprintf(a, b ast.Value) (ast.Value, error) {
 		return nil, builtins.NewOperandTypeErr(2, b, "array")
 	}
 
-	strArr := []interface{}{}
+	args := make([]interface{}, len(astArr))
+
 	for i := range astArr {
-		if str, ok := astArr[i].Value.(ast.String); ok {
-			strArr = append(strArr, string(str))
-		} else {
-			strArr = append(strArr, astArr[i].Value.String())
+		switch v := astArr[i].Value.(type) {
+		case ast.Number:
+			if n, ok := v.Int(); ok {
+				args[i] = n
+			} else if f, ok := v.Float64(); ok {
+				args[i] = f
+			} else {
+				args[i] = v.String()
+			}
+		case ast.String:
+			args[i] = string(v)
+		default:
+			args[i] = astArr[i].String()
 		}
 	}
 
-	fmtStr := fmt.Sprintf(string(s), strArr...)
-	return ast.String(fmtStr), nil
+	return ast.String(fmt.Sprintf(string(s), args...)), nil
 }
 
 func init() {

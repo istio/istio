@@ -70,6 +70,7 @@ const (
 	destUIDLabel       = "destination_workload_uid"
 	destContainerLabel = "destination_container"
 	responseCodeLabel  = "response_code"
+	reporterLabel      = "reporter"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -99,20 +100,21 @@ var (
 	ingressName        = "ingressgateway"
 	productPageTimeout = 60 * time.Second
 
-	networkingDir            = "networking"
-	policyDir                = "policy"
-	rateLimitRule            = "mixer-rule-ratings-ratelimit"
-	denialRule               = "mixer-rule-ratings-denial"
-	ingressDenialRule        = "mixer-rule-ingress-denial"
-	newTelemetryRule         = "mixer-rule-additional-telemetry"
-	kubeenvTelemetryRule     = "mixer-rule-kubernetesenv-telemetry"
-	destinationRuleAll       = "destination-rule-all"
-	routeAllRule             = "virtual-service-all-v1"
-	routeReviewsVersionsRule = "virtual-service-reviews-v2-v3"
-	routeReviewsV3Rule       = "virtual-service-reviews-v3"
-	tcpDbRule                = "virtual-service-ratings-db"
-	bookinfoGateway          = "bookinfo-gateway"
-	redisQuotaRule           = "mixer-rule-ratings-redis-quota"
+	networkingDir               = "networking"
+	policyDir                   = "policy"
+	rateLimitRule               = "mixer-rule-ratings-ratelimit"
+	denialRule                  = "mixer-rule-ratings-denial"
+	ingressDenialRule           = "mixer-rule-ingress-denial"
+	newTelemetryRule            = "mixer-rule-additional-telemetry"
+	kubeenvTelemetryRule        = "mixer-rule-kubernetesenv-telemetry"
+	destinationRuleAll          = "destination-rule-all"
+	routeAllRule                = "virtual-service-all-v1"
+	routeReviewsVersionsRule    = "virtual-service-reviews-v2-v3"
+	routeReviewsV3Rule          = "virtual-service-reviews-v3"
+	tcpDbRule                   = "virtual-service-ratings-db"
+	bookinfoGateway             = "bookinfo-gateway"
+	redisQuotaRollingWindowRule = "mixer-rule-ratings-redis-quota-rolling-window"
+	redisQuotaFixedWindowRule   = "mixer-rule-ratings-redis-quota-fixed-window"
 
 	defaultRules []string
 	rules        []string
@@ -149,7 +151,7 @@ func (t *testConfig) Setup() (err error) {
 		rules = append(rules, *r)
 	}
 
-	rs = []*string{&redisQuotaRule}
+	rs = []*string{&redisQuotaRollingWindowRule, &redisQuotaFixedWindowRule}
 	for _, r := range rs {
 		*r = filepath.Join(mixerTestDataDir, *r)
 		rules = append(rules, *r)
@@ -857,13 +859,13 @@ func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s 
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 
-	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "source"})
 	if err != nil {
 		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
 		prior429s = 0
 	}
 
-	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "source"})
 	if err != nil {
 		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
 		prior200s = 0
@@ -1023,7 +1025,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	}
 }
 
-func TestRedisQuota(t *testing.T) {
+func testRedisQuota(t *testing.T, quotaRule string) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
@@ -1059,11 +1061,11 @@ func TestRedisQuota(t *testing.T) {
 	allowRuleSync()
 
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
-	if err := applyMixerRule(redisQuotaRule); err != nil {
+	if err := applyMixerRule(quotaRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
 	}
 	defer func() {
-		if err := deleteMixerRule(redisQuotaRule); err != nil {
+		if err := deleteMixerRule(quotaRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
@@ -1121,16 +1123,16 @@ func TestRedisQuota(t *testing.T) {
 	_, _, value := fetchRequestCount(t, promAPI, "ratings")
 	log.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "source"})
 	if err != nil {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find 429s: %v", err)
 		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
 
-	want := math.Floor(want429s * 0.95)
+	want := math.Floor(want429s * 0.70)
 
-	got = (got - prior429s) / 2
+	got = got - prior429s
 
 	t.Logf("Actual 429s: %f (%f rps)", got, got/actualDuration)
 
@@ -1140,21 +1142,21 @@ func TestRedisQuota(t *testing.T) {
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "source"})
 	if err != nil {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find successes value: %v", err)
 		got = 0
 	}
 
-	got = (got - prior200s) / 2
+	got = got - prior200s
 
 	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got, got/actualDuration)
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
 	// less than 10, don't fail this test).
-	want = math.Floor(want200s * 0.95)
+	want = math.Floor(want200s * 0.70)
 
 	// check successes
 	if got < want {
@@ -1167,6 +1169,18 @@ func TestRedisQuota(t *testing.T) {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
+}
+
+func TestRedisQuotaRollingWindow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
+	testRedisQuota(t, redisQuotaRollingWindowRule)
+}
+
+func TestRedisQuotaFixedWindow(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/6309")
+
+	testRedisQuota(t, redisQuotaFixedWindowRule)
 }
 
 func TestMixerReportingToMixer(t *testing.T) {
@@ -1218,14 +1232,10 @@ func TestMixerReportingToMixer(t *testing.T) {
 		t.Errorf("Expected at least one metric with 'istio-telemetry' as the destination, got %d", len(vec))
 	}
 
-	mixerPod, err := podID("istio-mixer-type=telemetry")
-	if err != nil {
-		t.Fatalf("Could not retrieve istio-telemetry pod: %v", err)
-	}
-
 	t.Logf("Validating Mixer access logs show Check() and Report() calls...")
-
-	logs, err := util.Shell(`kubectl -n %s logs %s -c mixer --tail 1000 | grep -e "%s" -e "%s"`, tc.Kube.Namespace, mixerPod, checkPath, reportPath)
+	logs, err :=
+		util.Shell(`kubectl -n %s logs -l istio-mixer-type=telemetry -c mixer --tail 1000 | grep -e "%s" -e "%s"`,
+			tc.Kube.Namespace, checkPath, reportPath)
 	if err != nil {
 		t.Fatalf("Error retrieving istio-telemetry logs: %v", err)
 	}
