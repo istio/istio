@@ -352,17 +352,17 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
-			//if is10Proxy {
-			//	action.MaxGrpcTimeout = &d
-			//}
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
-			//if is10Proxy {
-			//	action.MaxGrpcTimeout = &d
-			//}
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -592,7 +592,7 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 				Timeout:          &notimeout,
-				//MaxGrpcTimeout:   &notimeout,
+				MaxGrpcTimeout:   &notimeout,
 			},
 		}
 	}
