@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: {{ .Values.global.ingressSelector }}
+    istio: {{ .Values.global.k8sIngressSelector }}
   servers:
   - port:
       number: 80
@@ -13,7 +13,7 @@ spec:
       name: http
     hosts:
     - "*"
-{{ if .Values.global.ingressHttps }}
+{{ if .Values.global.k8sIngressHttps }}
   - port:
       number: 443
       protocol: HTTPS
