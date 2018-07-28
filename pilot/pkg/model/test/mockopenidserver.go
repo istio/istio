@@ -56,8 +56,8 @@ type MockOpenIDDiscoveryServer struct {
 	PubKeyHitNum uint64
 }
 
-// NewServer creates a mock openID discovery server.
-func NewServer(start bool) (*MockOpenIDDiscoveryServer, error) {
+// StartNewServer creates a mock openID discovery server and starts it
+func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
@@ -77,10 +77,7 @@ func NewServer(start bool) (*MockOpenIDDiscoveryServer, error) {
 		return nil, err
 	}
 
-	if start {
-		return server, server.Start()
-	}
-	return server, nil
+	return server, server.Start()
 }
 
 // Start starts the mock server.

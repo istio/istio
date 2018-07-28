@@ -26,7 +26,7 @@ import (
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
@@ -72,7 +72,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
@@ -150,7 +150,7 @@ func TestGetPublicKey(t *testing.T) {
 	r := newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 	defer r.Close()
 
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
@@ -191,7 +191,7 @@ func TestJwtPubKeyRefresh(t *testing.T) {
 	r := newJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/, 2*time.Millisecond /*RefreshInterval*/)
 	defer r.Close()
 
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")

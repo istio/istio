@@ -451,7 +451,7 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 }
 
 func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
 	}
@@ -500,7 +500,7 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 }
 
 func TestBuildJwtFilter(t *testing.T) {
-	ms, err := test.NewServer(true)
+	ms, err := test.StartNewServer()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
 	}
