@@ -20,11 +20,11 @@ integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
-    CHANGE_MINIKUBE_NONE_USER: true
-    HUB: docker.io/dnerepo
-    TAG: dontpush
-    GOPATH: /go
-    SKIP_CLEANUP: true
+    - CHANGE_MINIKUBE_NONE_USER: true
+    - HUB: docker.io/dnerepo
+    - TAG: dontpush
+    - GOPATH: /go
+    - SKIP_CLEANUP: true
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -146,6 +146,7 @@ jobs:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
             - GOPATH: /go
+            - SKIP_CLEANUP: 1
     steps:
       - <<: *initWorkingDir
       - checkout
