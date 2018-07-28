@@ -368,8 +368,8 @@ pilot:
   # Resources for a small pilot install
   resources:
     requests:
-      cpu: 800m
-      memory: 512Mi
+      cpu: 500m
+      memory: 2048Mi
 
 #
 # security configuration
