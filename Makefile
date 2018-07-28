@@ -343,7 +343,7 @@ node-agent:
 
 .PHONY: node_agent_k8s
 node_agent_k8s:
-	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s istio.io/istio/pkg/version ./security/cmd/node_agent_k8s
+	bin/gobuild.sh ${ISTIO_OUT}/node_agent_k8s ./security/cmd/node_agent_k8s
 
 .PHONY: pilot
 pilot: pilot-discovery
