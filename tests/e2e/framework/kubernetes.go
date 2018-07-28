@@ -428,7 +428,7 @@ func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.L
 func (k *KubeInfo) Teardown() error {
 	log.Info("Cleaning up kubeInfo")
 
-	if *skipSetup || *skipCleanup {
+	if *skipSetup || *skipCleanup || os.Getenv("SKIP_CLEANUP") != "" {
 		return nil
 	}
 	if *installer == helmInstallerName {

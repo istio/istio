@@ -7,6 +7,7 @@ defaults: &defaults
     - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
+    SKIP_CLEANUP: true
 
 # org context settings. If developing on a clone, please configure:
 
@@ -23,6 +24,7 @@ integrationDefaults: &integrationDefaults
     HUB: docker.io/dnerepo
     TAG: dontpush
     GOPATH: /go
+    SKIP_CLEANUP: true
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
