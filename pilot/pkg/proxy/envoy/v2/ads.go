@@ -17,8 +17,10 @@ package v2
 import (
 	"errors"
 	"io"
+	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -58,6 +60,8 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pusing a client takes longer.
 	PushTimeout = 5 * time.Second
+
+	allowConcurrentPush = false
 )
 
 var (
@@ -140,6 +144,14 @@ func init() {
 	prometheus.MustRegister(pushTimeouts)
 	prometheus.MustRegister(pushes)
 	prometheus.MustRegister(pushErrors)
+
+	// Experimental env to disable push suppression
+	// By default a pod will not receive a push from an older version if a
+	// push for a newer version has started. This behavior can be disabled
+	// for testing or in special cases (bugs or corner cases found, etc)
+	// Setting the env variable to any non-empty value will result in 0.8
+	// behaviour, default is to cancel old pushes when possible and lock.
+	allowConcurrentPush = os.Getenv("PILOT_ALLOW_CONCURRENT") != ""
 }
 
 // DiscoveryStream is a common interface for EDS and ADS. It also has a
@@ -214,6 +226,9 @@ type XdsConnection struct {
 
 	// Time of last push failure.
 	LastPushFailure time.Time
+
+	// pushMutex prevents 2 overlapping pushes for this connection.
+	pushMutex sync.Mutex
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -507,6 +522,13 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 }
 
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
+	// (as fail-safe in case of bugs)
+	if !allowConcurrentPush {
+		con.pushMutex.Lock()
+		defer con.pushMutex.Unlock()
+	}
+
 	defer func() {
 		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
@@ -517,7 +539,13 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 				time.Since(pushEv.push.Start), string(out))
 		}
 	}()
-	// TODO: check version, suppress if changed
+	// check version, suppress if changed.
+	currentVersion := versionInfo()
+	if !allowConcurrentPush && pushEv.version != currentVersion {
+		adsLog.Infof("Suppress push for %s at %s, push with newer version %s in progress", con.ConID, pushEv.version, currentVersion)
+		return nil
+	}
+
 	if con.CDSWatch {
 		err := s.pushCds(con)
 		if err != nil {
@@ -609,7 +637,24 @@ func (s *DiscoveryServer) AdsPushAll(version string) {
 
 	pendingPush := int32(len(tmpMap))
 
+	// Experimental throttles for the push, to deal with memory spikes.
+	// If it works will be replaced with a rate control.
+	pushThrottleCountEnv := os.Getenv("PILOT_PUSH_THROTTLE_COUNT")
+	pushThrottle := 0
+	if pushThrottleCountEnv != "" {
+		var err error
+		pushThrottle, err = strconv.Atoi(pushThrottleCountEnv)
+		if err != nil {
+			adsLog.Warnf("Invalid push throttle %s", pushThrottleCountEnv)
+		}
+	}
+
+	i := 0
 	for _, c := range tmpMap {
+		i++
+		if pushThrottle > 0 && i%pushThrottle == 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.
