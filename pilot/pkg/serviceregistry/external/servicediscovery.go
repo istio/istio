@@ -48,6 +48,7 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances map[string][]*model.ServiceInstance
 
+	changeMutex  sync.RWMutex
 	lastChange   time.Time
 	updateNeeded bool
 }
@@ -68,10 +69,10 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			serviceEntry := config.Spec.(*networking.ServiceEntry)
 
 			// Recomputing the index here is too expensive.
-			c.storeMutex.Lock()
+			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
-			c.storeMutex.Unlock()
+			c.changeMutex.Unlock()
 
 			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.serviceHandlers {
@@ -229,36 +230,43 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 // update will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps.
 func (d *ServiceEntryStore) update() {
-	d.storeMutex.RLock()
+	d.changeMutex.RLock()
 	if !d.updateNeeded {
+		d.changeMutex.RUnlock()
 		return
 	}
-	d.storeMutex.RUnlock()
+	d.changeMutex.RUnlock()
 
-	d.storeMutex.Lock()
-	defer d.storeMutex.Unlock()
-	d.instances = map[string][]*model.ServiceInstance{}
-	d.ip2instance = map[string][]*model.ServiceInstance{}
+	dinstances := map[string][]*model.ServiceInstance{}
+	dip2instance := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
 			key := instance.Service.Hostname.String()
-			out, found := d.instances[key]
+			out, found := dinstances[key]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			d.instances[key] = out
+			dinstances[key] = out
 
-			byip, found := d.instances[instance.Endpoint.Address]
+			byip, found := dinstances[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}
 			byip = append(byip, instance)
-			d.ip2instance[instance.Endpoint.Address] = byip
+			dip2instance[instance.Endpoint.Address] = byip
 		}
 	}
+	d.storeMutex.Lock()
+	d.instances = dinstances
+	d.ip2instance = dip2instance
+	d.storeMutex.Unlock()
+
+	d.changeMutex.Lock()
+	d.updateNeeded = false
+	d.changeMutex.Unlock()
 }
 
 // returns true if an instance's port matches with any in the provided list
