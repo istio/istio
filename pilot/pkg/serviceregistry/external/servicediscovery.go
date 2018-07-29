@@ -48,6 +48,7 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances map[string][]*model.ServiceInstance
 
+	changeMutex  sync.RWMutex
 	lastChange   time.Time
 	updateNeeded bool
 }
@@ -68,10 +69,10 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			serviceEntry := config.Spec.(*networking.ServiceEntry)
 
 			// Recomputing the index here is too expensive.
-			c.storeMutex.Lock()
+			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
-			c.storeMutex.Unlock()
+			c.changeMutex.Unlock()
 
 			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.serviceHandlers {
@@ -229,12 +230,12 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 // update will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps.
 func (d *ServiceEntryStore) update() {
-	d.storeMutex.RLock()
+	d.changeMutex.RLock()
 	if !d.updateNeeded {
-		d.storeMutex.RUnlock()
+		d.changeMutex.RUnlock()
 		return
 	}
-	d.storeMutex.RUnlock()
+	d.changeMutex.RUnlock()
 
 	di := map[string][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
@@ -262,12 +263,15 @@ func (d *ServiceEntryStore) update() {
 	d.storeMutex.Lock()
 	d.instances = di
 	d.ip2instance = dip
+	d.storeMutex.Unlock()
+
 	// Without this pilot will become very unstable even with few 100 ServiceEntry
 	// objects - the N_clusters * N_update generates too much garbage
 	// ( yaml to proto)
 	// This is reset on any change in ServiceEntries
+	d.changeMutex.Lock()
 	d.updateNeeded = false
-	d.storeMutex.Unlock()
+	d.changeMutex.Unlock()
 }
 
 // returns true if an instance's port matches with any in the provided list
