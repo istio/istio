@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8cef83f9eabf344b48191d3b9929287988782e54"
+  revision = "e09170975638877363dfe4ae4e791df8f62cc598"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
