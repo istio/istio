@@ -231,6 +231,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 func (d *ServiceEntryStore) update() {
 	d.storeMutex.RLock()
 	if !d.updateNeeded {
+		d.storeMutex.RUnlock()
 		return
 	}
 	d.storeMutex.RUnlock()
