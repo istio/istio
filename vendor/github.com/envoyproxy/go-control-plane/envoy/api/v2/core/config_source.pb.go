@@ -6,13 +6,15 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import _ "github.com/gogo/protobuf/gogoproto"
 import _ "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
-import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import types "github.com/gogo/protobuf/types"
+import bytes "bytes"
+
+import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -21,6 +23,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 var _ = time.Kitchen
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // APIs may be fetched via either REST or gRPC.
 type ApiConfigSource_ApiType int32
@@ -51,14 +59,14 @@ func (x ApiConfigSource_ApiType) String() string {
 	return proto.EnumName(ApiConfigSource_ApiType_name, int32(x))
 }
 func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorConfigSource, []int{0, 0}
+	return fileDescriptor_config_source_79c81e7035821e08, []int{0, 0}
 }
 
 // API configuration source. This identifies the API type and cluster that Envoy
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
 	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
-	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
+	// Cluster names should be used only with REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
 	//
@@ -69,20 +77,46 @@ type ApiConfigSource struct {
 	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	//
-	// .. note::
-	//
-	//  If a gRPC service points to a ``cluster_name``, it must be statically
-	//  defined and its type must not be ``EDS``.
 	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
-	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
+	RefreshDelay         *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *ApiConfigSource) Reset()                    { *m = ApiConfigSource{} }
-func (m *ApiConfigSource) String() string            { return proto.CompactTextString(m) }
-func (*ApiConfigSource) ProtoMessage()               {}
-func (*ApiConfigSource) Descriptor() ([]byte, []int) { return fileDescriptorConfigSource, []int{0} }
+func (m *ApiConfigSource) Reset()         { *m = ApiConfigSource{} }
+func (m *ApiConfigSource) String() string { return proto.CompactTextString(m) }
+func (*ApiConfigSource) ProtoMessage()    {}
+func (*ApiConfigSource) Descriptor() ([]byte, []int) {
+	return fileDescriptor_config_source_79c81e7035821e08, []int{0}
+}
+func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ApiConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ApiConfigSource.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ApiConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ApiConfigSource.Merge(dst, src)
+}
+func (m *ApiConfigSource) XXX_Size() int {
+	return m.Size()
+}
+func (m *ApiConfigSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_ApiConfigSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ApiConfigSource proto.InternalMessageInfo
 
 func (m *ApiConfigSource) GetApiType() ApiConfigSource_ApiType {
 	if m != nil {
@@ -116,14 +150,43 @@ func (m *ApiConfigSource) GetRefreshDelay() *time.Duration {
 // set in :ref:`ConfigSource <envoy_api_msg_core.ConfigSource>` can be used to
 // specify that ADS is to be used.
 type AggregatedConfigSource struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *AggregatedConfigSource) Reset()         { *m = AggregatedConfigSource{} }
 func (m *AggregatedConfigSource) String() string { return proto.CompactTextString(m) }
 func (*AggregatedConfigSource) ProtoMessage()    {}
 func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptorConfigSource, []int{1}
+	return fileDescriptor_config_source_79c81e7035821e08, []int{1}
 }
+func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *AggregatedConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_AggregatedConfigSource.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *AggregatedConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AggregatedConfigSource.Merge(dst, src)
+}
+func (m *AggregatedConfigSource) XXX_Size() int {
+	return m.Size()
+}
+func (m *AggregatedConfigSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_AggregatedConfigSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AggregatedConfigSource proto.InternalMessageInfo
 
 // Configuration for :ref:`listeners <config_listeners>`, :ref:`clusters
 // <config_cluster_manager_cluster>`, :ref:`routes
@@ -137,12 +200,43 @@ type ConfigSource struct {
 	//	*ConfigSource_ApiConfigSource
 	//	*ConfigSource_Ads
 	ConfigSourceSpecifier isConfigSource_ConfigSourceSpecifier `protobuf_oneof:"config_source_specifier"`
+	XXX_NoUnkeyedLiteral  struct{}                             `json:"-"`
+	XXX_unrecognized      []byte                               `json:"-"`
+	XXX_sizecache         int32                                `json:"-"`
 }
 
-func (m *ConfigSource) Reset()                    { *m = ConfigSource{} }
-func (m *ConfigSource) String() string            { return proto.CompactTextString(m) }
-func (*ConfigSource) ProtoMessage()               {}
-func (*ConfigSource) Descriptor() ([]byte, []int) { return fileDescriptorConfigSource, []int{2} }
+func (m *ConfigSource) Reset()         { *m = ConfigSource{} }
+func (m *ConfigSource) String() string { return proto.CompactTextString(m) }
+func (*ConfigSource) ProtoMessage()    {}
+func (*ConfigSource) Descriptor() ([]byte, []int) {
+	return fileDescriptor_config_source_79c81e7035821e08, []int{2}
+}
+func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfigSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfigSource.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ConfigSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigSource.Merge(dst, src)
+}
+func (m *ConfigSource) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfigSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigSource proto.InternalMessageInfo
 
 type isConfigSource_ConfigSourceSpecifier interface {
 	isConfigSource_ConfigSourceSpecifier()
@@ -262,17 +356,17 @@ func _ConfigSource_OneofSizer(msg proto.Message) (n int) {
 	// config_source_specifier
 	switch x := m.ConfigSourceSpecifier.(type) {
 	case *ConfigSource_Path:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Path)))
 		n += len(x.Path)
 	case *ConfigSource_ApiConfigSource:
 		s := proto.Size(x.ApiConfigSource)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ConfigSource_Ads:
 		s := proto.Size(x.Ads)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -335,6 +429,9 @@ func (this *ApiConfigSource) Equal(that interface{}) bool {
 	} else if that1.RefreshDelay != nil {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *AggregatedConfigSource) Equal(that interface{}) bool {
@@ -354,6 +451,9 @@ func (this *AggregatedConfigSource) Equal(that interface{}) bool {
 	if that1 == nil {
 		return this == nil
 	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -384,6 +484,9 @@ func (this *ConfigSource) Equal(that interface{}) bool {
 	} else if this.ConfigSourceSpecifier == nil {
 		return false
 	} else if !this.ConfigSourceSpecifier.Equal(that1.ConfigSourceSpecifier) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -498,8 +601,8 @@ func (m *ApiConfigSource) MarshalTo(dAtA []byte) (int, error) {
 	if m.RefreshDelay != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintConfigSource(dAtA, i, uint64(types.SizeOfStdDuration(*m.RefreshDelay)))
-		n1, err := types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
+		i = encodeVarintConfigSource(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)))
+		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.RefreshDelay, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -516,6 +619,9 @@ func (m *ApiConfigSource) MarshalTo(dAtA []byte) (int, error) {
 			}
 			i += n
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -535,6 +641,9 @@ func (m *AggregatedConfigSource) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -559,6 +668,9 @@ func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn2
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -621,7 +733,7 @@ func (m *ApiConfigSource) Size() (n int) {
 		}
 	}
 	if m.RefreshDelay != nil {
-		l = types.SizeOfStdDuration(*m.RefreshDelay)
+		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.RefreshDelay)
 		n += 1 + l + sovConfigSource(uint64(l))
 	}
 	if len(m.GrpcServices) > 0 {
@@ -630,12 +742,18 @@ func (m *ApiConfigSource) Size() (n int) {
 			n += 1 + l + sovConfigSource(uint64(l))
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *AggregatedConfigSource) Size() (n int) {
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -644,6 +762,9 @@ func (m *ConfigSource) Size() (n int) {
 	_ = l
 	if m.ConfigSourceSpecifier != nil {
 		n += m.ConfigSourceSpecifier.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -793,7 +914,7 @@ func (m *ApiConfigSource) Unmarshal(dAtA []byte) error {
 			if m.RefreshDelay == nil {
 				m.RefreshDelay = new(time.Duration)
 			}
-			if err := types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.RefreshDelay, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -840,6 +961,7 @@ func (m *ApiConfigSource) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -890,6 +1012,7 @@ func (m *AggregatedConfigSource) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1033,6 +1156,7 @@ func (m *ConfigSource) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1147,9 +1271,11 @@ var (
 	ErrIntOverflowConfigSource   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptorConfigSource) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_79c81e7035821e08)
+}
 
-var fileDescriptorConfigSource = []byte{
+var fileDescriptor_config_source_79c81e7035821e08 = []byte{
 	// 469 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x52, 0x3f, 0x6f, 0xd3, 0x40,
 	0x1c, 0xcd, 0xc5, 0x29, 0x6d, 0x2f, 0x09, 0x71, 0xad, 0x8a, 0x9a, 0x0e, 0xc6, 0x32, 0x20, 0x05,
