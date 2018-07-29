@@ -21,8 +21,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -797,9 +795,10 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 		// Allow websocket upgrades
 		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
-		// disable stream idle timeouts for now
-		notimeout := 0 * time.Second
-		connectionManager.IdleTimeout = &notimeout
+		// Setting IdleTimeout to 0 seems to break most tests, causing
+		// envoy to disconnect. See PR comments.
+		// notimeout := 0 * time.Second
+		// connectionManager.IdleTimeout = &notimeout
 	}
 
 	if httpOpts.rds != "" {
