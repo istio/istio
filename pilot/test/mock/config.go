@@ -416,6 +416,10 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
 	configName := "example"
+	// Global scoped policies like MeshPolicy are not isolated, can't be
+	// run as part of the normal test suites - if needed they should
+	// be run in separate environment. The test suites are setting cluster
+	// scoped policies that may interfere and would require serialization
 
 	cases := []struct {
 		name       string
@@ -432,7 +436,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"QuotaSpec", configName, model.QuotaSpec, ExampleQuotaSpec},
 		{"QuotaSpecBinding", configName, model.QuotaSpecBinding, ExampleQuotaSpecBinding},
 		{"Policy", configName, model.AuthenticationPolicy, ExampleAuthenticationPolicy},
-		{"MeshPolicy", model.DefaultAuthenticationPolicyName, model.AuthenticationMeshPolicy, ExampleAuthenticationMeshPolicy},
 		{"ServiceRole", configName, model.ServiceRole, ExampleServiceRole},
 		{"ServiceRoleBinding", configName, model.ServiceRoleBinding, ExampleServiceRoleBinding},
 		{"RbacConfig", model.DefaultRbacConfigName, model.RbacConfig, ExampleRbacConfig},
