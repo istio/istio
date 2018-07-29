@@ -53,6 +53,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
+	mux.HandleFunc("/ready", s.ready)
+
 	mux.HandleFunc("/debug/edsz", s.edsz)
 	mux.HandleFunc("/debug/adsz", s.adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
@@ -657,6 +659,15 @@ func writeAllADS(w io.Writer) {
 		fmt.Fprint(w, "]}\n")
 	}
 	fmt.Fprint(w, "]\n")
+}
+
+func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
+	if s.ConfigController != nil {
+		if !s.ConfigController.HasSynced() {
+			w.WriteHeader(503)
+		}
+	}
+	w.WriteHeader(200)
 }
 
 // edsz implements a status and debug interface for EDS.

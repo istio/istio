@@ -107,10 +107,6 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 							},
 						},
 					},
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_ISTIO_MUTUAL,
-						Sni:  "foo.com",
-					},
 				},
 			},
 		},
@@ -144,9 +140,10 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(clusters)).To(gomega.Equal(2))
+	g.Expect(len(clusters)).To(gomega.Equal(3))
 
-	cluster := clusters[0]
+	cluster := clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
 	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.com"))
 
 	// Check if SNI values are being automatically populated
@@ -155,10 +152,11 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	clusters, err = configgen.BuildClusters(env, proxy, env.PushStatus)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(len(clusters)).To(gomega.Equal(2))
+	g.Expect(len(clusters)).To(gomega.Equal(3))
 
-	cluster = clusters[0]
-	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.example.org:8080"))
+	cluster = clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal(cluster.Name))
 }
 
 func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environment {
@@ -196,10 +194,23 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 			},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
-				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.TLSSettings{
-						Mode: networking.TLSSettings_ISTIO_MUTUAL,
-						Sni:  sniValue,
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Port: &networking.PortSelector_Number{Number: 8080},
+									},
+									Tls: &networking.TLSSettings{
+										Mode: networking.TLSSettings_ISTIO_MUTUAL,
+										Sni:  sniValue,
+									},
+								},
+							},
+						},
 					},
 				},
 			},

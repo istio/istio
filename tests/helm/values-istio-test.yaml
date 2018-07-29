@@ -9,7 +9,7 @@ global:
   refreshInterval: 30s
   imagePullPolicy: Always
   configValidation: false
-  ingressSelector: ingressgateway
+  k8sIngressSelector: ingressgateway
   proxy_init:
     image: costinm/proxy_init:tproxy
 

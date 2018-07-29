@@ -13,13 +13,13 @@ global:
   # ingress.enabled is set to true. You can also set it
   # to ingressgateway, or any other gateway you define in the 'gateway'
   # section.
-  ingressSelector: ingress
+  k8sIngressSelector: ingress
 
-  # IngressHttps will add port 443 on the ingress and ingressgateway.
+  # k8sIngressHttps will add port 443 on the ingress and ingressgateway.
   # It REQUIRES that the certificates are installed  in the
   # expected secrets - enabling this option without certificates
   # will result in LDS rejection and the ingress will not work.
-  ingressHttps: false
+  k8sIngressHttps: false
 
   proxy:
     image: proxyv2
@@ -352,7 +352,7 @@ mixer:
 
   prometheusStatsdExporter:
     hub: docker.io/prom
-    tag: latest
+    tag: v0.6.0
 
 #
 # pilot configuration
@@ -368,8 +368,8 @@ pilot:
   # Resources for a small pilot install
   resources:
     requests:
-      cpu: 800m
-      memory: 512Mi
+      cpu: 500m
+      memory: 2048Mi
 
 #
 # security configuration
@@ -406,7 +406,7 @@ prometheus:
   enabled: true
   replicaCount: 1
   hub: docker.io/prom
-  tag: latest
+  tag: v2.3.1
 
   service:
     annotations: {}

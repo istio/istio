@@ -27,7 +27,7 @@ syntax = "proto3";
 //   * services: a list of services.
 //   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
 //   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-//     presented in the form of "packageName.serviceName/methodName".
+//     presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 //
 // In addition to the standard fields, operators can also use custom keys in the `constraints` field,
 // the supported keys are listed in the "constraints and properties" page.
@@ -104,7 +104,7 @@ message AccessRule {
 
   // Optional. A list of HTTP paths or gRPC methods.
   // gRPC methods must be presented as fully-qualified name in the form of
-  // packageName.serviceName/methodName.
+  // "/packageName.serviceName/methodName" and are case sensitive.
   // Exact match, prefix match, and suffix match are supported for paths.
   // For example, the path "/books/review" matches
   // "/books/review" (exact match), or "/books/*" (prefix match),
