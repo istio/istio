@@ -64,6 +64,30 @@ func TestServiceEntry(t *testing.T) {
 			url:               "https://google.com",
 			shouldBeReachable: false,
 		},
+		{
+			name: "REACHABLE_google.com_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://www.google.com",
+			shouldBeReachable: true,
+		},
+		{
+			name: "REACHABLE_cnn.com_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://edition.cnn.com",
+			shouldBeReachable: true,
+		},
+		{
+			name: "UNREACHABLE_wikipedia.org_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://www.wikipedia.org",
+			shouldBeReachable: false,
+		},
 	}
 
 	var cfgs *deployableConfig
