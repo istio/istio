@@ -21,10 +21,10 @@ integrationDefaults: &integrationDefaults
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
     - CHANGE_MINIKUBE_NONE_USER: true
-    - HUB: docker.io/dnerepo
-    - TAG: dontpush
     - GOPATH: /go
     - SKIP_CLEANUP: true
+    - KUBECONFIG: /go/out/minikube.conf
+    - TEST_ENV: minikube-none
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -142,11 +142,6 @@ jobs:
 
   e2e-mixer-noauth-v1alpha3-v2:
     <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
-            - SKIP_CLEANUP: 1
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -289,10 +284,6 @@ jobs:
 
   e2e-pilot-auth-v1alpha3-v2:
     <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
     steps:
       - <<: *initWorkingDir
       - checkout
