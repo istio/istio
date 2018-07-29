@@ -48,7 +48,7 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances map[string][]*model.ServiceInstance
 
-	changeMutex sync.RWMutex
+	changeMutex  sync.RWMutex
 	lastChange   time.Time
 	updateNeeded bool
 }
