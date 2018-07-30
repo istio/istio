@@ -58,7 +58,7 @@ spec:
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}
           - zipkin:9411
-        {{ end }}
+        {{- end }}
           - --statsdUdpAddress
         {{- if $.Values.global.proxy.envoyStatsd.enabled }}  
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
