@@ -21,44 +21,11 @@ static_resources:
   - connect_timeout: 1.000s
     hosts:
     - socket_address:
-        address: 127.0.0.1
-        port_value: 9093
-    name: in.9093
-    type: STATIC
-  - connect_timeout: 1.000s
-    hosts:
-    - socket_address:
         address: zipkin
         port_value: 9411
     name: zipkin
     type: STRICT_DNS
   listeners:
-  - address:
-      socket_address:
-        address: 0.0.0.0
-        port_value: 15093
-    filter_chains:
-    - filters:
-      - config:
-          codec_type: AUTO
-          generate_request_id: false
-          http_filters:
-          - name: envoy.router
-          route_config:
-            name: health
-            virtual_hosts:
-            - domains:
-              - '*'
-              name: health
-              routes:
-              - match:
-                  prefix: /
-                route:
-                  cluster: in.9093
-                  timeout: 0.000s
-          stat_prefix: health
-        name: envoy.http_connection_manager
-    name: health
   - address:
       socket_address:
         address: 0.0.0.0
