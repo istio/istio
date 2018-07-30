@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
-var fakeCredentialToken = "fakeToken"
+var fakeCredentialToken = "Bearer fakeToken"
 
 func sdsRequest(socket string, sdsCert string, req *xdsapi.DiscoveryRequest) *xdsapi.DiscoveryResponse {
 	var opts []grpc.DialOption

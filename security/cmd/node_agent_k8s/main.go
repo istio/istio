@@ -15,14 +15,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/log"
+	ca "istio.io/istio/security/pkg/nodeagent/caClient"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 )
@@ -38,15 +39,19 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			stop := make(chan struct{})
 
-			// TODO(quanlin): use real caClient when it's ready.
-			caClient := &mockCAClient{}
+			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CARootFile)
+			if err != nil {
+				log.Errorf("failed to create caClient: %v", err)
+				return fmt.Errorf("failed to create caClient")
+			}
 			sc := cache.NewSecretCache(caClient, cacheOptions)
 			defer sc.Close()
 
 			server, err := sds.NewServer(serverOptions, sc)
 			defer server.Stop()
 			if err != nil {
-				return fmt.Errorf("failed to create sds service: %v", err)
+				log.Errorf("failed to create sds service: %v", err)
+				return fmt.Errorf("failed to create sds service")
 			}
 
 			cmd.WaitSignal(stop)
@@ -59,6 +64,10 @@ var (
 func init() {
 	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
+
+	RootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", "prod-istioca.sandbox.googleapis.com:443", "CA endpoint")
+	RootCmd.PersistentFlags().StringVar(&serverOptions.CARootFile, "caRootFile", "/etc/istio/roots.pem",
+		"path of CA file for setup channel credential to CA endpoint.")
 
 	//local test through TLS using '/etc/istio/nodeagent-sds-cert.pem' and '/etc/istio/nodeagent-sds-key.pem'
 	RootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
@@ -74,15 +83,7 @@ func init() {
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		log.Errora(err)
+		os.Exit(1)
 	}
-}
-
-// TODO(quanlin): remove mockCAClient when real caClient when it's ready.
-type mockCAClient struct {
-}
-
-func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
-	return csrPEM, nil
 }

@@ -15,7 +15,9 @@
 package sds
 
 import (
+	"fmt"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -35,6 +37,12 @@ type Options struct {
 
 	// KeyFile is the path of Key File for gRPC server TLS settings.
 	KeyFile string
+
+	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	CAEndpoint string
+
+	// CARootFile is the path of CA file which is used to setup channel credential to CA endpoint.
+	CARootFile string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -78,6 +86,13 @@ func (s *Server) Stop() {
 func (s *Server) initDiscoveryService(options *Options, st SecretManager) error {
 	s.grpcServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.envoySds.register(s.grpcServer)
+
+	// Remove unix socket before use.
+	if err := os.Remove(options.UDSPath); err != nil && !os.IsNotExist(err) {
+		// Anything other than "file not found" is an error.
+		log.Errorf("Failed to remove unix://%s: %v", options.UDSPath, err)
+		return fmt.Errorf("failed to remove unix://%s", options.UDSPath)
+	}
 
 	var err error
 	s.grpcListener, err = net.Listen("unix", options.UDSPath)

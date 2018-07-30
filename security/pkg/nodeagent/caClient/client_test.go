@@ -28,7 +28,10 @@ import (
 
 const mockServerAddress = "localhost:0"
 
-var fakeCert = []string{"foo", "bar"}
+var (
+	fakeCert  = []string{"foo", "bar"}
+	fakeToken = "Bearer fakeToken"
+)
 
 type mockCAServer struct{}
 
@@ -56,13 +59,12 @@ func TestCAClient(t *testing.T) {
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
 
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-	cli, err := NewCAClient(lis.Addr().String(), opts)
+	cli, err := NewCAClient(lis.Addr().String(), "")
 	if err != nil {
 		t.Fatalf("failed to create ca client: %v", err)
 	}
 
-	resp, err := cli.CSRSign(context.Background(), []byte{01}, "spiffe", 1)
+	resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
 	if err != nil {
 		t.Fatalf("failed to call CSR sign: %v", err)
 	}
