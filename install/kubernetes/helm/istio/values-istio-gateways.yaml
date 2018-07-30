@@ -7,6 +7,18 @@ global:
   # and this options must be set off.
   crds: false
 
+  # control plane namespace
+  cpNamespace: istio-system
+
+  proxy:
+    # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
+    # would be <host>:<port>).
+    # Can also be disabled (e.g. when Mixer is not installed).
+    envoyStatsd:
+      enabled: true
+      host: istio-statsd-prom-bridge.istio-system
+      port: 9125
+
 #
 # Gateways Configuration
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
