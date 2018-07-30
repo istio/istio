@@ -79,7 +79,7 @@ func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) 
 	}
 
 	if len(mixerKinds) != len(kindToURL) {
-		// We couldn't metadata for some of the well-known Mixer kinds. This shouldn't happen
+		// We couldn't find metadata for some of the well-known Mixer kinds. This shouldn't happen
 		// and is a fatal error.
 		var problemKinds []string
 		for mk := range mixerKinds {
@@ -145,7 +145,6 @@ func toBackendResource(key store.Key, resource proto.Message, version string) (*
 	// TODO: Ensure that this conversion is correct.
 	marshaller := jsonpb.Marshaler{}
 	jsonData, err := marshaller.MarshalToString(resource)
-	//jsonData, err := json.Marshal(resource)
 	if err != nil {
 		return nil, err
 	}

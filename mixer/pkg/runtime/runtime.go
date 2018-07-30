@@ -159,14 +159,14 @@ func (c *Runtime) processNewConfig() {
 
 	builder := compiled.NewBuilder(newSnapshot.Attributes)
 	newRoutes := routing.BuildTable(
-		newHandlers, newSnapshot, builder, c.defaultConfigNamespace, true)
+		newHandlers, newSnapshot, builder, c.defaultConfigNamespace, log.DebugEnabled())
 
 	oldContext := c.dispatcher.ChangeRoute(newRoutes)
 
 	c.handlers = newHandlers
 	c.snapshot = newSnapshot
 
-	log.Infof("New routes in effect:\n%s", newRoutes)
+	log.Debugf("New routes in effect:\n%s", newRoutes)
 
 	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
 }
