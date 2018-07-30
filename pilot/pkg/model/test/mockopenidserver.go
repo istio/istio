@@ -67,14 +67,9 @@ func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 		return nil, err
 	}
 
-	server, err := &MockOpenIDDiscoveryServer{
+	server := &MockOpenIDDiscoveryServer{
 		Port: port,
 		URL:  fmt.Sprintf("http://localhost:%d", port),
-	}, nil
-
-	if err != nil {
-		log.Errorf("Failed to create a new mock server", err)
-		return nil, err
 	}
 
 	return server, server.Start()
