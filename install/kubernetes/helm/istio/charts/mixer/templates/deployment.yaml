@@ -15,8 +15,8 @@
       {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
-{{- if contains "/" .Values.image }}
-        image: "{{ .Values.image }}"
+{{- if contains "/" $.Values.image }}
+        image: "{{ $.Values.image }}"
 {{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
 {{- end }}
@@ -31,10 +31,10 @@
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 10 }}
+{{- if $.Values.resources }}
+{{ toYaml $.Values.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{ toYaml $.Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: uds-socket
@@ -84,7 +84,7 @@
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{ toYaml $.Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs
@@ -116,8 +116,8 @@
     {{- end }}
       containers:
       - name: mixer
-{{- if contains "/" .Values.image }}
-        image: "{{ .Values.image }}"
+{{- if contains "/" $.Values.image }}
+        image: "{{ $.Values.image }}"
 {{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.image }}:{{ $.Values.global.tag }}"
 {{- end }}
@@ -132,10 +132,10 @@
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
         resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 10 }}
+{{- if $.Values.resources }}
+{{ toYaml $.Values.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{ toYaml $.Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: uds-socket
@@ -185,7 +185,7 @@
 {{- if $.Values.global.proxy.resources }}
 {{ toYaml $.Values.global.proxy.resources | indent 10 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | indent 10 }}
+{{ toYaml $.Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
         - name: istio-certs
