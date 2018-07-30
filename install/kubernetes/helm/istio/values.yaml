@@ -487,7 +487,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.5.0
+  tag: istio-release-1.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
