@@ -57,9 +57,15 @@ func TestIdentity(t *testing.T) {
 		},
 	}
 
-	pb, err := identity(info, u)
+	key := "key"
+
+	outkey, pb, err := identity(info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if key != outkey {
+		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, outkey)
 	}
 
 	actual, ok := pb.(*types.Struct)
@@ -82,6 +88,30 @@ func TestIdentity(t *testing.T) {
 	}
 }
 
+func TestIdentity_Error(t *testing.T) {
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	s := b.Build()
+
+	info := s.Get("type.googleapis.com/google.protobuf.Empty")
+
+	u := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind": "k1",
+			"spec": map[string]interface{}{
+				"foo": "bar",
+			},
+		},
+	}
+
+	key := "key"
+
+	_, _, err := identity(info, key, u)
+	if err == nil {
+		t.Fatal("Expected error not found")
+	}
+}
+
 func TestLegacyMixerResource(t *testing.T) {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Struct", true)
@@ -98,9 +128,16 @@ func TestLegacyMixerResource(t *testing.T) {
 		},
 	}
 
-	pb, err := legacyMixerResource(info, u)
+	key := "key"
+
+	outkey, pb, err := legacyMixerResource(info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	expectedKey := "k1/" + key
+	if outkey != expectedKey {
+		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, outkey)
 	}
 
 	actual, ok := pb.(*legacy.LegacyMixerResource)
@@ -109,6 +146,7 @@ func TestLegacyMixerResource(t *testing.T) {
 	}
 
 	expected := &legacy.LegacyMixerResource{
+		Name: "key",
 		Kind: "k1",
 		Contents: &types.Struct{
 			Fields: map[string]*types.Value{
@@ -140,7 +178,9 @@ func TestLegayMixerResource_Error(t *testing.T) {
 		},
 	}
 
-	_, err := legacyMixerResource(info, u)
+	key := "key"
+
+	_, _, err := legacyMixerResource(info, key, u)
 	if err == nil {
 		t.Fatalf("expected error not found")
 	}

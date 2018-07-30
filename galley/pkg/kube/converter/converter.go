@@ -27,7 +27,7 @@ import (
 )
 
 // Fn is a conversion function that converts the given unstructured CRD into the destination resource.
-type Fn func(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error)
+type Fn func(destination resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error)
 
 var converters = map[string]Fn{
 	"identity":              identity,
@@ -44,18 +44,26 @@ func Get(name string) Fn {
 	return fn
 }
 
-func identity(destination resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-	return toProto(destination, u.Object["spec"])
+func identity(destination resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error) {
+	p, err := toProto(destination, u.Object["spec"])
+	if err != nil {
+		return "", nil, err
+	}
+
+	return name, p, nil
 }
 
-func legacyMixerResource(_ resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
+func legacyMixerResource(_ resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error) {
 	spec := u.Object["spec"]
 	s := &types.Struct{}
 	if err := toproto(s, true, spec); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	return &legacy.LegacyMixerResource{
+	newName := fmt.Sprintf("%s/%s", u.GetKind(), name)
+
+	return newName, &legacy.LegacyMixerResource{
+		Name:     name,
 		Kind:     u.GetKind(),
 		Contents: s,
 	}, nil

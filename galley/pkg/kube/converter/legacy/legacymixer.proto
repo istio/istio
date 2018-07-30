@@ -25,9 +25,12 @@ option go_package="istio.io/istio/galley/pkg/kube/converter/legacy";
 // LegacyMixerResource is used to multiplex old-style one-per-kind Mixer instances and templates through
 // the MCP protocol.
 message LegacyMixerResource {
+    // The original name of the resource.
+    string name = 1;
+
     // The original kind of the resource.
-    string kind = 1;
+    string kind = 2;
 
     // The original contents of the resource.
-    google.protobuf.Struct contents = 2;
+    google.protobuf.Struct contents = 3;
 }

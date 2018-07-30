@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/galley/pkg/kube"
@@ -100,6 +101,15 @@ func (s *sourceImpl) Stop() {
 }
 
 func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	var item proto.Message
+	var err error
+	if u != nil {
+		if key, item, err = l.spec.Converter(l.spec.Target, key, u); err != nil {
+			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
+			return
+		}
+	}
+
 	rid := resource.VersionedKey{
 		Key: resource.Key{
 			TypeURL:  l.spec.Target.TypeURL,
@@ -111,14 +121,7 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key, version 
 	e := resource.Event{
 		ID:   rid,
 		Kind: kind,
-	}
-	if u != nil {
-		item, err := l.spec.Converter(l.spec.Target, u)
-		if err != nil {
-			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, version)
-			return
-		}
-		e.Item = item
+		Item: item,
 	}
 
 	scope.Debugf("Dispatching source event: %v", e)
