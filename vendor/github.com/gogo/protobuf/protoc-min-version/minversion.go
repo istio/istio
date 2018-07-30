@@ -30,10 +30,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/gogo/protobuf/version"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/gogo/protobuf/version"
 )
 
 func filter(ss []string, flag string) ([]string, string) {
@@ -57,9 +58,10 @@ func main() {
 		return
 	}
 	gen := exec.Command("protoc", args...)
-	out, err := gen.CombinedOutput()
+	gen.Stderr = os.Stderr
+	gen.Stdout = os.Stdout
+	err := gen.Run()
 	if err != nil {
-		fmt.Printf("%s\n", string(out))
 		panic(err)
 	}
 }

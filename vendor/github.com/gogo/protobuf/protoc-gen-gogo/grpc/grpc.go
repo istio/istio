@@ -36,6 +36,7 @@ package grpc
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -128,19 +129,21 @@ func (g *grpc) GenerateImports(file *generator.FileDescriptor) {
 	if len(file.FileDescriptorProto.Service) == 0 {
 		return
 	}
-	imports := generator.NewPluginImports(g.gen)
-	for _, i := range []string{contextPkgPath, grpcPkgPath} {
-		imports.NewImport(i).Use()
-	}
-	imports.GenerateImports(file)
+	g.P("import ", contextPkg, " ", generator.GoImportPath(path.Join(string(g.gen.ImportPrefix), contextPkgPath)))
+	g.P("import ", grpcPkg, " ", generator.GoImportPath(path.Join(string(g.gen.ImportPrefix), grpcPkgPath)))
+	g.P()
 }
 
 // reservedClientName records whether a client name is reserved on the client side.
 var reservedClientName = map[string]bool{
-// TODO: do we need any in gRPC?
+	// TODO: do we need any in gRPC?
 }
 
 func unexport(s string) string { return strings.ToLower(s[:1]) + s[1:] }
+
+// deprecationComment is the standard comment added to deprecated
+// messages, fields, enums, and enum values.
+var deprecationComment = "// Deprecated: Do not use."
 
 // generateService generates all the code for the named service.
 func (g *grpc) generateService(file *generator.FileDescriptor, service *pb.ServiceDescriptorProto, index int) {
@@ -152,12 +155,16 @@ func (g *grpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 		fullServName = pkg + "." + fullServName
 	}
 	servName := generator.CamelCase(origServName)
+	deprecated := service.GetOptions().GetDeprecated()
 
 	g.P()
 	g.P("// Client API for ", servName, " service")
 	g.P()
 
 	// Client interface.
+	if deprecated {
+		g.P(deprecationComment)
+	}
 	g.P("type ", servName, "Client interface {")
 	for i, method := range service.Method {
 		g.gen.PrintComments(fmt.Sprintf("%s,2,%d", path, i)) // 2 means method in a service.
@@ -173,6 +180,9 @@ func (g *grpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 	g.P()
 
 	// NewClient factory.
+	if deprecated {
+		g.P(deprecationComment)
+	}
 	g.P("func New", servName, "Client (cc *", grpcPkg, ".ClientConn) ", servName, "Client {")
 	g.P("return &", unexport(servName), "Client{cc}")
 	g.P("}")
@@ -199,6 +209,9 @@ func (g *grpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 	g.P()
 
 	// Server interface.
+	if deprecated {
+		g.P(deprecationComment)
+	}
 	serverType := servName + "Server"
 	g.P("type ", serverType, " interface {")
 	for i, method := range service.Method {
@@ -209,6 +222,9 @@ func (g *grpc) generateService(file *generator.FileDescriptor, service *pb.Servi
 	g.P()
 
 	// Server registration.
+	if deprecated {
+		g.P(deprecationComment)
+	}
 	g.P("func Register", servName, "Server(s *", grpcPkg, ".Server, srv ", serverType, ") {")
 	g.P("s.RegisterService(&", serviceDescVar, `, srv)`)
 	g.P("}")
@@ -282,11 +298,14 @@ func (g *grpc) generateClientMethod(servName, fullServName, serviceDescVar strin
 	inType := g.typeName(method.GetInputType())
 	outType := g.typeName(method.GetOutputType())
 
+	if method.GetOptions().GetDeprecated() {
+		g.P(deprecationComment)
+	}
 	g.P("func (c *", unexport(servName), "Client) ", g.generateClientSignature(servName, method), "{")
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
 		g.P("out := new(", outType, ")")
 		// TODO: Pass descExpr to Invoke.
-		g.P("err := ", grpcPkg, `.Invoke(ctx, "`, sname, `", in, out, c.cc, opts...)`)
+		g.P(`err := c.cc.Invoke(ctx, "`, sname, `", in, out, opts...)`)
 		g.P("if err != nil { return nil, err }")
 		g.P("return out, nil")
 		g.P("}")
@@ -294,7 +313,7 @@ func (g *grpc) generateClientMethod(servName, fullServName, serviceDescVar strin
 		return
 	}
 	streamType := unexport(servName) + methName + "Client"
-	g.P("stream, err := ", grpcPkg, ".NewClientStream(ctx, ", descExpr, `, c.cc, "`, sname, `", opts...)`)
+	g.P("stream, err := c.cc.NewStream(ctx, ", descExpr, `, "`, sname, `", opts...)`)
 	g.P("if err != nil { return nil, err }")
 	g.P("x := &", streamType, "{stream}")
 	if !method.GetClientStreaming() {
