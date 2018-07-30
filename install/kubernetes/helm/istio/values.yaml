@@ -113,6 +113,9 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # istio control plane namespace
+  istioNamespace: istio-system
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
