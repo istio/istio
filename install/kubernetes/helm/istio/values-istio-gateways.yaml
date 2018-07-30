@@ -7,8 +7,8 @@ global:
   # and this options must be set off.
   crds: false
 
-  # control plane namespace
-  cpNamespace: istio-system
+  # istio control plane namespace
+  istioNamespace: istio-system
 
   proxy:
     # Sets the destination Statsd in envoy (the value of the "--statsdUdpAddress" proxy argument
