@@ -6,13 +6,11 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-import _type "github.com/envoyproxy/go-control-plane/envoy/type"
+import envoy_api_v2_endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+import envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 import _ "github.com/gogo/googleapis/google/api"
-import _ "github.com/gogo/protobuf/gogoproto"
 import _ "github.com/lyft/protoc-gen-validate/validate"
-
-import bytes "bytes"
+import _ "github.com/gogo/protobuf/gogoproto"
 
 import context "golang.org/x/net/context"
 import grpc "google.golang.org/grpc"
@@ -23,12 +21,6 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Each route from RDS will map to a single cluster or traffic split across
 // clusters using weights expressed in the RDS WeightedCluster.
@@ -45,46 +37,15 @@ type ClusterLoadAssignment struct {
 	// <envoy_api_msg_Cluster.EdsClusterConfig>`.
 	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// List of endpoints to load balance to.
-	Endpoints []endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints"`
+	Endpoints []envoy_api_v2_endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints"`
 	// Load balancing policy settings.
-	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
-	XXX_unrecognized     []byte                        `json:"-"`
-	XXX_sizecache        int32                         `json:"-"`
+	Policy *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
 }
 
-func (m *ClusterLoadAssignment) Reset()         { *m = ClusterLoadAssignment{} }
-func (m *ClusterLoadAssignment) String() string { return proto.CompactTextString(m) }
-func (*ClusterLoadAssignment) ProtoMessage()    {}
-func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_f27af79fb0dfe7f2, []int{0}
-}
-func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ClusterLoadAssignment) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ClusterLoadAssignment.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *ClusterLoadAssignment) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment.Merge(dst, src)
-}
-func (m *ClusterLoadAssignment) XXX_Size() int {
-	return m.Size()
-}
-func (m *ClusterLoadAssignment) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterLoadAssignment.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterLoadAssignment proto.InternalMessageInfo
+func (m *ClusterLoadAssignment) Reset()                    { *m = ClusterLoadAssignment{} }
+func (m *ClusterLoadAssignment) String() string            { return proto.CompactTextString(m) }
+func (*ClusterLoadAssignment) ProtoMessage()               {}
+func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) { return fileDescriptorEds, []int{0} }
 
 func (m *ClusterLoadAssignment) GetClusterName() string {
 	if m != nil {
@@ -93,7 +54,7 @@ func (m *ClusterLoadAssignment) GetClusterName() string {
 	return ""
 }
 
-func (m *ClusterLoadAssignment) GetEndpoints() []endpoint.LocalityLbEndpoints {
+func (m *ClusterLoadAssignment) GetEndpoints() []envoy_api_v2_endpoint.LocalityLbEndpoints {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -128,44 +89,15 @@ type ClusterLoadAssignment_Policy struct {
 	//    "throttle"_drop = 60%
 	//    "lb"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.
 	//    actual_outgoing_load = 20% // remaining after applying all categories.
-	DropOverloads        []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads" json:"drop_overloads,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                                     `json:"-"`
-	XXX_unrecognized     []byte                                       `json:"-"`
-	XXX_sizecache        int32                                        `json:"-"`
+	DropOverloads []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads" json:"drop_overloads,omitempty"`
 }
 
 func (m *ClusterLoadAssignment_Policy) Reset()         { *m = ClusterLoadAssignment_Policy{} }
 func (m *ClusterLoadAssignment_Policy) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_f27af79fb0dfe7f2, []int{0, 0}
+	return fileDescriptorEds, []int{0, 0}
 }
-func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ClusterLoadAssignment_Policy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ClusterLoadAssignment_Policy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *ClusterLoadAssignment_Policy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment_Policy.Merge(dst, src)
-}
-func (m *ClusterLoadAssignment_Policy) XXX_Size() int {
-	return m.Size()
-}
-func (m *ClusterLoadAssignment_Policy) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterLoadAssignment_Policy.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterLoadAssignment_Policy proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment_Policy) GetDropOverloads() []*ClusterLoadAssignment_Policy_DropOverload {
 	if m != nil {
@@ -178,10 +110,7 @@ type ClusterLoadAssignment_Policy_DropOverload struct {
 	// Identifier for the policy specifying the drop.
 	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
 	// Percentage of traffic that should be dropped for the category.
-	DropPercentage       *_type.Percent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage" json:"drop_percentage,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+	DropPercentage *envoy_type.Percent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage" json:"drop_percentage,omitempty"`
 }
 
 func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
@@ -190,34 +119,8 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
 func (m *ClusterLoadAssignment_Policy_DropOverload) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy_DropOverload) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy_DropOverload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_f27af79fb0dfe7f2, []int{0, 0, 0}
+	return fileDescriptorEds, []int{0, 0, 0}
 }
-func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *ClusterLoadAssignment_Policy_DropOverload) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.Merge(dst, src)
-}
-func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Size() int {
-	return m.Size()
-}
-func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterLoadAssignment_Policy_DropOverload proto.InternalMessageInfo
 
 func (m *ClusterLoadAssignment_Policy_DropOverload) GetCategory() string {
 	if m != nil {
@@ -226,7 +129,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) GetCategory() string {
 	return ""
 }
 
-func (m *ClusterLoadAssignment_Policy_DropOverload) GetDropPercentage() *_type.Percent {
+func (m *ClusterLoadAssignment_Policy_DropOverload) GetDropPercentage() *envoy_type.Percent {
 	if m != nil {
 		return m.DropPercentage
 	}
@@ -271,9 +174,6 @@ func (this *ClusterLoadAssignment) Equal(that interface{}) bool {
 	if !this.Policy.Equal(that1.Policy) {
 		return false
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (this *ClusterLoadAssignment_Policy) Equal(that interface{}) bool {
@@ -303,9 +203,6 @@ func (this *ClusterLoadAssignment_Policy) Equal(that interface{}) bool {
 			return false
 		}
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (this *ClusterLoadAssignment_Policy_DropOverload) Equal(that interface{}) bool {
@@ -331,9 +228,6 @@ func (this *ClusterLoadAssignment_Policy_DropOverload) Equal(that interface{}) b
 		return false
 	}
 	if !this.DropPercentage.Equal(that1.DropPercentage) {
-		return false
-	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -365,7 +259,7 @@ func NewEndpointDiscoveryServiceClient(cc *grpc.ClientConn) EndpointDiscoverySer
 }
 
 func (c *endpointDiscoveryServiceClient) StreamEndpoints(ctx context.Context, opts ...grpc.CallOption) (EndpointDiscoveryService_StreamEndpointsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_EndpointDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.EndpointDiscoveryService/StreamEndpoints", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +291,7 @@ func (x *endpointDiscoveryServiceStreamEndpointsClient) Recv() (*DiscoveryRespon
 
 func (c *endpointDiscoveryServiceClient) FetchEndpoints(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := c.cc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, opts...)
+	err := grpc.Invoke(ctx, "/envoy.api.v2.EndpointDiscoveryService/FetchEndpoints", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -524,9 +418,6 @@ func (m *ClusterLoadAssignment) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -556,9 +447,6 @@ func (m *ClusterLoadAssignment_Policy) MarshalTo(dAtA []byte) (int, error) {
 			}
 			i += n
 		}
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -594,9 +482,6 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) MarshalTo(dAtA []byte) (int,
 		}
 		i += n2
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -626,9 +511,6 @@ func (m *ClusterLoadAssignment) Size() (n int) {
 		l = m.Policy.Size()
 		n += 1 + l + sovEds(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -640,9 +522,6 @@ func (m *ClusterLoadAssignment_Policy) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovEds(uint64(l))
 		}
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -657,9 +536,6 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Size() (n int) {
 	if m.DropPercentage != nil {
 		l = m.DropPercentage.Size()
 		n += 1 + l + sovEds(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -761,7 +637,7 @@ func (m *ClusterLoadAssignment) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Endpoints = append(m.Endpoints, endpoint.LocalityLbEndpoints{})
+			m.Endpoints = append(m.Endpoints, envoy_api_v2_endpoint.LocalityLbEndpoints{})
 			if err := m.Endpoints[len(m.Endpoints)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -811,7 +687,6 @@ func (m *ClusterLoadAssignment) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -893,7 +768,6 @@ func (m *ClusterLoadAssignment_Policy) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -988,7 +862,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Unmarshal(dAtA []byte) error
 				return io.ErrUnexpectedEOF
 			}
 			if m.DropPercentage == nil {
-				m.DropPercentage = &_type.Percent{}
+				m.DropPercentage = &envoy_type.Percent{}
 			}
 			if err := m.DropPercentage.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1006,7 +880,6 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Unmarshal(dAtA []byte) error
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1121,9 +994,9 @@ var (
 	ErrIntOverflowEds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_f27af79fb0dfe7f2) }
+func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptorEds) }
 
-var fileDescriptor_eds_f27af79fb0dfe7f2 = []byte{
+var fileDescriptorEds = []byte{
 	// 487 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x4f, 0x8b, 0x13, 0x4f,
 	0x10, 0xdd, 0x4e, 0x42, 0xd8, 0xf4, 0xe6, 0xb7, 0xfb, 0xa3, 0x57, 0xdd, 0x61, 0x08, 0xd9, 0x10,

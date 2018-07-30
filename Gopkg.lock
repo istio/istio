@@ -252,7 +252,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "master"
+  branch = "revert_grpc_version_update"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "e09170975638877363dfe4ae4e791df8f62cc598"
+  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "37d162eb4b65cc5d429f9df45d2ad4999383685776ff2e438720faa056eb1540"
+  inputs-digest = "8026248fa65b57ac76cf457d405f1773627fdc1fb1351037bc4add7e4d108c0b"
   solver-name = "gps-cdcl"
   solver-version = 1

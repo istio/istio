@@ -6,12 +6,12 @@ package endpoint
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import _ "github.com/gogo/protobuf/gogoproto"
-import types "github.com/gogo/protobuf/types"
+import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf3 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "github.com/gogo/protobuf/gogoproto"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -19,12 +19,6 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // These are stats Envoy reports to GLB every so often. Report frequency is
 // defined by
@@ -34,7 +28,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type UpstreamLocalityStats struct {
 	// Name of zone, region and optionally endpoint group these metrics were
 	// collected from. Zone and region names could be empty if unknown.
-	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *envoy_api_v2_core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
 	// The total number of requests sent by this Envoy since the last report. A
 	// single HTTP or gRPC request or stream is counted as one request. A TCP
 	// connection is also treated as one request. There is no explicit
@@ -67,46 +61,15 @@ type UpstreamLocalityStats struct {
 	LoadMetricStats []*EndpointLoadMetricStats `protobuf:"bytes,5,rep,name=load_metric_stats,json=loadMetricStats" json:"load_metric_stats,omitempty"`
 	// [#not-implemented-hide:] The priority of the endpoint group these metrics
 	// were collected from.
-	Priority             uint32   `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Priority uint32 `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
 }
 
-func (m *UpstreamLocalityStats) Reset()         { *m = UpstreamLocalityStats{} }
-func (m *UpstreamLocalityStats) String() string { return proto.CompactTextString(m) }
-func (*UpstreamLocalityStats) ProtoMessage()    {}
-func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f5264946a657a709, []int{0}
-}
-func (m *UpstreamLocalityStats) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *UpstreamLocalityStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_UpstreamLocalityStats.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *UpstreamLocalityStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UpstreamLocalityStats.Merge(dst, src)
-}
-func (m *UpstreamLocalityStats) XXX_Size() int {
-	return m.Size()
-}
-func (m *UpstreamLocalityStats) XXX_DiscardUnknown() {
-	xxx_messageInfo_UpstreamLocalityStats.DiscardUnknown(m)
-}
+func (m *UpstreamLocalityStats) Reset()                    { *m = UpstreamLocalityStats{} }
+func (m *UpstreamLocalityStats) String() string            { return proto.CompactTextString(m) }
+func (*UpstreamLocalityStats) ProtoMessage()               {}
+func (*UpstreamLocalityStats) Descriptor() ([]byte, []int) { return fileDescriptorLoadReport, []int{0} }
 
-var xxx_messageInfo_UpstreamLocalityStats proto.InternalMessageInfo
-
-func (m *UpstreamLocalityStats) GetLocality() *core.Locality {
+func (m *UpstreamLocalityStats) GetLocality() *envoy_api_v2_core.Locality {
 	if m != nil {
 		return m.Locality
 	}
@@ -156,44 +119,15 @@ type EndpointLoadMetricStats struct {
 	NumRequestsFinishedWithMetric uint64 `protobuf:"varint,2,opt,name=num_requests_finished_with_metric,json=numRequestsFinishedWithMetric,proto3" json:"num_requests_finished_with_metric,omitempty"`
 	// Sum of metric values across all calls that finished with this metric for
 	// load_reporting_interval.
-	TotalMetricValue     float64  `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	TotalMetricValue float64 `protobuf:"fixed64,3,opt,name=total_metric_value,json=totalMetricValue,proto3" json:"total_metric_value,omitempty"`
 }
 
 func (m *EndpointLoadMetricStats) Reset()         { *m = EndpointLoadMetricStats{} }
 func (m *EndpointLoadMetricStats) String() string { return proto.CompactTextString(m) }
 func (*EndpointLoadMetricStats) ProtoMessage()    {}
 func (*EndpointLoadMetricStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f5264946a657a709, []int{1}
+	return fileDescriptorLoadReport, []int{1}
 }
-func (m *EndpointLoadMetricStats) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *EndpointLoadMetricStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_EndpointLoadMetricStats.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *EndpointLoadMetricStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EndpointLoadMetricStats.Merge(dst, src)
-}
-func (m *EndpointLoadMetricStats) XXX_Size() int {
-	return m.Size()
-}
-func (m *EndpointLoadMetricStats) XXX_DiscardUnknown() {
-	xxx_messageInfo_EndpointLoadMetricStats.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EndpointLoadMetricStats proto.InternalMessageInfo
 
 func (m *EndpointLoadMetricStats) GetMetricName() string {
 	if m != nil {
@@ -244,44 +178,13 @@ type ClusterStats struct {
 	// request reported. Due to system load and delays between the *LoadStatsRequest* sent from Envoy
 	// and the *LoadStatsResponse* message sent from the management server, this may be longer than
 	// the requested load reporting interval in the *LoadStatsResponse*.
-	LoadReportInterval   *types.Duration `protobuf:"bytes,4,opt,name=load_report_interval,json=loadReportInterval" json:"load_report_interval,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+	LoadReportInterval *google_protobuf3.Duration `protobuf:"bytes,4,opt,name=load_report_interval,json=loadReportInterval" json:"load_report_interval,omitempty"`
 }
 
-func (m *ClusterStats) Reset()         { *m = ClusterStats{} }
-func (m *ClusterStats) String() string { return proto.CompactTextString(m) }
-func (*ClusterStats) ProtoMessage()    {}
-func (*ClusterStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f5264946a657a709, []int{2}
-}
-func (m *ClusterStats) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ClusterStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ClusterStats.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *ClusterStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterStats.Merge(dst, src)
-}
-func (m *ClusterStats) XXX_Size() int {
-	return m.Size()
-}
-func (m *ClusterStats) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterStats.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterStats proto.InternalMessageInfo
+func (m *ClusterStats) Reset()                    { *m = ClusterStats{} }
+func (m *ClusterStats) String() string            { return proto.CompactTextString(m) }
+func (*ClusterStats) ProtoMessage()               {}
+func (*ClusterStats) Descriptor() ([]byte, []int) { return fileDescriptorLoadReport, []int{2} }
 
 func (m *ClusterStats) GetClusterName() string {
 	if m != nil {
@@ -311,7 +214,7 @@ func (m *ClusterStats) GetDroppedRequests() []*ClusterStats_DroppedRequests {
 	return nil
 }
 
-func (m *ClusterStats) GetLoadReportInterval() *types.Duration {
+func (m *ClusterStats) GetLoadReportInterval() *google_protobuf3.Duration {
 	if m != nil {
 		return m.LoadReportInterval
 	}
@@ -322,44 +225,15 @@ type ClusterStats_DroppedRequests struct {
 	// Identifier for the policy specifying the drop.
 	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
 	// Total number of deliberately dropped requests for the category.
-	DroppedCount         uint64   `protobuf:"varint,2,opt,name=dropped_count,json=droppedCount,proto3" json:"dropped_count,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	DroppedCount uint64 `protobuf:"varint,2,opt,name=dropped_count,json=droppedCount,proto3" json:"dropped_count,omitempty"`
 }
 
 func (m *ClusterStats_DroppedRequests) Reset()         { *m = ClusterStats_DroppedRequests{} }
 func (m *ClusterStats_DroppedRequests) String() string { return proto.CompactTextString(m) }
 func (*ClusterStats_DroppedRequests) ProtoMessage()    {}
 func (*ClusterStats_DroppedRequests) Descriptor() ([]byte, []int) {
-	return fileDescriptor_load_report_f5264946a657a709, []int{2, 0}
+	return fileDescriptorLoadReport, []int{2, 0}
 }
-func (m *ClusterStats_DroppedRequests) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ClusterStats_DroppedRequests) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ClusterStats_DroppedRequests.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *ClusterStats_DroppedRequests) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ClusterStats_DroppedRequests.Merge(dst, src)
-}
-func (m *ClusterStats_DroppedRequests) XXX_Size() int {
-	return m.Size()
-}
-func (m *ClusterStats_DroppedRequests) XXX_DiscardUnknown() {
-	xxx_messageInfo_ClusterStats_DroppedRequests.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ClusterStats_DroppedRequests proto.InternalMessageInfo
 
 func (m *ClusterStats_DroppedRequests) GetCategory() string {
 	if m != nil {
@@ -438,9 +312,6 @@ func (m *UpstreamLocalityStats) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintLoadReport(dAtA, i, uint64(m.Priority))
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -473,11 +344,8 @@ func (m *EndpointLoadMetricStats) MarshalTo(dAtA []byte) (int, error) {
 	if m.TotalMetricValue != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.TotalMetricValue))))
 		i += 8
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -542,9 +410,6 @@ func (m *ClusterStats) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -573,9 +438,6 @@ func (m *ClusterStats_DroppedRequests) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x10
 		i++
 		i = encodeVarintLoadReport(dAtA, i, uint64(m.DroppedCount))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -614,9 +476,6 @@ func (m *UpstreamLocalityStats) Size() (n int) {
 	if m.Priority != 0 {
 		n += 1 + sovLoadReport(uint64(m.Priority))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -632,9 +491,6 @@ func (m *EndpointLoadMetricStats) Size() (n int) {
 	}
 	if m.TotalMetricValue != 0 {
 		n += 9
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -665,9 +521,6 @@ func (m *ClusterStats) Size() (n int) {
 			n += 1 + l + sovLoadReport(uint64(l))
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -680,9 +533,6 @@ func (m *ClusterStats_DroppedRequests) Size() (n int) {
 	}
 	if m.DroppedCount != 0 {
 		n += 1 + sovLoadReport(uint64(m.DroppedCount))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -756,7 +606,7 @@ func (m *UpstreamLocalityStats) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Locality == nil {
-				m.Locality = &core.Locality{}
+				m.Locality = &envoy_api_v2_core.Locality{}
 			}
 			if err := m.Locality.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -881,7 +731,6 @@ func (m *UpstreamLocalityStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -976,7 +825,7 @@ func (m *EndpointLoadMetricStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.TotalMetricValue = float64(math.Float64frombits(v))
 		default:
@@ -991,7 +840,6 @@ func (m *EndpointLoadMetricStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1136,7 +984,7 @@ func (m *ClusterStats) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.LoadReportInterval == nil {
-				m.LoadReportInterval = &types.Duration{}
+				m.LoadReportInterval = &google_protobuf3.Duration{}
 			}
 			if err := m.LoadReportInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1185,7 +1033,6 @@ func (m *ClusterStats) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1284,7 +1131,6 @@ func (m *ClusterStats_DroppedRequests) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1399,11 +1245,9 @@ var (
 	ErrIntOverflowLoadReport   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() {
-	proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptor_load_report_f5264946a657a709)
-}
+func init() { proto.RegisterFile("envoy/api/v2/endpoint/load_report.proto", fileDescriptorLoadReport) }
 
-var fileDescriptor_load_report_f5264946a657a709 = []byte{
+var fileDescriptorLoadReport = []byte{
 	// 630 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x53, 0xcb, 0x6e, 0x13, 0x31,
 	0x14, 0x95, 0x93, 0xb6, 0x4a, 0x9d, 0x54, 0x2d, 0x56, 0x4b, 0xd2, 0x00, 0x21, 0x14, 0x21, 0xb2,

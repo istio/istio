@@ -6,8 +6,9 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import types "github.com/gogo/protobuf/types"
+import envoy_api_v2_core2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import google_protobuf "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import io "io"
@@ -16,12 +17,6 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Configuration for pluggable stats sinks.
 type StatsSink struct {
@@ -38,44 +33,13 @@ type StatsSink struct {
 	// Stats sink specific configuration which depends on the sink being
 	// instantiated. See :ref:`StatsdSink <envoy_api_msg_config.metrics.v2.StatsdSink>` for an
 	// example.
-	Config               *types.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
 }
 
-func (m *StatsSink) Reset()         { *m = StatsSink{} }
-func (m *StatsSink) String() string { return proto.CompactTextString(m) }
-func (*StatsSink) ProtoMessage()    {}
-func (*StatsSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{0}
-}
-func (m *StatsSink) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *StatsSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_StatsSink.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *StatsSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsSink.Merge(dst, src)
-}
-func (m *StatsSink) XXX_Size() int {
-	return m.Size()
-}
-func (m *StatsSink) XXX_DiscardUnknown() {
-	xxx_messageInfo_StatsSink.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StatsSink proto.InternalMessageInfo
+func (m *StatsSink) Reset()                    { *m = StatsSink{} }
+func (m *StatsSink) String() string            { return proto.CompactTextString(m) }
+func (*StatsSink) ProtoMessage()               {}
+func (*StatsSink) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{0} }
 
 func (m *StatsSink) GetName() string {
 	if m != nil {
@@ -84,7 +48,7 @@ func (m *StatsSink) GetName() string {
 	return ""
 }
 
-func (m *StatsSink) GetConfig() *types.Struct {
+func (m *StatsSink) GetConfig() *google_protobuf.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -113,44 +77,13 @@ type StatsConfig struct {
 	// for a list of the default tags in Envoy.
 	//
 	// If not provided, the value is assumed to be true.
-	UseAllDefaultTags    *types.BoolValue `protobuf:"bytes,2,opt,name=use_all_default_tags,json=useAllDefaultTags" json:"use_all_default_tags,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	UseAllDefaultTags *google_protobuf1.BoolValue `protobuf:"bytes,2,opt,name=use_all_default_tags,json=useAllDefaultTags" json:"use_all_default_tags,omitempty"`
 }
 
-func (m *StatsConfig) Reset()         { *m = StatsConfig{} }
-func (m *StatsConfig) String() string { return proto.CompactTextString(m) }
-func (*StatsConfig) ProtoMessage()    {}
-func (*StatsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{1}
-}
-func (m *StatsConfig) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *StatsConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_StatsConfig.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *StatsConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsConfig.Merge(dst, src)
-}
-func (m *StatsConfig) XXX_Size() int {
-	return m.Size()
-}
-func (m *StatsConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StatsConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StatsConfig proto.InternalMessageInfo
+func (m *StatsConfig) Reset()                    { *m = StatsConfig{} }
+func (m *StatsConfig) String() string            { return proto.CompactTextString(m) }
+func (*StatsConfig) ProtoMessage()               {}
+func (*StatsConfig) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{1} }
 
 func (m *StatsConfig) GetStatsTags() []*TagSpecifier {
 	if m != nil {
@@ -159,7 +92,7 @@ func (m *StatsConfig) GetStatsTags() []*TagSpecifier {
 	return nil
 }
 
-func (m *StatsConfig) GetUseAllDefaultTags() *types.BoolValue {
+func (m *StatsConfig) GetUseAllDefaultTags() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.UseAllDefaultTags
 	}
@@ -188,44 +121,13 @@ type TagSpecifier struct {
 	// Types that are valid to be assigned to TagValue:
 	//	*TagSpecifier_Regex
 	//	*TagSpecifier_FixedValue
-	TagValue             isTagSpecifier_TagValue `protobuf_oneof:"tag_value"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	TagValue isTagSpecifier_TagValue `protobuf_oneof:"tag_value"`
 }
 
-func (m *TagSpecifier) Reset()         { *m = TagSpecifier{} }
-func (m *TagSpecifier) String() string { return proto.CompactTextString(m) }
-func (*TagSpecifier) ProtoMessage()    {}
-func (*TagSpecifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{2}
-}
-func (m *TagSpecifier) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TagSpecifier) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TagSpecifier.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *TagSpecifier) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TagSpecifier.Merge(dst, src)
-}
-func (m *TagSpecifier) XXX_Size() int {
-	return m.Size()
-}
-func (m *TagSpecifier) XXX_DiscardUnknown() {
-	xxx_messageInfo_TagSpecifier.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TagSpecifier proto.InternalMessageInfo
+func (m *TagSpecifier) Reset()                    { *m = TagSpecifier{} }
+func (m *TagSpecifier) String() string            { return proto.CompactTextString(m) }
+func (*TagSpecifier) ProtoMessage()               {}
+func (*TagSpecifier) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{2} }
 
 type isTagSpecifier_TagValue interface {
 	isTagSpecifier_TagValue()
@@ -323,11 +225,11 @@ func _TagSpecifier_OneofSizer(msg proto.Message) (n int) {
 	// tag_value
 	switch x := m.TagValue.(type) {
 	case *TagSpecifier_Regex:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.Regex)))
 		n += len(x.Regex)
 	case *TagSpecifier_FixedValue:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.FixedValue)))
 		n += len(x.FixedValue)
 	case nil:
@@ -370,44 +272,13 @@ type StatsdSink struct {
 	//
 	//   envoy.test_counter:1|c
 	//   envoy.test_timer:5|ms
-	Prefix               string   `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Prefix string `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
 }
 
-func (m *StatsdSink) Reset()         { *m = StatsdSink{} }
-func (m *StatsdSink) String() string { return proto.CompactTextString(m) }
-func (*StatsdSink) ProtoMessage()    {}
-func (*StatsdSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{3}
-}
-func (m *StatsdSink) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *StatsdSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_StatsdSink.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *StatsdSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StatsdSink.Merge(dst, src)
-}
-func (m *StatsdSink) XXX_Size() int {
-	return m.Size()
-}
-func (m *StatsdSink) XXX_DiscardUnknown() {
-	xxx_messageInfo_StatsdSink.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StatsdSink proto.InternalMessageInfo
+func (m *StatsdSink) Reset()                    { *m = StatsdSink{} }
+func (m *StatsdSink) String() string            { return proto.CompactTextString(m) }
+func (*StatsdSink) ProtoMessage()               {}
+func (*StatsdSink) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{3} }
 
 type isStatsdSink_StatsdSpecifier interface {
 	isStatsdSink_StatsdSpecifier()
@@ -416,7 +287,7 @@ type isStatsdSink_StatsdSpecifier interface {
 }
 
 type StatsdSink_Address struct {
-	Address *core.Address `protobuf:"bytes,1,opt,name=address,oneof"`
+	Address *envoy_api_v2_core2.Address `protobuf:"bytes,1,opt,name=address,oneof"`
 }
 type StatsdSink_TcpClusterName struct {
 	TcpClusterName string `protobuf:"bytes,2,opt,name=tcp_cluster_name,json=tcpClusterName,proto3,oneof"`
@@ -432,7 +303,7 @@ func (m *StatsdSink) GetStatsdSpecifier() isStatsdSink_StatsdSpecifier {
 	return nil
 }
 
-func (m *StatsdSink) GetAddress() *core.Address {
+func (m *StatsdSink) GetAddress() *envoy_api_v2_core2.Address {
 	if x, ok := m.GetStatsdSpecifier().(*StatsdSink_Address); ok {
 		return x.Address
 	}
@@ -487,7 +358,7 @@ func _StatsdSink_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(core.Address)
+		msg := new(envoy_api_v2_core2.Address)
 		err := b.DecodeMessage(msg)
 		m.StatsdSpecifier = &StatsdSink_Address{msg}
 		return true, err
@@ -509,11 +380,11 @@ func _StatsdSink_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.StatsdSpecifier.(type) {
 	case *StatsdSink_Address:
 		s := proto.Size(x.Address)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *StatsdSink_TcpClusterName:
-		n += 1 // tag and wire
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(len(x.TcpClusterName)))
 		n += len(x.TcpClusterName)
 	case nil:
@@ -531,44 +402,13 @@ func _StatsdSink_OneofSizer(msg proto.Message) (n int) {
 type DogStatsdSink struct {
 	// Types that are valid to be assigned to DogStatsdSpecifier:
 	//	*DogStatsdSink_Address
-	DogStatsdSpecifier   isDogStatsdSink_DogStatsdSpecifier `protobuf_oneof:"dog_statsd_specifier"`
-	XXX_NoUnkeyedLiteral struct{}                           `json:"-"`
-	XXX_unrecognized     []byte                             `json:"-"`
-	XXX_sizecache        int32                              `json:"-"`
+	DogStatsdSpecifier isDogStatsdSink_DogStatsdSpecifier `protobuf_oneof:"dog_statsd_specifier"`
 }
 
-func (m *DogStatsdSink) Reset()         { *m = DogStatsdSink{} }
-func (m *DogStatsdSink) String() string { return proto.CompactTextString(m) }
-func (*DogStatsdSink) ProtoMessage()    {}
-func (*DogStatsdSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{4}
-}
-func (m *DogStatsdSink) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *DogStatsdSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_DogStatsdSink.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *DogStatsdSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DogStatsdSink.Merge(dst, src)
-}
-func (m *DogStatsdSink) XXX_Size() int {
-	return m.Size()
-}
-func (m *DogStatsdSink) XXX_DiscardUnknown() {
-	xxx_messageInfo_DogStatsdSink.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_DogStatsdSink proto.InternalMessageInfo
+func (m *DogStatsdSink) Reset()                    { *m = DogStatsdSink{} }
+func (m *DogStatsdSink) String() string            { return proto.CompactTextString(m) }
+func (*DogStatsdSink) ProtoMessage()               {}
+func (*DogStatsdSink) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{4} }
 
 type isDogStatsdSink_DogStatsdSpecifier interface {
 	isDogStatsdSink_DogStatsdSpecifier()
@@ -577,7 +417,7 @@ type isDogStatsdSink_DogStatsdSpecifier interface {
 }
 
 type DogStatsdSink_Address struct {
-	Address *core.Address `protobuf:"bytes,1,opt,name=address,oneof"`
+	Address *envoy_api_v2_core2.Address `protobuf:"bytes,1,opt,name=address,oneof"`
 }
 
 func (*DogStatsdSink_Address) isDogStatsdSink_DogStatsdSpecifier() {}
@@ -589,7 +429,7 @@ func (m *DogStatsdSink) GetDogStatsdSpecifier() isDogStatsdSink_DogStatsdSpecifi
 	return nil
 }
 
-func (m *DogStatsdSink) GetAddress() *core.Address {
+func (m *DogStatsdSink) GetAddress() *envoy_api_v2_core2.Address {
 	if x, ok := m.GetDogStatsdSpecifier().(*DogStatsdSink_Address); ok {
 		return x.Address
 	}
@@ -626,7 +466,7 @@ func _DogStatsdSink_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(core.Address)
+		msg := new(envoy_api_v2_core2.Address)
 		err := b.DecodeMessage(msg)
 		m.DogStatsdSpecifier = &DogStatsdSink_Address{msg}
 		return true, err
@@ -641,7 +481,7 @@ func _DogStatsdSink_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.DogStatsdSpecifier.(type) {
 	case *DogStatsdSink_Address:
 		s := proto.Size(x.Address)
-		n += 1 // tag and wire
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -672,44 +512,13 @@ type HystrixSink struct {
 	//
 	// More detailed explanation can be found in `Hystix wiki
 	// <https://github.com/Netflix/Hystrix/wiki/Metrics-and-Monitoring#hystrixrollingnumber>`_.
-	NumBuckets           int64    `protobuf:"varint,1,opt,name=num_buckets,json=numBuckets,proto3" json:"num_buckets,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	NumBuckets int64 `protobuf:"varint,1,opt,name=num_buckets,json=numBuckets,proto3" json:"num_buckets,omitempty"`
 }
 
-func (m *HystrixSink) Reset()         { *m = HystrixSink{} }
-func (m *HystrixSink) String() string { return proto.CompactTextString(m) }
-func (*HystrixSink) ProtoMessage()    {}
-func (*HystrixSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_c7ecac483b7fcab5, []int{5}
-}
-func (m *HystrixSink) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HystrixSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HystrixSink.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *HystrixSink) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HystrixSink.Merge(dst, src)
-}
-func (m *HystrixSink) XXX_Size() int {
-	return m.Size()
-}
-func (m *HystrixSink) XXX_DiscardUnknown() {
-	xxx_messageInfo_HystrixSink.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HystrixSink proto.InternalMessageInfo
+func (m *HystrixSink) Reset()                    { *m = HystrixSink{} }
+func (m *HystrixSink) String() string            { return proto.CompactTextString(m) }
+func (*HystrixSink) ProtoMessage()               {}
+func (*HystrixSink) Descriptor() ([]byte, []int) { return fileDescriptorStats, []int{5} }
 
 func (m *HystrixSink) GetNumBuckets() int64 {
 	if m != nil {
@@ -757,9 +566,6 @@ func (m *StatsSink) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -800,9 +606,6 @@ func (m *StatsConfig) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -833,9 +636,6 @@ func (m *TagSpecifier) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn3
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -884,9 +684,6 @@ func (m *StatsdSink) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintStats(dAtA, i, uint64(len(m.Prefix)))
 		i += copy(dAtA[i:], m.Prefix)
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -934,9 +731,6 @@ func (m *DogStatsdSink) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += nn6
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -974,9 +768,6 @@ func (m *HystrixSink) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintStats(dAtA, i, uint64(m.NumBuckets))
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -1000,9 +791,6 @@ func (m *StatsSink) Size() (n int) {
 		l = m.Config.Size()
 		n += 1 + l + sovStats(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -1019,9 +807,6 @@ func (m *StatsConfig) Size() (n int) {
 		l = m.UseAllDefaultTags.Size()
 		n += 1 + l + sovStats(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -1034,9 +819,6 @@ func (m *TagSpecifier) Size() (n int) {
 	}
 	if m.TagValue != nil {
 		n += m.TagValue.Size()
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1065,9 +847,6 @@ func (m *StatsdSink) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovStats(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -1093,9 +872,6 @@ func (m *DogStatsdSink) Size() (n int) {
 	if m.DogStatsdSpecifier != nil {
 		n += m.DogStatsdSpecifier.Size()
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -1113,9 +889,6 @@ func (m *HystrixSink) Size() (n int) {
 	_ = l
 	if m.NumBuckets != 0 {
 		n += 1 + sovStats(uint64(m.NumBuckets))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1218,7 +991,7 @@ func (m *StatsSink) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &types.Struct{}
+				m.Config = &google_protobuf.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1236,7 +1009,6 @@ func (m *StatsSink) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1333,7 +1105,7 @@ func (m *StatsConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.UseAllDefaultTags == nil {
-				m.UseAllDefaultTags = &types.BoolValue{}
+				m.UseAllDefaultTags = &google_protobuf1.BoolValue{}
 			}
 			if err := m.UseAllDefaultTags.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1351,7 +1123,6 @@ func (m *StatsConfig) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1489,7 +1260,6 @@ func (m *TagSpecifier) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1554,7 +1324,7 @@ func (m *StatsdSink) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &core.Address{}
+			v := &envoy_api_v2_core2.Address{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1630,7 +1400,6 @@ func (m *StatsdSink) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1695,7 +1464,7 @@ func (m *DogStatsdSink) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &core.Address{}
+			v := &envoy_api_v2_core2.Address{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1713,7 +1482,6 @@ func (m *DogStatsdSink) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1783,7 +1551,6 @@ func (m *HystrixSink) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1898,11 +1665,9 @@ var (
 	ErrIntOverflowStats   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() {
-	proto.RegisterFile("envoy/config/metrics/v2/stats.proto", fileDescriptor_stats_c7ecac483b7fcab5)
-}
+func init() { proto.RegisterFile("envoy/config/metrics/v2/stats.proto", fileDescriptorStats) }
 
-var fileDescriptor_stats_c7ecac483b7fcab5 = []byte{
+var fileDescriptorStats = []byte{
 	// 514 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x4d, 0x6f, 0xd3, 0x40,
 	0x10, 0xad, 0x93, 0x36, 0x6d, 0xc6, 0x80, 0x82, 0x55, 0x91, 0x34, 0x82, 0x34, 0x18, 0x21, 0x45,

@@ -6,15 +6,14 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import types "github.com/gogo/protobuf/types"
+import _ "github.com/gogo/protobuf/types"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
+import _ "github.com/gogo/protobuf/gogoproto"
 
 import time "time"
 
-import bytes "bytes"
-
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -24,95 +23,27 @@ var _ = fmt.Errorf
 var _ = math.Inf
 var _ = time.Kitchen
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
-
 // [#not-implemented-hide:]
 type TcpProtocolOptions struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TcpProtocolOptions) Reset()         { *m = TcpProtocolOptions{} }
-func (m *TcpProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*TcpProtocolOptions) ProtoMessage()    {}
-func (*TcpProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_79e290bd8707018a, []int{0}
-}
-func (m *TcpProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TcpProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TcpProtocolOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *TcpProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TcpProtocolOptions.Merge(dst, src)
-}
-func (m *TcpProtocolOptions) XXX_Size() int {
-	return m.Size()
-}
-func (m *TcpProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_TcpProtocolOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TcpProtocolOptions proto.InternalMessageInfo
+func (m *TcpProtocolOptions) Reset()                    { *m = TcpProtocolOptions{} }
+func (m *TcpProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*TcpProtocolOptions) ProtoMessage()               {}
+func (*TcpProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{0} }
 
 type HttpProtocolOptions struct {
 	// The idle timeout for upstream connection pool connections. The idle timeout is defined as the
 	// period in which there are no active requests. If not set, there is no idle timeout. When the
 	// idle timeout is reached the connection will be closed. Note that request based timeouts mean
 	// that HTTP/2 PINGs will not keep the connection alive.
-	IdleTimeout          *time.Duration `protobuf:"bytes,1,opt,name=idle_timeout,json=idleTimeout,stdduration" json:"idle_timeout,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+	IdleTimeout *time.Duration `protobuf:"bytes,1,opt,name=idle_timeout,json=idleTimeout,stdduration" json:"idle_timeout,omitempty"`
 }
 
-func (m *HttpProtocolOptions) Reset()         { *m = HttpProtocolOptions{} }
-func (m *HttpProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*HttpProtocolOptions) ProtoMessage()    {}
-func (*HttpProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_79e290bd8707018a, []int{1}
-}
-func (m *HttpProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HttpProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HttpProtocolOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *HttpProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HttpProtocolOptions.Merge(dst, src)
-}
-func (m *HttpProtocolOptions) XXX_Size() int {
-	return m.Size()
-}
-func (m *HttpProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_HttpProtocolOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HttpProtocolOptions proto.InternalMessageInfo
+func (m *HttpProtocolOptions) Reset()                    { *m = HttpProtocolOptions{} }
+func (m *HttpProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*HttpProtocolOptions) ProtoMessage()               {}
+func (*HttpProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{1} }
 
 func (m *HttpProtocolOptions) GetIdleTimeout() *time.Duration {
 	if m != nil {
@@ -126,7 +57,7 @@ type Http1ProtocolOptions struct {
 	// are generally sent by clients to forward/explicit proxies. This allows clients to configure
 	// envoy as their HTTP proxy. In Unix, for example, this is typically done by setting the
 	// *http_proxy* environment variable.
-	AllowAbsoluteUrl *types.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl" json:"allow_absolute_url,omitempty"`
+	AllowAbsoluteUrl *google_protobuf1.BoolValue `protobuf:"bytes,1,opt,name=allow_absolute_url,json=allowAbsoluteUrl" json:"allow_absolute_url,omitempty"`
 	// Handle incoming HTTP/1.0 and HTTP 0.9 requests.
 	// This is off by default, and not fully standards compliant. There is support for pre-HTTP/1.1
 	// style connect logic, dechunking, and handling lack of client host iff
@@ -135,46 +66,15 @@ type Http1ProtocolOptions struct {
 	// A default host for HTTP/1.0 requests. This is highly suggested if *accept_http_10* is true as
 	// Envoy does not otherwise support HTTP/1.0 without a Host header.
 	// This is a no-op if *accept_http_10* is not true.
-	DefaultHostForHttp_10 string   `protobuf:"bytes,3,opt,name=default_host_for_http_10,json=defaultHostForHttp10,proto3" json:"default_host_for_http_10,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
-	XXX_unrecognized      []byte   `json:"-"`
-	XXX_sizecache         int32    `json:"-"`
+	DefaultHostForHttp_10 string `protobuf:"bytes,3,opt,name=default_host_for_http_10,json=defaultHostForHttp10,proto3" json:"default_host_for_http_10,omitempty"`
 }
 
-func (m *Http1ProtocolOptions) Reset()         { *m = Http1ProtocolOptions{} }
-func (m *Http1ProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*Http1ProtocolOptions) ProtoMessage()    {}
-func (*Http1ProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_79e290bd8707018a, []int{2}
-}
-func (m *Http1ProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Http1ProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Http1ProtocolOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *Http1ProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Http1ProtocolOptions.Merge(dst, src)
-}
-func (m *Http1ProtocolOptions) XXX_Size() int {
-	return m.Size()
-}
-func (m *Http1ProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_Http1ProtocolOptions.DiscardUnknown(m)
-}
+func (m *Http1ProtocolOptions) Reset()                    { *m = Http1ProtocolOptions{} }
+func (m *Http1ProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*Http1ProtocolOptions) ProtoMessage()               {}
+func (*Http1ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{2} }
 
-var xxx_messageInfo_Http1ProtocolOptions proto.InternalMessageInfo
-
-func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *types.BoolValue {
+func (m *Http1ProtocolOptions) GetAllowAbsoluteUrl() *google_protobuf1.BoolValue {
 	if m != nil {
 		return m.AllowAbsoluteUrl
 	}
@@ -200,78 +100,47 @@ type Http2ProtocolOptions struct {
 	// (in octets) that the encoder is permitted to use for the dynamic HPACK table. Valid values
 	// range from 0 to 4294967295 (2^32 - 1) and defaults to 4096. 0 effectively disables header
 	// compression.
-	HpackTableSize *types.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize" json:"hpack_table_size,omitempty"`
+	HpackTableSize *google_protobuf1.UInt32Value `protobuf:"bytes,1,opt,name=hpack_table_size,json=hpackTableSize" json:"hpack_table_size,omitempty"`
 	// `Maximum concurrent streams <http://httpwg.org/specs/rfc7540.html#rfc.section.5.1.2>`_
 	// allowed for peer on one HTTP/2 connection. Valid values range from 1 to 2147483647 (2^31 - 1)
 	// and defaults to 2147483647.
-	MaxConcurrentStreams *types.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams" json:"max_concurrent_streams,omitempty"`
+	MaxConcurrentStreams *google_protobuf1.UInt32Value `protobuf:"bytes,2,opt,name=max_concurrent_streams,json=maxConcurrentStreams" json:"max_concurrent_streams,omitempty"`
 	// This field also acts as a soft limit on the number of bytes Envoy will buffer per-stream in the
 	// HTTP/2 codec buffers. Once the buffer reaches this pointer, watermark callbacks will fire to
 	// stop the flow of data to the codec buffers.
-	InitialStreamWindowSize *types.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize" json:"initial_stream_window_size,omitempty"`
+	InitialStreamWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,3,opt,name=initial_stream_window_size,json=initialStreamWindowSize" json:"initial_stream_window_size,omitempty"`
 	// Similar to *initial_stream_window_size*, but for connection-level flow-control
 	// window. Currently, this has the same minimum/maximum/default as *initial_stream_window_size*.
-	InitialConnectionWindowSize *types.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize" json:"initial_connection_window_size,omitempty"`
-	XXX_NoUnkeyedLiteral        struct{}           `json:"-"`
-	XXX_unrecognized            []byte             `json:"-"`
-	XXX_sizecache               int32              `json:"-"`
+	InitialConnectionWindowSize *google_protobuf1.UInt32Value `protobuf:"bytes,4,opt,name=initial_connection_window_size,json=initialConnectionWindowSize" json:"initial_connection_window_size,omitempty"`
 }
 
-func (m *Http2ProtocolOptions) Reset()         { *m = Http2ProtocolOptions{} }
-func (m *Http2ProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*Http2ProtocolOptions) ProtoMessage()    {}
-func (*Http2ProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_79e290bd8707018a, []int{3}
-}
-func (m *Http2ProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Http2ProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Http2ProtocolOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *Http2ProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Http2ProtocolOptions.Merge(dst, src)
-}
-func (m *Http2ProtocolOptions) XXX_Size() int {
-	return m.Size()
-}
-func (m *Http2ProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_Http2ProtocolOptions.DiscardUnknown(m)
-}
+func (m *Http2ProtocolOptions) Reset()                    { *m = Http2ProtocolOptions{} }
+func (m *Http2ProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*Http2ProtocolOptions) ProtoMessage()               {}
+func (*Http2ProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{3} }
 
-var xxx_messageInfo_Http2ProtocolOptions proto.InternalMessageInfo
-
-func (m *Http2ProtocolOptions) GetHpackTableSize() *types.UInt32Value {
+func (m *Http2ProtocolOptions) GetHpackTableSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.HpackTableSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *types.UInt32Value {
+func (m *Http2ProtocolOptions) GetMaxConcurrentStreams() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.MaxConcurrentStreams
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *types.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialStreamWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialStreamWindowSize
 	}
 	return nil
 }
 
-func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *types.UInt32Value {
+func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *google_protobuf1.UInt32Value {
 	if m != nil {
 		return m.InitialConnectionWindowSize
 	}
@@ -281,43 +150,12 @@ func (m *Http2ProtocolOptions) GetInitialConnectionWindowSize() *types.UInt32Val
 // [#not-implemented-hide:]
 type GrpcProtocolOptions struct {
 	Http2ProtocolOptions *Http2ProtocolOptions `protobuf:"bytes,1,opt,name=http2_protocol_options,json=http2ProtocolOptions" json:"http2_protocol_options,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
 }
 
-func (m *GrpcProtocolOptions) Reset()         { *m = GrpcProtocolOptions{} }
-func (m *GrpcProtocolOptions) String() string { return proto.CompactTextString(m) }
-func (*GrpcProtocolOptions) ProtoMessage()    {}
-func (*GrpcProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_protocol_79e290bd8707018a, []int{4}
-}
-func (m *GrpcProtocolOptions) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *GrpcProtocolOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_GrpcProtocolOptions.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *GrpcProtocolOptions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GrpcProtocolOptions.Merge(dst, src)
-}
-func (m *GrpcProtocolOptions) XXX_Size() int {
-	return m.Size()
-}
-func (m *GrpcProtocolOptions) XXX_DiscardUnknown() {
-	xxx_messageInfo_GrpcProtocolOptions.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GrpcProtocolOptions proto.InternalMessageInfo
+func (m *GrpcProtocolOptions) Reset()                    { *m = GrpcProtocolOptions{} }
+func (m *GrpcProtocolOptions) String() string            { return proto.CompactTextString(m) }
+func (*GrpcProtocolOptions) ProtoMessage()               {}
+func (*GrpcProtocolOptions) Descriptor() ([]byte, []int) { return fileDescriptorProtocol, []int{4} }
 
 func (m *GrpcProtocolOptions) GetHttp2ProtocolOptions() *Http2ProtocolOptions {
 	if m != nil {
@@ -352,9 +190,6 @@ func (this *TcpProtocolOptions) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (this *HttpProtocolOptions) Equal(that interface{}) bool {
@@ -385,9 +220,6 @@ func (this *HttpProtocolOptions) Equal(that interface{}) bool {
 	} else if that1.IdleTimeout != nil {
 		return false
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
@@ -416,9 +248,6 @@ func (this *Http1ProtocolOptions) Equal(that interface{}) bool {
 		return false
 	}
 	if this.DefaultHostForHttp_10 != that1.DefaultHostForHttp_10 {
-		return false
-	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -454,9 +283,6 @@ func (this *Http2ProtocolOptions) Equal(that interface{}) bool {
 	if !this.InitialConnectionWindowSize.Equal(that1.InitialConnectionWindowSize) {
 		return false
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
@@ -481,9 +307,6 @@ func (this *GrpcProtocolOptions) Equal(that interface{}) bool {
 	if !this.Http2ProtocolOptions.Equal(that1.Http2ProtocolOptions) {
 		return false
 	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
 	return true
 }
 func (m *TcpProtocolOptions) Marshal() (dAtA []byte, err error) {
@@ -501,9 +324,6 @@ func (m *TcpProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -525,15 +345,12 @@ func (m *HttpProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintProtocol(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		i = encodeVarintProtocol(dAtA, i, uint64(types.SizeOfStdDuration(*m.IdleTimeout)))
+		n1, err := types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n1
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -578,9 +395,6 @@ func (m *Http1ProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintProtocol(dAtA, i, uint64(len(m.DefaultHostForHttp_10)))
 		i += copy(dAtA[i:], m.DefaultHostForHttp_10)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -640,9 +454,6 @@ func (m *Http2ProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n6
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -671,9 +482,6 @@ func (m *GrpcProtocolOptions) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n7
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
 	return i, nil
 }
 
@@ -689,9 +497,6 @@ func encodeVarintProtocol(dAtA []byte, offset int, v uint64) int {
 func (m *TcpProtocolOptions) Size() (n int) {
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -699,11 +504,8 @@ func (m *HttpProtocolOptions) Size() (n int) {
 	var l int
 	_ = l
 	if m.IdleTimeout != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
+		l = types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 1 + l + sovProtocol(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -721,9 +523,6 @@ func (m *Http1ProtocolOptions) Size() (n int) {
 	l = len(m.DefaultHostForHttp_10)
 	if l > 0 {
 		n += 1 + l + sovProtocol(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -747,9 +546,6 @@ func (m *Http2ProtocolOptions) Size() (n int) {
 		l = m.InitialConnectionWindowSize.Size()
 		n += 1 + l + sovProtocol(uint64(l))
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
 	return n
 }
 
@@ -759,9 +555,6 @@ func (m *GrpcProtocolOptions) Size() (n int) {
 	if m.Http2ProtocolOptions != nil {
 		l = m.Http2ProtocolOptions.Size()
 		n += 1 + l + sovProtocol(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -820,7 +613,6 @@ func (m *TcpProtocolOptions) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -888,7 +680,7 @@ func (m *HttpProtocolOptions) Unmarshal(dAtA []byte) error {
 			if m.IdleTimeout == nil {
 				m.IdleTimeout = new(time.Duration)
 			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdDurationUnmarshal(m.IdleTimeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -904,7 +696,6 @@ func (m *HttpProtocolOptions) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -970,7 +761,7 @@ func (m *Http1ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.AllowAbsoluteUrl == nil {
-				m.AllowAbsoluteUrl = &types.BoolValue{}
+				m.AllowAbsoluteUrl = &google_protobuf1.BoolValue{}
 			}
 			if err := m.AllowAbsoluteUrl.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1037,7 +828,6 @@ func (m *Http1ProtocolOptions) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1103,7 +893,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.HpackTableSize == nil {
-				m.HpackTableSize = &types.UInt32Value{}
+				m.HpackTableSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.HpackTableSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1136,7 +926,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.MaxConcurrentStreams == nil {
-				m.MaxConcurrentStreams = &types.UInt32Value{}
+				m.MaxConcurrentStreams = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.MaxConcurrentStreams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1169,7 +959,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InitialStreamWindowSize == nil {
-				m.InitialStreamWindowSize = &types.UInt32Value{}
+				m.InitialStreamWindowSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.InitialStreamWindowSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1202,7 +992,7 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.InitialConnectionWindowSize == nil {
-				m.InitialConnectionWindowSize = &types.UInt32Value{}
+				m.InitialConnectionWindowSize = &google_protobuf1.UInt32Value{}
 			}
 			if err := m.InitialConnectionWindowSize.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1220,7 +1010,6 @@ func (m *Http2ProtocolOptions) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1304,7 +1093,6 @@ func (m *GrpcProtocolOptions) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1419,11 +1207,9 @@ var (
 	ErrIntOverflowProtocol   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() {
-	proto.RegisterFile("envoy/api/v2/core/protocol.proto", fileDescriptor_protocol_79e290bd8707018a)
-}
+func init() { proto.RegisterFile("envoy/api/v2/core/protocol.proto", fileDescriptorProtocol) }
 
-var fileDescriptor_protocol_79e290bd8707018a = []byte{
+var fileDescriptorProtocol = []byte{
 	// 540 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0xc1, 0x6e, 0xd3, 0x40,
 	0x10, 0x86, 0x65, 0x52, 0x41, 0xd9, 0x46, 0x25, 0x75, 0xad, 0x36, 0x04, 0x64, 0xa2, 0x08, 0x89,
