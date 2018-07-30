@@ -16,10 +16,16 @@ package ca
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
@@ -37,11 +43,23 @@ type caClient struct {
 }
 
 // NewCAClient create an CA client.
-func NewCAClient(addr string, dialOptions []grpc.DialOption) (Client, error) {
-	conn, err := grpc.Dial(addr, dialOptions...)
+func NewCAClient(endpoint, rootPath string) (Client, error) {
+	var opts grpc.DialOption
+	if rootPath != "" {
+		creds, err := credentials.NewClientTLSFromFile(rootPath, "")
+		if err != nil {
+			log.Errorf("Failed to read root certificate file: %v", err)
+			return nil, fmt.Errorf("failed to read root cert")
+		}
+		opts = grpc.WithTransportCredentials(creds)
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
-		log.Errorf("Failed to connect to CA: %v", err)
-		return nil, err
+		log.Errorf("Failed to connect to endpoint %q: %v", endpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
 	}
 
 	return &caClient{
@@ -49,15 +67,21 @@ func NewCAClient(addr string, dialOptions []grpc.DialOption) (Client, error) {
 	}, nil
 }
 
-func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
+func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
+	// TODO(quanlin): remove SubjectId field once CA put it as optional.
+	subjectID, err := parseSubjectID(token)
+	if err != nil {
+		return nil, errors.New("failed to construct IstioCertificate request")
+	}
+
 	req := &capb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		SubjectId:        subjectID,
 		ValidityDuration: certValidTTLInSec,
 	}
 
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", fmt.Sprintf("Bearer %s", subjectID)))
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
 		log.Errorf("Failed to create certificate: %v", err)
@@ -76,4 +100,51 @@ func (cl *caClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string
 	}
 
 	return ret, nil
+}
+
+// TODO(quanlin): remove below workaround function once CA put SubjectId field as optional.
+// token format - "Bearer ya29.****"
+type content struct {
+	ID string `json:"azp"`
+}
+
+const tokenPrefix = "Bearer "
+
+// Parse subjectID from token by sending web request and parsing the response content.
+// This function can be removed once CA put SubjectId field as optional.
+func parseSubjectID(token string) (string, error) {
+	if !strings.HasPrefix(token, tokenPrefix) {
+		log.Errorf("invalid token %q, should start with %q", token, tokenPrefix)
+		return "", errors.New("invalid token")
+	}
+
+	strs := strings.Fields(token)
+	url := fmt.Sprintf("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=%s", strs[1])
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		log.Errorf("Request against %q failed, %v", url, err)
+		return "", errors.New("failed to parse subject ID")
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Errorf("Failed to read response from %q: %v", url, err)
+		return "", errors.New("failed to parse subject ID")
+	}
+
+	item := content{}
+	if err := json.Unmarshal(body, &item); err != nil {
+		log.Errorf("failed to parse json %v", err)
+		return "", errors.New("failed to parse subject ID")
+	}
+
+	return item.ID, nil
 }
