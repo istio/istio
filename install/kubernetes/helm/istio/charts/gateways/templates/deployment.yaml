@@ -54,9 +54,13 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
+        {{- if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
-        {{- if $.Values.global.proxy.envoyStatsd.enabled }}
+        {{- else }}
+          - zipkin:9411
+        {{ end }}
           - --statsdUdpAddress
+        {{- if $.Values.global.proxy.envoyStatsd.enabled }}  
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
         {{- end }}
           - --proxyAdminPort
@@ -65,12 +69,20 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
+          {{- if $.Values.global.istioNamespace }}
           - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          {{- else }}
+          - istio-pilot:15005
+          {{- end }}
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:8080
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          {{- else }}
+          - istio-pilot:15005
+          {{- end }}
         {{- end }}
           resources:
 {{- if $spec.resources }}
