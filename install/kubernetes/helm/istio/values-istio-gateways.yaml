@@ -7,6 +7,12 @@ global:
   # and this options must be set off.
   crds: false
 
+  # Namespace in which Mixer service is running. Mandatory if Gateways are running in another namespace.
+  mixerNamespace: istio-system
+
+  # Namespace in which Pilot service is running. Mandatory if Gateways are running in another namespace.
+  pilotNamespace: istio-system
+
 #
 # Gateways Configuration
 # By default (if enabled) a pair of Ingress and Egress Gateways will be created for the mesh.
