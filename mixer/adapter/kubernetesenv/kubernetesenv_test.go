@@ -386,6 +386,51 @@ func TestKubegen_Generate(t *testing.T) {
 	}
 }
 
+func Test_RemoteCacheController(t *testing.T) {
+	getK8sInterface = mockCreateK8sInterface
+	clientset := fake.NewSimpleClientset()
+	builder := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+		return clientset, nil
+	})
+
+	err := buildSecret(clientset)
+	if err != nil {
+		t.Fatalf("Unexpected error on secret create: %v", err)
+	}
+
+	_, err = builder.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(builder.controllers) != 2 {
+		t.Errorf("Got %v controllers, want 2", len(builder.controllers))
+	}
+}
+
+func buildSecret(k8s *fake.Clientset) error {
+	data := map[string][]byte{}
+	secret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testSecretName",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				"istio/multiCluster": "true",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	data["testRemoteCluster"] = []byte("Test")
+	secret.Data = data
+	_, err := k8s.CoreV1().Secrets("istio-system").Create(&secret)
+	return err
+}
+
+func mockCreateK8sInterface(kubeconfig []byte) (kubernetes.Interface, error) {
+	return fake.NewSimpleClientset(), nil
+}
+
 // Kubernetes Runtime Object for Tests
 
 var trueVar = true
