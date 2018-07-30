@@ -15,14 +15,14 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caClient"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -41,7 +41,7 @@ var (
 
 			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CARootFile)
 			if err != nil {
-				log.Printf("failed to create caClient: %v", err)
+				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
 			}
 			sc := cache.NewSecretCache(caClient, cacheOptions)
@@ -50,7 +50,7 @@ var (
 			server, err := sds.NewServer(serverOptions, sc)
 			defer server.Stop()
 			if err != nil {
-				log.Printf("failed to create sds service: %v", err)
+				log.Errorf("failed to create sds service: %v", err)
 				return fmt.Errorf("failed to create sds service")
 			}
 
@@ -83,15 +83,7 @@ func init() {
 
 func main() {
 	if err := RootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		log.Errora(err)
+		os.Exit(1)
 	}
-}
-
-// TODO(quanlin): remove mockCAClient when real caClient when it's ready.
-type mockCAClient struct {
-}
-
-func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
-	certValidTTLInSec int64) ([]byte /*PEM-encoded certificate chain*/, error) {
-	return csrPEM, nil
 }
