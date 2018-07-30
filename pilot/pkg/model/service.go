@@ -471,12 +471,6 @@ type ServiceAccounts interface {
 	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
 }
 
-// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
-// explicit casting.
-func (h Hostname) String() string {
-	return string(h)
-}
-
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
@@ -488,18 +482,35 @@ func (h Hostname) String() string {
 //  Hostname("*.com").Matches("foo.com")     = true
 //  Hostname("*.foo.com").Matches("foo.com") = false
 func (h Hostname) Matches(o Hostname) bool {
-	if !strings.Contains(string(h), "*") && !strings.Contains(string(o), "*") {
+	if len(h) == 0 && len(o) == 0 {
+		return true
+	}
+
+	hWildcard := string(h[0]) == "*"
+	if hWildcard && len(o) == 0 {
+		return true
+	}
+
+	oWildcard := string(o[0]) == "*"
+	if !hWildcard && !oWildcard {
+		// both are non-wildcards, so do normal string comparison
 		return h == o
 	}
-	la, sa := strings.Contains(string(h), "*"), strings.Contains(string(o), "*")
-	longer, shorter := strings.TrimLeft(string(h), "*"), strings.TrimLeft(string(o), "*")
+
+	longer, shorter := string(h), string(o)
+	if hWildcard {
+		longer = string(h[1:])
+	}
+	if oWildcard {
+		shorter = string(o[1:])
+	}
 	if len(longer) < len(shorter) {
 		longer, shorter = shorter, longer
-		la, sa = sa, la
+		hWildcard, oWildcard = oWildcard, hWildcard
 	}
 
 	matches := strings.HasSuffix(longer, shorter)
-	if matches && la && !sa && strings.TrimSuffix(longer, shorter) == "." {
+	if matches && hWildcard && !oWildcard && strings.TrimSuffix(longer, shorter) == "." {
 		// we match, but the longer is a wildcard and the shorter is not; we need to ensure we don't match input
 		// like `*.foo.com` to `foo.com` in that case (to avoid matching a domain literal to a wildcard subdomain)
 		return false
@@ -524,8 +535,9 @@ func (h Hostnames) Less(i, j int) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string
 	}
+
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := strings.Contains(a.String(), "*"), strings.Contains(b.String(), "*")
+	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -533,10 +545,12 @@ func (h Hostnames) Less(i, j int) bool {
 		// h[j] is a wildcard, but h[i] isn't; therefore h[i] < h[j]
 		return true
 	}
+
 	// they're either both wildcards, or both not; in either case we sort them longest to shortest, alphabetically
 	if len(a) == len(b) {
 		return a < b
 	}
+
 	return len(a) > len(b)
 }
 
@@ -661,7 +675,7 @@ func (s *Service) Key(port *Port, labels Labels) string {
 func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(hostname.String())
+	buffer.WriteString(string(hostname))
 	np := len(servicePorts)
 	nt := len(labelsList)
 

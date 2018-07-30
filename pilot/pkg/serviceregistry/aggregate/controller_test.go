@@ -236,7 +236,7 @@ func TestGetServiceAttributes(t *testing.T) {
 	}
 
 	expect := model.ServiceAttributes{
-		Name:      svc.Hostname.String(),
+		Name:      string(svc.Hostname),
 		Namespace: model.IstioDefaultConfigNamespace,
 	}
 	// The mock controller uses the memory service discovery that returns a default ServiceAttributes.
