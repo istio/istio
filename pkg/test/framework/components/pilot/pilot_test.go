@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package local_test
+package pilot_test
 
 import (
 	"fmt"
@@ -24,21 +24,25 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/environments/local"
+)
+
+const (
+	localCIDR = "127.0.0.1/32"
 )
 
 func TestLocalPilot(t *testing.T) {
 	// Create and start the pilot discovery service.
-	pilot := newPilot(t)
+	p := newPilot(t)
 	defer func() {
-		pilot.(io.Closer).Close()
+		p.(io.Closer).Close()
 	}()
 
 	// Add a service entry.
-	_, err := pilot.Create(model.Config{
+	configStore := p.(model.ConfigStore)
+	_, err := configStore.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:      "some-service-entry",
 			Namespace: "istio-system",
@@ -49,7 +53,7 @@ func TestLocalPilot(t *testing.T) {
 				"fakehost.istio-system.svc.cluster.local",
 			},
 			Addresses: []string{
-				"127.0.0.1/24",
+				localCIDR,
 			},
 			Ports: []*v1alpha3.Port{
 				{
@@ -66,7 +70,7 @@ func TestLocalPilot(t *testing.T) {
 	}
 
 	// Query pilot for the listeners.
-	res, err := pilot.CallDiscovery(&xdsapi.DiscoveryRequest{
+	res, err := p.CallDiscovery(&xdsapi.DiscoveryRequest{
 		// Just use a dummy node as the origin of this request.
 		Node: &envoy_api_v2_core1.Node{
 			Id: "sidecar~127.0.0.1~mysidecar.istio-system~istio-system.svc.cluster.local",
@@ -90,23 +94,9 @@ func TestLocalPilot(t *testing.T) {
 
 func newPilot(t *testing.T) environment.DeployedPilot {
 	t.Helper()
-	mesh := model.DefaultMeshConfig()
-	options := envoy.DiscoveryServiceOptions{
-		HTTPAddr:       ":0",
-		MonitoringAddr: ":0",
-		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
-	}
-
-	pilot, err := local.NewPilot(local.PilotConfig{
-		Namespace: "istio-system",
-		Mesh:      &mesh,
-		Options:   options,
-	})
-
+	p, err := pilot.NewLocalPilot("istio-system")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	return pilot
+	return p
 }
