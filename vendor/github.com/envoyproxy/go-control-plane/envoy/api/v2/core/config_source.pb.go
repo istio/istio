@@ -58,7 +58,7 @@ func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
 // will use to fetch an xDS API.
 type ApiConfigSource struct {
 	ApiType ApiConfigSource_ApiType `protobuf:"varint,1,opt,name=api_type,json=apiType,proto3,enum=envoy.api.v2.core.ApiConfigSource_ApiType" json:"api_type,omitempty"`
-	// Multiple cluster names may be provided for REST_LEGACY/REST. If > 1
+	// Cluster names should be used only with REST_LEGACY/REST. If > 1
 	// cluster is defined, clusters will be cycled through if any kind of failure
 	// occurs.
 	//
@@ -69,11 +69,6 @@ type ApiConfigSource struct {
 	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	//
-	// .. note::
-	//
-	//  If a gRPC service points to a ``cluster_name``, it must be statically
-	//  defined and its type must not be ``EDS``.
 	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
 	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
