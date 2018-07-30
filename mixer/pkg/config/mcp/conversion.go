@@ -142,7 +142,6 @@ func toKey(kind string, resourceName string) store.Key {
 }
 
 func toBackendResource(key store.Key, resource proto.Message, version string) (*store.BackEndResource, error) {
-	// TODO: Ensure that this conversion is correct.
 	marshaller := jsonpb.Marshaler{}
 	jsonData, err := marshaller.MarshalToString(resource)
 	if err != nil {
