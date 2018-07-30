@@ -1,4 +1,4 @@
-{{ define "security-default.yaml.tpl" }}
+{{- if .Values.global.mtls.enabled }}
 # These policy and destination rules effectively enable mTLS for all services in the mesh. For now,
 # they are added to Istio installation yaml for backward compatible. In future, they should be in
 # a separated yaml file so that customer can enable mTLS independent from installation.
