@@ -507,6 +507,12 @@ kiali:
     # changed by overriding the secret
     passphrase: admin
 
+    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # grafanaURL:
+
+    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # jaegerURL:
+
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the
 # istio-system namespace. Once the certificate has been created, the
