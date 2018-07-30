@@ -55,13 +55,13 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //     issuer: https://example.com
 //     audiences:
 //     - bookstore_android.apps.googleusercontent.com
-//       bookstore_web.apps.googleusercontent.com
+//     - bookstore_web.apps.googleusercontent.com
 //     remote_jwks:
-//     - http_uri:
-//       - uri: https://example.com/.well-known/jwks.json
+//       http_uri:
+//         uri: https://example.com/.well-known/jwks.json
 //         cluster: example_jwks_cluster
 //       cache_duration:
-//       - seconds: 300
+//         seconds: 300
 //
 // [#not-implemented-hide:]
 type JwtProvider struct {
@@ -82,7 +82,7 @@ type JwtProvider struct {
 	//
 	//     audiences:
 	//     - bookstore_android.apps.googleusercontent.com
-	//       bookstore_web.apps.googleusercontent.com
+	//     - bookstore_web.apps.googleusercontent.com
 	//
 	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
 	// `JSON Web Key Set <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed. to validate
@@ -299,7 +299,7 @@ type RemoteJwks struct {
 	// .. code-block:: yaml
 	//
 	//    http_uri:
-	//    - uri: https://www.googleapis.com/oauth2/v1/certs
+	//      uri: https://www.googleapis.com/oauth2/v1/certs
 	//      cluster: jwt.www.googleapis.com|443
 	//
 	HttpUri *envoy_api_v2_core1.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri" json:"http_uri,omitempty"`
