@@ -110,6 +110,8 @@ type content struct {
 
 const tokenPrefix = "Bearer "
 
+// Parse subjectID from token by sending web request and parsing the response content.
+// This function can be removed once CA put SubjectId field as optional.
 func parseSubjectID(token string) (string, error) {
 	if !strings.HasPrefix(token, tokenPrefix) {
 		log.Errorf("invalid token %q, should start with %q", token, tokenPrefix)
