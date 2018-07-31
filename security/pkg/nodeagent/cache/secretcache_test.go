@@ -54,6 +54,13 @@ func TestGetSecret(t *testing.T) {
 		t.Errorf("CertificateChain: got: %v, want: %v", got, want)
 	}
 
+	if got, want := sc.SecretExist(proxyID, fakeSpiffeID, "jwtToken1", gotSecret.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+	if got, want := sc.SecretExist(proxyID, fakeSpiffeID, "nonexisttoken", gotSecret.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+
 	cachedSecret, found := sc.secrets.Load(proxyID)
 	if !found {
 		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxyID, err)

@@ -125,6 +125,13 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 			con.proxyID = discReq.Node.Id
 
+			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
+			// request's <token, resourceName(SpiffeID), Version>, then this request is a confirmation request.
+			// nodeagent stops sending response to envoy in this case.
+			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, spiffeID, token, discReq.VersionInfo) {
+				continue
+			}
+
 			secret, err := s.st.GetSecret(ctx, discReq.Node.Id, spiffeID, token)
 			if err != nil {
 				log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
@@ -143,6 +150,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if con.secret == nil {
 				// Secret is nil indicates close streaming connection to proxy, so that proxy
 				// could connect again with updated token.
+				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
+				// from secret cache because cache has auto-evication.
 				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
 			}
 
@@ -248,12 +257,10 @@ func pushSDS(con *sdsConnection) error {
 }
 
 func sdsDiscoveryResponse(s *SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
-	//TODO(quanlin): use timestamp for versionInfo and nouce for now, may change later.
-	t := time.Now().String()
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     SecretType,
-		VersionInfo: t,
-		Nonce:       t,
+		VersionInfo: s.Version,
+		Nonce:       s.Version,
 	}
 
 	if s == nil {

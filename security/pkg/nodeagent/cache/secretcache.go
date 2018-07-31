@@ -98,6 +98,21 @@ func (sc *SecretCache) GetSecret(ctx context.Context, proxyID, spiffeID, token s
 	return ns, nil
 }
 
+// SecretExist checks if secret already existed.
+func (sc *SecretCache) SecretExist(proxyID, spiffeID, token, version string) bool {
+	val, exist := sc.secrets.Load(proxyID)
+	if !exist {
+		return false
+	}
+
+	e := val.(sds.SecretItem)
+	if e.SpiffeID == spiffeID && e.Token == token && e.Version == version {
+		return true
+	}
+
+	return false
+}
+
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
 	if sc.rotationTicker != nil {
@@ -190,6 +205,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 		SpiffeID:         spiffeID,
 		Token:            token,
 		CreatedTime:      t,
+		Version:          t.String(),
 	}, nil
 }
 
