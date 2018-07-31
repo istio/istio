@@ -6,7 +6,7 @@ metadata:
   name: meshexpansion-citadel
 spec:
   hosts:
-  - "istio-citadel.istio-system"
+  - "istio-citadel.{{ $spec.namespace | default $.Release.Namespace }}"
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -14,7 +14,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.istio-system.svc.cluster.local
+        host: istio-citadel.{{ $spec.namespace | default $.Release.Namespace }}.svc.cluster.local
         port:
           number: 8060
 
@@ -30,7 +30,7 @@ metadata:
   name: meshexpansion-ilb-citadel
 spec:
   hosts:
-  - "istio-citadel.istio-system"
+  - "istio-citadel.{{ $spec.namespace | default $.Release.Namespace }}"
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -38,7 +38,7 @@ spec:
     - port: 8060
     route:
     - destination:
-        host: istio-citadel.istio-system.svc.cluster.local
+        host: istio-citadel.{{ $spec.namespace | default $.Release.Namespace }}.svc.cluster.local
         port:
           number: 8060
 
