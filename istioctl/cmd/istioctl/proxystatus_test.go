@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -25,11 +24,11 @@ func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-status", " "),
-			expectedRegexp: regexp.MustCompile("^PROXY     CDS     LDS     EDS     RDS     PILOT"),
+			expectedString: "PROXY     CDS     LDS     EDS     RDS     PILOT",
 		},
 		{ // case 1 short name "ps"
 			args:           strings.Split("ps", " "),
-			expectedRegexp: regexp.MustCompile("^PROXY     CDS     LDS     EDS     RDS     PILOT"),
+			expectedString: "PROXY     CDS     LDS     EDS     RDS     PILOT",
 		},
 	}
 
