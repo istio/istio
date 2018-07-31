@@ -101,6 +101,14 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 		return err
 	}
 
+	if _, err := os.Stat(options.UDSPath); err == nil {
+		log.Debugf("%q exists", options.UDSPath)
+
+		if err := os.Chmod(options.UDSPath, 0666); err != nil {
+			log.Errorf("failed to update %q permission", options.UDSPath)
+		}
+	}
+
 	go func() {
 		if err = s.grpcServer.Serve(s.grpcListener); err != nil {
 			log.Errorf("SDS grpc server failed to start: %v", err)
