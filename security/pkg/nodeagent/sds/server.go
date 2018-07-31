@@ -101,12 +101,14 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 		return err
 	}
 
-	if _, err := os.Stat(options.UDSPath); err == nil {
-		log.Debugf("%q exists", options.UDSPath)
-
-		if err := os.Chmod(options.UDSPath, 0666); err != nil {
-			log.Errorf("failed to update %q permission", options.UDSPath)
-		}
+	// Update SDS UDS file permission so that istio-proxy has permission to access it.
+	if _, err := os.Stat(options.UDSPath); err != nil {
+		log.Errorf("SDS uds file %q doesn't exist", options.UDSPath)
+		return fmt.Errorf("sds uds file %q doesn't exist", options.UDSPath)
+	}
+	if err := os.Chmod(options.UDSPath, 0666); err != nil {
+		log.Errorf("Failed to update %q permission", options.UDSPath)
+		return fmt.Errorf("failed to update %q permission", options.UDSPath)
 	}
 
 	go func() {
