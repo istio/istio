@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
-	routeapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -33,9 +31,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	proxy_envoy "istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent/pilot"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot"
 	"istio.io/istio/pkg/test/service/echo"
 	"istio.io/istio/pkg/test/service/echo/proto"
 )
@@ -44,11 +42,7 @@ const (
 	timeout       = 10 * time.Second
 	retryInterval = 500 * time.Millisecond
 	domain        = "svc.local"
-	namespace     = "default"
-)
-
-var (
-	fqd = fmt.Sprintf("%s.%s", namespace, domain)
+	namespace     = "istio-system"
 )
 
 func TestAgent(t *testing.T) {
@@ -93,9 +87,9 @@ func TestAgent(t *testing.T) {
 
 	// Create a few agents.
 	agents := []agent.Agent{
-		newAgent("A", agentFactory, appFactory, configStore, t),
-		newAgent("B", agentFactory, appFactory, configStore, t),
-		newAgent("C", agentFactory, appFactory, configStore, t),
+		newAgent("a", agentFactory, appFactory, configStore, t),
+		newAgent("b", agentFactory, appFactory, configStore, t),
+		newAgent("c", agentFactory, appFactory, configStore, t),
 	}
 	defer func() {
 		for _, a := range agents {
@@ -112,13 +106,14 @@ func TestAgent(t *testing.T) {
 			}
 
 			for {
-				if isAgentConfiguredForService(src, target, t) {
+				err := src.CheckConfiguredForService(target)
+				if err == nil {
 					break
 				}
 
 				if time.Now().After(endTime) {
 					logConfigs(agents)
-					t.Fatal("failed to configure Envoys")
+					t.Fatalf("failed to configure Envoys: %v", err)
 				}
 				time.Sleep(retryInterval)
 			}
@@ -206,102 +201,6 @@ func makeHTTPRequest(src agent.Agent, dst agent.Agent, protocol model.Protocol, 
 	if parsedResponses[0].Port != strconv.Itoa(dstPort.ApplicationPort) {
 		t.Fatalf("Unexpected port: %s", parsedResponses[0].Port)
 	}
-}
-
-func isAgentConfiguredForService(src agent.Agent, target agent.Agent, t *testing.T) bool {
-	t.Helper()
-
-	cfg, err := envoy.GetConfigDump(src.GetAdminPort())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, port := range target.GetPorts() {
-		clusterName := fmt.Sprintf("outbound|%d||%s.%s", port.ProxyPort, target.GetConfig().Name, fqd)
-		if !isClusterPresent(cfg, clusterName) {
-			return false
-		}
-
-		var listenerName string
-		if port.Protocol.IsHTTP() {
-			listenerName = fmt.Sprintf("0.0.0.0_%d", port.ProxyPort)
-		} else {
-			listenerName = fmt.Sprintf("127.0.0.1_%d", port.ProxyPort)
-		}
-		if !isOutboundListenerPresent(cfg, listenerName) {
-			return false
-		}
-
-		if port.Protocol.IsHTTP() {
-			if !isOutboundRoutePresent(cfg, clusterName) {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func isClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
-	clusters := envoy_admin_v2alpha.ClustersConfigDump{}
-	if err := clusters.Unmarshal(cfg.Configs["clusters"].Value); err != nil {
-		return false
-	}
-
-	for _, c := range clusters.DynamicActiveClusters {
-		if c.Cluster == nil {
-			continue
-		}
-		if c.Cluster.Name == clusterName || (c.Cluster.EdsClusterConfig != nil && c.Cluster.EdsClusterConfig.ServiceName == clusterName) {
-			return true
-		}
-	}
-	return false
-}
-
-func isOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName string) bool {
-	listeners := envoy_admin_v2alpha.ListenersConfigDump{}
-	if err := listeners.Unmarshal(cfg.Configs["listeners"].Value); err != nil {
-		return false
-	}
-
-	for _, l := range listeners.DynamicActiveListeners {
-		if l.Listener != nil && l.Listener.Name == listenerName {
-			return true
-		}
-	}
-	return false
-}
-
-func isOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
-	routes := envoy_admin_v2alpha.RoutesConfigDump{}
-	if err := routes.Unmarshal(cfg.Configs["routes"].Value); err != nil {
-		return false
-	}
-
-	// Look for a route that targets the given outbound cluster.
-	for _, r := range routes.DynamicRouteConfigs {
-		if r.RouteConfig != nil {
-			for _, vh := range r.RouteConfig.VirtualHosts {
-				for _, route := range vh.Routes {
-					actionRoute, ok := route.Action.(*routeapi.Route_Route)
-					if !ok {
-						continue
-					}
-
-					cluster, ok := actionRoute.Route.ClusterSpecifier.(*routeapi.RouteAction_Cluster)
-					if !ok {
-						continue
-					}
-
-					if cluster.Cluster == clusterName {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
 }
 
 func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigStore, func()) {

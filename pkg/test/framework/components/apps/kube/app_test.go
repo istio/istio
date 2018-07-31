@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kubernetes_test
+package kube_test
 
 import (
 	"testing"
@@ -20,32 +20,30 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/framework/components/apps/kube"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 // TODO(nmittler): Remove from final code. This is just helpful for initial debugging.
 
 const namespace = "istio-system"
 
-func TestHttp(t *testing.T) {
+func TestLocal(t *testing.T) {
 	t.Skip("Skipping this test. Must be enabled manually.")
 
-	a, err := kubernetes.NewApp("a", namespace)
+	a, err := kube.NewApp("a", namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := kubernetes.NewApp("b", namespace)
+	b, err := kube.NewApp("b", namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	endpoint := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
-	u := endpoint.MakeURL()
-	u.Path = a.Name()
-
-	result := a.CallOrFail(u, 1, nil, t)
-	if !result.IsSuccess() {
+	results := a.CallOrFail(endpoint, environment.AppCallOptions{}, t)
+	for _, result := range results {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
 	}
-	spew.Dump(result)
+	spew.Dump(results)
 }

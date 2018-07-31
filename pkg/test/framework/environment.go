@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/apps/api"
 	"istio.io/istio/pkg/test/framework/dependency"
 	env "istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
@@ -117,7 +118,7 @@ func (e *environment) GetApp(name string) (env.DeployedApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.(env.DeployedApp), nil
+	return s.(api.Apps).GetApp(name)
 }
 
 // GetAppOrFail returns a fake testing app object for the given name, or fails the test if unsuccessful.

@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 var cfg = ""
@@ -36,11 +37,10 @@ func TestHTTPWithMTLS(t *testing.T) {
 	// Send requests to all of the HTTP endpoints.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
 	for _, endpoint := range endpoints {
-		url := endpoint.MakeURL()
-		t.Run(url.String(), func(t *testing.T) {
-			result := appa.CallOrFail(url, 1, nil, t)
-			if !result.IsSuccess() {
-				t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+		t.Run("a_t_http", func(t *testing.T) {
+			results := appa.CallOrFail(endpoint, environment.AppCallOptions{}, t)
+			if !results[0].IsOK() {
+				t.Fatalf("HTTP Request unsuccessful: %s", results[0].Body)
 			}
 		})
 	}

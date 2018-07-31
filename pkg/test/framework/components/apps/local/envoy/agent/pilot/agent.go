@@ -41,16 +41,16 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	google_protobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy/agent/pilot/reserveport"
-	"istio.io/istio/pkg/test/framework/environments/local/envoy/discovery"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/agent/pilot/reserveport"
+	"istio.io/istio/pkg/test/framework/components/apps/local/envoy/discovery"
 	"istio.io/istio/pkg/test/protocol"
 )
 
@@ -268,6 +268,39 @@ func (a *pilotAgent) GetPorts() []*agent.MappedPort {
 	return a.ports
 }
 
+// CheckConfiguredForService implements the agent.Agent interface.
+func (a *pilotAgent) CheckConfiguredForService(target agent.Agent) error {
+	cfg, err := envoy.GetConfigDump(a.GetAdminPort())
+	if err != nil {
+		return err
+	}
+
+	for _, port := range target.GetPorts() {
+		clusterName := fmt.Sprintf("outbound|%d||%s.%s", port.ProxyPort, target.GetConfig().Name, a.fqd())
+		if !envoy.IsClusterPresent(cfg, clusterName) {
+			return fmt.Errorf("service %s missing config for cluster %s", a.GetConfig().Name, clusterName)
+		}
+
+		var listenerName string
+		if port.Protocol.IsHTTP() {
+			listenerName = fmt.Sprintf("0.0.0.0_%d", port.ProxyPort)
+		} else {
+			listenerName = fmt.Sprintf("127.0.0.1_%d", port.ProxyPort)
+		}
+		if !envoy.IsOutboundListenerPresent(cfg, listenerName) {
+			return fmt.Errorf("service %s missing config for outbound listener %s", a.GetConfig().Name, listenerName)
+		}
+
+		if port.Protocol.IsHTTP() {
+			if !envoy.IsOutboundRoutePresent(cfg, clusterName) {
+				return fmt.Errorf("service %s missing route config to cluster %s", a.GetConfig().Name, clusterName)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Stop implements the agent.Agent interface.
 func (a *pilotAgent) Close() (err error) {
 	if a.app != nil {
@@ -289,6 +322,10 @@ func (a *pilotAgent) Close() (err error) {
 		err = multierror.Append(err, e)
 	}
 	return
+}
+
+func (a *pilotAgent) fqd() string {
+	return fmt.Sprintf("%s.%s", a.GetConfig().Namespace, a.GetConfig().Domain)
 }
 
 // function for establishing GRPC connections from the application.

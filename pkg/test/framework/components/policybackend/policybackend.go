@@ -102,7 +102,7 @@ type localComponent struct {
 
 // ID implements the component.Component interface.
 func (c *localComponent) ID() dependency.Instance {
-	return dependency.Pilot
+	return dependency.PolicyBackend
 }
 
 // Requires implements the component.Component interface.
@@ -114,7 +114,7 @@ func (c *localComponent) Requires() []dependency.Instance {
 func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	_, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	port := policy.DefaultPort // TODO: Allow dynamically allocated ports.
@@ -144,7 +144,7 @@ type kubeComponent struct {
 
 // ID implements the component.Component interface.
 func (c *kubeComponent) ID() dependency.Instance {
-	return dependency.Mixer
+	return dependency.PolicyBackend
 }
 
 // Requires implements the component.Component interface.
@@ -156,7 +156,7 @@ func (c *kubeComponent) Requires() []dependency.Instance {
 func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	result, err := tmpl.Evaluate(template, map[string]interface{}{
