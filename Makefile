@@ -228,19 +228,22 @@ ${ISTIO_ENVOY_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
-depend: init | $(ISTIO_OUT)
+depend: init api.generate | $(ISTIO_OUT)
 
 $(ISTIO_OUT) $(ISTIO_BIN):
 	@mkdir -p $@
 
 # Used by CI to update the dependencies and generates a git diff of the vendor files against HEAD.
-depend.diff: $(ISTIO_OUT)
+depend.diff: api.generate $(ISTIO_OUT)
 	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | DEP_RELEASE_TAG="v0.4.1" sh
 	dep ensure
-	git diff HEAD --exit-code -- Gopkg.lock vendor > $(ISTIO_OUT)/dep.diff
+	git diff HEAD --exit-code -- Gopkg.lock vendor api > $(ISTIO_OUT)/dep.diff
 
 ${GEN_CERT}:
 	GOOS=$(GOOS_LOCAL) && GOARCH=$(GOARCH_LOCAL) && CGO_ENABLED=1 bin/gobuild.sh $@ ./security/tools/generate_cert
+
+api.generate:
+	(cd api; $(MAKE) clean generate)
 
 #-----------------------------------------------------------------------------
 # Target: precommit

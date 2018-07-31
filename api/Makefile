@@ -351,5 +351,4 @@ clean: 	clean-mcp \
 	clean-rbac \
 	clean-authn \
 	clean-envoy \
-	clean-common \
 	clean-python
