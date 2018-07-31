@@ -1773,20 +1773,6 @@ Redirect primitive. Rewrite will be performed before forwarding.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-websocket_upgrade">
-<td><code>websocketUpgrade</code></td>
-<td><code>bool</code></td>
-<td>
-<p>Indicates that a HTTP/1.1 client connection to this particular route
-should be allowed (and expected) to upgrade to a WebSocket connection.
-The default is false. Istio&rsquo;s reference sidecar implementation (Envoy)
-expects the first request to this route to contain the WebSocket
-upgrade headers. Otherwise, the request will be rejected. Note that
-Websocket allows secondary protocol negotiation which may then be
-subject to further routing rules based on the protocol selected.</p>
-
-</td>
-</tr>
 <tr id="HTTPRoute-timeout">
 <td><code>timeout</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
@@ -1807,7 +1793,9 @@ subject to further routing rules based on the protocol selected.</p>
 <td><code>fault</code></td>
 <td><code><a href="#HTTPFaultInjection">HTTPFaultInjection</a></code></td>
 <td>
-<p>Fault injection policy to apply on HTTP traffic.</p>
+<p>Fault injection policy to apply on HTTP traffic at the client side.
+Note that timeouts or retries will not be enabled when faults are
+enabled on the client side.</p>
 
 </td>
 </tr>
@@ -2817,8 +2805,10 @@ or part of the mesh.</p>
 <td><code>resolution</code></td>
 <td><code><a href="#ServiceEntry-Resolution">ServiceEntry.Resolution</a></code></td>
 <td>
-<p>Service discovery mode for the hosts. If not set, Istio will attempt
-to infer the discovery mode based on the value of hosts and endpoints.</p>
+<p>REQUIRED: Service discovery mode for the hosts. Care must be taken
+when setting the resolution mode to NONE for a TCP port without
+accompanying IP addresses. In such cases, traffic to any IP on
+said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 
 </td>
 </tr>
