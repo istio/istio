@@ -125,7 +125,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
 				})
 			}
 		}
@@ -329,6 +329,8 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
+	_, is10Proxy := node.GetProxyVersion()
+
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -342,18 +344,25 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
+		if !is10Proxy {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
 		}
+
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -445,9 +454,9 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			return out.Headers[i].Value < out.Headers[j].Value
-		}
+		// TODO: match by values as well. But we have about 5-6 types of values
+		// in a header matcher. Not sorting by values "might" cause unnecessary
+		// RDS churn in some cases.
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 
@@ -561,9 +570,11 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	return &route.Route{
+	_, is10Proxy := node.GetProxyVersion()
+
+	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -575,6 +586,17 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 			},
 		},
 	}
+
+	if is10Proxy {
+		defaultRoute.Action = &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
+			},
+		}
+	}
+	return defaultRoute
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault

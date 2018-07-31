@@ -15,14 +15,17 @@
 package pilot
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
-	"text/template"
 
-	"encoding/json"
-	"regexp"
+	"bytes"
+	"text/template"
+	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"
@@ -63,10 +66,32 @@ var (
 type serviceInfo struct {
 	ServiceName string
 	Namespace   string
+	yaml        string
+	t           *testing.T
 }
 
 func (i *serviceInfo) fullName() string {
 	return fmt.Sprintf("%s.%s.svc.cluster.local", i.ServiceName, i.Namespace)
+}
+
+func (i *serviceInfo) start() {
+	i.yaml = i.generateYaml()
+	if err := util.KubeApplyContents("", i.yaml, tc.Kube.KubeConfig); err != nil {
+		i.t.Fatal(err)
+	}
+}
+
+func (i *serviceInfo) stop() {
+	util.KubeDeleteContents("", i.yaml, tc.Kube.KubeConfig)
+}
+
+func (i *serviceInfo) generateYaml() string {
+	var tmp bytes.Buffer
+	err := template.Must(template.New("inject").Parse(conflictServiceTemplate)).Execute(&tmp, i)
+	if err != nil {
+		i.t.Fatal(err)
+	}
+	return tmp.String()
 }
 
 func TestListenerConflicts(t *testing.T) {
@@ -78,63 +103,84 @@ func TestListenerConflicts(t *testing.T) {
 	oldService := &serviceInfo{
 		ServiceName: fmt.Sprintf("service1"),
 		Namespace:   fmt.Sprintf("%s-conflict-1", tc.Info.RunID),
+		t:           t,
 	}
 	newService := &serviceInfo{
 		ServiceName: fmt.Sprintf("service2"),
 		Namespace:   fmt.Sprintf("%s-conflict-2", tc.Info.RunID),
+		t:           t,
 	}
-	for _, c := range []*serviceInfo{oldService, newService} {
-		yaml := getConflictServiceYaml(c, t)
-		kubeApplyConflictService(yaml, t)
-		defer util.KubeDeleteContents("", yaml, tc.Kube.KubeConfig)
-	}
+
+	// Create the older of thw two services. It's "old" because it will have an older creationTimestamp.
+	oldService.start()
+	defer oldService.stop()
+
+	// Sleep a couple of seconds before pushing the next service. This ensures the creationTimestamps are different.
+	time.Sleep(2 * time.Second)
+
+	// Now create the "new" service.
+	newService.start()
+	defer newService.stop()
 
 	for cluster := range tc.Kube.Clusters {
 		testName := oldService.ServiceName
-		runRetriableTest(t, cluster, testName, 5, func() error {
-			// Scrape the pilot logs and verify that the newer service is filtered in favor of the older service.
-			logs := getPilotLogs(t)
-			pushStatuses, err := getPushStatus(logs)
+		runRetriableTest(t, cluster, testName, 10, func() error {
+			infos, err := getPilotInfos()
 			if err != nil {
 				return err
 			}
 
-			for _, pushStatus := range pushStatuses {
+			for _, info := range infos {
+				pushStatus := info.pushStatus
 				conflict, ok := pushStatus.ProxyStatus[metricName]
 				if !ok {
+					err = multierror.Prefix(err, fmt.Sprintf("unable to find push status metric %s", metricName))
+					// See if another pod has the status we're looking for.
 					continue
 				}
 				event, ok := conflict[listenerName]
 				if !ok {
+					err = multierror.Prefix(err, fmt.Sprintf("unable to find push status conflict %s", listenerName))
+					// See if another pod has the status we're looking for.
 					continue
 				}
 
-				accepted, rejected, numServices, err := parseEventMessageFields(event.Message)
-				if err != nil {
-					return err
+				accepted, rejected, numServices, e := parseEventMessageFields(event.Message)
+				if e != nil {
+					// See if another pod has the status we're looking for.
+					err = multierror.Prefix(err, e.Error())
+					continue
 				}
 
 				if accepted == newService.fullName() {
 					// We should never accept the port from the newer service.
-					return fmt.Errorf("expected to reject listener for %s, but it was accepted", accepted)
+					err = multierror.Prefix(err, fmt.Sprintf("expected to reject listener for %s, but it was accepted %v", accepted, pushStatus))
+					// No need to check others statuses - this shouldn't happen.
+					break
 				}
 				if accepted != oldService.fullName() {
 					// Possibly a rejection for a different service? Just go to the next event.
+					err = multierror.Prefix(err, fmt.Sprintf("unexpected service accepted %s", metricName))
 					continue
 				}
 
 				// The old service was accepted. The rejection should be the new service.
 				if rejected != newService.fullName() {
-					return fmt.Errorf("expected to reject listener for %s, but rejected %s", newService.fullName(), rejected)
+					err = multierror.Prefix(err, fmt.Sprintf("expected to reject listener for %s, but rejected %s", newService.fullName(), rejected))
+					// No need to check others statuses - this shouldn't happen.
+					break
 				}
 				if numServices != "1" {
-					return fmt.Errorf("expected 1 TCP services, but found %s", numServices)
+					err = multierror.Prefix(err, fmt.Sprintf("expected 1 TCP services, but found %s", numServices))
+					// No need to check others statuses - this shouldn't happen.
+					break
 				}
-
-				return nil
 			}
 
-			return fmt.Errorf("failed to find ADS push status in pilot logs")
+			if err != nil {
+				return multierror.Prefix(err, fmt.Sprintf("pilot PushStatus failed. Result=%s", infos.String()))
+			}
+			return nil
 		})
 	}
 }
@@ -152,73 +198,80 @@ func parseEventMessageFields(message string) (accepted string, rejected string, 
 	return
 }
 
-func getPushStatus(logs string) ([]*model.PushStatus, error) {
-	lines := strings.Split(logs, "\n")
-	statuses := make([]*model.PushStatus, 0)
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if strings.Contains(line, "ads\tPush finished") {
-			// Gather the push status JSON.
-			pushStatusJSON := "{\n"
-			i++
-			for ; i < len(lines); i++ {
-				line = lines[i]
-				if strings.HasPrefix(line, "}") {
-					// Found the end of the json.
-					pushStatusJSON += "}"
+type pilotInfos []*pilotInfo
 
-					// Parse the push status.
-					pushStatus := &model.PushStatus{}
-					if err := json.Unmarshal([]byte(pushStatusJSON), pushStatus); err != nil {
-						return nil, err
-					}
-					statuses = append(statuses, pushStatus)
-					break
-				}
-				// This line is part of the push status.
-				pushStatusJSON += line
-			}
+func (i pilotInfos) String() string {
+	v := ""
+	for _, info := range i {
+		v += fmt.Sprintf("[%s]\n", info.String())
+	}
+	return v
+}
+
+type pilotInfo struct {
+	pod            string
+	pushStatusJSON string
+	pushStatus     *model.PushStatus
+}
+
+func (i *pilotInfo) String() string {
+	return fmt.Sprintf("pilotPod: %s, pushStatus: %s", i.pod, i.pushStatusJSON)
+}
+
+func getPilotInfos() (pilotInfos, error) {
+	pods, err := getPilotPods()
+	if err != nil {
+		return nil, err
+	}
+
+	statuses := make(pilotInfos, len(pods))
+	for i, pod := range pods {
+		var err error
+		statuses[i], err = getPilotInfo(pod)
+		if err != nil {
+			return nil, err
 		}
 	}
-
-	if len(statuses) == 0 {
-		return nil, fmt.Errorf("no push status found in logs")
-	}
-
 	return statuses, nil
 }
 
-func getPilotLogs(t *testing.T) string {
-	logs := ""
-	pods := getPilotPods(t)
-	for _, pod := range pods {
-		logs += util.GetPodLogs(tc.Kube.Namespace, pod, "discovery", false, false, tc.Kube.KubeConfig)
+func getPilotInfo(pod string) (*pilotInfo, error) {
+	command := "curl http://127.0.0.1:8080/debug/push_status"
+	result, err := util.PodExec(tc.Kube.Namespace, pod, "discovery", command, true, tc.Kube.KubeConfig)
+	if err != nil {
+		return nil, err
 	}
-	return logs
+
+	pushStatusStartIndex := strings.Index(result, "{")
+	if pushStatusStartIndex < 0 {
+		return nil, fmt.Errorf("unable to locate PushStatus. Exec result: %s", result)
+	}
+	pushStatusEndIndex := strings.LastIndex(result, "}")
+	if pushStatusEndIndex < 0 {
+		return nil, fmt.Errorf("unable to locate PushStatus. Exec result: %s", result)
+	}
+	pushStatusJSON := result[pushStatusStartIndex : pushStatusEndIndex+1]
+
+	// Parse the push status.
+	pushStatus := &model.PushStatus{}
+	if err := json.Unmarshal([]byte(pushStatusJSON), pushStatus); err != nil {
+		return nil, err
+	}
+
+	return &pilotInfo{
+		pod:            pod,
+		pushStatusJSON: pushStatusJSON,
+		pushStatus:     pushStatus,
+	}, nil
 }
 
-func getPilotPods(t *testing.T) []string {
+func getPilotPods() ([]string, error) {
 	res, err := util.Shell("kubectl get pods -n %s --kubeconfig=%s --selector istio=pilot -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}'",
 		tc.Kube.Namespace, tc.Kube.KubeConfig)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
-	return strings.Split(res, " ")
-}
-
-func kubeApplyConflictService(yaml string, t *testing.T) {
-	t.Helper()
-	if err := util.KubeApplyContents("", yaml, tc.Kube.KubeConfig); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func getConflictServiceYaml(params interface{}, t *testing.T) string {
-	t.Helper()
-	var tmp bytes.Buffer
-	err := template.Must(template.New("inject").Parse(conflictServiceTemplate)).Execute(&tmp, params)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return tmp.String()
+	pods := strings.Split(res, " ")
+	// Trim off the last (empty) element.
+	return pods[0 : len(pods)-1], nil
 }

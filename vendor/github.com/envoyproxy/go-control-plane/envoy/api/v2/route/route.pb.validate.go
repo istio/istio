@@ -218,6 +218,36 @@ func (m *Route) Validate() error {
 
 	// no validation rules for PerFilterConfig
 
+	for idx, item := range m.GetRequestHeadersToAdd() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteValidationError{
+					Field:  fmt.Sprintf("RequestHeadersToAdd[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetResponseHeadersToAdd() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteValidationError{
+					Field:  fmt.Sprintf("ResponseHeadersToAdd[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.Action.(type) {
 
 	case *Route_Route:
@@ -589,6 +619,20 @@ func (m *RouteAction) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	if d := m.GetIdleTimeout(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return RouteActionValidationError{
+				Field:  "IdleTimeout",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
 	if v, ok := interface{}(m.GetRetryPolicy()).(interface{ Validate() error }); ok {
@@ -1122,18 +1166,6 @@ func (m *HeaderMatcher) Validate() error {
 		return HeaderMatcherValidationError{
 			Field:  "Name",
 			Reason: "value length must be at least 1 bytes",
-		}
-	}
-
-	// no validation rules for Value
-
-	if v, ok := interface{}(m.GetRegex()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HeaderMatcherValidationError{
-				Field:  "Regex",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
 		}
 	}
 
