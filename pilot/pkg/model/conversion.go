@@ -34,8 +34,8 @@ func (ps *ProtoSchema) Make() (proto.Message, error) {
 	pbt := proto.MessageType(ps.MessageName)
 	if ps.Gogo || pbt == nil {
 		// goproto and gogoproto maintain their own separate registry
-		// of linked proto files. istio.io/api/proxy protobufs use
-		// goproto and istio.io/api/mixer protobufs use
+		// of linked proto files. istio.io/istio/api/proxy protobufs use
+		// goproto and istio.io/istio/api/mixer protobufs use
 		// gogoproto. Until use of goproto vs. gogoproto is reconciled
 		// we need to check both registries when dealing to handle
 		// proxy and mixerclient types.

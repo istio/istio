@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
+	istio_mixer_v1 "istio.io/istio/api/mixer/v1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 )
 

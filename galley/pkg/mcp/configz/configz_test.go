@@ -27,7 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/mcp/testing"

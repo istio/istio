@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/report1/template.proto -otestdata/report1/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/report2/template.proto -otestdata/report2/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report1/template.proto -otestdata/report1/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report2/template.proto -otestdata/report2/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
 package bootstrapgen
 
 import (
@@ -40,8 +40,8 @@ type logFn func(string, ...interface{})
 // and compares them against the golden files.
 func TestGenerator_Generate(t *testing.T) {
 	importmap := map[string]string{
-		"policy/v1beta1/value_type.proto":              "istio.io/api/policy/v1beta1",
-		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/api/mixer/adapter/model/v1beta1",
+		"policy/v1beta1/value_type.proto":              "istio.io/istio/api/policy/v1beta1",
+		"mixer/adapter/model/v1beta1/extensions.proto": "istio.io/istio/api/mixer/adapter/model/v1beta1",
 		"gogoproto/gogo.proto":                         "github.com/gogo/protobuf/gogoproto",
 		"google/protobuf/duration.proto":               "github.com/gogo/protobuf/types",
 	}

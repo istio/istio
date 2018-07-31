@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	cfgpb "istio.io/api/policy/v1beta1"
-	dpb "istio.io/api/policy/v1beta1"
+	cfgpb "istio.io/istio/api/policy/v1beta1"
+	dpb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/pkg/log"
 )

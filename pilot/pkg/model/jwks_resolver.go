@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
 	"istio.io/istio/pkg/cache"
 )
 

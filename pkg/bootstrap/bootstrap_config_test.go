@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 )
 
 // Generate configs for the default configs used by istio.

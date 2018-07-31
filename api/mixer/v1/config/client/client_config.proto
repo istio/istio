@@ -26,7 +26,7 @@ import "mixer/v1/config/client/quota.proto";
 
 package istio.mixer.v1.config.client;
 
-option go_package = "istio.io/api/mixer/v1/config/client";
+option go_package = "istio.io/istio/api/mixer/v1/config/client";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;

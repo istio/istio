@@ -28,7 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
 
@@ -217,7 +217,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 	for _, envelope := range response.Envelopes {
 		var message proto.Message
 
-		// "istio.io/api" protobufs are compiled with a mix of
+		// "istio.io/istio/api" protobufs are compiled with a mix of
 		// golang/protobuf and gogo/protobuf (see
 		// https://github.com/istio/api/issues/543). gogo/protobuf
 		// packages can only decode gogo-compiled

@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='networking/v1alpha3/gateway.proto',
   package='istio.networking.v1alpha3',
   syntax='proto3',
-  serialized_pb=_b('\n!networking/v1alpha3/gateway.proto\x12\x19istio.networking.v1alpha3\"\xb2\x01\n\x07Gateway\x12\x32\n\x07servers\x18\x01 \x03(\x0b\x32!.istio.networking.v1alpha3.Server\x12\x42\n\x08selector\x18\x02 \x03(\x0b\x32\x30.istio.networking.v1alpha3.Gateway.SelectorEntry\x1a/\n\rSelectorEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x85\x03\n\x06Server\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\r\n\x05hosts\x18\x02 \x03(\t\x12\x39\n\x03tls\x18\x03 \x01(\x0b\x32,.istio.networking.v1alpha3.Server.TLSOptions\x1a\x81\x02\n\nTLSOptions\x12\x16\n\x0ehttps_redirect\x18\x01 \x01(\x08\x12\x42\n\x04mode\x18\x02 \x01(\x0e\x32\x34.istio.networking.v1alpha3.Server.TLSOptions.TLSmode\x12\x1a\n\x12server_certificate\x18\x03 \x01(\t\x12\x13\n\x0bprivate_key\x18\x04 \x01(\t\x12\x17\n\x0f\x63\x61_certificates\x18\x05 \x01(\t\x12\x19\n\x11subject_alt_names\x18\x06 \x03(\t\"2\n\x07TLSmode\x12\x0f\n\x0bPASSTHROUGH\x10\x00\x12\n\n\x06SIMPLE\x10\x01\x12\n\n\x06MUTUAL\x10\x02\"6\n\x04Port\x12\x0e\n\x06number\x18\x01 \x01(\r\x12\x10\n\x08protocol\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\tB\"Z istio.io/api/networking/v1alpha3b\x06proto3')
+  serialized_pb=_b('\n!networking/v1alpha3/gateway.proto\x12\x19istio.networking.v1alpha3\"\xb2\x01\n\x07Gateway\x12\x32\n\x07servers\x18\x01 \x03(\x0b\x32!.istio.networking.v1alpha3.Server\x12\x42\n\x08selector\x18\x02 \x03(\x0b\x32\x30.istio.networking.v1alpha3.Gateway.SelectorEntry\x1a/\n\rSelectorEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x85\x03\n\x06Server\x12-\n\x04port\x18\x01 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\r\n\x05hosts\x18\x02 \x03(\t\x12\x39\n\x03tls\x18\x03 \x01(\x0b\x32,.istio.networking.v1alpha3.Server.TLSOptions\x1a\x81\x02\n\nTLSOptions\x12\x16\n\x0ehttps_redirect\x18\x01 \x01(\x08\x12\x42\n\x04mode\x18\x02 \x01(\x0e\x32\x34.istio.networking.v1alpha3.Server.TLSOptions.TLSmode\x12\x1a\n\x12server_certificate\x18\x03 \x01(\t\x12\x13\n\x0bprivate_key\x18\x04 \x01(\t\x12\x17\n\x0f\x63\x61_certificates\x18\x05 \x01(\t\x12\x19\n\x11subject_alt_names\x18\x06 \x03(\t\"2\n\x07TLSmode\x12\x0f\n\x0bPASSTHROUGH\x10\x00\x12\n\n\x06SIMPLE\x10\x01\x12\n\n\x06MUTUAL\x10\x02\"6\n\x04Port\x12\x0e\n\x06number\x18\x01 \x01(\r\x12\x10\n\x08protocol\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\tB(Z&istio.io/istio/api/networking/v1alpha3b\x06proto3')
 )
 
 
@@ -333,7 +333,7 @@ _sym_db.RegisterMessage(Port)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z istio.io/api/networking/v1alpha3'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z&istio.io/istio/api/networking/v1alpha3'))
 _GATEWAY_SELECTORENTRY.has_options = True
 _GATEWAY_SELECTORENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 # @@protoc_insertion_point(module_scope)

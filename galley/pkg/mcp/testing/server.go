@@ -20,7 +20,7 @@ import (
 	"net"
 	"net/url"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 
 	"google.golang.org/grpc"
 

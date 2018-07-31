@@ -111,7 +111,7 @@ fi
 
 imports=(
  "${ROOT}"
- "${ROOT}/vendor/istio.io/api"
+ "${ROOT}/api"
  "${ROOT}/vendor/github.com/gogo/protobuf"
  "${ROOT}/vendor/github.com/gogo/googleapis"
  "${ROOT}/vendor/github.com/gogo/protobuf/protobuf"

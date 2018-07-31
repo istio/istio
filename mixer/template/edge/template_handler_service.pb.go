@@ -4,7 +4,7 @@
 /*
 	Package edge is a generated protocol buffer package.
 
-	The `logentry` template represents an individual entry within a log.
+	The `edge` template represents an edge in the mesh graph.
 
 	The `edge` template represents an edge in the mesh graph
 
@@ -25,6 +25,7 @@
 	  name: default
 	  namespace: istio-system
 	spec:
+	  timestamp: request.time
 	  sourceUid: source.uid | "Unknown"
 	  sourceOwner: source.owner | "Unknown"
 	  sourceWorkloadName: source.workload.name | "Unknown"
@@ -33,6 +34,8 @@
 	  destinationOwner: destination.owner | "Unknown"
 	  destinationWorkloadName: destination.workload.name | "Unknown"
 	  destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+	  apiProtocol: api.protocol | "Unknown"
+	  contextProtocol: context.protocol | "Unknown"
 	```
 
 	It is generated from these files:
@@ -50,10 +53,10 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import _ "istio.io/istio/api/mixer/adapter/model/v1beta1"
 import google_protobuf1 "github.com/gogo/protobuf/types"
-import istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
-import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+import istio_mixer_adapter_model_v1beta11 "istio.io/istio/api/mixer/adapter/model/v1beta1"
+import istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 
 import context "golang.org/x/net/context"
 import grpc "google.golang.org/grpc"

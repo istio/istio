@@ -18,7 +18,7 @@ syntax = "proto3";
 // precondition checks, manage quotas, and report telemetry.
 package istio.mixer.v1;
 
-option go_package = "istio.io/api/mixer/v1";
+option go_package = "istio.io/istio/api/mixer/v1";
 option cc_generic_services = true;
 
 import "mixer/v1/check.proto";

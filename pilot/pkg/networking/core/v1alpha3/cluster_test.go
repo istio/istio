@@ -22,8 +22,8 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/onsi/gomega"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"

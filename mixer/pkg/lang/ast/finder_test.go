@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	configpb "istio.io/api/policy/v1beta1"
-	descriptorpb "istio.io/api/policy/v1beta1"
+	configpb "istio.io/istio/api/policy/v1beta1"
+	descriptorpb "istio.io/istio/api/policy/v1beta1"
 )
 
 func TestFinder(t *testing.T) {

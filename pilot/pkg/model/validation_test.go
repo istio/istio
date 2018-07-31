@@ -26,12 +26,12 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
-	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
+	mpb "istio.io/istio/api/mixer/v1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
+	networking "istio.io/istio/api/networking/v1alpha3"
+	rbac "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/test"
 )
 

@@ -23,7 +23,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mcp/v1alpha1/mcp.proto',
   package='istio.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x16mcp/v1alpha1/mcp.proto\x12\x12istio.mcp.v1alpha1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/envelope.proto\"?\n\x06\x43lient\x12\n\n\x02id\x18\x01 \x01(\t\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xa9\x01\n\x11MeshConfigRequest\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12*\n\x06\x63lient\x18\x02 \x01(\x0b\x32\x1a.istio.mcp.v1alpha1.Client\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\x16\n\x0eresponse_nonce\x18\x04 \x01(\t\x12(\n\x0c\x65rror_detail\x18\x05 \x01(\x0b\x32\x12.google.rpc.Status\"\x82\x01\n\x12MeshConfigResponse\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12\x35\n\tenvelopes\x18\x02 \x03(\x0b\x32\x1c.istio.mcp.v1alpha1.EnvelopeB\x04\xc8\xde\x1f\x00\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\r\n\x05nonce\x18\x04 \x01(\t2\x8f\x01\n\x1b\x41ggregatedMeshConfigService\x12p\n\x19StreamAggregatedResources\x12%.istio.mcp.v1alpha1.MeshConfigRequest\x1a&.istio.mcp.v1alpha1.MeshConfigResponse\"\x00(\x01\x30\x01\x42\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x16mcp/v1alpha1/mcp.proto\x12\x12istio.mcp.v1alpha1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/envelope.proto\"?\n\x06\x43lient\x12\n\n\x02id\x18\x01 \x01(\t\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct\"\xa9\x01\n\x11MeshConfigRequest\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12*\n\x06\x63lient\x18\x02 \x01(\x0b\x32\x1a.istio.mcp.v1alpha1.Client\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\x16\n\x0eresponse_nonce\x18\x04 \x01(\t\x12(\n\x0c\x65rror_detail\x18\x05 \x01(\x0b\x32\x12.google.rpc.Status\"\x82\x01\n\x12MeshConfigResponse\x12\x14\n\x0cversion_info\x18\x01 \x01(\t\x12\x35\n\tenvelopes\x18\x02 \x03(\x0b\x32\x1c.istio.mcp.v1alpha1.EnvelopeB\x04\xc8\xde\x1f\x00\x12\x10\n\x08type_url\x18\x03 \x01(\t\x12\r\n\x05nonce\x18\x04 \x01(\t2\x8f\x01\n\x1b\x41ggregatedMeshConfigService\x12p\n\x19StreamAggregatedResources\x12%.istio.mcp.v1alpha1.MeshConfigRequest\x1a&.istio.mcp.v1alpha1.MeshConfigResponse\"\x00(\x01\x30\x01\x42%Z\x1fistio.io/istio/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_struct__pb2.DESCRIPTOR,google_dot_rpc_dot_status__pb2.DESCRIPTOR,gogoproto_dot_gogo__pb2.DESCRIPTOR,mcp_dot_v1alpha1_dot_envelope__pb2.DESCRIPTOR,])
 
@@ -210,7 +210,7 @@ _sym_db.RegisterMessage(MeshConfigResponse)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\031istio.io/api/mcp/v1alpha1\250\342\036\001'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\037istio.io/istio/api/mcp/v1alpha1\250\342\036\001'))
 _MESHCONFIGRESPONSE.fields_by_name['envelopes'].has_options = True
 _MESHCONFIGRESPONSE.fields_by_name['envelopes']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000'))
 

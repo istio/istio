@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/istio/api/mixer/v1"
 )
 
 var tests = []struct {

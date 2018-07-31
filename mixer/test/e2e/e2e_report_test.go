@@ -17,8 +17,8 @@ package e2e
 import (
 	"testing"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	pb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
+	pb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"

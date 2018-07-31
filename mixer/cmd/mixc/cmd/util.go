@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/tracing"

@@ -25,7 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 )
 
 // Environment provides an aggregate environmental API for Pilot

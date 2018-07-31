@@ -25,9 +25,9 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	authn "istio.io/istio/api/authentication/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	authn_plugin "istio.io/istio/pilot/pkg/networking/plugin/authn"

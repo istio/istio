@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"

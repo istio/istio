@@ -29,7 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"google.golang.org/grpc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 	"istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"

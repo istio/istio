@@ -46,8 +46,8 @@ import (
     "istio.io/istio/mixer/pkg/lang/compiled"
     "istio.io/istio/pkg/log"
     "istio.io/istio/mixer/pkg/template"
-    istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
-    istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+    istio_adapter_model_v1beta1 "istio.io/istio/api/mixer/adapter/model/v1beta1"
+    istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
     {{range .TemplateModels}}
         "{{.PackageImportPath}}"
     {{end}}

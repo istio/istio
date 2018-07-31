@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/adapter/model/v1beta1/quota.proto',
   package='istio.mixer.adapter.model.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\'mixer/adapter/model/v1beta1/quota.proto\x12!istio.mixer.adapter.model.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\"\x81\x02\n\x0cQuotaRequest\x12Q\n\x06quotas\x18\x01 \x03(\x0b\x32;.istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotasEntryB\x04\xc8\xde\x1f\x00\x1a\x32\n\x0bQuotaParams\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x03\x12\x13\n\x0b\x62\x65st_effort\x18\x02 \x01(\x08\x1aj\n\x0bQuotasEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12J\n\x05value\x18\x02 \x01(\x0b\x32;.istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams:\x02\x38\x01\"\xa4\x02\n\x0bQuotaResult\x12P\n\x06quotas\x18\x01 \x03(\x0b\x32:.istio.mixer.adapter.model.v1beta1.QuotaResult.QuotasEntryB\x04\xc8\xde\x1f\x00\x1a]\n\x06Result\x12;\n\x0evalid_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x16\n\x0egranted_amount\x18\x03 \x01(\x03\x1a\x64\n\x0bQuotasEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.mixer.adapter.model.v1beta1.QuotaResult.Result:\x02\x38\x01\x42\x36Z(istio.io/api/mixer/adapter/model/v1beta1\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
+  serialized_pb=_b('\n\'mixer/adapter/model/v1beta1/quota.proto\x12!istio.mixer.adapter.model.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\"\x81\x02\n\x0cQuotaRequest\x12Q\n\x06quotas\x18\x01 \x03(\x0b\x32;.istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotasEntryB\x04\xc8\xde\x1f\x00\x1a\x32\n\x0bQuotaParams\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x03\x12\x13\n\x0b\x62\x65st_effort\x18\x02 \x01(\x08\x1aj\n\x0bQuotasEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12J\n\x05value\x18\x02 \x01(\x0b\x32;.istio.mixer.adapter.model.v1beta1.QuotaRequest.QuotaParams:\x02\x38\x01\"\xa4\x02\n\x0bQuotaResult\x12P\n\x06quotas\x18\x01 \x03(\x0b\x32:.istio.mixer.adapter.model.v1beta1.QuotaResult.QuotasEntryB\x04\xc8\xde\x1f\x00\x1a]\n\x06Result\x12;\n\x0evalid_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x16\n\x0egranted_amount\x18\x03 \x01(\x03\x1a\x64\n\x0bQuotasEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x44\n\x05value\x18\x02 \x01(\x0b\x32\x35.istio.mixer.adapter.model.v1beta1.QuotaResult.Result:\x02\x38\x01\x42<Z.istio.io/istio/api/mixer/adapter/model/v1beta1\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,])
 
@@ -298,7 +298,7 @@ _sym_db.RegisterMessage(QuotaResult.QuotasEntry)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z(istio.io/api/mixer/adapter/model/v1beta1\310\341\036\000\250\342\036\000\360\341\036\000'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z.istio.io/istio/api/mixer/adapter/model/v1beta1\310\341\036\000\250\342\036\000\360\341\036\000'))
 _QUOTAREQUEST_QUOTASENTRY.has_options = True
 _QUOTAREQUEST_QUOTASENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 _QUOTAREQUEST.fields_by_name['quotas'].has_options = True

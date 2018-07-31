@@ -21,7 +21,7 @@ import "authentication/v1alpha1/policy.proto";
 package istio.envoy.config.filter.http.authn.v2alpha1;
 
 
-option go_package = "istio.io/api/envoy/config/filter/http/authn/v2alpha1";
+option go_package = "istio.io/istio/api/envoy/config/filter/http/authn/v2alpha1";
 
 // FilterConfig is the config for Istio-specific filter that is used to enforce
 // authentication policy on Envoy.

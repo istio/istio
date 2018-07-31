@@ -21,7 +21,7 @@ import "google/protobuf/any.proto";
 import "gogoproto/gogo.proto";
 import "mcp/v1alpha1/metadata.proto";
 
-option go_package="istio.io/api/mcp/v1alpha1";
+option go_package="istio.io/istio/api/mcp/v1alpha1";
 option (gogoproto.equal_all) = true;
 
 // Envelope for a configuration resource as transferred via the Mesh Configuration Protocol.

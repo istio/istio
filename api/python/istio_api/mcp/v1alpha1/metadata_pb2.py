@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mcp/v1alpha1/metadata.proto',
   package='istio.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x1bmcp/v1alpha1/metadata.proto\x12\x12istio.mcp.v1alpha1\x1a\x14gogoproto/gogo.proto\"\x18\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\tB\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x1bmcp/v1alpha1/metadata.proto\x12\x12istio.mcp.v1alpha1\x1a\x14gogoproto/gogo.proto\"\x18\n\x08Metadata\x12\x0c\n\x04name\x18\x01 \x01(\tB%Z\x1fistio.io/istio/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,])
 
@@ -69,5 +69,5 @@ _sym_db.RegisterMessage(Metadata)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\031istio.io/api/mcp/v1alpha1\250\342\036\001'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\037istio.io/istio/api/mcp/v1alpha1\250\342\036\001'))
 # @@protoc_insertion_point(module_scope)

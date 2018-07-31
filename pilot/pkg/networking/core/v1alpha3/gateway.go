@@ -26,7 +26,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"

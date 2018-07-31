@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='envoy/config/filter/http/authn/v2alpha1/config.proto',
   package='istio.envoy.config.filter.http.authn.v2alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n4envoy/config/filter/http/authn/v2alpha1/config.proto\x12-istio.envoy.config.filter.http.authn.v2alpha1\x1a$authentication/v1alpha1/policy.proto\"\x8a\x02\n\x0c\x46ilterConfig\x12\x35\n\x06policy\x18\x01 \x01(\x0b\x32%.istio.authentication.v1alpha1.Policy\x12\x80\x01\n\x1cjwt_output_payload_locations\x18\x02 \x03(\x0b\x32Z.istio.envoy.config.filter.http.authn.v2alpha1.FilterConfig.JwtOutputPayloadLocationsEntry\x1a@\n\x1eJwtOutputPayloadLocationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x36Z4istio.io/api/envoy/config/filter/http/authn/v2alpha1b\x06proto3')
+  serialized_pb=_b('\n4envoy/config/filter/http/authn/v2alpha1/config.proto\x12-istio.envoy.config.filter.http.authn.v2alpha1\x1a$authentication/v1alpha1/policy.proto\"\x8a\x02\n\x0c\x46ilterConfig\x12\x35\n\x06policy\x18\x01 \x01(\x0b\x32%.istio.authentication.v1alpha1.Policy\x12\x80\x01\n\x1cjwt_output_payload_locations\x18\x02 \x03(\x0b\x32Z.istio.envoy.config.filter.http.authn.v2alpha1.FilterConfig.JwtOutputPayloadLocationsEntry\x1a@\n\x1eJwtOutputPayloadLocationsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42<Z:istio.io/istio/api/envoy/config/filter/http/authn/v2alpha1b\x06proto3')
   ,
   dependencies=[authentication_dot_v1alpha1_dot_policy__pb2.DESCRIPTOR,])
 
@@ -124,7 +124,7 @@ _sym_db.RegisterMessage(FilterConfig.JwtOutputPayloadLocationsEntry)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z4istio.io/api/envoy/config/filter/http/authn/v2alpha1'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z:istio.io/istio/api/envoy/config/filter/http/authn/v2alpha1'))
 _FILTERCONFIG_JWTOUTPUTPAYLOADLOCATIONSENTRY.has_options = True
 _FILTERCONFIG_JWTOUTPUTPAYLOADLOCATIONSENTRY._options = _descriptor._ParseOptions(descriptor_pb2.MessageOptions(), _b('8\001'))
 # @@protoc_insertion_point(module_scope)

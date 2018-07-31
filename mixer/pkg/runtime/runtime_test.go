@@ -24,9 +24,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	cfgpb "istio.io/api/policy/v1beta1"
-	configpb "istio.io/api/policy/v1beta1"
-	dpb "istio.io/api/policy/v1beta1"
+	cfgpb "istio.io/istio/api/policy/v1beta1"
+	configpb "istio.io/istio/api/policy/v1beta1"
+	dpb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/pool"

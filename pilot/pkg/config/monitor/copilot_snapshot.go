@@ -22,7 +22,7 @@ import (
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 

@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 )
 
 func TestParseJwksURI(t *testing.T) {

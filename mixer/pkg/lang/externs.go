@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/net/idna"
 
-	config "istio.io/api/policy/v1beta1"
+	config "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )

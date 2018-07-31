@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	cpb "istio.io/api/policy/v1beta1"
+	cpb "istio.io/istio/api/policy/v1beta1"
 	adapter2 "istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"

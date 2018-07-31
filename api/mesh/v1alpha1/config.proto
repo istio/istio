@@ -24,7 +24,7 @@ import "google/protobuf/duration.proto";
 
 package istio.mesh.v1alpha1;
 
-option go_package="istio.io/api/mesh/v1alpha1";
+option go_package="istio.io/istio/api/mesh/v1alpha1";
 
 // AuthenticationPolicy defines authentication policy. It can be set for
 // different scopes (mesh, service …), and the most narrow scope with

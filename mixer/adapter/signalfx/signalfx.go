@@ -26,7 +26,7 @@ import (
 	me "github.com/hashicorp/go-multierror"
 	"github.com/signalfx/golib/sfxclient"
 
-	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"

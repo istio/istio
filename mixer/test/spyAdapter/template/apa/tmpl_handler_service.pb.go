@@ -16,7 +16,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
-import _ "istio.io/api/mixer/adapter/model/v1beta1"
+import _ "istio.io/istio/api/mixer/adapter/model/v1beta1"
 
 import strings "strings"
 import reflect "reflect"

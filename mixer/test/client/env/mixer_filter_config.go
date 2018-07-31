@@ -18,8 +18,8 @@ package env
 import (
 	gpb "github.com/gogo/protobuf/types"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
+	mpb "istio.io/istio/api/mixer/v1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
 )
 
 var (

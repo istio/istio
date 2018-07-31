@@ -21,7 +21,7 @@ import "google/rpc/status.proto";
 import "gogoproto/gogo.proto";
 import "mcp/v1alpha1/envelope.proto";
 
-option go_package="istio.io/api/mcp/v1alpha1";
+option go_package="istio.io/istio/api/mcp/v1alpha1";
 option (gogoproto.equal_all) = true;
 
 // Identifies a specific MCP client instance. The client identifier is

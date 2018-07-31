@@ -27,8 +27,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/api/policy/v1beta1"
+	adptModel "istio.io/istio/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/prometheus"
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"

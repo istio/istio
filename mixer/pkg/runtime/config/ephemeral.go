@@ -29,8 +29,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	config "istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
+	config "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/config/storetest"

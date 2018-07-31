@@ -22,7 +22,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/metadata"
 

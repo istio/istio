@@ -20,7 +20,7 @@ import (
 	"sort"
 	"sync"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 )
 
 // TODO: consider implementing a pool of proto bags

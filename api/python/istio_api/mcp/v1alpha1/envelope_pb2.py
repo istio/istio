@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mcp/v1alpha1/envelope.proto',
   package='istio.mcp.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x1bmcp/v1alpha1/envelope.proto\x12\x12istio.mcp.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/metadata.proto\"b\n\x08\x45nvelope\x12.\n\x08metadata\x18\x01 \x01(\x0b\x32\x1c.istio.mcp.v1alpha1.Metadata\x12&\n\x08resource\x18\x02 \x01(\x0b\x32\x14.google.protobuf.AnyB\x1fZ\x19istio.io/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x1bmcp/v1alpha1/envelope.proto\x12\x12istio.mcp.v1alpha1\x1a\x19google/protobuf/any.proto\x1a\x14gogoproto/gogo.proto\x1a\x1bmcp/v1alpha1/metadata.proto\"b\n\x08\x45nvelope\x12.\n\x08metadata\x18\x01 \x01(\x0b\x32\x1c.istio.mcp.v1alpha1.Metadata\x12&\n\x08resource\x18\x02 \x01(\x0b\x32\x14.google.protobuf.AnyB%Z\x1fistio.io/istio/api/mcp/v1alpha1\xa8\xe2\x1e\x01\x62\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,gogoproto_dot_gogo__pb2.DESCRIPTOR,mcp_dot_v1alpha1_dot_metadata__pb2.DESCRIPTOR,])
 
@@ -80,5 +80,5 @@ _sym_db.RegisterMessage(Envelope)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\031istio.io/api/mcp/v1alpha1\250\342\036\001'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\037istio.io/istio/api/mcp/v1alpha1\250\342\036\001'))
 # @@protoc_insertion_point(module_scope)

@@ -20,8 +20,8 @@ import (
 	"strings"
 	"testing"
 
-	cfgpb "istio.io/api/policy/v1beta1"
-	dpb "istio.io/api/policy/v1beta1"
+	cfgpb "istio.io/istio/api/policy/v1beta1"
+	dpb "istio.io/istio/api/policy/v1beta1"
 )
 
 func TestGoodParse(t *testing.T) {

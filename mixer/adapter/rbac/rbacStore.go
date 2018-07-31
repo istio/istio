@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/authorization"
 )

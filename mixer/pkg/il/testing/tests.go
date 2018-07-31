@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	descriptor "istio.io/api/policy/v1beta1"
-	pb "istio.io/api/policy/v1beta1"
+	descriptor "istio.io/istio/api/policy/v1beta1"
+	pb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
 

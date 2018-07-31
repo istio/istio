@@ -19,8 +19,8 @@ import (
 	"net/url"
 	"strconv"
 
-	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.

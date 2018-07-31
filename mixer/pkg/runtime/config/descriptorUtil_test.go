@@ -13,12 +13,12 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/foo.proto -otestdata/foo.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/unsupportedPkgName.proto -otestdata/unsupportedPkgName.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/reqOptionNotFound.proto -otestdata/reqOptionNotFound.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/reqOptionTmplNameNotFound.proto -otestdata/reqOptionTmplNameNotFound.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/foo.proto testdata/bar.proto -otestdata/badfoobar.descriptor -I$GOPATH/src/istio.io/istio/api -I.
 
 package config
 

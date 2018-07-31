@@ -17,7 +17,7 @@ package routing
 import (
 	"testing"
 
-	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	tpb "istio.io/istio/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 )

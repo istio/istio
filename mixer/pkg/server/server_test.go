@@ -26,7 +26,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/runtime"
 	generatedTmplRepo "istio.io/istio/mixer/template"

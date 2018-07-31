@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	authn "istio.io/api/authentication/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
 )
 
 // Hostname describes a (possibly wildcarded) hostname

@@ -145,7 +145,7 @@ func readMetadata(path string) (*metadata, error) {
 		parts = parts[1 : len(parts)-1]
 
 		p := strings.Join(parts, "/")
-		p = fmt.Sprintf("istio.io/api/%s", p)
+		p = fmt.Sprintf("istio.io/istio/api/%s", p)
 		names[p] = struct{}{}
 	}
 

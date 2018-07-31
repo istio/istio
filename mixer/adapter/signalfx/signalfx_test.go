@@ -21,7 +21,7 @@ import (
 
 	"github.com/signalfx/golib/errors"
 
-	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"

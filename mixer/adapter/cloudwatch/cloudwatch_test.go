@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
 	"istio.io/istio/mixer/template/metric"
 )

@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip" // register the gzip compressor
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"

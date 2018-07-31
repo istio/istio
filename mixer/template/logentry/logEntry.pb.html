@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/template/logentry.html
-number_of_entries: 3
+number_of_entries: 1
 ---
 <p>The <code>logentry</code> template represents an individual entry within a log.</p>
 
@@ -53,7 +53,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 <tbody>
 <tr id="Template-variables">
 <td><code>variables</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Variables that are delivered for each log entry.</p>
 
@@ -61,7 +61,7 @@ then the expression&rsquo;s <a href="https://istio.io/docs/reference//config/pol
 </tr>
 <tr id="Template-timestamp">
 <td><code>timestamp</code></td>
-<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
+<td><code><a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#TimeStamp">istio.policy.v1beta1.TimeStamp</a></code></td>
 <td>
 <p>Timestamp is the time value for the log entry</p>
 
@@ -87,143 +87,11 @@ Otherwise these fields will be ignored by the adapter.</p>
 </tr>
 <tr id="Template-monitored_resource_dimensions">
 <td><code>monitoredResourceDimensions</code></td>
-<td><code>map&lt;string,&nbsp;<a href="#istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
+<td><code>map&lt;string,&nbsp;<a href="https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html#Value">istio.policy.v1beta1.Value</a>&gt;</code></td>
 <td>
 <p>Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
 recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
 Otherwise these fields will be ignored by the adapter.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp</h2>
-<section>
-<p>An instance field of type TimeStamp denotes that the expression for the field must evalaute to
-<em>ValueType.TIMESTAMP</em></p>
-
-<p>Objects of type TimeStamp are also passed to the adapters during request-time for the instance fields of
-type TimeStamp</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio-policy-v1beta1-TimeStamp-value">
-<td><code>value</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
-<td>
-<p>TimeStamp encoded as google.protobuf.Timestamp.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="istio-policy-v1beta1-Value">istio.policy.v1beta1.Value</h2>
-<section>
-<p>An instance field of type Value denotes that the expression for the field is of dynamic type and can evalaute to any
-<em>ValueType</em> enum values. For example, when
-authoring an instance configuration for a template that has a field <code>data</code> of type <code>istio.policy.v1beta1.Value</code>,
-both of the following expressions are valid <code>data: source.ip | ip(&quot;0.0.0.0&quot;)</code>, <code>data: request.id | &quot;&quot;</code>;
-the resulting type is either ValueType.IP_ADDRESS or ValueType.STRING for the two cases respectively.</p>
-
-<p>Objects of type Value are also passed to the adapters during request-time. There is a 1:1 mapping between
-oneof fields in <code>Value</code> and enum values inside <code>ValueType</code>. Depending on the expression&rsquo;s evaluated <code>ValueType</code>,
-the equivalent oneof field in <code>Value</code> is populated by Mixer and passed to the adapters.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="istio-policy-v1beta1-Value-string_value" class="oneof oneof-start">
-<td><code>stringValue</code></td>
-<td><code>string (oneof)</code></td>
-<td>
-<p>Used for values of type STRING</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-int64_value" class="oneof">
-<td><code>int64Value</code></td>
-<td><code>int64 (oneof)</code></td>
-<td>
-<p>Used for values of type INT64</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-double_value" class="oneof">
-<td><code>doubleValue</code></td>
-<td><code>double (oneof)</code></td>
-<td>
-<p>Used for values of type DOUBLE</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-bool_value" class="oneof">
-<td><code>boolValue</code></td>
-<td><code>bool (oneof)</code></td>
-<td>
-<p>Used for values of type BOOL</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-ip_address_value" class="oneof">
-<td><code>ipAddressValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-IPAddress">istio.policy.v1beta1.IPAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type IPAddress</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-timestamp_value" class="oneof">
-<td><code>timestampValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-TimeStamp">istio.policy.v1beta1.TimeStamp (oneof)</a></code></td>
-<td>
-<p>Used for values of type TIMESTAMP</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-duration_value" class="oneof">
-<td><code>durationValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-Duration">istio.policy.v1beta1.Duration (oneof)</a></code></td>
-<td>
-<p>Used for values of type DURATION</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-email_address_value" class="oneof">
-<td><code>emailAddressValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-EmailAddress">istio.policy.v1beta1.EmailAddress (oneof)</a></code></td>
-<td>
-<p>Used for values of type EmailAddress</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-dns_name_value" class="oneof">
-<td><code>dnsNameValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-DNSName">istio.policy.v1beta1.DNSName (oneof)</a></code></td>
-<td>
-<p>Used for values of type DNSName</p>
-
-</td>
-</tr>
-<tr id="istio-policy-v1beta1-Value-uri_value" class="oneof">
-<td><code>uriValue</code></td>
-<td><code><a href="#istio-policy-v1beta1-Uri">istio.policy.v1beta1.Uri (oneof)</a></code></td>
-<td>
-<p>Used for values of type Uri</p>
 
 </td>
 </tr>

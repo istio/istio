@@ -18,7 +18,7 @@ package foo
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+import istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 
 import strconv "strconv"
 

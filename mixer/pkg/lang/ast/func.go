@@ -15,7 +15,7 @@
 package ast
 
 import (
-	config "istio.io/api/policy/v1beta1"
+	config "istio.io/istio/api/policy/v1beta1"
 )
 
 // FunctionMetadata contains type metadata for functions.

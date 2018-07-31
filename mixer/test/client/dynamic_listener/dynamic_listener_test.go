@@ -34,8 +34,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
+	mpb "istio.io/istio/api/mixer/v1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
 	"istio.io/istio/mixer/test/client/env"
 )
 

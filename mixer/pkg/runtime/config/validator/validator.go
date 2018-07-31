@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	cpb "istio.io/api/policy/v1beta1"
+	cpb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/lang/checker"

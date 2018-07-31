@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/adapter/model/v1beta1/extensions.proto',
   package='istio.mixer.adapter.model.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n,mixer/adapter/model/v1beta1/extensions.proto\x12!istio.mixer.adapter.model.v1beta1\x1a google/protobuf/descriptor.proto*\x90\x01\n\x0fTemplateVariety\x12\x1a\n\x16TEMPLATE_VARIETY_CHECK\x10\x00\x12\x1b\n\x17TEMPLATE_VARIETY_REPORT\x10\x01\x12\x1a\n\x16TEMPLATE_VARIETY_QUOTA\x10\x02\x12(\n$TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR\x10\x03:m\n\x10template_variety\x12\x1c.google.protobuf.FileOptions\x18\xaf\xca\xbc\" \x01(\x0e\x32\x32.istio.mixer.adapter.model.v1beta1.TemplateVariety:6\n\rtemplate_name\x12\x1c.google.protobuf.FileOptions\x18\xd0\xcb\xbc\" \x01(\tB*Z(istio.io/api/mixer/adapter/model/v1beta1b\x06proto3')
+  serialized_pb=_b('\n,mixer/adapter/model/v1beta1/extensions.proto\x12!istio.mixer.adapter.model.v1beta1\x1a google/protobuf/descriptor.proto*\x90\x01\n\x0fTemplateVariety\x12\x1a\n\x16TEMPLATE_VARIETY_CHECK\x10\x00\x12\x1b\n\x17TEMPLATE_VARIETY_REPORT\x10\x01\x12\x1a\n\x16TEMPLATE_VARIETY_QUOTA\x10\x02\x12(\n$TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR\x10\x03:m\n\x10template_variety\x12\x1c.google.protobuf.FileOptions\x18\xaf\xca\xbc\" \x01(\x0e\x32\x32.istio.mixer.adapter.model.v1beta1.TemplateVariety:6\n\rtemplate_name\x12\x1c.google.protobuf.FileOptions\x18\xd0\xcb\xbc\" \x01(\tB0Z.istio.io/istio/api/mixer/adapter/model/v1beta1b\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_descriptor__pb2.DESCRIPTOR,])
 
@@ -88,5 +88,5 @@ google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(template_v
 google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(template_name)
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z(istio.io/api/mixer/adapter/model/v1beta1'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z.istio.io/istio/api/mixer/adapter/model/v1beta1'))
 # @@protoc_insertion_point(module_scope)

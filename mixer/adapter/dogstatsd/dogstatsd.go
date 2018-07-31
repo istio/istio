@@ -27,7 +27,7 @@ import (
 	"github.com/DataDog/datadog-go/statsd"
 	multierror "github.com/hashicorp/go-multierror"
 
-	descriptor "istio.io/api/policy/v1beta1"
+	descriptor "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/dogstatsd/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"

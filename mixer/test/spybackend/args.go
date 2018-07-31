@@ -17,7 +17,7 @@ package spybackend
 import (
 	"sync"
 
-	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
+	adptModel "istio.io/istio/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"

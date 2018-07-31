@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/api -I.
 
 package config
 
@@ -32,9 +32,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	adapter_model "istio.io/api/mixer/adapter/model/v1beta1"
-	configpb "istio.io/api/policy/v1beta1"
-	descriptorpb "istio.io/api/policy/v1beta1"
+	adapter_model "istio.io/istio/api/mixer/adapter/model/v1beta1"
+	configpb "istio.io/istio/api/policy/v1beta1"
+	descriptorpb "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"

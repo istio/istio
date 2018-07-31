@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/log"
 )

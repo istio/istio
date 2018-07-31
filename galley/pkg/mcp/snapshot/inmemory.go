@@ -23,7 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 )
 
 // InMemory Snapshot implementation

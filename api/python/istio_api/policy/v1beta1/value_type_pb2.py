@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='policy/v1beta1/value_type.proto',
   package='istio.policy.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\x1fpolicy/v1beta1/value_type.proto\x12\x14istio.policy.v1beta1*\xbb\x01\n\tValueType\x12\x1a\n\x16VALUE_TYPE_UNSPECIFIED\x10\x00\x12\n\n\x06STRING\x10\x01\x12\t\n\x05INT64\x10\x02\x12\n\n\x06\x44OUBLE\x10\x03\x12\x08\n\x04\x42OOL\x10\x04\x12\r\n\tTIMESTAMP\x10\x05\x12\x0e\n\nIP_ADDRESS\x10\x06\x12\x11\n\rEMAIL_ADDRESS\x10\x07\x12\x07\n\x03URI\x10\x08\x12\x0c\n\x08\x44NS_NAME\x10\t\x12\x0c\n\x08\x44URATION\x10\n\x12\x0e\n\nSTRING_MAP\x10\x0b\x42\x1dZ\x1bistio.io/api/policy/v1beta1b\x06proto3')
+  serialized_pb=_b('\n\x1fpolicy/v1beta1/value_type.proto\x12\x14istio.policy.v1beta1*\xbb\x01\n\tValueType\x12\x1a\n\x16VALUE_TYPE_UNSPECIFIED\x10\x00\x12\n\n\x06STRING\x10\x01\x12\t\n\x05INT64\x10\x02\x12\n\n\x06\x44OUBLE\x10\x03\x12\x08\n\x04\x42OOL\x10\x04\x12\r\n\tTIMESTAMP\x10\x05\x12\x0e\n\nIP_ADDRESS\x10\x06\x12\x11\n\rEMAIL_ADDRESS\x10\x07\x12\x07\n\x03URI\x10\x08\x12\x0c\n\x08\x44NS_NAME\x10\t\x12\x0c\n\x08\x44URATION\x10\n\x12\x0e\n\nSTRING_MAP\x10\x0b\x42#Z!istio.io/istio/api/policy/v1beta1b\x06proto3')
 )
 
 _VALUETYPE = _descriptor.EnumDescriptor(
@@ -105,5 +105,5 @@ _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\033istio.io/api/policy/v1beta1'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z!istio.io/istio/api/policy/v1beta1'))
 # @@protoc_insertion_point(module_scope)

@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 	descriptor2 "istio.io/istio/mixer/pkg/protobuf/descriptor"
 	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"

@@ -18,7 +18,7 @@ import (
 	"net"
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )

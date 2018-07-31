@@ -24,8 +24,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
-	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	istio_adapter_model_v1beta1 "istio.io/istio/api/mixer/adapter/model/v1beta1"
+	istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"

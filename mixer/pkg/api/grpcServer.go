@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/pool"

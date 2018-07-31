@@ -82,7 +82,7 @@ syntax = "proto3";
 // ```
 package istio.rbac.v1alpha1;
 
-option go_package="istio.io/api/rbac/v1alpha1";
+option go_package="istio.io/istio/api/rbac/v1alpha1";
 
 // ServiceRole specification contains a list of access rules (permissions).
 // This represent the "Spec" part of the ServiceRole object. The name and namespace

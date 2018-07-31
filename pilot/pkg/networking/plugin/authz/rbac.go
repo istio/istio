@@ -33,7 +33,7 @@ import (
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"

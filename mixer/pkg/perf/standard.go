@@ -15,7 +15,7 @@
 package perf
 
 import (
-	istio_mixer_v1 "istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/istio/api/mixer/v1"
 )
 
 // This file contains sample data sets to simplify the tests.

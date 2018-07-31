@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/adapter/bypass/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/checknothing"

@@ -24,7 +24,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	tmpl "istio.io/api/mixer/adapter/model/v1beta1"
+	tmpl "istio.io/istio/api/mixer/adapter/model/v1beta1"
 )
 
 const adapterCfgMsgName = "Params"

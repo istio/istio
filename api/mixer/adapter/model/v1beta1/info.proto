@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.adapter.model.v1beta1;
 
-option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+option go_package="istio.io/istio/api/mixer/adapter/model/v1beta1";
 
 // Info describes an adapter or a backend that wants to provide telemetry and policy functionality to Mixer as an
 // out of process adapter.

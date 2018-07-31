@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/adapter/rbac"
 	"istio.io/istio/pilot/pkg/model"
 )

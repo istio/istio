@@ -21,7 +21,7 @@ syntax = "proto3";
 // This package also defines the types that are used to create Mixer templates.
 package istio.mixer.adapter.model.v1beta1;
 
-option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+option go_package="istio.io/istio/api/mixer/adapter/model/v1beta1";
 option cc_generic_services = true;
 
 import "google/protobuf/any.proto";

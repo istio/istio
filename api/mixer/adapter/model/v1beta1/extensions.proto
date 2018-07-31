@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package istio.mixer.adapter.model.v1beta1;
 
-option go_package="istio.io/api/mixer/adapter/model/v1beta1";
+option go_package="istio.io/istio/api/mixer/adapter/model/v1beta1";
 
 import "google/protobuf/descriptor.proto";
 

@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
-//go:generate protoc --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/apa/template.proto -otestdata/apa/template.descriptor -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc --include_imports --include_source_info testdata/check/template.proto -otestdata/check/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/report/template.proto -otestdata/report/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/quota/template.proto -otestdata/quota/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
+//go:generate protoc --include_imports --include_source_info testdata/error/template.proto -otestdata/error/template.descriptor -I$GOPATH/src/istio.io/istio/api  -I.
 package cmd
 
 import (
@@ -78,9 +78,9 @@ func TestGenerator_Generate(t *testing.T) {
 
 			args := []string{"api", "-t", v.descriptor, "--go_out", oIntface.Name(), "--proto_out", oTmpl.Name()}
 
-			args = append(args, "-m", "policy/v1beta1/value_type.proto:istio.io/api/policy/v1beta1",
+			args = append(args, "-m", "policy/v1beta1/value_type.proto:istio.io/istio/api/policy/v1beta1",
 				"-m", "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto",
-				"-m", "mixer/adapter/model/v1beta1/extensions.proto:istio.io/api/mixer/adapter/model/v1beta1",
+				"-m", "mixer/adapter/model/v1beta1/extensions.proto:istio.io/istio/api/mixer/adapter/model/v1beta1",
 				"-m", "google/protobuf/duration.proto:github.com/gogo/protobuf/types",
 			)
 

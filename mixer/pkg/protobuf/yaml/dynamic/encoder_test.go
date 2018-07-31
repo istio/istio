@@ -25,7 +25,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
-	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"

@@ -14,8 +14,8 @@ else
 gen_img := gcr.io/istio-testing/protoc:2018-06-12
 pwd := $(shell pwd)
 mount_dir := /src
-repo_dir := istio.io/api
-repo_mount := $(mount_dir)/istio.io/api
+repo_dir := istio.io/istio/api
+repo_mount := $(mount_dir)/istio.io/istio/api
 docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
 out_path = .
 endif
@@ -91,9 +91,7 @@ generate: \
 	generate-authn-go \
 	generate-authn-python \
 	generate-envoy-go \
-	generate-envoy-python \
-	generate-common-go \
-    generate-common-python
+	generate-envoy-python
 
 #####################
 # mcp/...
@@ -338,32 +336,6 @@ $(envoy_pb_pythons): $(envoy_protos)
 
 clean-envoy:
 	rm -f $(envoy_pb_gos)
-
-#####################
-# common/...
-#####################
-
-common_v1alpha1_path := common/v1alpha1
-common_v1alpha1_protos := $(shell find $(common_v1alpha1_path) -type f -name '*.proto' | sort)
-common_v1alpha1_pb_gos := $(common_v1alpha1_protos:.proto=.pb.go)
-common_v1alpha1_pb_pythons := $(common_v1alpha1_protos:.proto=_pb2.py)
-common_v1alpha1_pb_doc := $(common_v1alpha1_path)/istio.common.v1alpha1.pb.html
-
-generate-common-go: $(common_v1alpha1_pb_gos) $(common_v1alpha1_pb_doc)
-
-$(common_v1alpha1_pb_gos) $(common_v1alpha1_pb_doc): $(common_v1alpha1_protos)
-	## Generate common/v1alpha1/*.pb.go
-	@$(docker_gen) $(protoc_gen_go_plugin) $(protoc_gen_docs_plugin)$(common_v1alpha1_path) $^
-
-generate-common-python: $(common_v1alpha1_pb_pythons)
-
-$(common_v1alpha1_pb_pythons): $(common_v1alpha1_protos)
-	## Generate python/istio_api/common/v1alpha1/*_pb2.py
-	@$(docker_gen) $(protoc_gen_python_plugin) $^
-
-clean-common:
-	rm -f $(common_v1alpha1_pb_gos)
-	rm -f $(common_v1alpha1_pb_doc)
 
 #####################
 # Cleanup

@@ -26,7 +26,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 )

@@ -20,7 +20,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/pkg/errors"
 
-	"istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )

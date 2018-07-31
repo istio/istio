@@ -27,9 +27,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/gogo/protobuf/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
+	mpb "istio.io/istio/api/mixer/v1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"

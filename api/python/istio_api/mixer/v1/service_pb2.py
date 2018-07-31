@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/v1/service.proto',
   package='istio.mixer.v1',
   syntax='proto3',
-  serialized_pb=_b('\n\x16mixer/v1/service.proto\x12\x0eistio.mixer.v1\x1a\x14mixer/v1/check.proto\x1a\x15mixer/v1/report.proto2\x9a\x01\n\x05Mixer\x12\x46\n\x05\x43heck\x12\x1c.istio.mixer.v1.CheckRequest\x1a\x1d.istio.mixer.v1.CheckResponse\"\x00\x12I\n\x06Report\x12\x1d.istio.mixer.v1.ReportRequest\x1a\x1e.istio.mixer.v1.ReportResponse\"\x00\x42\x1aZ\x15istio.io/api/mixer/v1\x80\x01\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x16mixer/v1/service.proto\x12\x0eistio.mixer.v1\x1a\x14mixer/v1/check.proto\x1a\x15mixer/v1/report.proto2\x9a\x01\n\x05Mixer\x12\x46\n\x05\x43heck\x12\x1c.istio.mixer.v1.CheckRequest\x1a\x1d.istio.mixer.v1.CheckResponse\"\x00\x12I\n\x06Report\x12\x1d.istio.mixer.v1.ReportRequest\x1a\x1e.istio.mixer.v1.ReportResponse\"\x00\x42 Z\x1bistio.io/istio/api/mixer/v1\x80\x01\x01\x62\x06proto3')
   ,
   dependencies=[mixer_dot_v1_dot_check__pb2.DESCRIPTOR,mixer_dot_v1_dot_report__pb2.DESCRIPTOR,])
 
@@ -31,7 +31,7 @@ _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\025istio.io/api/mixer/v1\200\001\001'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z\033istio.io/istio/api/mixer/v1\200\001\001'))
 
 _MIXER = _descriptor.ServiceDescriptor(
   name='Mixer',

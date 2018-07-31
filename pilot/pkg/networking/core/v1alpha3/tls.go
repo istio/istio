@@ -17,7 +17,7 @@ package v1alpha3
 import (
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pkg/log"

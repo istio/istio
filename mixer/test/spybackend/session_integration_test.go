@@ -23,7 +23,7 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"

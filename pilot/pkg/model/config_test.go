@@ -22,9 +22,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/proto"
 
-	authn "istio.io/api/authentication/v1alpha1"
-	mccpb "istio.io/api/mixer/v1/config/client"
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	authn "istio.io/istio/api/authentication/v1alpha1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"

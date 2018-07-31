@@ -21,9 +21,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
-	networking "istio.io/api/networking/v1alpha3"
+	mpb "istio.io/istio/api/mixer/v1"
+	mccpb "istio.io/istio/api/mixer/v1/config/client"
+	networking "istio.io/istio/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 

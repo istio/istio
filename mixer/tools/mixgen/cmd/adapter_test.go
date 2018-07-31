@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate protoc testdata/simple/foo.proto -otestdata/simple/foo.descriptor --include_imports -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/simple/foo.proto -otestdata/simple/foo_without_imports.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate protoc testdata/simple/foo.proto -otestdata/simple/foo.descriptor --include_imports -I$GOPATH/src/istio.io/istio/api -I.
+//go:generate protoc testdata/simple/foo.proto -otestdata/simple/foo_without_imports.descriptor -I$GOPATH/src/istio.io/istio/api -I.
 package cmd
 
 import (

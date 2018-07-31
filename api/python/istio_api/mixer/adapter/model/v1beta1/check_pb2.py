@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mixer/adapter/model/v1beta1/check.proto',
   package='istio.mixer.adapter.model.v1beta1',
   syntax='proto3',
-  serialized_pb=_b('\n\'mixer/adapter/model/v1beta1/check.proto\x12!istio.mixer.adapter.model.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x17google/rpc/status.proto\"\x8d\x01\n\x0b\x43heckResult\x12(\n\x06status\x18\x01 \x01(\x0b\x32\x12.google.rpc.StatusB\x04\xc8\xde\x1f\x00\x12;\n\x0evalid_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x17\n\x0fvalid_use_count\x18\x03 \x01(\x05\x42\x36Z(istio.io/api/mixer/adapter/model/v1beta1\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
+  serialized_pb=_b('\n\'mixer/adapter/model/v1beta1/check.proto\x12!istio.mixer.adapter.model.v1beta1\x1a\x14gogoproto/gogo.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x17google/rpc/status.proto\"\x8d\x01\n\x0b\x43heckResult\x12(\n\x06status\x18\x01 \x01(\x0b\x32\x12.google.rpc.StatusB\x04\xc8\xde\x1f\x00\x12;\n\x0evalid_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationB\x08\xc8\xde\x1f\x00\x98\xdf\x1f\x01\x12\x17\n\x0fvalid_use_count\x18\x03 \x01(\x05\x42<Z.istio.io/istio/api/mixer/adapter/model/v1beta1\xc8\xe1\x1e\x00\xa8\xe2\x1e\x00\xf0\xe1\x1e\x00\x62\x06proto3')
   ,
   dependencies=[gogoproto_dot_gogo__pb2.DESCRIPTOR,google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,google_dot_rpc_dot_status__pb2.DESCRIPTOR,])
 
@@ -87,7 +87,7 @@ _sym_db.RegisterMessage(CheckResult)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z(istio.io/api/mixer/adapter/model/v1beta1\310\341\036\000\250\342\036\000\360\341\036\000'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('Z.istio.io/istio/api/mixer/adapter/model/v1beta1\310\341\036\000\250\342\036\000\360\341\036\000'))
 _CHECKRESULT.fields_by_name['status'].has_options = True
 _CHECKRESULT.fields_by_name['status']._options = _descriptor._ParseOptions(descriptor_pb2.FieldOptions(), _b('\310\336\037\000'))
 _CHECKRESULT.fields_by_name['valid_duration'].has_options = True

@@ -24,7 +24,7 @@ import (
 
 	rpc "github.com/gogo/googleapis/google/rpc"
 
-	mixerpb "istio.io/api/mixer/v1"
+	mixerpb "istio.io/istio/api/mixer/v1"
 	"istio.io/istio/pkg/test"
 )
 

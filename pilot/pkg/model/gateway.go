@@ -17,7 +17,7 @@ package model
 import (
 	"fmt"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/istio/api/networking/v1alpha3"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.

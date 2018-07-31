@@ -29,7 +29,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/howeyc/fsnotify"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	meshconfig "istio.io/istio/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pkg/bootstrap"

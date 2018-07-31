@@ -23,7 +23,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
 
-	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
+	istio_policy_v1beta1 "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"

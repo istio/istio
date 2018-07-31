@@ -23,8 +23,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	attributeV1beta1 "istio.io/api/policy/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
+	attributeV1beta1 "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/template/listentry"

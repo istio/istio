@@ -28,8 +28,8 @@ import (
 	google_rpc "github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
-	"istio.io/api/mixer/adapter/model/v1beta1"
-	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/istio/api/mixer/adapter/model/v1beta1"
+	istio_mixer_adapter_model_v1beta11 "istio.io/istio/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/adapter/bypass/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"

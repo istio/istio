@@ -17,7 +17,7 @@ package rbac
 import (
 	"testing"
 
-	rbacproto "istio.io/api/rbac/v1alpha1"
+	rbacproto "istio.io/istio/api/rbac/v1alpha1"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/authorization"
 )

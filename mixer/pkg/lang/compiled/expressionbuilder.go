@@ -15,7 +15,7 @@
 package compiled
 
 import (
-	descriptor "istio.io/api/policy/v1beta1"
+	descriptor "istio.io/istio/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang"

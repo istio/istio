@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	mcp "istio.io/api/mcp/v1alpha1"
+	mcp "istio.io/istio/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/pkg/log"
 )

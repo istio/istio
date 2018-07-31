@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	tpb "istio.io/istio/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 )
