@@ -104,7 +104,7 @@ func (s *Server) initDiscoveryService(options *Options, st SecretManager) error 
 	if _, err := os.Stat(options.UDSPath); err == nil {
 		log.Debugf("%q exists", options.UDSPath)
 
-		if err := os.Chmod(options.UDSPath, 0777); err != nil {
+		if err := os.Chmod(options.UDSPath, 0666); err != nil {
 			log.Errorf("failed to update %q permission", options.UDSPath)
 		}
 	}
