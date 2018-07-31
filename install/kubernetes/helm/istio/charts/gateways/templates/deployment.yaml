@@ -78,9 +78,9 @@ spec:
           - NONE
           - --discoveryAddress
           {{- if $.Values.global.istioNamespace }}
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:8080
           {{- else }}
-          - istio-pilot:15005
+          - istio-pilot:8080
           {{- end }}
         {{- end }}
           resources:
