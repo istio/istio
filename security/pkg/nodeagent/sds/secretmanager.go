@@ -21,7 +21,11 @@ import (
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
+	// GetSecret generates new secret and cache the secret.
 	GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*SecretItem, error)
+
+	// SecretExist checks if secret already existed.
+	SecretExist(proxyID, spiffeID, token, version string) bool
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -35,6 +39,10 @@ type SecretItem struct {
 	// Credential token passed from envoy, caClient uses this token to send
 	// CSR to CA to sign certificate.
 	Token string
+
+	// Version is used(together with token and SpiffeID) to identify discovery request from
+	// envoy which is used only for confirm purpose.
+	Version string
 
 	CreatedTime time.Time
 }

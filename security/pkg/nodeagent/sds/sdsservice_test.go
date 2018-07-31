@@ -41,6 +41,13 @@ var (
 	fakeCredentialToken = "faketoken"
 
 	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
+
+	fakeSecret = &SecretItem{
+		CertificateChain: fakeCertificateChain,
+		PrivateKey:       fakePrivateKey,
+		SpiffeID:         fakeSpiffeID,
+		Version:          time.Now().String(),
+	}
 )
 
 func TestStreamSecrets(t *testing.T) {
@@ -262,9 +269,9 @@ func (*mockSecretStore) GetSecret(ctx context.Context, proxyID, spiffeID, token 
 		return nil, fmt.Errorf("unexpected spiffeID %q", spiffeID)
 	}
 
-	return &SecretItem{
-		CertificateChain: fakeCertificateChain,
-		PrivateKey:       fakePrivateKey,
-		SpiffeID:         spiffeID,
-	}, nil
+	return fakeSecret, nil
+}
+
+func (*mockSecretStore) SecretExist(proxyID, spiffeID, token, version string) bool {
+	return spiffeID == fakeSecret.SpiffeID && token == fakeSecret.Token && version == fakeSecret.Version
 }
