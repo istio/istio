@@ -1,7 +1,6 @@
 Monitor
 ======================
-
-This package provides the ability to populate a `crd.Controller` dynamically via a functon that provides
+This package provides the ability to populate a `crd.Controller` dynamically via a function that provides
 additional config. The monitor will acquire snapshots of additional changes and populate the `crd.Controller`
 as needed.
 
@@ -26,6 +25,7 @@ monitor.Start(stop)
 ```
 
 The `Start` method will kick off an asynchronous polling loop and will return immediately.
+
 # Example
 To configure and run a monitor that watches for file changes to update an in-memory config store:
 
@@ -45,10 +45,12 @@ monitor.Start(stop)
 ```
 
 See `monitor_test.go` and `file_snapshot_test.go` for more examples.
+
 # Notes
 ## Always use a Controller
 While the API supports any `model.ConfigStore`, it is recommended to always use a `crd.Controller` so that other
 system components can be notified of changes via `controller.RegisterEventHandler()`.
+
 ## Start behavior
 The `Start` method will immediately check the provided `getSnapshotFunc` and update the controller appropriately
 before returning. This helps to simplify tests that rely on starting in a particular state.

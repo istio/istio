@@ -264,7 +264,7 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 // GetServiceAttributes implements discovery interface.
 func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
 	return &model.ServiceAttributes{
-		Name:      hostname.String(),
+		Name:      string(hostname),
 		Namespace: model.IstioDefaultConfigNamespace}, nil
 }
 
@@ -281,7 +281,7 @@ func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string
 		adsLog.Warna("Unexpected ports ", ports)
 		return nil, nil
 	}
-	key := hostname.String() + ":" + ports[0]
+	key := string(hostname) + ":" + ports[0]
 	instances, ok := sd.instancesByPortName[key]
 	if !ok {
 		return nil, nil
@@ -298,7 +298,7 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
-	key := fmt.Sprintf("%s:%d", hostname.String(), port)
+	key := fmt.Sprintf("%s:%d", string(hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil, nil
@@ -524,7 +524,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	fmt.Fprintf(w, "\n[\n")
 	svc, _ := s.env.ServiceDiscovery.Services()
 	for _, ss := range svc {
-		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
+		if interestedSvc != "" && interestedSvc != string(ss.Hostname) {
 			continue
 		}
 		for _, p := range ss.Ports {
