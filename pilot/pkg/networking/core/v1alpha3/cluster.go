@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"path"
+	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -516,10 +517,15 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 				},
 			}
 		} else {
-			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath)
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, tls.SubjectAltNames)
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
 			for _, sa := range serviceAccounts {
+				// Skip service account which is added from annotation 'alpha.istio.io/canonical-serviceaccounts'
+				if strings.HasPrefix(sa, "spiffe://accounts.google.com") {
+					continue
+				}
+
 				cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs =
 					append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 						model.ConstructSdsSecretConfig(sa, &refreshDuration, meshConfig.SdsUdsPath))

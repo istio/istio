@@ -96,8 +96,8 @@ func ConstructSdsSecretConfig(serviceAccount string, refreshDuration *time.Durat
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTlsContext.
-func ConstructValidationContext(rootCAFilePath string) *auth.CommonTlsContext_ValidationContext {
-	return &auth.CommonTlsContext_ValidationContext{
+func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *auth.CommonTlsContext_ValidationContext {
+	ret := &auth.CommonTlsContext_ValidationContext{
 		ValidationContext: &auth.CertificateValidationContext{
 			TrustedCa: &core.DataSource{
 				Specifier: &core.DataSource_Filename{
@@ -106,6 +106,12 @@ func ConstructValidationContext(rootCAFilePath string) *auth.CommonTlsContext_Va
 			},
 		},
 	}
+
+	if len(subjectAltNames) > 0 {
+		ret.ValidationContext.VerifySubjectAltName = subjectAltNames
+	}
+
+	return ret
 }
 
 // If input legacy is MeshConfig_MUTUAL_TLS, return a authentication policy equivalent to it. Else,

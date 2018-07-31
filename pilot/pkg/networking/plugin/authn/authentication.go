@@ -284,7 +284,7 @@ func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.Fi
 		}
 
 		if meshConfig.SdsUdsPath == "" {
-			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath + model.RootCertFilename)
+			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
 			ret.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
 				{
 					CertificateChain: &core.DataSource{
@@ -300,7 +300,7 @@ func buildListenerTLSContext(authenticationPolicy *authn.Policy, match *ldsv2.Fi
 				},
 			}
 		} else {
-			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath)
+			ret.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.CARootCertPath, []string{} /*subjectAltNames*/)
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
 			ret.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 				model.ConstructSdsSecretConfig(serviceAccount, &refreshDuration, meshConfig.SdsUdsPath),
