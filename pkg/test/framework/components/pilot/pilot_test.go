@@ -22,11 +22,12 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
+	"github.com/gogo/protobuf/jsonpb"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/environment"
 )
 
 const (
@@ -35,14 +36,17 @@ const (
 
 func TestLocalPilot(t *testing.T) {
 	// Create and start the pilot discovery service.
-	p := newPilot(t)
+	p, err := pilot.NewLocalPilot("istio-system")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
 		p.(io.Closer).Close()
 	}()
 
 	// Add a service entry.
 	configStore := p.(model.ConfigStore)
-	_, err := configStore.Create(model.Config{
+	_, err = configStore.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:      "some-service-entry",
 			Namespace: "istio-system",
@@ -92,11 +96,29 @@ func TestLocalPilot(t *testing.T) {
 	t.Fatal(fmt.Errorf("service entry not found in pilot discovery service"))
 }
 
-func newPilot(t *testing.T) environment.DeployedPilot {
-	t.Helper()
-	p, err := pilot.NewLocalPilot("istio-system")
+func TestKubePilot(t *testing.T) {
+	// NOTE: uncomment to test with an existing k8s environment.
+	t.Skip("Skipping kube test - this is used for manual testing only.")
+
+	p, err := pilot.NewKubePilot("", "istio-system", "istio-pilot-6c5c6b586c-9gwn5")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return p
+	res, err := p.CallDiscovery(&xdsapi.DiscoveryRequest{
+		Node: &envoy_api_v2_core1.Node{
+			Id: "sidecar~127.0.0.1~mysidecar.istio-system~istio-system.svc.cluster.local",
+		},
+		TypeUrl: envoy_proxy_v2.ListenerType,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	str, err := m.MarshalToString(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(str)
 }
