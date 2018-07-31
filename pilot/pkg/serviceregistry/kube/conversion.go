@@ -125,7 +125,7 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 
 // canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
 func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://%v", istioURIPrefix, saname)
+	return fmt.Sprintf("%v://accounts.google.com/%v", IstioURIPrefix, saname)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
