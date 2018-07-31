@@ -1,6 +1,6 @@
 healthPort: true
 testHub: docker.io/istionightly
-testTag: nightly-release-0.8
+testTag: nightly-release-1.0
 
 domain: v10.istio.webinf.info
 
