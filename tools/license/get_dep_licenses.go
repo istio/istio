@@ -16,14 +16,14 @@
 // This tool requires https://github.com/benbalter/licensee to work.
 // Usage:
 //   1) Generate complete dump of every license, suitable for including in release build/binary image:
-//      go run get_dep_licenses.go
+//      go run get_dep_licenses.go --branch release-0.8
 //   2) CSV format output with one package per line:
-//      go run get_dep_licenses.go --summary
+//      go run get_dep_licenses.go --summary --branch release-0.8
 //   3) Detailed info about how closely each license matches official text:
-//      go run get_dep_licenses.go --match-detail
+//      go run get_dep_licenses.go --match-detail --branch release-0.8
 //   4) Use a different branch from the current one. Will do git checkout to that branch and back to the current on completion.
 //      This can only be used from inside Istio repo:
-//      go run get_dep_licenses.go --branch release-0.8
+//      go run get_dep_licenses.go --branch release-0.8 --checkout
 package main
 
 import (
@@ -97,15 +97,20 @@ func (s LicenseInfos) Swap(i, j int) {
 }
 
 func main() {
-	var summary, matchDetail bool
+	var summary, checkout, matchDetail bool
 	flag.BoolVar(&summary, "summary", false, "Generate a summary report.")
+	flag.BoolVar(&checkout, "checkout", false, "Checkout target branch, return to current branch on completion. Can only use from inside Istio git repo.")
 	flag.BoolVar(&matchDetail, "match_detail", false, "Show information about match closeness for inexact matches.")
-	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use. Can only use from inside Istio git repo.")
+	flag.StringVar(&istioReleaseBranch, "branch", "", "Istio release branch to use.")
 	flag.Parse()
 
 	// Verify inputs.
 	if summary && matchDetail {
 		log.Fatal("--summary and --match_detail cannot both be set.")
+	}
+
+	if istioReleaseBranch == "" {
+		log.Fatal("--branch must be set.")
 	}
 
 	// Everything happens from istio root.
@@ -115,7 +120,7 @@ func main() {
 
 	// Handle git checkouts if the release branch we want != current branch
 	var prevBranch string
-	if istioReleaseBranch != "" {
+	if checkout {
 		// Save git branch to return to later.
 		pb, err := runBash("git", "rev-parse", "--abbrev-ref", "HEAD")
 		if err != nil {
@@ -130,7 +135,7 @@ func main() {
 		}
 	}
 	defer func() {
-		if istioReleaseBranch != "" {
+		if checkout {
 			// Get back to original branch.
 
 			_, err := exec.Command("git", "checkout", prevBranch).Output()

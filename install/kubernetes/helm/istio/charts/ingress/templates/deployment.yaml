@@ -17,6 +17,7 @@ spec:
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-ingress-service-account
 {{- if .Values.global.priorityClassName }}

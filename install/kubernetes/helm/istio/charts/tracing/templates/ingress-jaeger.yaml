@@ -1,5 +1,5 @@
 {{ if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" }}
-{{- $servicePort := .Values.service.uiPort -}}
+{{- $servicePort := .Values.jaeger.ui.port -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:

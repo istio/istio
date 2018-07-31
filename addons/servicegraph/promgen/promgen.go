@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/addons/servicegraph"
 )
 
-const reqsFmt = "sum(rate(istio_requests_total{reporter=\"server\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
-const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"server\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const reqsFmt = "sum(rate(istio_requests_total{reporter=\"destination\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"destination\"}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 
 type genOpts struct {
