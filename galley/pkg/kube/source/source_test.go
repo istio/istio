@@ -168,8 +168,8 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target:   emptyInfo,
-			Converter: func(info resource.Info, u *unstructured.Unstructured) (proto.Message, error) {
-				return nil, fmt.Errorf("cant convert")
+			Converter: func(info resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error) {
+				return "", nil, fmt.Errorf("cant convert")
 			},
 		},
 	}
