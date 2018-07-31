@@ -20,10 +20,17 @@ import (
 	"istio.io/istio/pkg/test/framework/tmpl"
 )
 
+const (
+	namespace = "istio-system"
+)
+
 // Implementation of a local environment for testing. It implements environment.Interface, and also
 // hosts publicly accessible methods that are specific to local environment.
 type Implementation struct {
 	ctx *internal.TestContext
+
+	// The namespace where the Istio components reside in the local deployment.
+	IstioSystemNamespace string
 }
 
 var _ environment.Implementation = &Implementation{}
@@ -31,8 +38,9 @@ var _ internal.EnvironmentController = &Implementation{}
 
 // New returns a new instance of cluster environment.
 func New() *Implementation {
-
-	return &Implementation{}
+	return &Implementation{
+		IstioSystemNamespace: namespace,
+	}
 }
 
 // EnvironmentName is the name of this environment implementation.

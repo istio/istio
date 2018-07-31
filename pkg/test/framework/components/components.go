@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/apiserver"
 	"istio.io/istio/pkg/test/framework/components/mixer"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
@@ -33,6 +34,8 @@ func init() {
 	All.register(dependency.APIServer, settings.Kubernetes, apiserver.InitKube)
 	All.register(dependency.Mixer, settings.Local, mixer.InitLocal)
 	All.register(dependency.Mixer, settings.Kubernetes, mixer.InitKube)
+	All.register(dependency.Pilot, settings.Local, pilot.InitLocal)
+	All.register(dependency.Pilot, settings.Kubernetes, pilot.InitKube)
 	All.register(dependency.PolicyBackend, settings.Local, policybackend.InitLocal)
 	All.register(dependency.PolicyBackend, settings.Kubernetes, policybackend.InitKube)
 }
