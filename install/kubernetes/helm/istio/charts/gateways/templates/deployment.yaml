@@ -59,8 +59,8 @@ spec:
         {{- else }}
           - zipkin:9411
         {{- end }}
+        {{- if $.Values.global.proxy.envoyStatsd.enabled }}
           - --statsdUdpAddress
-        {{- if $.Values.global.proxy.envoyStatsd.enabled }}  
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
         {{- end }}
           - --proxyAdminPort
