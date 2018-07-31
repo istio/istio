@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package local
+package pilot
 
 import (
 	"context"
@@ -22,38 +22,79 @@ import (
 	adsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"fmt"
+
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/test/framework/environment"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
+	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/kube"
 )
 
-// PilotConfig provides the options for creating a local pilot.
-type PilotConfig struct {
-	Namespace string
-	Mesh      *meshconfig.MeshConfig
-	Options   envoy.DiscoveryServiceOptions
-}
+const (
+	pilotAdsPort = 15010
+	localhost    = "127.0.0.1"
+)
 
 type deployedPilot struct {
+	client *pilotClient
+
+	// Only used for k8s.
+	forwarder *kube.PortForwarder
+
+	// Only used for running Pilot locally.
 	model.ConfigStoreCache
 	server   *bootstrap.Server
-	client   *pilotClient
 	stopChan chan struct{}
 }
 
-// NewPilot creates a new local pilot instance. The returned object implements io.Closer.
-func NewPilot(cfg PilotConfig) (dp environment.DeployedPilot, err error) {
+// InitLocal initializes a new pilot instance for the local environment
+func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
+	e, ok := ctx.Environment().(*local.Implementation)
+	if !ok {
+		return nil, fmt.Errorf("expected environment not found")
+	}
+
+	return NewLocalPilot(e.IstioSystemNamespace)
+}
+
+// InitKube initializes a new Pilot component for the kubernetes environment.
+func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+	e, ok := ctx.Environment().(*kubernetes.Implementation)
+	if !ok {
+		return nil, fmt.Errorf("expected environment not found")
+	}
+
+	pod, err := e.Accessor.WaitForPodBySelectors(e.IstioSystemNamespace, "istio=pilot")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewKubePilot(ctx.Settings().KubeConfig, pod.Namespace, pod.Name)
+}
+
+// NewLocalPilot creates a new pilot for the local environment.
+func NewLocalPilot(namespace string) (environment.DeployedPilot, error) {
 	// Use an in-memory config store.
 	configController := memory.NewController(memory.Make(model.IstioConfigTypes))
 
+	mesh := model.DefaultMeshConfig()
+	options := envoy.DiscoveryServiceOptions{
+		HTTPAddr:       ":0",
+		MonitoringAddr: ":0",
+		GrpcAddr:       ":0",
+		SecureGrpcAddr: ":0",
+	}
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        cfg.Namespace,
-		DiscoveryOptions: cfg.Options,
-		MeshConfig:       cfg.Mesh,
+		Namespace:        namespace,
+		DiscoveryOptions: options,
+		MeshConfig:       &mesh,
 		Config: bootstrap.ConfigArgs{
 			Controller: configController,
 		},
@@ -83,14 +124,36 @@ func NewPilot(cfg PilotConfig) (dp environment.DeployedPilot, err error) {
 		return nil, err
 	}
 
-	p := &deployedPilot{
+	return &deployedPilot{
 		ConfigStoreCache: configController,
 		server:           server,
 		client:           client,
 		stopChan:         stopChan,
+	}, nil
+}
+
+// NewKubePilot creates a new pilot instance for the kubernetes environment
+func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot, error) {
+	// Start port-forwarding for pilot.
+	// TODO(nmittler): Don't use a hard-coded port.
+	forwarder := kube.NewPortForwarder(kubeConfig, namespace, pod, pilotAdsPort)
+	if err := forwarder.Start(); err != nil {
+		return nil, err
 	}
 
-	return p, nil
+	addr, err := net.ResolveTCPAddr(localhost, forwarder.Address())
+	if err != nil {
+		return nil, err
+	}
+	client, err := newPilotClient(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &deployedPilot{
+		client:    client,
+		forwarder: forwarder,
+	}, nil
 }
 
 // CallDiscovery implements the DeployedPilot interface.
@@ -98,11 +161,21 @@ func (p *deployedPilot) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.Dis
 	return p.client.callDiscovery(req)
 }
 
-// Stop stops the pilot server.
-func (p *deployedPilot) Close() error {
-	p.client.close()
-	p.stopChan <- struct{}{}
-	return nil
+// Close stops the pilot server.
+func (p *deployedPilot) Close() (err error) {
+	if p.client != nil {
+		err = multierror.Append(err, p.client.Close()).ErrorOrNil()
+	}
+
+	if p.stopChan != nil {
+		p.stopChan <- struct{}{}
+	}
+
+	if p.forwarder != nil {
+		p.forwarder.Close()
+	}
+
+	return
 }
 
 type pilotClient struct {
@@ -138,7 +211,12 @@ func (c *pilotClient) callDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.Disco
 	return c.stream.Recv()
 }
 
-func (c *pilotClient) close() {
-	_ = c.stream.CloseSend()
-	_ = c.conn.Close()
+func (c *pilotClient) Close() (err error) {
+	if c.stream != nil {
+		err = multierror.Append(err, c.stream.CloseSend()).ErrorOrNil()
+	}
+	if c.conn != nil {
+		err = multierror.Append(err, c.conn.Close()).ErrorOrNil()
+	}
+	return
 }
