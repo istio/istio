@@ -183,7 +183,6 @@ type (
 	// DeployedPilot represents a deployed Pilot instance.
 	DeployedPilot interface {
 		Deployed
-		model.ConfigStore
 
 		CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error)
 	}

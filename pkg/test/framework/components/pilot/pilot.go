@@ -39,19 +39,18 @@ import (
 
 const (
 	pilotAdsPort = 15010
-	localhost    = "127.0.0.1"
 )
 
-type deployedPilot struct {
-	client *pilotClient
-
-	// Only used for k8s.
-	forwarder *kube.PortForwarder
-
-	// Only used for running Pilot locally.
+type localPilot struct {
+	*pilotClient
 	model.ConfigStoreCache
 	server   *bootstrap.Server
 	stopChan chan struct{}
+}
+
+type kubePilot struct {
+	*pilotClient
+	forwarder *kube.PortForwarder
 }
 
 // InitLocal initializes a new pilot instance for the local environment
@@ -124,10 +123,10 @@ func NewLocalPilot(namespace string) (environment.DeployedPilot, error) {
 		return nil, err
 	}
 
-	return &deployedPilot{
+	return &localPilot{
 		ConfigStoreCache: configController,
+		pilotClient:      client,
 		server:           server,
-		client:           client,
 		stopChan:         stopChan,
 	}, nil
 }
@@ -141,7 +140,7 @@ func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot,
 		return nil, err
 	}
 
-	addr, err := net.ResolveTCPAddr(localhost, forwarder.Address())
+	addr, err := net.ResolveTCPAddr("tcp", forwarder.Address())
 	if err != nil {
 		return nil, err
 	}
@@ -150,31 +149,33 @@ func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot,
 		return nil, err
 	}
 
-	return &deployedPilot{
-		client:    client,
-		forwarder: forwarder,
+	return &kubePilot{
+		pilotClient: client,
+		forwarder:   forwarder,
 	}, nil
 }
 
-// CallDiscovery implements the DeployedPilot interface.
-func (p *deployedPilot) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	return p.client.callDiscovery(req)
-}
-
-// Close stops the pilot server.
-func (p *deployedPilot) Close() (err error) {
-	if p.client != nil {
-		err = multierror.Append(err, p.client.Close()).ErrorOrNil()
+// Close stops the local pilot server.
+func (p *localPilot) Close() (err error) {
+	if p.pilotClient != nil {
+		err = multierror.Append(err, p.pilotClient.Close()).ErrorOrNil()
 	}
 
 	if p.stopChan != nil {
 		p.stopChan <- struct{}{}
 	}
+	return
+}
+
+// Close stops the kube pilot server.
+func (p *kubePilot) Close() (err error) {
+	if p.pilotClient != nil {
+		err = multierror.Append(err, p.pilotClient.Close()).ErrorOrNil()
+	}
 
 	if p.forwarder != nil {
 		p.forwarder.Close()
 	}
-
 	return
 }
 
@@ -203,7 +204,7 @@ func newPilotClient(discoveryAddr *net.TCPAddr) (*pilotClient, error) {
 	}, nil
 }
 
-func (c *pilotClient) callDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+func (c *pilotClient) CallDiscovery(req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
 	err := c.stream.Send(req)
 	if err != nil {
 		return nil, err
