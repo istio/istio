@@ -152,7 +152,7 @@ function release_push_github_docker_template() {
     -g "$GCS_GITHUB_PATH" -u "$MFEST_URL" \
     -t "$m_commit" -m "$MFEST_FILE" \
     -h "$GITHUB_ORG" -i "$GITHUB_REPO" \
-    -d "$DOCKER_HUB}}" -w
+    -d "$DOCKER_HUB" -w
 }
 
 function release_tag_github_template() {

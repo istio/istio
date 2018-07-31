@@ -76,9 +76,9 @@ def MonthlyPipeline():
 
     # These are the extra params that are passed to the dags for monthly release
     monthly_conf = dict()
-    monthly_conf['DOCKER_HUB'              ] = 'istio',
-    monthly_conf['GCR_RELEASE_DEST'        ] = 'istio-io',
-    monthly_conf['GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc',
+    monthly_conf['DOCKER_HUB'              ] = 'istio'
+    monthly_conf['GCR_RELEASE_DEST'        ] = 'istio-io'
+    monthly_conf['GCS_GITHUB_PATH'         ] = 'istio-secrets/github.txt.enc'
     monthly_conf['RELEASE_PROJECT_ID'      ] = 'istio-io'
     # GCS_MONTHLY_RELEASE_PATH is of the form  'istio-release/releases/{version}'
     monthly_conf['GCS_MONTHLY_RELEASE_PATH'] = 'istio-release/releases/%s' % (version)
