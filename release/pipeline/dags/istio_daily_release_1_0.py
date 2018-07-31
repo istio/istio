@@ -18,12 +18,7 @@ limitations under the License.
 from airflow import DAG
 import istio_common_daily
 
-dag, copy_files = istio_common_dag.MakeCommonDag(
-    name='istio_daily_release', schedule_interval='15 9 * * *')
+branch_this_dag = 'release-1.0'
 
 dailyDag = istio_common_daily.DailyPipeline(branch=branch_this_dag)
 dailyDag
-
-copy_files >> mark_complete
-
-dag

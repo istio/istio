@@ -1,6 +1,4 @@
-"""Airfow DAG used is the daily release pipeline.
-
-Copyright 2017 Istio Authors. All Rights Reserved.
+"""Copyright 2017 Istio Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +12,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import logging
+import re
 
 from airflow import DAG
-import istio_common_daily
+import istio_common_dag
 
-dag, copy_files = istio_common_dag.MakeCommonDag(
-    name='istio_daily_release', schedule_interval='15 9 * * *')
+branch_this_dag = 'release-1.0'
 
-dailyDag = istio_common_daily.DailyPipeline(branch=branch_this_dag)
-dailyDag
-
-copy_files >> mark_complete
-
-dag
+dagMonthly = istio_common_dag.MonthlyPipeline(branch=branch_this_dag)
+dagMonthly
