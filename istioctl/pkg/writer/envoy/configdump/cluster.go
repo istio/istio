@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -94,7 +93,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 			filteredClusters = append(filteredClusters, cluster)
 		}
 	}
-	out, err := json.MarshalIndent(filteredClusters, "", "    ")
+	out, err := filteredClusters.MarshalIndentedJSON()
 	if err != nil {
 		return err
 	}

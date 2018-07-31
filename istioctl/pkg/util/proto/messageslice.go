@@ -25,12 +25,19 @@ import (
 type MessageSlice []proto.Message
 
 // MarshalJSON handles marshalling of slices of proto messages
-func (pSlice MessageSlice) MarshalJSON() ([]byte, error) {
+func (m MessageSlice) MarshalJSON() ([]byte, error) {
+	return marshalWith(m, jsonpb.Marshaler{})
+}
+
+func (m MessageSlice) MarshalIndentedJSON() ([]byte, error) {
+	return marshalWith(m, jsonpb.Marshaler{Indent: "    "})
+}
+
+func marshalWith(m MessageSlice, marshaler jsonpb.Marshaler) ([]byte, error) {
 	buffer := bytes.NewBufferString("[")
-	sliceLength := len(pSlice)
-	jsonm := &jsonpb.Marshaler{}
-	for index, msg := range pSlice {
-		if err := jsonm.Marshal(buffer, msg); err != nil {
+	sliceLength := len(m)
+	for index, msg := range m {
+		if err := marshaler.Marshal(buffer, msg); err != nil {
 			return nil, err
 		}
 		if index < sliceLength-1 {

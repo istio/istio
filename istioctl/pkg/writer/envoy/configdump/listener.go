@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -108,7 +107,7 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 			filteredListeners = append(filteredListeners, listener)
 		}
 	}
-	out, err := json.MarshalIndent(filteredListeners, "", "    ")
+	out, err := filteredListeners.MarshalIndentedJSON()
 	if err != nil {
 		return err
 	}

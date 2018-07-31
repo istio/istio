@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -67,7 +66,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 			filteredRoutes = append(filteredRoutes, route)
 		}
 	}
-	out, err := json.MarshalIndent(filteredRoutes, "", "    ")
+	out, err := filteredRoutes.MarshalIndentedJSON()
 	if err != nil {
 		return err
 	}

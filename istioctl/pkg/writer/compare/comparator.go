@@ -15,7 +15,6 @@
 package compare
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -34,8 +33,7 @@ func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse 
 	c := &Comparator{}
 	for _, resp := range pilotResponses {
 		pilotDump := &configdump.Wrapper{}
-		err := json.Unmarshal(resp, pilotDump)
-		if err != nil {
+		if err := pilotDump.UnmarshalJSON(resp); err != nil {
 			continue
 		}
 		c.pilot = pilotDump
@@ -45,8 +43,7 @@ func NewComparator(w io.Writer, pilotResponses map[string][]byte, envoyResponse 
 		return nil, fmt.Errorf("unable to find config dump in Pilot responses")
 	}
 	envoyDump := &configdump.Wrapper{}
-	err := json.Unmarshal(envoyResponse, envoyDump)
-	if err != nil {
+	if err := envoyDump.UnmarshalJSON(envoyResponse); err != nil {
 		return nil, err
 	}
 	c.envoy = envoyDump

@@ -16,7 +16,6 @@ package configdump
 
 import (
 	"fmt"
-	"bytes"
 	"io"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -32,12 +31,10 @@ type ConfigWriter struct {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := configdump.Wrapper{}
-	err := (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(bytes.NewReader(b), &cd)
-	if err != nil {
+	c.configDump = &configdump.Wrapper{}
+	if err := c.configDump.UnmarshalJSON(b); err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
-	c.configDump = &cd
 	return nil
 }
 
