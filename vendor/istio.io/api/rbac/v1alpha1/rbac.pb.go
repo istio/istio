@@ -13,7 +13,7 @@ the following standard fields:
   * services: a list of services.
   * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
   * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-    presented in the form of "packageName.serviceName/methodName".
+    presented in the form of "/packageName.serviceName/methodName" and are case sensitive.
 
 In addition to the standard fields, operators can also use custom keys in the `constraints` field,
 the supported keys are listed in the "constraints and properties" page.
@@ -23,7 +23,7 @@ access to "products.svc.cluster.local" service at versions "v1" and "v2". "path"
 so it applies to any path in the service.
 
 ```yaml
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -52,7 +52,7 @@ to ServiceRole "product-viewer":
   * Services in "abc" namespace.
 
 ```yaml
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -112,7 +112,7 @@ func (x EnforcementMode) String() string {
 	return proto.EnumName(EnforcementMode_name, int32(x))
 }
 func (EnforcementMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{0}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{0}
 }
 
 type RbacConfig_Mode int32
@@ -148,7 +148,7 @@ func (x RbacConfig_Mode) String() string {
 	return proto.EnumName(RbacConfig_Mode_name, int32(x))
 }
 func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5, 0}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{5, 0}
 }
 
 // ServiceRole specification contains a list of access rules (permissions).
@@ -166,7 +166,7 @@ func (m *ServiceRole) Reset()         { *m = ServiceRole{} }
 func (m *ServiceRole) String() string { return proto.CompactTextString(m) }
 func (*ServiceRole) ProtoMessage()    {}
 func (*ServiceRole) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{0}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{0}
 }
 func (m *ServiceRole) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServiceRole.Unmarshal(m, b)
@@ -204,7 +204,7 @@ type AccessRule struct {
 	Services []string `protobuf:"bytes,1,rep,name=services,proto3" json:"services,omitempty"`
 	// Optional. A list of HTTP paths or gRPC methods.
 	// gRPC methods must be presented as fully-qualified name in the form of
-	// packageName.serviceName/methodName.
+	// "/packageName.serviceName/methodName" and are case sensitive.
 	// Exact match, prefix match, and suffix match are supported for paths.
 	// For example, the path "/books/review" matches
 	// "/books/review" (exact match), or "/books/*" (prefix match),
@@ -227,7 +227,7 @@ func (m *AccessRule) Reset()         { *m = AccessRule{} }
 func (m *AccessRule) String() string { return proto.CompactTextString(m) }
 func (*AccessRule) ProtoMessage()    {}
 func (*AccessRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{1}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{1}
 }
 func (m *AccessRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessRule.Unmarshal(m, b)
@@ -294,7 +294,7 @@ func (m *AccessRule_Constraint) Reset()         { *m = AccessRule_Constraint{} }
 func (m *AccessRule_Constraint) String() string { return proto.CompactTextString(m) }
 func (*AccessRule_Constraint) ProtoMessage()    {}
 func (*AccessRule_Constraint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{1, 0}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{1, 0}
 }
 func (m *AccessRule_Constraint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessRule_Constraint.Unmarshal(m, b)
@@ -349,7 +349,7 @@ func (m *ServiceRoleBinding) Reset()         { *m = ServiceRoleBinding{} }
 func (m *ServiceRoleBinding) String() string { return proto.CompactTextString(m) }
 func (*ServiceRoleBinding) ProtoMessage()    {}
 func (*ServiceRoleBinding) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{2}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{2}
 }
 func (m *ServiceRoleBinding) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServiceRoleBinding.Unmarshal(m, b)
@@ -410,7 +410,7 @@ func (m *Subject) Reset()         { *m = Subject{} }
 func (m *Subject) String() string { return proto.CompactTextString(m) }
 func (*Subject) ProtoMessage()    {}
 func (*Subject) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{3}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{3}
 }
 func (m *Subject) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Subject.Unmarshal(m, b)
@@ -469,7 +469,7 @@ func (m *RoleRef) Reset()         { *m = RoleRef{} }
 func (m *RoleRef) String() string { return proto.CompactTextString(m) }
 func (*RoleRef) ProtoMessage()    {}
 func (*RoleRef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{4}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{4}
 }
 func (m *RoleRef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoleRef.Unmarshal(m, b)
@@ -513,7 +513,7 @@ func (m *RoleRef) GetName() string {
 // services in the default namespace.
 //
 // ```yaml
-// apiVersion: "config.istio.io/v1alpha2"
+// apiVersion: "rbac.istio.io/v1alpha1"
 // kind: RbacConfig
 // metadata:
 //   name: default
@@ -541,7 +541,7 @@ func (m *RbacConfig) Reset()         { *m = RbacConfig{} }
 func (m *RbacConfig) String() string { return proto.CompactTextString(m) }
 func (*RbacConfig) ProtoMessage()    {}
 func (*RbacConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{5}
 }
 func (m *RbacConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RbacConfig.Unmarshal(m, b)
@@ -597,7 +597,7 @@ func (m *RbacConfig_Target) Reset()         { *m = RbacConfig_Target{} }
 func (m *RbacConfig_Target) String() string { return proto.CompactTextString(m) }
 func (*RbacConfig_Target) ProtoMessage()    {}
 func (*RbacConfig_Target) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5, 0}
+	return fileDescriptor_rbac_2b9eba1c108eb5ac, []int{5, 0}
 }
 func (m *RbacConfig_Target) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RbacConfig_Target.Unmarshal(m, b)
@@ -645,9 +645,9 @@ func init() {
 	proto.RegisterEnum("istio.rbac.v1alpha1.RbacConfig_Mode", RbacConfig_Mode_name, RbacConfig_Mode_value)
 }
 
-func init() { proto.RegisterFile("rbac/v1alpha1/rbac.proto", fileDescriptor_rbac_e9690b9bec9faeab) }
+func init() { proto.RegisterFile("rbac/v1alpha1/rbac.proto", fileDescriptor_rbac_2b9eba1c108eb5ac) }
 
-var fileDescriptor_rbac_e9690b9bec9faeab = []byte{
+var fileDescriptor_rbac_2b9eba1c108eb5ac = []byte{
 	// 580 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x7f, 0x6b, 0xda, 0x50,
 	0x14, 0x6d, 0x12, 0xab, 0xf5, 0x3a, 0xda, 0xec, 0xad, 0x1b, 0x41, 0xca, 0x26, 0x61, 0x8c, 0x52,

@@ -1,0 +1,19 @@
+{{- if .Values.autoscaleMin }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-pilot
+spec:
+    maxReplicas: {{ .Values.autoscaleMax }}
+    minReplicas: {{ .Values.autoscaleMin }}
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-pilot
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          targetAverageUtilization: 55
+---
+{{- end }}

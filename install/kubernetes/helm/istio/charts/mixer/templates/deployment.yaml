@@ -92,12 +92,6 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15093
-          initialDelaySeconds: 5
-          periodSeconds: 5
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -193,12 +187,6 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
-        livenessProbe:
-          httpGet:
-            path: /version
-            port: 15093
-          initialDelaySeconds: 5
-          periodSeconds: 5
 {{- end }}
 
 
@@ -223,6 +211,7 @@ spec:
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
