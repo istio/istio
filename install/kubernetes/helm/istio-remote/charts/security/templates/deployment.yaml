@@ -18,6 +18,7 @@ spec:
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-citadel-service-account
 {{- if .Values.global.priorityClassName }}
