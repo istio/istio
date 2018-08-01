@@ -7,6 +7,12 @@ global:
   # and this options must be set off.
   crds: false
 
+  # Omit the istio-sidecar-injector configmap when generate a
+  # standalone gateway. Gateways may be created in namespaces other
+  # than `istio-system` and we don't want to re-create the injector
+  # configmap in those.
+  omitSidecarInjectorConfigMap: true
+
   # istio control plane namespace
   istioNamespace: istio-system
 
