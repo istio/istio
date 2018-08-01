@@ -34,6 +34,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -76,15 +78,15 @@ type sdsConnection struct {
 	stream discoveryStream
 
 	// The secret associated with the proxy.
-	secret *SecretItem
+	secret *model.SecretItem
 }
 
 type sdsservice struct {
-	st SecretManager
+	st cache.SecretManager
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st SecretManager) *sdsservice {
+func newSDSService(st cache.SecretManager) *sdsservice {
 	return &sdsservice{
 		st: st,
 	}
@@ -187,7 +189,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 
 // NotifyProxy send notification to proxy about secret update,
 // SDS will close streaming connection is secret is nil.
-func NotifyProxy(proxyID string, secret *SecretItem) error {
+func NotifyProxy(proxyID string, secret *model.SecretItem) error {
 	conn := sdsClients[proxyID]
 	if conn == nil {
 		log.Errorf("No connection with id %q can be found", proxyID)
@@ -256,7 +258,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *model.SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     SecretType,
 		VersionInfo: s.Version,
