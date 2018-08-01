@@ -374,6 +374,15 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
+  EXPECT_CALL(mock_data, GetPrincipal(_, _))
+      .WillRepeatedly(Invoke([](bool peer, std::string *user) -> bool {
+        if (peer) {
+          *user = "test_user";
+        } else {
+          *user = "destination_user";
+        }
+        return true;
+      }));
   EXPECT_CALL(mock_data, GetRequestedServerName(_))
       .WillOnce(Invoke([](std::string *name) -> bool {
         *name = "www.google.com";
@@ -442,10 +451,6 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
   (*expected_attributes
         .mutable_attributes())[utils::AttributeName::kRequestAuthRawClaims]
       .set_string_value("test_raw_claims");
-
-  // strip destination.principal for JWT-based authn
-  (*expected_attributes.mutable_attributes())
-      .erase(utils::AttributeName::kDestinationPrincipal);
 
   EXPECT_TRUE(
       MessageDifferencer::Equals(request.attributes, expected_attributes));

@@ -88,6 +88,8 @@ const std::string kPublicKey =
     "  \"kid\": \"b3319a147514df7ee5e4bcdee51350cc890cc89e\""
     "}]}";
 
+// Keep this same as forward_payload_header field in the config below.
+const char kOutputHeadersKey[] = "test-output";
 // A good JSON config.
 const char kExampleConfig[] = R"(
 {
@@ -108,7 +110,7 @@ const char kExampleConfig[] = R"(
               "seconds": 600
             }
          },
-         "forward_payload_header": "sec-istio-auth-userinfo"
+         "forward_payload_header": "test-output"
       }
    ]
 }
@@ -319,7 +321,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTandCache) {
 
     auth_->Verify(headers, &mock_cb);
 
-    EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+    EXPECT_EQ(headers.get_(kOutputHeadersKey),
               "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
               "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
               "aWNlIn0");
@@ -350,7 +352,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoAlg) {
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+  EXPECT_EQ(headers.get_(kOutputHeadersKey),
             "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
             "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
             "aWNlIn0");
@@ -383,7 +385,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoKid) {
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+  EXPECT_EQ(headers.get_(kOutputHeadersKey),
             "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
             "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
             "aWNlIn0");
@@ -409,7 +411,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService) {
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+  EXPECT_EQ(headers.get_(kOutputHeadersKey),
             "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
             "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cDovL2V4YW1wbG"
             "Vfc2VydmljZS8ifQ");
@@ -435,7 +437,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService1) {
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+  EXPECT_EQ(headers.get_(kOutputHeadersKey),
             "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
             "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cHM6Ly9leGFtcG"
             "xlX3NlcnZpY2UxLyJ9");
@@ -461,7 +463,7 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService2) {
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_("sec-istio-auth-userinfo"),
+  EXPECT_EQ(headers.get_(kOutputHeadersKey),
             "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
             "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cDovL2V4YW1wbG"
             "Vfc2VydmljZTIifQ");
@@ -728,11 +730,8 @@ TEST_F(JwtAuthenticatorTest, TestNoForwardPayloadHeader) {
   }));
   auth_->Verify(headers, &mock_cb);
 
-  // Test when forward_payload_header is not set, the output should still
-  // contain the sec-istio-auth-userinfo header for backward compatibility.
-  EXPECT_TRUE(headers.has("sec-istio-auth-userinfo"));
-  // In addition, the sec-istio-auth-userinfo header should be the only header
-  EXPECT_EQ(headers.size(), 1);
+  // Test when forward_payload_header is not set, nothing added to headers.
+  EXPECT_EQ(headers.size(), 0);
 }
 
 TEST_F(JwtAuthenticatorTest, TestInlineJwks) {

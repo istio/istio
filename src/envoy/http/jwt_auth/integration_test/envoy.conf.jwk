@@ -46,7 +46,7 @@
                              "cluster": "example_issuer"
                           }
                         },
-                        "forward_payload_header": "sec-istio-auth-userinfo"
+                        "forward_payload_header": "test-jwt-payload-output"
                      }
                    ]
                  }

@@ -45,7 +45,8 @@
                              "uri": "http://example.com/foobar_cert",
                              "cluster": "example_issuer"
                          }
-                        }
+                        },
+                        "forward_payload_header": "test-jwt-payload-output"
                       }
                    ],
                    "allow_missing_or_failed": true

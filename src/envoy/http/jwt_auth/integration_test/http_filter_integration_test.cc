@@ -19,9 +19,10 @@
 namespace Envoy {
 
 namespace {
-// The HTTP header key for the JWT verification result
+// The HTTP header key for the JWT verification result. Should be the same as
+// the one define for forward_payload_header in envoy.conf.jwk
 const Http::LowerCaseString kJwtVerificationResultHeaderKey(
-    "sec-istio-auth-userinfo");
+    "test-jwt-payload-output");
 // {"iss":"https://example.com","sub":"test@example.com","aud":"example_service","exp":2001001001}
 const std::string kJwtVerificationResult =
     "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
@@ -260,7 +261,7 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, RSASuccess1) {
 
   auto expected_headers = BaseRequestHeaders();
   expected_headers.addCopy(
-      "sec-istio-auth-userinfo",
+      kJwtVerificationResultHeaderKey,
       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
       "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
       "ImV4cCI6MjAwMTAwMTAwMX0");
@@ -282,7 +283,7 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, ES256Success1) {
       "T9ubWvRvNGGYOTuJ8T17Db68Qk3T8UNTK5lzfR_mw";
 
   auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy("sec-istio-auth-userinfo",
+  expected_headers.addCopy(kJwtVerificationResultHeaderKey,
                            "eyJpc3MiOiJo"
                            "dHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtc"
                            "GxlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbX"

@@ -8,7 +8,8 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
       - checkout
       - restore_cache:
           keys:
@@ -36,7 +37,8 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
       - checkout
       - restore_cache:
           keys:
@@ -56,7 +58,8 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
-      - run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
       - checkout
       - restore_cache:
           keys:
@@ -77,7 +80,7 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     steps:
       - run: sudo ntpdate -vu time.apple.com
-      - run: brew install automake bazel cmake coreutils go libtool wget
+      - run: brew install automake bazel cmake coreutils go libtool ninja wget
       - checkout
       - restore_cache:
           keys:

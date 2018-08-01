@@ -67,9 +67,16 @@ void AttributesBuilder::ExtractRequestHeaderAttributes(CheckData *check_data) {
 }
 
 void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
+  utils::AttributesBuilder builder(&request_->attributes);
+
+  std::string destination_principal;
+  if (check_data->GetPrincipal(false, &destination_principal)) {
+    builder.AddString(utils::AttributeName::kDestinationPrincipal,
+                      destination_principal);
+  }
+
   istio::authn::Result authn_result;
   if (check_data->GetAuthenticationResult(&authn_result)) {
-    utils::AttributesBuilder builder(&request_->attributes);
     if (!authn_result.principal().empty()) {
       builder.AddString(utils::AttributeName::kRequestAuthPrincipal,
                         authn_result.principal());
@@ -110,7 +117,6 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
   // Fallback to extract from jwt filter directly. This can be removed once
   // authn filter is in place.
   std::map<std::string, std::string> payload;
-  utils::AttributesBuilder builder(&request_->attributes);
   if (check_data->GetJWTPayload(&payload) && !payload.empty()) {
     // Populate auth attributes.
     if (payload.count("iss") > 0 && payload.count("sub") > 0) {
@@ -133,12 +139,6 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
     // over. https://github.com/istio/istio/issues/4689
     builder.AddString(utils::AttributeName::kSourceUser, source_user);
     builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
-  }
-
-  std::string destination_principal;
-  if (check_data->GetPrincipal(false, &destination_principal)) {
-    builder.AddString(utils::AttributeName::kDestinationPrincipal,
-                      destination_principal);
   }
 }  // namespace http
 

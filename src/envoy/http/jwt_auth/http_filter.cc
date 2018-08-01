@@ -31,21 +31,12 @@ JwtVerificationFilter::JwtVerificationFilter(Upstream::ClusterManager& cm,
 
 JwtVerificationFilter::~JwtVerificationFilter() {}
 
-void JwtVerificationFilter::onDestroy() {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
-  jwt_auth_.onDestroy();
-}
+void JwtVerificationFilter::onDestroy() { jwt_auth_.onDestroy(); }
 
 FilterHeadersStatus JwtVerificationFilter::decodeHeaders(HeaderMap& headers,
                                                          bool) {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
   state_ = Calling;
   stopped_ = false;
-
-  // Sanitize the JWT verification result in the HTTP headers
-  // TODO (lei-tang): when the JWT verification result is in a configurable
-  // header, need to sanitize based on the configuration.
-  headers.remove(JwtAuth::JwtAuthenticator::JwtPayloadKey());
 
   // Verify the JWT token, onDone() will be called when completed.
   jwt_auth_.Verify(headers, this);
@@ -59,8 +50,8 @@ FilterHeadersStatus JwtVerificationFilter::decodeHeaders(HeaderMap& headers,
 }
 
 void JwtVerificationFilter::onDone(const JwtAuth::Status& status) {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : check complete {}",
-            int(status));
+  ENVOY_LOG(debug, "JwtVerificationFilter::onDone with status {}",
+            JwtAuth::StatusToString(status));
   // This stream has been reset, abort the callback.
   if (state_ == Responded) {
     return;
@@ -82,7 +73,6 @@ void JwtVerificationFilter::onDone(const JwtAuth::Status& status) {
 }
 
 FilterDataStatus JwtVerificationFilter::decodeData(Buffer::Instance&, bool) {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
   if (state_ == Calling) {
     return FilterDataStatus::StopIterationAndWatermark;
   }
@@ -90,7 +80,6 @@ FilterDataStatus JwtVerificationFilter::decodeData(Buffer::Instance&, bool) {
 }
 
 FilterTrailersStatus JwtVerificationFilter::decodeTrailers(HeaderMap&) {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
   if (state_ == Calling) {
     return FilterTrailersStatus::StopIteration;
   }
@@ -99,7 +88,6 @@ FilterTrailersStatus JwtVerificationFilter::decodeTrailers(HeaderMap&) {
 
 void JwtVerificationFilter::setDecoderFilterCallbacks(
     StreamDecoderFilterCallbacks& callbacks) {
-  ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
   decoder_callbacks_ = &callbacks;
 }
 
