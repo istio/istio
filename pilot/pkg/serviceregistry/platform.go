@@ -28,4 +28,6 @@ const (
 	ConsulRegistry ServiceRegistry = "Consul"
 	// CloudFoundryRegistry is a service registry backed by Cloud Foundry.
 	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
+	// ZookeeperRegistry environment flag
+	ZookeeperRegistry = "Zookeeper"
 )

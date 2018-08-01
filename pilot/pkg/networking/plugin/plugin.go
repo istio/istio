@@ -18,6 +18,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	x_proxy "github.com/alipay/sofa-mosn/pkg/xds-config-model/filter/network/x_proxy/v2"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -32,6 +33,8 @@ const (
 	ListenerProtocolTCP
 	// ListenerProtocolHTTP is an HTTP listener.
 	ListenerProtocolHTTP
+	// ListenerTypeX is an X listener.
+	ListenerTypeX
 
 	// Authn is the name of the authentication plugin passed through the command line
 	Authn = "authn"
@@ -48,11 +51,13 @@ const (
 // ModelProtocolToListenerProtocol converts from a model.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 	switch protocol {
-	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
+	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolBOLT:
 		return ListenerProtocolHTTP
 	case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolTLS,
 		model.ProtocolMongo, model.ProtocolRedis:
 		return ListenerProtocolTCP
+	case model.ProtocolX:
+		return ListenerTypeX
 	default:
 		return ListenerProtocolUnknown
 	}
@@ -90,6 +95,8 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []listener.Filter
+	// X is the set of network (X) filters for this filter chain.
+	X []*x_proxy.StreamFilter
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

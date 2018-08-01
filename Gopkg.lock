@@ -845,6 +845,12 @@
   version = "v0.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/samuel/go-zookeeper"
+  packages = ["zk"]
+  revision = "c4fab1ac1bec58281ad0667dc3f0907a9476ac47"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"

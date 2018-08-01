@@ -25,6 +25,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	x_proxy "github.com/alipay/sofa-mosn/pkg/xds-config-model/filter/network/x_proxy/v2"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -81,6 +82,12 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
 		return nil
+	case plugin.ListenerTypeX:
+		filter := buildOutboundXFilter(in.Env.Mesh, attrs, in.Node)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].X = append(mutable.FilterChains[cnum].X, filter)
+		}
+		return nil
 	}
 
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
@@ -123,6 +130,12 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
+		}
+		return nil
+	case plugin.ListenerTypeX:
+		filter := buildInboundXFilter(in.Env.Mesh, in.Node, attrs)
+		for cnum := range mutable.FilterChains {
+			mutable.FilterChains[cnum].X = append(mutable.FilterChains[cnum].X, filter)
 		}
 		return nil
 	}
@@ -323,7 +336,17 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs
 	}
 }
 
-func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func buildOutboundXFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *x_proxy.StreamFilter {
+	//TODO
+	return nil
+}
+
+func buildInboundXFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *x_proxy.StreamFilter {
+	//TODO
+	return nil
+}
+
+func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*types.Struct)
 	}
