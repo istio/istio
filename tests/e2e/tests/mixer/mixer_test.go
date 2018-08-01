@@ -859,13 +859,13 @@ func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s 
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 
-	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "source"})
+	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "destination"})
 	if err != nil {
 		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
 		prior429s = 0
 	}
 
-	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "source"})
+	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "destination"})
 	if err != nil {
 		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
 		prior200s = 0
@@ -1042,10 +1042,14 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
 			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
 		}
+		allowRuleSync()
 	}()
 
-	if err := tc.Kube.DeployTiller(); err != nil {
-		fatalf(t, "Failed to deploy helm tiller.")
+	// Deploy Tiller if not already running.
+	if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
+		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+			fatalf(t, "Failed to deploy helm tiller: %v", errDeployTiller)
+		}
 	}
 
 	setValue := "--set usePassword=false,persistence.enabled=false"
@@ -1079,6 +1083,8 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	}
 
 	// establish baseline
+	_ = sendTraffic(t, "Warming traffic...", 150)
+	allowPrometheusSync()
 	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
@@ -1116,16 +1122,19 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	// then there is no way to determine if the rate limit was applied at all
 	// and for how much traffic. log all metrics and abort test.
 	if callsToRatings < want200s {
-		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings"))}
+		t.Logf("full set of prometheus metrics for ratings:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
 	_, _, value := fetchRequestCount(t, promAPI, "ratings")
 	log.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "source"})
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "destination"})
 	if err != nil {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
+			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 429), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
+		t.Logf("prometheus values for istio_requests_total for 429's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Could not find 429s: %v", err)
 		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
@@ -1138,13 +1147,17 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 
 	// check resource exhausted
 	if got < want {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
+			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 429), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
+		t.Logf("prometheus values for istio_requests_total for 429's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "source"})
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "destination"})
 	if err != nil {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
+			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
+		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Could not find successes value: %v", err)
 		got = 0
 	}
@@ -1160,26 +1173,26 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 
 	// check successes
 	if got < want {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
+			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
+		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
 	want200s = math.Ceil(want200s * 1.5)
 	if got > want200s {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
+			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
+		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
 }
 
 func TestRedisQuotaRollingWindow(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/6309")
-
 	testRedisQuota(t, redisQuotaRollingWindowRule)
 }
 
 func TestRedisQuotaFixedWindow(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/6309")
-
 	testRedisQuota(t, redisQuotaFixedWindowRule)
 }
 
@@ -1272,6 +1285,19 @@ func promDump(client v1.API, metric string) string {
 		return value.String()
 	}
 	return ""
+}
+
+// promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
+// Attributes have to be of format %s=\"%s\"
+func promDumpWithAttributes(promAPI v1.API, metric string, attributes []string) string {
+	var err error
+	query := fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		return ""
+	}
+
+	return value.String()
 }
 
 func vectorValue(val model.Value, labels map[string]string) (float64, error) {
