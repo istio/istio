@@ -29,6 +29,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
+
+	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 var (
@@ -42,7 +44,7 @@ var (
 
 	fakeSpiffeID = "spiffe://cluster.local/ns/bar/sa/foo"
 
-	fakeSecret = &SecretItem{
+	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
 		PrivateKey:       fakePrivateKey,
 		SpiffeID:         fakeSpiffeID,
@@ -143,7 +145,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
 
 	// Test push new secret to proxy.
-	if err = NotifyProxy(proxyID, &SecretItem{
+	if err = NotifyProxy(proxyID, &model.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		SpiffeID:         fakeSpiffeID,
@@ -260,7 +262,7 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 type mockSecretStore struct {
 }
 
-func (*mockSecretStore) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*SecretItem, error) {
+func (*mockSecretStore) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
 	if token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}

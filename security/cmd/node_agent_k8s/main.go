@@ -44,7 +44,7 @@ var (
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
 			}
-			sc := cache.NewSecretCache(caClient, cacheOptions)
+			sc := cache.NewSecretCache(caClient, sds.NotifyProxy, cacheOptions)
 			defer sc.Close()
 
 			server, err := sds.NewServer(serverOptions, sc)

@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caClient"
-	"istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -49,6 +49,15 @@ type Options struct {
 	EvictionDuration time.Duration
 }
 
+// SecretManager defines secrets management interface which is used by SDS.
+type SecretManager interface {
+	// GetSecret generates new secret and cache the secret.
+	GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error)
+
+	// SecretExist checks if secret already existed.
+	SecretExist(proxyID, spiffeID, token, version string) bool
+}
+
 // SecretCache is the in-memory cache for secrets.
 type SecretCache struct {
 	// secrets map is the cache for secrets.
@@ -68,15 +77,19 @@ type SecretCache struct {
 
 	// How may times that key rotation job has detected secret change happened, used in unit test.
 	secretChangedCount uint64
+
+	// callback function to invoke when detecting secret change.
+	notifyCallback func(string, *model.SecretItem) error
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, options Options) *SecretCache {
+func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
 		caClient:         cl,
 		rotationInterval: options.RotationInterval,
 		evictionDuration: options.EvictionDuration,
 		secretTTL:        options.SecretTTL,
+		notifyCallback:   notifyCb,
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -87,7 +100,7 @@ func NewSecretCache(cl ca.Client, options Options) *SecretCache {
 // GetSecret gets secret from cache, this function is called by SDS.FetchSecret,
 // Since credential passing from client may change, regenerate secret every time
 // instread of reading from cache.
-func (sc *SecretCache) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*sds.SecretItem, error) {
+func (sc *SecretCache) GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*model.SecretItem, error) {
 	ns, err := sc.generateSecret(ctx, token, spiffeID, time.Now())
 	if err != nil {
 		log.Errorf("Failed to generate secret for proxy %q: %v", proxyID, err)
@@ -105,7 +118,7 @@ func (sc *SecretCache) SecretExist(proxyID, spiffeID, token, version string) boo
 		return false
 	}
 
-	e := val.(sds.SecretItem)
+	e := val.(model.SecretItem)
 	if e.SpiffeID == spiffeID && e.Token == token && e.Version == version {
 		return true
 	}
@@ -136,7 +149,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 		proxyID := key.(string)
 		now := time.Now()
 
-		e := value.(sds.SecretItem)
+		e := value.(model.SecretItem)
 
 		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
 		if now.After(e.CreatedTime.Add(sc.evictionDuration)) {
@@ -148,9 +161,13 @@ func (sc *SecretCache) rotate(t time.Time) {
 		if sc.shouldRefresh(&e) {
 			go func() {
 				if sc.isTokenExpired(&e) {
-					// Send the notification to close the stream connection if both cert and token have expired.
-					if err := sds.NotifyProxy(proxyID, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
-						log.Errorf("Failed to notify for proxy %q: %v", proxyID, err)
+					if sc.notifyCallback != nil {
+						// Send the notification to close the stream connection if both cert and token have expired.
+						if err := sc.notifyCallback(proxyID, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+							log.Errorf("Failed to notify for proxy %q: %v", proxyID, err)
+						}
+					} else {
+						log.Warnf("secret cache notify callback isn't set")
 					}
 
 					return
@@ -169,8 +186,12 @@ func (sc *SecretCache) rotate(t time.Time) {
 
 				atomic.AddUint64(&sc.secretChangedCount, 1)
 
-				if err := sds.NotifyProxy(proxyID, ns); err != nil {
-					log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, ns); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
 				}
 
 			}()
@@ -180,7 +201,7 @@ func (sc *SecretCache) rotate(t time.Time) {
 	})
 }
 
-func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID string, t time.Time) (*sds.SecretItem, error) {
+func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID string, t time.Time) (*model.SecretItem, error) {
 	options := util.CertOptions{
 		Host:       spiffeID,
 		RSAKeySize: keySize,
@@ -199,7 +220,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 		return nil, err
 	}
 
-	return &sds.SecretItem{
+	return &model.SecretItem{
 		CertificateChain: certChainPEM,
 		PrivateKey:       keyPEM,
 		SpiffeID:         spiffeID,
@@ -209,7 +230,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 	}, nil
 }
 
-func (sc *SecretCache) shouldRefresh(s *sds.SecretItem) bool {
+func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	// TODO(quanlin), check if cert has expired.
 	// May need to be more accurate - reserve some grace period to
 	// make sure now() <= TTL - envoy_reconnect_delay - CSR_round_trip delay
@@ -221,7 +242,7 @@ func (sc *SecretCache) shouldRefresh(s *sds.SecretItem) bool {
 	return false
 }
 
-func (sc *SecretCache) isTokenExpired(s *sds.SecretItem) bool {
+func (sc *SecretCache) isTokenExpired(s *model.SecretItem) bool {
 	if skipTokenExpireCheck {
 		return true
 	}
