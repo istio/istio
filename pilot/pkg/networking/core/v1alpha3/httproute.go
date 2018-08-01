@@ -194,8 +194,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
-	domains := []string{service.Hostname.String(), fmt.Sprintf("%s:%d", service.Hostname, port)}
-	domains = append(domains, generateAltVirtualHosts(service.Hostname.String(), port, node.Domain)...)
+	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
+	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.Domain)...)
 
 	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
