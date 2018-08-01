@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -86,6 +85,7 @@ type VirtualHostWrapper struct {
 // BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
 // services from the service registry. Services are indexed by FQDN hostnames.
 func BuildVirtualHostsFromConfigAndRegistry(
+	node *model.Proxy,
 	configStore model.IstioConfigStore,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
@@ -96,7 +96,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	virtualServices := configStore.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildVirtualHostsForVirtualService(node, configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -125,7 +125,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
 				})
 			} else if port.Protocol.IsRPC() {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
@@ -191,6 +191,7 @@ func separateVSHostsAndServices(virtualService model.Config,
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildVirtualHostsForVirtualService(
+	node *model.Proxy,
 	configStore model.IstioConfigStore,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -222,7 +223,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
+		routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -268,6 +269,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func BuildHTTPRoutesForVirtualService(
+	node *model.Proxy,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
@@ -285,14 +287,14 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]route.Route, 0, len(vs.Http))
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+			if r := translateRoute(node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+				if r := translateRoute(node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -327,7 +329,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(in *networking.HTTPRoute,
+func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	vsName string,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -353,6 +355,8 @@ func translateRoute(in *networking.HTTPRoute,
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
+	_, is10Proxy := node.GetProxyVersion()
+
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -363,19 +367,28 @@ func translateRoute(in *networking.HTTPRoute,
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:         translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy:  translateRetryPolicy(in.Retries),
-			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
+			Cors:        translateCORSPolicy(in.CorsPolicy),
+			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
+		if !is10Proxy {
+			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
+		}
+
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		} else {
 			// if no timeout is specified, disable timeouts. This is easier
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
+			if is10Proxy {
+				action.MaxGrpcTimeout = &d
+			}
 		}
 
 		out.Action = &route.Route_Route{Route: action}
@@ -425,7 +438,7 @@ func translateRoute(in *networking.HTTPRoute,
 				Weight: weight,
 			})
 
-			hashPolicy := getHashPolicy(configStore, hostname)
+			hashPolicy := getHashPolicy(configStore, dst)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -467,9 +480,9 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			return out.Headers[i].Value < out.Headers[j].Value
-		}
+		// TODO: match by values as well. But we have about 5-6 types of values
+		// in a header matcher. Not sorting by values "might" cause unnecessary
+		// RDS churn in some cases.
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 
@@ -510,15 +523,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.Value = m.Exact
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
 	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
-		out.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
 	case *networking.StringMatch_Regex:
-		out.Value = m.Regex
-		out.Regex = &types.BoolValue{Value: true}
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
 	}
 
 	return out
@@ -577,7 +588,6 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
 	// return virtual serivce name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
-		log.Infof("cluster name %s", c)
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
 		return fmt.Sprintf("%s:%d%s", h, p, path)
@@ -586,9 +596,11 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	return &route.Route{
+	_, is10Proxy := node.GetProxyVersion()
+
+	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -600,6 +612,17 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 			},
 		},
 	}
+
+	if is10Proxy {
+		defaultRoute.Action = &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
+			},
+		}
+	}
+	return defaultRoute
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
@@ -648,30 +671,92 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
-func getHashPolicy(configStore model.IstioConfigStore, hostname model.Hostname) *route.RouteAction_HashPolicy {
+func portLevelSettingsConsistentHash(dst *networking.Destination,
+	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
+	if dst.Port != nil {
+		switch dst.Port.Port.(type) {
+		case *networking.PortSelector_Name:
+			log.Warnf("using deprecated name on port selector - ignoring")
+		case *networking.PortSelector_Number:
+			portNumber := dst.GetPort().GetNumber()
+			for _, setting := range pls {
+				number := setting.GetPort().GetNumber()
+				if number == portNumber {
+					return setting.GetLoadBalancer().GetConsistentHash()
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func getHashPolicy(configStore model.IstioConfigStore, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
 	if configStore == nil {
 		return nil
 	}
 
-	destinationRule := configStore.DestinationRule(hostname)
+	destination := dst.GetDestination()
+	destinationRule := configStore.DestinationRule(model.Hostname(destination.GetHost()))
 	if destinationRule == nil {
 		return nil
 	}
-
 	rule := destinationRule.Spec.(*networking.DestinationRule)
+
 	consistentHash := rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
-	if consistentHash == nil {
-		return nil
+	portLevelSettings := rule.GetTrafficPolicy().GetPortLevelSettings()
+	plsHash := portLevelSettingsConsistentHash(destination, portLevelSettings)
+
+	var subsetHash, subsetPLSHash *networking.LoadBalancerSettings_ConsistentHashLB
+	for _, subset := range rule.GetSubsets() {
+		if subset.GetName() == destination.GetSubset() {
+			subsetPortLevelSettings := subset.GetTrafficPolicy().GetPortLevelSettings()
+			subsetHash = subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash()
+			subsetPLSHash = portLevelSettingsConsistentHash(destination, subsetPortLevelSettings)
+
+			break
+		}
 	}
 
-	cookie := consistentHash.GetHttpCookie()
-	return &route.RouteAction_HashPolicy{
-		PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
-			Cookie: &route.RouteAction_HashPolicy_Cookie{
-				Name: cookie.GetName(),
-				Ttl:  cookie.GetTtl(),
-				Path: cookie.GetPath(),
-			},
-		},
+	switch {
+	case subsetPLSHash != nil:
+		consistentHash = subsetPLSHash
+	case subsetHash != nil:
+		consistentHash = subsetHash
+	case plsHash != nil:
+		consistentHash = plsHash
 	}
+
+	switch consistentHash.GetHashKey().(type) {
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Header_{
+				Header: &route.RouteAction_HashPolicy_Header{
+					HeaderName: consistentHash.GetHttpHeaderName(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
+		cookie := consistentHash.GetHttpCookie()
+
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
+				Cookie: &route.RouteAction_HashPolicy_Cookie{
+					Name: cookie.GetName(),
+					Ttl:  cookie.GetTtl(),
+					Path: cookie.GetPath(),
+				},
+			},
+		}
+	case *networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp:
+		return &route.RouteAction_HashPolicy{
+			PolicySpecifier: &route.RouteAction_HashPolicy_ConnectionProperties_{
+				ConnectionProperties: &route.RouteAction_HashPolicy_ConnectionProperties{
+					SourceIp: consistentHash.GetUseSourceIp(),
+				},
+			},
+		}
+	}
+
+	return nil
 }

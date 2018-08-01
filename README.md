@@ -4,13 +4,106 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/alipay/sofa-mesh)](https://goreportcard.com/report/github.com/alipay/sofa-mesh)
 [![codecov.io](https://codecov.io/github/alipay/sofa-mosn/coverage.svg?branch=master)](https://codecov.io/github/alipay/sofa-mesh?branch=master)
 
-SOFAMesh æ˜¯åŸºäºŽ Istio æ”¹è¿›å’Œæ‰©å±•è€Œæ¥çš„ Service Mesh å¤§è§„æ¨¡è½åœ°å®žè·µæ–¹æ¡ˆã€‚åœ¨ç»§æ‰¿ Istio å¼ºå¤§åŠŸèƒ½å’Œä¸°å¯Œç‰¹æ€§çš„åŸºç¡€ä¸Šï¼Œä¸ºæ»¡è¶³å¤§è§„æ¨¡éƒ¨ç½²ä¸‹çš„æ€§èƒ½è¦æ±‚ä»¥åŠåº”å¯¹è½åœ°å®žè·µä¸­çš„å®žé™…æƒ…å†µï¼Œæœ‰å¦‚ä¸‹æ”¹è¿›ï¼š
+SOFAMesh ÊÇ»ùÓÚ Istio ¸Ä½øºÍÀ©Õ¹¶øÀ´µÄ Service Mesh ´ó¹æÄ£ÂäµØÊµ¼ù·½°¸¡£ÔÚ¼Ì³Ð Istio Ç¿´ó¹¦ÄÜºÍ·á¸»ÌØÐÔµÄ»ù´¡ÉÏ£¬ÎªÂú×ã´ó¹æÄ£²¿ÊðÏÂµÄÐÔÄÜÒªÇóÒÔ¼°Ó¦¶ÔÂäµØÊµ¼ùÖÐµÄÊµ¼ÊÇé¿ö£¬ÓÐÈçÏÂ¸Ä½ø£º
 
-- é‡‡ç”¨ Golang ç¼–å†™çš„ [MOSN](https://github.com/alipay/sofa-mosn) å–ä»£ [Envoy](https://github.com/envoyproxy/envoy)
-- åˆå¹¶Mixeråˆ°æ•°æ®å¹³é¢ä»¥è§£å†³æ€§èƒ½ç“¶é¢ˆ
-- å¢žå¼º Pilot ä»¥å®žçŽ°æ›´çµæ´»çš„æœåŠ¡å‘çŽ°æœºåˆ¶
-- å¢žåŠ å¯¹ [SOFA RPC](https://github.com/alipay/sofa-rpc)ã€Dubbo çš„æ”¯æŒ
+- ²ÉÓÃ Golang ±àÐ´µÄ [MOSN](https://github.com/alipay/sofa-mosn) È¡´ú [Envoy](https://github.com/envoyproxy/envoy)
+- ºÏ²¢Mixerµ½Êý¾ÝÆ½ÃæÒÔ½â¾öÐÔÄÜÆ¿¾±
+- ÔöÇ¿ Pilot ÒÔÊµÏÖ¸üÁé»îµÄ·þÎñ·¢ÏÖ»úÖÆ
+- Ôö¼Ó¶Ô [SOFA RPC](https://github.com/alipay/sofa-rpc)¡¢Dubbo µÄÖ§³Ö
 
-åˆå§‹ç‰ˆæœ¬ç”±èš‚èšé‡‘æœå’Œé˜¿é‡Œå¤§æ–‡å¨±UCäº‹ä¸šéƒ¨æºæ‰‹è´¡çŒ®ï¼ŒæœŸå¾…ç¤¾åŒºä¸€èµ·æ¥å‚ä¸ŽåŽç»­å¼€å‘ï¼Œå…±å»ºä¸€ä¸ªå¼€æºç²¾å“é¡¹ç›®ã€‚
+³õÊ¼°æ±¾ÓÉÂìÒÏ½ð·þºÍ°¢Àï´óÎÄÓéUCÊÂÒµ²¿Ð¯ÊÖ¹±Ï×£¬ÆÚ´ýÉçÇøÒ»ÆðÀ´²ÎÓëºóÐø¿ª·¢£¬¹²½¨Ò»¸ö¿ªÔ´¾«Æ·ÏîÄ¿¡£
 
-- [SOFAMesh æ–‡æ¡£](http://www.sofastack.tech/sofa-mesh/docs/Home)
+- [SOFAMesh ÎÄµµ](http://www.sofastack.tech/sofa-mesh/docs/Home)
+- [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
+- [Istio Developer's Guide](https://github.com/istio/istio/wiki/Dev-Guide) - explains how to set up and use an Istio development environment
+- [Project Conventions](https://github.com/istio/istio/wiki/Dev-Conventions) - describes the conventions we use within the code base
+- [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Dev-Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
+
+You'll find many other useful documents on our [Wiki](https://github.com/istio/istio/wiki).
+
+## Introduction
+
+Istio is an open platform for providing a uniform way to integrate
+microservices, manage traffic flow across microservices, enforce policies
+and aggregate telemetry data. Istio's control plane provides an abstraction
+layer over the underlying cluster management platform, such as Kubernetes,
+Mesos, etc.
+
+Visit [istio.io](https://istio.io) for in-depth information about using Istio.
+
+Istio is composed of these components:
+
+- **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
+   between services in the cluster and from a service to external
+   services. The proxies form a _secure microservice mesh_ providing a rich
+   set of functions like discovery, rich layer-7 routing, circuit breakers,
+   policy enforcement and telemetry recording/reporting
+   functions.
+
+  > Note: The service mesh is not an overlay network. It
+  > simplifies and enhances how microservices in an application talk to each
+  > other over the network provided by the underlying platform.
+
+- **Mixer** - Central component that is leveraged by the proxies and microservices
+   to enforce policies such as authorization, rate limits, quotas, authentication, request
+   tracing and telemetry collection.
+
+- **Pilot** - A component responsible for configuring the proxies at runtime.
+
+- **Citadel** - A centralized component responsible for certificate issuance and rotation.
+
+- **Node Agent** - A per-node component responsible for certificate issuance and rotation.
+
+Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
+Cloud Foundry, and Mesos in the near future.
+
+## Repositories
+
+The Istio project is divided across a few GitHub repositories.
+
+- [istio/istio](README.md). This is the main repository that you are
+currently looking at. It hosts Istio's core components and also
+the sample programs and the various documents that govern the Istio open source
+project. It includes:
+  - [security](security/). This directory contains security related code,
+including Citadel (acting as Certificate Authority), node agent, etc.
+  - [pilot](pilot/). This directory
+contains platform-specific code to populate the
+[abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
+when the application topology changes, as well as translate
+[routing rules](https://istio.io/docs/reference/config/istio.networking.v1alpha3/) into proxy specific configuration.
+  - [istioctl](istioctl/). This directory contains code for the
+[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
+  - [mixer](mixer/). This directory
+contains code to enforce various policies for traffic passing through the
+proxies, and collect telemetry data from proxies and services. There
+are plugins for interfacing with various cloud platforms, policy
+management services, and monitoring services.
+
+- [istio/api](https://github.com/istio/api). This repository defines
+component-level APIs and common configuration formats for the Istio platform.
+
+- [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
+(currently supports C++) for Mixer's API.
+
+- [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
+extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
+Envoy filters), that allow the proxy to delegate policy enforcement
+decisions to Mixer.
+
+## Issue management
+
+We use GitHub combined with ZenHub to track all of our bugs and feature requests. Each issue we track has a variety of metadata:
+
+- **Epic**. An epic represents a feature area for Istio as a whole. Epics are fairly broad in scope and are basically product-level things.
+Each issue is ultimately part of an epic.
+
+- **Milestone**. Each issue is assigned a milestone. This is 0.1, 0.2, ..., or 'Nebulous Future'. The milestone indicates when we
+think the issue should get addressed.
+
+- **Priority/Pipeline**. Each issue has a priority which is represented by the Pipeline field within GitHub. Priority can be one of
+P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
+milestone cannot be considered achieved if the issue isn't resolved.
+
+We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
+support is disabled for our organization.

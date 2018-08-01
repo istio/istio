@@ -41,7 +41,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type StatusCode int32
 
 const (
-	// Empty - This code not part of the HTTP status code specification, but it is needed for proto `enum` type.
+	// Empty - This code not part of the HTTP status code specification, but it is needed for proto
+	// `enum` type.
 	StatusCode_Empty                         StatusCode = 0
 	StatusCode_Continue                      StatusCode = 100
 	StatusCode_OK                            StatusCode = 200

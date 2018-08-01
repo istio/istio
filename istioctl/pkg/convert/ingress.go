@@ -15,9 +15,10 @@
 package convert
 
 import (
+	"strings"
+
 	"k8s.io/api/extensions/v1beta1"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -32,45 +33,19 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 		domainSuffix = "cluster.local"
 	}
 
-	gateways := make([]model.Config, 0)
-	virtualServices := make([]model.Config, 0)
-
+	ingressByHost := map[string]*model.Config{}
 	for _, ingrezz := range ingresses {
-		gateway, virtualService := ingress.ConvertIngressV1alpha3(*ingrezz, domainSuffix)
-		// Override the generated namespace; the supplied one is needed to resolve non-fully qualified hosts
-		gateway.Namespace = ingrezz.Namespace
-		virtualService.Namespace = ingrezz.Namespace
-		gateways = append(gateways, gateway)
-		virtualServices = append(virtualServices, virtualService)
+		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost)
 	}
 
-	merged := model.MergeGateways(gateways...)
-
-	// Make a list of the servers.  Don't attempt any extra merging beyond MergeGateways() impl.
-	allServers := make([]*networking.Server, 0)
-	for _, servers := range merged.Servers {
-		allServers = append(allServers, servers...)
+	out := make([]model.Config, 0, len(ingressByHost))
+	for _, vs := range ingressByHost {
+		// Ensure name is valid; ConvertIngressVirtualService will create a name that doesn't start with alphanumeric
+		if strings.HasPrefix(vs.Name, "-") {
+			vs.Name = "wild" + vs.Name
+		}
+		out = append(out, *vs)
 	}
-
-	// Convert the merged Gateway back into a model.Config
-	mergedGateway := model.Config{
-		ConfigMeta: gateways[0].ConfigMeta,
-		Spec: &networking.Gateway{
-			Servers:  allServers,
-			Selector: map[string]string{"istio": "ingressgateway"},
-		},
-	}
-
-	// Fix the name of the gateway
-	mergedGateway.Name = model.IstioIngressGatewayName
-
-	// Ensure the VirtualServices all point to mergedGateway
-	for _, virtualService := range virtualServices {
-		virtualService.Spec.(*networking.VirtualService).Gateways[0] = mergedGateway.ConfigMeta.Name
-	}
-
-	out := []model.Config{mergedGateway}
-	out = append(out, virtualServices...)
 
 	return out, nil
 }

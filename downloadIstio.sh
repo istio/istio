@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 #
 # Early version of a downloader/installer for Istio
 #

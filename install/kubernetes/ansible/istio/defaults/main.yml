@@ -1,0 +1,24 @@
+---
+
+# Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
+cluster_flavour: ocp
+
+
+istio:
+
+  # Install istio with or without istio-auth module
+  auth: false
+
+  # A set of add-ons to install, for example kiali
+  addon: []
+
+  # The names of the samples that should be installed as well.
+  # The available samples are in the istio_simple_samples variable
+  # In addition to the values in istio_simple_samples, 'bookinfo' can also be specified
+  samples: []
+
+  # Whether or not to open apps in the browser
+  open_apps: false
+
+  # Whether to delete resources that might exist from previous Istio installations
+  delete_resources: false

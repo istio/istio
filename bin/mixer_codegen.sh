@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 die () {
   echo "ERROR: $*. Aborting." >&2

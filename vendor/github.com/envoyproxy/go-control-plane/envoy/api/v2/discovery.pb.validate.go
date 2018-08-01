@@ -166,3 +166,187 @@ func (e DiscoveryResponseValidationError) Error() string {
 }
 
 var _ error = DiscoveryResponseValidationError{}
+
+// Validate checks the field values on IncrementalDiscoveryRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *IncrementalDiscoveryRequest) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetNode()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IncrementalDiscoveryRequestValidationError{
+				Field:  "Node",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for TypeUrl
+
+	// no validation rules for InitialResourceVersions
+
+	// no validation rules for ResponseNonce
+
+	if v, ok := interface{}(m.GetErrorDetail()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return IncrementalDiscoveryRequestValidationError{
+				Field:  "ErrorDetail",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// IncrementalDiscoveryRequestValidationError is the validation error returned
+// by IncrementalDiscoveryRequest.Validate if the designated constraints
+// aren't met.
+type IncrementalDiscoveryRequestValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e IncrementalDiscoveryRequestValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sIncrementalDiscoveryRequest.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = IncrementalDiscoveryRequestValidationError{}
+
+// Validate checks the field values on IncrementalDiscoveryResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *IncrementalDiscoveryResponse) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for SystemVersionInfo
+
+	for idx, item := range m.GetResources() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return IncrementalDiscoveryResponseValidationError{
+					Field:  fmt.Sprintf("Resources[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for Nonce
+
+	return nil
+}
+
+// IncrementalDiscoveryResponseValidationError is the validation error returned
+// by IncrementalDiscoveryResponse.Validate if the designated constraints
+// aren't met.
+type IncrementalDiscoveryResponseValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e IncrementalDiscoveryResponseValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sIncrementalDiscoveryResponse.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = IncrementalDiscoveryResponseValidationError{}
+
+// Validate checks the field values on Resource with the rules defined in the
+// proto definition for this message. If any rules are violated, an error is returned.
+func (m *Resource) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for Version
+
+	if v, ok := interface{}(m.GetResource()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ResourceValidationError{
+				Field:  "Resource",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// ResourceValidationError is the validation error returned by
+// Resource.Validate if the designated constraints aren't met.
+type ResourceValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ResourceValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sResource.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ResourceValidationError{}

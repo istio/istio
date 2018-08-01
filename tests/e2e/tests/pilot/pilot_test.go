@@ -36,12 +36,12 @@ import (
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
 )
 
@@ -102,7 +102,6 @@ func setTestConfig() error {
 		tc.extraConfig[cluster] = &deployableConfig{
 			Namespace: tc.Kube.Namespace,
 			YamlFiles: []string{
-				"testdata/headless.yaml",
 				"testdata/external-wikipedia.yaml",
 				"testdata/externalbin.yaml",
 			},
@@ -247,18 +246,20 @@ func (t *testConfig) Teardown() (err error) {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool) framework.App {
-	// TODO(nmittler): Eureka does not support management ports ... should we support other registries?
+	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
 	// Return the config.
@@ -278,7 +279,27 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"version":         version,
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
+			"headless":        strconv.FormatBool(headless),
+			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
+			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+		},
+		KubeInject: injectProxy,
+	}
+}
+
+func getStatefulSet(service string, port int, injectProxy bool) framework.App {
+
+	// Return the config.
+	return framework.App{
+		AppYamlTemplate: "testdata/statefulset.yaml.tmpl",
+		Template: map[string]string{
+			"Hub":             tc.Kube.PilotHub(),
+			"Tag":             tc.Kube.PilotTag(),
+			"service":         service,
+			"port":            strconv.Itoa(port),
+			"istioNamespace":  tc.Kube.Namespace,
+			"injectProxy":     strconv.FormatBool(injectProxy),
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},
 		KubeInject: injectProxy,
