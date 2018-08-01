@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"5d2f3bf9ef6076d6f1c453d63a728a2f43806f451f459f34f47f5f359e2ad670","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"dfae2c6adb19e65988406972fa541701f83078252f1b062e459b3209366a634f","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -111,7 +111,7 @@ spec:
             - NET_ADMIN
       - args:
         - -c
-        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
+        - sysctl -w kernel.core_pattern=/var/istio/proxy/core.%e.%p.%t && ulimit -c
           unlimited
         command:
         - /bin/sh
