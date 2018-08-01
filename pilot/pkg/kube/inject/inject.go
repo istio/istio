@@ -280,6 +280,8 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	var required bool
 	switch namespacePolicy {
 	default: // InjectionPolicyOff
+		log.Errorf("Illegal value for autoInject:%s, must be one of [%s,%s]. Auto injection disabled!",
+			namespacePolicy, InjectionPolicyDisabled, InjectionPolicyEnabled)
 		required = false
 	case InjectionPolicyDisabled:
 		if useDefault {
