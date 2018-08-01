@@ -18,8 +18,14 @@ spec:
       name: kiali
       labels:
         app: kiali
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: kiali-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
       - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
         name: kiali
@@ -43,7 +49,23 @@ spec:
           valueFrom:
             secretKeyRef:
               name: kiali
-              key: password
+              key: passphrase
+        - name: PROMETHEUS_SERVICE_URL
+          value: http://prometheus:9090
+{{- if .Values.dashboard.grafanaURL }}
+        - name: GRAFANA_URL
+          value: {{ .Values.dashboard.grafanaURL }}
+{{- end }}
+        - name: GRAFANA_DASHBOARD
+          value: istio-service-dashboard
+        - name: GRAFANA_VAR_SERVICE_SOURCE
+          value: var-service
+        - name: GRAFANA_VAR_SERVICE_DEST
+          value: var-service
+{{- if .Values.dashboard.jaegerURL }}
+        - name: JAEGER_URL
+          value: {{ .Values.dashboard.jaegerURL }}
+{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"

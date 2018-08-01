@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -529,7 +530,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildOutboundTCPFilterChainOpts(node, env, configs,
+				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(node, env, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
@@ -773,7 +774,8 @@ type buildListenerOpts struct {
 	tlsMultiplexed  bool
 }
 
-func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOpts, httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
+func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,
+	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
@@ -791,9 +793,16 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{httpOpts.useRemoteAddress}
 
-	// Allow websocket upgrades
-	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
-	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+	if _, is10Proxy := node.GetProxyVersion(); is10Proxy {
+		// Allow websocket upgrades
+		websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+		connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
+		notimeout := 0 * time.Second
+		// Setting IdleTimeout to 0 seems to break most tests, causing
+		// envoy to disconnect.
+		// connectionManager.IdleTimeout = &notimeout
+		connectionManager.StreamIdleTimeout = &notimeout
+	}
 
 	if httpOpts.rds != "" {
 		rds := &http_conn.HttpConnectionManager_Rds{
@@ -948,7 +957,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = l.Name
-			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(opts.env, opts.proxy, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   envoyHTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),

@@ -112,6 +112,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
+				// NOTE : this thing is modifying destination rules in place. Not a good idea
+				// when we start caching stuff.
 				convertIstioMutual(destinationRule, upstreamServiceAccounts)
 				applyTrafficPolicy(defaultCluster, destinationRule.TrafficPolicy, port, env.Mesh, serviceAccounts)
 
@@ -132,7 +134,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 				// set TLSSettings if configmap global settings specifies MUTUAL_TLS, and we skip external destination.
 				if env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS && !service.MeshExternal && proxy.Type == model.Sidecar {
-					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts), env.Mesh, serviceAccounts)
+					applyUpstreamTLSSettings(defaultCluster, buildIstioMutualTLS(upstreamServiceAccounts, ""), env.Mesh, serviceAccounts)
 				}
 			}
 
@@ -270,7 +272,7 @@ func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamSer
 			return
 		}
 		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			*tls = *buildIstioMutualTLS(upstreamServiceAccount)
+			*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
 		}
 	}
 
@@ -283,18 +285,24 @@ func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamSer
 	for _, subset := range destinationRule.Subsets {
 		if subset.TrafficPolicy != nil {
 			converter(subset.TrafficPolicy.Tls)
+			for _, portTLS := range subset.TrafficPolicy.PortLevelSettings {
+				converter(portTLS.Tls)
+			}
 		}
 	}
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(upstreamServiceAccount []string) *networking.TLSSettings {
+func buildIstioMutualTLS(upstreamServiceAccount []string, sni string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
 		SubjectAltNames:   upstreamServiceAccount,
+		// Allow user specified SNIs in the istio mtls settings - which is useful
+		// for routing via gateways
+		Sni: sni,
 	}
 }
 
@@ -533,6 +541,10 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 		}
 
+		// Set default SNI of cluster name for istio_mutual if sni is not set.
+		if len(tls.Sni) == 0 && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+			cluster.TlsContext.Sni = cluster.Name
+		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {

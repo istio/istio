@@ -59,8 +59,6 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	// no validation rules for Endpoint
-
 	if v, ok := interface{}(m.GetCacheTime()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HealthCheckValidationError{

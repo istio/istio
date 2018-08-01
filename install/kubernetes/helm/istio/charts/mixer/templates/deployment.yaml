@@ -1,6 +1,9 @@
 {{- define "policy_container" }}
     spec:
       serviceAccountName: istio-mixer-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -220,6 +223,7 @@ spec:
         istio-mixer-type: {{ $mname }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}

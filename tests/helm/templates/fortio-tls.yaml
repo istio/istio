@@ -55,7 +55,7 @@ kind: Deployment
 metadata:
   name: fortiotls
 spec:
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       annotations:
@@ -84,18 +84,38 @@ spec:
 
 ---
 
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
+#apiVersion: networking.istio.io/v1alpha3
+#kind: VirtualService
+#metadata:
+#  name: fortiotls
+#spec:
+#  hosts:
+#  - "fortiotls.{{ .Values.domain }}"
+#  gateways:
+#  - istio-gateway
+#  http:
+#  - route:
+#    - destination:
+#        host: fortiotls.test.svc.cluster.local
+#        port:
+#          number: 8080
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
 metadata:
   name: fortiotls
+  annotations:
+    kubernetes.io/ingress.class: istio
 spec:
-  hosts:
-  - "fortiotls.{{ .Values.domain }}"
-  gateways:
-  - istio-gateway
-  http:
-  - route:
-    - destination:
-        host: fortiotls.test.svc.cluster.local
-        port:
-          number: 8080
+  rules:
+  - host: fortiotls.{{ .Values.domain }}
+    http:
+      paths:
+      - path: /fortio.*
+        backend:
+          serviceName: fortiotls
+          servicePort: 8080
+      - path: /echo.*
+        backend:
+          serviceName: fortiotls
+          servicePort: 8080

@@ -239,7 +239,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "user",
+						User: "*",
+					},
+					{
+						Properties: map[string]string{
+							"source.principal": "user",
+						},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -360,16 +365,30 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Authenticated_{
-								Authenticated: &policy.Principal_Authenticated{
-									Name: "user",
+							Identifier: &policy.Principal_Any{
+								Any: true,
+							},
+						},
+					},
+				},
+			},
+		},
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_Metadata{
+									Metadata: generateMetadataStringMatcher(
+										[]string{"source.principal"}, &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}),
 								},
 							},
 						},
 					},
 				},
 			},
-		}},
+		},
 	}
 
 	policy2 := &policy.Policy{
@@ -943,10 +962,10 @@ func generatePrincipal(principalName string) *policy.Principal {
 			AndIds: &policy.Principal_Set{
 				Ids: []*policy.Principal{
 					{
-						Identifier: &policy.Principal_Authenticated_{
-							Authenticated: &policy.Principal_Authenticated{
-								Name: principalName,
-							},
+						Identifier: &policy.Principal_Metadata{
+							Metadata: generateMetadataStringMatcher(
+								[]string{"source.principal"}, &metadata.StringMatcher{
+									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}),
 						},
 					},
 				},

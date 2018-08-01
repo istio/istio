@@ -252,7 +252,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "master"
+  branch = "revert_grpc_version_update"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8cef83f9eabf344b48191d3b9929287988782e54"
+  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -723,8 +723,8 @@
     "types",
     "util"
   ]
-  revision = "688594c3786b0805d061a0de387f6a265a7fa9d0"
-  version = "v0.7.1"
+  revision = "877d39f035d1756b07a6ce8582bf793b7f2c1714"
+  version = "v0.8.2"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -1305,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "6a128c56f81639e234cc34dbf40af9532008e467"
+  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1561,8 +1561,8 @@
     "pkg/timeconv",
     "pkg/version"
   ]
-  revision = "a80231648a1473929271764b920a8e346f6de844"
-  version = "v2.8.2"
+  revision = "20adb27c7c5868466912eebdf6664e7390ebe710"
+  version = "v2.9.1"
 
 [[projects]]
   name = "k8s.io/ingress"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a53387525fe93d996ca46dc1e3c4f78a55f011cd5da37dd3abc997d48fb822a4"
+  inputs-digest = "8026248fa65b57ac76cf457d405f1773627fdc1fb1351037bc4add7e4d108c0b"
   solver-name = "gps-cdcl"
   solver-version = 1

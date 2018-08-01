@@ -1,6 +1,5 @@
-{{- if .Values.jaeger.ingress.enabled -}}
-{{- if .Values.jaeger.enabled -}}
-{{- $servicePort := .Values.service.uiPort -}}
+{{ if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" }}
+{{- $servicePort := .Values.jaeger.ui.port -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -30,5 +29,4 @@ spec:
   tls:
 {{ toYaml .Values.jaeger.ingress.tls | indent 4 }}
   {{- end -}}
-{{- end -}}
 {{- end -}}
