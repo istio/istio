@@ -521,7 +521,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{}
 			refreshDuration, _ := ptypes.Duration(meshConfig.SdsRefreshDelay)
 			for _, sa := range serviceAccounts {
-				// Skip service account which is added from annotation 'alpha.istio.io/canonical-serviceaccounts'
+				// Skip service account which is added from annotation 'alpha.istio.io/canonical-serviceaccounts' to avoid fetching duplicated
+				// cert from CA, the service account added in annotation in only used for building VerifySubjectAltName in TLS ValidationContext.
 				if strings.HasPrefix(sa, "spiffe://accounts.google.com") {
 					continue
 				}
