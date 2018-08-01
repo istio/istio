@@ -36,10 +36,10 @@ data:
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
-    sdsUdsPath: ""
+    sdsUdsPath: "unix:/var/run/sds/uds_path"
     
     # How frequently should Envoy fetch key/cert from NodeAgent.
-    sdsRefreshDelay: 15s
+    sdsRefreshDelay: 600s
 
     #
     defaultConfig:
