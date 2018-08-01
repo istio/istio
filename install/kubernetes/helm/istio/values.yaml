@@ -353,6 +353,8 @@ mixer:
     cpu:
       targetAverageUtilization: 80
 
+  podAnnotations: {}
+
   prometheusStatsdExporter:
     hub: docker.io/prom
     tag: v0.6.0
