@@ -28,5 +28,8 @@ RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
+# For coredumps.
+RUN mkdir -p /var/istio/proxy
+
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
