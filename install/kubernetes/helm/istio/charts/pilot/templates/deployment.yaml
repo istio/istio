@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
-  # TODO: default tempate doesn't have this, which one is right ?
+  # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
@@ -21,11 +21,19 @@ spec:
         app: pilot
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-pilot-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: discovery
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
@@ -33,12 +41,19 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
+{{- if not .Values.sidecar }}
+          - --secureGrpcAddr
+          - ":15011"
+{{- end }}
           ports:
           - containerPort: 8080
           - containerPort: 15010
+{{- if not .Values.sidecar }}
+          - containerPort: 15011
+{{- end }}
           readinessProbe:
             httpGet:
-              path: /v1/registration
+              path: /debug/endpointz
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -58,6 +73,16 @@ spec:
             value: "500"
           - name: PILOT_CACHE_SQUASH
             value: "5"
+          {{- if .Values.env }}
+          {{- range $key, $val := .Values.env }}
+          - name: {{ $key }}
+            value: "{{ $val }}"
+          {{- end }}
+          {{- end }}
+{{- if .Values.traceSampling }}
+          - name: PILOT_TRACE_SAMPLING
+            value: "{{ .Values.traceSampling }}"
+{{- end }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -70,6 +95,7 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- if .Values.sidecar }}
         - name: istio-proxy
           image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
@@ -117,6 +143,7 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
+{{- end }}
       volumes:
       - name: config-volume
         configMap:

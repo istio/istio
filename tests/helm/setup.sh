@@ -5,21 +5,13 @@
 function testIstioSystem() {
    pushd $TOP/src/istio.io/istio
    helm -n istio-system template \
-    --values tests/helm/values-istio-test.yaml \
-    --set global.refreshInterval=30s \
     --set global.tag=$TAG \
-    --set global.proxy.accessLogFile="" \
-    --set global.proxy.resources.requests.cpu=1100m \
-    --set global.proxy.resources.requests.memory=256Mi \
-    --set global.imagePullPolicy=Always \
     --set global.hub=$HUB \
-    --set gateways.istio-ingressgateway.resources.requests.cpu=1900m \
-    --set gateways.istio-ingressgateway.resources.requests.memory=512Mi \
-    --set gateways.istio-ingressgateway.resources.limits.cpu=1900m \
-    --set gateways.istio-ingressgateway.resources.limits.memory=512Mi \
+    --values tests/helm/values-istio-test.yaml \
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
    popd
+
 }
 
 # Install istio
@@ -39,10 +31,16 @@ function testInstall() {
 
 # Apply the helm template
 function testApply() {
+   local F=${1:-"istio/fortio:latest"}
    pushd $TOP/src/istio.io/istio
    helm -n test template \
+    --set fortioImage=$F \
     tests/helm |kubectl -n test apply -f -
    popd
+}
+
+function testApply1() {
+    testApply istio/fortio:1.0.1
 }
 
 # Setup DNS entries - currently using gcloud

@@ -30,6 +30,7 @@ import (
 	opa "istio.io/istio/mixer/adapter/opa"
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
 	rbac "istio.io/istio/mixer/adapter/rbac"
+	redisquota "istio.io/istio/mixer/adapter/redisquota"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
 	signalfx "istio.io/istio/mixer/adapter/signalfx"
 	skywalking "istio.io/istio/mixer/adapter/skywalking"
@@ -56,6 +57,7 @@ func Inventory() []adptr.InfoFn {
 		opa.GetInfo,
 		prometheus.GetInfo,
 		rbac.GetInfo,
+		redisquota.GetInfo,
 		servicecontrol.GetInfo,
 		signalfx.GetInfo,
 		skywalking.GetInfo,

@@ -252,7 +252,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  branch = "master"
+  branch = "revert_grpc_version_update"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
+  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -610,8 +610,7 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "163f41321a19dd09362d4c63cc2489db2015f1f4"
-  version = "0.3.2"
+  revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -724,8 +723,8 @@
     "types",
     "util"
   ]
-  revision = "688594c3786b0805d061a0de387f6a265a7fa9d0"
-  version = "v0.7.1"
+  revision = "877d39f035d1756b07a6ce8582bf793b7f2c1714"
+  version = "v0.8.2"
 
 [[projects]]
   name = "github.com/opencontainers/go-digest"
@@ -887,7 +886,7 @@
     "timekeeper",
     "trace"
   ]
-  revision = "23eb012a5fd9ba184a3baa1ee092fe384a1dbf86"
+  revision = "b1be94c3ec8d1fdeccd62735b851489f0b3798e0"
   version = "v1.1.6"
 
 [[projects]]
@@ -1291,24 +1290,22 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "broker/dev",
-    "config/mcp/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
+    "mcp/v1alpha1",
     "mesh/v1alpha1",
     "mixer/adapter/model/v1beta1",
     "mixer/v1",
     "mixer/v1/config/client",
     "networking/v1alpha3",
     "policy/v1beta1",
-    "rbac/v1alpha1",
-    "routing/v1alpha1"
+    "rbac/v1alpha1"
   ]
-  revision = "2d182f5d150eaa9ac276347df8f0154f209973dc"
+  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1328,7 +1325,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "release-1.10"
   name = "k8s.io/api"
   packages = [
     "admission/v1beta1",
@@ -1362,6 +1358,7 @@
     "storage/v1beta1"
   ]
   revision = "8b7507fac302640dd5f1efbf9643199952cc58db"
+  version = "kubernetes-1.10.4"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1564,8 +1561,8 @@
     "pkg/timeconv",
     "pkg/version"
   ]
-  revision = "a80231648a1473929271764b920a8e346f6de844"
-  version = "v2.8.2"
+  revision = "20adb27c7c5868466912eebdf6664e7390ebe710"
+  version = "v2.9.1"
 
 [[projects]]
   name = "k8s.io/ingress"
@@ -1606,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "346348e33c5dd182dfc8f81ac793dc616c8e640625bc671402d085785f030264"
+  inputs-digest = "9c647c93da247178eb02b80cac59ea9ad04432e55d3489ec741280f621904358"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -114,7 +114,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
-	sn := snapshot.NewInMemory()
+	b := snapshot.NewInMemoryBuilder()
 
 	for typeURL, state := range s.entries {
 		entries := make([]*mcp.Envelope, 0, len(state.entries))
@@ -123,12 +123,10 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 		}
 
 		version := fmt.Sprintf("%d", state.version)
-		sn.Set(typeURL.String(), version, entries)
+		b.Set(typeURL.String(), version, entries)
 	}
 
-	sn.Freeze()
-
-	return sn
+	return b.Build()
 }
 
 func (s *State) envelopeResource(event resource.Event) (*mcp.Envelope, bool) {

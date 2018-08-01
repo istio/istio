@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 set -u
 
@@ -31,7 +31,7 @@ declare -a PKGS
 function code_coverage() {
   local filename="$(echo ${1} | tr '/' '-')"
   ( go test \
-    -coverprofile=${COVERAGEDIR}/${filename}.txt \
+    -coverprofile=${COVERAGEDIR}/${filename}.cov \
     -covermode=atomic ${1} \
     | tee ${COVERAGEDIR}/${filename}.report ) &
   local pid=$!
@@ -85,7 +85,8 @@ touch "${COVERAGEDIR}/empty"
 FINAL_CODECOV_DIR="${GOPATH}/out/codecov"
 mkdir -p "${FINAL_CODECOV_DIR}"
 pushd "${FINAL_CODECOV_DIR}"
-cat "${COVERAGEDIR}"/*.txt > coverage.txt
+go get github.com/wadey/gocovmerge
+gocovmerge "${COVERAGEDIR}"/*.cov > coverage.cov
 cat "${COVERAGEDIR}"/*.report > codecov.report
 popd
 echo "Reports are stored in ${FINAL_CODECOV_DIR}"
