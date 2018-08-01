@@ -83,7 +83,7 @@ type serviceMetadata struct {
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
 	return &serviceMetadata{
-		name:   in.Service.Hostname.String(),
+		name:   string(in.Service.Hostname),
 		labels: in.Labels,
 		attributes: map[string]string{
 			attrDestName:      attr.Name,
@@ -257,7 +257,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
+	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 

@@ -251,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			if authnPolicy, ok := p.(authn.Plugin); ok {
 				if authnPolicy.RequireTLSMultiplexing(env.Mesh, env.IstioConfigStore, instance.Service.Hostname, instance.Endpoint.ServicePort) {
 					listenerOpts.tlsMultiplexed = true
-					log.Infof("Uses TLS multiplexing for %v %v\n", instance.Service.Hostname.String(), *instance.Endpoint.ServicePort)
+					log.Infof("Uses TLS multiplexing for %v %v\n", string(instance.Service.Hostname), *instance.Endpoint.ServicePort)
 				}
 			}
 		}
@@ -847,7 +847,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 				Value: tc.OverallSampling,
 			},
 		}
-		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{true}
+		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
 	}
 
 	if verboseDebug {
