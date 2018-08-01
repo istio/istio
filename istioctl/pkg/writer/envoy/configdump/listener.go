@@ -132,7 +132,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	if err != nil {
 		return nil, err
 	}
-	listeners := make([]*xdsapi.Listener, 0, len(listenerDump.StaticListeners) + len(listenerDump.DynamicActiveListeners))
+	listeners := make([]*xdsapi.Listener, 0, len(listenerDump.StaticListeners)+len(listenerDump.DynamicActiveListeners))
 	for _, l := range listenerDump.DynamicActiveListeners {
 		if l.Listener == nil {
 			continue
@@ -143,7 +143,7 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 		if l.Listener == nil {
 			continue
 		}
-	 	listeners = append(listeners, l.Listener)
+		listeners = append(listeners, l.Listener)
 	}
 	if len(listeners) == 0 {
 		return nil, fmt.Errorf("no listeners found")

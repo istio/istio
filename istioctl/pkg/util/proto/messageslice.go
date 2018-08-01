@@ -24,11 +24,12 @@ import (
 // MessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes correctly
 type MessageSlice []proto.Message
 
-// MarshalJSON handles marshalling of slices of proto messages
+// MarshalJSON handles marshaling of slices of proto messages
 func (m MessageSlice) MarshalJSON() ([]byte, error) {
 	return marshalWith(m, jsonpb.Marshaler{})
 }
 
+// MarshalIndentedJSON marshals a slice of protos into human-readable JSON indented with spaces
 func (m MessageSlice) MarshalIndentedJSON() ([]byte, error) {
 	return marshalWith(m, jsonpb.Marshaler{Indent: "    "})
 }

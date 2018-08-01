@@ -91,7 +91,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 	if err != nil {
 		return nil, err
 	}
-	routes := make([]*xdsapi.RouteConfiguration, 0, len(routeDump.DynamicRouteConfigs) + len(routeDump.StaticRouteConfigs))
+	routes := make([]*xdsapi.RouteConfiguration, 0, len(routeDump.DynamicRouteConfigs)+len(routeDump.StaticRouteConfigs))
 	for _, route := range routeDump.DynamicRouteConfigs {
 		if route.RouteConfig == nil {
 			continue

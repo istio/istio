@@ -118,7 +118,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusters := make([]*xdsapi.Cluster, 0, len(clusterDump.DynamicActiveClusters) + len(clusterDump.StaticClusters))
+	clusters := make([]*xdsapi.Cluster, 0, len(clusterDump.DynamicActiveClusters)+len(clusterDump.StaticClusters))
 	for _, cluster := range clusterDump.DynamicActiveClusters {
 		if cluster.Cluster == nil {
 			continue
