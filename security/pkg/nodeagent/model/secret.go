@@ -12,21 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sds
+// Package model contains data models for nodeagent.
+package model
 
-import (
-	"context"
-	"time"
-)
-
-// SecretManager defines secrets management interface which is used by SDS.
-type SecretManager interface {
-	// GetSecret generates new secret and cache the secret.
-	GetSecret(ctx context.Context, proxyID, spiffeID, token string) (*SecretItem, error)
-
-	// SecretExist checks if secret already existed.
-	SecretExist(proxyID, spiffeID, token, version string) bool
-}
+import "time"
 
 // SecretItem is the cached item in in-memory secret store.
 type SecretItem struct {

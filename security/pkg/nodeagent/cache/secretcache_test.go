@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 var (
@@ -38,7 +40,7 @@ func TestGetSecret(t *testing.T) {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, opt)
+	sc := NewSecretCache(fakeCACli, notifyCb, opt)
 	defer func() {
 		sc.Close()
 		skipTokenExpireCheck = true
@@ -104,7 +106,7 @@ func TestRefreshSecret(t *testing.T) {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, opt)
+	sc := NewSecretCache(fakeCACli, notifyCb, opt)
 	defer func() {
 		sc.Close()
 		skipTokenExpireCheck = true
@@ -131,6 +133,10 @@ func TestRefreshSecret(t *testing.T) {
 	if retries == 3 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
 	}
+}
+
+func notifyCb(string, *model.SecretItem) error {
+	return nil
 }
 
 type mockCAClient struct {
