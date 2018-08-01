@@ -30,13 +30,6 @@ import (
 // The size of a private key for a leaf certificate.
 const keySize = 2048
 
-// Right now always skip the check, since key rotation job
-// checks token expire only when cert has expired;
-// since token's TTL is much shorter than the cert, we could
-// skip the check in normal cases.
-// The flag is used in unit test.
-var skipTokenExpireCheck = true
-
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
 	// secret TTL.
@@ -80,6 +73,14 @@ type SecretCache struct {
 
 	// callback function to invoke when detecting secret change.
 	notifyCallback func(string, *model.SecretItem) error
+	// Right now always skip the check, since key rotation job checks token expire only when cert has expired;
+	// since token's TTL is much shorter than the cert, we could skip the check in normal cases.
+	// The flag is used in unit test, use uint32 instead of boolean because there is no atomic boolean
+	// type in golang, atomic is needed to avoid racing condition in unit test.
+	skipTokenExpireCheck uint32
+
+	// close channel.
+	closing chan bool
 }
 
 // NewSecretCache creates a new secret cache.
@@ -90,9 +91,11 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, *model.SecretItem) error
 		evictionDuration: options.EvictionDuration,
 		secretTTL:        options.SecretTTL,
 		notifyCallback:   notifyCb,
+		closing:          make(chan bool),
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
+	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
 	go ret.keyCertRotationJob()
 	return ret
 }
@@ -128,9 +131,7 @@ func (sc *SecretCache) SecretExist(proxyID, spiffeID, token, version string) boo
 
 // Close shuts down the secret cache.
 func (sc *SecretCache) Close() {
-	if sc.rotationTicker != nil {
-		sc.rotationTicker.Stop()
-	}
+	sc.closing <- true
 }
 
 func (sc *SecretCache) keyCertRotationJob() {
@@ -140,6 +141,10 @@ func (sc *SecretCache) keyCertRotationJob() {
 		select {
 		case now := <-sc.rotationTicker.C:
 			sc.rotate(now)
+		case <-sc.closing:
+			if sc.rotationTicker != nil {
+				sc.rotationTicker.Stop()
+			}
 		}
 	}
 }
@@ -243,7 +248,7 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 }
 
 func (sc *SecretCache) isTokenExpired(s *model.SecretItem) bool {
-	if skipTokenExpireCheck {
+	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}
 	// TODO(quanlin), check if token has expired.

@@ -33,7 +33,6 @@ var (
 )
 
 func TestGetSecret(t *testing.T) {
-	skipTokenExpireCheck = false
 	fakeCACli := newMockCAClient()
 	opt := Options{
 		SecretTTL:        time.Minute,
@@ -41,9 +40,10 @@ func TestGetSecret(t *testing.T) {
 		EvictionDuration: 2 * time.Second,
 	}
 	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		skipTokenExpireCheck = true
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	proxyID := "proxy1-id"
@@ -100,16 +100,16 @@ func TestGetSecret(t *testing.T) {
 
 func TestRefreshSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
-	skipTokenExpireCheck = false
 	opt := Options{
 		SecretTTL:        300 * time.Microsecond,
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
 	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		skipTokenExpireCheck = true
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	_, err := sc.GetSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
