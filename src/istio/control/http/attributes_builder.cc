@@ -111,34 +111,6 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
                           origin.raw_claims());
       }
     }
-    return;
-  }
-
-  // Fallback to extract from jwt filter directly. This can be removed once
-  // authn filter is in place.
-  std::map<std::string, std::string> payload;
-  if (check_data->GetJWTPayload(&payload) && !payload.empty()) {
-    // Populate auth attributes.
-    if (payload.count("iss") > 0 && payload.count("sub") > 0) {
-      builder.AddString(utils::AttributeName::kRequestAuthPrincipal,
-                        payload["iss"] + "/" + payload["sub"]);
-    }
-    if (payload.count("aud") > 0) {
-      builder.AddString(utils::AttributeName::kRequestAuthAudiences,
-                        payload["aud"]);
-    }
-    if (payload.count("azp") > 0) {
-      builder.AddString(utils::AttributeName::kRequestAuthPresenter,
-                        payload["azp"]);
-    }
-    builder.AddStringMap(utils::AttributeName::kRequestAuthClaims, payload);
-  }
-  std::string source_user;
-  if (check_data->GetPrincipal(true, &source_user)) {
-    // TODO(diemtvu): remove kSourceUser once migration to source.principal is
-    // over. https://github.com/istio/istio/issues/4689
-    builder.AddString(utils::AttributeName::kSourceUser, source_user);
-    builder.AddString(utils::AttributeName::kSourcePrincipal, source_user);
   }
 }  // namespace http
 

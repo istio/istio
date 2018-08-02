@@ -15,6 +15,7 @@
 
 #include "src/istio/control/http/attributes_builder.h"
 
+#include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
@@ -35,6 +36,88 @@ namespace istio {
 namespace control {
 namespace http {
 namespace {
+
+MATCHER_P(EqualsAttribute, expected, "") {
+  const auto matched = MessageDifferencer::Equals(arg, expected);
+  if (!matched) {
+    std::string out_str;
+    TextFormat::PrintToString(arg, &out_str);
+    GOOGLE_LOG(INFO) << "\n===" << out_str << "===";
+  }
+  return matched;
+}
+const char kCheckAttributesWithoutAuthnFilter[] = R"(
+attributes {
+  key: "connection.mtls"
+  value {
+    bool_value: true
+  }
+}
+attributes {
+  key: "connection.requested_server_name"
+  value {
+    string_value: "www.google.com"
+  }
+}
+attributes {
+  key: "context.protocol"
+  value {
+    string_value: "http"
+  }
+}
+attributes {
+  key: "destination.principal"
+  value {
+    string_value: "destination_user"
+  }
+}
+attributes {
+  key: "origin.ip"
+  value {
+    bytes_value: "1.2.3.4"
+  }
+}
+attributes {
+  key: "request.headers"
+  value {
+    string_map_value {
+      entries {
+        key: "host"
+        value: "localhost"
+      }
+      entries {
+        key: "path"
+        value: "/books"
+      }
+    }
+  }
+}
+attributes {
+  key: "request.host"
+  value {
+    string_value: "localhost"
+  }
+}
+attributes {
+  key: "request.path"
+  value {
+    string_value: "/books"
+  }
+}
+attributes {
+  key: "request.scheme"
+  value {
+    string_value: "http"
+  }
+}
+attributes {
+  key: "request.time"
+  value {
+    timestamp_value {
+    }
+  }
+}
+)";
 
 const char kCheckAttributes[] = R"(
 attributes {
@@ -172,6 +255,12 @@ attributes {
     string_value: "thisisiss/thisissub"
   }
 }
+attributes {
+  key: "request.auth.raw_claims"
+  value {
+    string_value: "test_raw_claims"
+  }
+}
 )";
 
 const char kReportAttributes[] = R"(
@@ -265,7 +354,7 @@ TEST(AttributesBuilderTest, TestExtractForwardedAttributes) {
   Attributes attr;
   (*attr.mutable_attributes())["test_key"].set_string_value("test_value");
 
-  ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::StrictMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, ExtractIstioAttributes(_))
       .WillOnce(Invoke([&attr](std::string *data) -> bool {
         attr.SerializeToString(data);
@@ -275,12 +364,12 @@ TEST(AttributesBuilderTest, TestExtractForwardedAttributes) {
   RequestContext request;
   AttributesBuilder builder(&request);
   builder.ExtractForwardedAttributes(&mock_data);
-  EXPECT_TRUE(MessageDifferencer::Equals(request.attributes, attr));
+  EXPECT_THAT(request.attributes, EqualsAttribute(attr));
 }
 
 TEST(AttributesBuilderTest, TestForwardAttributes) {
   Attributes forwarded_attr;
-  ::testing::NiceMock<MockHeaderUpdate> mock_header;
+  ::testing::StrictMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_header, AddIstioAttributes(_))
       .WillOnce(Invoke([&forwarded_attr](const std::string &data) {
         EXPECT_TRUE(forwarded_attr.ParseFromString(data));
@@ -291,11 +380,14 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
       "test_value");
 
   AttributesBuilder::ForwardAttributes(origin_attr, &mock_header);
-  EXPECT_TRUE(MessageDifferencer::Equals(origin_attr, forwarded_attr));
+  EXPECT_THAT(forwarded_attr, EqualsAttribute(origin_attr));
 }
 
-TEST(AttributesBuilderTest, TestCheckAttributes) {
-  ::testing::NiceMock<MockCheckData> mock_data;
+TEST(AttributesBuilderTest, TestCheckAttributesWithoutAuthnFilter) {
+  // In production, it is expected that authn filter always available whenver
+  // mTLS or JWT is in used. This test case merely for completness to illustrate
+  // what attributes are populated if authn filter is missing.
+  ::testing::StrictMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetPrincipal(_, _))
       .WillRepeatedly(Invoke([](bool peer, std::string *user) -> bool {
         if (peer) {
@@ -340,17 +432,6 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
           }));
   EXPECT_CALL(mock_data, GetAuthenticationResult(_))
       .WillOnce(testing::Return(false));
-  EXPECT_CALL(mock_data, GetJWTPayload(_))
-      .WillOnce(Invoke([](std::map<std::string, std::string> *payload) -> bool {
-        (*payload)["iss"] = "thisisiss";
-        (*payload)["sub"] = "thisissub";
-        (*payload)["aud"] = "thisisaud";
-        (*payload)["azp"] = "thisisazp";
-        (*payload)["email"] = "thisisemail@email.com";
-        (*payload)["iat"] = "1512754205";
-        (*payload)["exp"] = "5112754205";
-        return true;
-      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -358,19 +439,14 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 
   ClearContextTime(utils::AttributeName::kRequestTime, &request);
 
-  std::string out_str;
-  TextFormat::PrintToString(request.attributes, &out_str);
-  GOOGLE_LOG(INFO) << "===" << out_str << "===";
-
   Attributes expected_attributes;
-  ASSERT_TRUE(
-      TextFormat::ParseFromString(kCheckAttributes, &expected_attributes));
-  EXPECT_TRUE(
-      MessageDifferencer::Equals(request.attributes, expected_attributes));
+  ASSERT_TRUE(TextFormat::ParseFromString(kCheckAttributesWithoutAuthnFilter,
+                                          &expected_attributes));
+  EXPECT_THAT(request.attributes, EqualsAttribute(expected_attributes));
 }
 
-TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
-  ::testing::NiceMock<MockCheckData> mock_data;
+TEST(AttributesBuilderTest, TestCheckAttributes) {
+  ::testing::StrictMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, IsMutualTLS()).WillOnce(Invoke([]() -> bool {
     return true;
   }));
@@ -437,27 +513,14 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithAuthNResult) {
 
   ClearContextTime(utils::AttributeName::kRequestTime, &request);
 
-  std::string out_str;
-  TextFormat::PrintToString(request.attributes, &out_str);
-  GOOGLE_LOG(INFO) << "===" << out_str << "===";
-
   Attributes expected_attributes;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kCheckAttributes, &expected_attributes));
-  // kCheckAttributes is also used in TestCheckAttributes, which is a deprecated
-  // way to construct mixer attribute (it was a fallback when authn filter is
-  // not available, which can be removed after 0.8). For now, modifying expected
-  // data manually for this test.
-  (*expected_attributes
-        .mutable_attributes())[utils::AttributeName::kRequestAuthRawClaims]
-      .set_string_value("test_raw_claims");
-
-  EXPECT_TRUE(
-      MessageDifferencer::Equals(request.attributes, expected_attributes));
+  EXPECT_THAT(request.attributes, EqualsAttribute(expected_attributes));
 }
 
 TEST(AttributesBuilderTest, TestReportAttributes) {
-  ::testing::NiceMock<MockReportData> mock_data;
+  ::testing::StrictMock<MockReportData> mock_data;
   EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
       .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
         *ip = "1.2.3.4";
@@ -498,10 +561,6 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
 
   ClearContextTime(utils::AttributeName::kResponseTime, &request);
 
-  std::string out_str;
-  TextFormat::PrintToString(request.attributes, &out_str);
-  GOOGLE_LOG(INFO) << "===" << out_str << "===";
-
   Attributes expected_attributes;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
@@ -514,18 +573,18 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
   (*expected_attributes
         .mutable_attributes())[utils::AttributeName::kResponseGrpcMessage]
       .set_string_value("grpc-message");
-  EXPECT_TRUE(
-      MessageDifferencer::Equals(request.attributes, expected_attributes));
+  EXPECT_THAT(request.attributes, EqualsAttribute(expected_attributes));
 }
 
 TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
-  ::testing::NiceMock<MockReportData> mock_data;
+  ::testing::StrictMock<MockReportData> mock_data;
   EXPECT_CALL(mock_data, GetDestinationIpPort(_, _))
       .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
         *ip = "2.3.4.5";
         *port = 8080;
         return true;
       }));
+  EXPECT_CALL(mock_data, GetDestinationUID(_)).WillOnce(testing::Return(false));
   EXPECT_CALL(mock_data, GetResponseHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
@@ -542,6 +601,7 @@ TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
         info->duration = std::chrono::nanoseconds(1);
         info->response_code = 404;
       }));
+  EXPECT_CALL(mock_data, GetGrpcStatus(_)).WillOnce(testing::Return(false));
 
   RequestContext request;
   SetDestinationIp(&request, "1.2.3.4");
@@ -550,15 +610,10 @@ TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
 
   ClearContextTime(utils::AttributeName::kResponseTime, &request);
 
-  std::string out_str;
-  TextFormat::PrintToString(request.attributes, &out_str);
-  GOOGLE_LOG(INFO) << "===" << out_str << "===";
-
   Attributes expected_attributes;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kReportAttributes, &expected_attributes));
-  EXPECT_TRUE(
-      MessageDifferencer::Equals(request.attributes, expected_attributes));
+  EXPECT_THAT(request.attributes, EqualsAttribute(expected_attributes));
 }
 
 }  // namespace
