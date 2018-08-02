@@ -32,11 +32,17 @@ var (
 	cacheOptions  cache.Options
 	serverOptions sds.Options
 
-	// RootCmd defines the command for node agent.
-	RootCmd = &cobra.Command{
+	loggingOptions = log.DefaultOptions()
+
+	// rootCmd defines the command for node agent.
+	rootCmd = &cobra.Command{
 		Use:   "nodeagent",
 		Short: "Node agent",
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
+
 			stop := make(chan struct{})
 
 			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CARootFile)
@@ -62,27 +68,30 @@ var (
 )
 
 func init() {
-	RootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
+	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
-	RootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", "prod-istioca.sandbox.googleapis.com:443", "CA endpoint")
-	RootCmd.PersistentFlags().StringVar(&serverOptions.CARootFile, "caRootFile", "/etc/istio/roots.pem",
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", "prod-istioca.sandbox.googleapis.com:443", "CA endpoint")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CARootFile, "caRootFile", "/etc/istio/roots.pem",
 		"path of CA file for setup channel credential to CA endpoint.")
 
 	//local test through TLS using '/etc/istio/nodeagent-sds-cert.pem' and '/etc/istio/nodeagent-sds-key.pem'
-	RootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
-	RootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
 
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
+	rootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
 		time.Hour, "Secret's TTL")
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval",
+	rootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval",
 		10*time.Minute, "Secret rotation job running interval")
-	RootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration",
+	rootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
+
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
 }
 
 func main() {
-	if err := RootCmd.Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		log.Errora(err)
 		os.Exit(1)
 	}
