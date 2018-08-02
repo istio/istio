@@ -395,3 +395,15 @@ func TestCleanup_ClosePanic(t *testing.T) {
 		t.Fatalf("Adapter log mismatch: '%v' != '%v'", l.String(), expected)
 	}
 }
+
+func TestString(t *testing.T) {
+	l := &data.Logger{}
+	adapters := data.BuildAdapters(l, data.FakeAdapterSettings{Name: "acheck"})
+	templates := data.BuildTemplates(nil)
+
+	s, _ := config.GetSnapshotForTest(templates, adapters, data.ServiceConfig, globalCfg)
+	table := NewTable(Empty(), s, nil)
+
+	// Make sure it doesn't crash.
+	_ = table.String()
+}
