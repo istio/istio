@@ -150,7 +150,7 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate(t time.Time) {
-	log.Debug("Refresh job runs")
+	log.Debug("Refresh job running")
 
 	sc.secrets.Range(func(key interface{}, value interface{}) bool {
 		proxyID := key.(string)

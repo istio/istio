@@ -121,8 +121,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			if discReq.Node == nil {
-				log.Errorf("Invalid discovery request, node is nil")
-				return fmt.Errorf("invalid discovery request nil node")
+				log.Errorf("Invalid discovery request with no node")
+				return fmt.Errorf("invalid discovery request with no node")
 			}
 
 			log.Debugf("Received discovery request from %q", discReq.Node.Id)
