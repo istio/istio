@@ -17,6 +17,7 @@ package local
 import (
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 )
 
@@ -43,9 +44,9 @@ func New() *Implementation {
 	}
 }
 
-// EnvironmentName is the name of this environment implementation.
-func (e *Implementation) EnvironmentName() string {
-	return "local"
+// EnvironmentID is the name of this environment implementation.
+func (e *Implementation) EnvironmentID() settings.EnvironmentID {
+	return settings.Local
 }
 
 // Initialize the environment. This is called once during the lifetime of the suite.

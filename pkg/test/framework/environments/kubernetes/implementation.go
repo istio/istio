@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/internal"
+	"istio.io/istio/pkg/test/framework/settings"
 	"istio.io/istio/pkg/test/framework/tmpl"
 	"istio.io/istio/pkg/test/kube"
 )
@@ -66,9 +67,9 @@ func New() *Implementation {
 	return &Implementation{}
 }
 
-// EnvironmentName is the name of this environment implementation.
-func (e *Implementation) EnvironmentName() string {
-	return "kubernetes"
+// EnvironmentID is the name of this environment implementation.
+func (e *Implementation) EnvironmentID() settings.EnvironmentID {
+	return settings.Kubernetes
 }
 
 // Initialize the environment. This is called once during the lifetime of the suite.

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package kubernetes
+package kubernetes_test
 
 import (
 	"testing"
@@ -20,18 +20,24 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 )
 
 // TODO(nmittler): Remove from final code. This is just helpful for initial debugging.
 
-// These methods will only work if you already have an environment deployed with apps.
-func TestHttp(t *testing.T) {
-	e := Environment{
-		TestNamespace: "istio-system",
-	}
+const namespace = "istio-system"
 
-	a := e.GetAppOrFail("a", t)
-	b := e.GetAppOrFail("b", t)
+func TestHttp(t *testing.T) {
+	t.Skip("Skipping this test. Must be enabled manually.")
+
+	a, err := kubernetes.NewApp("a", namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := kubernetes.NewApp("b", namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	endpoint := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 	u := endpoint.MakeURL()

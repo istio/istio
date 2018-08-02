@@ -15,7 +15,7 @@
 package internal
 
 import (
-	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/settings"
 )
@@ -24,17 +24,21 @@ import (
 type TestContext struct {
 	settings settings.Settings
 	impl     environment.Implementation
-	Tracker  Tracker
+	// Tracker is visible for use from the driver.
+	Tracker *Tracker
+	// Registry is visible for use from the driver.
+	Registry *registry.Registry
 }
 
 var _ environment.ComponentContext = &TestContext{}
 
 // NewTestContext initializes and returns a new instance of TestContext.
-func NewTestContext(s settings.Settings, impl environment.Implementation) *TestContext {
+func NewTestContext(s settings.Settings, impl environment.Implementation, registry *registry.Registry) *TestContext {
 	return &TestContext{
 		settings: s,
 		impl:     impl,
-		Tracker:  make(map[dependency.Instance]interface{}),
+		Registry: registry,
+		Tracker:  newTracker(registry),
 	}
 }
 

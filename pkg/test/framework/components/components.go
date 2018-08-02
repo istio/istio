@@ -15,63 +15,26 @@
 package components
 
 import (
-	"fmt"
-
 	"istio.io/istio/pkg/test/framework/components/apiserver"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
-	"istio.io/istio/pkg/test/framework/dependency"
-	"istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/settings"
+	"istio.io/istio/pkg/test/framework/components/registry"
 )
 
-// All known test components.
-var All = newRegistry()
+// Local components
+var Local = registry.New()
+
+// Kubernetes components
+var Kubernetes = registry.New()
 
 func init() {
-	// Register all known components here.
-	All.register(dependency.APIServer, settings.Kubernetes, apiserver.InitKube)
-	All.register(dependency.Mixer, settings.Local, mixer.InitLocal)
-	All.register(dependency.Mixer, settings.Kubernetes, mixer.InitKube)
-	All.register(dependency.Pilot, settings.Local, pilot.InitLocal)
-	All.register(dependency.Pilot, settings.Kubernetes, pilot.InitKube)
-	All.register(dependency.PolicyBackend, settings.Local, policybackend.InitLocal)
-	All.register(dependency.PolicyBackend, settings.Kubernetes, policybackend.InitKube)
+	Local.Register(mixer.LocalComponent)
+	Local.Register(pilot.LocalComponent)
+	Local.Register(policybackend.LocalComponent)
+
+	Kubernetes.Register(apiserver.KubeComponent)
+	Kubernetes.Register(mixer.KubeComponent)
+	Kubernetes.Register(pilot.KubeComponent)
+	Kubernetes.Register(policybackend.KubeComponent)
 }
-
-// Registry of test components.
-type Registry struct {
-	initializers map[key]InitFn
-}
-
-type key struct {
-	dependency  dependency.Instance
-	environment string
-}
-
-// New registry is created and returned
-func newRegistry() *Registry {
-	return &Registry{
-		initializers: make(map[key]InitFn),
-	}
-}
-
-// Register a component.
-func (r *Registry) register(d dependency.Instance, e string, initFn InitFn) {
-	r.initializers[key{dependency: d, environment: e}] = initFn
-}
-
-// Init initializes the component with the given name, and returns its instance.
-func (r *Registry) Init(d dependency.Instance, ctx environment.ComponentContext) (interface{}, error) {
-	envName := ctx.Environment().EnvironmentName()
-	init, found := r.initializers[key{dependency: d, environment: envName}]
-	if !found {
-		return nil, fmt.Errorf("component not found: name:%q, environment:%q", d.String(), envName)
-	}
-
-	return init(ctx)
-}
-
-// InitFn is a function for initializing a registered component.
-type InitFn func(ctx environment.ComponentContext) (interface{}, error)
