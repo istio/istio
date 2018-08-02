@@ -33,7 +33,6 @@ var (
 )
 
 func TestGetSecret(t *testing.T) {
-	skipTokenExpireCheck = false
 	fakeCACli := newMockCAClient()
 	opt := Options{
 		SecretTTL:        time.Minute,
@@ -41,9 +40,10 @@ func TestGetSecret(t *testing.T) {
 		EvictionDuration: 2 * time.Second,
 	}
 	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		skipTokenExpireCheck = true
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	proxyID := "proxy1-id"
@@ -100,16 +100,16 @@ func TestGetSecret(t *testing.T) {
 
 func TestRefreshSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
-	skipTokenExpireCheck = false
 	opt := Options{
-		SecretTTL:        300 * time.Microsecond,
-		RotationInterval: 300 * time.Microsecond,
+		SecretTTL:        200 * time.Microsecond,
+		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
 	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
-		skipTokenExpireCheck = true
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
 	_, err := sc.GetSecret(context.Background(), "proxy1-id", fakeSpiffeID, "jwtToken1")
@@ -118,9 +118,9 @@ func TestRefreshSecret(t *testing.T) {
 	}
 
 	// Wait until key rotation job run to update cached secret.
-	wait := 400 * time.Millisecond
+	wait := 200 * time.Millisecond
 	retries := 0
-	for ; retries < 3; retries++ {
+	for ; retries < 5; retries++ {
 		time.Sleep(wait)
 		if atomic.LoadUint64(&sc.secretChangedCount) == uint64(0) {
 			// Retry after some sleep.
@@ -130,7 +130,7 @@ func TestRefreshSecret(t *testing.T) {
 
 		break
 	}
-	if retries == 3 {
+	if retries == 5 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
 	}
 }
