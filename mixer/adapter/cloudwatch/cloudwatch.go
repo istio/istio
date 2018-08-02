@@ -83,9 +83,10 @@ var (
 ///////////////// Configuration-time Methods ///////////////
 
 // newHandler initializes both cloudwatch and cloudwatchlogs handler
-func newHandler(metricTypes map[string]*metric.Type, logEntryTypes map[string]*logentry.Type, logEntryTemplates map[string]*template.Template, env adapter.Env, cfg *config.Params,
-	cloudwatch cloudwatchiface.CloudWatchAPI, cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI) adapter.Handler {
-	return &handler{metricTypes: metricTypes, logEntryTypes: logEntryTypes, logEntryTemplates: logEntryTemplates, env: env, cfg: cfg, cloudwatch: cloudwatch, cloudwatchlogs: cloudwatchlogs}
+func newHandler(metricTypes map[string]*metric.Type, logEntryTypes map[string]*logentry.Type, logEntryTemplates map[string]*template.Template,
+	env adapter.Env, cfg *config.Params, cloudwatch cloudwatchiface.CloudWatchAPI, cloudwatchlogs cloudwatchlogsiface.CloudWatchLogsAPI) adapter.Handler {
+	return &handler{metricTypes: metricTypes, logEntryTypes: logEntryTypes, logEntryTemplates: logEntryTemplates, env: env, cfg: cfg,
+		cloudwatch: cloudwatch, cloudwatchlogs: cloudwatchlogs}
 }
 
 // adapter.HandlerBuilder#Build
