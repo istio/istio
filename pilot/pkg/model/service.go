@@ -471,12 +471,6 @@ type ServiceAccounts interface {
 	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
 }
 
-// String returns Hostname as a string; Hostname is already an alias of a string, so this is really for convenience over
-// explicit casting.
-func (h Hostname) String() string {
-	return string(h)
-}
-
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:
 // - they're fully resolved (i.e. not wildcarded) and match exactly (i.e. an exact string match)
 // - one or both are wildcarded (e.g. "*.foo.com"), in which case we use wildcard resolution rules
@@ -681,7 +675,7 @@ func (s *Service) Key(port *Port, labels Labels) string {
 func ServiceKey(hostname Hostname, servicePorts PortList, labelsList LabelsCollection) string {
 	// example: name.namespace|http|env=prod;env=test,version=my-v1
 	var buffer bytes.Buffer
-	buffer.WriteString(hostname.String())
+	buffer.WriteString(string(hostname))
 	np := len(servicePorts)
 	nt := len(labelsList)
 

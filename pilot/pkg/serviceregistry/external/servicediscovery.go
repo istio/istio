@@ -142,7 +142,7 @@ func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*mode
 		for _, s := range svcs {
 			if s.Hostname == hostname {
 				return &model.ServiceAttributes{
-					Name:      hostname.String(),
+					Name:      string(hostname),
 					Namespace: config.Namespace}, nil
 			}
 		}
@@ -213,7 +213,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
 
-	instances, found := d.instances[hostname.String()]
+	instances, found := d.instances[string(hostname)]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
@@ -243,7 +243,7 @@ func (d *ServiceEntryStore) update() {
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
-			key := instance.Service.Hostname.String()
+			key := string(instance.Service.Hostname)
 			out, found := di[key]
 			if !found {
 				out = []*model.ServiceInstance{}

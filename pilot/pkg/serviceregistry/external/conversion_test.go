@@ -227,7 +227,7 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 	services := convertServices(serviceEntry, creationTime)
 	svc := services[0] // default
 	for _, s := range services {
-		if s.Hostname.String() == address {
+		if string(s.Hostname) == address {
 			svc = s
 			break
 		}

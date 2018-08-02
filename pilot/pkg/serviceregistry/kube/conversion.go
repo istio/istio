@@ -142,7 +142,7 @@ func KeyFunc(name, namespace string) string {
 
 // parseHostname extracts service name and namespace from the service hostname
 func parseHostname(hostname model.Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(hostname.String(), ".")
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 2 {
 		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
 		return

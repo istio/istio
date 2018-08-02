@@ -49,7 +49,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
 		name := ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)
-		names[name.String()] = true
+		names[string(name)] = true
 
 		gateway := spec.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
