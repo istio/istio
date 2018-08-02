@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var arguments = defaultArgs()
+var settings = defaultSettings()
 var showHelp = false
 var logOptions = log.DefaultOptions()
 
@@ -54,7 +54,7 @@ func init() {
 
 func processFlags() error {
 	// First, apply the environment variables.
-	applyEnvironmentVariables(arguments)
+	applyEnvironmentVariables(settings)
 
 	flag.Parse()
 	if err := cmdForLog.PersistentFlags().Parse(os.Args[1:]); err != nil {
@@ -80,27 +80,27 @@ func processFlags() error {
 	// Capture environment variables
 	hub := os.Getenv("HUB")
 	tag := os.Getenv("TAG")
-	arguments.Hub = hub
-	arguments.Tag = tag
+	settings.Hub = hub
+	settings.Tag = tag
 
 	return nil
 }
 
 func attachFlags(stringVar func(*string, string, string, string), boolVar func(*bool, string, bool, string)) {
-	stringVar(&arguments.WorkDir, "work_dir", os.TempDir(),
+	stringVar(&settings.WorkDir, "work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	stringVar(&arguments.Environment, "environment", arguments.Environment,
+	stringVar((*string)(&settings.Environment), "environment", string(settings.Environment),
 		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
 			Local, Kubernetes))
 
-	stringVar(&arguments.KubeConfig, "config", arguments.KubeConfig,
+	stringVar(&settings.KubeConfig, "config", settings.KubeConfig,
 		"The path to the kube config file for cluster environments")
 
 	boolVar(&showHelp, "hh", showHelp,
 		"Show the help page for the test framework")
 
-	boolVar(&arguments.NoCleanup, "no-cleanup", arguments.NoCleanup, "Do not cleanup resources after test completion")
+	boolVar(&settings.NoCleanup, "no-cleanup", settings.NoCleanup, "Do not cleanup resources after test completion")
 }
 
 func doShowHelp() {
@@ -124,6 +124,6 @@ func applyEnvironmentVariables(a *Settings) {
 	}
 
 	if ISTIO_TEST_ENVIRONMENT.Value() != "" {
-		a.Environment = ISTIO_TEST_ENVIRONMENT.Value()
+		a.Environment = EnvironmentID(ISTIO_TEST_ENVIRONMENT.Value())
 	}
 }

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
@@ -41,20 +42,29 @@ const (
 	pilotAdsPort = 15010
 )
 
-type localPilot struct {
-	*pilotClient
-	model.ConfigStoreCache
-	server   *bootstrap.Server
-	stopChan chan struct{}
+var (
+	// LocalComponent is a component for the local environment.
+	LocalComponent = &localComponent{}
+
+	// KubeComponent is a component for the Kubernetes environment.
+	KubeComponent = &kubeComponent{}
+)
+
+type localComponent struct {
 }
 
-type kubePilot struct {
-	*pilotClient
-	forwarder *kube.PortForwarder
+// ID implements the component.Component interface.
+func (c *localComponent) ID() dependency.Instance {
+	return dependency.Pilot
 }
 
-// InitLocal initializes a new pilot instance for the local environment
-func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
+// Requires implements the component.Component interface.
+func (c *localComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -63,8 +73,21 @@ func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
 	return NewLocalPilot(e.IstioSystemNamespace)
 }
 
-// InitKube initializes a new Pilot component for the kubernetes environment.
-func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+type kubeComponent struct {
+}
+
+// ID implements the component.Component interface.
+func (c *kubeComponent) ID() dependency.Instance {
+	return dependency.Mixer
+}
+
+// Requires implements the component.Component interface.
+func (c *kubeComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -76,6 +99,18 @@ func InitKube(ctx environment.ComponentContext) (interface{}, error) {
 	}
 
 	return NewKubePilot(ctx.Settings().KubeConfig, pod.Namespace, pod.Name)
+}
+
+type localPilot struct {
+	*pilotClient
+	model.ConfigStoreCache
+	server   *bootstrap.Server
+	stopChan chan struct{}
+}
+
+type kubePilot struct {
+	*pilotClient
+	forwarder *kube.PortForwarder
 }
 
 // NewLocalPilot creates a new pilot for the local environment.

@@ -23,21 +23,24 @@ import (
 	"istio.io/istio/pkg/test/framework/errors"
 )
 
+// EnvironmentID is a unique identifier for a testing environment.
+type EnvironmentID string
+
 const (
 	// MaxTestIDLength is the maximum length allowed for testID.
 	MaxTestIDLength = 30
 
-	// Local environment name
-	Local = "local"
+	// Local environment identifier
+	Local = EnvironmentID("local")
 
-	// Kubernetes environment name
-	Kubernetes = "kubernetes"
+	// Kubernetes environment identifier
+	Kubernetes = EnvironmentID("kubernetes")
 )
 
 // Settings is the set of arguments to the test driver.
 type Settings struct {
 	// Environment to run the tests in. By default, a local environment will be used.
-	Environment string
+	Environment EnvironmentID
 
 	// Path to kube config file. Required if the environment is kubernetes.
 	KubeConfig string
@@ -69,7 +72,7 @@ func New(testID string) (*Settings, error) {
 	}
 
 	// Make a local copy.
-	s := *arguments
+	s := *settings
 	s.TestID = testID
 	s.RunID = generateRunID(testID)
 
@@ -80,8 +83,8 @@ func New(testID string) (*Settings, error) {
 	return &s, nil
 }
 
-// defaultArgs returns the default set of arguments.
-func defaultArgs() *Settings {
+// defaultSettings returns the default set of arguments.
+func defaultSettings() *Settings {
 	return &Settings{
 		Environment: Local,
 	}
@@ -93,11 +96,11 @@ func (a *Settings) Validate() error {
 	case Local, Kubernetes:
 
 	default:
-		return errors.UnrecognizedEnvironment(a.Environment)
+		return errors.UnrecognizedEnvironment(string(a.Environment))
 	}
 
 	if a.Environment == Kubernetes && a.KubeConfig == "" {
-		return errors.MissingKubeConfigForEnvironment(Kubernetes, ISTIO_TEST_KUBE_CONFIG.Name())
+		return errors.MissingKubeConfigForEnvironment(string(Kubernetes), ISTIO_TEST_KUBE_CONFIG.Name())
 	}
 
 	if a.TestID == "" || len(a.TestID) > MaxTestIDLength {

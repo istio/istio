@@ -17,7 +17,6 @@ package policybackend
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -26,8 +25,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 
+	"io"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/fakes/policy"
+	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
@@ -35,9 +37,22 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
-var scope = log.RegisterScope("policybackend", "Policy backend test component", 0)
+var (
+	// LocalComponent is a component for the local environment.
+	LocalComponent = &localComponent{}
 
-const template = `
+	// KubeComponent is a component for the Kubernetes environment.
+	KubeComponent = &kubeComponent{}
+
+	scope                                   = log.RegisterScope("policybackend", "Policy backend test component", 0)
+	_     environment.DeployedPolicyBackend = &policyBackend{}
+	_     io.Closer                         = &policyBackend{}
+)
+
+const (
+	waitTime      = time.Second * 15
+	sleepDuration = time.Millisecond * 10
+	template      = `
 # Test Policy Backend
 apiVersion: v1
 kind: Service
@@ -80,25 +95,23 @@ spec:
           initialDelaySeconds: 1
 ---
 `
+)
 
-type policyBackend struct {
-	address             string
-	dependencyNamespace string
-	controller          *policy.Controller
-	forwarder           *kube.PortForwarder
-
-	// local only settings
-	port    int
-	backend *policy.Backend
-
-	local bool
+type localComponent struct {
 }
 
-var _ environment.DeployedPolicyBackend = &policyBackend{}
-var _ io.Closer = &policyBackend{}
+// ID implements the component.Component interface.
+func (c *localComponent) ID() dependency.Instance {
+	return dependency.Pilot
+}
 
-// InitLocal initializes a new Policy Backend component for the local environment.
-func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
+// Requires implements the component.Component interface.
+func (c *localComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	_, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -126,8 +139,21 @@ func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
 	}, nil
 }
 
-// InitKube initializes a new Mixer component for the kubernetes environment.
-func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+type kubeComponent struct {
+}
+
+// ID implements the component.Component interface.
+func (c *kubeComponent) ID() dependency.Instance {
+	return dependency.Mixer
+}
+
+// Requires implements the component.Component interface.
+func (c *kubeComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -191,6 +217,19 @@ func InitKube(ctx environment.ComponentContext) (interface{}, error) {
 	}, nil
 }
 
+type policyBackend struct {
+	address             string
+	dependencyNamespace string
+	controller          *policy.Controller
+	forwarder           *kube.PortForwarder
+
+	// local only settings
+	port    int
+	backend *policy.Backend
+
+	local bool
+}
+
 // DenyCheck implementation
 func (p *policyBackend) DenyCheck(t testing.TB, deny bool) {
 	t.Helper()
@@ -248,9 +287,6 @@ func jsonStringsToMaps(t testing.TB, arr []string) []map[string]interface{} {
 
 	return result
 }
-
-const waitTime = time.Second * 15
-const sleepDuration = time.Millisecond * 10
 
 func (p *policyBackend) accumulateReports(t testing.TB, count int) []proto.Message {
 	start := time.Now()

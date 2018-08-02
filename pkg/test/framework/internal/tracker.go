@@ -19,7 +19,11 @@ import (
 
 	"go.uber.org/multierr"
 
+	"fmt"
+
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/component"
+	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 )
@@ -27,32 +31,62 @@ import (
 var scope = log.RegisterScope("testframework", "General scope for the test framework", 0)
 
 // Tracker keeps track of the state information for dependencies
-type Tracker map[dependency.Instance]interface{}
+type Tracker struct {
+	depMap   map[dependency.Instance]interface{}
+	registry *registry.Registry
+}
 
-// DependencyInitFn is an external function for initializing a dependency.
-type DependencyInitFn func(dep dependency.Instance, env environment.ComponentContext) (interface{}, error)
+func newTracker(registry *registry.Registry) *Tracker {
+	return &Tracker{
+		depMap:   make(map[dependency.Instance]interface{}),
+		registry: registry,
+	}
+}
 
 // Initialize a test dependency and start tracking it.
-func (t Tracker) Initialize(dep dependency.Instance, ctx environment.ComponentContext, fn DependencyInitFn) error {
-	if _, ok := t[dep]; ok {
-		scope.Debugf("Dependency already initialized: %v", dep)
-		return nil
+func (t *Tracker) Initialize(ctx environment.ComponentContext, c component.Component) (interface{}, error) {
+	id := c.ID()
+	if s, ok := t.depMap[id]; ok {
+		// Already initialized.
+		return s, nil
 	}
 
-	s, err := fn(dep, ctx)
+	// Make sure all dependencies of the component are initialized first.
+	depMap := make(map[dependency.Instance]interface{})
+	for _, depID := range c.Requires() {
+		depComp, ok := t.registry.Get(depID)
+		if !ok {
+			return nil, fmt.Errorf("unable to resolve dependency %s for component %s", depID, id)
+		}
+
+		// TODO(nmittler): We might want to protect against circular dependencies.
+		s, err := t.Initialize(ctx, depComp)
+		if err != nil {
+			return nil, err
+		}
+
+		depMap[depID] = s
+	}
+
+	s, err := c.Init(ctx, depMap)
 	if err != nil {
-		scope.Errorf("Error initializing dependency '%v': %v", dep, err)
-		return err
+		return nil, err
 	}
 
-	t[dep] = s
-	return nil
+	t.depMap[id] = s
+	return s, nil
+}
+
+// Get the tracked resource with the given ID.
+func (t *Tracker) Get(id dependency.Instance) (interface{}, bool) {
+	s, ok := t.depMap[id]
+	return s, ok
 }
 
 // All returns all tracked resources.
-func (t Tracker) All() []interface{} {
-	r := make([]interface{}, 0, len(t))
-	for _, s := range t {
+func (t *Tracker) All() []interface{} {
+	r := make([]interface{}, 0, len(t.depMap))
+	for _, s := range t.depMap {
 		r = append(r, s)
 	}
 
@@ -60,10 +94,10 @@ func (t Tracker) All() []interface{} {
 }
 
 // Reset the all Resettable resources.
-func (t Tracker) Reset() error {
+func (t *Tracker) Reset() error {
 	var er error
 
-	for k, v := range t {
+	for k, v := range t.depMap {
 		if cl, ok := v.(Resettable); ok {
 			scope.Debugf("Resetting state for dependency: %s", k)
 			if err := cl.Reset(); err != nil {
@@ -77,8 +111,8 @@ func (t Tracker) Reset() error {
 }
 
 // Cleanup closes all resources that implement io.Closer
-func (t Tracker) Cleanup() {
-	for k, v := range t {
+func (t *Tracker) Cleanup() {
+	for k, v := range t.depMap {
 		if cl, ok := v.(io.Closer); ok {
 			scope.Debugf("Cleaning up state for dependency: %s", k)
 			if err := cl.Close(); err != nil {
@@ -87,7 +121,7 @@ func (t Tracker) Cleanup() {
 		}
 	}
 
-	for k := range t {
-		delete(t, k)
+	for k := range t.depMap {
+		delete(t.depMap, k)
 	}
 }

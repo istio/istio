@@ -98,8 +98,8 @@ type (
 	// Implementation is a tagging interface for the underlying environment specific implementation (i.e.
 	// kubernetes or local environment specific implementation).
 	Implementation interface {
-		// EnvironmentName is the name of the implemented environment.
-		EnvironmentName() string
+		// EnvironmentID is the unique ID of the implemented environment.
+		EnvironmentID() settings.EnvironmentID
 	}
 
 	// Deployed represents a deployed component

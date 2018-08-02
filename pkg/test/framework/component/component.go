@@ -12,25 +12,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package errors
+package component
 
 import (
-	"fmt"
+	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
-// UnrecognizedEnvironment error
-func UnrecognizedEnvironment(env string) error {
-	return fmt.Errorf("unrecognized environment: %q", env)
-}
-
-// MissingKubeConfigForEnvironment error
-func MissingKubeConfigForEnvironment(env string, envvar string) error {
-	return fmt.Errorf(
-		"environment %q requires kube configuration (can be specified from command-line, or with %s)",
-		env, envvar)
-}
-
-// InvalidTestID error
-func InvalidTestID(maxLength int) error {
-	return fmt.Errorf("testID must be non-empty and cannot be longer than %d characters", maxLength)
+// Component defines the interface for a component of the test framework.
+type Component interface {
+	// ID returns the unique identifier for this component.
+	ID() dependency.Instance
+	// Requires returns all components that are required by this component.
+	Requires() []dependency.Instance
+	// Init creates a new resource that is initialized for the given environment.
+	Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error)
 }

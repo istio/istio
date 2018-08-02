@@ -17,16 +17,33 @@ package apiserver
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/kube"
 )
 
-// InitKube initializes a new API Server component for the kubernetes environment.
-func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+// KubeComponent is a framework component for the Kubernetes API server.
+var KubeComponent = &kubeComponent{}
+
+type kubeComponent struct {
+}
+
+// ID implements the component.Component interface.
+func (c *kubeComponent) ID() dependency.Instance {
+	return dependency.APIServer
+}
+
+// Requires implements the component.Component interface.
+func (c *kubeComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	kubeEnv, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentName())
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	return &deployedAPIServer{
