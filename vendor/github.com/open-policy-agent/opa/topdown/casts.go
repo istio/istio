@@ -5,7 +5,6 @@
 package topdown
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -28,7 +27,7 @@ func builtinToNumber(a ast.Value) (ast.Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return ast.Number(json.Number(a)), nil
+		return ast.Number(a), nil
 	}
 	return nil, builtins.NewOperandTypeErr(1, a, "null", "boolean", "number", "string")
 }

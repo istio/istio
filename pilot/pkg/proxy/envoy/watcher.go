@@ -95,8 +95,6 @@ func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role model.Pro
 const (
 	// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
 	defaultMinDelay = 10 * time.Second
-	azRetryInterval = time.Second * 30
-	azRetryAttempts = 10
 )
 
 func (w *watcher) Run(ctx context.Context) {
@@ -113,7 +111,6 @@ func (w *watcher) Run(ctx context.Context) {
 	}
 
 	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
-	go w.retrieveAZ(ctx, azRetryInterval, azRetryAttempts)
 
 	<-ctx.Done()
 }
@@ -125,28 +122,6 @@ func (w *watcher) Reload() {
 	}
 
 	w.agent.ScheduleConfigUpdate(h.Sum(nil))
-}
-
-// retrieveAZ will only run once and then exit because AZ won't change over a proxy's lifecycle
-// it has to use a reload due to limitations with envoy (az has to be passed in as a flag)
-func (w *watcher) retrieveAZ(ctx context.Context, delay time.Duration, retries int) {
-	if !model.IsApplicationNodeType(w.role.Type) {
-		return
-	}
-	if len(w.config.AvailabilityZone) > 0 {
-		return // already loaded
-	}
-
-	checkin, err := bootstrap.Checkin(w.config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-		w.config.DiscoveryAddress, w.config.ServiceCluster, w.role.ServiceNode(), delay, retries)
-	if err != nil {
-		// TODO: turn back on when fully implemented, commented out to avoid confusing users
-		// log.Errorf("Failed to connect to pilot. Fallback to starting with defaults and no AZ %v", err)
-		// TODO: should we exit ? Envoy is unlikely to start without pilot.
-	} else {
-		w.config.AvailabilityZone = checkin.AvailabilityZone
-		w.Reload()
-	}
 }
 
 type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
@@ -370,7 +345,13 @@ func (proxy envoy) Cleanup(epoch int) {
 	}
 }
 
-func (proxy envoy) Panic(_ interface{}) {
+func (proxy envoy) Panic(epoch interface{}) {
 	log.Error("cannot start the proxy with the desired configuration")
+	if epochInt, ok := epoch.(int); ok {
+		// print the failed config file
+		filePath := configFile(proxy.config.ConfigPath, epochInt)
+		b, _ := ioutil.ReadFile(filePath)
+		log.Errorf(string(b))
+	}
 	os.Exit(-1)
 }

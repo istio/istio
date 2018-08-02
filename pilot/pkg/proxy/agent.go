@@ -230,7 +230,7 @@ func (a *agent) Run(ctx context.Context) {
 						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
 					} else {
 						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
-						a.proxy.Panic(a.desiredConfig)
+						a.proxy.Panic(status.epoch)
 						return
 					}
 				} else {

@@ -1,25 +1,26 @@
 dependencies:
   - name: sidecarInjectorWebhook
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../sidecarInjectorWebhook
     condition: sidecarInjectorWebhook.enabled
   - name: security
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../security
+    condition: security.enabled
   - name: ingress
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../ingress
     condition: ingress.enabled
   - name: gateways
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../gateways
     condition: gateways.enabled
   - name: mixer
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../mixer
     condition: mixer.enabled
   - name: pilot
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../pilot
     condition: pilot.enabled
   - name: grafana
@@ -38,9 +39,12 @@ dependencies:
     version: 0.1.0
     condition: tracing.enabled
   - name: galley
-    version: 0.8.0
+    version: 1.0.0
     # repository: file://../galley
     condition: galley.enabled
   - name: kiali
-    version: 0.3.0.Alpha
+    version: 0.5.1
     condition: kiali.enabled
+  - name: certmanager
+    version: 0.1.0
+    condition: certmanager.enabled

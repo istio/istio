@@ -200,24 +200,35 @@ function merge_files_docker() {
   cat $SRC/istio.yaml.tmpl >> $ISTIO
 
   # Merge bookinfo.sidecars.yaml sample file
-  SAMPLES_DEST=$DEST_DIR/samples/bookinfo/$TYPE
+  SAMPLES_DEST=$DEST_DIR/samples/bookinfo/platform/$TYPE
   BOOKINFO=${SAMPLES_DEST}/bookinfo.sidecars.yaml
 
   mkdir -p $SAMPLES_DEST
   echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $BOOKINFO
-  echo "# TO UPDATE, modify files in samples/bookinfo/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
+  echo "# TO UPDATE, modify files in samples/bookinfo/platform/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
   cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
 }
 
 function gen_platforms_files() {
-    for platform in consul eureka
+    for platform in consul
     do
         cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
-        cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+        cp -a $ROOT/samples/bookinfo/platform/$platform/templates/. $TEMP_DIR/templates/
         update_istio_install_docker
         merge_files_docker $platform
         rm -R $TEMP_DIR/templates
     done
+}
+
+function gen_citadel_extra_files() {
+    SRC_DIR=$ROOT/install/kubernetes/citadel_extras
+    DEST=$DEST_DIR/install/kubernetes
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    $SRC_DIR/istio-citadel-plugin-certs.yaml.tmpl > $DEST/istio-citadel-plugin-certs.yaml
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    $SRC_DIR/istio-citadel-with-health-check.yaml.tmpl > $DEST/istio-citadel-with-health-check.yaml
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    $SRC_DIR/istio-citadel-standalone.yaml.tmpl > $DEST/istio-citadel-standalone.yaml
 }
 
 #
@@ -248,5 +259,8 @@ update_istio_addons
 # Generate the istio*.yaml files
 gen_istio_files
 
-# Generate platform files (consul and eureka)
+# Generate platform files (consul)
 gen_platforms_files
+
+# Generate extra Citadel files from their templates
+gen_citadel_extra_files

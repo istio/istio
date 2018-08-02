@@ -144,6 +144,9 @@ spec:
     kind: {{.ShrtName}}
     plural: {{.PluralName}}
     singular: {{.ShrtName}}
+    categories:
+    - istio-io
+    - policy-istio-io
   scope: Namespaced
   version: {{.Version}}
 ---

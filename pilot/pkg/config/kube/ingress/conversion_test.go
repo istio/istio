@@ -21,9 +21,122 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	networking "istio.io/api/networking/v1alpha3"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
+
+func TestConversion(t *testing.T) {
+	ingress := v1beta1.Ingress{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Namespace: "mock", // goes into backend full name
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "my.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "my2.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test1.*",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "bar",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "my3.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test/*",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "bar",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	ingress2 := v1beta1.Ingress{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Namespace: "mock",
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "my.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test2",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	cfgs := map[string]*model.Config{}
+	ConvertIngressVirtualService(ingress, "mydomain", cfgs)
+	ConvertIngressVirtualService(ingress2, "mydomain", cfgs)
+
+	if len(cfgs) != 3 {
+		t.Error("VirtualServices, expected 3 got ", len(cfgs))
+	}
+
+	for n, cfg := range cfgs {
+		// Not clear if this is right - should probably be under input ns
+		if cfg.ConfigMeta.Namespace != "istio-system" {
+			t.Errorf("Expected istio-system namespace")
+		}
+
+		vs := cfg.Spec.(*networking.VirtualService)
+
+		t.Log(vs)
+		if n == "my.host.com" {
+			if vs.Hosts[0] != "my.host.com" {
+				t.Error("Unexpected host", vs)
+			}
+			if len(vs.Http) != 2 {
+				t.Error("Unexpected rules", vs.Http)
+			}
+		}
+	}
+}
 
 func TestDecodeIngressRuleName(t *testing.T) {
 	cases := []struct {

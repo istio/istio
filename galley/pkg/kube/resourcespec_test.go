@@ -67,3 +67,20 @@ func TestInfo_GroupVersion(t *testing.T) {
 		t.Fatalf("Mismatch.\nActual:\n%v\nExpected:\n%v\n", gv, expected)
 	}
 }
+
+func TestInfo_CanonicalResourceName(t *testing.T) {
+	i := ResourceSpec{
+		Version:  "version",
+		Kind:     "kind",
+		Group:    "group",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+	}
+
+	actual := i.CanonicalResourceName()
+	expected := "plural.group/version"
+	if actual != expected {
+		t.Fatalf("Mismatch.\nActual:\n%q\nExpected:\n%q\n", actual, expected)
+	}
+}

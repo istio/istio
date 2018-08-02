@@ -50,7 +50,7 @@ var (
 	configPath               string
 	binaryPath               string
 	serviceCluster           string
-	availabilityZone         string
+	availabilityZone         string // TODO: remove me?
 	drainDuration            time.Duration
 	parentShutdownDuration   time.Duration
 	discoveryAddress         string
@@ -159,10 +159,17 @@ var (
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
-					} else {
+					} else if len(parts) == 2 {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
+					} else {
+						// discovery address is a remote address. For remote clusters
+						// only support the default config, or env variable
+						ns = os.Getenv("ISTIO_NAMESPACE")
+						if ns == "" {
+							ns = "istio-system"
+						}
 					}
 				}
 				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
@@ -262,8 +269,8 @@ func timeDuration(dur *duration.Duration) time.Duration {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s, %s}",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.EurekaRegistry,
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s}",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
 			serviceregistry.CloudFoundryRegistry, serviceregistry.ZookeeperRegistry, serviceregistry.MockRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
