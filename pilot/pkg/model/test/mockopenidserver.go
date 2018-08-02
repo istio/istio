@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -29,8 +30,9 @@ import (
 )
 
 var (
-	portBase   uint16 = 20000
-	cfgContent        = "{\"jwks_uri\": \"%s\"}"
+	portBase    uint16 = 20000
+	cfgContent         = "{\"jwks_uri\": \"%s\"}"
+	serverMutex        = &sync.Mutex{}
 )
 
 const (
@@ -54,18 +56,23 @@ type MockOpenIDDiscoveryServer struct {
 	PubKeyHitNum uint64
 }
 
-// NewServer creates a mock openID discovery server.
-func NewServer() (*MockOpenIDDiscoveryServer, error) {
+// StartNewServer creates a mock openID discovery server and starts it
+func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
+	serverMutex.Lock()
+	defer serverMutex.Unlock()
+
 	port, err := allocPort()
 	if err != nil {
 		log.Errorf("Server failed to pick an available port: %v", err)
 		return nil, err
 	}
 
-	return &MockOpenIDDiscoveryServer{
+	server := &MockOpenIDDiscoveryServer{
 		Port: port,
 		URL:  fmt.Sprintf("http://localhost:%d", port),
-	}, nil
+	}
+
+	return server, server.Start()
 }
 
 // Start starts the mock server.
@@ -78,11 +85,21 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		Addr:    ":" + strconv.Itoa(ms.Port),
 		Handler: router,
 	}
+	ln, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		ms.Port++
+		server.Addr = ":" + strconv.Itoa(ms.Port)
+		ln, err = net.Listen("tcp", server.Addr)
+		if err != nil {
+			log.Errorf("Server failed to listen %d %v", ms.Port, err)
+			return err
+		}
+	}
 
 	// Starts the HTTP and waits for it to begin receiving requests.
 	// Returns an error if the server doesn't serve traffic within about 2 seconds.
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
+		if err := server.Serve(ln); err != nil {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()

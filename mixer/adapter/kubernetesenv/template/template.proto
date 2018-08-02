@@ -82,9 +82,13 @@ message Template {
 
 // OutputTemplate refers to the output from the adapter. It is used inside the attribute_binding section of the config
 // to assign values to the generated attributes using the `$out.<field name of the OutputTemplate>` syntax.
-// Next ID: 31
+// Next ID: 33
 message OutputTemplate {
     reserved 5, 12, 15, 16, 17, 18, 19, 21;
+
+    // Refers to the source.uid for a pod. This is for TCP use cases where the attribute is not present.
+    // attribute_bindings can refer to this field using $out.source_pod_uid
+    string source_pod_uid = 31;
 
     // Refers to source pod ip address. attribute_bindings can refer to this field using $out.source_pod_ip
     istio.policy.v1beta1.IPAddress source_pod_ip = 1;
@@ -115,6 +119,10 @@ message OutputTemplate {
 
     // Refers to the (controlling) owner of the source pod. Attribute_bindings can refer to this field using $out.source_owner
     string source_owner = 25;
+
+    // Refers to the destination.uid for a pod. This is for TCP use cases where the attribute is not present.
+    // attribute_bindings can refer to this field using $out.destination_pod_uid
+    string destination_pod_uid = 32;
 
     // Refers to destination pod ip address. attribute_bindings can refer to this field using $out.destination_pod_ip
     istio.policy.v1beta1.IPAddress destination_pod_ip = 8;

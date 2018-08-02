@@ -1,0 +1,64 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: certmanager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "certmanager.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: certmanager
+  template:
+    metadata:
+      labels:
+        app: certmanager
+{{- if .Values.podLabels }}
+{{ toYaml .Values.podLabels | indent 8 }}
+{{- end }}
+      annotations:
+      {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: certmanager
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: certmanager
+          image: "{{ .Values.hub }}/cert-manager-controller:{{ .Values.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+          - --cluster-resource-namespace=$(POD_NAMESPACE)
+          - --leader-election-namespace=$(POD_NAMESPACE)
+        {{- if .Values.extraArgs }}
+{{ toYaml .Values.extraArgs | indent 10 }}
+        {{- end }}
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- if .Values.podDnsPolicy }}
+      dnsPolicy: {{ .Values.podDnsPolicy }}
+{{- end }}
+{{- if .Values.podDnsConfig }}
+      dnsConfig:
+{{ toYaml .Values.podDnsConfig | indent 8 }}
+{{- end }}

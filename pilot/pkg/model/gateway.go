@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/log"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -50,7 +49,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
 		name := ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)
-		names[name.String()] = true
+		names[string(name)] = true
 
 		gateway := spec.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
@@ -95,7 +94,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 						// WE cannot merge two HTTPS servers even if their TLS settings have same path to the keys, because we don't know if the contents
 						// of the keys are same. So we treat them as effectively different TLS settings.
 						if _, exists := rdsRouteConfigNames[rdsName]; exists {
-							log.Debugf("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
+							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 							continue
 						}
@@ -103,6 +102,10 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					}
 
 					// We have another TLS server on the same port. Can differentiate servers using SNI
+					if s.Tls == nil {
+						log.Warnf("TLS server without TLS options %s %s", name, s.String())
+						continue
+					}
 					tlsServers[s.Port.Number] = append(tlsServers[s.Port.Number], s)
 				}
 			} else {

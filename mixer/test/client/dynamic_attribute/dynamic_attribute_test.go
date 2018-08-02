@@ -43,7 +43,10 @@ node:
   cluster: unknown
 dynamic_resources:
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -134,6 +137,7 @@ const reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {

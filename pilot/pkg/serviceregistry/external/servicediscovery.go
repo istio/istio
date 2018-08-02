@@ -48,6 +48,7 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances map[string][]*model.ServiceInstance
 
+	changeMutex  sync.RWMutex
 	lastChange   time.Time
 	updateNeeded bool
 }
@@ -68,19 +69,19 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			serviceEntry := config.Spec.(*networking.ServiceEntry)
 
 			// Recomputing the index here is too expensive.
-			c.storeMutex.Lock()
+			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
-			c.storeMutex.Unlock()
+			c.changeMutex.Unlock()
 
-			services := convertServices(serviceEntry)
+			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
 
-			instances := convertInstances(serviceEntry)
+			instances := convertInstances(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -116,7 +117,7 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
 	}
 
 	return services, nil
@@ -137,11 +138,11 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		svcs := convertServices(serviceEntry)
+		svcs := convertServices(serviceEntry, config.CreationTimestamp.Time)
 		for _, s := range svcs {
 			if s.Hostname == hostname {
 				return &model.ServiceAttributes{
-					Name:      hostname.String(),
+					Name:      string(hostname),
 					Namespace: config.Namespace}, nil
 			}
 		}
@@ -153,7 +154,7 @@ func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry)...)
+		services = append(services, convertServices(serviceEntry, config.CreationTimestamp.Time)...)
 	}
 	return services
 }
@@ -190,7 +191,7 @@ func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
 	out := []*model.ServiceInstance{}
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry) {
+		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
 			if instance.Service.Hostname == hostname &&
 				labels.HasSubsetOf(instance.Labels) &&
 				portMatchEnvoyV1(instance, portMap) {
@@ -212,7 +213,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
 
-	instances, found := d.instances[hostname.String()]
+	instances, found := d.instances[string(hostname)]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
@@ -229,36 +230,48 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 // update will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps.
 func (d *ServiceEntryStore) update() {
-	d.storeMutex.RLock()
+	d.changeMutex.RLock()
 	if !d.updateNeeded {
+		d.changeMutex.RUnlock()
 		return
 	}
-	d.storeMutex.RUnlock()
+	d.changeMutex.RUnlock()
 
-	d.storeMutex.Lock()
-	defer d.storeMutex.Unlock()
-	d.instances = map[string][]*model.ServiceInstance{}
-	d.ip2instance = map[string][]*model.ServiceInstance{}
+	di := map[string][]*model.ServiceInstance{}
+	dip := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry) {
-			key := instance.Service.Hostname.String()
-			out, found := d.instances[key]
+		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
+			key := string(instance.Service.Hostname)
+			out, found := di[key]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			d.instances[key] = out
+			di[key] = out
 
-			byip, found := d.instances[instance.Endpoint.Address]
+			byip, found := di[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}
 			byip = append(byip, instance)
-			d.ip2instance[instance.Endpoint.Address] = byip
+			dip[instance.Endpoint.Address] = byip
 		}
 	}
+
+	d.storeMutex.Lock()
+	d.instances = di
+	d.ip2instance = dip
+	d.storeMutex.Unlock()
+
+	// Without this pilot will become very unstable even with few 100 ServiceEntry
+	// objects - the N_clusters * N_update generates too much garbage
+	// ( yaml to proto)
+	// This is reset on any change in ServiceEntries
+	d.changeMutex.Lock()
+	d.updateNeeded = false
+	d.changeMutex.Unlock()
 }
 
 // returns true if an instance's port matches with any in the provided list

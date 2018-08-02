@@ -26,6 +26,7 @@ import (
 // Monitor will poll a config function in order to update a ConfigStore as
 // changes are found.
 type Monitor struct {
+	name            string
 	store           model.ConfigStore
 	checkDuration   time.Duration
 	configs         []*model.Config
@@ -35,8 +36,9 @@ type Monitor struct {
 // NewMonitor creates a Monitor and will delegate to a passed in controller.
 // The controller holds a reference to the actual store.
 // Any func that returns a []*model.Config can be used with the Monitor
-func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
+func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time.Duration, getSnapshotFunc func() ([]*model.Config, error)) *Monitor {
 	monitor := &Monitor{
+		name:            name,
 		store:           delegateStore,
 		getSnapshotFunc: getSnapshotFunc,
 		checkDuration:   checkInterval,
@@ -47,7 +49,7 @@ func NewMonitor(delegateStore model.ConfigStore, checkInterval time.Duration, ge
 // Start starts a new Monitor. Immediately checks the Monitor getSnapshotFunc
 // and updates the controller. It then kicks off an asynchronous event loop that
 // periodically polls the getSnapshotFunc for changes until a close event is sent.
-func (m *Monitor) Start(stop chan struct{}) {
+func (m *Monitor) Start(stop <-chan struct{}) {
 	m.checkAndUpdate()
 	tick := time.NewTicker(m.checkDuration)
 
@@ -71,7 +73,7 @@ func (m *Monitor) checkAndUpdate() {
 	//Do not edit the local []*model.config until the connection has been reestablished
 	//The error will only come from a directory read error or a gRPC connection error
 	if err != nil {
-		log.Warnf("checkAndUpdate Error Caught: %v\n", err)
+		log.Warnf("checkAndUpdate Error Caught %s: %v\n", m.name, err)
 		return
 	}
 
@@ -139,14 +141,9 @@ func (m *Monitor) deleteConfig(c *model.Config) {
 // compareIds compares the IDs (i.e. Namespace, Type, and Name) of the two configs and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting config arrays.
 func compareIds(a, b *model.Config) int {
-	// Compare Namespace
-	if v := strings.Compare(a.Namespace, b.Namespace); v != 0 {
+	if v := strings.Compare(a.Key(), b.Key()); v != 0 {
 		return v
 	}
-	// Compare Type
-	if v := strings.Compare(a.Type, b.Type); v != 0 {
-		return v
-	}
-	// Compare Name
-	return strings.Compare(a.Name, b.Name)
+
+	return 0
 }
