@@ -166,7 +166,7 @@ func (e *environment) GetPolicyBackendOrFail(t testing.TB) env.DeployedPolicyBac
 }
 
 func (e *environment) get(dep dependency.Instance) (interface{}, error) {
-	s, ok := e.ctx.Tracker[dep]
+	s, ok := e.ctx.Tracker.Get(dep)
 	if !ok {
 		return nil, fmt.Errorf("dependency not initialized: %v", dep)
 	}
@@ -198,7 +198,7 @@ func (e *environment) GetAPIServerOrFail(t testing.TB) env.DeployedAPIServer {
 }
 
 func (e *environment) getOrFail(t testing.TB, dep dependency.Instance) interface{} {
-	s, ok := e.ctx.Tracker[dep]
+	s, ok := e.ctx.Tracker.Get(dep)
 	if !ok {
 		t.Fatalf("Dependency not initialized: %v", dep)
 	}

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components"
+	"istio.io/istio/pkg/test/framework/components/registry"
 	"istio.io/istio/pkg/test/framework/dependency"
 	env "istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
@@ -146,7 +147,13 @@ func (d *driver) Requires(t testing.TB, dependencies []dependency.Instance) {
 
 	// Initialize dependencies only once.
 	for _, dep := range dependencies {
-		if err := d.context.Tracker.Initialize(dep, d.context, components.All.Init); err != nil {
+		c, ok := d.context.Registry.Get(dep)
+		if !ok {
+			envID := d.context.Settings().Environment
+			scope.Errorf("Failed to locate dependency '%s' in environment %s", dep, envID)
+			t.Fatalf("unable to locate dependency '%v' in environment %s", dep, envID)
+		}
+		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
 			scope.Errorf("Failed to initialize dependency '%s': %v", dep, err)
 			t.Fatalf("unable to satisfy dependency '%v': %v", dep, err)
 		}
@@ -170,15 +177,18 @@ func (d *driver) initialize(testID string) (int, error) {
 
 	// Initialize the environment.
 	var impl internal.EnvironmentController
+	var reg *registry.Registry
 	switch s.Environment {
 	case settings.Local:
 		impl = local.New()
+		reg = components.Local
 	case settings.Kubernetes:
 		impl = kubernetes.New()
+		reg = components.Kubernetes
 	default:
 		return -2, fmt.Errorf("unrecognized environment: %s", d.context.Settings().Environment)
 	}
-	d.context = internal.NewTestContext(*s, impl)
+	d.context = internal.NewTestContext(*s, impl, reg)
 	if err := impl.Initialize(d.context); err != nil {
 		return -2, err
 	}
@@ -189,7 +199,11 @@ func (d *driver) initialize(testID string) (int, error) {
 
 	// Finally initialize suite-level dependencies.
 	for _, dep := range d.suiteDependencies {
-		if err := d.context.Tracker.Initialize(dep, d.context, components.All.Init); err != nil {
+		c, ok := reg.Get(dep)
+		if !ok {
+			return -3, fmt.Errorf("dependency %s not available for environment %s", dep, impl.EnvironmentID())
+		}
+		if _, err := d.context.Tracker.Initialize(d.context, c); err != nil {
 			scope.Errorf("driver.Run: Dependency error '%s': %v", dep, err)
 			return -3, err
 		}

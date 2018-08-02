@@ -104,7 +104,8 @@ type app struct {
 
 var _ environment.DeployedApp = &app{}
 
-func getApp(serviceName, namespace string) (environment.DeployedApp, error) {
+// NewApp creates a new DeployedApp for the given app name/namespace.
+func NewApp(serviceName, namespace string) (environment.DeployedApp, error) {
 	// Get the yaml config for the service
 	yamlBytes, err := util.ShellSilent("kubectl get svc %s -n %s -o yaml", serviceName, namespace)
 	if err != nil {

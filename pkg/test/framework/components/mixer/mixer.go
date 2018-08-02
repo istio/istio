@@ -17,7 +17,6 @@ package mixer
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -27,11 +26,14 @@ import (
 	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 
+	"io"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
 	generatedTmplRepo "istio.io/istio/mixer/template"
+	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/environments/local"
@@ -39,26 +41,33 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
-type deployedMixer struct {
-	// Indicates that the component is running in local mode.
-	local bool
+var (
+	// LocalComponent is a component for the local environment.
+	LocalComponent = &localComponent{}
 
-	conn   *grpc.ClientConn
-	client istio_mixer_v1.MixerClient
+	// KubeComponent is a component for the Kubernetes environment.
+	KubeComponent = &kubeComponent{}
 
-	args    *server.Args
-	server  *server.Server
-	workdir string
+	_ environment.DeployedMixer = &deployedMixer{}
+	_ internal.Configurable     = &deployedMixer{}
+	_ io.Closer                 = &deployedMixer{}
+)
 
-	forwarder *kube.PortForwarder
+type localComponent struct {
 }
 
-var _ environment.DeployedMixer = &deployedMixer{}
-var _ internal.Configurable = &deployedMixer{}
-var _ io.Closer = &deployedMixer{}
+// ID implements the component.Component interface.
+func (c *localComponent) ID() dependency.Instance {
+	return dependency.Mixer
+}
 
-// InitLocal initializes a new Mixer component for the local environment.
-func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
+// Requires implements the component.Component interface.
+func (c *localComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -102,8 +111,21 @@ func InitLocal(ctx environment.ComponentContext) (interface{}, error) {
 	}, nil
 }
 
-// InitKube initializes a new Mixer component for the kubernetes environment.
-func InitKube(ctx environment.ComponentContext) (interface{}, error) {
+type kubeComponent struct {
+}
+
+// ID implements the component.Component interface.
+func (c *kubeComponent) ID() dependency.Instance {
+	return dependency.Mixer
+}
+
+// Requires implements the component.Component interface.
+func (c *kubeComponent) Requires() []dependency.Instance {
+	return make([]dependency.Instance, 0)
+}
+
+// Init implements the component.Component interface.
+func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
 		return nil, fmt.Errorf("expected environment not found")
@@ -140,6 +162,20 @@ func InitKube(ctx environment.ComponentContext) (interface{}, error) {
 		// Use the DefaultArgs to get config identity attribute
 		args: server.DefaultArgs(),
 	}, nil
+}
+
+type deployedMixer struct {
+	// Indicates that the component is running in local mode.
+	local bool
+
+	conn   *grpc.ClientConn
+	client istio_mixer_v1.MixerClient
+
+	args    *server.Args
+	server  *server.Server
+	workdir string
+
+	forwarder *kube.PortForwarder
 }
 
 // Report implements DeployedMixer.Report.
