@@ -50,7 +50,6 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	push.Mutex.RLock()
 	services := push.Services
 
 	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
