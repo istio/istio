@@ -45,19 +45,19 @@ then
     sudo apt-get --quite -y install virtualbox
     ver = 
     if [ $? -ne 0 ]; then
-      echo "Looks like virtual box update failed. Please try manually. Current Version: `VBoxManage -v`"
+      echo "Looks like virtual box update failed. Please try manually. Current Version: $(VBoxManage -v)"
       exit 1
     else
-      echo "virtual box install done! Current Version: `VBoxManage -v`"
+      echo "virtual box install done! Current Version: $(VBoxManage -v)"
     fi
 else
     echo "Looks like virtual is installed. Checking if it can be upgraded."
     sudo apt-get --quite -y install virtualbox
     if [ $? -ne 0 ]; then
-      echo "Looks like virtual box update failed. Please try manually. Current Version: `VBoxManage -v`"
+      echo "Looks like virtual box update failed. Please try manually. Current Version: $(VBoxManage -v)"
       exit 1
     else
-      echo "virtual box install done! Current Version: `VBoxManage -v`"
+      echo "virtual box install done! Current Version: $(VBoxManage -v)"
     fi
 fi
 

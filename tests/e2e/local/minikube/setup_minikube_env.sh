@@ -4,7 +4,7 @@
 ps -eaf | grep "kubectl port-forward" | grep "kube-registry" | grep "5000:5000" > /dev/null
 if [ $? -ne 0 ]; then
     echo "Port Forwarding not setup.Trying to set it up."
-    POD=`kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}'`
+    POD=$(kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}')
     kubectl port-forward --namespace kube-system $POD 5000:5000 &
     if [ $? -ne 0 ]; then
         echo "Could not set up Port Forwarding. Something wrong with Minikube setup. Please check your setup and try again."
