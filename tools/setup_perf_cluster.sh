@@ -507,7 +507,7 @@ function run_tests() {
 
 
 function check_image_versions() {
-  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq -c | grep -v -e google.containers
+  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[:space:]' '\n' | sort | uniq -c | grep -v -e google.containers
 }
 
 if [[ $SOURCED == 0 ]]; then
