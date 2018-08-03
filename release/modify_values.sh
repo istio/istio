@@ -16,7 +16,7 @@ done
 
 rm -rf modification-tmp
 mkdir modification-tmp
-cd modification-tmp
+cd modification-tmp || exit
 
 folder_name="istio-${VERSION}"
 
@@ -74,7 +74,6 @@ rm -rf "${folder_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/${tarball_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/docker.io/${tarball_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/gcr.io/${tarball_name}"
-
 
 cd ..
 rm -rf modification-tmp
