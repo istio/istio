@@ -18,7 +18,7 @@ import (
 	"bytes"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 // MessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes correctly

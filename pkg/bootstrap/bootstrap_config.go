@@ -26,8 +26,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -52,11 +51,11 @@ func configFile(config string, epoch int) string {
 }
 
 // convertDuration converts to golang duration and logs errors
-func convertDuration(d *duration.Duration) time.Duration {
+func convertDuration(d *types.Duration) time.Duration {
 	if d == nil {
 		return 0
 	}
-	dur, _ := ptypes.Duration(d)
+	dur, _ := types.DurationFromProto(d)
 	return dur
 }
 
