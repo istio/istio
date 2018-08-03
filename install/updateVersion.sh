@@ -210,8 +210,7 @@ function merge_files_docker() {
 }
 
 function gen_platforms_files() {
-    for platform in consul
-    do
+    for platform in consul/*; do
         cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
         cp -a $ROOT/samples/bookinfo/platform/$platform/templates/. $TEMP_DIR/templates/
         update_istio_install_docker
