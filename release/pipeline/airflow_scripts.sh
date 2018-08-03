@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(rkrishnap): $m_commit is never defined in this file.
+# shellcheck disable=SC2154
+
 function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
