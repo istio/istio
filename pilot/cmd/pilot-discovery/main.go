@@ -105,6 +105,8 @@ func init() {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.MCPServerAddr, "mcpServerAddr", ":15014",
+		"mesh config protocol server address")
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
@@ -144,8 +146,7 @@ func init() {
 		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
 
 	// Deprecated flags.
-	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080,
-		"Discovery service port")
+	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080, "Discovery service port")
 	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
 	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
 		"HTTP port to use for the exposing pilot self-monitoring information")
