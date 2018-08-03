@@ -20,7 +20,7 @@ import (
 )
 
 // injectable function for overriding proto.MessageType, for testing purposes.
-type messageTypeFn func(name string, isGogo bool) reflect.Type
+type messageTypeFn func(name string) reflect.Type
 
 // Schema contains metadata about configuration resources.
 type Schema struct {
@@ -52,7 +52,7 @@ func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
 }
 
 // Register a proto into the schema.
-func (b *SchemaBuilder) Register(typeURL string, isGogo bool) {
+func (b *SchemaBuilder) Register(typeURL string) {
 	if _, found := b.schema.byURL[typeURL]; found {
 		panic(fmt.Sprintf("Schema.Register: Proto type is registered multiple times: %q", typeURL))
 	}
@@ -63,14 +63,13 @@ func (b *SchemaBuilder) Register(typeURL string, isGogo bool) {
 		panic(err)
 	}
 
-	goType := b.schema.messageTypeFn(url.MessageName(), isGogo)
+	goType := b.schema.messageTypeFn(url.MessageName())
 	if goType == nil {
-		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q, isGogo: %v", url.MessageName(), isGogo))
+		panic(fmt.Sprintf("Schema.Register: Proto type not found: %q", url.MessageName()))
 	}
 
 	info := Info{
 		TypeURL: url,
-		IsGogo:  isGogo,
 		goType:  goType,
 	}
 

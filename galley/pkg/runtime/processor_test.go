@@ -28,7 +28,7 @@ import (
 
 var testSchema = func() *resource.Schema {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b.Register("type.googleapis.com/google.protobuf.Empty")
 	return b.Build()
 }()
 

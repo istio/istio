@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -233,7 +232,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 			message = dynamicAny.Message
 		} else {
 			// golang proto
-			var dynamicAny ptypes.DynamicAny
+			var dynamicAny types.DynamicAny
 			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
 				return c.sendNACKRequest(response, state.version(), err)
 			}

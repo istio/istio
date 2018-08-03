@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	pgogo "github.com/gogo/protobuf/proto"
-	plang "github.com/golang/protobuf/proto"
 )
 
 func TestTypes_Info(t *testing.T) {
@@ -36,12 +35,7 @@ func TestTypes_Info(t *testing.T) {
 func TestTypes_NewProtoInstance(t *testing.T) {
 	for _, info := range Types.All() {
 		p := info.NewProtoInstance()
-		var name string
-		if info.IsGogo {
-			name = pgogo.MessageName(p)
-		} else {
-			name = plang.MessageName(p)
-		}
+		name := pgogo.MessageName(p)
 		if name != info.TypeURL.MessageName() {
 			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.TypeURL, name)
 		}

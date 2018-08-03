@@ -282,8 +282,8 @@ func TestAdmitPilot(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
 			got := wh.admitPilot(c.in)
-			if c.allowed != got.Allowed {
-				t.Fatalf("got %v want %v", got, c.allowed)
+			if got.Allowed != c.allowed {
+				t.Fatalf("got %v want %v", got.Allowed, c.allowed)
 			}
 		})
 	}

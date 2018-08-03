@@ -28,7 +28,7 @@ import (
 
 const usage = `
 
-gen-meta [runtime|kube] <input-yaml-path> <output-go-path> 
+gen-meta [runtime|kube] <input-yaml-path> <output-go-path>
 
 `
 
@@ -52,7 +52,6 @@ type entry struct {
 	Group          string `json:"group"`
 	Version        string `json:"version"`
 	Proto          string `json:"proto"`
-	Gogo           bool   `json:"gogo"`
 	Converter      string `json:"converter"`
 	ProtoGoPackage string `json:"protoPackage"`
 }
@@ -60,7 +59,6 @@ type entry struct {
 // proto related metadata
 type protoDef struct {
 	MessageName string `json:"-"`
-	Gogo        bool   `json:"-"`
 }
 
 func main() {
@@ -167,7 +165,7 @@ func readMetadata(path string) (*metadata, error) {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
 			continue
 		}
-		defn := protoDef{MessageName: e.Proto, Gogo: e.Gogo}
+		defn := protoDef{MessageName: e.Proto}
 
 		if prevDefn, ok := protoDefs[e.Proto]; ok && defn != prevDefn {
 			return nil, fmt.Errorf("proto definitions do not match: %+v != %+v", defn, prevDefn)
@@ -207,7 +205,7 @@ var Types *resource.Schema
 
 func init() {
 	b := resource.NewSchemaBuilder()
-{{range .ProtoDefs}}	b.Register("type.googleapis.com/{{.MessageName}}", {{.Gogo}})
+{{range .ProtoDefs}}	b.Register("type.googleapis.com/{{.MessageName}}")
 {{end}}
     Types = b.Build()
 }

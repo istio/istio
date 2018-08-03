@@ -38,7 +38,7 @@ var emptyInfo resource.Info
 
 func init() {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b.Register("type.googleapis.com/google.protobuf.Empty")
 	schema := b.Build()
 	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 }
