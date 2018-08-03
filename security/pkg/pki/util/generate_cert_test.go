@@ -218,6 +218,32 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 			},
 		},
+		{
+			name: "Generate dual-use cert",
+			certOptions: CertOptions{
+				Host:         "spiffe://domain/ns/bar/sa/foo",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "spiffe://domain/ns/bar/sa/foo",
+			},
+		},
 	}
 
 	for _, c := range cases {

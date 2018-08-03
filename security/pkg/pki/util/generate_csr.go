@@ -61,6 +61,9 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 		if err != nil {
 			return nil, err
 		}
+		if options.IsDualUse {
+			template.Subject.CommonName = h
+		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}
 

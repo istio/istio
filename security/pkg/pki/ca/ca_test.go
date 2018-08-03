@@ -87,11 +87,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
 	org := "test.ca.org"
+	dualUse := false
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL, org, caNamespace,
-		client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL,
+		org, dualUse, caNamespace, client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -160,9 +161,10 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	maxCertTTL := time.Hour
 	org := "test.ca.org"
 	caNamespace := "default"
+	dualUse := false
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL, org, caNamespace,
-		client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL,
+		org, dualUse, caNamespace, client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}

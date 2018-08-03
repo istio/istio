@@ -68,3 +68,21 @@ func TestGenCSRWithInvalidOption(t *testing.T) {
 		t.Errorf("Should have failed")
 	}
 }
+
+func TestGenCSRTemplateForDualUse(t *testing.T) {
+	opts := CertOptions{
+		Host:       "test_ca.com",
+		Org:        "MyOrg",
+		RSAKeySize: 512,
+		IsDualUse:  true,
+	}
+
+	csr, err := GenCSRTemplate(opts)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if csr.Subject.CommonName != opts.Host {
+		t.Errorf("unexpected value for 'CommonName' field: want %v but got %v", opts.Host, csr.Subject.CommonName)
+	}
+}

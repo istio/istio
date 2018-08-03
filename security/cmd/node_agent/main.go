@@ -70,6 +70,9 @@ func init() {
 	flags.StringVar(&cAClientConfig.RootCertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
 
+	flags.BoolVar(&naConfig.DualUse, "experimental-dual-use",
+		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
+
 	naConfig.LoggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
 }

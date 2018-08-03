@@ -67,6 +67,9 @@ type CertOptions struct {
 
 	// The size of RSA private key to be generated.
 	RSAKeySize int
+
+	// Whether this certificate is for dual-use clients (SAN+CN).
+	IsDualUse bool
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -204,25 +207,30 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		return nil, err
 	}
 
+	subject := pkix.Name{
+		Organization: []string{options.Org},
+	}
+
 	exts := []pkix.Extension{}
 	if h := options.Host; len(h) > 0 {
 		s, err := BuildSubjectAltNameExtension(h)
 		if err != nil {
 			return nil, err
 		}
+		if options.IsDualUse {
+			subject.CommonName = options.Host
+		}
 		exts = []pkix.Extension{*s}
 	}
 
 	return &x509.Certificate{
 		SerialNumber: serialNum,
-		Subject: pkix.Name{
-			Organization: []string{options.Org},
-		},
-		NotBefore:   notBefore,
-		NotAfter:    notBefore.Add(options.TTL),
-		KeyUsage:    keyUsage,
-		ExtKeyUsage: extKeyUsages,
-		IsCA:        options.IsCA,
+		Subject:      subject,
+		NotBefore:    notBefore,
+		NotAfter:     notBefore.Add(options.TTL),
+		KeyUsage:     keyUsage,
+		ExtKeyUsage:  extKeyUsages,
+		IsCA:         options.IsCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts}, nil
 }
