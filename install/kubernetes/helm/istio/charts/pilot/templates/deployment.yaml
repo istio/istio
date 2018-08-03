@@ -36,6 +36,11 @@ spec:
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+{{- if .Values.global.istiotesting.coverageMode }}
+          - --test.run=TestCoverageMain
+          - --test.coverprofile=/coverage/$(POD_NAME)-dicovery.cov
+          - '-'
+{{- end }}
           - "discovery"
 {{- if .Values.global.oneNamespace }}
           - "-a"
@@ -59,6 +64,10 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 5
           env:
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - name: COVERAGE
+            value: "true"
+        {{- end }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -90,6 +99,10 @@ spec:
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
           volumeMounts:
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - name: coverage
+            mountPath: /coverage
+        {{- end }}
           - name: config-volume
             mountPath: /etc/istio/config
           - name: istio-certs
@@ -145,6 +158,12 @@ spec:
             readOnly: true
 {{- end }}
       volumes:
+    {{- if .Values.global.istiotesting.coverageMode }}
+      - name: coverage
+        hostPath:
+          path: /coverage
+          type: DirectoryOrCreate
+    {{- end }}
       - name: config-volume
         configMap:
           name: istio

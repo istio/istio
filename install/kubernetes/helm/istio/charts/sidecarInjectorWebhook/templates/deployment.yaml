@@ -28,6 +28,11 @@ spec:
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+          {{- if .Values.global.istiotesting.coverageMode }}
+            - --test.run=TestCoverageMain
+            - --test.coverprofile=/coverage/$(POD_NAME)-sidecar-injector-webhook.cov
+            - '-'
+          {{- end }}
             - --caCertFile=/etc/istio/certs/root-cert.pem
             - --tlsCertFile=/etc/istio/certs/cert-chain.pem
             - --tlsKeyFile=/etc/istio/certs/key.pem
@@ -35,6 +40,16 @@ spec:
             - --meshConfig=/etc/istio/config/mesh
             - --healthCheckInterval=2s
             - --healthCheckFile=/health
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          {{- if .Values.global.istiotesting.coverageMode }}
+          - name: COVERAGE
+            value: "true"
+          {{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
@@ -45,6 +60,10 @@ spec:
           - name: inject-config
             mountPath: /etc/istio/inject
             readOnly: true
+          {{- if .Values.global.istiotesting.coverageMode }}
+          - name: coverage
+            mountPath: /coverage
+          {{- end }}
           livenessProbe:
             exec:
               command:
@@ -82,5 +101,12 @@ spec:
           items:
           - key: config
             path: config
+      {{- if .Values.global.istiotesting.coverageMode }}
+      - name: coverage
+        hostPath:
+          path: /coverage
+          type: DirectoryOrCreate
+      {{- end }}
+
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

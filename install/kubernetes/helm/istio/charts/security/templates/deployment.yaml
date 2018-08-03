@@ -26,9 +26,24 @@ spec:
 {{- end }}
       containers:
         - name: citadel
+          env:
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - name: COVERAGE
+            value: "true"
+        {{- end }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
           image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
+          {{- if .Values.global.istiotesting.coverageMode }}
+            - --test.run=TestCoverageMain
+            - --test.coverprofile=/coverage/$(POD_NAME)-citadel.cov
+            - '-'
+          {{- end }}
             - --append-dns-names=true
             - --grpc-port=8060
             - --grpc-hostname=citadel
@@ -48,16 +63,28 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
-{{- if not .Values.selfSigned }}
           volumeMounts:
+        {{- if not .Values.selfSigned }}
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+        {{- end }}
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - name: coverage
+            mountPath: /coverage
+        {{- end }}
       volumes:
+    {{- if not .Values.selfSigned }}
       - name: cacerts
         secret:
          secretName: cacerts
          optional: true
-{{- end }}
+    {{- end }}
+    {{- if .Values.global.istiotesting.coverageMode }}
+      - name: coverage
+        hostPath:
+          path: /coverage
+          type: DirectoryOrCreate
+    {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
