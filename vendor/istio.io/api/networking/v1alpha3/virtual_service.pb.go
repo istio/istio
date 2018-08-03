@@ -838,7 +838,7 @@ type DestinationWeight struct {
 	Destination *Destination `protobuf:"bytes,1,opt,name=destination" json:"destination,omitempty"`
 	// REQUIRED. The proportion of traffic to be forwarded to the service
 	// version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-	// If there is only destination in a rule, the weight value is assumed to
+	// If there is only one destination in a rule, the weight value is assumed to
 	// be 100.
 	Weight int32 `protobuf:"varint,2,opt,name=weight,proto3" json:"weight,omitempty"`
 }
@@ -1346,7 +1346,7 @@ type CorsPolicy struct {
 	// be serialized into the Access-Control-Allow-Methods header.
 	AllowMethods []string `protobuf:"bytes,2,rep,name=allow_methods,json=allowMethods" json:"allow_methods,omitempty"`
 	// List of HTTP headers that can be used when requesting the
-	// resource. Serialized to Access-Control-Allow-Methods header.
+	// resource. Serialized to Access-Control-Allow-Headers header.
 	AllowHeaders []string `protobuf:"bytes,3,rep,name=allow_headers,json=allowHeaders" json:"allow_headers,omitempty"`
 	// A white list of HTTP headers that the browsers are allowed to
 	// access. Serialized into Access-Control-Expose-Headers header.

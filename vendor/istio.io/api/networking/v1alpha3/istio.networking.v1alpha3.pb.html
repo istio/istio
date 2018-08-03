@@ -239,7 +239,7 @@ be serialized into the Access-Control-Allow-Methods header.</p>
 <td><code>string[]</code></td>
 <td>
 <p>List of HTTP headers that can be used when requesting the
-resource. Serialized to Access-Control-Allow-Methods header.</p>
+resource. Serialized to Access-Control-Allow-Headers header.</p>
 
 </td>
 </tr>
@@ -666,7 +666,7 @@ to which the request/connection should be forwarded to.</p>
 <td>
 <p>REQUIRED. The proportion of traffic to be forwarded to the service
 version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-If there is only destination in a rule, the weight value is assumed to
+If there is only one destination in a rule, the weight value is assumed to
 be 100.</p>
 
 </td>
