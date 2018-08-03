@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	// Pull in gogo
+	// Pull in gogo well-known types
 	_ "github.com/gogo/protobuf/types"
 )
 
