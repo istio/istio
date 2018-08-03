@@ -161,7 +161,14 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// PushStatus is reset after a config change. Previous status is
 		// saved.
 		push := model.NewStatus()
-		s.updateModel(push)
+		err := push.InitContext(s.env)
+		if err != nil {
+			adsLog.Errorf("XDS: failed to update services %v", err)
+			// We can't push if we can't read the data - stick with previous version.
+			// TODO: metric !!
+			// TODO: metric !!
+			return
+		}
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
@@ -171,25 +178,6 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 
 		s.AdsPushAll(versionInfo(), push)
 	}
-}
-
-func (s *DiscoveryServer) updateModel(push *model.PushStatus) {
-	push.Mutex.Lock()
-	defer push.Mutex.Unlock()
-
-	services, err := s.env.Services()
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
-	} else {
-		push.Services = services
-	}
-	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update virtual services %v", err)
-	} else {
-		push.VirtualServiceConfigs = vservices
-	}
-
 }
 
 func nonce() string {

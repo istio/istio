@@ -120,6 +120,9 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 		MixerSAN:         []string{},
 	}
 
+	env.PushStatus = model.NewStatus()
+	env.PushStatus.InitContext(env)
+
 	return env
 }
 
@@ -224,6 +227,9 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}
+
+	env.PushStatus = model.NewStatus()
+	env.PushStatus.InitContext(env)
 
 	return env
 }

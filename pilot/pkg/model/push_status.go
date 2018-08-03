@@ -319,3 +319,21 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 
 	return out
 }
+
+// InitContext will initialize the data structures used for code generation.
+// This should be called before starting the push, from the thread creating
+// the push context.
+func (ps *PushStatus) InitContext(env *Environment) error {
+	services, err := env.Services()
+	if err == nil {
+		ps.Services = services
+	}
+	vservices, err := env.List(VirtualService.Type, NamespaceAll)
+	if err == nil {
+		ps.VirtualServiceConfigs = vservices
+	}
+
+	// TODO: everything else that is used in config generation - the generation
+	// should not have any deps on config store.
+	return err
+}

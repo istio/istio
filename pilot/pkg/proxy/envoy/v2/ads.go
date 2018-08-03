@@ -343,8 +343,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	var discReq *xdsapi.DiscoveryRequest
 
 	if s.env.PushStatus.Services == nil {
-		// first call - lazy loading.
-		s.updateModel(s.env.PushStatus)
+		// first call - lazy loading, in tests. This should not happen if readiness
+		// check works, since it assumes ClearCache is called (and as such PushStatus
+		// is initialized)
+		err := s.env.PushStatus.InitContext(s.env)
+		if err != nil {
+			// Error accessing the data - log and close, maybe a different pilot replica
+			// has more luck
+			adsLog.Warnf("Error reading config %v", err)
+			return err
+		}
 	}
 
 	con := newXdsConnection(peerAddr, stream)
