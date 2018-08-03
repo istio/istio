@@ -70,7 +70,7 @@ func (c *localComponent) Requires() []dependency.Instance {
 func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	dir, err := e.CreateTmpDirectory("mixer")
@@ -128,7 +128,7 @@ func (c *kubeComponent) Requires() []dependency.Instance {
 func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	pod, err := e.Accessor.WaitForPodBySelectors("istio-system", "istio=mixer", "istio-mixer-type=telemetry")

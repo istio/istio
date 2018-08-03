@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/environment"
 )
 
 // Capturing TestMain allows us to:
@@ -78,16 +79,10 @@ kind: VirtualService
 	// Send requests to all of the HTTP endpoints. We expect the deny check to cause the HTTP requests to fail.
 	endpoints := appt.EndpointsForProtocol(model.ProtocolHTTP)
 	for _, endpoint := range endpoints {
-		u := endpoint.MakeURL()
-		t.Run(u.String(), func(t *testing.T) {
-			result, err := appa.Call(u, 1, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// We do not expect check calls to fail
-			if result.IsSuccess() {
-				t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+		t.Run("a_t_http", func(t *testing.T) {
+			results := appa.CallOrFail(endpoint, environment.AppCallOptions{}, t)
+			if !results[0].IsOK() {
+				t.Fatalf("HTTP Request unsuccessful: %s", results[0].Body)
 			}
 		})
 	}

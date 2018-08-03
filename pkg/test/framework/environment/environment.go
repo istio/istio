@@ -16,7 +16,6 @@ package environment
 
 import (
 	"net/http"
-	"net/url"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -24,10 +23,19 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/settings"
+	"istio.io/istio/pkg/test/service/echo"
 )
 
+// AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
+type AppProtocol string
+
 const (
-	httpOK = "200"
+	// AppProtocolHTTP calls the app with HTTP
+	AppProtocolHTTP = "http"
+	// AppProtocolGRPC calls the app with GRPC
+	AppProtocolGRPC = "grpc"
+	// AppProtocolWebSocket calls the app with WebSocket
+	AppProtocolWebSocket = "ws"
 )
 
 type (
@@ -106,14 +114,32 @@ type (
 	Deployed interface {
 	}
 
+	// AppCallOptions defines options for calling a DeployedAppEndpoint.
+	AppCallOptions struct {
+		// Secure indicates whether a secure connection should be established to the endpoint.
+		Secure bool
+
+		// Protocol indicates the protocol to be used.
+		Protocol AppProtocol
+
+		// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
+		UseShortHostname bool
+
+		// Count indicates the number of exchanges that should be made with the service endpoint. If not set (i.e. 0), defaults to 1.
+		Count int
+
+		// Headers indicates headers that should be sent in the request. Ingnored for WebSocket calls.
+		Headers http.Header
+	}
+
 	// DeployedApp represents a deployed fake App within the mesh.
 	DeployedApp interface {
 		Deployed
 		Name() string
 		Endpoints() []DeployedAppEndpoint
 		EndpointsForProtocol(protocol model.Protocol) []DeployedAppEndpoint
-		Call(u *url.URL, count int, headers http.Header) (AppCallResult, error)
-		CallOrFail(u *url.URL, count int, headers http.Header, t testing.TB) AppCallResult
+		Call(e DeployedAppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
+		CallOrFail(e DeployedAppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 	}
 
 	// DeployedPolicyBackend represents a deployed fake policy backend for Mixer.
@@ -152,24 +178,6 @@ type (
 		Name() string
 		Owner() DeployedApp
 		Protocol() model.Protocol
-		MakeURL() *url.URL
-		MakeShortURL() *url.URL
-	}
-
-	// AppCallResult provides details about the result of a call
-	AppCallResult struct {
-		// Body is the body of the response
-		Body string
-		// CallIDs is a list of unique identifiers for individual requests made.
-		CallIDs []string
-		// Version is the version of the resource in the response
-		Version []string
-		// Port is the port of the resource in the response
-		Port []string
-		// Code is the response code
-		ResponseCode []string
-		// Host is the host returned by the response
-		Host []string
 	}
 
 	// DeployedMixer represents a deployed Mixer instance.
@@ -199,8 +207,3 @@ type (
 		Raw string
 	}
 )
-
-// IsSuccess returns true if the request was successful
-func (r *AppCallResult) IsSuccess() bool {
-	return len(r.ResponseCode) > 0 && r.ResponseCode[0] == httpOK
-}

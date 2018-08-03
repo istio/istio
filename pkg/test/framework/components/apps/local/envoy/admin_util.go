@@ -24,6 +24,7 @@ import (
 	"time"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
+	routeapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/jsonpb"
 )
 
@@ -143,6 +144,71 @@ func GetConfigDump(adminPort int) (*envoy_admin_v2alpha.ConfigDump, error) {
 		return nil, err
 	}
 	return msg, nil
+}
+
+// IsClusterPresent inspects the given Envoy config dump, looking for the given cluster
+func IsClusterPresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
+	clusters := envoy_admin_v2alpha.ClustersConfigDump{}
+	if err := clusters.Unmarshal(cfg.Configs["clusters"].Value); err != nil {
+		return false
+	}
+
+	for _, c := range clusters.DynamicActiveClusters {
+		if c.Cluster == nil {
+			continue
+		}
+		if c.Cluster.Name == clusterName || (c.Cluster.EdsClusterConfig != nil && c.Cluster.EdsClusterConfig.ServiceName == clusterName) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsOutboundListenerPresent inspects the given Envoy config dump, looking for the given listener.
+func IsOutboundListenerPresent(cfg *envoy_admin_v2alpha.ConfigDump, listenerName string) bool {
+	listeners := envoy_admin_v2alpha.ListenersConfigDump{}
+	if err := listeners.Unmarshal(cfg.Configs["listeners"].Value); err != nil {
+		return false
+	}
+
+	for _, l := range listeners.DynamicActiveListeners {
+		if l.Listener != nil && l.Listener.Name == listenerName {
+			return true
+		}
+	}
+	return false
+}
+
+// IsOutboundRoutePresent inspects the given Envoy config dump, looking for an outbound route which targets the given cluster.
+func IsOutboundRoutePresent(cfg *envoy_admin_v2alpha.ConfigDump, clusterName string) bool {
+	routes := envoy_admin_v2alpha.RoutesConfigDump{}
+	if err := routes.Unmarshal(cfg.Configs["routes"].Value); err != nil {
+		return false
+	}
+
+	// Look for a route that targets the given outbound cluster.
+	for _, r := range routes.DynamicRouteConfigs {
+		if r.RouteConfig != nil {
+			for _, vh := range r.RouteConfig.VirtualHosts {
+				for _, route := range vh.Routes {
+					actionRoute, ok := route.Action.(*routeapi.Route_Route)
+					if !ok {
+						continue
+					}
+
+					cluster, ok := actionRoute.Route.ClusterSpecifier.(*routeapi.RouteAction_Cluster)
+					if !ok {
+						continue
+					}
+
+					if cluster.Cluster == clusterName {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func doHTTPGet(requestURL string) (*bytes.Buffer, error) {

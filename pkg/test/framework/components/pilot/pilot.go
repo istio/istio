@@ -50,8 +50,7 @@ var (
 	KubeComponent = &kubeComponent{}
 )
 
-type localComponent struct {
-}
+type localComponent struct{}
 
 // ID implements the component.Component interface.
 func (c *localComponent) ID() dependency.Instance {
@@ -67,7 +66,7 @@ func (c *localComponent) Requires() []dependency.Instance {
 func (c *localComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*local.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	return NewLocalPilot(e.IstioSystemNamespace)
@@ -78,7 +77,7 @@ type kubeComponent struct {
 
 // ID implements the component.Component interface.
 func (c *kubeComponent) ID() dependency.Instance {
-	return dependency.Mixer
+	return dependency.Pilot
 }
 
 // Requires implements the component.Component interface.
@@ -90,7 +89,7 @@ func (c *kubeComponent) Requires() []dependency.Instance {
 func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependency.Instance]interface{}) (interface{}, error) {
 	e, ok := ctx.Environment().(*kubernetes.Implementation)
 	if !ok {
-		return nil, fmt.Errorf("expected environment not found")
+		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
 	pod, err := e.Accessor.WaitForPodBySelectors(e.IstioSystemNamespace, "istio=pilot")
@@ -99,6 +98,13 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	}
 
 	return NewKubePilot(ctx.Settings().KubeConfig, pod.Namespace, pod.Name)
+}
+
+// LocalPilot is the interface for a local pilot server.
+type LocalPilot interface {
+	environment.DeployedPilot
+	model.ConfigStore
+	GetDiscoveryAddress() *net.TCPAddr
 }
 
 type localPilot struct {
@@ -114,7 +120,7 @@ type kubePilot struct {
 }
 
 // NewLocalPilot creates a new pilot for the local environment.
-func NewLocalPilot(namespace string) (environment.DeployedPilot, error) {
+func NewLocalPilot(namespace string) (LocalPilot, error) {
 	// Use an in-memory config store.
 	configController := memory.NewController(memory.Make(model.IstioConfigTypes))
 
@@ -188,6 +194,11 @@ func NewKubePilot(kubeConfig, namespace, pod string) (environment.DeployedPilot,
 		pilotClient: client,
 		forwarder:   forwarder,
 	}, nil
+}
+
+// GetDiscoveryAddress gets the discovery address for pilot.
+func (p *localPilot) GetDiscoveryAddress() *net.TCPAddr {
+	return p.server.GRPCListeningAddr.(*net.TCPAddr)
 }
 
 // Close stops the local pilot server.

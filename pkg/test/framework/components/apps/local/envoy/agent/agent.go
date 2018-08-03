@@ -30,6 +30,8 @@ type Agent interface {
 	GetAdminPort() int
 	// GetPorts returns a list of port mappings between Envoy and the backend application.
 	GetPorts() []*MappedPort
+	// IsConfiguredForService indicates whether this agent has received configuration for communication with the given service.
+	CheckConfiguredForService(target Agent) error
 }
 
 // MappedPort provides a single port mapping between an Envoy proxy and its backend application.

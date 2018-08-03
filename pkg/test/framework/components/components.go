@@ -16,6 +16,7 @@ package components
 
 import (
 	"istio.io/istio/pkg/test/framework/components/apiserver"
+	"istio.io/istio/pkg/test/framework/components/apps"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
@@ -32,9 +33,11 @@ func init() {
 	Local.Register(mixer.LocalComponent)
 	Local.Register(pilot.LocalComponent)
 	Local.Register(policybackend.LocalComponent)
+	Local.Register(apps.LocalComponent)
 
 	Kubernetes.Register(apiserver.KubeComponent)
 	Kubernetes.Register(mixer.KubeComponent)
 	Kubernetes.Register(pilot.KubeComponent)
 	Kubernetes.Register(policybackend.KubeComponent)
+	Kubernetes.Register(apps.KubeComponent)
 }
