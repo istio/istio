@@ -25,21 +25,40 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Temporary list coverage enabled packages
+COVERAGE=${COVERAGE:-false}
+COVERAGE_PKGS=( $(git ls-files "${ROOT}" \
+  | grep coverage_test.go \
+  | sed -e "s,/coverage_test.go,,g" \
+  | awk '{print "./"$1}') )
+
 OUT=${1:?"output path"}
 BUILDPATH=${2:?"path to build"}
 
 set -e
-
+BUILD_CMD='build'
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
-LDFLAGS="-extldflags -static"
+LDFLAGS='-extldflags -static'
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 GCFLAGS=${GCFLAGS:-}
+PKGDIR="${GOPKG}/${GOOS}_${GOARCH}"
 export CGO_ENABLED=0
+
+if [[ ${COVERAGE} == true ]]; then
+    for PKG in "${COVERAGE_PKGS[@]}"; do
+        if [[ ${PKG} == ${BUILDPATH} ]]; then
+            BUILD_CMD='test -coverpkg=istio.io/istio/... -c -tags testcoveragemain'
+            PKGDIR="${GOPKG}/coverage/${GOOS}_${GOARCH}"
+            echo "Building ${BUILDPATH} with code coverage support"
+            break
+        fi
+    done
+fi
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
@@ -59,6 +78,6 @@ while read line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
-# forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
-       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
+# forgoing -i (incremental build) because it will be deprecated by tool chain.
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} ${BUILD_CMD} ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
+       -pkgdir=${PKGDIR} -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"

@@ -83,13 +83,18 @@ Q = $(if $(filter 1,$VERBOSE),,@)
 # Use the variable H to add a header (equivalent to =>) to informational output
 H = $(shell printf "\033[34;1m=>\033[0m")
 
+HELM_ARGS:=
+
 # To build Pilot, Mixer and CA with debugger information, use DEBUG=1 when invoking make
-ifeq ($(origin DEBUG), undefined)
-BUILDTYPE_DIR:=release
+ifeq ($(COVERAGE), true)
+HELM_ARGS := --set global.istiotesting.coverageMode=true
+BUILDTYPE_DIR := coverage
+else ifeq ($(origin DEBUG), undefined)
+BUILDTYPE_DIR := release
 else ifeq ($(DEBUG),0)
-BUILDTYPE_DIR:=release
+BUILDTYPE_DIR := release
 else
-BUILDTYPE_DIR:=debug
+BUILDTYPE_DIR := debug
 export GCFLAGS:=-N -l
 $(info $(H) Build with debugger information)
 endif
@@ -567,14 +572,14 @@ $(HELM):
 # create istio-remote.yaml
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --namespace=istio-system \
+	$(HELM) template $(HELM_ARGS) --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template $(HELM_ARGS) --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
@@ -583,14 +588,14 @@ isti%.yaml: $(HELM)
 generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template $(HELM_ARGS) --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
-	$(HELM) template --set global.tag=${TAG} \
+	$(HELM) template $(HELM_ARGS) --set global.tag=${TAG} \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
