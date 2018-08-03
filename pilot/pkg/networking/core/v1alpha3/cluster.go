@@ -50,11 +50,8 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	services, err := env.Services()
-	if err != nil {
-		log.Errorf("Failed for retrieve services: %v", err)
-		return nil, err
-	}
+	push.Mutex.RLock()
+	services := push.Services
 
 	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
 	for _, c := range clusters {

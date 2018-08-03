@@ -92,7 +92,7 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus) ([]*xdsapi.Listener, error) {
 	switch node.Type {
 	case model.Sidecar:
-		return configgen.buildSidecarListeners(env, node)
+		return configgen.buildSidecarListeners(env, node, push)
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayListeners(env, node, push)
 	}
@@ -100,7 +100,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, nod
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
-func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environment, node *model.Proxy) ([]*xdsapi.Listener, error) {
+func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environment, node *model.Proxy,
+	push *model.PushStatus) ([]*xdsapi.Listener, error) {
 
 	mesh := env.Mesh
 	managementPorts := env.ManagementPorts(node.IPAddress)
@@ -110,16 +111,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services, err := env.Services()
-	if err != nil {
-		return nil, err
-	}
+	services := push.Services
 
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
 		inbound := configgen.buildSidecarInboundListeners(env, node, proxyInstances)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, proxyInstances, services)
+		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -399,7 +397,7 @@ func (c outboundListenerConflict) addMetric() {
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus,
 	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
 
 	// Sort the services in order of creation.
@@ -411,7 +409,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	configs := env.VirtualServices(meshGateway)
+	configs := push.VirtualServices(meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflicit resolution

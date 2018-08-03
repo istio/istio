@@ -87,13 +87,14 @@ type VirtualHostWrapper struct {
 func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	configStore model.IstioConfigStore,
+	push *model.PushStatus,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	virtualServices := configStore.VirtualServices(meshGateway)
+	virtualServices := push.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)

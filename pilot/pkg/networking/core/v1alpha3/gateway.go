@@ -222,7 +222,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := env.VirtualServices(merged.Names)
+	virtualServices := push.VirtualServices(merged.Names)
 	virtualHosts := make([]route.VirtualHost, 0, len(virtualServices))
 	vhostDomains := map[string]bool{}
 
@@ -409,7 +409,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 
 		// This is opaque TCP server. Find matching virtual services with TCP blocks and forward
 		if server.Tls == nil {
-			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env,
+				push, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       nil,
 					tlsContext:     nil,
@@ -420,7 +421,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 			// and forward to backend
 			// Validation ensures that non-passthrough servers will have certs
-			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env, server, gatewaysForWorkload); len(filters) > 0 {
+			if filters := buildGatewayNetworkFiltersFromTCPRoutes(node, env,
+				push, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       getSNIHostsForServer(server),
 					tlsContext:     buildGatewayListenerTLSContext(server),
@@ -429,7 +431,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			}
 		} else {
 			// Passthrough server.
-			opts = append(opts, buildGatewayNetworkFiltersFromTLSRoutes(node, env, server, gatewaysForWorkload)...)
+			opts = append(opts, buildGatewayNetworkFiltersFromTLSRoutes(node, env, push, server, gatewaysForWorkload)...)
 		}
 	}
 	return opts
@@ -438,7 +440,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Environment, push *model.PushStatus, server *networking.Server,
 	gatewaysForWorkload map[string]bool) []listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
@@ -451,7 +453,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := env.VirtualServices(gatewaysForWorkload)
+	virtualServices := push.VirtualServices(gatewaysForWorkload)
 	var upstream *networking.Destination
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
@@ -486,7 +488,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services
-func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Environment, server *networking.Server,
+func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Environment, push *model.PushStatus, server *networking.Server,
 	gatewaysForWorkload map[string]bool) []*filterChainOpts {
 	port := &model.Port{
 		Name:     server.Port.Name,
@@ -499,7 +501,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := env.VirtualServices(gatewaysForWorkload)
+	virtualServices := push.VirtualServices(gatewaysForWorkload)
 	filterChains := make([]*filterChainOpts, 0)
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)

@@ -38,14 +38,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		return nil, err
 	}
 
-	services, err := env.Services()
-	if err != nil {
-		return nil, err
-	}
+	services := push.Services
 
 	switch node.Type {
 	case model.Sidecar:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, proxyInstances, services, routeName), nil
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
@@ -98,7 +95,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushStatus,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
@@ -135,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get list of virtual services bound to the mesh gateway
 	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, push, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {

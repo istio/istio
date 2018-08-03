@@ -237,7 +237,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn)
+	clusters, err := s.generateRawClusters(conn, s.env.PushStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -342,9 +342,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 	var discReq *xdsapi.DiscoveryRequest
 
-	if s.services == nil {
+	if s.env.PushStatus.Services == nil {
 		// first call - lazy loading.
-		s.updateModel()
+		s.updateModel(s.env.PushStatus)
 	}
 
 	con := newXdsConnection(peerAddr, stream)
@@ -407,7 +407,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con)
+				err := s.pushCds(con, s.env.PushStatus)
 				if err != nil {
 					return err
 				}
@@ -547,7 +547,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	}
 
 	if con.CDSWatch {
-		err := s.pushCds(con)
+		err := s.pushCds(con, pushEv.push)
 		if err != nil {
 			return err
 		}
@@ -583,23 +583,23 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo())
+	s.AdsPushAll(versionInfo(), s.env.PushStatus)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string) {
-	s.modelMutex.RLock()
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
+	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
-		len(s.services), len(s.virtualServices), adsClientCount())
-	monServices.Set(float64(len(s.services)))
-	monVServices.Set(float64(len(s.virtualServices)))
+		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
+	monServices.Set(float64(len(push.Services)))
+	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
 	pushStatus := s.env.PushStatus
 
-	s.modelMutex.RUnlock()
+	push.Mutex.RUnlock()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.

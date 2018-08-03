@@ -399,7 +399,7 @@ type ServiceDiscovery interface {
 	//
 	// Calling Instances with specific labels returns a trimmed list.
 	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
+	//      --> NetworkEndpoint(172.16.0.1:8888), Service(caUpdatetalog.myservice.com), Labels(foo=bar)
 	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
 	//
 	// Similar concepts apply for calling this function with a specific
