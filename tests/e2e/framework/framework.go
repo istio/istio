@@ -90,7 +90,7 @@ func NewCommonConfigWithVersion(testID, version string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.TempDir, t.RunID, version)
+	k, err := newKubeInfo(t, version)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +195,6 @@ func (c *CommonConfig) saveLogs(r int) error {
 		return nil
 	}
 	log.Info("Saving logs")
-	if err := c.Info.Update(r); err != nil {
-		log.Errorf("Could not create status file. Error %s", err)
-		return err
-	}
 	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig)
 }
 

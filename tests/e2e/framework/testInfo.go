@@ -15,17 +15,13 @@
 package framework
 
 import (
-	"bufio"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -34,7 +30,8 @@ import (
 )
 
 var (
-	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
+	testLogsPath   = flag.String("test_logs_path", "", "Local path to store logs in")
+	enableCoverage = flag.Bool("enable_coverage", false, "enable code coverage")
 )
 
 const (
@@ -44,17 +41,38 @@ const (
 
 // TestInfo gathers Test Information
 type testInfo struct {
-	RunID   string
-	TestID  string
-	TempDir string
+	RunID    string
+	TestID   string
+	TempDir  string
+	Coverage coverage
 }
 
-// Test information
-type testStatus struct {
-	TestID string    `json:"test_id"`
-	Status int       `json:"status"`
-	RunID  string    `json:"run_id"`
-	Date   time.Time `json:"date"`
+type coverage struct {
+	enabled bool
+	path    string
+}
+
+func newCoverage(path string) coverage {
+	var cov coverage
+	if !*enableCoverage {
+		return cov
+	}
+	cov.enabled = true
+	cov.path = path
+	return cov
+}
+
+// GetCoveragePath returns the path where to save coverage profile
+func (c coverage) GetCoveragePath(module string) (string, error) {
+	var p string
+	if !c.enabled {
+		return p, nil
+	}
+	p = path.Join(c.path, module)
+	if err := os.MkdirAll(p, 0755); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 // NewTestInfo creates a TestInfo given a test id.
@@ -83,9 +101,10 @@ func newTestInfo(testID string) (*testInfo, error) {
 	}
 	// Need to setup logging here
 	return &testInfo{
-		TestID:  testID,
-		RunID:   id,
-		TempDir: tmpDir,
+		TestID:   testID,
+		RunID:    id,
+		TempDir:  tmpDir,
+		Coverage: newCoverage(tmpDir),
 	}, nil
 }
 
@@ -93,40 +112,8 @@ func (t testInfo) Setup() error {
 	return nil
 }
 
-// Update sets the test status.
-func (t testInfo) Update(r int) error {
-	return t.createStatusFile(r)
-}
-
 func (t testInfo) FetchAndSaveClusterLogs(namespace string, kubeconfig string) error {
 	return util.FetchAndSaveClusterLogs(namespace, t.TempDir, kubeconfig)
-}
-
-func (t testInfo) createStatusFile(r int) error {
-	log.Info("Creating status file")
-	ts := testStatus{
-		Status: r,
-		Date:   time.Now(),
-		TestID: t.TestID,
-		RunID:  t.RunID,
-	}
-	fp := filepath.Join(t.TempDir, fmt.Sprintf("%s.json", t.TestID))
-	f, err := os.Create(fp)
-	if err != nil {
-		log.Errorf("Could not create %s. Error %s", fp, err)
-		return err
-	}
-	w := bufio.NewWriter(f)
-	e := json.NewEncoder(w)
-	e.SetIndent("", "  ")
-	if err = e.Encode(ts); err == nil {
-		if err = w.Flush(); err == nil {
-			if err = f.Close(); err == nil {
-				log.Infof("Created Status file %s", fp)
-			}
-		}
-	}
-	return err
 }
 
 func (t testInfo) Teardown() error {
