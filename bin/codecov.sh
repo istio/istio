@@ -21,7 +21,7 @@ mkdir -p $COVERAGEDIR
 
 # half the number of cpus seem to saturate
 if [[ -z ${MAXPROCS:-} ]];then
-  MAXPROCS=$[$(getconf _NPROCESSORS_ONLN)/2]
+  MAXPROCS=$(($(getconf _NPROCESSORS_ONLN)/2))
 fi
 PIDS=()
 FAILED_TESTS=()
