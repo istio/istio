@@ -172,8 +172,8 @@ func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int
 // Describes what metrics should be sent to SignalFx and in what form.
 type Params_MetricConfig struct {
 	// Required.  The name of the metric as it is sent to the adapter.  In
-	// Kubernetes this is of the form "<name>.metric.<namespace>" where
-	// "<name>" is the name field of the metric resource, and "<namespace>"
+	// Kubernetes this is of the form "NAME.metric.NAMESPACE" where
+	// "NAME" is the name field of the metric resource, and "NAMESPACE"
 	// is the namespace of the metric resource.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The metric type of the metric
