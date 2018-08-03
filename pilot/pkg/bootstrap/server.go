@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -39,7 +40,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	mcp "istio.io/api/config/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	mcpclient "istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
@@ -48,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	coredatamodel "istio.io/istio/pilot/pkg/mcp"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -137,6 +141,7 @@ type PilotArgs struct {
 	MeshConfig       *meshconfig.MeshConfig
 	CtrlZOptions     *ctrlz.Options
 	Plugins          []string
+	MCPServerAddr    string
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -145,6 +150,7 @@ type Server struct {
 	GRPCListeningAddr       net.Addr
 	SecureGRPCListeningAddr net.Addr
 	MonitorListeningAddr    net.Addr
+	MCPClientListeningAddr  net.Addr
 
 	// TODO(nmittler): Consider alternatives to exposing these directly
 	EnvoyXdsServer    *envoyv2.DiscoveryServer
@@ -209,6 +215,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initServiceControllers(&args); err != nil {
 		return nil, err
 	}
+	if err := s.initMeshConfigProtocolClient(&args); err != nil {
+		return nil, err
+	}
 	if err := s.initDiscoveryService(&args); err != nil {
 		return nil, err
 	}
@@ -260,6 +269,38 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 		}()
 		return nil
 	})
+	return nil
+}
+
+func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
+	serverAddr := args.MCPServerAddr
+	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+	if err != nil {
+		log.Infof("Unable connecting to MCP Server: %v\n", err)
+		return err
+	}
+
+	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
+	//TODO: make these supported types configurable
+	// currently mcp server has to also load all the supported types too
+	clientNodeID := "some-id"
+	supportedTypes := make([]string, len(ConfigDescriptor))
+	for i, model := range ConfigDescriptor {
+		supportedTypes[i] = model.MessageName
+	}
+	log.Infof("InitMeshConfigProtocolClient supported types: %+v\n", supportedTypes)
+	u := coredatamodel.NewUpdater(s.istioConfigStore, ConfigDescriptor)
+	mcpClient := mcpclient.New(cl, supportedTypes, u, clientNodeID, map[string]string{})
+
+	s.addStartFunc(func(stop chan struct{}) error {
+		go func() {
+			mcpClient.Run(context.Background())
+			<-stop
+		}()
+
+		return nil
+	})
+
 	return nil
 }
 
@@ -725,8 +766,10 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := model.Environment{
-		Mesh:             s.mesh,
+		Mesh: s.mesh,
+		// s.istioConfigStore = coreDataModel.ConfigStore
 		IstioConfigStore: s.istioConfigStore,
+		// s.serviceDiscovery = coreDataModel.ServiceDiscovery
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
 		MixerSAN:         s.mixerSAN,
