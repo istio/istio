@@ -87,8 +87,6 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
 fi
 
 function usage() {
-  [[ -n "${1}" ]] && echo "${1}"
-
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
