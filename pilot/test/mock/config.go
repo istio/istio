@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

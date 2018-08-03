@@ -20,10 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -409,29 +407,29 @@ func TestValidateProxyAddress(t *testing.T) {
 
 func TestValidateDuration(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			duration: &types.Duration{Seconds: 1, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			duration: &types.Duration{Seconds: -11, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 1},
+			duration: &types.Duration{Nanos: 1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			duration: &types.Duration{Seconds: 1, Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -445,55 +443,55 @@ func TestValidateDuration(t *testing.T) {
 
 func TestValidateParentAndDrain(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent duration.Duration
-		Drain  duration.Duration
+		Parent types.Duration
+		Drain  types.Duration
 		Valid  bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  true,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 2},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 2},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1, Nanos: 1000000},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2, Nanos: 1000000},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: -2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: -2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: -1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: -1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  duration.Duration{Seconds: 10},
+			Parent: types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  types.Duration{Seconds: 10},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 10},
-			Drain:  duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Parent: types.Duration{Seconds: 10},
+			Drain:  types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
@@ -507,21 +505,21 @@ func TestValidateParentAndDrain(t *testing.T) {
 
 func TestValidateRefreshDelay(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 36001},
+			duration: &types.Duration{Seconds: 36001},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 1},
+			duration: &types.Duration{Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -535,21 +533,21 @@ func TestValidateRefreshDelay(t *testing.T) {
 
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 31},
+			duration: &types.Duration{Seconds: 31},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 99999},
+			duration: &types.Duration{Nanos: 99999},
 			isValid:  false,
 		},
 	}
@@ -570,9 +568,9 @@ func TestValidateMeshConfig(t *testing.T) {
 		MixerCheckServer:  "10.0.0.100",
 		MixerReportServer: "10.0.0.100",
 		ProxyListenPort:   0,
-		ConnectTimeout:    ptypes.DurationProto(-1 * time.Second),
+		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		AuthPolicy:        -1,
-		RdsRefreshDelay:   ptypes.DurationProto(-1 * time.Second),
+		RdsRefreshDelay:   types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -602,10 +600,10 @@ func TestValidateProxyConfig(t *testing.T) {
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
 		ProxyAdminPort:         0,
-		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  ptypes.DurationProto(-1 * time.Second),
-		ConnectTimeout:         ptypes.DurationProto(-1 * time.Second),
+		DrainDuration:          types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
+		DiscoveryRefreshDelay:  types.DurationProto(-1 * time.Second),
+		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
 		ZipkinAddress:          "10.0.0.100",
