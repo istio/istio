@@ -27,16 +27,17 @@
 package ctrlz
 
 import (
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gorilla/mux"
 
 	"sync"
+
+	"fmt"
+	"time"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"
@@ -55,10 +56,13 @@ var coreTopics = []fw.Topic{
 
 var allTopics []fw.Topic
 var topicMutex sync.Mutex
-var server *http.Server
 var shutdown sync.WaitGroup
-var shutdownMutex sync.Mutex
-var abort = false
+
+var server = http.Server{
+	ReadTimeout:    10 * time.Second,
+	WriteTimeout:   10 * time.Second,
+	MaxHeaderBytes: 1 << 20,
+}
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
 	return template.Must(layout.Parse(string(MustAsset(page))))
@@ -122,6 +126,9 @@ func RegisterTopic(t fw.Topic) {
 // supplied custom topics, as well as any topics registered
 // via the RegisterTopic function.
 func Run(o *Options, customTopics []fw.Topic) {
+	shutdown.Add(1)
+	defer shutdown.Done()
+
 	if o.Port == 0 {
 		// disabled
 		return
@@ -166,31 +173,12 @@ func Run(o *Options, customTopics []fw.Topic) {
 		addr = ""
 	}
 
-	shutdownMutex.Lock()
+	server.Addr = fmt.Sprintf("%s:%d", addr, o.Port)
+	server.Handler = router
 
-	if abort {
-		// reset to default state in case Run is called again
-		abort = false
-	} else {
-		server = &http.Server{
-			Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
-			Handler:        router,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-		}
-		shutdown.Add(1)
-	}
-
-	shutdownMutex.Unlock()
-
-	if server != nil {
-		log.Infof("ControlZ available at %s:%d", getLocalIP(), o.Port)
-		server.ListenAndServe()
-		log.Infof("ControlZ terminated")
-		shutdown.Done()
-		server = nil
-	}
+	log.Infof("ControlZ available at %s:%d", getLocalIP(), o.Port)
+	server.ListenAndServe()
+	log.Infof("ControlZ terminated")
 }
 
 // Stop terminates ControlZ.
@@ -198,19 +186,6 @@ func Run(o *Options, customTopics []fw.Topic) {
 // Stop is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func Stop() {
-	wait := false
-
-	shutdownMutex.Lock()
-	if server != nil {
-		server.Close()
-		wait = true
-	} else {
-		// prevent any in-progress calls to Run from succeeding
-		abort = true
-	}
-	shutdownMutex.Unlock()
-
-	if wait {
-		shutdown.Wait()
-	}
+	server.Close()
+	shutdown.Wait()
 }
