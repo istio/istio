@@ -11,6 +11,7 @@ while getopts h:t:p:v: arg ; do
     t) TAG="${OPTARG}";;
     p) GCS_PATH="${OPTARG}";;
     v) VERSION="${OPTARG}";;
+    *) exit 1;;
   esac
 done
 
