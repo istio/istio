@@ -151,7 +151,7 @@ func TestSvc2Svc(t *testing.T) {
 			pod := podList[i]
 			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
 			if err != nil {
-				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+				log.Infof("Pod %d %s not ready: %s", i, pod, res)
 			} else {
 				ready++
 			}

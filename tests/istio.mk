@@ -55,11 +55,6 @@ DEFAULT_EXTRA_E2E_ARGS += --pilot_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --proxy_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --ca_tag=${TAG}
 DEFAULT_EXTRA_E2E_ARGS += --galley_tag=${TAG}
-DEFAULT_EXTRA_E2E_ARGS += --mixer_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --pilot_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --proxy_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --ca_hub=${HUB}
-DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
@@ -71,7 +66,7 @@ DEFAULT_UPGRADE_E2E_ARGS += --base_version=${LAST_RELEASE}
 DEFAULT_UPGRADE_E2E_ARGS += --target_version=""
 UPGRADE_E2E_ARGS ?= ${DEFAULT_UPGRADE_E2E_ARGS}
 
-e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple: e2e_simple_run
 e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
 e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
