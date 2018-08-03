@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
