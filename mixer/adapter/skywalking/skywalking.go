@@ -4,12 +4,18 @@ package skywalking
 import (
 	"context"
 
+	"time"
+
+	"google.golang.org/grpc"
+
+	"errors"
+
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/mixer/adapter/skywalking/config"
+	pb "istio.io/istio/mixer/adapter/skywalking/protocol"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
-	"google.golang.org/grpc"
-	pb "istio.io/istio/mixer/adapter/skywalking/protocol"
-	"time"
 )
 
 type (
@@ -68,12 +74,14 @@ func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 // metric.Handler#HandleMetric
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
 	h.env.Logger().Debugf("Begin to create client")
+	var errs error
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	clientStream, err := h.client.Collect(ctx)
 	if err != nil {
 		h.env.Logger().Errorf("%v.Collect(_) = _, %v", h.client, err)
+		return errors.New("Collect to backend fails")
 	}
 
 	for _, inst := range insts {
@@ -82,7 +90,6 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 			continue
 		}
 
-		time.Now()
 		requestMethod := inst.Dimensions["requestMethod"].(string)
 		requestPath := inst.Dimensions["requestPath"].(string)
 		requestScheme := inst.Dimensions["requestScheme"].(string)
@@ -98,14 +105,14 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 		if protocol == "http" || protocol == "https" {
 			endpoint = requestScheme + "/" + requestMethod + "/" + requestPath
 			status = responseCode >= 200 && responseCode < 400
-			netProtocol = pb.Protocol_HTTP;
+			netProtocol = pb.Protocol_HTTP
 		} else {
 			//grpc
 			endpoint = protocol + "/" + requestPath
-			netProtocol = pb.Protocol_gRPC;
+			netProtocol = pb.Protocol_gRPC
 		}
 
-		latency := int32(responseTime.Sub(requestTime).Nanoseconds() / int64(time.Millisecond));
+		latency := int32(responseTime.Sub(requestTime).Nanoseconds() / int64(time.Millisecond))
 		var detectPoint pb.DetectPoint
 		if "source" == reporter {
 			detectPoint = pb.DetectPoint_client
@@ -113,7 +120,7 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 			detectPoint = pb.DetectPoint_server
 		}
 
-		var metric = pb.ServiceMeshMetric{
+		metric := &pb.ServiceMeshMetric{
 			StartTime:             requestTime.UnixNano() / int64(time.Millisecond),
 			EndTime:               responseTime.UnixNano() / int64(time.Millisecond),
 			SourceServiceName:     inst.Dimensions["sourceService"].(string),
@@ -128,15 +135,18 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 			DetectPoint:           detectPoint,
 		}
 
-		clientStream.Send(&metric)
+		if err := clientStream.Send(metric); err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
 	}
 
 	// Not downstream
-	_, recErr := clientStream.CloseAndRecv()
-	if err != nil {
-		h.env.Logger().Errorf("%v.CloseAndRecv() got error %v, want %v", clientStream, recErr, nil)
+	if _, err := clientStream.CloseAndRecv(); err != nil {
+		h.env.Logger().Errorf("%v.CloseAndRecv() got error %v, want %v", clientStream, err, nil)
+		errs = multierror.Append(errs, err)
 	}
-
+	return errs
 
 	return nil
 }
