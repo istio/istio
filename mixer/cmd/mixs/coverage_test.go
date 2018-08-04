@@ -25,7 +25,7 @@ import (
 
 func TestCoverageMain(t *testing.T) {
 	if coverage.Enabled() {
-		cov := coverage.NewCoverage()
+		cov := coverage.NewHelper()
 		rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters(), shared.Printf, cov.LogFatal)
 		go func() {
 			cov.Exit <- rootCmd.Execute()

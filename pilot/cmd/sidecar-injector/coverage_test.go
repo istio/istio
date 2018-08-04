@@ -16,14 +16,15 @@ package main
 
 import (
 	"testing"
+
 	"istio.io/istio/coverage"
 )
 
 func TestCoverageMain(t *testing.T) {
 	if coverage.Enabled() {
-		cov := coverage.NewCoverage()
+		cov := coverage.NewHelper()
 		go func() {
-			cov.Exit <-rootCmd.Execute()
+			cov.Exit <- rootCmd.Execute()
 		}()
 		cov.Wait()
 	}

@@ -15,24 +15,33 @@
 package coverage
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
-	"fmt"
 	"syscall"
+	"time"
 )
 
-type Coverage struct {
+// Binaries with code coverage enabled cannot os.Exit() (logFatal, etc...),
+// but instead need to exit properly from the test case.
+
+// Helper is here to capture logFatal, Terminate, and normal program exit.
+// Capturing SIGTERM is necessary when running inside a container
+// such that we can safely return from the test case.
+type Helper struct {
 	FatalLog  chan string
 	Terminate chan os.Signal
 	Exit      chan error
 }
 
+// Enabled returns true if the env variable COVERAGE is set and equal to true.
 func Enabled() bool {
 	return os.Getenv("COVERAGE") == "true"
 }
 
-func NewCoverage() *Coverage {
-	cov := Coverage{
+// NewHelper instantiate a Helper, and setup notification for SIGINT and SIGTERM.
+func NewHelper() *Helper {
+	cov := Helper{
 		FatalLog:  make(chan string),
 		Terminate: make(chan os.Signal),
 		Exit:      make(chan error),
@@ -41,14 +50,18 @@ func NewCoverage() *Coverage {
 	return &cov
 }
 
-func (c *Coverage) LogFatal(format string, args ...interface{}) {
+// LogFatal will log message to stdout and set the LogFatal channel.
+func (c *Helper) LogFatal(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	_, _ = fmt.Fprintf(os.Stderr, message+"\n") // #nosec
 	c.FatalLog <- message
+	// Blocking a second for the Test to gracefully shutdown.
+	// Not blocking would keep running unwanted code, since we don't exit.
+	time.Sleep(time.Second)
 }
 
-func (c *Coverage) Wait() error {
-
+// Wait for any of the channel to be set, and exit.
+func (c *Helper) Wait() error {
 	select {
 	case log := <-c.FatalLog:
 		return fmt.Errorf(log)
@@ -57,5 +70,4 @@ func (c *Coverage) Wait() error {
 	case <-c.Terminate:
 		return nil
 	}
-
 }
