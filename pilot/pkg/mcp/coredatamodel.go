@@ -14,6 +14,8 @@
 package coredatamodel
 
 import (
+	"fmt"
+
 	mcpclient "istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pilot/pkg/model"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +25,7 @@ type Updater struct {
 	CoreDataModel
 	configStore      model.ConfigStore
 	configDescriptor model.ConfigDescriptor
+	descriptors      map[string]model.ProtoSchema
 }
 
 type CoreDataModel interface {
@@ -31,41 +34,47 @@ type CoreDataModel interface {
 }
 
 func NewUpdater(store model.ConfigStore, configDescriptor model.ConfigDescriptor) *Updater {
+	descriptors := make(map[string]model.ProtoSchema, len(configDescriptor))
+	for _, config := range configDescriptor {
+		descriptors[config.MessageName] = config
+	}
+
 	return &Updater{
 		configStore:      store,
 		configDescriptor: configDescriptor,
+		descriptors:      descriptors,
 	}
 }
 
 func (u *Updater) Update(change *mcpclient.Change) error {
 	for _, obj := range change.Objects {
-		for _, descriptor := range u.configDescriptor {
-			if descriptor.MessageName == change.MessageName {
-				c, exists := u.configStore.Get(descriptor.Type, obj.Metadata.Name, "")
-				if exists {
-					c.Spec = obj.Resource
-					_, err := u.configStore.Update(*c)
-					return err
-				}
-				config := model.Config{
-					ConfigMeta: model.ConfigMeta{
-						Type:              descriptor.Type,
-						Group:             descriptor.Group,
-						Version:           descriptor.Version,
-						Name:              obj.Metadata.Name,
-						Namespace:         "",
-						Domain:            "",
-						Labels:            map[string]string{},
-						Annotations:       map[string]string{},
-						ResourceVersion:   "",
-						CreationTimestamp: meta_v1.Time{},
-					},
-					Spec: obj.Resource,
-				}
-				_, err := u.configStore.Create(config)
-				return err
-			}
+		descriptor, ok := u.descriptors[change.MessageName]
+		if !ok {
+			return fmt.Errorf("unknown type: %s received by updater", change.MessageName)
 		}
+		c, exists := u.configStore.Get(descriptor.Type, obj.Metadata.Name, "")
+		if exists {
+			c.Spec = obj.Resource
+			_, err := u.configStore.Update(*c)
+			return err
+		}
+		config := model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:              descriptor.Type,
+				Group:             descriptor.Group,
+				Version:           descriptor.Version,
+				Name:              obj.Metadata.Name,
+				Namespace:         "",
+				Domain:            "",
+				Labels:            map[string]string{},
+				Annotations:       map[string]string{},
+				ResourceVersion:   "",
+				CreationTimestamp: meta_v1.Time{},
+			},
+			Spec: obj.Resource,
+		}
+		_, err := u.configStore.Create(config)
+		return err
 	}
 
 	return nil
