@@ -183,6 +183,14 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
+	// Set to the current push status when a push is started.
+	// Null after the pushall completes for the node.
+	currentPush *model.PushStatus
+
+	// Set if a push request is received while a push is in progress.
+	// Will keep getting updated with the latest push version.
+	nextPush *model.PushStatus
+
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
 
@@ -529,6 +537,12 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
+func (s *DiscoveryServer) bgPushAll(con *XdsConnection, pushEv *XdsEvent) {
+
+}
+
+// Compute and send the new configuration. This is blocking and may be slow
+// for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
 	// (as fail-safe in case of bugs)
@@ -609,6 +623,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 
 	push.Mutex.RUnlock()
 
+	t0 := time.Now()
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
@@ -627,14 +642,15 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}
+	adsLog.Infof("Cluster init time %v %s", time.Since(t0), version)
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	adsClientsMutex.RLock()
 	// Create a temp map to avoid locking the add/remove
-	tmpMap := make(map[string]*XdsConnection, len(adsClients))
-	for k, v := range adsClients {
-		tmpMap[k] = v
+	pending := []*XdsConnection{}
+	for _, v := range adsClients {
+		pending = append(pending, v)
 	}
 	adsClientsMutex.RUnlock()
 
@@ -643,7 +659,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 	// TODO: get service, serviceinstances, configs once, to avoid repeated redundant calls.
 	// TODO: indicate the specific events, to only push what changed.
 
-	pendingPush := int32(len(tmpMap))
+	pendingPush := int32(len(pending))
 
 	// Experimental throttles for the push, to deal with memory spikes.
 	// If it works will be replaced with a rate control.
@@ -657,8 +673,24 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 		}
 	}
 
+	tstart := time.Now()
 	i := 0
-	for _, c := range tmpMap {
+	// Will keep trying to push to sidecars until another push starts.
+	for {
+		if len(pending) == 0 {
+			adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
+			return
+		}
+		currentVersion := versionInfo()
+		// Stop attempting to push
+		if !allowConcurrentPush && version != currentVersion {
+			adsLog.Infof("PushAll abort %s, push with newer version %s in progress %v", version, currentVersion, time.Since(tstart))
+			return
+		}
+
+		c := pending[0]
+		pending = pending[1:]
+
 		i++
 		if pushThrottle > 0 && i%pushThrottle == 0 {
 			time.Sleep(100 * time.Millisecond)
@@ -676,18 +708,22 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
 		case <-client.doneChannel: // connection was closed
+			adsLog.Infof("Client closed connection %v", client.ConID)
 		case <-to:
 			pushTimeouts.Add(1)
 			//default:
 			// This may happen to some clients if the other side is in a bad state and can't receive.
 			// The tests were catching this - one of the client was not reading.
+
+			pending = append(pending, c)
+
 			if client.LastPushFailure.IsZero() {
 				client.LastPushFailure = time.Now()
-				adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+				adsLog.Warnf("Failed to push, client busy %d %s", len(pending), client.ConID)
 				pushErrors.With(prometheus.Labels{"type": "short"}).Add(1)
 			} else {
 				if time.Since(client.LastPushFailure) > 10*time.Second {
-					adsLog.Warnf("Repeated failure to push %s", client.ConID)
+					adsLog.Warnf("Repeated failure to push %d %s", len(pending), client.ConID)
 					// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 					pushErrors.With(prometheus.Labels{"type": "long"}).Add(1)
 				}

@@ -286,12 +286,6 @@ type mock struct{}
 func (mock) ID(*core.Node) string {
 	return id
 }
-func (mock) GetServiceAttributes(host model.Hostname) (*model.ServiceAttributes, error) {
-	if host == svc.Hostname {
-		return &model.ServiceAttributes{Name: "svc", Namespace: "ns3", UID: "svcuid"}, nil
-	}
-	return nil, nil
-}
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }

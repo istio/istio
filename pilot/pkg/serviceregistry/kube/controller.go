@@ -251,23 +251,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
-// GetServiceAttributes returns istio attributes for a service in the registry if it is present
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("GetServiceAttributes() => error %v", err)
-		return nil, err
-	}
-	if _, exists := c.serviceByKey(name, namespace); exists {
-		return &model.ServiceAttributes{
-			Name:      name,
-			Namespace: namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-		}, nil
-	}
-	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
-}
-
 // serviceByKey retrieves a service by name and namespace
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))

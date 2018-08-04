@@ -384,9 +384,6 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname Hostname) (*Service, error)
 
-	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
-
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//

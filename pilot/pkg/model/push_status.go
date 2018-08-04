@@ -22,6 +22,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"strings"
+	"fmt"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -320,6 +322,50 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 	return out
 }
 
+// GetServiceAttributes retrieves the UID string of a service and parses
+// the hostname into name and namespace. It was likely the most inefficient
+// method in Istio (and probably beyond).
+func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error) {
+	// The original code was calling GetService(host) in each registry, and
+	// GetServiceAttributes in the registry having the entry.
+
+	// For consul and most others, it was returning hostname, default, nil
+	// For ServiceEntryStore, returns the same thing - but checks if
+	// service exists, and returns the correct namespace (no UID) - but that's
+	// the namespace where the ServiceEntry was defined, not where
+	// the workload is running
+
+	// For k8s - it just parses the name and returns UID, while checking
+	// for existence
+	name, namespace, err := parseHostname(hostname)
+	if err != nil {
+		return &ServiceAttributes{
+			Name:      hostname.String(),
+			Namespace: "default",
+		}, nil
+	}
+	// No longer making an expensive check to exist - if we're looking it up,
+	// it was returned from a list services.
+	return &ServiceAttributes{
+			Name:      name,
+			Namespace: namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+		}, nil
+}
+
+// parseHostname extracts service name and namespace from the service hostname
+func parseHostname(hostname Hostname) (name string, namespace string, err error) {
+	parts := strings.Split(hostname.String(), ".")
+	if len(parts) < 2 {
+		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
+		return
+	}
+	name = parts[0]
+	namespace = parts[1]
+	return
+}
+
+
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
@@ -337,3 +383,4 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	// should not have any deps on config store.
 	return err
 }
+

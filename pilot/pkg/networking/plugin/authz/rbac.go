@@ -251,7 +251,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	svc := in.ServiceInstance.Service.Hostname
-	attr, err := in.Env.GetServiceAttributes(svc)
+	attr, err := in.Push.GetServiceAttributes(svc)
 	if attr == nil || err != nil {
 		rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
 		return nil

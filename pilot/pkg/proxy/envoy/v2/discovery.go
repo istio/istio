@@ -160,6 +160,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		}
 		// PushStatus is reset after a config change. Previous status is
 		// saved.
+		t0 := time.Now()
 		push := model.NewStatus()
 		err := push.InitContext(s.env)
 		if err != nil {
@@ -169,6 +170,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 			// TODO: metric !!
 			return
 		}
+		initContextTime := time.Since(t0)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
@@ -176,7 +178,9 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		version = time.Now().Format(time.RFC3339)
 		versionMutex.Unlock()
 
-		s.AdsPushAll(versionInfo(), push)
+		adsLog.Infof("Context init for push %v %s", initContextTime, version)
+
+		go s.AdsPushAll(versionInfo(), push)
 	}
 }
 

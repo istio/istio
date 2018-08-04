@@ -208,23 +208,6 @@ func (fake *ServiceDiscovery) GetServiceReturnsOnCall(i int, result1 *model.Serv
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	fake.getServiceAttributesMutex.Lock()
-	ret, specificReturn := fake.getServiceAttributesReturnsOnCall[len(fake.getServiceAttributesArgsForCall)]
-	fake.getServiceAttributesArgsForCall = append(fake.getServiceAttributesArgsForCall, struct {
-		hostname model.Hostname
-	}{hostname})
-	fake.recordInvocation("GetServiceAttributes", []interface{}{hostname})
-	fake.getServiceAttributesMutex.Unlock()
-	if fake.GetServiceAttributesStub != nil {
-		return fake.GetServiceAttributesStub(hostname)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.getServiceAttributesReturns.result1, fake.getServiceAttributesReturns.result2
-}
-
 func (fake *ServiceDiscovery) GetServiceAttributesCallCount() int {
 	fake.getServiceAttributesMutex.RLock()
 	defer fake.getServiceAttributesMutex.RUnlock()
