@@ -281,8 +281,7 @@ func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	//TODO: make these supported types configurable
-	// currently mcp server has to also load all the supported types too
+	//TODO: how to define pilot Node ID?
 	clientNodeID := "some-id"
 	supportedTypes := make([]string, len(ConfigDescriptor))
 	for i, model := range ConfigDescriptor {
@@ -293,9 +292,11 @@ func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
 	mcpClient := mcpclient.New(cl, supportedTypes, u, clientNodeID, map[string]string{})
 
 	s.addStartFunc(func(stop chan struct{}) error {
+		ctx, cancel := context.WithCancel(context.Background())
+		go mcpClient.Run(ctx)
 		go func() {
-			mcpClient.Run(context.Background())
 			<-stop
+			cancel()
 		}()
 
 		return nil
