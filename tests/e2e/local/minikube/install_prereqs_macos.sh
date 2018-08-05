@@ -85,21 +85,33 @@ else
     hyperkit version
 fi
 
-echo "Checking and Installing Minikube version 0.27.0 as required..."
-minikube --help > /dev/null
-if [[ $? -ne 0 || ($(minikube version) != *"minikube version: v0.27.0"*) ]]; then
-    if [ $? -eq 0 ]; then
-        echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
-        minikube delete
-    fi
+# Install minikube.
+function install_minikube() {
     echo "Minikube version 0.27.0 is not installed. Installing it using curl."
-    curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-darwin-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
-    if [ $? -ne 0 ]; then
-    	echo "Installation of Minikube version 0.27.0 failed. Please install it manually."
+    if ! curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.27.0/minikube-darwin-amd64 \
+            && chmod +x minikube \
+            && sudo mv minikube /usr/local/bin/; then
+        echo "Installation of Minikube version 0.27.0 failed. Please install it manually."
         exit 1
     else
-    	echo "Done."
+        echo "Done."
     fi
+}
+
+echo "Checking and Installing Minikube version 0.27.0 as required"
+
+# If minikube is installed.
+if minikube --help > /dev/null; then
+# If version is not 0.27.0.
+if [[ $(minikube version) != *"minikube version: v0.27.0"* ]]; then
+    # Uninstall minikube.
+    echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
+    minikube delete
+
+    install_minikube
+fi
+else
+    install_minikube
 fi
 
 echo "Checking kubectl..."
