@@ -68,13 +68,15 @@ SH_FILES=$( \
         -name '*.sh' -type f \
         -not -path '*/vendor/*' \
         -not -path '*/.git/*')
-# All files not ending in .sh but containing a shebang.
+# All files not ending in .sh but starting with a shebang.
 SHEBANG_FILES=$( \
     find "${ISTIO_ROOT}" \
         -not -name '*.sh' -type f \
         -not -path '*/vendor/*' \
-        -not -path '*/.git/*' -print0 \
-        | xargs -0 grep -l '^#!.*sh')
+        -not -path '*/.git/*' | \
+        while read f; do
+            head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
+        done)
 
 echo "${SH_FILES}" "${SHEBANG_FILES}" \
     | xargs shellcheck --exclude="${EXCLUDES}"
