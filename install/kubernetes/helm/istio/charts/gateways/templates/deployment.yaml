@@ -117,6 +117,12 @@ spec:
           secretName: {{ .secretName | quote }}
           optional: true
       {{- end }}
+      {{- range $spec.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
+          optional: true
+      {{- end }}
       affinity:
       {{- include "nodeaffinity" $ | indent 6 }}
 ---
