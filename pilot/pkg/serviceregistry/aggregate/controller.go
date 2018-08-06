@@ -169,7 +169,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return nil, errs
 }
 
-
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {

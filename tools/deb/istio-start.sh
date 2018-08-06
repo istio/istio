@@ -43,8 +43,8 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 # enable auth. This requires node-agent to be running.
 ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-8080}
 
-# If set, override the default
-CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy MTLS"
+# If set, add the flag
+CONTROL_PLANE_AUTH_POLICY=""
 if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
   CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy ${ISTIO_CP_AUTH}"
 fi

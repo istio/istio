@@ -21,9 +21,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	networking "istio.io/api/networking/v1alpha3"
-	"strings"
 	"fmt"
+	"strings"
+
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // PushStatus tracks the status of a mush - metrics and errors.
@@ -347,10 +348,10 @@ func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttribute
 	// No longer making an expensive check to exist - if we're looking it up,
 	// it was returned from a list services.
 	return &ServiceAttributes{
-			Name:      name,
-			Namespace: namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-		}, nil
+		Name:      name,
+		Namespace: namespace,
+		UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+	}, nil
 }
 
 // parseHostname extracts service name and namespace from the service hostname
@@ -364,7 +365,6 @@ func parseHostname(hostname Hostname) (name string, namespace string, err error)
 	namespace = parts[1]
 	return
 }
-
 
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
@@ -383,4 +383,3 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	// should not have any deps on config store.
 	return err
 }
-

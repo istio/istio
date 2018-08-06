@@ -251,7 +251,6 @@ func (c *discoveryCache) cachedDiscoveryResponse(key string) ([]byte, uint32, bo
 	return entry.data, entry.resourceCount, true
 }
 
-
 func (c *discoveryCache) resetStats() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
