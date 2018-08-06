@@ -61,7 +61,7 @@ TOLERANCE_PERCENT_BYTES_PER_OP=1
 TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 
 # the root folder for the project
 ROOT=${SCRIPTPATH}/..
@@ -224,7 +224,7 @@ function run() {
 
         local BASELINE=$(loadBaselineFile "${BASELINE_FILENAME}")
 
-        pushd "${BENCH_DIR}"  > /dev/null 2>&1
+        pushd "${BENCH_DIR}"  > /dev/null 2>&1 || return
 
         local BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
         local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
@@ -239,7 +239,7 @@ function run() {
             printf "%s" "${CMP_RESULT}"
             ERR="-1"
         fi
-        popd > /dev/null 2>&1
+        popd > /dev/null 2>&1 || return
 
     done
 

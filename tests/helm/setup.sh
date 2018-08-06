@@ -3,15 +3,14 @@
 
 
 function testIstioSystem() {
-   pushd $TOP/src/istio.io/istio
+   pushd $TOP/src/istio.io/istio || return
    helm -n istio-system template \
     --set global.tag=$TAG \
     --set global.hub=$HUB \
     --values tests/helm/values-istio-test.yaml \
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
-   popd
-
+   popd || return
 }
 
 # Install istio
@@ -32,11 +31,11 @@ function testInstall() {
 # Apply the helm template
 function testApply() {
    local F=${1:-"istio/fortio:latest"}
-   pushd $TOP/src/istio.io/istio
+   pushd $TOP/src/istio.io/istio || return
    helm -n test template \
     --set fortioImage=$F \
     tests/helm |kubectl -n test apply -f -
-   popd
+   popd || return
 }
 
 function testApply1() {

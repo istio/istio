@@ -5,7 +5,7 @@
 
 # Source the file with: ". envsetup.sh"
 
-export TOP=$(cd ../../..; pwd)
+export TOP=$(cd ../../.. && pwd)
 
 # Used in the shell scripts.
 export ISTIO_SRC=$TOP
@@ -31,7 +31,7 @@ fi
 
 # Runs make at the top of the tree.
 function m() {
-    (cd $TOP; make "$@")
+    (cd $TOP && make "$@")
 }
 
 # Image used by the circleci, including all tools

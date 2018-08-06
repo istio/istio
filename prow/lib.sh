@@ -25,7 +25,7 @@ function setup_and_export_git_sha() {
     if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
       mv ${GOPATH}/src/github.com/${REPO_OWNER:-istio} ${GOPATH}/src/istio.io
       export ROOT=${GOPATH}/src/istio.io/istio
-      cd ${GOPATH}/src/istio.io/istio
+      cd ${GOPATH}/src/istio.io/istio || return
     fi
 
     if [ -z "${PULL_PULL_SHA:-}" ]; then

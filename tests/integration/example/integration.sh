@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd $WD && pwd)
 
 # Print commands
 set -x
@@ -39,7 +39,7 @@ ENVOY_BINARY=$(make where-is-out)/envoy
 START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
-( cd vendor/istio.io/fortio ; go install . )
+( cd vendor/istio.io/fortio && go install . )
 
 # Run Tests
 SUMMARY='Tests Summary'

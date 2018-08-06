@@ -1,7 +1,7 @@
 #!/bin/bash
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 ROOTDIR=$SCRIPTPATH/..
-cd $ROOTDIR
+cd $ROOTDIR || exit
 
 ADD_LICENSE=$1
 THISYEAR=$(date +"%Y")

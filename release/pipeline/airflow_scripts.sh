@@ -22,7 +22,7 @@ function get_git_commit_cmd() {
     git config --global user.email "testrunner@istio.io"
     git clone $MFEST_URL green-builds || exit 2
 
-    pushd green-builds
+    pushd green-builds || return
     git checkout $BRANCH
     git checkout $MFEST_COMMIT || exit 3
     ISTIO_SHA=$(grep $GITHUB_ORG/$GITHUB_REPO $MFEST_FILE | cut -f 6 -d \") || exit 4
@@ -32,10 +32,10 @@ function get_git_commit_cmd() {
       echo "ISTIO_SHA:$ISTIO_SHA API_SHA:$API_SHA PROXY_SHA:$PROXY_SHA some shas not found"
       exit 7
     fi
-    popd #green-builds
+    popd || return #green-builds
 
     git clone $ISTIO_REPO istio-code -b $BRANCH
-    pushd istio-code/release
+    pushd istio-code/release || return
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
     git checkout ${ISTIO_SHA} || exit 8
 
@@ -47,16 +47,16 @@ function get_git_commit_cmd() {
        echo ERROR: ${ISTIO_SHA} is $DIFF_DAYS days older than head of branch $BRANCH
        exit 9
     fi
-    popd #istio-code/release
+    popd || return #istio-code/release
 
     if [ "$VERIFY_CONSISTENCY" = "true" ]; then
       PROXY_REPO=$(dirname $ISTIO_REPO)/proxy
       echo $PROXY_REPO
       git clone $PROXY_REPO proxy-code -b $BRANCH
-      pushd proxy-code
+      pushd proxy-code || return
       PROXY_HEAD_SHA=$(git rev-parse HEAD)
       PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-      popd
+      popd || return
       if [ "$PROXY_HEAD_SHA" != "$PROXY_SHA" ]; then
         echo "inconsistent shas     PROXY_HEAD_SHA     $PROXY_HEAD_SHA != $PROXY_SHA PROXY_SHA" 1>&2
         exit 10
@@ -71,13 +71,13 @@ function get_git_commit_cmd() {
       fi
     fi
 
-    pushd istio-code/release
+    pushd istio-code/release || return
     gsutil cp ./*.sh   gs://$GCS_RELEASE_TOOLS_PATH/data/release/
     gsutil cp ./*.json gs://$GCS_RELEASE_TOOLS_PATH/data/release/
     cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
-    popd #istio-code/release
+    popd || return #istio-code/release
 
-    pushd green-builds
+    pushd green-builds || return
     git rev-parse HEAD
 }
 
