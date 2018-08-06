@@ -20,7 +20,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mcpclient "istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pilot/pkg/config/memory"

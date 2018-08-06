@@ -40,7 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mcpclient "istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pilot/cmd"

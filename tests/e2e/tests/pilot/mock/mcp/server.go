@@ -8,7 +8,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
-	mcp "istio.io/api/config/mcp/v1alpha1"
+	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mcpserver "istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/pilot/pkg/model"
