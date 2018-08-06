@@ -5,7 +5,8 @@
 
 # Source the file with: ". envsetup.sh"
 
-export TOP=$(cd ../../.. && pwd)
+TOP=$(cd ../../.. && pwd)
+export TOP
 
 # Used in the shell scripts.
 export ISTIO_SRC=$TOP
