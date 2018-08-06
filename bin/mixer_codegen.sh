@@ -77,9 +77,9 @@ PROTOC_PATH=$(which protoc)
  fi
 
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
-GOGOSLICK=protoc-gen-gogoslick
+GOGOSLICK="protoc-gen-gogoslick"
 GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
-GENDOCS=protoc-gen-docs
+GENDOCS="protoc-gen-docs"
 GENDOCS_PATH=vendor/github.com/istio/tools/$GENDOCS
 
 if [ ! -e $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ]; then
@@ -98,7 +98,7 @@ popd
 echo "Done."
 fi
 
-PROTOC_MIN_VERSION=protoc-min-version
+PROTOC_MIN_VERSION="protoc-min-version"
 MIN_VERSION_PATH=$ROOT/$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 
 if [ ! -e $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ]; then
@@ -240,8 +240,8 @@ if [ "$gendoc" = true ]; then
 else
   err=$($protoc $IMPORTS $PLUGIN $file)
 fi
-if [ ! -z "$err" ]; then 
-  die "generation failure: $err"; 
+if [ ! -z "$err" ]; then
+  die "generation failure: $err";
 fi
 
 err=$($protoc $IMPORTS $PLUGIN --include_imports --include_source_info --descriptor_set_out=${file}_descriptor $file)
