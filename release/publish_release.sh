@@ -237,7 +237,7 @@ if [[ "${DO_GCS}" == "true" ]]; then
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(which docker)" ]]; then
+  if [[ -z "$(command -v docker)" ]]; then
     echo "Could not find 'docker' in path"
     exit 1
   fi

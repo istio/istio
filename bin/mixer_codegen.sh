@@ -71,7 +71,7 @@ if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-PROTOC_PATH=$(which protoc)
+PROTOC_PATH=$(command -v protoc)
  if [ -z "$PROTOC_PATH" ] ; then
     die "protoc was not found, please install it first"
  fi
