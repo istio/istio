@@ -28,8 +28,7 @@ function waitMinikube() {
       fi
       sleep 2
     done
-    kubectl get all --all-namespaces
-    if [ $? -ne 0 ]; then
+    if ! kubectl get all --all-namespaces; then
         echo "Kubernetes failed to start"
         ps ax
         netstat -an

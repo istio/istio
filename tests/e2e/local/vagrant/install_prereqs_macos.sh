@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Check if homebrew is installed
-brew --help > /dev/null
-if [ $? -ne 0 ]; then
+if ! brew --help > /dev/null; then
     echo "Homebrew is not installed. Please go to https://docs.brew.sh/Installation to install Homebrew."
     exit 1
 fi
@@ -11,13 +10,9 @@ echo "Update homebrew..."
 brew update
 
 echo "Checking curl"
-curl --help > /dev/null
-if [ $? -ne 0 ]; 
-then
+if ! curl --help > /dev/null; then
     echo "curl is not installed. Install it from homebrew."
-    brew install curl
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew install curl; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
@@ -28,13 +23,9 @@ else
 fi
 
 echo "Checking docker..."
-docker --help > /dev/null
-if [ $? -ne 0 ]; 
-then
+if ! docker --help > /dev/null; then
     echo "docker is not installed. Install it from homebrew cask."
-    brew cask install docker
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew cask install docker; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
@@ -45,13 +36,9 @@ else
 fi
 
 echo "Checking vitualbox..."
-virtualbox --help > /dev/null
-if [ $? -ne 0 ]; 
-then
+if ! virtualbox --help > /dev/null; then
     echo "virtualbox is not installed. Install it from homebrew cask."
-    brew cask install virtualbox
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew cask install virtualbox; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
@@ -59,9 +46,7 @@ then
     fi
 else
     echo "virtualbox is installed. Checking and upgrading if a newer version exists."
-    brew cask reinstall --force virtualbox
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew cask reinstall --force virtualbox; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
@@ -70,13 +55,9 @@ else
 fi
 
 echo "Checking vagrant..."
-vagrant --help > /dev/null
-if [ $? -ne 0 ]; 
-then
+if ! vagrant --help > /dev/null; then
     echo "vagrant is not installed. Install it from homebrew cask."
-    brew cask install vagrant
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew cask install vagrant; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
@@ -88,13 +69,9 @@ else
 fi
 
 echo "Checking kubectl..."
-kubectl --help > /dev/null
-if [ $? -ne 0 ]; 
-then
+if ! kubectl --help > /dev/null; then
     echo "kubectl is not installed. Installing the lastest stable release..."
-    brew install kubectl
-    if [ $? -ne 0 ]; 
-    then
+    if ! brew install kubectl; then
     	echo "Installation from brew fails. Please install it manually."
         exit 1
     else
