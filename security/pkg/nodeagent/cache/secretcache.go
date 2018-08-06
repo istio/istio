@@ -145,6 +145,8 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate(t time.Time) {
+	log.Debug("Refresh job running")
+
 	sc.secrets.Range(func(key interface{}, value interface{}) bool {
 		proxyID := key.(string)
 		now := time.Now()
@@ -161,6 +163,8 @@ func (sc *SecretCache) rotate(t time.Time) {
 		if sc.shouldRefresh(&e) {
 			go func() {
 				if sc.isTokenExpired(&e) {
+					log.Debugf("Token for %q expired", e.SpiffeID)
+
 					if sc.notifyCallback != nil {
 						// Send the notification to close the stream connection if both cert and token have expired.
 						if err := sc.notifyCallback(proxyID, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
@@ -210,13 +214,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, spiffeID strin
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
-		log.Errorf("Failed to generated key cert: %v", err)
+		log.Errorf("Failed to generated key cert for %q: %v", spiffeID, err)
 		return nil, err
 	}
 
 	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
 	if err != nil {
-		log.Errorf("Failed to sign cert: %v", err)
+		log.Errorf("Failed to sign cert for %q: %v", spiffeID, err)
 		return nil, err
 	}
 
