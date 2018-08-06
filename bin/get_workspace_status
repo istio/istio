@@ -14,8 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
 BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null)
 if [[  $? == 0 ]]; then
     git diff-index --quiet HEAD

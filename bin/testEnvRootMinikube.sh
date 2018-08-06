@@ -21,7 +21,7 @@ function waitMinikube() {
     set +e
     kubectl cluster-info
     # this for loop waits until kubectl can access the api server that Minikube has created
-    for i in {1..30}; do # timeout for 1 minutes
+    for _ in {1..30}; do # timeout for 1 minutes
        kubectl get po --all-namespaces #&> /dev/null
        if [ $? -ne 1 ]; then
           break
