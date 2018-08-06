@@ -12,7 +12,6 @@
 set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-DOCKER_IMAGE="citadel,citadel-test,node-agent,node-agent-test"
 
 ARGS=""
 HUB=""

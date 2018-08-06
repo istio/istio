@@ -44,7 +44,7 @@ function get_resource() {
   local exited
 
   # Wait up to 10 mn by increment of 10 seconds unit ready or failure
-  for i in {1..60}; do
+  for _ in {1..60}; do
     grep -q READY ${file_log} && ready=true || ready=false
     if [[ ${ready} == true ]]; then
       cat "${info_path}"

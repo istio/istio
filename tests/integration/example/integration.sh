@@ -42,8 +42,6 @@ START_ENVOY=${WD}/../component/proxy/start_envoy
 ( cd vendor/istio.io/fortio ; go install . )
 
 # Run Tests
-TESTSPATH='tests/integration/example/tests'
-TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
 printf "Envoy date:"
