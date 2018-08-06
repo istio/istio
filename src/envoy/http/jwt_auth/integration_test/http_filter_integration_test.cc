@@ -136,11 +136,11 @@ class JwtVerificationFilterIntegrationTest
     // Empty issuer_response_body indicates issuer will not be called.
     // Mock a response from an issuer server.
     if (!issuer_response_body.empty()) {
-      fake_upstream_connection_issuer =
-          fake_upstreams_[1]->waitForHttpConnection(*dispatcher_);
-      request_stream_issuer =
-          fake_upstream_connection_issuer->waitForNewStream(*dispatcher_);
-      request_stream_issuer->waitForEndStream(*dispatcher_);
+      ASSERT_TRUE(fake_upstreams_[1]->waitForHttpConnection(
+          *dispatcher_, fake_upstream_connection_issuer));
+      ASSERT_TRUE(fake_upstream_connection_issuer->waitForNewStream(
+          *dispatcher_, request_stream_issuer));
+      ASSERT_TRUE(request_stream_issuer->waitForEndStream(*dispatcher_));
 
       request_stream_issuer->encodeHeaders(issuer_response_headers, false);
       Buffer::OwnedImpl body(issuer_response_body);
@@ -150,12 +150,11 @@ class JwtVerificationFilterIntegrationTest
     // Valid JWT case.
     // Check if the request sent to the backend includes the expected one.
     if (verification_success) {
-      fake_upstream_connection_backend =
-          fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
-      request_stream_backend =
-          fake_upstream_connection_backend->waitForNewStream(*dispatcher_);
-      request_stream_backend->waitForEndStream(*dispatcher_);
-
+      ASSERT_TRUE(fake_upstreams_[0]->waitForHttpConnection(
+          *dispatcher_, fake_upstream_connection_backend));
+      ASSERT_TRUE(fake_upstream_connection_backend->waitForNewStream(
+          *dispatcher_, request_stream_backend));
+      ASSERT_TRUE(request_stream_backend->waitForEndStream(*dispatcher_));
       EXPECT_TRUE(request_stream_backend->complete());
 
       ExpectHeaderIncluded(expected_headers, request_stream_backend->headers());
@@ -180,12 +179,12 @@ class JwtVerificationFilterIntegrationTest
 
     codec_client->close();
     if (!issuer_response_body.empty()) {
-      fake_upstream_connection_issuer->close();
-      fake_upstream_connection_issuer->waitForDisconnect();
+      ASSERT_TRUE(fake_upstream_connection_issuer->close());
+      ASSERT_TRUE(fake_upstream_connection_issuer->waitForDisconnect());
     }
     if (verification_success) {
-      fake_upstream_connection_backend->close();
-      fake_upstream_connection_backend->waitForDisconnect();
+      ASSERT_TRUE(fake_upstream_connection_backend->close());
+      ASSERT_TRUE(fake_upstream_connection_backend->waitForDisconnect());
     }
   }
 
@@ -373,11 +372,11 @@ TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
   codec_client = makeHttpConnection(lookupPort("http"));
   // Send a request to Envoy.
   response = codec_client->makeHeaderOnlyRequest(headers);
-  fake_upstream_connection_backend =
-      fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
-  request_stream_backend =
-      fake_upstream_connection_backend->waitForNewStream(*dispatcher_);
-  request_stream_backend->waitForEndStream(*dispatcher_);
+  ASSERT_TRUE(fake_upstreams_[0]->waitForHttpConnection(
+      *dispatcher_, fake_upstream_connection_backend));
+  ASSERT_TRUE(fake_upstream_connection_backend->waitForNewStream(
+      *dispatcher_, request_stream_backend));
+  ASSERT_TRUE(request_stream_backend->waitForEndStream(*dispatcher_));
   EXPECT_TRUE(request_stream_backend->complete());
 
   // With sanitization, the headers received by the backend should not
@@ -387,8 +386,8 @@ TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
 
   response->waitForEndStream();
   codec_client->close();
-  fake_upstream_connection_backend->close();
-  fake_upstream_connection_backend->waitForDisconnect();
+  ASSERT_TRUE(fake_upstream_connection_backend->close());
+  ASSERT_TRUE(fake_upstream_connection_backend->waitForDisconnect());
 }
 
 }  // namespace Envoy
