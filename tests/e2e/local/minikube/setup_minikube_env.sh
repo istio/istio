@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Check if port forwarding is setup
+# TODO: This ps | grep | grep is pretty hacky. Rewrite it.
+# shellcheck disable=SC2009
 if ! ps -eaf | grep "kubectl port-forward" | grep "kube-registry" | grep "5000:5000" > /dev/null; then
     echo "Port Forwarding not setup.Trying to set it up."
     POD=$(kubectl get po -n kube-system | grep kube-registry-v0 | awk '{print $1;}')
