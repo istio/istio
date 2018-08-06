@@ -68,19 +68,21 @@ function istioDnsmasq() {
   fi
 
   #/etc/dnsmasq.d/kubedns
-  echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
-  echo "address=/istio-policy/$MIXER_IP" >> kubedns
-  echo "address=/istio-telemetry/$MIXER_IP" >> kubedns
-  echo "address=/istio-pilot/$PILOT_IP" >> kubedns
-  echo "address=/istio-citadel/$CITADEL_IP" >> kubedns
-  echo "address=/istio-ca/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
-  # Also generate host entries for the istio-system. The generated config will work with both
-  # 'cluster-wide' and 'per-namespace'.
-  echo "address=/istio-policy.$NS/$MIXER_IP" >> kubedns
-  echo "address=/istio-telemetry.$NS/$MIXER_IP" >> kubedns
-  echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
-  echo "address=/istio-citadel.$NS/$CITADEL_IP" >> kubedns
-  echo "address=/istio-ca.$NS/$CITADEL_IP" >> kubedns # Deprecated. For backward compatibility
+  {
+    echo "server=/svc.cluster.local/$ISTIO_DNS"
+    echo "address=/istio-policy/$MIXER_IP"
+    echo "address=/istio-telemetry/$MIXER_IP"
+    echo "address=/istio-pilot/$PILOT_IP"
+    echo "address=/istio-citadel/$CITADEL_IP"
+    echo "address=/istio-ca/$CITADEL_IP" # Deprecated. For backward compatibility
+    # Also generate host entries for the istio-system. The generated config will work with both
+    # 'cluster-wide' and 'per-namespace'.
+    echo "address=/istio-policy.$NS/$MIXER_IP"
+    echo "address=/istio-telemetry.$NS/$MIXER_IP"
+    echo "address=/istio-pilot.$NS/$PILOT_IP"
+    echo "address=/istio-citadel.$NS/$CITADEL_IP"
+    echo "address=/istio-ca.$NS/$CITADEL_IP" # Deprecated. For backward compatibility
+  } > kubedns
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
   echo "$0 machineSetup does this for you."
