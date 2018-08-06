@@ -505,7 +505,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(con)
+				err := s.pushEds(s.env.PushStatus, con)
 				if err != nil {
 					return err
 				}
@@ -581,7 +581,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if len(con.Clusters) > 0 {
-		err := s.pushEds(con)
+		err := s.pushEds(pushEv.push, con)
 		if err != nil {
 			return err
 		}
@@ -638,7 +638,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
 	// the update may be duplicated if multiple goroutines compute at the same time).
 	// In general this code is called from the 'event' callback that is throttled.
 	for clusterName, edsCluster := range cMap {
-		if err := s.updateCluster(clusterName, edsCluster); err != nil {
+		if err := s.updateCluster(push, clusterName, edsCluster); err != nil {
 			adsLog.Errorf("updateCluster failed with clusterName %s", clusterName)
 		}
 	}

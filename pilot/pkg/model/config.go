@@ -249,14 +249,8 @@ type IstioConfigStore interface {
 	// ServiceEntries lists all service entries
 	ServiceEntries() []Config
 
-	// DestinationRule returns a destination rule for a service name in a given domain.
-	DestinationRule(hostname Hostname) *Config
-
 	// Gateways lists all gateways bound to the specified workload labels
 	Gateways(workloadLabels LabelsCollection) []Config
-
-	// SubsetToLabels returns the labels associated with a subset of a given service.
-	SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection
 
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
 	EnvoyFilter(workloadLabels LabelsCollection) *Config
@@ -639,48 +633,6 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 	}
 
 	return &Config{Spec: mergedFilterConfig}
-}
-
-func (store *istioConfigStore) DestinationRule(hostname Hostname) *Config {
-	configs, err := store.List(DestinationRule.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-	hosts := make([]Hostname, len(configs))
-	byHosts := make(map[Hostname]*Config, len(configs))
-	for i := range configs {
-		rule := configs[i].Spec.(*networking.DestinationRule)
-		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		byHosts[hosts[i]] = &configs[i]
-	}
-
-	if c, ok := MostSpecificHostMatch(hostname, hosts); ok {
-		return byHosts[c]
-	}
-	return nil
-}
-
-func (store *istioConfigStore) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
-	// empty subset
-	if subsetName == "" {
-		return nil
-	}
-
-	config := store.DestinationRule(hostname)
-	if config == nil {
-		return nil
-	}
-
-	rule := config.Spec.(*networking.DestinationRule)
-	for _, subset := range rule.Subsets {
-		if subset.Name == subsetName {
-			return []Labels{subset.Labels}
-		}
-	}
-
-	return nil
 }
 
 // HTTPAPISpecByDestination selects Mixerclient HTTP API Specs

@@ -81,7 +81,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	for _, service := range services {
-		config := env.DestinationRule(service.Hostname)
+		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			hosts := buildClusterHosts(env, service, port.Port)
 
@@ -185,7 +185,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		// (not the defaults) to handle the increased traffic volume
 		// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 		// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-		config := env.DestinationRule(instance.Service.Hostname)
+		config := push.DestinationRule(instance.Service.Hostname)
 		if config != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			if destinationRule.TrafficPolicy != nil {

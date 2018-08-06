@@ -76,6 +76,10 @@ type PushStatus struct {
 	//	ServiceAccounts map[string][]string
 	// Temp: the code in alpha3 should use VirtualService directly
 	VirtualServiceConfigs []Config
+
+	destinationRuleHosts   []Hostname
+	destinationRuleByHosts map[Hostname]*Config
+
 	//TODO: gateways              []*networking.Gateway
 }
 
@@ -378,8 +382,65 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	if err == nil {
 		ps.VirtualServiceConfigs = vservices
 	}
+	// Still doing linear search and sort
+	ps.initDestinationRules(env)
 
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
 	return err
+}
+
+// Split out of DestinationRule expensive conversions - once per push.
+func (ps *PushStatus) initDestinationRules(env *Environment) error {
+	configs, err := env.List(DestinationRule.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+	ps.SetDestinationRules(configs)
+	return nil
+}
+
+// Split out of DestinationRule expensive conversions - once per push.
+func (ps *PushStatus) SetDestinationRules(configs []Config) {
+	sortConfigByCreationTime(configs)
+	hosts := make([]Hostname, len(configs))
+	byHosts := make(map[Hostname]*Config, len(configs))
+	for i := range configs {
+		rule := configs[i].Spec.(*networking.DestinationRule)
+		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		byHosts[hosts[i]] = &configs[i]
+	}
+
+	ps.destinationRuleHosts = hosts
+	ps.destinationRuleByHosts = byHosts
+}
+
+// DestinationRule returns a destination rule for a service name in a given domain.
+func (ps *PushStatus) DestinationRule(hostname Hostname) *Config {
+	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
+		return ps.destinationRuleByHosts[c]
+	}
+	return nil
+}
+
+// SubsetToLabels returns the labels associated with a subset of a given service.
+func (ps *PushStatus) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := ps.DestinationRule(hostname)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
+		}
+	}
+
+	return nil
 }
