@@ -55,7 +55,7 @@ fi
 
 # BUILD LD_EXTRAFLAGS
 LD_EXTRAFLAGS=""
-while read line; do
+while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 

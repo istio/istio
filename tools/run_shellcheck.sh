@@ -17,7 +17,6 @@ EXCLUDES="${EXCLUDES}2046,"
 EXCLUDES="${EXCLUDES}2068,"
 EXCLUDES="${EXCLUDES}2086,"
 EXCLUDES="${EXCLUDES}2155,"
-EXCLUDES="${EXCLUDES}2162,"
 EXCLUDES="${EXCLUDES}2164,"
 EXCLUDES="${EXCLUDES}2166,"
 EXCLUDES="${EXCLUDES}2191,"
@@ -35,7 +34,7 @@ SHEBANG_FILES=$( \
         -not -name '*.sh' -type f \
         -not -path '*/vendor/*' \
         -not -path '*/.git/*' | \
-        while read f; do
+        while read -r f; do
             head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
         done)
 
