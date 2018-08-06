@@ -42,13 +42,13 @@ for fn in $(find ${ROOTDIR} -name '*.go' | grep -v vendor | grep -v testdata); d
 $(cat ${fn})" > ${fn}
     else
       echo "${fn} missing license"
-      ret=$(($ret+1))
+      ret=$((ret+1))
     fi
   fi
 
   if ! head -20 $fn | grep Copyright > /dev/null; then
     echo "${fn} missing Copyright"
-    ret=$(($ret+1))
+    ret=$((ret+1))
   fi
 done
 

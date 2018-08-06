@@ -41,7 +41,7 @@ function get_git_commit_cmd() {
     TS_SHA=$( git show -s --format=%ct ${ISTIO_SHA})
     TS_HEAD=$(git show -s --format=%ct ${ISTIO_HEAD_SHA})
     DIFF_SEC=$((TS_HEAD - TS_SHA))
-    DIFF_DAYS=$(($DIFF_SEC/86400))
+    DIFF_DAYS=$((DIFF_SEC/86400))
     if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
        echo ERROR: ${ISTIO_SHA} is $DIFF_DAYS days older than head of branch $BRANCH
        exit 9
