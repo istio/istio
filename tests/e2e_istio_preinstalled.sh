@@ -31,8 +31,6 @@ set -o pipefail
 declare -a tests
 [[  $1 == "all" ]] && tests=("bookinfo" "mixer" "simple") || tests=($1)
 
-HUB=gcr.io/istio-release
-
 cd $(dirname ${BASH_SOURCE[0]})/..
 git checkout ${TAG}
 make init

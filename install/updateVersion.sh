@@ -24,7 +24,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="istio.VERSION"
 TEMP_DIR="/tmp"
 DEST_DIR=$ROOT
-COMPONENT_FILES=false
 
 # set the default values
 ISTIO_NAMESPACE="istio-system"
@@ -33,7 +32,7 @@ FORTIO_TAG="latest_release"
 HYPERKUBE_HUB="quay.io/coreos/hyperkube"
 HYPERKUBE_TAG="v1.7.6_coreos.0"
 
-while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
+while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
@@ -45,7 +44,6 @@ while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
     D) PROXY_DEBUG="${OPTARG}";;
-    m) COMPONENT_FILES=true;;
     *) usage;;
   esac
 done

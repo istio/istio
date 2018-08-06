@@ -48,8 +48,7 @@
 function istioDnsmasq() {
   local NS=${ISTIO_NAMESPACE:-istio-system}
   # Multiple tries, it may take some time until the controllers generate the IPs
-  for i in {1..20}
-  do
+  for _ in {1..20}; do
     PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -154,7 +153,7 @@ function istioBootstrapGCE() {
   echo "Making certs for service account $SA (namespace $NS)"
   istio_provision_certs $SA $NS "root-cert-only"
 
-  for i in {1..10}; do
+  for _ in {1..10}; do
     # Copy deb, helper and config files
     istioCopy $DESTINATION \
       kubedns \
@@ -199,7 +198,7 @@ function istioBootstrapVM() {
   echo "Making certs for service account $SA (namespace $NS)"
   istio_provision_certs $SA $NS "all"
 
-  for i in {1..10}; do
+  for _ in {1..10}; do
     # Copy deb, helper and config files
     istioCopy $DESTINATION \
       kubedns \

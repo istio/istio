@@ -40,9 +40,6 @@ CERTDIR=${CERTDIR:-${ISTIO_GO}/.circleci/pki/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
 ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
-EASYRSA_DIR=$OUT/easy-rsa-master/easyrsa3
-EASYRSA=$EASYRSA_DIR/easyrsa
-
 # Ensure k8s certificats - if not found, download easy-rsa and create k8s certs
 function ensureK8SCerts() {
     if [ -f ${CERTDIR}/apiserver.key ] ; then
@@ -308,7 +305,6 @@ set +xe
   done
 }
 
-CMD=${1:-help}
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;

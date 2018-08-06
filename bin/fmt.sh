@@ -27,8 +27,6 @@ if [[ -z ${GO_FILES} ]];then
   GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)
 fi
 
-UX=$(uname)
-
 if [ $check = false ]; then
   $goimports -w -local istio.io ${GO_FILES}
   exit $?
