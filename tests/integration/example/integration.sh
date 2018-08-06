@@ -61,5 +61,5 @@ process_result $? sample1
 go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
 process_result $? sample2
 
-printf "${SUMMARY}\n"
+printf '%s\n' "${SUMMARY}"
 exit ${FAILURE_COUNT}

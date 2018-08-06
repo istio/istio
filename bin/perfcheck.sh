@@ -145,7 +145,7 @@ function compareBenchResults() {
     local BASELINE="${1}"
     local RESULTS="${2}"
 
-    printf "${BASELINE}" | while read -r BASELINE_ENTRY; do
+    printf '%s' "${BASELINE}" | while read -r BASELINE_ENTRY; do
         local BENCH_NAME=$(getColumn "${BASELINE_ENTRY}" "0")
         local RESULT_ENTRY=$(findEntry "${RESULTS}", "${BENCH_NAME}")
 
@@ -197,11 +197,11 @@ function compareBenchResults() {
 function cleanupBenchResult() {
     local OUTPUT=${1}
     # Remove known extraneous lines
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goos:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goarch:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^pkg:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^PASS.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^ok.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goos:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goarch:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^pkg:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^PASS.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^ok.*$//')
     printf "%s" "${OUTPUT}" | sed -e "/^$/d"
 }
 
