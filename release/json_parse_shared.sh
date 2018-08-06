@@ -117,7 +117,7 @@ function parse_json_for_url_int_suffix() {
   local URL_SUFFIX=$3
   local RESULT=""
 
-  parse_json_for_url_suffix $* "[0-9]"
+  parse_json_for_url_suffix "$@" "[0-9]"
   return 0
 }
 
@@ -129,6 +129,6 @@ function parse_json_for_url_hex_suffix() {
   local URL_SUFFIX=$3
   local RESULT=""
 
-  parse_json_for_url_suffix $* "[0-9]|[a-f]|[A-F]"
+  parse_json_for_url_suffix "$@" "[0-9]|[a-f]|[A-F]"
   return 0
 }

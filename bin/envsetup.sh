@@ -31,7 +31,7 @@ fi
 
 # Runs make at the top of the tree.
 function m() {
-    (cd $TOP; make $*)
+    (cd $TOP; make "$@")
 }
 
 # Image used by the circleci, including all tools
