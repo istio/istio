@@ -43,8 +43,6 @@ source ${SCRIPTPATH}/json_parse_shared.sh
 # }
 #
 
-BUILD_FAILED=0
-
 function parse_result_file {
   local INPUT_FILE="$1"
 
@@ -66,17 +64,14 @@ function parse_result_file {
   case "${STATUS_VALUE}" in
     ERROR)
       echo "build has error code ${ERROR_CODE} with \"${ERROR_STATUS}\" and \"${ERROR_VALUE}\""
-      BUILD_FAILED=1
       return 2
       ;;
     FAILURE)
       echo "build has failed"
-      BUILD_FAILED=1
       return 2
       ;;
     CANCELLED)
       echo "build was cancelled"
-      BUILD_FAILED=1
       return 2
       ;;
     QUEUED)
@@ -94,22 +89,18 @@ function parse_result_file {
     *)
       echo "unrecognized status: ${STATUS_VALUE}"
       cat $INPUT_FILE
-      BUILD_FAILED=1
       return 2
   esac
 }
 
 function run_build() {
-  local MFEST_URL=$1
-  local MFEST_FILE=$2
-  local MFEST_VER=$3
   local TEMPLATE_NAME=$4
   local SUBS_FILE=$5
   local PROJ_ID=$6
   local SERVICE_ACCT=$7
   local SERVICE_KEY_FILE=$8
   local WAIT=$9
-  
+
   local REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
   local RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 
@@ -145,11 +136,11 @@ function run_build() {
 
   if [[ "${WAIT}" == "true" ]]; then
     echo "waiting for build to complete"
-    
+
     while parse_result_file "${RESULT_FILE}"
     do
       sleep 60
-      
+
       curl -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" -s --retry 3 \
         -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds/{$BUILD_ID}"
     done
