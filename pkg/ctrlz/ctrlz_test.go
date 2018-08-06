@@ -14,10 +14,18 @@
 
 package ctrlz
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func TestStartStop(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	listeningTestProbe = wg.Done
+	defer func() { listeningTestProbe = nil }()
 	o := DefaultOptions()
 	go Run(o, nil)
+	wg.Wait()
 	Stop()
 }
