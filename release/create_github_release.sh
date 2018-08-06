@@ -149,8 +149,7 @@ function upload_directory() {
   # $4 is file extension
   local FILE=""
 
-  for FILE in ${2}/istio-*.${4}
-  do
+  for FILE in "${2}"/istio-*."${4}"; do
     local BASE_NAME=$(basename "$FILE")
 
     # if no directory or directory has no matching files
@@ -174,7 +173,7 @@ if [[ -n "${UPLOAD_DIR}" ]]; then
     cat ${RESPONSE_FILE}
     exit 1
   fi
-  
+
   echo "UPLOAD_URL for release is \"${UPLOAD_URL}\""
 
   # chop off the trailing {} part of the URL
