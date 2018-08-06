@@ -87,8 +87,6 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
 fi
 
 function usage() {
-  [[ -n "${1}" ]] && echo "${1}"
-
   cat <<EOF
 usage: ${BASH_SOURCE[0]} [options ...]"
   options:
@@ -210,8 +208,9 @@ function merge_files_docker() {
 }
 
 function gen_platforms_files() {
-    for platform in consul
-    do
+    # This loop only executes once, with platform=consul.
+    # shellcheck disable=SC2043
+    for platform in consul; do
         cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
         cp -a $ROOT/samples/bookinfo/platform/$platform/templates/. $TEMP_DIR/templates/
         update_istio_install_docker

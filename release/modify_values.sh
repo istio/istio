@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 set -o errexit
@@ -12,12 +11,13 @@ while getopts h:t:p:v: arg ; do
     t) TAG="${OPTARG}";;
     p) GCS_PATH="${OPTARG}";;
     v) VERSION="${OPTARG}";;
+    *) exit 1;;
   esac
 done
 
 rm -rf modification-tmp
 mkdir modification-tmp
-cd modification-tmp
+cd modification-tmp || exit
 
 folder_name="istio-${VERSION}"
 
@@ -75,7 +75,6 @@ rm -rf "${folder_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/${tarball_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/docker.io/${tarball_name}"
 gsutil cp "${tarball_name}" "${GCS_PATH}/gcr.io/${tarball_name}"
-
 
 cd ..
 rm -rf modification-tmp
