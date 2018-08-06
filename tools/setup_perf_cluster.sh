@@ -308,11 +308,11 @@ function get_json_file_name() {
 }
 
 function file_escape() {
-  FNAME=$(echo $FNAME|sed -e "s/ /_/g")
+  FNAME=${FNAME// /_}
 }
 
 function label_escape() {
-  LABELS=$(echo $LABELS|sed -e "s/ /+/g")
+  LABELS=${LABELS// /+}
 }
 
 function run_fortio_test1() {

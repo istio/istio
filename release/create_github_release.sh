@@ -177,7 +177,8 @@ if [[ -n "${UPLOAD_DIR}" ]]; then
   echo "UPLOAD_URL for release is \"${UPLOAD_URL}\""
 
   # chop off the trailing {} part of the URL
-  UPLOAD_URL_BASE=$(echo "$UPLOAD_URL" | sed "s/\(.*\){.*}/\1/")
+  # ${var%%pattern} Removes longest part of $pattern from the end of $var.
+  UPLOAD_URL_BASE=${UPLOAD_URL%%\{*\}}
   if [[ -z "${UPLOAD_URL_BASE}" ]]; then
     echo "Could not parse Upload URL ${UPLOAD_URL} for created release ID ${RELEASE_ID}"
     cat ${REQUEST_FILE}

@@ -82,9 +82,11 @@ function loadBaselineFile() {
     local CONTENTS=$(cat "${FILENAME}")
 
     # Filter comment lines
+    # shellcheck disable=SC2001
     local CONTENTS=$(echo "${CONTENTS}" | sed -e 's/#.*$//')
 
     # Filter empty lines
+    # shellcheck disable=SC2001
     local CONTENTS=$(echo "${CONTENTS}" | sed -e '/^$/d')
 
     printf "%s" "${CONTENTS}"
