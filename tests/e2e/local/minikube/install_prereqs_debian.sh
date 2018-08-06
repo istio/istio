@@ -67,8 +67,8 @@ fi
 # Install minikube.
 echo "Checking and Installing Minikube version 0.27.0 as required"
 minikube --help > /dev/null
-if [[ $? -ne 0 || (`minikube version` != *"minikube version: v0.27.0"*) ]]; then
-  if [ $? -eq 0]; then
+if [[ $? -ne 0 || ($(minikube version) != *"minikube version: v0.27.0"*) ]]; then
+  if [ $? -eq 0 ]; then
     echo "Deleting previous minikube cluster and updating minikube to v0.27.0"
     minikube delete
     rm -rf ~/.minikube

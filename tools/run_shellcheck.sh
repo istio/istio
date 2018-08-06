@@ -7,12 +7,8 @@ ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 
 # See https://github.com/koalaman/shellcheck/wiki for details on each code's
 # corresponding rule.
-EXCLUDES="1009,"
-EXCLUDES="${EXCLUDES}1020,"
-EXCLUDES="${EXCLUDES}1054,"
+EXCLUDES="1054,"
 EXCLUDES="${EXCLUDES}1056,"
-EXCLUDES="${EXCLUDES}1072,"
-EXCLUDES="${EXCLUDES}1073,"
 EXCLUDES="${EXCLUDES}1083,"
 EXCLUDES="${EXCLUDES}1090,"
 EXCLUDES="${EXCLUDES}1091,"
@@ -68,13 +64,15 @@ SH_FILES=$( \
         -name '*.sh' -type f \
         -not -path '*/vendor/*' \
         -not -path '*/.git/*')
-# All files not ending in .sh but containing a shebang.
+# All files not ending in .sh but starting with a shebang.
 SHEBANG_FILES=$( \
     find "${ISTIO_ROOT}" \
         -not -name '*.sh' -type f \
         -not -path '*/vendor/*' \
-        -not -path '*/.git/*' -print0 \
-        | xargs -0 grep -l '^#!.*sh')
+        -not -path '*/.git/*' | \
+        while read f; do
+            head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
+        done)
 
 echo "${SH_FILES}" "${SHEBANG_FILES}" \
     | xargs shellcheck --exclude="${EXCLUDES}"
