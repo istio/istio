@@ -90,7 +90,7 @@ func (am *AppManager) deploy(a *App) error {
 			log.Errorf("CreateTempfile failed %v", err)
 			return err
 		}
-		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
+		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml, am.Kubeconfig); err != nil {
 			log.Errorf("KubeInject failed for yaml %s: %v", a.AppYaml, err)
 			return err
 		}
