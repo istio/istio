@@ -21,10 +21,10 @@ openssl req -new -key ca-key.pem -out ca-cert.csr -config ca.cfg -batch -sha256
 echo 'Sign the cert for Istio CA.'
 openssl x509 -req -days 36500 -in ca-cert.csr -sha256 -CA root-cert.pem -CAkey root-key.pem -CAcreateserial -out ca-cert.pem -extensions v3_req -extfile ca.cfg
 
-rm *csr
-rm *srl
+rm ./*csr
+rm ./*srl
 
 echo 'Generate cert chain file.'
 cp ca-cert.pem cert-chain.pem
 
-mv *.pem ../../../samples/certs/
+mv ./*.pem ../../../samples/certs/

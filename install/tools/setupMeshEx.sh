@@ -159,7 +159,7 @@ function istioBootstrapGCE() {
     # Copy deb, helper and config files
     if ! istioCopy $DESTINATION \
         kubedns \
-        *.pem \
+        ./*.pem \
         cluster.env \
         istio.VERSION \
         ${SETUP_ISTIO_VM_SCRIPT}; then
@@ -202,7 +202,7 @@ function istioBootstrapVM() {
     # Copy deb, helper and config files
     if ! istioCopy $DESTINATION \
         kubedns \
-        *.pem \
+        ./*.pem \
         cluster.env \
         istio.VERSION \
         ${SETUP_ISTIO_VM_SCRIPT}; then

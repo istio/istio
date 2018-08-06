@@ -72,8 +72,8 @@ function get_git_commit_cmd() {
     fi
 
     pushd istio-code/release
-    gsutil cp *.sh   gs://$GCS_RELEASE_TOOLS_PATH/data/release/
-    gsutil cp *.json gs://$GCS_RELEASE_TOOLS_PATH/data/release/
+    gsutil cp ./*.sh   gs://$GCS_RELEASE_TOOLS_PATH/data/release/
+    gsutil cp ./*.json gs://$GCS_RELEASE_TOOLS_PATH/data/release/
     cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
     popd #istio-code/release
 
@@ -86,7 +86,7 @@ function build_template() {
     # Currently we did changes and push those to a test-version folder manually
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.json .
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
-    chmod u+x *
+    chmod u+x ./*
 
     ./start_gcb_build.sh -w -p $PROJECT_ID -r $GCR_STAGING_DEST -s $GCS_BUILD_PATH \
     -v "$VERSION" -u "$MFEST_URL" -t "$m_commit" -m "$MFEST_FILE" -a $SVC_ACCT
@@ -146,7 +146,7 @@ function gcr_tag_success() {
 function release_push_github_docker_template() {
   gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
   gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
-  chmod u+x *
+  chmod u+x ./*
 
   ./start_gcb_publish.sh \
     -p "$RELEASE_PROJECT_ID" -a "$SVC_ACCT"  \
@@ -161,7 +161,7 @@ function release_push_github_docker_template() {
 function release_tag_github_template() {
   gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
   gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh .
-  chmod u+x *
+  chmod u+x ./*
 
   ./start_gcb_tag.sh \
     -p "$RELEASE_PROJECT_ID" \

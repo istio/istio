@@ -103,7 +103,7 @@ for file in CACert ServerKey ServerCert ClientKey ClientCert; do
 done
 
 # Clean up after we're done.
-rm *.pem
-rm *.csr
-rm *.srl
-rm *.conf
+rm ./*.pem
+rm ./*.csr
+rm ./*.srl
+rm ./*.conf
