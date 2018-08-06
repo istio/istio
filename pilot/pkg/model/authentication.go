@@ -26,11 +26,7 @@ import (
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined.
-// If not, it generates and output a policy that is equivalent to the legacy flag
-// and/or service annotation. Once these legacy flags/config deprecated,
-// this function can be placed by a call to store.AuthenticationPolicyByDestination
-// directly.
+// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if neccessary.
 func GetConsolidateAuthenticationPolicy(store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
 	config := store.AuthenticationPolicyByDestination(hostname, port)
 	if config != nil {
