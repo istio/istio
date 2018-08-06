@@ -33,6 +33,30 @@ FORTIO_TAG="latest_release"
 HYPERKUBE_HUB="quay.io/coreos/hyperkube"
 HYPERKUBE_TAG="v1.7.6_coreos.0"
 
+function usage() {
+  [[ -n "${1}" ]] && echo "${1}"
+
+  cat <<EOF
+usage: ${BASH_SOURCE[0]} [options ...]"
+  options:
+    -i ... URL to download istioctl binary
+    -p ... <hub>,<tag> for the pilot docker image
+    -x ... <hub>,<tag> for the mixer docker image
+    -c ... <hub>,<tag> for the citadel docker image
+    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and citadel containers
+    -h ... <hub>,<tag> for the hyperkube docker image
+    -o ... <hub>,<tag> for the proxy docker image
+    -n ... <namespace> namespace in which to install Istio control plane components
+    -A ... URL to download auth debian packages
+    -P ... URL to download pilot debian packages
+    -E ... URL to download proxy debian packages
+    -d ... directory to store file (optional, defaults to source code tree)
+    -D ... enable debug for proxy (optional, false or true, default is false)
+    -m ... true|false Create the individual component files as well as the all-in-one
+EOF
+  exit 2
+}
+
 while getopts :n:p:x:c:a:h:o:P:d:D:m: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -85,30 +109,6 @@ if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
     HYPERKUBE_HUB="$(echo ${HYPERKUBE_HUB_TAG}|cut -f1 -d,)"
     HYPERKUBE_TAG="$(echo ${HYPERKUBE_HUB_TAG}|cut -f2 -d,)"
 fi
-
-function usage() {
-  [[ -n "${1}" ]] && echo "${1}"
-
-  cat <<EOF
-usage: ${BASH_SOURCE[0]} [options ...]"
-  options:
-    -i ... URL to download istioctl binary
-    -p ... <hub>,<tag> for the pilot docker image
-    -x ... <hub>,<tag> for the mixer docker image
-    -c ... <hub>,<tag> for the citadel docker image
-    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and citadel containers
-    -h ... <hub>,<tag> for the hyperkube docker image
-    -o ... <hub>,<tag> for the proxy docker image
-    -n ... <namespace> namespace in which to install Istio control plane components
-    -A ... URL to download auth debian packages
-    -P ... URL to download pilot debian packages
-    -E ... URL to download proxy debian packages
-    -d ... directory to store file (optional, defaults to source code tree)
-    -D ... enable debug for proxy (optional, false or true, default is false)
-    -m ... true|false Create the individual component files as well as the all-in-one
-EOF
-  exit 2
-}
 
 
 function error_exit() {
