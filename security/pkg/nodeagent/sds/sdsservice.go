@@ -120,12 +120,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return receiveError
 			}
 
+			if discReq.Node == nil {
+				log.Errorf("Invalid discovery request with no node")
+				return fmt.Errorf("invalid discovery request with no node")
+			}
+
+			log.Debugf("Received discovery request from %q", discReq.Node.Id)
+
+			con.proxyID = discReq.Node.Id
 			spiffeID, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
 				continue
 			}
-			con.proxyID = discReq.Node.Id
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName(SpiffeID), Version>, then this request is a confirmation request.
@@ -149,11 +156,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				return err
 			}
 		case <-con.pushChannel:
+			log.Debugf("Received push channel request for %q", con.proxyID)
+
 			if con.secret == nil {
 				// Secret is nil indicates close streaming connection to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
+				log.Debugf("Close connection with %q", con.proxyID)
 				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
 			}
 
