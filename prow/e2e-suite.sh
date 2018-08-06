@@ -128,7 +128,7 @@ if ${SINGLE_MODE}; then
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
-      echo "Invalid e2e test target, must be one of ${TEST_TARGETS[@]}"
+      echo "Invalid e2e test target, must be one of ${TEST_TARGETS[*]}"
       # Fail if it's not a valid test file
       process_result 1 'Invalid test target'
     fi

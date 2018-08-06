@@ -261,7 +261,7 @@ function test_compareMetric() {
 
     for i in "${ZERO_CASES[@]}"; do
         if [ "${i}" != "0" ]; then
-            echo "Zero case failure: ${ZERO_CASES[@]}"
+            echo "Zero case failure: ${ZERO_CASES[*]}"
             exit -1
         fi
     done
@@ -271,7 +271,7 @@ function test_compareMetric() {
 
     for i in "${ONE_CASES[@]}"; do
         if [ "${i}" != "1" ]; then
-            echo "One case failure: ${ONE_CASES[@]}"
+            echo "One case failure: ${ONE_CASES[*]}"
             exit -1
         fi
     done
@@ -281,7 +281,7 @@ function test_compareMetric() {
 
     for i in "${MINUS_ONE_CASES[@]}"; do
         if [ "${i}" != "-1" ]; then
-            echo "Minus one case failure: ${MINUS_ONE_CASES[@]}"
+            echo "Minus one case failure: ${MINUS_ONE_CASES[*]}"
             exit -1
         fi
     done
@@ -347,7 +347,7 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 
     for i in "${SUCCESS_CASES[@]}"; do
         if [[ -n "${i// }" ]]; then
-            echo "Success case failure: ${SUCCESS_CASES[@]}"
+            echo "Success case failure: ${SUCCESS_CASES[*]}"
             exit -1
         fi
     done
