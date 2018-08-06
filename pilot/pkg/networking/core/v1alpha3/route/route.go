@@ -146,7 +146,9 @@ func buildDefaultRPCRoute(service *model.Service, clusterName string) *route.Rou
 		Match: route.RouteMatch{
 			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
 				Name:  "service",
-				Value: service.Hostname.String(),
+				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+					ExactMatch: service.Hostname.String(),
+				},
 			}},
 		},
 		Decorator: &route.Decorator{

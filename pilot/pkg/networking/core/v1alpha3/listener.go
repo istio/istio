@@ -260,9 +260,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
-		if l, exists := listenerMap[listenerMapKey]; exists {
+		if _, exists := listenerMap[listenerMapKey]; exists {
 			if protocol != model.ProtocolBOLT {
-				log.Warnf("Conflicting inbound listeners on %s: previous listener %s", listenerMapKey, l.Name)
+				log.Warnf("Conflicting inbound listeners on %s", listenerMapKey)
 			}
 			// Skip building listener for the same ip port
 			continue
@@ -560,11 +560,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			case plugin.ListenerTypeX:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				if l, exists := listenerMap[listenerMapKey]; exists {
-					if !listenerTypeMap[listenerMapKey].IsX() {
-						conflictingOutbound.Add(1)
-						log.Warnf("buildSidecarOutboundListeners: listener conflict (%v current and new %v) on %s, destination:%s, current Listener: (%s %v)",
-							servicePort.Protocol, listenerTypeMap[listenerMapKey], listenerMapKey, clusterName, l.Name, l)
+				if _, exists := listenerMap[listenerMapKey]; exists {
+					if !currentListenerEntry.servicePort.Protocol.IsX() {
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
+							env:             env,
+							node:            node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     service.Hostname,
+							newProtocol:     servicePort.Protocol,
+						}.addMetric()
 					}
 					// Skip building listener for the same http port
 					continue
@@ -915,7 +922,7 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 	return connectionManager
 }
 
-func buildXProxy(env model.Environment, xOpts *xListenerOpts, streamFilters []*x_proxy.StreamFilter) *x_proxy.XProxy {
+func buildXProxy(env *model.Environment, xOpts *xListenerOpts, streamFilters []*x_proxy.StreamFilter) *x_proxy.XProxy {
 
 	refresh := time.Duration(env.Mesh.RdsRefreshDelay.Seconds) * time.Second
 	if refresh == 0 {
