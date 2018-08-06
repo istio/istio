@@ -54,7 +54,7 @@ function istioDnsmasq() {
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     CITADEL_IP=$(kubectl get -n $NS service citadel-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+    if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
       echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CITADEL_IP=$CITADEL_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
       sleep 30
     else
@@ -62,7 +62,7 @@ function istioDnsmasq() {
     fi
   done
 
-  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CITADEL_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" ] || [  "${ISTIO_DNS}" == "" ] || [ "${MIXER_IP}" == "" ] || [ "${CITADEL_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
