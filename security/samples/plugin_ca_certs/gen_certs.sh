@@ -1,3 +1,4 @@
+#!/bin/sh
 echo 'Generate key and cert for root CA.'
 openssl req -newkey rsa:2048 -nodes -keyout root-key.pem -x509 -days 36500 -out root-cert.pem <<EOF
 US

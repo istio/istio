@@ -1,3 +1,4 @@
+#!/bin/bash
 # Airfow DAG and helpers used in one or more istio release pipeline."""
 # Copyright 2018 Istio Authors. All Rights Reserved.
 #

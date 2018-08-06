@@ -1,3 +1,4 @@
+#!/bin/sh
 # This script generates all keys and certs in the 3level directory.
 # There are 3 entities: root CA, intermeidate CA and intermediate CA2. The certificates of the 3 CAs form a certification chain.
 
