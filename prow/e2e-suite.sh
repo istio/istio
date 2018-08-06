@@ -122,7 +122,7 @@ if ${SINGLE_MODE}; then
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \
-              E2E_ARGS="${E2E_ARGS[@]}" \
+              E2E_ARGS="${E2E_ARGS[*]}" \
               JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
               make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
         fi
@@ -136,7 +136,7 @@ if ${SINGLE_MODE}; then
 else
     echo "Executing e2e test suite"
     time ISTIO_DOCKER_HUB=$HUB \
-      E2E_ARGS="${E2E_ARGS[@]}" \
+      E2E_ARGS="${E2E_ARGS[*]}" \
       JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
       make e2e_all_junit_report ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
 fi
