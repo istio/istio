@@ -40,7 +40,7 @@ if [[ -n $(git diff) ]]; then
   git diff
 fi
 
-sudo sed -i 's/ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\//ExecStart=\\/usr\\/bin\\/dockerd -H fd:\\/\\/ --insecure-registry localhost:5000/' /lib/systemd/system/docker.service
+sudo sed -i 's/ExecStart=\/usr\/bin\/dockerd -H fd:\/\//ExecStart=\/usr\/bin\/dockerd -H fd:\/\/ --insecure-registry localhost:5000/' /lib/systemd/system/docker.service
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 
