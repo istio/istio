@@ -225,26 +225,6 @@ func TestGetService(t *testing.T) {
 	}
 }
 
-func TestGetServiceAttributes(t *testing.T) {
-	aggregateCtl := buildMockController()
-	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
-	if err != nil {
-		t.Fatalf("GetService() encountered unexpected error: %v", err)
-	}
-	if svc == nil {
-		t.Fatal("Fail to get service")
-	}
-
-	expect := model.ServiceAttributes{
-		Name:      svc.Hostname.String(),
-		Namespace: model.IstioDefaultConfigNamespace,
-	}
-	// The mock controller uses the memory service discovery that returns a default ServiceAttributes.
-	if attr, _ := aggregateCtl.GetServiceAttributes(svc.Hostname); !reflect.DeepEqual(*attr, expect) {
-		t.Fatalf("GetServiceAttributes() got: %v but want %v", *attr, expect)
-	}
-}
-
 func TestGetServiceError(t *testing.T) {
 	aggregateCtl := buildMockController()
 

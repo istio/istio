@@ -102,7 +102,7 @@ const (
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.namespace": "ns2",
   "source.uid": "kubernetes://pod2.ns2",
   "source.ip": "[127 0 0 1]"

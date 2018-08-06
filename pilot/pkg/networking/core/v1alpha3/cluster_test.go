@@ -84,13 +84,23 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 
 	ttl := time.Duration(time.Nanosecond * 100)
 	configStore := &fakes.IstioConfigStore{}
-	configStore.DestinationRuleReturns(
-		&model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushStatus = model.NewStatus()
+	env.PushStatus.InitContext(env)
+	env.PushStatus.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -109,19 +119,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 					},
 				},
 			},
-		},
-	)
-
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
-		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
-	}
-
-	env.PushStatus = model.NewStatus()
-	env.PushStatus.InitContext(env)
+		}})
 
 	return env
 }
@@ -188,13 +186,23 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 	}
 
 	configStore := &fakes.IstioConfigStore{}
-	configStore.DestinationRuleReturns(
-		&model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushStatus = model.NewStatus()
+	env.PushStatus.InitContext(env)
+	env.PushStatus.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
 				Subsets: []*networking.Subset{
@@ -217,19 +225,7 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 					},
 				},
 			},
-		},
-	)
-
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
-		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
-	}
-
-	env.PushStatus = model.NewStatus()
-	env.PushStatus.InitContext(env)
+		}})
 
 	return env
 }
