@@ -98,8 +98,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 }
 
 // buildSidecarInboundBOLTRouteConfig builds the route bolt service
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env model.Environment,
-	node model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env *model.Environment,
+	node *model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
@@ -108,7 +108,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env mod
 		Match: route.RouteMatch{
 			Headers: []*route.HeaderMatcher{&route.HeaderMatcher{
 				Name:  "service",
-				Value: instance.Service.Hostname.String(),
+				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+					ExactMatch: instance.Service.Hostname.String(),
+				},
 			}},
 		},
 		Decorator: &route.Decorator{
@@ -136,8 +138,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundBOLTRouteConfig(env mod
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
-			Node:             &node,
+			Env:              env,
+			Node:             node,
 			ServiceInstance:  instance,
 			Service:          instance.Service,
 		}
@@ -228,7 +230,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 }
 
 // buildSidecarOutboundBOLTRouteConfig builds the route bolt service
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env model.Environment, node model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env *model.Environment, node *model.Proxy,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	port, err := strconv.Atoi(routeName)
@@ -246,7 +248,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env mo
 
 	// Get list of virtual services bound to the mesh gateway
 	configStore := env.IstioConfigStore
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(configStore, nameToServiceMap, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, configStore, nameToServiceMap, proxyLabels)
 
 	virtualHosts := make([]route.VirtualHost, 0)
 	defaultVirtualHost := route.VirtualHost{
@@ -287,8 +289,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundBOLTRouteConfig(env mo
 	for _, p := range configgen.Plugins {
 		in := &plugin.InputParams{
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              &env,
-			Node:             &node,
+			Env:              env,
+			Node:             node,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
