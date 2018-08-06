@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(rkrishnap): $m_commit is never defined in this file.
+# shellcheck disable=SC2154
+
 function get_git_commit_cmd() {
     git config --global user.name "TestRunnerBot"
     git config --global user.email "testrunner@istio.io"
@@ -120,12 +123,11 @@ function gcr_tag_success() {
   pwd; ls
 
   gsutil ls gs://$GCS_FULL_STAGING_PATH/docker/           > docker_tars.txt
-  cat docker_tars.txt |   grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" | \
-                        sed -E "s/docker\/(([a-z]|[0-9]|-|_)*).tar.gz/\1/g" > docker_images.txt
+  grep -Eo "docker\/(([a-z]|[0-9]|-|_)*).tar.gz" docker_tars.txt \
+      | sed -E "s/docker\/(([a-z]|[0-9]|-|_)*).tar.gz/\1/g" > docker_images.txt
 
   gcloud auth configure-docker  -q
-  cat docker_images.txt | \
-  while read -r docker_image;do
+  while read -r docker_image; do
     gcloud container images add-tag \
     "gcr.io/$GCR_STAGING_DEST/${docker_image}:$VERSION" \
     "gcr.io/$GCR_STAGING_DEST/${docker_image}:$BRANCH-latest-daily" --quiet;
@@ -134,7 +136,7 @@ function gcr_tag_success() {
     #docker pull $pull_source
     #docker tag  $pull_source $push_dest
     #docker push $push_dest
-  done
+  done < docker_images.txt
 
   cat docker_tars.txt docker_images.txt
   rm  docker_tars.txt docker_images.txt

@@ -34,7 +34,7 @@ function Usage() {
 }
 
 function List_functions() {
-  egrep "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
+  grep -E "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
@@ -507,7 +507,7 @@ function run_tests() {
 
 
 function check_image_versions() {
-  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[[:space:]]' '\n' | sort | uniq -c | grep -v -e google.containers
+  kubectl get pods --all-namespaces -o jsonpath="{..image}" | tr -s '[:space:]' '\n' | sort | uniq -c | grep -v -e google.containers
 }
 
 if [[ $SOURCED == 0 ]]; then
