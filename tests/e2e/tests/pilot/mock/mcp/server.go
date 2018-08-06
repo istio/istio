@@ -66,28 +66,9 @@ func main() {
 		log.Fatalf("failed to setup listener: %v", err)
 	}
 	// load up all the supported typs for now??!
-	configDescriptor := model.ConfigDescriptor{
-		model.RouteRule,
-		model.VirtualService,
-		model.Gateway,
-		model.EgressRule,
-		model.ServiceEntry,
-		model.DestinationPolicy,
-		model.DestinationRule,
-		model.EnvoyFilter,
-		model.HTTPAPISpec,
-		model.HTTPAPISpecBinding,
-		model.QuotaSpec,
-		model.QuotaSpecBinding,
-		model.AuthenticationPolicy,
-		model.AuthenticationMeshPolicy,
-		model.ServiceRole,
-		model.ServiceRoleBinding,
-		model.RbacConfig,
-	}
 	typeURLBase := "type.googleapis.com/"
-	supportedTypes := make([]string, len(configDescriptor))
-	for i, model := range configDescriptor {
+	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	for i, model := range model.IstioConfigTypes {
 		supportedTypes[i] = typeURLBase + model.MessageName
 	}
 

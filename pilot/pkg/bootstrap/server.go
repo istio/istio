@@ -283,15 +283,15 @@ func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 	//TODO: how to define pilot Node ID?
 	clientNodeID := "some-id"
-	supportedTypes := make([]string, len(ConfigDescriptor))
-	for i, model := range ConfigDescriptor {
+	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	for i, model := range model.IstioConfigTypes {
 		supportedTypes[i] = model.MessageName
 	}
 	log.Infof("InitMeshConfigProtocolClient supported types: %+v\n", supportedTypes)
-	u := coredatamodel.NewUpdater(s.istioConfigStore, ConfigDescriptor)
+	u := coredatamodel.NewUpdater(s.istioConfigStore, model.IstioConfigTypes)
 	mcpClient := mcpclient.New(cl, supportedTypes, u, clientNodeID, map[string]string{})
 
-	s.addStartFunc(func(stop chan struct{}) error {
+	s.addStartFunc(func(stop <-chan struct{}) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		go mcpClient.Run(ctx)
 		go func() {
