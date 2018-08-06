@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync/atomic"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -40,20 +41,22 @@ var (
 
 // Istioctl gathers istioctl information.
 type Istioctl struct {
-	localPath       string
-	remotePath      string
 	binaryPath      string
+	coverageCount   uint64
+	coveragePath    string
+	imagePullPolicy string
+	localPath       string
 	namespace       string
 	proxyHub        string
 	proxyTag        string
-	imagePullPolicy string
+	remotePath      string
 	yamlDir         string
 	// If true, will ignore proxyHub and proxyTag but use the default one.
 	defaultProxy bool
 }
 
 // NewIstioctl create a new istioctl by given temp dir.
-func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string, imagePullPolicy string) (*Istioctl, error) {
+func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag, imagePullPolicy, covPath string) (*Istioctl, error) {
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
@@ -67,15 +70,16 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string, 
 	}
 
 	return &Istioctl{
-		localPath:       *localPath,
-		remotePath:      *remotePath,
 		binaryPath:      filepath.Join(tmpDir, "istioctl"),
+		coveragePath:    covPath,
+		defaultProxy:    *defaultProxy,
+		imagePullPolicy: imagePullPolicy,
+		localPath:       *localPath,
 		namespace:       namespace,
 		proxyHub:        proxyHub,
 		proxyTag:        proxyTag,
-		imagePullPolicy: imagePullPolicy,
+		remotePath:      *remotePath,
 		yamlDir:         filepath.Join(yamlDir, "istioctl"),
-		defaultProxy:    *defaultProxy,
 	}, nil
 }
 
@@ -133,7 +137,16 @@ func (i *Istioctl) Install() error {
 }
 
 func (i *Istioctl) run(format string, args ...interface{}) error {
-	format = i.binaryPath + " " + format
+	var prefixArgs string
+
+	if i.coveragePath != "" {
+		atomic.AddUint64(&i.coverageCount, 1)
+		prefixArgs = "--test.run=TestCoverageMain --test.coverprofile=%s/istioctl-%d.cov - "
+		args = append([]interface{}{i.coveragePath, atomic.LoadUint64(&i.coverageCount)}, args...)
+		os.Setenv("COVERAGE", "true")
+	}
+	format = i.binaryPath + " " + prefixArgs + " " + format
+
 	if _, err := util.Shell(format, args...); err != nil {
 		log.Errorf("istioctl %s failed", args)
 		return err

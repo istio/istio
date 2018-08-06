@@ -5,6 +5,12 @@
       priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
       volumes:
+    {{- if .Values.global.istiotesting.coverageMode }}
+      - name: coverage
+        hostPath:
+          path: /coverage
+          type: DirectoryOrCreate
+    {{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
@@ -25,11 +31,25 @@
         - containerPort: 9093
         - containerPort: 42422
         args:
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - --test.run=TestCoverageMain
+          - --test.coverprofile=/coverage/$(POD_NAME)-istio-policy.cov
+        {{- end }}
           - --address
           - unix:///sock/mixer.socket
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        env:
+      {{- if .Values.global.istiotesting.coverageMode }}
+        - name: COVERAGE
+          value: "true"
+      {{- end }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -37,6 +57,10 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+      {{- if .Values.global.istiotesting.coverageMode }}
+        - name: coverage
+          mountPath: /coverage
+      {{- end }}
         - name: uds-socket
           mountPath: /sock
         livenessProbe:
@@ -98,6 +122,12 @@
     spec:
       serviceAccountName: istio-mixer-service-account
       volumes:
+    {{- if .Values.global.istiotesting.coverageMode }}
+      - name: coverage
+        hostPath:
+          path: /coverage
+          type: DirectoryOrCreate
+    {{- end }}
       - name: istio-certs
         secret:
           secretName: istio.istio-mixer-service-account
@@ -120,11 +150,25 @@
         - containerPort: 9093
         - containerPort: 42422
         args:
+        {{- if .Values.global.istiotesting.coverageMode }}
+          - --test.run=TestCoverageMain
+          - --test.coverprofile=/coverage/$(POD_NAME)-istio-telemetry.cov
+        {{- end }}
           - --address
           - unix:///sock/mixer.socket
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+        env:
+      {{- if .Values.global.istiotesting.coverageMode }}
+        - name: COVERAGE
+          value: "true"
+      {{- end }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -132,6 +176,10 @@
 {{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
         volumeMounts:
+      {{- if .Values.global.istiotesting.coverageMode }}
+        - name: coverage
+          mountPath: /coverage
+      {{- end }}
         - name: uds-socket
           mountPath: /sock
         livenessProbe:

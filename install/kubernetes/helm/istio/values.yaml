@@ -155,6 +155,12 @@ global:
   # and this options must be set off.
   crds: true
 
+  # Any customization for istio testing should be here
+  istiotesting:
+    # Enable code coverage mode
+    coverageMode: false
+
+
 #
 # ingress configuration
 #

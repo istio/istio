@@ -174,16 +174,20 @@ func getClusterWideInstallFile() string {
 
 // newKubeInfo create a new KubeInfo by given temp dir and runID
 // If baseVersion is not empty, will use the specified release of Istio instead of the local one.
-func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
+func newKubeInfo(ti *testInfo, baseVersion string) (*KubeInfo, error) {
 	if *namespace == "" {
 		if *clusterWide {
 			*namespace = istioSystem
 		} else {
-			*namespace = runID
+			*namespace = ti.RunID
 		}
 	}
-	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy)
+	yamlDir := filepath.Join(ti.TempDir, "yaml")
+	covPath, err := ti.Coverage.GetCoveragePath("istioctl")
+	if err != nil {
+		return nil, err
+	}
+	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, covPath)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +195,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	// Download the base release if baseVersion is specified.
 	var releaseDir string
 	if baseVersion != "" {
-		releaseDir, err = util.DownloadRelease(baseVersion, tmpDir)
+		releaseDir, err = util.DownloadRelease(baseVersion, ti.TempDir)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +219,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		// the in cluster config. At the current time only the remote kubeconfig is read from a
 		// file.
 		tmpfile := *namespace + "_kubeconfig"
-		tmpfile = path.Join(tmpDir, tmpfile)
+		tmpfile = path.Join(ti.TempDir, tmpfile)
 		if err = util.GetKubeConfig(tmpfile); err != nil {
 			return nil, err
 		}
@@ -232,10 +236,10 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 
-		aRemote = NewAppManager(tmpDir, *namespace, i, remoteKubeConfig)
+		aRemote = NewAppManager(ti.TempDir, *namespace, i, remoteKubeConfig)
 	}
 
-	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
+	a := NewAppManager(ti.TempDir, *namespace, i, kubeConfig)
 
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
@@ -250,7 +254,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	return &KubeInfo{
 		Namespace:        *namespace,
 		namespaceCreated: false,
-		TmpDir:           tmpDir,
+		TmpDir:           ti.TempDir,
 		yamlDir:          yamlDir,
 		localCluster:     *localCluster,
 		Istioctl:         i,
@@ -752,7 +756,11 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	if !*clusterWide {
-		setValue += " --set istiotesting.oneNameSpace=true"
+		setValue += " --set global.istiotesting.oneNameSpace=true"
+	}
+
+	if *enableCoverage {
+		setValue += " --set global.istiotesting.coverageMode=true"
 	}
 
 	// CRDs installed ahead of time with 2.9.x
