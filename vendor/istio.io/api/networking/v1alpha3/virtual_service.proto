@@ -650,7 +650,7 @@ message DestinationWeight {
 
   // REQUIRED. The proportion of traffic to be forwarded to the service
   // version. (0-100). Sum of weights across destinations SHOULD BE == 100.
-  // If there is only destination in a rule, the weight value is assumed to
+  // If there is only one destination in a rule, the weight value is assumed to
   // be 100.
   int32 weight = 2;
 }

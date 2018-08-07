@@ -108,6 +108,17 @@ query parameter name.</p>
 
 </td>
 </tr>
+<tr id="Jwt-excluded_paths">
+<td><code>excludedPaths</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/istio.string.v1alpha1.html#StringMatch">istio.common.v1alpha1.StringMatch[]</a></code></td>
+<td>
+<p>URL paths that should be excluded from the JWT validation. If the request path is matched,
+the JWT validation will be skipped and the request will proceed regardless.
+This is useful to keep a couple of URLs public for external health checks.
+Example: &ldquo;/health<em>check&rdquo;, &ldquo;/status/cpu</em>usage&rdquo;.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
