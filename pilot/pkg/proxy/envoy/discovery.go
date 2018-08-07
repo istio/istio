@@ -49,26 +49,12 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	cacheSizeGauge = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_size",
-			Help:      "Current size (in bytes) of a single cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
 	cacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_hit",
 			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
-	cacheMissCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_miss",
-			Help:      "Count of cache misses for a particular cache within Pilot",
 		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{

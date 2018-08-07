@@ -81,6 +81,9 @@ type PushStatus struct {
 	destinationRuleByHosts map[Hostname]*Config
 
 	//TODO: gateways              []*networking.Gateway
+
+	// Env has a pointer to the shared environment used to create the snapshot.
+	Env *Environment
 }
 
 // PushStatusEvent represents an event captured by push status.
@@ -342,20 +345,26 @@ func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttribute
 
 	// For k8s - it just parses the name and returns UID, while checking
 	// for existence
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		return &ServiceAttributes{
+
+	// TODO: lookup the service by hostname (using a hashmap), and use labels
+	// for namespace.
+
+	// TODO: handle custom suffix
+	if strings.HasSuffix(string(hostname), ".cluster.local") {
+		name, namespace, err := parseHostname(hostname)
+		if err == nil {
+			return &ServiceAttributes{
+				Name:      name,
+				Namespace: namespace,
+				UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+			}, nil
+		}
+	}
+
+	return &ServiceAttributes{
 			Name:      hostname.String(),
 			Namespace: "default",
 		}, nil
-	}
-	// No longer making an expensive check to exist - if we're looking it up,
-	// it was returned from a list services.
-	return &ServiceAttributes{
-		Name:      name,
-		Namespace: namespace,
-		UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-	}, nil
 }
 
 // parseHostname extracts service name and namespace from the service hostname
@@ -374,6 +383,7 @@ func parseHostname(hostname Hostname) (name string, namespace string, err error)
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushStatus) InitContext(env *Environment) error {
+	ps.Env = env;
 	services, err := env.Services()
 	if err == nil {
 		ps.Services = services
@@ -384,7 +394,6 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	}
 	// Still doing linear search and sort
 	ps.initDestinationRules(env)
-
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
 	return err
@@ -400,7 +409,9 @@ func (ps *PushStatus) initDestinationRules(env *Environment) error {
 	return nil
 }
 
-// Split out of DestinationRule expensive conversions - once per push.
+// SetDestinationRules is updates internal structures using a set of configs.
+// Split out of DestinationRule expensive conversions, computed once per push.
+// This also allows tests to inject a config without having the mock.
 func (ps *PushStatus) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
