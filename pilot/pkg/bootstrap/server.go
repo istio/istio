@@ -753,9 +753,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.mux = s.discoveryService.RestContainer.ServeMux
 
-	// For now we create the gRPC server sourcing data from Pilot's older data model.
-	s.initGrpcServer()
-
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
@@ -781,6 +778,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.HTTPListeningAddr = listener.Addr()
 
+	// For now we create the gRPC server sourcing data from Pilot's older data model.
+	s.initGrpcServer()
+	
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err
