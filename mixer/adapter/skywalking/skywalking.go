@@ -1,17 +1,26 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/skywalking/config/config.proto
 package skywalking
 
 import (
 	"context"
-
 	"time"
-
 	"google.golang.org/grpc"
-
 	"errors"
-
 	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/mixer/adapter/skywalking/config"
 	pb "istio.io/istio/mixer/adapter/skywalking/protocol"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -40,12 +49,11 @@ var _ metric.Handler = &handler{}
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	var err error
 
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(b.adpCfg.ServerAddress, opts...)
+	conn, err := grpc.Dial(b.adpCfg.ServerAddress, grpc.WithInsecure())
 
 	if err != nil {
 		env.Logger().Errorf("fail to dial: %v", err)
+		return nil, err
 	}
 
 	c := pb.NewServiceMeshMetricServiceClient(conn)

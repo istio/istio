@@ -4,7 +4,8 @@
 /*
 Package config is a generated protocol buffer package.
 
-SkyWalking config package
+The `SkyWalking` adapter enables Istio to deliver metric data to the
+[Apache SkyWalking](https://github.com/apache/skywalking) APM backend.
 
 It is generated from these files:
 	mixer/adapter/skywalking/config/config.proto
@@ -34,7 +35,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-// Param for SkyWalking probe
+// Param for SkyWalking service mesh probe
 type Params struct {
 	// Server Address of SkyWalking backend
 	ServerAddress string `protobuf:"bytes,1,opt,name=server_address,json=serverAddress,proto3" json:"server_address,omitempty"`
