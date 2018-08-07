@@ -1290,11 +1290,10 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
+  branch = "release-1.0"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "common/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1306,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "1e7466fb433dcf198a3d10d86c24fa6a2eb8d4c7"
+  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1604,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f148f2770b1c6c11967f0a6aad4f15dca05069d8c3762ddef5497a19a74a83c3"
+  inputs-digest = "9c647c93da247178eb02b80cac59ea9ad04432e55d3489ec741280f621904358"
   solver-name = "gps-cdcl"
   solver-version = 1

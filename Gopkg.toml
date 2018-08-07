@@ -296,8 +296,11 @@ ignored = [
   version = "2.2.1"
 
 [[constraint]]
-  branch = "master"
   name = "istio.io/api"
+  # TODO: Setting this to release-1.0 to associate istio.io/istio and istio.io/api release-1.0 branches.
+  # Once 1.0 is released, and the changes start getting merged into master, this constraint needs to be
+  # reverted back to master.
+  branch = "release-1.0"
 
 # fortio is latest tagged by default
 
