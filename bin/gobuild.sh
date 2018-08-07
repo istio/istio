@@ -38,6 +38,9 @@ BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+# Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
+IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
+
 GCFLAGS=${GCFLAGS:-}
 export CGO_ENABLED=0
 
@@ -61,7 +64,7 @@ done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain.
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
-        ${V} "${GOBUILDFLAGS}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+        ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
         -o "${OUT}" \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
