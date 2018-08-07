@@ -36,7 +36,7 @@ ISTIO_CFG=${ISTIO_CFG:-/var/lib/istio}
 KUBECONFIG=${ISTIO_CFG}/kube.config
 
 # TODO: use separate user for ca
-if [ $(id -u) = "0" ] ; then
+if [ "$(id -u)" = "0" ] ; then
     exec su -s /bin/bash -c "${ISTIO_BIN_BASE}/istio_ca --self-signed-ca --kube-config ${KUBECONFIG} 2> ${ISTIO_LOG_DIR}/istio_ca.err.log > ${ISTIO_LOG_DIR}/istio_ca.log" istio-proxy
 else
     ${ISTIO_BIN_BASE}/istio_ca --self-signed-ca --kube-config ${KUBECONFIG}

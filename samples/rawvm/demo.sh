@@ -10,7 +10,7 @@ source ../../istio.VERSION
 NAMESPACE=fortio
 # Hacky shortcut to switch everything to a different namespace without editing
 # every kubectl command here to add -n $(NAMESPACE)
-kubectl config set-context $(kubectl config current-context) --namespace=$NAMESPACE
+kubectl config set-context "$(kubectl config current-context)" --namespace=$NAMESPACE
 make NAMESPACE=$NAMESPACE TAG=$TAG # default target is istio injected svc and normal client
 kubectl get all
 cli=$(kubectl get pod -l app=fortio -o jsonpath='{.items[0].metadata.name}')

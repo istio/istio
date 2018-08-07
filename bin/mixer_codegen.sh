@@ -205,7 +205,7 @@ if [ "$opttemplate" = true ]; then
   fi
 
   templateYaml=${template/.proto/.yaml}
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -o $templateYaml -n $(basename $(dirname "${template}"))
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -o $templateYaml -n "$(basename "$(dirname "${template}")")"
 
   rm $templatePG
 
@@ -229,7 +229,7 @@ if [ "$optadapter" = true ]; then
   die "config generation failure: $err";
   fi
 
-  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o $(dirname "${file}") ${extraflags}
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o "$(dirname "${file}")" ${extraflags}
 
   exit 0
 fi

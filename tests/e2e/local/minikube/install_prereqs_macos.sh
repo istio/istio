@@ -41,7 +41,7 @@ echo "Checking docker-machine..."
 if ! docker-machine --help > /dev/null; then
     echo "docker-machine is not installed. Downloading and Installing it using curl."
     base=https://github.com/docker/machine/releases/download/v0.14.0 &&
-    if ! curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/usr/local/bin/docker-machine && chmod +x /usr/local/bin/docker-machine; then
+    if ! curl -L "$base/docker-machine-$(uname -s)-$(uname -m)" >/usr/local/bin/docker-machine && chmod +x /usr/local/bin/docker-machine; then
         echo "Installation of docker-machine failed. Please install it manually."
         exit 1
     else

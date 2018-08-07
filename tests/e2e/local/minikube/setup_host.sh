@@ -33,7 +33,7 @@ minikube start \
     --vm-driver=$vm_driver
 
 #Setup docker to talk to minikube
-eval $(minikube docker-env)
+eval "$(minikube docker-env)"
 
 while ! kubectl get pods -n kube-system | grep kube-proxy |  grep Running > /dev/null; do
   echo "kube-proxy not ready, will check again in 5 sec"

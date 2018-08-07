@@ -117,7 +117,7 @@ function startLocalApiserver() {
     ${GO_TOP}/bin/etcd --data-dir ${ETCD_DATADIR} > ${LOG_DIR}/etcd.log 2>&1 &
     echo $! > $LOG_DIR/etcd.pid
     # make sure etcd is actually alive
-    kill -0 $(cat $LOG_DIR/etcd.pid)
+    kill -0 "$(cat $LOG_DIR/etcd.pid)"
 
     ${GO_TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
         --client-ca-file ${CERTDIR}/k8sca.crt \
@@ -129,7 +129,7 @@ function startLocalApiserver() {
         > ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
     # make sure apiserver is actually alive
-    kill -0 $(cat $LOG_DIR/apiserver.pid)
+    kill -0 "$(cat $LOG_DIR/apiserver.pid)"
 
     # Really need to make sure that API Server is up before proceed further
     waitForApiServer "http://127.0.0.1:8080"
@@ -161,17 +161,17 @@ function startIstio() {
 function stopIstio() {
   if [[ -f $LOG_DIR/pilot.pid ]] ; then
     echo "Pilot pid: $(cat $LOG_DIR/pilot.pid)"
-    kill -9 $(cat $LOG_DIR/pilot.pid) || true
+    kill -9 "$(cat $LOG_DIR/pilot.pid)" || true
     rm $LOG_DIR/pilot.pid
    fi
   if [[ -f $LOG_DIR/mixer.pid ]] ; then
     echo "Mixer pid: $(cat $LOG_DIR/mixer.pid)"
-    kill -9 $(cat $LOG_DIR/mixer.pid) || true
+    kill -9 "$(cat $LOG_DIR/mixer.pid)" || true
     rm $LOG_DIR/mixer.pid
   fi
   if [[ -f $LOG_DIR/envoy4.pid ]] ; then
     echo "Envoy pid: $(cat $LOG_DIR/envoy4.pid)"
-    kill -9 $(cat $LOG_DIR/envoy4.pid) || true
+    kill -9 "$(cat $LOG_DIR/envoy4.pid)" || true
     rm $LOG_DIR/envoy4.pid
   fi
 }
@@ -205,8 +205,8 @@ function startEnvoy() {
 
 function stopLocalApiserver() {
   if [[ -f $LOG_DIR/etcd.pid ]]; then
-    kill -9 $(cat $LOG_DIR/etcd.pid)
-    kill -9 $(cat $LOG_DIR/apiserver.pid)
+    kill -9 "$(cat $LOG_DIR/etcd.pid)"
+    kill -9 "$(cat $LOG_DIR/apiserver.pid)"
     rm $LOG_DIR/{etcd,apiserver}.pid
   fi
   if [[ -d "${ETCD_DATADIR}" ]]; then
@@ -218,8 +218,8 @@ function stopMultiCluster() {
   for (( i=0; i<3; i++))
 	do
     if [[ -f $LOG_DIR/etcd$i.pid ]]; then
-      kill -9 $(cat $LOG_DIR/etcd$i.pid) || true
-      kill -9 $(cat $LOG_DIR/apiserver$i.pid) || true
+      kill -9 "$(cat $LOG_DIR/etcd$i.pid)" || true
+      kill -9 "$(cat $LOG_DIR/apiserver$i.pid)" || true
       rm $LOG_DIR/{etcd$i,apiserver$i}.pid || true
       rm $LOG_DIR/apiserver$i.url || true
     fi
@@ -250,7 +250,7 @@ function startETCDsAndAPIs() {
                       --data-dir ${ETCD_DATADIR}$i > ${LOG_DIR}/etcd$i.log 2>&1 &
       echo $! > $LOG_DIR/etcd$i.pid
       # make sure etcd is actually alive
-      kill -0 $(cat $LOG_DIR/etcd$i.pid)
+      kill -0 "$(cat $LOG_DIR/etcd$i.pid)"
 
       ${GO_TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:237$i \
           --client-ca-file ${CERTDIR}/k8sca.crt \
@@ -263,7 +263,7 @@ function startETCDsAndAPIs() {
           > ${LOG_DIR}/apiserver$i.log 2>&1 &
       echo $! > $LOG_DIR/apiserver$i.pid
       # make sure apiserver is actually alive
-      kill -0 $(cat $LOG_DIR/apiserver$i.pid)
+      kill -0 "$(cat $LOG_DIR/apiserver$i.pid)"
 
       # Really need to make sure that API Server is up before proceed further
       waitForApiServer "http://127.0.0.1:809$i"

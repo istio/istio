@@ -18,7 +18,7 @@
 # Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
-ROOT=$(cd $(dirname $0)/..; pwd)
+ROOT=$(cd "$(dirname $0)"/..; pwd)
 
 set -o errexit
 set -o nounset
@@ -30,7 +30,7 @@ set -x # echo on
 # TODO(nmittler): Remove these variables and require that this script be run from the Makefile
 
 # Set GOPATH to match the expected layout
-GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
+GO_TOP=$(cd "$(dirname $0)"/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 

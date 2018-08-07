@@ -52,7 +52,7 @@ function startMinikubeNone() {
          --vm-driver=none \
          --extra-config=apiserver.Admission.PluginNames="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
     sudo -E minikube update-context
-    sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
+    sudo chown -R "$(id -u)" $KUBECONFIG $HOME/.minikube
 }
 
 function stopMinikube() {
