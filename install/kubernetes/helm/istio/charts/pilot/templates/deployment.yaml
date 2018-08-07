@@ -53,7 +53,7 @@ spec:
 {{- end }}
           readinessProbe:
             httpGet:
-              path: /debug/endpointz
+              path: /ready
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
