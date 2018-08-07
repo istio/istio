@@ -6,10 +6,8 @@ metadata:
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: istio-pilot
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
     istio: pilot
+    {{- template "common_labels" . }}
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
