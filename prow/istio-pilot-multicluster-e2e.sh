@@ -23,4 +23,4 @@ CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
 export CLUSTERREG_DIR
 
 #echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
-./prow/e2e-suite.sh --timeout 35 --cluster_registry_dir=$CLUSTERREG_DIR --single_test e2e_pilotv2_v1alpha3 "$@"
+./prow/e2e-suite.sh --timeout 35 --cluster_registry_dir="$CLUSTERREG_DIR" --single_test e2e_pilotv2_v1alpha3 "$@"

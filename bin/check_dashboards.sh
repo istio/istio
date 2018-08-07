@@ -1,7 +1,7 @@
 #!/bin/bash
 SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 ROOTDIR=$SCRIPTPATH/..
-pushd $ROOTDIR || exit
+pushd "$ROOTDIR" || exit
 
 if ! git diff --quiet addons/grafana/dashboards/; then
     echo "Grafana dashboards have unstaged changes, please stage before linting."

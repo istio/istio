@@ -3,7 +3,7 @@ set -e
 set -u
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
-ROOTDIR="$(dirname ${SCRIPTPATH})"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
 DIR="./..."
 CODECOV_SKIP="${ROOTDIR}/codecov.skip"
 SKIPPED_TESTS_GREP_ARGS=
@@ -13,7 +13,7 @@ if [ "${1:-}" != "" ]; then
 fi
 
 COVERAGEDIR="$(mktemp -d /tmp/XXXXX.coverage)"
-mkdir -p $COVERAGEDIR
+mkdir -p "$COVERAGEDIR"
 
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.
@@ -30,11 +30,11 @@ declare -a PKGS
 
 function code_coverage() {
   local filename
-  filename="$(echo ${1} | tr '/' '-')"
+  filename="$(echo "${1}" | tr '/' '-')"
   ( go test \
-    -coverprofile=${COVERAGEDIR}/${filename}.cov \
-    -covermode=atomic ${1} \
-    | tee ${COVERAGEDIR}/${filename}.report ) &
+    -coverprofile="${COVERAGEDIR}/${filename}.cov" \
+    -covermode=atomic "${1}" \
+    | tee "${COVERAGEDIR}/${filename}.report" ) &
   local pid=$!
   PKGS[${pid}]=${1}
   PIDS+=("${pid}")
@@ -43,7 +43,7 @@ function code_coverage() {
 function wait_for_proc() {
   local num
   num=$(jobs -p | wc -l)
-  while [ ${num} -gt ${MAXPROCS} ]; do
+  while [ "${num}" -gt ${MAXPROCS} ]; do
     sleep 2
     num=$(jobs -p|wc -l)
   done
@@ -52,7 +52,7 @@ function wait_for_proc() {
 function join_procs() {
   local p
   for p in "${PIDS[@]}"; do
-      if ! wait ${p}; then
+      if ! wait "${p}"; then
           FAILED_TESTS+=("${PKGS[${p}]}")
       fi
   done
@@ -72,8 +72,8 @@ cd "${ROOTDIR}"
 parse_skipped_tests
 
 echo "Code coverage test (concurrency ${MAXPROCS})"
-for P in $(go list ${DIR} | grep -v vendor); do
-  if echo ${P} | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
+for P in $(go list "${DIR}" | grep -v vendor); do
+  if echo "${P}" | grep -q "${SKIPPED_TESTS_GREP_ARGS}"; then
     echo "Skipped ${P}"
     continue
   fi
@@ -119,6 +119,6 @@ fi
 echo 'Checking package coverage'
 go get -u istio.io/test-infra/toolbox/pkg_check
 pkg_check \
-  --report_file=${FINAL_CODECOV_DIR}/codecov.report \
+  --report_file="${FINAL_CODECOV_DIR}/codecov.report" \
   --alsologtostderr \
   --requirement_file=codecov.requirement "${PKG_CHECK_ARGS[@]}"

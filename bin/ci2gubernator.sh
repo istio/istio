@@ -4,7 +4,7 @@
 set -e
 
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
-ROOTDIR="$(dirname ${SCRIPTPATH})"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
 
 REQUIRED_ENVS=(
 	GCS_BUCKET_TOKEN
@@ -16,7 +16,7 @@ REQUIRED_ENVS=(
 )
 
 for env in "${REQUIRED_ENVS[@]}"; do
-	if eval [ -z \$${env} ]; then
+	if eval [ -z \$"${env}" ]; then
 		echo "${env} not defined"
 		exit 0
 	fi

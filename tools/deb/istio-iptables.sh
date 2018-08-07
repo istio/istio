@@ -64,13 +64,13 @@ IFS=,
 # This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
 # settings (CIDR range)
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
-if [ -r ${ISTIO_CLUSTER_CONFIG} ]; then
-  . ${ISTIO_CLUSTER_CONFIG}
+if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
+  . "${ISTIO_CLUSTER_CONFIG}"
 fi
 
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
-if [ -r ${ISTIO_SIDECAR_CONFIG} ]; then
-  . ${ISTIO_SIDECAR_CONFIG}
+if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
+  . "${ISTIO_SIDECAR_CONFIG}"
 fi
 
 # TODO: load all files from a directory, similar with ufw, to make it easier for automated install scripts
@@ -128,7 +128,7 @@ done
 # TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 if [ -z "${PROXY_UID}" ]; then
   # Default to the UID of ENVOY_USER and root
-  if ! PROXY_UID=$(id -u ${ENVOY_USER:-istio-proxy}); then
+  if ! PROXY_UID=$(id -u "${ENVOY_USER:-istio-proxy}"); then
      PROXY_UID="1337"
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
@@ -206,12 +206,12 @@ set -x # echo on
 # In both chains, '-j RETURN' bypasses Envoy and '-j ISTIO_REDIRECT'
 # redirects to Envoy.
 iptables -t nat -N ISTIO_REDIRECT
-iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port ${PROXY_PORT}
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-port "${PROXY_PORT}"
 
 # Use this chain also for redirecting inbound traffic to the common Envoy port
 # when not using TPROXY.
 iptables -t nat -N ISTIO_IN_REDIRECT
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port ${INBOUND_CAPTURE_PORT}
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-port "${INBOUND_CAPTURE_PORT}"
 
 # Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 # to the local service. If not set, no inbound port will be intercepted by istio iptables.
@@ -224,21 +224,21 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     # interface.
     # Mark all inbound packets.
     iptables -t mangle -N ISTIO_DIVERT
-    iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark ${INBOUND_TPROXY_MARK}
+    iptables -t mangle -A ISTIO_DIVERT -j MARK --set-mark "${INBOUND_TPROXY_MARK}"
     iptables -t mangle -A ISTIO_DIVERT -j ACCEPT
 
     # Route all packets marked in chain ISTIO_DIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-    ip -f inet rule add fwmark ${INBOUND_TPROXY_MARK} lookup ${INBOUND_TPROXY_ROUTE_TABLE}
+    ip -f inet rule add fwmark "${INBOUND_TPROXY_MARK}" lookup "${INBOUND_TPROXY_ROUTE_TABLE}"
     # In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
     # the loopback interface.
-    ip -f inet route add local default dev lo table ${INBOUND_TPROXY_ROUTE_TABLE} || ip route show table all
+    ip -f inet route add local default dev lo table "${INBOUND_TPROXY_ROUTE_TABLE}" || ip route show table all
 
     # Create a new chain for redirecting inbound traffic to the common Envoy
     # port.
     # In the ISTIO_INBOUND chain, '-j RETURN' bypasses Envoy and
     # '-j ISTIO_TPROXY' redirects to Envoy.
     iptables -t mangle -N ISTIO_TPROXY
-    iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark ${INBOUND_TPROXY_MARK}/0xffffffff --on-port ${PROXY_PORT}
+    iptables -t mangle -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark "${INBOUND_TPROXY_MARK}/0xffffffff" --on-port "${PROXY_PORT}"
 
     table=mangle
   else
@@ -253,7 +253,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     # Apply any user-specified port exclusions.
     if [ -n "${INBOUND_PORTS_EXCLUDE}" ]; then
       for port in ${INBOUND_PORTS_EXCLUDE}; do
-        iptables -t ${table} -A ISTIO_INBOUND -p tcp --dport ${port} -j RETURN
+        iptables -t ${table} -A ISTIO_INBOUND -p tcp --dport "${port}" -j RETURN
       done
     fi
     # Redirect remaining inbound traffic to Envoy.
@@ -270,11 +270,11 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
     # User has specified a non-empty list of ports to be redirected to Envoy.
     for port in ${INBOUND_PORTS_INCLUDE}; do
       if [ "${INBOUND_INTERCEPTION_MODE}" = "TPROXY" ]; then
-        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT || echo "No socket match support"
-        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -m socket -j ISTIO_DIVERT || echo "No socket match support"
-        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_TPROXY
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -m socket -j ISTIO_DIVERT || echo "No socket match support"
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -m socket -j ISTIO_DIVERT || echo "No socket match support"
+        iptables -t mangle -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_TPROXY
       else
-        iptables -t nat -A ISTIO_INBOUND -p tcp --dport ${port} -j ISTIO_IN_REDIRECT
+        iptables -t nat -A ISTIO_INBOUND -p tcp --dport "${port}" -j ISTIO_IN_REDIRECT
       fi
     done
   fi
@@ -313,7 +313,7 @@ iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 # Apply outbound IP exclusions. Must be applied before inclusions.
 if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
   for cidr in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
-    iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j RETURN
+    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
   done
 fi
 
@@ -324,7 +324,7 @@ if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
 elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
   # User has specified a non-empty list of cidrs to be redirected to Envoy.
   for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
-    iptables -t nat -A ISTIO_OUTPUT -d ${cidr} -j ISTIO_REDIRECT
+    iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
   done
   # All other traffic is not redirected.
   iptables -t nat -A ISTIO_OUTPUT -j RETURN

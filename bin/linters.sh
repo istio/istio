@@ -5,7 +5,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 WORKSPACE=$SCRIPTPATH/..
 
-cd ${WORKSPACE}
+cd "${WORKSPACE}"
 
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh

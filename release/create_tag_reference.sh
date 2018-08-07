@@ -41,7 +41,7 @@ USER_NAME=""
 BUILD_FILE=""
 ORG="istio"
 
-source ${SCRIPTPATH}/json_parse_shared.sh
+source "${SCRIPTPATH}/json_parse_shared.sh"
 
 function usage() {
   echo "$0
@@ -101,7 +101,7 @@ function create_tag_reference() {
   RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 
   # STEP 1: create an annotated tag.
-cat << EOF > ${REQUEST_FILE}
+cat << EOF > "${REQUEST_FILE}"
 {
   "tag": "${VERSION}",
   "message": "${PRODUCT} Release ${VERSION}",
@@ -117,9 +117,9 @@ EOF
 
   # disabling command tracing during curl call so token isn't logged
   set +o xtrace
-  TOKEN=$(< $KEYFILE)
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
-    -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
+  TOKEN=$(< "$KEYFILE")
+  curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
+    -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/tags"
   set -o xtrace
 
@@ -130,18 +130,18 @@ EOF
   # it's safer to distinguish the two "url" fields than the two "sha" fields
 
   local TAG_SHA
-  TAG_SHA=$(parse_json_for_url_hex_suffix ${RESPONSE_FILE} "url" "/git/tags")
+  TAG_SHA=$(parse_json_for_url_hex_suffix "${RESPONSE_FILE}" "url" "/git/tags")
   if [[ -z "${TAG_SHA}" ]]; then
     echo "Did not find SHA for created tag ${VERSION}"
-    cat ${REQUEST_FILE}
-    cat ${RESPONSE_FILE}
+    cat "${REQUEST_FILE}"
+    cat "${RESPONSE_FILE}"
     exit 1
   fi
 
   echo "Created annotated tag ${VERSION} for SHA ${3} on ${1}/${2}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
-cat << EOF > ${REQUEST_FILE}
+cat << EOF > "${REQUEST_FILE}"
 {
   "ref": "refs/tags/${VERSION}",
   "sha": "${TAG_SHA}"
@@ -150,22 +150,22 @@ EOF
 
   # disabling command tracing during curl call so token isn't logged
   set +o xtrace
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
-    -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
+  curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
+    -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/refs"
   set -o xtrace
 
   local REF
-  REF=$(parse_json_for_string ${RESPONSE_FILE} "ref")
+  REF=$(parse_json_for_string "${RESPONSE_FILE}" "ref")
   if [[ -z "${REF}" ]]; then
     echo "Did not find REF for created ref ${VERSION}"
-    cat ${REQUEST_FILE}
-    cat ${RESPONSE_FILE}
+    cat "${REQUEST_FILE}"
+    cat "${RESPONSE_FILE}"
     exit 1
   fi
 
-  rm ${REQUEST_FILE}
-  rm ${RESPONSE_FILE}
+  rm "${REQUEST_FILE}"
+  rm "${RESPONSE_FILE}"
 }
 
 
@@ -176,7 +176,7 @@ EOF
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
-  SHA=$(grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \")
+  SHA=$(grep "$ORG/$GITREPO" "$BUILD_FILE"  | cut -f 6 -d \")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
   else

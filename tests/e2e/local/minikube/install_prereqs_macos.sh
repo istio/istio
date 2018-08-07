@@ -9,7 +9,7 @@ fi
 echo "Update homebrew..."
 brew update > /dev/null
 # Give write permissions for /usr/local/bin, so that brew can create symlinks.
-sudo chown -R $USER:admin /usr/local/bin
+sudo chown -R "$USER:admin" /usr/local/bin
 
 echo "Checking curl"
 if ! curl --help > /dev/null; then

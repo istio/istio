@@ -1,6 +1,6 @@
 #!/bin/bash
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
 
 set -o errexit
 set -o nounset
@@ -27,7 +27,7 @@ function cleanup {
 
 trap cleanup exit
 
-cd ${DEB_DIR}
+cd "${DEB_DIR}"
 curl -s ${DEB_CACAERTS} --output ${DEB}
 
 
@@ -41,7 +41,7 @@ mkdir -p "$(dirname $CERT_FILE)"
 
 # concat all certs
 for cert in $(find usr/share/ca-certificates -type f | sort); do
-  cat $cert >> ${CERT_FILE}
+  cat "$cert" >> ${CERT_FILE}
 done
 
-tar -czf ${CA_CERTS} etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright
+tar -czf "${CA_CERTS}" etc/ssl/certs/ca-certificates.crt usr/share/doc/ca-certificates/copyright

@@ -14,8 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(dirname $0)
-WD=$(cd $WD && pwd)
+WD=$(dirname "$0")
+WD=$(cd "$WD" && pwd)
 
 # Print commands
 set -x
@@ -29,7 +29,7 @@ function process_result() {
     fi
 }
 
-echo ${GOPATH}
+echo "${GOPATH}"
 
 # Build mixer binary
 make mixs
@@ -45,13 +45,13 @@ START_ENVOY=${WD}/../component/proxy/start_envoy
 SUMMARY='Tests Summary'
 
 printf "Envoy date:"
-ls -l ${ENVOY_BINARY}
+ls -l "${ENVOY_BINARY}"
 
 printf "Mixer date:"
-ls -l ${MIXER_BINARY}
+ls -l "${MIXER_BINARY}"
 
 printf "Envoy hash:"
-md5sum ${ENVOY_BINARY}
+md5sum "${ENVOY_BINARY}"
 
 TESTARG=(-envoy_binary "${ENVOY_BINARY}" -envoy_start_script "${START_ENVOY}" -mixer_binary "${MIXER_BINARY}" -fortio_binary fortio)
 

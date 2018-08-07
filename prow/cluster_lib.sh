@@ -35,11 +35,11 @@ function gen_kubeconf_from_sa () {
     NAMESPACE="${SA_NAMESPACE:-istio-system}"
 
     SERVER=$(kubectl config view --minify=true -o "jsonpath={.clusters[].cluster.server}")
-    SECRET_NAME=$(kubectl get sa ${service_account} -n ${NAMESPACE} -o jsonpath='{.secrets[].name}')
-    CA_DATA=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['ca\\.crt']}")
-    TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['token']}" | base64 --decode)
+    SECRET_NAME=$(kubectl get sa "${service_account}" -n ${NAMESPACE} -o jsonpath='{.secrets[].name}')
+    CA_DATA=$(kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} -o "jsonpath={.data['ca\\.crt']}")
+    TOKEN=$(kubectl get secret "${SECRET_NAME}" -n ${NAMESPACE} -o "jsonpath={.data['token']}" | base64 --decode)
 
-    cat <<EOF > ${filename}
+    cat <<EOF > "${filename}"
       apiVersion: v1
       clusters:
          - cluster:
@@ -76,8 +76,8 @@ function setup_clusterreg () {
     k_contexts=$(kubectl config get-contexts -o name)
     for context in ${k_contexts}; do
         if [[ "${PILOT_CLUSTER}" != "${context}" ]]; then
-            kubectl config use-context ${context}
-             
+            kubectl config use-context "${context}"
+
             kubectl create ns ${SA_NAMESPACE}
             kubectl create sa ${SERVICE_ACCOUNT} -n ${SA_NAMESPACE}
             kubectl create clusterrolebinding istio-multi-test --clusterrole=cluster-admin --serviceaccount=${SA_NAMESPACE}:${SERVICE_ACCOUNT}
@@ -87,10 +87,10 @@ function setup_clusterreg () {
                 CLUSTER_NAME="${CLUSTER_NAME##*_}"
             fi
             KUBECFG_FILE="${CLUSTERREG_DIR}/${CLUSTER_NAME}"
-            gen_kubeconf_from_sa ${SERVICE_ACCOUNT} ${KUBECFG_FILE}
+            gen_kubeconf_from_sa ${SERVICE_ACCOUNT} "${KUBECFG_FILE}"
         fi
     done
-    kubectl config use-context ${PILOT_CLUSTER}
+    kubectl config use-context "${PILOT_CLUSTER}"
 }
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
@@ -102,7 +102,7 @@ function setup_cluster() {
   unset IFS
   k_contexts=$(kubectl config get-contexts -o name)
   for context in ${k_contexts}; do
-     kubectl config use-context ${context}
+     kubectl config use-context "${context}"
 
      kubectl create clusterrolebinding prow-cluster-admin-binding\
        --clusterrole=cluster-admin\
@@ -111,13 +111,13 @@ function setup_cluster() {
   if [[ "${SETUP_CLUSTERREG}" == "True" ]]; then
       setup_clusterreg
   fi
-  kubectl config use-context ${PILOT_CLUSTER}
+  kubectl config use-context "${PILOT_CLUSTER}"
 
   if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
     ALL_CLUSTER_CIDRS=$(gcloud container clusters list --format='value(clusterIpv4Cidr)' | sort | uniq)
-    ALL_CLUSTER_CIDRS=$(join_by , ${ALL_CLUSTER_CIDRS})
+    ALL_CLUSTER_CIDRS=$(join_by , "${ALL_CLUSTER_CIDRS}")
     ALL_CLUSTER_NETTAGS=$(gcloud compute instances list --format='value(tags.items.[0])' | sort | uniq)
-    ALL_CLUSTER_NETTAGS=$(join_by , ${ALL_CLUSTER_NETTAGS})
+    ALL_CLUSTER_NETTAGS=$(join_by , "${ALL_CLUSTER_NETTAGS}")
     gcloud compute firewall-rules create istio-multicluster-test-pods \
 	    --allow=tcp,udp,icmp,esp,ah,sctp \
 	    --direction=INGRESS \
@@ -134,7 +134,7 @@ function unsetup_clusters() {
   unset IFS
   k_contexts=$(kubectl config get-contexts -o name)
   for context in ${k_contexts}; do
-     kubectl config use-context ${context}
+     kubectl config use-context "${context}"
 
      kubectl delete clusterrolebinding prow-cluster-admin-binding 2>/dev/null
      if [[ "${SETUP_CLUSTERREG}" == "True" && "${PILOT_CLUSTER}" != "$context" ]]; then
@@ -142,7 +142,7 @@ function unsetup_clusters() {
         kubectl delete ns ${SA_NAMESPACE} 2>/dev/null
      fi
   done
-  kubectl config use-context ${PILOT_CLUSTER}
+  kubectl config use-context "${PILOT_CLUSTER}"
   if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
      gcloud compute firewall-rules delete istio-multicluster-test-pods --quiet
   fi
