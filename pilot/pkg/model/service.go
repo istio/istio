@@ -88,6 +88,12 @@ type Service struct {
 
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Namespace groups Services - it corresponds to a k8s namespace, or equivalent
+	// construct for other registries. For example a label may be used in registries
+	// not having a native namespace concept. Used for mixer attributes and to identify
+	// the source of the service.
+	Namespace string
 }
 
 // Resolution indicates how the service instances need to be resolved before routing

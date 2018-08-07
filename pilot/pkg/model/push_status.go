@@ -56,6 +56,7 @@ type PushStatus struct {
 
 	// Services list all services in the system at the time push started.
 	Services []*Service
+	ServiceByHostname map[Hostname]*Service
 
 	//ServicesByName map[string]*Service
 	//
@@ -349,6 +350,18 @@ func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttribute
 	// TODO: lookup the service by hostname (using a hashmap), and use labels
 	// for namespace.
 
+	s, found := ps.ServiceByHostname[hostname]
+	if found && len(s.Namespace) > 0 {
+		// Namespace explicitly set. For consistency with non-k8s platform, the name
+		// will be the full name of the service.
+
+		return &ServiceAttributes{
+			Name:      string(hostname),
+			Namespace: s.Namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", s.Namespace, hostname),
+		}, nil
+	}
+
 	// TODO: handle custom suffix
 	if strings.HasSuffix(string(hostname), ".cluster.local") {
 		name, namespace, err := parseHostname(hostname)
@@ -387,6 +400,9 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	services, err := env.Services()
 	if err == nil {
 		ps.Services = services
+	}
+	for _,s := range services {
+		ps.ServiceByHostname[s.Hostname] = s
 	}
 	vservices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err == nil {
