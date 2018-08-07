@@ -192,17 +192,17 @@ function compareBenchResults() {
                 echo "Details:"
 
                 if [ "${TIME_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
+                    echo -e "  ${RESULT_TIME_PER_OP} ns/op is not in range of: ${BASELINE_TIME_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_TIME_PER_OP}%]"
                 fi
 
                 if [ "${BYTES_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_BYTES_PER_OP} B/s is not in range of: ${BASELINE_BYTES_PER_OP}        \t[tol: ${TOLERANCE_PERCENT_BYTES_PER_OP}%]"
+                    echo -e "  ${RESULT_BYTES_PER_OP} B/s is not in range of: ${BASELINE_BYTES_PER_OP}        \\t[tol: ${TOLERANCE_PERCENT_BYTES_PER_OP}%]"
                 fi
 
                 if [ "${ALLOCS_PER_OP_CMP}" != "0" ]; then
-                    echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
+                    echo -e "  ${RESULT_ALLOCS_PER_OP} allocs/op is not in range of: ${BASELINE_ALLOCS_PER_OP}   \\t[tol: ${TOLERANCE_PERCENT_ALLOCS_PER_OP}%]"
                 fi
-                printf "\n\n"
+                printf '\n\n'
             fi
         fi
     done
@@ -249,9 +249,9 @@ function run() {
         local BENCH_RESULT
         BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
 
-        printf "Current benchmark results:\n"
-        printf "%s" "${BENCH_RESULT}"
-        printf "\n\n"
+        printf 'Current benchmark results:\n'
+        printf '%s' "${BENCH_RESULT}"
+        printf '\n\n'
 
         local CMP_RESULT
         CMP_RESULT=$(compareBenchResults "${BASELINE}" "${BENCH_RESULT}")

@@ -41,8 +41,8 @@ mkdir -p $HOME/golang/{src,pkg,bin}
 mkdir -p $HOME/golang/src/istio.io
 
 chown -R vagrant:vagrant /home/vagrant/golang
-echo -e "\nGo $VERSION was installed.\nMake sure to relogin into your shell or run:"
-echo -e "\n\tsource $HOME/.${shell_profile}\n\nto update your environment variables."
+echo -e "\\nGo $VERSION was installed.\\nMake sure to relogin into your shell or run:"
+echo -e "\\n\\tsource $HOME/.${shell_profile}\\n\\nto update your environment variables."
 rm -f /tmp/go.tar.gz
 
 # install minikube
