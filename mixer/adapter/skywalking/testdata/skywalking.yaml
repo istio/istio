@@ -7,9 +7,9 @@ metadata:
 spec:
  value: "1"
  dimensions:
-   sourceService: source.service | ""
+   sourceService: source.workload.name | ""
    sourceUID: source.uid | ""
-   destinationService: destination.service | ""
+   destinationService: destination.workload.name | ""
    destinationUID: destination.uid | ""
    requestMethod: request.method | ""
    requestPath: request.path | ""
