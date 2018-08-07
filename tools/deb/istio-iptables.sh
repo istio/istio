@@ -21,25 +21,33 @@
 function usage() {
   echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-h]"
   echo ''
+  # shellcheck disable=SC2016
   echo '  -p: Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)'
   echo '  -u: Specify the UID of the user for which the redirection is not'
   echo '      applied. Typically, this is the UID of the proxy container'
+  # shellcheck disable=SC2016
   echo '      (default to uid of $ENVOY_USER, uid of istio_proxy, or 1337)'
   echo '  -g: Specify the GID of the user for which the redirection is not'
   echo '      applied. (same default value as -u param)'
   echo '  -m: The mode used to redirect inbound connections to Envoy, either "REDIRECT" or "TPROXY"'
+  # shellcheck disable=SC2016
   echo '      (default to $ISTIO_INBOUND_INTERCEPTION_MODE)'
   echo '  -b: Comma separated list of inbound ports for which traffic is to be redirected to Envoy (optional). The'
   echo '      wildcard character "*" can be used to configure redirection for all ports. An empty list will disable'
+  # shellcheck disable=SC2016
   echo '      all inbound redirection (default to $ISTIO_INBOUND_PORTS)'
   echo '  -d: Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). Only applies'
+  # shellcheck disable=SC2016
   echo '      when all inbound traffic (i.e. "*") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)'
   echo '  -i: Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). The wildcard'
   echo '      character "*" can be used to redirect all outbound traffic. An empty list will disable all outbound'
+  # shellcheck disable=SC2016
   echo '      redirection (default to $ISTIO_SERVICE_CIDR)'
   echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
+  # shellcheck disable=SC2016
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
   echo ''
+  # shellcheck disable=SC2016
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
