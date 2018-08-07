@@ -61,6 +61,6 @@ cd ..
 rm -rf modification-tmp
 exit 0
 
-filename | sha256 hash
--------- | -----------
-[kubernetes.tar.gz](https://dl.k8s.io/v1.10.6/kubernetes.tar.gz) | `dbb1e757ea8fe5e82796db8604d3fc61f8b79ba189af8e3b618d86fcae93dfd0`
+#filename | sha256 hash
+#-------- | -----------
+#[kubernetes.tar.gz](https://dl.k8s.io/v1.10.6/kubernetes.tar.gz) | `dbb1e757ea8fe5e82796db8604d3fc61f8b79ba189af8e3b618d86fcae93dfd0`
