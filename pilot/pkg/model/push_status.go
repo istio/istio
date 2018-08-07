@@ -205,7 +205,7 @@ var (
 func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set
 	return &PushStatus{
-		ServiceByHostname: map[Hostname]*Service,
+		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus: map[string]map[string]PushStatusEvent{},
 		Start:       time.Now(),
 	}
