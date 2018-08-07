@@ -106,7 +106,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	return &model.Service{
 		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:                 ports,
-		Namespace:						 svc.Namespace,
+		Namespace:             svc.Namespace,
 		Address:               addr,
 		ExternalName:          model.Hostname(external),
 		ServiceAccounts:       serviceaccounts,

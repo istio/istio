@@ -55,12 +55,11 @@ type PushStatus struct {
 	Mutex sync.RWMutex
 
 	// Services list all services in the system at the time push started.
-	Services []*Service
+	Services          []*Service
+
+	// ServiceByHostname has all services, indexed by hostname.
 	ServiceByHostname map[Hostname]*Service
 
-	//ServicesByName map[string]*Service
-	//
-	//ServiceAttributes map[string]*ServiceAttributes
 	//
 	//ConfigsByType map[string][]*Config
 
@@ -375,9 +374,9 @@ func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttribute
 	}
 
 	return &ServiceAttributes{
-			Name:      hostname.String(),
-			Namespace: "default",
-		}, nil
+		Name:      hostname.String(),
+		Namespace: "default",
+	}, nil
 }
 
 // parseHostname extracts service name and namespace from the service hostname
@@ -396,12 +395,13 @@ func parseHostname(hostname Hostname) (name string, namespace string, err error)
 // This should be called before starting the push, from the thread creating
 // the push context.
 func (ps *PushStatus) InitContext(env *Environment) error {
-	ps.Env = env;
+	ps.Env = env
 	services, err := env.Services()
 	if err == nil {
 		ps.Services = services
 	}
-	for _,s := range services {
+	ps.ServiceByHostname = make(map[Hostname]*Service, len(services))
+	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
 	}
 	vservices, err := env.List(VirtualService.Type, NamespaceAll)
