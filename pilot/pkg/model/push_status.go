@@ -84,6 +84,8 @@ type PushStatus struct {
 
 	// Env has a pointer to the shared environment used to create the snapshot.
 	Env *Environment
+
+	initDone bool
 }
 
 // PushStatusEvent represents an event captured by push status.
@@ -394,8 +396,13 @@ func parseHostname(hostname Hostname) (name string, namespace string, err error)
 
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
-// the push context.
+// the push context. May also be used by tests.
 func (ps *PushStatus) InitContext(env *Environment) error {
+	ps.Mutex.Lock()
+	defer ps.Mutex.Unlock()
+	if ps.initDone {
+		return nil
+	}
 	ps.Env = env
 	services, err := env.Services()
 	if err == nil {
@@ -412,6 +419,8 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	ps.initDestinationRules(env)
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
+
+	ps.initDone = true
 	return err
 }
 

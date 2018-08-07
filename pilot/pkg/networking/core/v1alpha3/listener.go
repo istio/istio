@@ -265,7 +265,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
 			httpOpts := &httpListenerOpts{
-				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
+				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, push, instance),
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
@@ -311,6 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				ProxyInstances:   proxyInstances,
 				ServiceInstance:  instance,
 				Port:             endpoint.ServicePort,
+				Push:             push,
 			}
 			if err := p.OnInboundListener(params, mutable); err != nil {
 				log.Warn(err.Error())
@@ -554,6 +555,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					ProxyInstances:   proxyInstances,
 					Service:          service,
 					Port:             servicePort,
+					Push:             push,
 				}
 
 				if err := p.OnOutboundListener(params, mutable); err != nil {

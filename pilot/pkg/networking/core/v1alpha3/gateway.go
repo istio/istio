@@ -124,6 +124,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 				Env:              env,
 				Node:             node,
 				ProxyInstances:   workloadInstances,
+				Push:             push,
 				ServiceInstance:  si,
 				Port: &model.Port{
 					Name:     servers[0].Port.Name,
@@ -293,6 +294,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
 			Env:              env,
 			Node:             node,
+			Push:             push,
 		}
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}

@@ -52,7 +52,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *model.Environment,
-	node *model.Proxy, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
+	node *model.Proxy, push *model.PushStatus, instance *model.ServiceInstance) *xdsapi.RouteConfiguration {
 
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
@@ -86,6 +86,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 			Node:             node,
 			ServiceInstance:  instance,
 			Service:          instance.Service,
+			Push:             push,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -181,6 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			ListenerProtocol: plugin.ListenerProtocolHTTP,
 			Env:              env,
 			Node:             node,
+			Push:             push,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
