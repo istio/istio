@@ -70,6 +70,7 @@ const char AttributeName::kConnectionEvent[] = "connection.event";
 // Context attributes
 const char AttributeName::kContextProtocol[] = "context.protocol";
 const char AttributeName::kContextTime[] = "context.time";
+const char AttributeName::kContextProxyErrorCode[] = "context.proxy_error_code";
 
 // Check error code and message.
 const char AttributeName::kCheckErrorCode[] = "check.error_code";

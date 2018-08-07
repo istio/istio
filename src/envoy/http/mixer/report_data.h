@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "common/request_info/utility.h"
 #include "envoy/http/header_map.h"
 #include "envoy/request_info/request_info.h"
 #include "include/istio/control/http/controller.h"
@@ -88,6 +89,8 @@ class ReportData : public ::istio::control::http::ReportData {
     // responseCode is for the backend response. If it is not valid, the request
     // is rejected by Envoy. Set the response code for such requests as 500.
     data->response_code = info_.responseCode().value_or(500);
+
+    data->response_flags = RequestInfo::ResponseFlagUtils::toShortString(info_);
   }
 
   bool GetDestinationIpPort(std::string *str_ip, int *port) const override {

@@ -75,6 +75,7 @@ struct AttributeName {
   // Context attributes
   static const char kContextProtocol[];
   static const char kContextTime[];
+  static const char kContextProxyErrorCode[];
 
   // Check error code and message.
   static const char kCheckErrorCode[];

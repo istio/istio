@@ -226,6 +226,9 @@ void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {
     builder.AddString(utils::AttributeName::kResponseGrpcMessage,
                       grpc_status.message);
   }
+
+  builder.AddString(utils::AttributeName::kContextProxyErrorCode,
+                    info.response_flags);
 }
 
 }  // namespace http

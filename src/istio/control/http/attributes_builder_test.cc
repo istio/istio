@@ -336,6 +336,12 @@ attributes {
     }
   }
 }
+attributes {
+  key: "context.proxy_error_code"
+  value {
+    string_value: "NR"
+  }
+}
 )";
 
 void ClearContextTime(const std::string &name, RequestContext *request) {
@@ -547,6 +553,7 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
         info->request_total_size = 240;
         info->duration = std::chrono::nanoseconds(1);
         info->response_code = 404;
+        info->response_flags = "NR";
       }));
   EXPECT_CALL(mock_data, GetGrpcStatus(_))
       .WillOnce(Invoke([](ReportData::GrpcStatus *status) -> bool {
@@ -600,6 +607,7 @@ TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
         info->request_total_size = 240;
         info->duration = std::chrono::nanoseconds(1);
         info->response_code = 404;
+        info->response_flags = "NR";
       }));
   EXPECT_CALL(mock_data, GetGrpcStatus(_)).WillOnce(testing::Return(false));
 

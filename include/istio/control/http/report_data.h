@@ -40,6 +40,7 @@ class ReportData {
     uint64_t response_body_size;
     std::chrono::nanoseconds duration;
     int response_code;
+    std::string response_flags;
   };
   virtual void GetReportInfo(ReportInfo* info) const = 0;
 
