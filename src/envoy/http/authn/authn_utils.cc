@@ -25,6 +25,9 @@ namespace {
 // The JWT audience key name
 static const std::string kJwtAudienceKey = "aud";
 
+// The JWT groups key name
+static const std::string kJwtGroupsKey = "groups";
+
 // Extract JWT audience into the JwtPayload.
 // This function should to be called after the claims are extracted.
 void ExtractJwtAudience(
@@ -43,6 +46,30 @@ void ExtractJwtAudience(
     std::vector<std::string> aud_vector = obj.getStringArray(key);
     for (const std::string aud : aud_vector) {
       payload->add_audiences(aud);
+    }
+  } catch (Json::Exception& e) {
+    // Not convertable to string array
+  }
+}
+
+// Extract JWT groups into the JwtPayload.
+// This function should to be called after the claims are extracted.
+void ExtractJwtGroups(
+    const Envoy::Json::Object& obj,
+    const ::google::protobuf::Map< ::std::string, ::std::string>& claims,
+    istio::authn::JwtPayload* payload) {
+  const std::string& key = kJwtGroupsKey;
+  // "groups" can be either string array or string.
+  // First, try as string
+  if (claims.count(key) > 0) {
+    payload->add_groups(claims.at(key));
+    return;
+  }
+  // Next, try as string array
+  try {
+    std::vector<std::string> group_vector = obj.getStringArray(key);
+    for (const std::string group : group_vector) {
+      payload->add_groups(group);
     }
   } catch (Json::Exception& e) {
     // Not convertable to string array
@@ -83,6 +110,8 @@ bool AuthnUtils::ProcessJwtPayload(const std::string& payload_str,
   // Extract audience
   // ExtractJwtAudience() should be called after claims are extracted.
   ExtractJwtAudience(*json_obj, payload->claims(), payload);
+  // ExtractJwtGroups() should be called after claims are extracted.
+  ExtractJwtGroups(*json_obj, payload->claims(), payload);
   // Build user
   if (claims->count("iss") > 0 && claims->count("sub") > 0) {
     payload->set_user((*claims)["iss"] + "/" + (*claims)["sub"]);

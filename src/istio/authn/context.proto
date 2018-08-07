@@ -40,6 +40,10 @@ message JwtPayload {
   // object (map) to access other claims that not cover with the string claims
   // map above.
   string raw_claims = 6;
+
+  // The groups claim in the JWT.
+  // Example: [‘group1’, ‘group2’]
+  repeated string groups = 7;
 }
 
 // Container to hold authenticated attributes from X509 (mTLS).
