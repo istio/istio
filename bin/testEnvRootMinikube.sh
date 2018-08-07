@@ -50,6 +50,9 @@ function startMinikubeNone() {
     sudo -E minikube start \
          --kubernetes-version=v1.9.0 \
          --vm-driver=none \
+         --insecure-registry="localhost:5000" \
+         --cpus=4 \
+         --memory=8192 \
          --extra-config=apiserver.Admission.PluginNames="NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota"
     sudo -E minikube update-context
     sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube

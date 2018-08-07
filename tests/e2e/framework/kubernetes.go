@@ -95,6 +95,7 @@ var (
 	multiClusterDir          = flag.String("cluster_registry_dir", "", "Directory name for the cluster registry config")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm ")
+	useLocalRegistry         = flag.Bool("use_local_registry", true, "set up in-cluster local registry for th test")
 
 	addons = []string{
 		"zipkin",
@@ -132,6 +133,8 @@ type KubeInfo struct {
 	Istioctl *Istioctl
 	// App Manager
 	AppManager *AppManager
+	// Local Registry
+	LocalRegistry *LocalRegistry
 
 	// Release directory
 	ReleaseDir string
@@ -184,6 +187,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
 	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "")
+	log.Infof("proxyHub: %s", *proxyHub)
 	if err != nil {
 		return nil, err
 	}
@@ -244,6 +248,33 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	}
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
+	var l *LocalRegistry
+	if *useLocalRegistry {
+		l = GetLocalRegistry(i, kubeConfig, *skipSetup)
+		log.Infof("proxyHub %s, scvIp: %s", i.proxyHub, l.RegSvcIp)
+		hub := fmt.Sprintf("%s:5000", l.RegSvcIp)
+		if i.proxyHub == "" {
+			i.proxyHub = hub
+		}
+		if *proxyHub == "" {
+			*proxyHub = hub
+		}
+		if *pilotHub == "" {
+			*pilotHub = hub
+		}
+		if *mixerHub == "" {
+			*mixerHub = hub
+		}
+		if *caHub == "" {
+			*caHub = hub
+		}
+		if *galleyHub == "" {
+			*galleyHub = hub
+		}
+		if *sidecarInjectorHub == "" {
+			*sidecarInjectorHub = hub
+		}
+	}
 
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
@@ -263,6 +294,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		localCluster:     *localCluster,
 		Istioctl:         i,
 		AppManager:       a,
+		LocalRegistry:    l,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
 		RBACEnabled:      *rbacEnable,
