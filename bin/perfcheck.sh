@@ -61,7 +61,7 @@ TOLERANCE_PERCENT_BYTES_PER_OP=1
 TOLERANCE_PERCENT_ALLOCS_PER_OP=0
 
 # the location of this script
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 
 # the root folder for the project
 ROOT=${SCRIPTPATH}/..
@@ -82,9 +82,11 @@ function loadBaselineFile() {
     local CONTENTS=$(cat "${FILENAME}")
 
     # Filter comment lines
+    # shellcheck disable=SC2001
     local CONTENTS=$(echo "${CONTENTS}" | sed -e 's/#.*$//')
 
     # Filter empty lines
+    # shellcheck disable=SC2001
     local CONTENTS=$(echo "${CONTENTS}" | sed -e '/^$/d')
 
     printf "%s" "${CONTENTS}"
@@ -143,7 +145,7 @@ function compareBenchResults() {
     local BASELINE="${1}"
     local RESULTS="${2}"
 
-    printf "${BASELINE}" | while read -r BASELINE_ENTRY; do
+    printf '%s' "${BASELINE}" | while read -r BASELINE_ENTRY; do
         local BENCH_NAME=$(getColumn "${BASELINE_ENTRY}" "0")
         local RESULT_ENTRY=$(findEntry "${RESULTS}", "${BENCH_NAME}")
 
@@ -195,11 +197,11 @@ function compareBenchResults() {
 function cleanupBenchResult() {
     local OUTPUT=${1}
     # Remove known extraneous lines
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goos:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^goarch:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^pkg:.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^PASS.*$//')
-    local OUTPUT=$(printf "${OUTPUT}" | sed -e 's/^ok.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goos:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^goarch:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^pkg:.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^PASS.*$//')
+    local OUTPUT=$(printf '%s' "${OUTPUT}" | sed -e 's/^ok.*$//')
     printf "%s" "${OUTPUT}" | sed -e "/^$/d"
 }
 
@@ -222,7 +224,7 @@ function run() {
 
         local BASELINE=$(loadBaselineFile "${BASELINE_FILENAME}")
 
-        pushd "${BENCH_DIR}"  > /dev/null 2>&1
+        pushd "${BENCH_DIR}"  > /dev/null 2>&1 || return
 
         local BENCH_RESULT=$(go test -bench=. -benchmem -run=^$)
         local BENCH_RESULT=$(cleanupBenchResult "${BENCH_RESULT}")
@@ -237,7 +239,7 @@ function run() {
             printf "%s" "${CMP_RESULT}"
             ERR="-1"
         fi
-        popd > /dev/null 2>&1
+        popd > /dev/null 2>&1 || return
 
     done
 
@@ -259,7 +261,7 @@ function test_compareMetric() {
 
     for i in "${ZERO_CASES[@]}"; do
         if [ "${i}" != "0" ]; then
-            echo "Zero case failure: ${ZERO_CASES[@]}"
+            echo "Zero case failure: ${ZERO_CASES[*]}"
             exit -1
         fi
     done
@@ -269,7 +271,7 @@ function test_compareMetric() {
 
     for i in "${ONE_CASES[@]}"; do
         if [ "${i}" != "1" ]; then
-            echo "One case failure: ${ONE_CASES[@]}"
+            echo "One case failure: ${ONE_CASES[*]}"
             exit -1
         fi
     done
@@ -279,7 +281,7 @@ function test_compareMetric() {
 
     for i in "${MINUS_ONE_CASES[@]}"; do
         if [ "${i}" != "-1" ]; then
-            echo "Minus one case failure: ${MINUS_ONE_CASES[@]}"
+            echo "Minus one case failure: ${MINUS_ONE_CASES[*]}"
             exit -1
         fi
     done
@@ -345,7 +347,7 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
 
     for i in "${SUCCESS_CASES[@]}"; do
         if [[ -n "${i// }" ]]; then
-            echo "Success case failure: ${SUCCESS_CASES[@]}"
+            echo "Success case failure: ${SUCCESS_CASES[*]}"
             exit -1
         fi
     done

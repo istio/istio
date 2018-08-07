@@ -30,8 +30,8 @@ BUILDPATH=${2:?"path to build"}
 
 set -e
 
-GOOS=${GOOS:-linux}
-GOARCH=${GOARCH:-amd64}
+BUILD_GOOS=${GOOS:-linux}
+BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
@@ -55,10 +55,13 @@ fi
 
 # BUILD LD_EXTRAFLAGS
 LD_EXTRAFLAGS=""
-while read line; do
+while read -r line; do
     LD_EXTRAFLAGS="${LD_EXTRAFLAGS} -X ${line}"
 done < "${BUILDINFO}"
 
-# forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} -o ${OUT} \
-       -pkgdir=${GOPKG}/${GOOS}_${GOARCH} -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
+# forgoing -i (incremental build) because it will be deprecated by tool chain.
+time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
+        ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+        -o ${OUT} \
+        -pkgdir=${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH} \
+        -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"
