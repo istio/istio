@@ -7,10 +7,8 @@ export KUBECONFIG_SAVED=$KUBECONFIG
 unset KUBECONFIG
 
 # Set kube config file on host
-ls ~/.kube/config_old > /dev/null
-if [ $? -ne 0 ]; then
-    ls ~/.kube/config > /dev/null
-    if [ $? -eq 0 ]; then
+if ! ls ~/.kube/config_old > /dev/null; then
+    if ls ~/.kube/config > /dev/null; then
     	cp ~/.kube/config ~/.kube/config_old
     	echo "your old ~/.kube/config file can be found at ~/.kube/config_old"
     fi
