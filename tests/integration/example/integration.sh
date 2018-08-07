@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd $WD && pwd)
 
 # Print commands
 set -x
@@ -39,7 +39,7 @@ ENVOY_BINARY=$(make where-is-out)/envoy
 START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
-( cd vendor/istio.io/fortio ; go install . )
+( cd vendor/istio.io/fortio && go install . )
 
 # Run Tests
 SUMMARY='Tests Summary'
@@ -61,5 +61,5 @@ process_result $? sample1
 go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
 process_result $? sample2
 
-printf "${SUMMARY}\n"
+printf '%s\n' "${SUMMARY}"
 exit ${FAILURE_COUNT}

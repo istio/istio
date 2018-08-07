@@ -16,7 +16,7 @@ vagrant ssh -c "/usr/local/go/bin/go get github.com/derekparker/delve/cmd/dlv"
 #Setup Istio Directory.
 vagrant ssh -c "mkdir -p /home/vagrant/go/src/istio.io"
 # We cannot directly set up synced folder between $ISTIO in host machine and $ISTIO in VM.
-# Because at VM boot up stage synced folder setup comes before privision bootstrap.sh. 
+# Because at VM boot up stage synced folder setup comes before privision bootstrap.sh.
 # Therefore directory $ISTIO in VM does not exist when Vagrant sets up synced folder.
 # We synced $ISTIO from host to /istio.io in VM, and create a softlink between /istio.io/istio and $ISTIO/istio.
 vagrant ssh -c "sudo ln -s /istio.io/istio/ /home/vagrant/go/src/istio.io/istio"
@@ -39,6 +39,7 @@ vagrant ssh -c "sudo systemctl daemon-reload"
 vagrant ssh -c "sudo systemctl stop kube-apiserver"
 vagrant ssh -c "sudo systemctl restart kube-apiserver"
 echo "$(tput setaf 1)Make sure flag --allow-privileged=true is passed to both kubelet and apiserver.$(tput sgr 0)"
+# shellcheck disable=SC2009
 ps -ef | grep kube
 vagrant reload
 vagrant ssh -c "kubectl get pods -n kube-system"

@@ -57,7 +57,7 @@ function join_procs() {
 }
 
 function parse_skipped_tests() {
-  while read entry; do
+  while read -r entry; do
     if [[ "${SKIPPED_TESTS_GREP_ARGS}" != '' ]]; then
       SKIPPED_TESTS_GREP_ARGS+='\|'
     fi
