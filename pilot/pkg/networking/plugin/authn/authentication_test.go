@@ -453,12 +453,9 @@ func TestConvertPolicyToJwtConfig(t *testing.T) {
 }
 
 func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"
@@ -505,12 +502,9 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 }
 
 func TestBuildJwtFilter(t *testing.T) {
-	ms, err := test.NewServer()
+	ms, err := test.StartNewServer()
 	if err != nil {
-		t.Fatal("failed to create mock server")
-	}
-	if err := ms.Start(); err != nil {
-		t.Fatal("failed to start mock server")
+		t.Fatal("failed to start a mock server")
 	}
 
 	jwksURI := ms.URL + "/oauth2/v3/certs"

@@ -1,3 +1,4 @@
+{{- if .Values.pilot.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -31,8 +32,10 @@ data:
     {{- end }}
     {{- end }}
 
-    # This is the ingress service name, update if you used a different name
-    ingressService: istio-ingress
+    {{- if .Values.ingress.enabled }}
+    # This is the k8s ingress service name, update if you used a different name
+    ingressService: istio-{{ .Values.global.k8sIngressSelector }}
+    {{- end }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
     # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
@@ -103,3 +106,4 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
     {{- end }}
+{{- end }}

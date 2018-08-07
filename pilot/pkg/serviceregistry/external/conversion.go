@@ -136,7 +136,7 @@ func convertInstances(serviceEntry *networking.ServiceEntry, creationTime time.T
 				// multiple services (one for each host)
 				out = append(out, &model.ServiceInstance{
 					Endpoint: model.NetworkEndpoint{
-						Address:     service.Hostname.String(),
+						Address:     string(service.Hostname),
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
 					},

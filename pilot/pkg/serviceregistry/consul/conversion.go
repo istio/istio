@@ -146,7 +146,7 @@ func serviceHostname(name string) model.Hostname {
 
 // parseHostname extracts service name from the service hostname
 func parseHostname(hostname model.Hostname) (name string, err error) {
-	parts := strings.Split(hostname.String(), ".")
+	parts := strings.Split(string(hostname), ".")
 	if len(parts) < 1 || parts[0] == "" {
 		err = fmt.Errorf("missing service name from the service hostname %q", hostname)
 		return

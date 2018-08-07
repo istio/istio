@@ -10,6 +10,7 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 webhooks:
+{{- if .Values.global.configValidation }}
   - name: pilot.validation.istio.io
     clientConfig:
       service:
@@ -108,4 +109,5 @@ webhooks:
         - servicecontrolreports
         - tracespans
     failurePolicy: Fail
+{{- end }}
 {{- end }}

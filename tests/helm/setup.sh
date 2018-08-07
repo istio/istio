@@ -1,24 +1,16 @@
-#/bin/bash
+#!/bin/bash
 
 
 
 function testIstioSystem() {
-   pushd $TOP/src/istio.io/istio
+   pushd $TOP/src/istio.io/istio || return
    helm -n istio-system template \
-    --values tests/helm/values-istio-test.yaml \
-    --set global.refreshInterval=30s \
     --set global.tag=$TAG \
-    --set global.meshExpansion=true \
-    --set global.proxy.accessLogFile="" \
-    --set global.proxy.resources.requests.cpu=1100m \
-    --set global.proxy.resources.requests.memory=256Mi \
-    --set global.imagePullPolicy=Always \
     --set global.hub=$HUB \
-    --set global.configValidation=false \
+    --values tests/helm/values-istio-test.yaml \
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
-   popd
-
+   popd || return
 }
 
 # Install istio
@@ -39,11 +31,11 @@ function testInstall() {
 # Apply the helm template
 function testApply() {
    local F=${1:-"istio/fortio:latest"}
-   pushd $TOP/src/istio.io/istio
+   pushd $TOP/src/istio.io/istio || return
    helm -n test template \
     --set fortioImage=$F \
     tests/helm |kubectl -n test apply -f -
-   popd
+   popd || return
 }
 
 function testApply1() {

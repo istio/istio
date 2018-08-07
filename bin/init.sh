@@ -19,7 +19,6 @@
 # the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
-ISTIO_GO=$ROOT
 
 set -o errexit
 set -o nounset
@@ -35,8 +34,6 @@ GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
 
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
-HELM_VER=v2.7.2
-
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
@@ -45,7 +42,7 @@ export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 export GOARCH=${GOARCH:-'amd64'}
 
 # Determine the OS. Matches logic in the Makefile.
-LOCAL_OS=${LOCAL_OS:-"`uname`"}
+LOCAL_OS=${LOCAL_OS:-"$(uname)"}
 case $LOCAL_OS in
   'Linux')
     export GOOS=${GOOS:-"linux"}
@@ -92,7 +89,8 @@ set_download_command () {
 }
 
 if [ -z ${PROXY_REPO_SHA:-} ] ; then
-  export PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  export PROXY_REPO_SHA
 fi
 
 # Normally set by the Makefile.

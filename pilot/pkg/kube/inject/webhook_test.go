@@ -38,6 +38,7 @@ import (
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/engine"
 	"k8s.io/helm/pkg/proto/hapi/chart"
+	tversion "k8s.io/helm/pkg/proto/hapi/version"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
 
@@ -517,7 +518,7 @@ func loadConfigMapWithHelm(t *testing.T) string {
 		Namespace: "",
 	}
 
-	vals, err := chartutil.ToRenderValues(c, config, options)
+	vals, err := chartutil.ToRenderValuesCaps(c, config, options, &chartutil.Capabilities{TillerVersion: &tversion.Version{SemVer: "2.7.2"}})
 	if err != nil {
 		t.Fatal(err)
 	}

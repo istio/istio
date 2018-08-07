@@ -70,7 +70,6 @@ const (
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".
 
-	userHeader   = ":user"
 	methodHeader = ":method"
 	pathHeader   = ":path"
 )
@@ -84,7 +83,7 @@ type serviceMetadata struct {
 
 func createServiceMetadata(attr *model.ServiceAttributes, in *model.ServiceInstance) *serviceMetadata {
 	return &serviceMetadata{
-		name:   in.Service.Hostname.String(),
+		name:   string(in.Service.Hostname),
 		labels: in.Labels,
 		attributes: map[string]string{
 			attrDestName:      attr.Name,
@@ -263,7 +262,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
+	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 
@@ -300,6 +299,10 @@ func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push 
 
 // isServiceInList checks if a given service or namespace is found in the RbacConfig target list.
 func isServiceInList(svc string, namespace string, li *rbacproto.RbacConfig_Target) bool {
+	if li == nil {
+		return false
+	}
+
 	for _, ns := range li.Namespaces {
 		if namespace == ns {
 			return true
@@ -498,9 +501,19 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.User != "" {
-		id := principalForKeyValue(userHeader, subject.User)
-		if id != nil {
-			ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+		if subject.User == "*" {
+			// Generate an any rule to grant access permission to anyone if the value is "*".
+			ids.AndIds.Ids = append(ids.AndIds.Ids, &policyproto.Principal{
+				Identifier: &policyproto.Principal_Any{
+					Any: true,
+				},
+			})
+		} else {
+			// Generate the user field with attrSrcPrincipal in the metadata.
+			id := principalForKeyValue(attrSrcPrincipal, subject.User)
+			if id != nil {
+				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
+			}
 		}
 	}
 
@@ -519,6 +532,11 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 
 		for _, k := range keys {
 			v := subject.Properties[k]
+			if k == attrSrcPrincipal && subject.User != "" {
+				rbacLog.Errorf("ignored %s, duplicate with previous user value %s",
+					attrSrcPrincipal, subject.User)
+				continue
+			}
 			id := principalForKeyValue(k, v)
 			if id != nil {
 				ids.AndIds.Ids = append(ids.AndIds.Ids, id)
@@ -600,20 +618,6 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
-	case key == userHeader:
-		if value == "*" {
-			// Generate an any rule to grant access permission to anyone if the value is "*". This is the
-			// only wildcard character we could support for principal.user.
-			return &policyproto.Principal{
-				Identifier: &policyproto.Principal_Any{
-					Any: true,
-				},
-			}
-		}
-		return &policyproto.Principal{
-			Identifier: &policyproto.Principal_Authenticated_{
-				Authenticated: &policyproto.Principal_Authenticated{Name: value}},
-		}
 	case key == attrSrcIP:
 		cidr, err := convertToCidr(value)
 		if err != nil {

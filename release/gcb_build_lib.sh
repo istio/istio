@@ -43,19 +43,19 @@ source ${SCRIPTPATH}/json_parse_shared.sh
 # }
 #
 
-BUILD_FAILED=0
-
 function parse_result_file {
   local INPUT_FILE="$1"
 
   [[ -z "${INPUT_FILE}" ]] && usage
 
-  local STATUS_VALUE=$(parse_json_for_first_string $INPUT_FILE "status")
+  local STATUS_VALUE
+  STATUS_VALUE=$(parse_json_for_first_string $INPUT_FILE "status")
   local ERROR_VALUE=""
   local ERROR_CODE=""
   local ERROR_STATUS=""
 
-  local ERROR_LINE=$(parse_json_for_int $INPUT_FILE "code")
+  local ERROR_LINE
+  ERROR_LINE=$(parse_json_for_int $INPUT_FILE "code")
   if [[ -n "$ERROR_LINE" ]]; then
     ERROR_CODE=$(parse_json_for_int $INPUT_FILE "code")
     ERROR_VALUE=$(parse_json_for_string $INPUT_FILE "message")
@@ -66,17 +66,14 @@ function parse_result_file {
   case "${STATUS_VALUE}" in
     ERROR)
       echo "build has error code ${ERROR_CODE} with \"${ERROR_STATUS}\" and \"${ERROR_VALUE}\""
-      BUILD_FAILED=1
       return 2
       ;;
     FAILURE)
       echo "build has failed"
-      BUILD_FAILED=1
       return 2
       ;;
     CANCELLED)
       echo "build was cancelled"
-      BUILD_FAILED=1
       return 2
       ;;
     QUEUED)
@@ -94,24 +91,22 @@ function parse_result_file {
     *)
       echo "unrecognized status: ${STATUS_VALUE}"
       cat $INPUT_FILE
-      BUILD_FAILED=1
       return 2
   esac
 }
 
 function run_build() {
-  local MFEST_URL=$1
-  local MFEST_FILE=$2
-  local MFEST_VER=$3
   local TEMPLATE_NAME=$4
   local SUBS_FILE=$5
   local PROJ_ID=$6
   local SERVICE_ACCT=$7
   local SERVICE_KEY_FILE=$8
   local WAIT=$9
-  
-  local REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
-  local RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
+
+  local REQUEST_FILE
+  REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
+  local RESULT_FILE
+  RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 
   # generate the json file, first strip off the closing } in the last line of the template
   head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}" > "${REQUEST_FILE}"
@@ -120,7 +115,8 @@ function run_build() {
 
   # try to preserve the prior gcloud account that's in use
   if [[ -n "${SERVICE_KEY_FILE}" ]]; then
-    local PRIOR_GCLOUD_ACCOUNT="$(gcloud config get-value account)"
+    local PRIOR_GCLOUD_ACCOUNT
+    PRIOR_GCLOUD_ACCOUNT="$(gcloud config get-value account)"
     gcloud auth activate-service-account "${SERVICE_ACCT}" --key-file="${SERVICE_KEY_FILE}"
     if [[ -n "${PRIOR_GCLOUD_ACCOUNT}" ]]; then
       gcloud config set account "${PRIOR_GCLOUD_ACCOUNT}"
@@ -135,7 +131,8 @@ function run_build() {
 
   # the following tries to find and parse a json line like:
   # "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
-  local BUILD_ID=$(parse_json_for_string $RESULT_FILE "id")
+  local BUILD_ID
+  BUILD_ID=$(parse_json_for_string $RESULT_FILE "id")
   if [[ -z "$BUILD_ID" ]]; then
     echo "failed to parse the following build result:"
     cat $RESULT_FILE
@@ -145,11 +142,11 @@ function run_build() {
 
   if [[ "${WAIT}" == "true" ]]; then
     echo "waiting for build to complete"
-    
+
     while parse_result_file "${RESULT_FILE}"
     do
       sleep 60
-      
+
       curl -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" -s --retry 3 \
         -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds/{$BUILD_ID}"
     done

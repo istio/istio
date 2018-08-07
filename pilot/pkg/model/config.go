@@ -616,7 +616,7 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
-				if gateways[ResolveShortnameToFQDN(g, config.ConfigMeta).String()] {
+				if gateways[string(ResolveShortnameToFQDN(g, config.ConfigMeta))] {
 					out = append(out, config)
 					break
 				} else if g == IstioMeshGateway && gateways[g] {
@@ -633,12 +633,12 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
-			rule.Hosts[i] = ResolveShortnameToFQDN(h, r.ConfigMeta).String()
+			rule.Hosts[i] = string(ResolveShortnameToFQDN(h, r.ConfigMeta))
 		}
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
 			if g != IstioMeshGateway {
-				rule.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+				rule.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
 			}
 		}
 		// resolve host in http route.destination, route.mirror
@@ -646,15 +646,15 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
 					}
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
 			}
 			if d.Mirror != nil {
-				d.Mirror.Host = ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta).String()
+				d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, r.ConfigMeta))
 			}
 		}
 		//resolve host in tcp route.destination
@@ -662,12 +662,12 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
 					}
 				}
 			}
 			for _, w := range d.Route {
-				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
 			}
 		}
 		//resolve host in tls route.destination
@@ -675,12 +675,12 @@ func (store *istioConfigStore) VirtualServices(gateways map[string]bool) []Confi
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = ResolveShortnameToFQDN(g, r.ConfigMeta).String()
+						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
 					}
 				}
 			}
 			for _, w := range tls.Route {
-				w.Destination.Host = ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta).String()
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, r.ConfigMeta))
 			}
 		}
 	}

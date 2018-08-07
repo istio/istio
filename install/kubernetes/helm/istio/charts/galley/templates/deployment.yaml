@@ -5,16 +5,21 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
     istio: galley
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         istio: galley
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: istio-galley-service-account
 {{- if .Values.global.priorityClassName }}
@@ -30,15 +35,14 @@ spec:
           command:
           - /usr/local/bin/galley
           - validator
+          - --deployment-namespace={{ .Release.Namespace }}
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
           - --healthCheckInterval=2s
           - --healthCheckFile=/health
-{{- if .Values.global.configValidation }}
           - --webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
-{{- end }}
           volumeMounts:
           - name: certs
             mountPath: /etc/istio/certs

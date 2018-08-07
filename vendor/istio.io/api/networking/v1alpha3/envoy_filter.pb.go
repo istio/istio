@@ -150,9 +150,10 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 // this configuration is subject to change based on internal implementation
 // of Istio networking subsystem.
 //
-// NOTE 2: There can be only one EnvoyFilter bound to a specific workload.
-// The behavior is undefined if multiple EnvoyFilter configurations are
-// specified for the same workload.
+// NOTE 2: When multiple EnvoyFilters are bound to the same workload, all filter
+// configurations will be processed sequentially in order of creation time.
+// The behavior is undefined if multiple EnvoyFilter configurations conflict
+// with each other.
 //
 // The following example for Kubernetes enables Envoy's Lua filter for all
 // inbound calls arriving at service port 8080 of the reviews service pod with

@@ -6,7 +6,7 @@ metadata:
 spec:
   peers:
   - mtls:
-    mode: PERMISSIVE
+      mode: PERMISSIVE
   peer_is_optional: true
   targets:
   # Must be short name of service
@@ -92,3 +92,106 @@ spec:
         host: fortiottls.test.svc.cluster.local
         port:
           number: 8080
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-ttls-notls
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-ttls
+        version: v1-ttls
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "10"
+          - http://fortiottls.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 10m
+            memory: "100M"
+          limits:
+            cpu: 10m
+            memory: "100M"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-ttls-tls
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-ttls
+        version: v1-ttls
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "10"
+          - http://fortiottls.test:8080/echo?size=5000
+        resources:
+          requests:
+            cpu: 10m
+            memory: "100M"
+          limits:
+            cpu: 10m
+            memory: "100M"
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cli-fortio-ttls
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cli-fortio-ttls
+        version: v1-ttls
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "{{ .Values.qps }}"
+          - http://fortiottls.{{ .Values.domain }}/echo?size=5000
+        resources:
+          requests:
+            cpu: 800m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"

@@ -35,11 +35,16 @@ import (
 )
 
 func (wh *Webhook) createOrUpdateWebhookConfig() {
+	if wh.webhookConfiguration == nil {
+		log.Error("validatingwebhookconfiguration update failed: no configuration loaded")
+		reportValidationConfigUpdateError(errors.New("no configuration loaded"))
+		return
+	}
+
 	client := wh.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	updated, err := createOrUpdateWebhookConfigHelper(client, wh.webhookConfiguration)
 	if err != nil {
-		log.Errorf("%v validatingwebhookconfiguration update failed: %v",
-			wh.webhookConfiguration.Name, err)
+		log.Errorf("%v validatingwebhookconfiguration update failed: %v", wh.webhookConfiguration.Name, err)
 		reportValidationConfigUpdateError(err)
 	} else if updated {
 		log.Infof("%v validatingwebhookconfiguration updated", wh.webhookConfiguration.Name)
@@ -85,8 +90,7 @@ func (wh *Webhook) rebuildWebhookConfig() error {
 		wh.ownerRefs)
 	if err != nil {
 		reportValidationConfigLoadError(err)
-		log.Errorf("%v validatingwebhookconfiguration (re)load failed: %v",
-			wh.webhookConfiguration.Name, err)
+		log.Errorf("validatingwebhookconfiguration (re)load failed: %v", err)
 		return err
 	}
 	wh.webhookConfiguration = webhookConfig

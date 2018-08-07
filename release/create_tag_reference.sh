@@ -95,8 +95,10 @@ function create_tag_reference() {
   # $3 SHA
   # uses external PRODUCT, VERSION, USER_NAME, USER_EMAIL, DATE_STRING
   
-  local REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
-  local RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
+  local REQUEST_FILE
+  REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
+  local RESPONSE_FILE
+  RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 
   # STEP 1: create an annotated tag.
 cat << EOF > ${REQUEST_FILE}
@@ -127,7 +129,8 @@ EOF
   # "url": "https://api.github.com/repos/:user/:repo/git/commits/9737165d9451c289d8e42f0fb03137f9030d4541"
   # it's safer to distinguish the two "url" fields than the two "sha" fields
 
-  local TAG_SHA=$(parse_json_for_url_hex_suffix ${RESPONSE_FILE} "url" "/git/tags")
+  local TAG_SHA
+  TAG_SHA=$(parse_json_for_url_hex_suffix ${RESPONSE_FILE} "url" "/git/tags")
   if [[ -z "${TAG_SHA}" ]]; then
     echo "Did not find SHA for created tag ${VERSION}"
     cat ${REQUEST_FILE}
@@ -152,7 +155,8 @@ EOF
     "https://api.github.com/repos/${1}/${2}/git/refs"
   set -o xtrace
 
-  local REF=$(parse_json_for_string ${RESPONSE_FILE} "ref")
+  local REF
+  REF=$(parse_json_for_string ${RESPONSE_FILE} "ref")
   if [[ -z "${REF}" ]]; then
     echo "Did not find REF for created ref ${VERSION}"
     cat ${REQUEST_FILE}
@@ -172,7 +176,7 @@ EOF
 ORG_REPOS=(api istio proxy)
 
 for GITREPO in ${ORG_REPOS[@]}; do
-  SHA=`grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \"`
+  SHA=$(grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
   else

@@ -34,11 +34,12 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // External Authorization filter calls out to an external service over either:
 //
-//  1. gRPC Authorization API defined by :ref:`CheckRequest <envoy_api_msg_service.auth.v2alpha.CheckRequest>`.
+//  1. gRPC Authorization API defined by :ref:`CheckRequest
+//     <envoy_api_msg_service.auth.v2alpha.CheckRequest>`.
 //  2. Raw HTTP Authorization server by passing the request headers to the service.
 //
-// A failed check will cause this filter to close the HTTP request normally with 403 (Forbidden), unless
-// a different status code has been indicated in the authorization response.
+// A failed check will cause this filter to close the HTTP request normally with 403 (Forbidden),
+// unless a different status code has been indicated in the authorization response.
 type ExtAuthz struct {
 	// Types that are valid to be assigned to Services:
 	//	*ExtAuthz_GrpcService
@@ -174,26 +175,28 @@ func _ExtAuthz_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// External Authorization filter calls out to an upstream authorization server by passing the raw HTTP
-// request headers to the server. This allows the authorization service to take a decision whether the
-// request is authorized or not.
+// External Authorization filter calls out to an upstream authorization server by passing the raw
+// HTTP request headers to the server. This allows the authorization service to take a decision
+// whether the request is authorized or not.
 //
-// A successful check allows the authorization service adding or overriding headers from the original
-// request before dispatching it to the upstream. This is done by including the headers in the response
-// sent back from the authorization service to the filter. Note that `Status`, `Method`, `Path` and
-// `Content Length` response headers are automatically removed from this response by the filter. If other
-// headers need be deleted, they should be specified in `response_headers_to_remove` field.
+// A successful check allows the authorization service adding or overriding headers from the
+// original request before dispatching it to the upstream. This is done by including the headers in
+// the response sent back from the authorization service to the filter. Note that `Status`,
+// `Method`, `Path` and `Content Length` response headers are automatically removed from this
+// response by the filter. If other headers need be deleted, they should be specified in
+// `response_headers_to_remove` field.
 //
-// A failed check will cause this filter to close the HTTP request normally with 403 (Forbidden), unless
-// a different status code has been indicated by the authorization service via response headers. The HTTP
-// service also allows the authorization filter to also pass data from the response body to the downstream
-// client in case of a denied request.
+// A failed check will cause this filter to close the HTTP request normally with 403 (Forbidden),
+// unless a different status code has been indicated by the authorization service via response
+// headers. The HTTP service also allows the authorization filter to also pass data from the
+// response body to the downstream client in case of a denied request.
 type HttpService struct {
 	// Sets the HTTP server URI which the authorization requests must be sent to.
 	ServerUri *envoy_api_v2_core2.HttpUri `protobuf:"bytes,1,opt,name=server_uri,json=serverUri" json:"server_uri,omitempty"`
 	// Sets an optional prefix to the value of authorization request header `path`.
 	PathPrefix string `protobuf:"bytes,2,opt,name=path_prefix,json=pathPrefix,proto3" json:"path_prefix,omitempty"`
-	// Sets a list of headers that should be not be sent *from the authorization server* to the upstream.
+	// Sets a list of headers that should be not be sent *from the authorization server* to the
+	// upstream.
 	ResponseHeadersToRemove []string `protobuf:"bytes,3,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
 }
 

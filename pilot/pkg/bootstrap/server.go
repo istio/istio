@@ -42,6 +42,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	cf "istio.io/istio/pilot/pkg/config/cloudfoundry"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -453,14 +454,32 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			return err
 		}
 
+		s.configController = configController
+
 		if args.Config.CFConfig != "" {
-			err = s.makeCopilotMonitor(args, configController)
+			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			if err != nil {
+				return multierror.Prefix(err, "loading cloud foundry config")
+			}
+			tlsConfig, err := cfConfig.ClientTLSConfig()
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client tls config")
+			}
+			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client")
+			}
+
+			confController, err := configaggregate.MakeCache([]model.ConfigStoreCache{
+				s.configController,
+				cf.NewController(client, configController, log.RegisterScope("cloudfoundry", "cloudfoundry debugging", 0), 30*time.Second, 10*time.Second),
+			})
 			if err != nil {
 				return err
 			}
-		}
 
-		s.configController = configController
+			s.configController = confController
+		}
 	} else {
 		controller, err := s.makeKubeConfigController(args)
 		if err != nil {
@@ -523,36 +542,11 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 
 func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
 	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
-	fileMonitor := configmonitor.NewMonitor(configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
+	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		fileMonitor.Start(stop)
-		return nil
-	})
-
-	return nil
-}
-
-func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
-	if err != nil {
-		return multierror.Prefix(err, "loading cloud foundry config")
-	}
-	tlsConfig, err := cfConfig.ClientTLSConfig()
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client tls config")
-	}
-	client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
-	if err != nil {
-		return multierror.Prefix(err, "creating cloud foundry client")
-	}
-
-	copilotSnapshot := configmonitor.NewCopilotSnapshot(configController, client, CopilotTimeout)
-	copilotMonitor := configmonitor.NewMonitor(configController, 1*time.Second, copilotSnapshot.ReadConfigFiles)
-
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		copilotMonitor.Start(stop)
 		return nil
 	})
 
@@ -656,10 +650,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				Name: serviceregistry.ServiceRegistry(r),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-					Client: client,
 				},
 				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{
-					Client:      client,
+					RoutesRepo:  cloudfoundry.NewCachedRoutes(client, log.RegisterScope("cfcacher", "cf cacher debugging", 0), "30s"),
 					ServicePort: cfConfig.ServicePort,
 				},
 				ServiceAccounts: cloudfoundry.NewServiceAccounts(),
@@ -768,6 +761,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+
+	s.EnvoyXdsServer.ConfigController = s.configController
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,

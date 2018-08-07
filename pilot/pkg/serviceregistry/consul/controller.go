@@ -83,7 +83,7 @@ func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.Servi
 	svc, err := c.GetService(hostname)
 	if svc != nil {
 		return &model.ServiceAttributes{
-			Name:      hostname.String(),
+			Name:      string(hostname),
 			Namespace: model.IstioDefaultConfigNamespace}, nil
 	}
 	return nil, err

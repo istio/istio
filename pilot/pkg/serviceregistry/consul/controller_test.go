@@ -319,7 +319,7 @@ func TestGetServiceAttributes(t *testing.T) {
 	}
 
 	expect := model.ServiceAttributes{
-		Name:      serviceHostname("productpage").String(),
+		Name:      string(serviceHostname("productpage")),
 		Namespace: model.IstioDefaultConfigNamespace,
 	}
 	if !reflect.DeepEqual(*attr, expect) {

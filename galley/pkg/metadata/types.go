@@ -8,11 +8,11 @@ package metadata
 import (
 	// Pull in all the known proto types to ensure we get their types registered.
 	_ "istio.io/api/authentication/v1alpha1"
-	_ "istio.io/api/mixer/adapter/model/v1beta1"
 	_ "istio.io/api/mixer/v1/config/client"
 	_ "istio.io/api/networking/v1alpha3"
 	_ "istio.io/api/policy/v1beta1"
 	_ "istio.io/api/rbac/v1alpha1"
+	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -22,8 +22,7 @@ var Types *resource.Schema
 func init() {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/istio.authentication.v1alpha1.Policy", true)
-	b.Register("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Info", true)
-	b.Register("type.googleapis.com/istio.mixer.adapter.model.v1beta1.Template", true)
+	b.Register("type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource", true)
 	b.Register("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec", true)
 	b.Register("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpecBinding", true)
 	b.Register("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec", true)

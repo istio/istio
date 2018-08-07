@@ -196,7 +196,7 @@ func (sd *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*mode
 	svc, err := sd.GetService(hostname)
 	if svc != nil {
 		return &model.ServiceAttributes{
-			Name:      hostname.String(),
+			Name:      string(hostname),
 			Namespace: model.IstioDefaultConfigNamespace,
 		}, nil
 	}

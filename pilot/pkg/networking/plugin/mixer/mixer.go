@@ -345,8 +345,8 @@ func addDestinationServiceAttributes(attrs attributes, discovery model.ServiceDi
 	if destinationHostname == "" {
 		return attrs
 	}
-	attrs["destination.service"] = attrStringValue(destinationHostname.String()) // DEPRECATED. Remove when fully out of use.
-	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
+	attrs["destination.service"] = attrStringValue(string(destinationHostname)) // DEPRECATED. Remove when fully out of use.
+	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
 	serviceAttributes, err := discovery.GetServiceAttributes(destinationHostname)
 	if err == nil && serviceAttributes != nil {

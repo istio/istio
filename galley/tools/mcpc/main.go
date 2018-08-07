@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -27,7 +28,8 @@ import (
 	"istio.io/istio/galley/pkg/mcp/client"
 
 	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/runtime/resource"
+	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
+	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 var (
@@ -41,7 +43,20 @@ type updater struct {
 
 // Update interface method implementation.
 func (u *updater) Update(ch *client.Change) error {
-	fmt.Printf("==>\n%v\n", ch)
+	fmt.Printf("Incoming change: %v\n", ch.MessageName)
+
+	for i, o := range ch.Objects {
+		fmt.Printf("%s[%d]\n", ch.MessageName, i)
+
+		b, err := json.MarshalIndent(o, "  ", "  ")
+		if err != nil {
+			fmt.Printf("  Marshalling error: %v", err)
+		} else {
+			fmt.Printf("%s\n", string(b))
+		}
+
+		fmt.Printf("===============\n")
+	}
 	return nil
 }
 

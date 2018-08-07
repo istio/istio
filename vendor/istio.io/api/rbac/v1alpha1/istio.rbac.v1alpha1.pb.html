@@ -16,7 +16,7 @@ the following standard fields:</p>
 <li>services: a list of services.</li>
 <li>methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always &ldquo;POST&rdquo;.</li>
 <li>paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-presented in the form of &ldquo;packageName.serviceName/methodName&rdquo;.</li>
+presented in the form of &ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.</li>
 </ul>
 
 <p>In addition to the standard fields, operators can also use custom keys in the <code>constraints</code> field,
@@ -26,7 +26,7 @@ the supported keys are listed in the &ldquo;constraints and properties&rdquo; pa
 access to &ldquo;products.svc.cluster.local&rdquo; service at versions &ldquo;v1&rdquo; and &ldquo;v2&rdquo;. &ldquo;path&rdquo; is not specified,
 so it applies to any path in the service.</p>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+<pre><code class="language-yaml">apiVersion: &quot;rbac.istio.io/v1alpha1&quot;
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -58,7 +58,7 @@ to ServiceRole &ldquo;product-viewer&rdquo;:</p>
 <li>Services in &ldquo;abc&rdquo; namespace.</li>
 </ul>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+<pre><code class="language-yaml">apiVersion: &quot;rbac.istio.io/v1alpha1&quot;
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -105,7 +105,7 @@ If set to [&ldquo;*&rdquo;], it refers to all services in the namespace.</p>
 <td>
 <p>Optional. A list of HTTP paths or gRPC methods.
 gRPC methods must be presented as fully-qualified name in the form of
-packageName.serviceName/methodName.
+&ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.
 Exact match, prefix match, and suffix match are supported for paths.
 For example, the path &ldquo;/books/review&rdquo; matches
 &ldquo;/books/review&rdquo; (exact match), or &ldquo;/books/<em>&rdquo; (prefix match),
@@ -183,7 +183,7 @@ existing one, the user should either delete the existing one or change the exist
 <p>Below is an example of RbacConfig object &ldquo;istio-rbac-config&rdquo; which enables Istio RBAC for all
 services in the default namespace.</p>
 
-<pre><code class="language-yaml">apiVersion: &quot;config.istio.io/v1alpha2&quot;
+<pre><code class="language-yaml">apiVersion: &quot;rbac.istio.io/v1alpha1&quot;
 kind: RbacConfig
 metadata:
   name: default

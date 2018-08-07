@@ -16,10 +16,10 @@ limitations under the License.
 """
 
 from airflow import DAG
-import istio_common_dag
+import istio_common_daily
 
 branch_this_dag = 'master'
 
-dailyDag = istio_common_dag.DailyPipeline(branch=branch_this_dag)
+dailyDag = istio_common_daily.DailyPipeline(branch=branch_this_dag)
 dailyDag
 

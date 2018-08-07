@@ -3,12 +3,11 @@
 # Setting up docker daemon on host
 echo "Adding insecure registry to docker daemon in host..."
 echo "You old docker daemon file can be found at /lib/systemd/system/docker.service_old"
-sudo ls /lib/systemd/system/docker.service_old
-if [ $? -ne 0 ]; then
+if ! sudo ls /lib/systemd/system/docker.service_old; then
     sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old
 else
     echo "There is an old docker.service_old file on your system."
-    read -p "If you believe it's outdated, we can update it[default: no]: " update
+    read -p "If you believe it's outdated, we can update it[default: no]: " -r update
     overrwriteExisting=${update:-"no"}
     if [[ $overrwriteExisting = *"y"* ]] || [[ $overrwriteExisting = *"Y"* ]]; then
         sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old

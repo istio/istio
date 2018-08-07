@@ -25,7 +25,6 @@
 
 
 DEB=$1
-CERTS_PATH=$2
 
 ar -x $DEB data.tar.xz
 tar -xf data.tar.xz ./usr/share/ca-certificates

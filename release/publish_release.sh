@@ -237,7 +237,7 @@ if [[ "${DO_GCS}" == "true" ]]; then
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(which docker)" ]]; then
+  if [[ -z "$(command -v docker)" ]]; then
     echo "Could not find 'docker' in path"
     exit 1
   fi
@@ -254,8 +254,7 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
   fi
 
   echo "pushing images to docker and/or gcr"
-  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${UPLOAD_DIR}"/docker/*.tar.gz; do
     TAR_NAME=$(basename "$TAR_PATH")
     IMAGE_NAME="${TAR_NAME%.tar.gz}"
 
@@ -296,7 +295,7 @@ fi
 
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
-  SHA=`grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \"`
+  SHA=$(grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \")
 
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then

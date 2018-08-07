@@ -6,9 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -20,6 +18,7 @@ spec:
         app: prometheus
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}

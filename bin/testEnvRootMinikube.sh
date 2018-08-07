@@ -21,21 +21,20 @@ function waitMinikube() {
     set +e
     kubectl cluster-info
     # this for loop waits until kubectl can access the api server that Minikube has created
-    for i in {1..30}; do # timeout for 1 minutes
+    for _ in {1..30}; do # timeout for 1 minutes
        kubectl get po --all-namespaces #&> /dev/null
        if [ $? -ne 1 ]; then
           break
       fi
       sleep 2
     done
-    kubectl get all --all-namespaces
-    if [ $? -ne 0 ]; then
+    if ! kubectl get all --all-namespaces; then
         echo "Kubernetes failed to start"
         ps ax
         netstat -an
         docker images
         cat /var/lib/localkube/localkube.err
-        echo "\n\n\n"
+        printf '\n\n\n'
         kubectl cluster-info dump
         #exit 1
     fi
