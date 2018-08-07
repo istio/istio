@@ -36,7 +36,8 @@ for proto in "${protos[@]}"; do
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
-export OUTPUT=$(mktemp)
+OUTPUT=$(mktemp)
+export OUTPUT
 echo "Application cleanup may take up to one minute"
 kubectl delete -n ${NAMESPACE} -f $SCRIPTDIR/bookinfo.yaml > ${OUTPUT} 2>&1
 ret=$?

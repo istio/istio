@@ -243,8 +243,10 @@ fi
 
 # Set the HUB and TAG to be picked by the Helm template
 if [[ ! -z ${ALL_HUB_TAG} ]]; then
-    export HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    export TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    export HUB
+    TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    export TAG
 fi
 
 # Update the istio.VERSION file

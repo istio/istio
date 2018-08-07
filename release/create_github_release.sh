@@ -117,7 +117,8 @@ function upload_file {
   # $1 is upload URL
   # $2 is mime type
   # $3 is file name
-  local UPLOAD_BASE=$(basename $3)
+  local UPLOAD_BASE
+  UPLOAD_BASE=$(basename $3)
   echo "Uploading: $3"
 
   # disabling command tracing during curl call so token isn't logged
@@ -132,7 +133,8 @@ function upload_file {
     # "name":"istio-0.6.2-linux.tar.gz",
     # "state":"uploaded",
     # "browser_download_url":"https://github.com/istio/istio/releases/download/untagged-8a48f577969321f13491/istio-0.6.2-linux.tar.gz"
-    local DOWNLOAD_URL=$(parse_json_for_string ${RESPONSE_FILE} "browser_download_url")
+    local DOWNLOAD_URL
+    DOWNLOAD_URL=$(parse_json_for_string ${RESPONSE_FILE} "browser_download_url")
     if [[ -z "${DOWNLOAD_URL}" ]]; then
 	echo "Did not find Download URL for file $3"
 	cat ${RESPONSE_FILE}
@@ -150,7 +152,8 @@ function upload_directory() {
   local FILE=""
 
   for FILE in "${2}"/istio-*."${4}"; do
-    local BASE_NAME=$(basename "$FILE")
+    local BASE_NAME
+    BASE_NAME=$(basename "$FILE")
 
     # if no directory or directory has no matching files
     if [[ "${BASE_NAME%.*}" == "*" ]]; then
