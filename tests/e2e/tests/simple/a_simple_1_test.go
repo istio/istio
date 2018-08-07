@@ -246,6 +246,7 @@ func TestAuthWithHeaders(t *testing.T) {
 }
 
 func Test503sDuringChanges(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/1038")
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath1 := util.GetResourcePath(yamlPath(routingR1Yaml))
 	rulePath2 := util.GetResourcePath(yamlPath(routingR2Yaml))
@@ -290,6 +291,7 @@ func Test503sDuringChanges(t *testing.T) {
 // This one may need to be fixed through some retries or health check
 // config/setup/policy in envoy (through pilot)
 func Test503sWithBadClusters(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/1038")
 	url := tc.Kube.IngressOrFail(t) + "/fortio/debug"
 	rulePath := util.GetResourcePath(yamlPath(routingRNPYaml))
 	go func() {
