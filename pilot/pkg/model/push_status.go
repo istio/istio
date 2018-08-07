@@ -55,7 +55,7 @@ type PushStatus struct {
 	Mutex sync.RWMutex
 
 	// Services list all services in the system at the time push started.
-	Services          []*Service
+	Services []*Service
 
 	// ServiceByHostname has all services, indexed by hostname.
 	ServiceByHostname map[Hostname]*Service
@@ -206,8 +206,8 @@ func NewStatus() *PushStatus {
 	// TODO: detect push in progress, don't update status if set
 	return &PushStatus{
 		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus: map[string]map[string]PushStatusEvent{},
-		Start:       time.Now(),
+		ProxyStatus:       map[string]map[string]PushStatusEvent{},
+		Start:             time.Now(),
 	}
 }
 

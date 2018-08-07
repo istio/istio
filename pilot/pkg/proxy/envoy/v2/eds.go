@@ -159,7 +159,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushStatus, clusterName stri
 		labels = push.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))

@@ -116,7 +116,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
-		inbound := configgen.buildSidecarInboundListeners(env, node, proxyInstances)
+		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
 		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
@@ -217,7 +217,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.Environment, node *model.Proxy,
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.Environment, node *model.Proxy, push *model.PushStatus,
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
@@ -256,7 +256,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if old, exists := listenerMap[listenerMapKey]; exists {
-			env.PushStatus.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
+			push.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
 				fmt.Sprintf("Rejected %s, used %s for %s", instance.Service.Hostname, old.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
@@ -364,13 +364,13 @@ type outboundListenerConflict struct {
 	newProtocol     model.Protocol
 }
 
-func (c outboundListenerConflict) addMetric() {
+func (c outboundListenerConflict) addMetric(push *model.PushStatus) {
 	currentHostnames := make([]string, len(c.currentServices))
 	for i, s := range c.currentServices {
 		currentHostnames[i] = string(s.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
-	c.env.PushStatus.Add(c.metric,
+	push.Add(c.metric,
 		c.listenerName,
 		c.node,
 		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",
@@ -450,7 +450,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							currentProtocol: currentListenerEntry.servicePort.Protocol,
 							newHostname:     service.Hostname,
 							newProtocol:     servicePort.Protocol,
-						}.addMetric()
+						}.addMetric(push)
 					}
 					// Skip building listener for the same http port
 					currentListenerEntry.services = append(currentListenerEntry.services, service)
@@ -517,7 +517,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 							currentProtocol: currentListenerEntry.servicePort.Protocol,
 							newHostname:     service.Hostname,
 							newProtocol:     servicePort.Protocol,
-						}.addMetric()
+						}.addMetric(push)
 						continue
 					}
 					// WE have a collision with another TCP port.
@@ -602,7 +602,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 									currentProtocol: currentListenerEntry.servicePort.Protocol,
 									newHostname:     service.Hostname,
 									newProtocol:     servicePort.Protocol,
-								}.addMetric()
+								}.addMetric(push)
 								break compareWithExisting
 							} else {
 								continue
@@ -624,7 +624,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 								currentProtocol: currentListenerEntry.servicePort.Protocol,
 								newHostname:     service.Hostname,
 								newProtocol:     servicePort.Protocol,
-							}.addMetric()
+							}.addMetric(push)
 							break compareWithExisting
 						}
 					}
