@@ -53,6 +53,7 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 	template := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
+			CommonName:   options.Host,
 		},
 	}
 

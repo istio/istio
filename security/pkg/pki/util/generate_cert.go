@@ -217,6 +217,7 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		SerialNumber: serialNum,
 		Subject: pkix.Name{
 			Organization: []string{options.Org},
+			CommonName:   options.Host,
 		},
 		NotBefore:   notBefore,
 		NotAfter:    notBefore.Add(options.TTL),
