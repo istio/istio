@@ -158,7 +158,16 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+      {{ if .Values.global.sdsAPIEnabled }}
+        - mountPath: /var/run/sds
+          name: sdsudspath
+      {{ end }}
       volumes:
+      {{ if .Values.global.sdsAPIEnabled }}
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds
+      {{ end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
