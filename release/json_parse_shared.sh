@@ -33,7 +33,7 @@ function parse_json_for_line() {
     return 0
   fi
   RESULT=$(grep -Eo " *\"${KEY}\": *.*,?" ${FILENAME} |
-           sed "s/ *\"${KEY}\": *\(.*\)/\1/")
+           sed "s/ *\"${KEY}\": *\\(.*\\)/\\1/")
   echo $RESULT
   return 0
 }
@@ -51,7 +51,7 @@ function parse_json_for_int() {
     return 0
   fi
   RESULT=$(grep -Eo " *\"${KEY}\": *[0-9]*,?" ${FILENAME} |
-           sed "s/ *\"${KEY}\": *\([0-9]*\),*/\1/")
+           sed "s/ *\"${KEY}\": *\\([0-9]*\\),*/\\1/")
   echo $RESULT
   return 0
 }
@@ -69,7 +69,7 @@ function parse_json_for_string() {
     return 0
   fi
   RESULT=$(grep -Eo " *\"${KEY}\": *\".*\",?" ${FILENAME} |
-           sed "s/ *\"${KEY}\": *\"\(.*\)\",*/\1/")
+           sed "s/ *\"${KEY}\": *\"\\(.*\\)\",*/\\1/")
   echo $RESULT
   return 0
 }
@@ -88,7 +88,7 @@ function parse_json_for_first_string() {
     return 0
   fi
   RESULT=$(grep -Eo " *\"${KEY}\": *\".*\",?" ${FILENAME} | head --lines=1 |
-           sed "s/ *\"${KEY}\": *\"\(.*\)\",*/\1/")
+           sed "s/ *\"${KEY}\": *\"\\(.*\\)\",*/\\1/")
   echo $RESULT
   return 0
 }
@@ -108,7 +108,7 @@ function parse_json_for_url_suffix() {
   fi
 
   RESULT=$(grep -Eo " *\"${URL_KEY}\":.*${URL_SUFFIX}/(${VALID_CHARS})*\",?" ${FILENAME} | \
-           sed "s# *\"${URL_KEY}\": *\".*${URL_SUFFIX}\/\(.*\)\",*#\1#")
+           sed "s# *\"${URL_KEY}\": *\".*${URL_SUFFIX}\\/\\(.*\\)\",*#\\1#")
   echo $RESULT
   return 0
 }
