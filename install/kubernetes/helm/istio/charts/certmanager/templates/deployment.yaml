@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "certmanager.name" . }}
+    {{- template "common_labels" . }}
 spec:
   replicas: 1
   selector:

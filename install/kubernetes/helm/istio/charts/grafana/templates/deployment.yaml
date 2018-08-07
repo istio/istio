@@ -5,9 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    {{- template "common_labels" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
