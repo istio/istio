@@ -89,7 +89,8 @@ set_download_command () {
 }
 
 if [ -z ${PROXY_REPO_SHA:-} ] ; then
-  export PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+  export PROXY_REPO_SHA
 fi
 
 # Normally set by the Makefile.
