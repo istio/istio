@@ -170,12 +170,12 @@ containers:
   - mountPath: /etc/certs/
     name: istio-certs
     readOnly: true
-{{ if eq .GCPIdentityEnabled true -}}
+{{ if eq .SDSAPIEnabled true -}}
   - mountPath: /var/run/sds
     name: sdsudspath
 {{ end -}}
 volumes:
-{{ if eq .GCPIdentityEnabled true -}}
+{{ if eq .SDSAPIEnabled true -}}
 - name: sdsudspath
   hostPath:
     path: /var/run/sds

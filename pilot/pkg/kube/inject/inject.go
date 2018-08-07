@@ -127,16 +127,16 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // Params describes configurable parameters for injecting istio proxy
 // into a kubernetes resource.
 type Params struct {
-	InitImage          string                 `json:"initImage"`
-	ProxyImage         string                 `json:"proxyImage"`
-	Verbosity          int                    `json:"verbosity"`
-	SidecarProxyUID    uint64                 `json:"sidecarProxyUID"`
-	Version            string                 `json:"version"`
-	EnableCoreDump     bool                   `json:"enableCoreDump"`
-	DebugMode          bool                   `json:"debugMode"`
-	Mesh               *meshconfig.MeshConfig `json:"-"`
-	ImagePullPolicy    string                 `json:"imagePullPolicy"`
-	GCPIdentityEnabled bool                   `json:"gcpIdentityEnabled"`
+	InitImage       string                 `json:"initImage"`
+	ProxyImage      string                 `json:"proxyImage"`
+	Verbosity       int                    `json:"verbosity"`
+	SidecarProxyUID uint64                 `json:"sidecarProxyUID"`
+	Version         string                 `json:"version"`
+	EnableCoreDump  bool                   `json:"enableCoreDump"`
+	DebugMode       bool                   `json:"debugMode"`
+	Mesh            *meshconfig.MeshConfig `json:"-"`
+	ImagePullPolicy string                 `json:"imagePullPolicy"`
+	SDSAPIEnabled   bool                   `json:"sdsAPIEnabled"`
 	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
 	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
 	IncludeIPRanges string `json:"includeIPRanges"`
