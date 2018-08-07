@@ -248,7 +248,7 @@ static_resources:
 )
 
 func TestPilotPlugin(t *testing.T) {
-	s := env.NewTestSetup(env.PilotPluginTest, t)
+	s := env.NewTestSetup(env.PilotPluginTLSTest, t)
 	s.EnvoyTemplate = envoyConf
 	grpcServer := grpc.NewServer()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Ports().DiscoveryPort))
