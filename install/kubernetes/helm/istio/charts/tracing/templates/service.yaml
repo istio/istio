@@ -27,7 +27,7 @@ items:
     namespace: {{ .Release.Namespace }}
     annotations:
       {{- range $key, $val := .Values.service.annotations }}
-      {{ $key }}: {{ $val }}
+      {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
       app: jaeger
