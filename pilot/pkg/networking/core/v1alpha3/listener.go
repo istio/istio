@@ -254,57 +254,57 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			continue
 		}
 		listenerType = plugin.ModelProtocolToListenerProtocol(protocol)
+		allChains := []plugin.FilterChain{}
+		var httpOpts *httpListenerOpts
+		var tcpNetworkFilters []listener.Filter
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
-			httpOpts := &httpListenerOpts{
+			httpOpts = &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, instance),
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
-			allChains := []plugin.FilterChain{}
-			for _, p := range configgen.Plugins {
-				params := &plugin.InputParams{
-					ListenerProtocol: listenerType,
-					Env:              env,
-					Node:             node,
-					ProxyInstances:   proxyInstances,
-					ServiceInstance:  instance,
-					Port:             endpoint.ServicePort,
-				}
-				chains := p.OnInboundFilterChains(params)
-				if len(chains) == 0 {
-					continue
-				}
-				if len(allChains) != 0 {
-					log.Errorf("Found two plugin returns non empty filter chains")
-					allChains = []plugin.FilterChain{}
-					break
-				}
-				allChains = chains
-			}
-			// Construct the default filter chain.
-			if len(allChains) == 0 {
-				log.Infof("Use default filter chain for %v", endpoint)
-				allChains = []plugin.FilterChain{plugin.FilterChain{}}
-			}
-			for _, chain := range allChains {
-				fmt.Printf("endpint %v, chain %v\n", endpoint, chain)
-				listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-					httpOpts:        httpOpts,
-					tlsContext:      chain.TLSContext,
-					match:           chain.FilterChainMatch,
-					listenerFilters: chain.RequiredListenerFilters,
-				})
-			}
 		case plugin.ListenerProtocolTCP:
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				networkFilters: buildInboundNetworkFilters(instance),
-			}}
+			tcpNetworkFilters = buildInboundNetworkFilters(instance)
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 			continue
+		}
+		for _, p := range configgen.Plugins {
+			params := &plugin.InputParams{
+				ListenerProtocol: listenerType,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             endpoint.ServicePort,
+			}
+			chains := p.OnInboundFilterChains(params)
+			if len(chains) == 0 {
+				continue
+			}
+			if len(allChains) != 0 {
+				log.Errorf("Found two plugin returns non empty filter chains!")
+				allChains = []plugin.FilterChain{}
+				break
+			}
+			allChains = chains
+		}
+		// Construct the default filter chain.
+		if len(allChains) == 0 {
+			log.Infof("Use default filter chain for %v", endpoint)
+			allChains = []plugin.FilterChain{plugin.FilterChain{}}
+		}
+		for _, chain := range allChains {
+			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+				httpOpts:        httpOpts,
+				networkFilters:  tcpNetworkFilters,
+				tlsContext:      chain.TLSContext,
+				match:           chain.FilterChainMatch,
+				listenerFilters: chain.RequiredListenerFilters,
+			})
 		}
 
 		// call plugins
