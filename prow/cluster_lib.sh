@@ -95,6 +95,13 @@ function setup_clusterreg () {
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
 
+function join_lines_by_comma() {
+  # Turn each line into an element in an array.
+  mapfile -t array <<< "$1"
+  list=$(join_by , "${array[@]}")
+  echo "${list}"
+}
+
 function setup_cluster() {
   # use current-context if pilot_cluster not set
   PILOT_CLUSTER="${PILOT_CLUSTER:-$(kubectl config current-context)}"
@@ -115,19 +122,17 @@ function setup_cluster() {
 
   if [[ "${USE_GKE}" == "True" && "${SETUP_CLUSTERREG}" == "True" ]]; then
     ALL_CLUSTER_CIDRS_LINES=$(gcloud container clusters list --format='value(clusterIpv4Cidr)' | sort | uniq)
-    mapfile -t ALL_CLUSTER_CIDRS <<< "${ALL_CLUSTER_CIDRS_LINES}"
-    ALL_CLUSTER_CIDRS_LIST=$(join_by , "${ALL_CLUSTER_CIDRS[@]}")
+    ALL_CLUSTER_CIDRS=$(join_lines_by_comma "${ALL_CLUSTER_CIDRS_LINES}")
 
     ALL_CLUSTER_NETTAGS_LINES=$(gcloud compute instances list --format='value(tags.items.[0])' | sort | uniq)
-    mapfile -t ALL_CLUSTER_NETTAGS <<< "${ALL_CLUSTER_NETTAGS_LINES}"
-    ALL_CLUSTER_NETTAGS_LIST=$(join_by , "${ALL_CLUSTER_NETTAGS[@]}")
+    ALL_CLUSTER_NETTAGS=$(join_lines_by_comma "${ALL_CLUSTER_NETTAGS_LINES}")
 
     gcloud compute firewall-rules create istio-multicluster-test-pods \
 	    --allow=tcp,udp,icmp,esp,ah,sctp \
 	    --direction=INGRESS \
 	    --priority=900 \
-	    --source-ranges="${ALL_CLUSTER_CIDRS_LIST[*]}" \
-	    --target-tags="${ALL_CLUSTER_NETTAGS_LIST[*]}" --quiet
+	    --source-ranges="${ALL_CLUSTER_CIDRS}" \
+	    --target-tags="${ALL_CLUSTER_NETTAGS}" --quiet
   fi
 }
 
