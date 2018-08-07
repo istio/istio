@@ -16,4 +16,4 @@ fi
 
 gen_img=gcr.io/istio-testing/protoc:2018-06-12
 
-docker run  -i  --rm --entrypoint /usr/bin/protoc -v $ROOT:$ROOT -w `pwd` $gen_img $*
+docker run  -i  --rm --entrypoint /usr/bin/protoc -v $ROOT:$ROOT -w $(pwd) $gen_img $*
