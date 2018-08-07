@@ -7,7 +7,7 @@ if ! sudo ls /lib/systemd/system/docker.service_old; then
     sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old
 else
     echo "There is an old docker.service_old file on your system."
-    read -p "If you believe it's outdated, we can update it[default: no]: " update
+    read -p "If you believe it's outdated, we can update it[default: no]: " -r update
     overrwriteExisting=${update:-"no"}
     if [[ $overrwriteExisting = *"y"* ]] || [[ $overrwriteExisting = *"Y"* ]]; then
         sudo cp /lib/systemd/system/docker.service /lib/systemd/system/docker.service_old

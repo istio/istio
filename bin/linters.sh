@@ -25,7 +25,7 @@ echo 'licenses OK'
 
 echo 'Installing gometalinter ....'
 go get -u gopkg.in/alecthomas/gometalinter.v2
-gometalinter=$(which gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
+gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
 $gometalinter --install
 echo 'Gometalinter installed successfully ....'
 

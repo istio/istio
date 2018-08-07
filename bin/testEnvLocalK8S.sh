@@ -134,7 +134,7 @@ function startLocalApiserver() {
     # Really need to make sure that API Server is up before proceed further
     waitForApiServer "http://127.0.0.1:8080"
 
-    printf "Started local etcd and apiserver!\n"
+    echo "Started local etcd and apiserver!"
 }
 
 function ensureLocalApiServer() {
@@ -160,24 +160,24 @@ function startIstio() {
 
 function stopIstio() {
   if [[ -f $LOG_DIR/pilot.pid ]] ; then
-    printf "Pilot pid: $(cat $LOG_DIR/pilot.pid)\n"
+    echo "Pilot pid: $(cat $LOG_DIR/pilot.pid)"
     kill -9 $(cat $LOG_DIR/pilot.pid) || true
     rm $LOG_DIR/pilot.pid
    fi
   if [[ -f $LOG_DIR/mixer.pid ]] ; then
-    printf "Mixer pid: $(cat $LOG_DIR/mixer.pid)\n"
+    echo "Mixer pid: $(cat $LOG_DIR/mixer.pid)"
     kill -9 $(cat $LOG_DIR/mixer.pid) || true
     rm $LOG_DIR/mixer.pid
   fi
   if [[ -f $LOG_DIR/envoy4.pid ]] ; then
-    printf "Envoy pid: $(cat $LOG_DIR/envoy4.pid)\n"
+    echo "Envoy pid: $(cat $LOG_DIR/envoy4.pid)"
     kill -9 $(cat $LOG_DIR/envoy4.pid) || true
     rm $LOG_DIR/envoy4.pid
   fi
 }
 
 function startPilot() {
-  printf "Pilot starting...\n"
+  echo "Pilot starting..."
   POD_NAME=pilot POD_NAMESPACE=istio-system \
   ${ISTIO_OUT}/pilot-discovery discovery --httpAddr ":18080" \
                                          --monitoringAddr ":19093" \
@@ -187,14 +187,14 @@ function startPilot() {
 }
 
 function startMixer() {
-  printf "Mixer starting...\n"
+  echo "Mixer starting..."
   ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
                            --log_target ${LOG_DIR}/mixer.log&
   echo $! > $LOG_DIR/mixer.pid
 }
 
 function startEnvoy() {
-    printf "Envoy starting...\n"
+    echo "Envoy starting..."
     ${ISTIO_OUT}/envoy -c tests/testdata/multicluster/envoy_local_v2.yaml \
         --base-id 4 --service-cluster xds_cluster \
         --service-node local.test \
@@ -271,7 +271,7 @@ function startETCDsAndAPIs() {
 
    done
 
-    printf "Started $1 local etcds and apiservers!\n"
+    echo "Started $1 local etcds and apiservers!"
 }
 
 function startMultiCluster() {
@@ -293,13 +293,13 @@ set +xe
     status=$(kubectl get pod --server=$1 2>&1 | grep -c resources)
     if [ $status -ne 1 ]; then
       if [ $count -gt 30 ]; then
-        printf "API Server failed to come up\n"
+        echo "API Server failed to come up"
         exit -1
       fi
       count=$((count+1))
       sleep 1
     else
-      printf "API Server ready\n"
+      echo "API Server ready"
       break
     fi
   done
@@ -313,5 +313,5 @@ case "$1" in
     startMultiCluster) startMultiCluster ;;
     stopMultiCluster) stopMultiCluster ;;
     ensure) ensureLocalApiServer ;;
-    *) printf "start stop ensure\n"
+    *) echo "start stop ensure"
 esac
