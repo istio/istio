@@ -567,7 +567,7 @@ $(HELM):
 # create istio-remote.yaml
 istio-remote.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
-	$(HELM) template --namespace=istio-system \
+	$(HELM) template --name=istio --namespace=istio-system \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
@@ -575,6 +575,7 @@ istio-remote.yaml: $(HELM)
 isti%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
+		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values-$@ \
@@ -584,6 +585,7 @@ generate_yaml: $(HELM)
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
 	$(HELM) template --set global.tag=${TAG} \
+		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
@@ -591,6 +593,7 @@ generate_yaml: $(HELM)
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth.yaml
 	$(HELM) template --set global.tag=${TAG} \
+		--name=istio \
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--values install/kubernetes/helm/istio/values.yaml \
