@@ -393,7 +393,6 @@
 [[projects]]
   name = "github.com/golang/protobuf"
   packages = [
-    "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
     "protoc-gen-go/plugin",
@@ -1290,10 +1289,11 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "release-1.0"
+  branch = "master"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
+    "common/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1305,7 +1305,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
+  revision = "beaacd1cd58e4cee821e391563b030bb067c7866"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1603,6 +1603,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9c647c93da247178eb02b80cac59ea9ad04432e55d3489ec741280f621904358"
+  inputs-digest = "785dba25d7640f070c9587d88d1cb173e2221a99d03006af0d15301d7076c9ed"
   solver-name = "gps-cdcl"
   solver-version = 1

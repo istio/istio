@@ -57,6 +57,7 @@ var coreTopics = []fw.Topic{
 var allTopics []fw.Topic
 var topicMutex sync.Mutex
 var shutdown sync.WaitGroup
+var listener net.Listener
 
 var server = http.Server{
 	ReadTimeout:    10 * time.Second,
@@ -120,6 +121,8 @@ func RegisterTopic(t fw.Topic) {
 	allTopics = append(allTopics, t)
 }
 
+var listeningTestProbe func()
+
 // Run starts up the ControlZ listeners.
 //
 // ControlZ uses the set of standard core topics, the
@@ -176,8 +179,18 @@ func Run(o *Options, customTopics []fw.Topic) {
 	server.Addr = fmt.Sprintf("%s:%d", addr, o.Port)
 	server.Handler = router
 
+	var err error
+	if listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
+		log.Errorf("Failed to start ctrlz server: %v", err)
+		return
+	}
+
+	if listeningTestProbe != nil {
+		listeningTestProbe()
+	}
+
 	log.Infof("ControlZ available at %s:%d", getLocalIP(), o.Port)
-	server.ListenAndServe()
+	server.Serve(listener)
 	log.Infof("ControlZ terminated")
 }
 
@@ -186,6 +199,6 @@ func Run(o *Options, customTopics []fw.Topic) {
 // Stop is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
 func Stop() {
-	server.Close()
+	listener.Close()
 	shutdown.Wait()
 }
