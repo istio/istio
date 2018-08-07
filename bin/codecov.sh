@@ -37,7 +37,7 @@ function code_coverage() {
     | tee ${COVERAGEDIR}/${filename}.report ) &
   local pid=$!
   PKGS[${pid}]=${1}
-  PIDS+=(${pid})
+  PIDS+=("${pid}")
 }
 
 function wait_for_proc() {
@@ -53,7 +53,7 @@ function join_procs() {
   local p
   for p in "${PIDS[@]}"; do
       if ! wait ${p}; then
-          FAILED_TESTS+=(${PKGS[${p}]})
+          FAILED_TESTS+=("${PKGS[${p}]}")
       fi
   done
 }

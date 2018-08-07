@@ -53,7 +53,7 @@ ls -l ${MIXER_BINARY}
 printf "Envoy hash:"
 md5sum ${ENVOY_BINARY}
 
-TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+TESTARG=(-envoy_binary "${ENVOY_BINARY}" -envoy_start_script "${START_ENVOY}" -mixer_binary "${MIXER_BINARY}" -fortio_binary fortio)
 
 go test -v ./tests/integration/example/tests/sample1 "${TESTARG[@]}" "$@"
 process_result $? sample1

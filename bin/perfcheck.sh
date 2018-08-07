@@ -97,7 +97,7 @@ function loadBaselineFile() {
 function getColumn() {
     local ENTRY="${1}"
     local COLUMN="${2}"
-    local PARTS=( ${ENTRY} )
+    local PARTS=( "${ENTRY}" )
     echo ${PARTS[${COLUMN}]}
 }
 

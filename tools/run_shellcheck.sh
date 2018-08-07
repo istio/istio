@@ -9,8 +9,7 @@ ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 # corresponding rule.
 EXCLUDES="1090,"
 EXCLUDES="${EXCLUDES}1091,"
-EXCLUDES="${EXCLUDES}2086,"
-EXCLUDES="${EXCLUDES}2206"
+EXCLUDES="${EXCLUDES}2086"
 
 # All files ending in .sh.
 SH_FILES=$( \
