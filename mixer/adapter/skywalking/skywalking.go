@@ -13,14 +13,19 @@
 // limitations under the License.
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/skywalking/config/config.proto
+
+// Package skywalking publishes metric values collected by Mixer for
+// ingestion by Apache SkyWalking.
 package skywalking
 
 import (
 	"context"
-	"time"
-	"google.golang.org/grpc"
 	"errors"
+	"time"
+
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc"
+
 	"istio.io/istio/mixer/adapter/skywalking/config"
 	pb "istio.io/istio/mixer/adapter/skywalking/protocol"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -89,7 +94,7 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 	clientStream, err := h.client.Collect(ctx)
 	if err != nil {
 		h.env.Logger().Errorf("%v.Collect(_) = _, %v", h.client, err)
-		return errors.New("Collect to backend fails")
+		return errors.New("collect to backend fails")
 	}
 
 	for _, inst := range insts {
@@ -164,7 +169,6 @@ func (h *handler) Close() error {
 	return nil
 }
 
-////////////////// Bootstrap //////////////////////////
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{
