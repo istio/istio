@@ -56,7 +56,7 @@ func identity(destination resource.Info, name string, u *unstructured.Unstructur
 func legacyMixerResource(_ resource.Info, name string, u *unstructured.Unstructured) (string, proto.Message, error) {
 	spec := u.Object["spec"]
 	s := &types.Struct{}
-	if err := toproto(s, true, spec); err != nil {
+	if err := toproto(s, spec); err != nil {
 		return "", nil, err
 	}
 

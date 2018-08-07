@@ -29,7 +29,7 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-	durpb "github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
@@ -100,7 +100,7 @@ var (
 type MeshArgs struct {
 	ConfigFile      string
 	MixerAddress    string
-	RdsRefreshDelay *durpb.Duration
+	RdsRefreshDelay *types.Duration
 }
 
 // ConfigArgs provide configuration options for the configuration controller. If FileDir is set, that directory will
