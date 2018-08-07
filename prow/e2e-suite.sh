@@ -71,7 +71,7 @@ if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  E2E_ARGS=(--mason_info="${INFO_PATH}")
+  E2E_ARGS=("--mason_info=${INFO_PATH}")
 
   setup_and_export_git_sha
 
@@ -84,7 +84,7 @@ fi
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
+  E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}

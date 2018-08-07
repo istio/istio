@@ -102,16 +102,16 @@ if [[ -n ${FAILED_TESTS:-} ]]; then
   exit 1
 fi
 
-PKG_CHECK_ARGS=(--bucket='' )
+PKG_CHECK_ARGS=("--bucket=''")
 if [[ -n "${CIRCLE_BUILD_NUM:-}" ]]; then
   if [[ -z "${CIRCLE_PR_NUMBER:-}" ]]; then
     TMP_SA_JSON=$(mktemp /tmp/XXXXX.json)
     ENCRYPTED_SA_JSON="${ROOTDIR}/.circleci/accounts/istio-circle-ci.gcp.serviceaccount"
     openssl aes-256-cbc -d -in "${ENCRYPTED_SA_JSON}" -out "${TMP_SA_JSON}" -k "${GCS_BUCKET_TOKEN}" -md sha256
     # only pushing data on post submit
-    PKG_CHECK_ARGS=( --build_id="${CIRCLE_BUILD_NUM}"
-      --job_name="istio/${CIRCLE_JOB}_${CIRCLE_BRANCH}"
-      --service_account="${TMP_SA_JSON}"
+    PKG_CHECK_ARGS=( "--build_id=${CIRCLE_BUILD_NUM}"
+      "--job_name=istio/${CIRCLE_JOB}_${CIRCLE_BRANCH}"
+      "--service_account=${TMP_SA_JSON}"
     )
   fi
 fi
