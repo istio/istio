@@ -44,8 +44,7 @@ function istioNetworkInit() {
   systemctl restart dnsmasq
 
   # Update DHCP - if needed
-  grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null
-  if [[ $? != 0 ]]; then
+  if grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null; then
     echo 'prepend domain-name-servers 127.0.0.1;' >> /etc/dhcp/dhclient.conf
     # TODO: find a better way to re-trigger dhclient
     dhclient -v -1
@@ -81,15 +80,13 @@ function istioInstall() {
 function istioRestart() {
     echo "*** Restarting istio proxy..."
     # Node agent
-    systemctl status istio-auth-node-agent > /dev/null
-    if [[ $? = 0 ]]; then
+    if systemctl status istio-auth-node-agent > /dev/null; then
       systemctl restart istio-auth-node-agent
     else
       systemctl start istio-auth-node-agent
     fi
     # Start or restart istio envoy
-    systemctl status istio > /dev/null
-    if [[ $? = 0 ]]; then
+    if systemctl status istio > /dev/null; then
       systemctl restart istio
     else
       systemctl start istio

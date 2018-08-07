@@ -14,19 +14,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# set this to the new multicluster-e2e type
+export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+export OWNER="istio-pilot-multicluster-e2e"
 
-#######################################
-#                                     #
-#             e2e-suite               #
-#                                     #
-#######################################
+export SETUP_CLUSTERREG="True"
+CLUSTERREG_DIR="${CLUSTERREG_DIR:-$(mktemp -d /tmp/clusterregXXX)}"
+export CLUSTERREG_DIR
 
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
-
-echo 'Running e2e with rbac, no auth Tests'
-./prow/e2e-suite.sh "$@"
+#echo 'Running pilot multi-cluster e2e tests (v1alpha1, noauth)'
+./prow/e2e-suite.sh --timeout 35 --cluster_registry_dir=$CLUSTERREG_DIR --single_test e2e_pilotv2_v1alpha3 "$@"

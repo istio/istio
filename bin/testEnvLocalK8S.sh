@@ -13,7 +13,7 @@ export GO_TOP=${GO_TOP:-$(echo ${GOPATH} | cut -d ':' -f1)}
 
 export ISTIO_GO=${GO_TOP}/src/istio.io/istio
 
-if [[ "$OSTYPE" == "darwin"* ]]; then 
+if [[ "$OSTYPE" == "darwin"* ]]; then
    export GOOS_LOCAL=darwin
 else
   export GOOS_LOCAL=${GOOS_LOCAL:-linux}
@@ -40,9 +40,6 @@ CERTDIR=${CERTDIR:-${ISTIO_GO}/.circleci/pki/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
 ETCD_DATADIR=${ETCD_DATADIR:-${OUT}/etcd-data}
 
-EASYRSA_DIR=$OUT/easy-rsa-master/easyrsa3
-EASYRSA=$EASYRSA_DIR/easyrsa
-
 # Ensure k8s certificats - if not found, download easy-rsa and create k8s certs
 function ensureK8SCerts() {
     if [ -f ${CERTDIR}/apiserver.key ] ; then
@@ -56,7 +53,7 @@ function ensureK8SCerts() {
     cd easy-rsa-master/easyrsa3
 
     ./easyrsa init-pki > /dev/null
-    ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass > /dev/null
+    ./easyrsa --batch "--req-cn=${MASTER_IP}@$(date +%s)" build-ca nopass > /dev/null
     ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" \
         --days=10000 build-server-full server nopass > /dev/null
 
@@ -136,7 +133,7 @@ function startLocalApiserver() {
 
     # Really need to make sure that API Server is up before proceed further
     waitForApiServer "http://127.0.0.1:8080"
-    
+
     printf "Started local etcd and apiserver!\n"
 }
 
@@ -147,7 +144,7 @@ function ensureLocalApiServer() {
 function createIstioConfigmap() {
   helm template ${ISTIO_GO}/install/kubernetes/helm/istio --namespace=istio-system \
      --execute=templates/configmap.yaml --values install/kubernetes/helm/istio/values.yaml  > ${LOG_DIR}/istio-configmap.yaml
-  kubectl create -f ${LOG_DIR}/istio-configmap.yaml 
+  kubectl create -f ${LOG_DIR}/istio-configmap.yaml
   helm template ${ISTIO_GO}/install/kubernetes/helm/istio --namespace=istio-system \
      --execute=charts/ingress/templates/service.yaml --values install/kubernetes/helm/istio/values.yaml  > ${LOG_DIR}/istio-ingress.yaml
   kubectl create -f ${LOG_DIR}/istio-ingress.yaml
@@ -192,7 +189,7 @@ function startPilot() {
 function startMixer() {
   printf "Mixer starting...\n"
   ${ISTIO_OUT}/mixs server --configStoreURL=fs:${ISTIO_GO}/mixer/testdata/configroot \
-                           --log_target ${LOG_DIR}/mixer.log& 
+                           --log_target ${LOG_DIR}/mixer.log&
   echo $! > $LOG_DIR/mixer.pid
 }
 
@@ -254,7 +251,7 @@ function startETCDsAndAPIs() {
       echo $! > $LOG_DIR/etcd$i.pid
       # make sure etcd is actually alive
       kill -0 $(cat $LOG_DIR/etcd$i.pid)
-    
+
       ${GO_TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:237$i \
           --client-ca-file ${CERTDIR}/k8sca.crt \
           --requestheader-client-ca-file ${CERTDIR}/k8sca.crt \
@@ -293,7 +290,7 @@ count=0
 set +xe
 
   while true; do
-    status=$(kubectl get pod --server=$1 2>&1 | grep resources | wc -l)
+    status=$(kubectl get pod --server=$1 2>&1 | grep -c resources)
     if [ $status -ne 1 ]; then
       if [ $count -gt 30 ]; then
         printf "API Server failed to come up\n"
@@ -308,7 +305,6 @@ set +xe
   done
 }
 
-CMD=${1:-help}
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;

@@ -251,11 +251,11 @@ run
 # The code below this line is for testing purposes.
 
 function test_compareMetric() {
-    local ZERO_CASES[0]=`(compareMetric "0" "0" "0")`
-    local ZERO_CASES[1]=`(compareMetric "100" "100" "0")`
-    local ZERO_CASES[2]=`(compareMetric "100" "110" "10")`
-    local ZERO_CASES[3]=`(compareMetric "100" "91" "10")`
-    local ZERO_CASES[4]=`(compareMetric "-" "55" "0")`
+    local ZERO_CASES[0]=$(compareMetric "0" "0" "0")
+    local ZERO_CASES[1]=$(compareMetric "100" "100" "0")
+    local ZERO_CASES[2]=$(compareMetric "100" "110" "10")
+    local ZERO_CASES[3]=$(compareMetric "100" "91" "10")
+    local ZERO_CASES[4]=$(compareMetric "-" "55" "0")
 
     for i in "${ZERO_CASES[@]}"; do
         if [ "${i}" != "0" ]; then
@@ -264,8 +264,8 @@ function test_compareMetric() {
         fi
     done
 
-    local ONE_CASES[0]=`(compareMetric "0" "1" "0")`
-    local ONE_CASES[1]=`(compareMetric "100" "111" "10")`
+    local ONE_CASES[0]=$(compareMetric "0" "1" "0")
+    local ONE_CASES[1]=$(compareMetric "100" "111" "10")
 
     for i in "${ONE_CASES[@]}"; do
         if [ "${i}" != "1" ]; then
@@ -274,8 +274,8 @@ function test_compareMetric() {
         fi
     done
 
-    local MINUS_ONE_CASES[0]=`(compareMetric "0" "-1" "0")`
-    local MINUS_ONE_CASES[1]=`(compareMetric "100" "89" "10")`
+    local MINUS_ONE_CASES[0]=$(compareMetric "0" "-1" "0")
+    local MINUS_ONE_CASES[1]=$(compareMetric "100" "89" "10")
 
     for i in "${MINUS_ONE_CASES[@]}"; do
         if [ "${i}" != "-1" ]; then
@@ -286,61 +286,61 @@ function test_compareMetric() {
 }
 
 function test_compareBenchResult() {
-    local SUCCESS_CASES[0]=`(compareBenchResults \
+    local SUCCESS_CASES[0]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[1]=`(compareBenchResults \
+    local SUCCESS_CASES[1]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       - ns/op	           0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[2]=`(compareBenchResults \
+    local SUCCESS_CASES[2]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[3]=`(compareBenchResults \
+    local SUCCESS_CASES[3]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       140 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[4]=`(compareBenchResults \
+    local SUCCESS_CASES[4]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       - B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       25 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[5]=`(compareBenchResults \
+    local SUCCESS_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[6]=`(compareBenchResults \
+    local SUCCESS_CASES[6]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       - allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-    local SUCCESS_CASES[7]=`(compareBenchResults \
+    local SUCCESS_CASES[7]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8            10000000           136 ns/op           0 B/op          0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32           10000000           136 ns/op           0 B/op          0 allocs/op
-")`
+")
 
 
-    local SUCCESS_CASES[7]=`(compareBenchResults \
+    local SUCCESS_CASES[7]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-32         	10000000	       136 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
 
     for i in "${SUCCESS_CASES[@]}"; do
@@ -350,47 +350,47 @@ BenchmarkInterpreter/ExprBench/ExtraBench-8        	10000000	       136 ns/op	  
         fi
     done
 
-        local FAILURE_CASES[0]=`(compareBenchResults \
+        local FAILURE_CASES[0]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       100 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[1]=`(compareBenchResults \
+        local FAILURE_CASES[1]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       181 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[2]=`(compareBenchResults \
+        local FAILURE_CASES[2]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[3]=`(compareBenchResults \
+        local FAILURE_CASES[3]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       1 B/op	       0 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       0 allocs/op
-")`
+")
 
-        local FAILURE_CASES[4]=`(compareBenchResults \
+        local FAILURE_CASES[4]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+")
 
-        local FAILURE_CASES[5]=`(compareBenchResults \
+        local FAILURE_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       1 allocs/op
-")`
+")
 
-        local FAILURE_CASES[5]=`(compareBenchResults \
+        local FAILURE_CASES[5]=$(compareBenchResults \
 "BenchmarkInterpreter/ExprBench/ok_1st-8         	10000000	       150 ns/op	       0 B/op	       10 allocs/op
 " \
 "BenchmarkInterpreter/ExprBench/some-other-8       	10000000	       150 ns/op	       0 B/op	       10 allocs/op
-")`
+")
 
     for i in "${FAILURE_CASES[@]}"; do
         if [[ -z "${i// }" ]]; then
