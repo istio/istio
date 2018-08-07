@@ -18,6 +18,7 @@
 #include "envoy/server/filter_config.h"
 #include "google/protobuf/util/json_util.h"
 #include "src/envoy/http/authn/http_filter.h"
+#include "src/envoy/utils/filter_names.h"
 #include "src/envoy/utils/utils.h"
 
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
@@ -25,11 +26,6 @@ using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 namespace Envoy {
 namespace Server {
 namespace Configuration {
-
-namespace {
-// The name for the Istio authentication filter.
-const std::string kAuthnFactoryName("istio_authn");
-}  // namespace
 
 class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
                           public Logger::Loggable<Logger::Id::filter> {
@@ -65,7 +61,9 @@ class AuthnFilterConfig : public NamedHttpFilterConfigFactory,
     return ProtobufTypes::MessagePtr{new FilterConfig};
   }
 
-  std::string name() override { return kAuthnFactoryName; }
+  std::string name() override {
+    return Utils::IstioFilterName::kAuthentication;
+  }
 
  private:
   Http::FilterFactoryCb createFilterFactory(const FilterConfig& config_pb) {

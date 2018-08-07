@@ -36,6 +36,8 @@ class JwtAuthenticator : public Logger::Loggable<Logger::Id::filter>,
    public:
     virtual ~Callbacks() {}
     virtual void onDone(const Status& status) PURE;
+    virtual void savePayload(const std::string& key,
+                             const std::string& payload) PURE;
   };
   void Verify(HeaderMap& headers, Callbacks* callback);
 

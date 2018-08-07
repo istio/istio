@@ -47,6 +47,10 @@ class JwtVerificationFilter : public StreamDecoderFilter,
   // To be called when its Verify() call is completed.
   void onDone(const JwtAuth::Status& status) override;
 
+  // the function for JwtAuth::Authenticator::Callbacks interface.
+  // To be called when Jwt validation success to save payload for future use.
+  void savePayload(const std::string& key, const std::string& payload) override;
+
   // The callback funcion.
   StreamDecoderFilterCallbacks* decoder_callbacks_;
   // The auth object.

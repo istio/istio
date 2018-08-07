@@ -259,11 +259,13 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, RSASuccess1) {
       "xfP590ACPyXrivtsxg";
 
   auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy(
-      kJwtVerificationResultHeaderKey,
-      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
-      "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
-      "ImV4cCI6MjAwMTAwMTAwMX0");
+  // TODO: JWT payload is not longer output to header. Find way to verify that
+  // data equivalent to this is added to dynamicMetadata.
+  //   expected_headers.addCopy(
+  //       kJwtVerificationResultHeaderKey,
+  //       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVz"
+  //       "dEBleGFtcGxlLmNvbSIsImF1ZCI6ImV4YW1wbGVfc2VydmljZSIs"
+  //       "ImV4cCI6MjAwMTAwMTAwMX0");
 
   TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
                    kPublicKeyRSA, true, expected_headers, "");
@@ -282,11 +284,13 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, ES256Success1) {
       "T9ubWvRvNGGYOTuJ8T17Db68Qk3T8UNTK5lzfR_mw";
 
   auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy(kJwtVerificationResultHeaderKey,
-                           "eyJpc3MiOiJo"
-                           "dHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtc"
-                           "GxlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbX"
-                           "BsZV9zZXJ2aWNlIn0");
+  // TODO: JWT payload is not longer output to header. Find way to verify that
+  // data equivalent to this is added to dynamicMetadata.
+  //   expected_headers.addCopy(kJwtVerificationResultHeaderKey,
+  //                            "eyJpc3MiOiJo"
+  //                            "dHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtc"
+  //                            "GxlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbX"
+  //                            "BsZV9zZXJ2aWNlIn0");
 
   TestVerification(createHeaders(kJwtEC), "", createIssuerHeaders(),
                    kPublicKeyEC, true, expected_headers, "");
@@ -378,11 +382,6 @@ TEST_P(JwtVerificationFilterIntegrationTestWithInjectedJwtResult,
       *dispatcher_, request_stream_backend));
   ASSERT_TRUE(request_stream_backend->waitForEndStream(*dispatcher_));
   EXPECT_TRUE(request_stream_backend->complete());
-
-  // With sanitization, the headers received by the backend should not
-  // contain the injected JWT verification header.
-  EXPECT_TRUE(request_stream_backend->headers().get(
-                  kJwtVerificationResultHeaderKey) == nullptr);
 
   response->waitForEndStream();
   codec_client->close();

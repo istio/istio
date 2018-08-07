@@ -14,6 +14,7 @@
  */
 
 #include "src/envoy/http/authn/filter_context.h"
+#include "src/envoy/utils/filter_names.h"
 #include "src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
@@ -69,6 +70,29 @@ void FilterContext::setPrincipal(const iaapi::PrincipalBinding& binding) {
       ENVOY_LOG(error, "Invalid binding value {}", binding);
       return;
   }
+}
+
+bool FilterContext::getJwtPayload(const std::string& issuer,
+                                  std::string* payload) const {
+  const auto filter_it =
+      dynamic_metadata_.filter_metadata().find(Utils::IstioFilterName::kJwt);
+  if (filter_it == dynamic_metadata_.filter_metadata().end()) {
+    ENVOY_LOG(debug, "No dynamic_metadata found for filter {}",
+              Utils::IstioFilterName::kJwt);
+    return false;
+  }
+
+  const auto& data_struct = filter_it->second;
+  const auto entry_it = data_struct.fields().find(issuer);
+  if (entry_it == data_struct.fields().end()) {
+    return false;
+  }
+  if (entry_it->second.string_value().empty()) {
+    return false;
+  }
+
+  *payload = entry_it->second.string_value();
+  return true;
 }
 
 }  // namespace AuthN

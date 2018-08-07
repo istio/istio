@@ -35,6 +35,7 @@ envoy_cc_library(
         "//include/istio/utils:attribute_names_header",
         "//src/istio/authn:context_proto",
         "//src/istio/utils:attribute_names_lib",
+        ":filter_names_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -88,4 +89,16 @@ envoy_cc_test(
         ":utils_lib",
         "@envoy//test/test_common:utility_lib",
     ],
+)
+
+
+cc_library(
+    name = "filter_names_lib",
+    srcs = [
+        "filter_names.cc",
+    ],
+    hdrs = [
+        "filter_names.h",
+    ],
+    visibility = ["//visibility:public"],
 )

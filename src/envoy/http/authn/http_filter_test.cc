@@ -16,6 +16,7 @@
 #include "src/envoy/http/authn/http_filter.h"
 #include "common/common/base64.h"
 #include "common/http/header_map_impl.h"
+#include "common/request_info/request_info_impl.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -32,6 +33,7 @@ using istio::authn::Result;
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
 using testing::Invoke;
 using testing::NiceMock;
+using testing::ReturnRef;
 using testing::StrictMock;
 using testing::_;
 
@@ -116,6 +118,9 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
   EXPECT_CALL(filter_, createPeerAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
+  RequestInfo::RequestInfoImpl request_info(Http::Protocol::Http2);
+  EXPECT_CALL(decoder_callbacks_, requestInfo())
+      .WillRepeatedly(ReturnRef(request_info));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
       .Times(1)
       .WillOnce(testing::Invoke([](Http::HeaderMap &headers, bool) {
@@ -152,13 +157,34 @@ TEST_F(AuthenticationFilterTest, AllPass) {
   EXPECT_CALL(filter_, createOriginAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
+  RequestInfo::RequestInfoImpl request_info(Http::Protocol::Http2);
+  EXPECT_CALL(decoder_callbacks_, requestInfo())
+      .WillRepeatedly(ReturnRef(request_info));
+
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
             filter_.decodeHeaders(request_headers_, true));
-  Result authn;
-  EXPECT_TRUE(
-      Utils::Authentication::FetchResultFromHeader(request_headers_, &authn));
-  EXPECT_TRUE(TestUtility::protoEqual(
-      TestUtilities::AuthNResultFromString(R"(peer_user: "foo")"), authn));
+
+  EXPECT_EQ(1, request_info.dynamicMetadata().filter_metadata_size());
+  const auto *data =
+      Utils::Authentication::GetResultFromRequestInfo(request_info);
+  ASSERT_TRUE(data);
+
+  ProtobufWkt::Struct expected_data;
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+       fields {
+         key: "source.principal"
+         value {
+           string_value: "foo"
+         }
+       }
+       fields {
+         key: "source.user"
+         value {
+           string_value: "foo"
+         }
+       })",
+                                                    &expected_data));
+  EXPECT_TRUE(TestUtility::protoEqual(expected_data, *data));
 }
 
 TEST_F(AuthenticationFilterTest, IgnoreBothFail) {

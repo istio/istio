@@ -28,12 +28,11 @@ namespace AuthN {
 // AuthnUtils class provides utility functions used for authentication.
 class AuthnUtils : public Logger::Loggable<Logger::Id::filter> {
  public:
-  // Retrieve the JWT payload from the HTTP header into the output payload map
-  // Return true if parsing the header payload key succeeds.
-  // Otherwise, return false.
-  static bool GetJWTPayloadFromHeaders(const HeaderMap& headers,
-                                       const LowerCaseString& jwt_payload_key,
-                                       istio::authn::JwtPayload* payload);
+  // Parse JWT payload string (which typically is the output from jwt filter)
+  // and populate JwtPayload object. Return true if input string can be parsed
+  // successfully. Otherwise, return false.
+  static bool ProcessJwtPayload(const std::string& jwt_payload_str,
+                                istio::authn::JwtPayload* payload);
 };
 
 }  // namespace AuthN

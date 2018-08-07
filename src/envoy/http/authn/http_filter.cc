@@ -20,6 +20,7 @@
 #include "src/envoy/http/authn/origin_authenticator.h"
 #include "src/envoy/http/authn/peer_authenticator.h"
 #include "src/envoy/utils/authn.h"
+#include "src/envoy/utils/filter_names.h"
 #include "src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
@@ -48,24 +49,20 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
   state_ = State::PROCESSING;
 
   filter_context_.reset(new Istio::AuthN::FilterContext(
-      &headers, decoder_callbacks_->connection(), filter_config_));
+      decoder_callbacks_->requestInfo().dynamicMetadata(),
+      decoder_callbacks_->connection(), filter_config_));
 
   Payload payload;
 
   if (!filter_config_.policy().peer_is_optional() &&
       !createPeerAuthenticator(filter_context_.get())->run(&payload)) {
     rejectRequest("Peer authentication failed.");
-    removeJwtPayloadFromHeaders();
     return FilterHeadersStatus::StopIteration;
   }
 
   bool success =
       filter_config_.policy().origin_is_optional() ||
       createOriginAuthenticator(filter_context_.get())->run(&payload);
-
-  // After Istio authn, the JWT headers consumed by Istio authn should be
-  // removed.
-  removeJwtPayloadFromHeaders();
 
   if (!success) {
     rejectRequest("Origin authentication failed.");
@@ -74,26 +71,20 @@ FilterHeadersStatus AuthenticationFilter::decodeHeaders(HeaderMap& headers,
 
   // Put authentication result to headers.
   if (filter_context_ != nullptr) {
-    // TODO(yangminzhu): Remove the header and only use the metadata to pass the
+    // TODO(diemvu): Remove the header and only use the metadata to pass the
     // attributes.
     Utils::Authentication::SaveResultToHeader(
-        filter_context_->authenticationResult(), filter_context_->headers());
-
+        filter_context_->authenticationResult(), &headers);
     // Save auth results in the metadata, could be later used by RBAC filter.
     ProtobufWkt::Struct data;
     Utils::Authentication::SaveAuthAttributesToStruct(
         filter_context_->authenticationResult(), data);
-    decoder_callbacks_->requestInfo().setDynamicMetadata("istio_authn", data);
+    decoder_callbacks_->requestInfo().setDynamicMetadata(
+        Utils::IstioFilterName::kAuthentication, data);
     ENVOY_LOG(debug, "Saved Dynamic Metadata:\n{}", data.DebugString());
   }
   state_ = State::COMPLETE;
   return FilterHeadersStatus::Continue;
-}
-
-void AuthenticationFilter::removeJwtPayloadFromHeaders() {
-  for (auto const iter : filter_config_.jwt_output_payload_locations()) {
-    filter_context_->headers()->remove(LowerCaseString(iter.second));
-  }
 }
 
 FilterDataStatus AuthenticationFilter::decodeData(Buffer::Instance&, bool) {

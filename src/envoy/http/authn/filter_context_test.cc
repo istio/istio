@@ -14,6 +14,7 @@
  */
 
 #include "src/envoy/http/authn/filter_context.h"
+#include "envoy/api/v2/core/base.pb.h"
 #include "src/envoy/http/authn/test_utils.h"
 #include "test/test_common/utility.h"
 
@@ -32,9 +33,9 @@ class FilterContextTest : public testing::Test {
  public:
   virtual ~FilterContextTest() {}
 
-  // This test suit does not use headers nor connection, so ok to use null for
-  // them.
-  FilterContext filter_context_{nullptr, nullptr,
+  envoy::api::v2::core::Metadata metadata_;
+  // This test suit does not use connection, so ok to use null for it.
+  FilterContext filter_context_{metadata_, nullptr,
                                 istio::envoy::config::filter::http::authn::
                                     v2alpha1::FilterConfig::default_instance()};
 

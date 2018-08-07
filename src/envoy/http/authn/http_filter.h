@@ -63,9 +63,6 @@ class AuthenticationFilter : public StreamDecoderFilter,
 
   createOriginAuthenticator(Istio::AuthN::FilterContext* filter_context);
 
-  // Removes output JWT valiation from headers.
-  void removeJwtPayloadFromHeaders();
-
  private:
   // Store the config.
   const istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig&

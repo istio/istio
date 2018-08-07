@@ -88,8 +88,8 @@ const std::string kPublicKey =
     "  \"kid\": \"b3319a147514df7ee5e4bcdee51350cc890cc89e\""
     "}]}";
 
-// Keep this same as forward_payload_header field in the config below.
-const char kOutputHeadersKey[] = "test-output";
+// Keep this same as issuer field in the config below.
+const char kJwtIssuer[] = "https://example.com";
 // A good JSON config.
 const char kExampleConfig[] = R"(
 {
@@ -216,6 +216,12 @@ const std::string kGoodToken =
     "EprqSZUzi_ZzzYzqBNVhIJujcNWij7JRra2sXXiSAfKjtxHQoxrX8n4V1ySWJ3_1T"
     "H_cJcdfS_RKP7YgXRWC0L16PNF5K7iqRqmjKALNe83ZFnFIw";
 
+// Payload output for kGoodToken.
+const std::string kGoodTokenPayload =
+    "{\"iss\":\"https://"
+    "example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,"
+    "\"aud\":\"example_service\"}";
+
 // Payload:
 // {"iss":"https://example.com","sub":"test@example.com","aud":"http://example_service/","exp":2001001001}
 const std::string kGoodTokenAudHasProtocolScheme =
@@ -227,6 +233,12 @@ const std::string kGoodTokenAudHasProtocolScheme =
     "mKTzZ8M-EwAuDYa0CsWGhIfA4o3xChXKPLM2hxA4uM1A6s4AQ4ipNQ5FTgLDabgsC"
     "EpfDR3lAXSaug1NE22zX_tm0d9JnC5ZrIk3kwmPJPrnAS2_9RKTQW2e2skpAT8dUV"
     "T5aSpQxJmWIkyp4PKWmH6h4H2INS7hWyASZdX4oW-R0PMy3FAd8D6Y8740A";
+
+// Payload output for kGoodTokenAudHasProtocolScheme.
+const std::string kGoodTokenAudHasProtocolSchemePayload =
+    "{\"iss\":\"https://"
+    "example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,"
+    "\"aud\":\"http://example_service/\"}";
 
 // Payload:
 // {"iss":"https://example.com","sub":"test@example.com","aud":"https://example_service1/","exp":2001001001}
@@ -240,6 +252,12 @@ const std::string kGoodTokenAudService1 =
     "nzvwse8DINafa5kOhBmQcrIADiOyTVC1IqcOvaftVcS4MTkTeCyzfsqcNQ-VeNPKY"
     "3e6wTe9brxbii-IPZFNY-1osQNnfCtYpEDjfvMjwHTielF-b55xq_tUwuqaaQ";
 
+// Payload output for kGoodTokenAudService1.
+const std::string kGoodTokenAudService1Payload =
+    "{\"iss\":\"https://"
+    "example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,"
+    "\"aud\":\"https://example_service1/\"}";
+
 // Payload:
 // {"iss":"https://example.com","sub":"test@example.com","aud":"http://example_service2","exp":2001001001}
 const std::string kGoodTokenAudService2 =
@@ -252,11 +270,18 @@ const std::string kGoodTokenAudService2 =
     "Thwt7f3DTmHOMBeO_3xrLOOZgNtuXipqupkp9sb-DcCRdSokoFpGSTibvV_8RwkQo"
     "W2fdqw_ZD7WOe4sTcK27Uma9exclisHVxzJJbQOW82WdPQGicYaR_EajYzA";
 
+// Payload output for kGoodTokenAudService2.
+const std::string kGoodTokenAudService2Payload =
+    "{\"iss\":\"https://"
+    "example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,"
+    "\"aud\":\"http://example_service2\"}";
 }  // namespace
 
 class MockJwtAuthenticatorCallbacks : public JwtAuthenticator::Callbacks {
  public:
   MOCK_METHOD1(onDone, void(const Status &status));
+  MOCK_METHOD2(savePayload,
+               void(const std::string &key, const std::string &payload));
 };
 
 class JwtAuthenticatorTest : public ::testing::Test {
@@ -318,13 +343,9 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTandCache) {
     EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
       ASSERT_EQ(status, Status::OK);
     }));
-
+    EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
     auth_->Verify(headers, &mock_cb);
 
-    EXPECT_EQ(headers.get_(kOutputHeadersKey),
-              "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
-              "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
-              "aWNlIn0");
     // Verify the token is removed.
     EXPECT_FALSE(headers.Authorization());
   }
@@ -349,13 +370,10 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoAlg) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_(kOutputHeadersKey),
-            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
-            "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
-            "aWNlIn0");
   // Verify the token is removed.
   EXPECT_FALSE(headers.Authorization());
 
@@ -382,13 +400,10 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTPubkeyNoKid) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_(kOutputHeadersKey),
-            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcG"
-            "xlLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiZXhhbXBsZV9zZXJ2"
-            "aWNlIn0");
   // Verify the token is removed.
   EXPECT_FALSE(headers.Authorization());
 
@@ -408,13 +423,11 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb,
+              savePayload(kJwtIssuer, kGoodTokenAudHasProtocolSchemePayload));
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_(kOutputHeadersKey),
-            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
-            "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cDovL2V4YW1wbG"
-            "Vfc2VydmljZS8ifQ");
   // Verify the token is removed.
   EXPECT_FALSE(headers.Authorization());
 
@@ -434,13 +447,10 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService1) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenAudService1Payload));
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_(kOutputHeadersKey),
-            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
-            "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cHM6Ly9leGFtcG"
-            "xlX3NlcnZpY2UxLyJ9");
   // Verify the token is removed.
   EXPECT_FALSE(headers.Authorization());
 
@@ -460,13 +470,10 @@ TEST_F(JwtAuthenticatorTest, TestOkJWTAudService2) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenAudService2Payload));
 
   auth_->Verify(headers, &mock_cb);
 
-  EXPECT_EQ(headers.get_(kOutputHeadersKey),
-            "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGx"
-            "lLmNvbSIsImV4cCI6MjAwMTAwMTAwMSwiYXVkIjoiaHR0cDovL2V4YW1wbG"
-            "Vfc2VydmljZTIifQ");
   // Verify the token is removed.
   EXPECT_FALSE(headers.Authorization());
 
@@ -489,6 +496,7 @@ TEST_F(JwtAuthenticatorTest, TestForwardJwt) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
 
   auth_->Verify(headers, &mock_cb);
 
@@ -720,7 +728,9 @@ TEST_F(JwtAuthenticatorTest, TestOnDestroy) {
 }
 
 TEST_F(JwtAuthenticatorTest, TestNoForwardPayloadHeader) {
-  // In this config, there is no forward_payload_header
+  // The flag (forward_payload_header) is deprecated and have no impact. The
+  // current behavior is always save JWT payload to request info (dynamic
+  // metadata). In this config, there is no forward_payload_header.
   SetupConfig(kExampleConfigWithoutForwardPayloadHeader);
   MockUpstream mock_pubkey(mock_cm_, kPublicKey);
   auto headers = TestHeaderMapImpl{{"Authorization", "Bearer " + kGoodToken}};
@@ -728,6 +738,8 @@ TEST_F(JwtAuthenticatorTest, TestNoForwardPayloadHeader) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  // Note savePayload is still being called, as explain above.
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
   auth_->Verify(headers, &mock_cb);
 
   // Test when forward_payload_header is not set, nothing added to headers.
@@ -752,6 +764,7 @@ TEST_F(JwtAuthenticatorTest, TestInlineJwks) {
   EXPECT_CALL(mock_cb, onDone(_)).WillOnce(Invoke([](const Status &status) {
     ASSERT_EQ(status, Status::OK);
   }));
+  EXPECT_CALL(mock_cb, savePayload(kJwtIssuer, kGoodTokenPayload));
 
   auth_->Verify(headers, &mock_cb);
   EXPECT_EQ(mock_pubkey.called_count(), 0);

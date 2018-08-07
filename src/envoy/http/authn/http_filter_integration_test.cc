@@ -14,8 +14,12 @@
  */
 
 #include "common/common/base64.h"
+#include "common/common/utility.h"
+#include "extensions/filters/http/well_known_names.h"
+#include "fmt/printf.h"
+#include "src/envoy/utils/filter_names.h"
 #include "src/istio/authn/context.pb.h"
-#include "test/integration/http_integration.h"
+#include "test/integration/http_protocol_integration.h"
 
 using google::protobuf::util::MessageDifferencer;
 using istio::authn::Payload;
@@ -23,65 +27,72 @@ using istio::authn::Result;
 
 namespace Envoy {
 namespace {
-const std::string kSecIstioAuthUserInfoHeaderKey = "sec-istio-auth-userinfo";
-const std::string kSecIstioAuthUserinfoHeaderValue =
-    "eyJpc3MiOiI2Mjg2NDU3NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OH"
-    "Z2MGxAZGV2ZWxvcGVyLmdzZXJ2aWNlYWNjb3VudC5jb20iLCJzdWIiOiI2Mjg2NDU3"
-    "NDE4ODEtbm9hYml1MjNmNWE4bThvdmQ4dWN2Njk4bGo3OHZ2MGxAZGV2ZWxvcGVyLm"
-    "dzZXJ2aWNlYWNjb3VudC5jb20iLCJhdWQiOiJib29rc3RvcmUtZXNwLWVjaG8uY2xv"
-    "dWRlbmRwb2ludHNhcGlzLmNvbSIsImlhdCI6MTUxMjc1NDIwNSwiZXhwIjo1MTEyNz"
-    "U0MjA1fQ==";
-const Envoy::Http::LowerCaseString kSecIstioAuthnPayloadHeaderKey(
+
+static const Envoy::Http::LowerCaseString kSecIstioAuthnPayloadHeaderKey(
     "sec-istio-authn-payload");
 
-class AuthenticationFilterIntegrationTest
-    : public HttpIntegrationTest,
-      public testing::TestWithParam<Network::Address::IpVersion> {
- public:
-  AuthenticationFilterIntegrationTest()
-      : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()),
-        default_request_headers_{
-            {":method", "GET"}, {":path", "/"}, {":authority", "host"}},
-        request_headers_with_jwt_{{":method", "GET"},
-                                  {":path", "/"},
-                                  {":authority", "host"},
-                                  {kSecIstioAuthUserInfoHeaderKey,
-                                   kSecIstioAuthUserinfoHeaderValue}} {}
+// Default request for testing.
+static const Http::TestHeaderMapImpl kSimpleRequestHeader{{
+    {":method", "GET"},
+    {":path", "/"},
+    {":scheme", "http"},
+    {":authority", "host"},
+    {"x-forwarded-for", "10.0.0.1"},
+}};
 
-  void SetUp() override {
-    fake_upstreams_.emplace_back(
-        new FakeUpstream(0, FakeHttpConnection::Type::HTTP1, version_));
-    registerPort("upstream_0",
-                 fake_upstreams_.back()->localAddress()->ip()->port());
-    fake_upstreams_.emplace_back(
-        new FakeUpstream(0, FakeHttpConnection::Type::HTTP1, version_));
-    registerPort("upstream_1",
-                 fake_upstreams_.back()->localAddress()->ip()->port());
-  }
+// Keep the same as issuer in the policy below.
+static const char kJwtIssuer[] = "some@issuer";
 
-  void TearDown() override {
-    test_server_.reset();
-    fake_upstream_connection_.reset();
-    fake_upstreams_.clear();
-  }
+static const char kAuthnFilterWithJwt[] = R"(
+    name: istio_authn
+    config:
+      policy:
+        origins:
+        - jwt:
+            issuer: some@issuer
+            jwks_uri: http://localhost:8081/)";
 
- protected:
-  Http::TestHeaderMapImpl default_request_headers_;
-  Http::TestHeaderMapImpl request_headers_with_jwt_;
-};
+// Payload data to inject. Note the iss claim intentionally set different from
+// kJwtIssuer.
+static const char kMockJwtPayload[] =
+    "{\"iss\":\"https://example.com\","
+    "\"sub\":\"test@example.com\",\"exp\":2001001001,"
+    "\"aud\":\"example_service\"}";
+// Returns a simple header-to-metadata filter config that can be used to inject
+// data into request info dynamic metadata for testing.
+std::string MakeHeaderToMetadataConfig() {
+  return fmt::sprintf(
+      R"(
+    name: %s
+    config:
+      request_rules:
+      - header: x-mock-metadata-injection
+        on_header_missing:
+          metadata_namespace: %s
+          key: %s
+          value: "%s"
+          type: STRING)",
+      Extensions::HttpFilters::HttpFilterNames::get().HeaderToMetadata,
+      Utils::IstioFilterName::kJwt, kJwtIssuer,
+      StringUtil::escape(kMockJwtPayload));
+}
+
+typedef HttpProtocolIntegrationTest AuthenticationFilterIntegrationTest;
 
 INSTANTIATE_TEST_CASE_P(
-    IpVersions, AuthenticationFilterIntegrationTest,
-    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+    Protocols, AuthenticationFilterIntegrationTest,
+    testing::ValuesIn(HttpProtocolIntegrationTest::getProtocolTestParams()),
+    HttpProtocolIntegrationTest::protocolTestParamsToString);
 
 TEST_P(AuthenticationFilterIntegrationTest, EmptyPolicy) {
-  createTestServer("src/envoy/http/authn/testdata/envoy_empty.conf", {"http"});
+  config_helper_.addFilter("name: istio_authn");
+  initialize();
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response =
-      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
-  // Wait for request to upstream[0] (backend)
-  waitForNextUpstreamRequest(0);
+  auto response = codec_client_->makeHeaderOnlyRequest(kSimpleRequestHeader);
+  // Wait for request to upstream (backend)
+  waitForNextUpstreamRequest();
+
   // Send backend response.
   upstream_request_->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
                                    true);
@@ -92,15 +103,19 @@ TEST_P(AuthenticationFilterIntegrationTest, EmptyPolicy) {
 }
 
 TEST_P(AuthenticationFilterIntegrationTest, SourceMTlsFail) {
-  createTestServer("src/envoy/http/authn/testdata/envoy_peer_mtls.conf",
-                   {"http"});
+  config_helper_.addFilter(R"(
+    name: istio_authn
+    config:
+      policy:
+        peers:
+        - mtls: {})");
+  initialize();
 
   // AuthN filter use MTls, but request doesn't have certificate, request
   // would be rejected.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response =
-      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
+  auto response = codec_client_->makeHeaderOnlyRequest(kSimpleRequestHeader);
 
   // Request is rejected, there will be no upstream request (thus no
   // waitForNextUpstreamRequest).
@@ -112,16 +127,14 @@ TEST_P(AuthenticationFilterIntegrationTest, SourceMTlsFail) {
 // TODO (diemtvu/lei-tang): add test for MTls success.
 
 TEST_P(AuthenticationFilterIntegrationTest, OriginJwtRequiredHeaderNoJwtFail) {
-  createTestServer(
-      "src/envoy/http/authn/testdata/envoy_origin_jwt_authn_only.conf",
-      {"http"});
+  config_helper_.addFilter(kAuthnFilterWithJwt);
+  initialize();
 
   // The AuthN filter requires JWT, but request doesn't have JWT, request
   // would be rejected.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response =
-      codec_client_->makeHeaderOnlyRequest(default_request_headers_);
+  auto response = codec_client_->makeHeaderOnlyRequest(kSimpleRequestHeader);
 
   // Request is rejected, there will be no upstream request (thus no
   // waitForNextUpstreamRequest).
@@ -131,19 +144,18 @@ TEST_P(AuthenticationFilterIntegrationTest, OriginJwtRequiredHeaderNoJwtFail) {
 }
 
 TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
-  createTestServer(
-      "src/envoy/http/authn/testdata/envoy_origin_jwt_authn_only.conf",
-      {"http"});
+  config_helper_.addFilter(kAuthnFilterWithJwt);
+  config_helper_.addFilter(MakeHeaderToMetadataConfig());
+  initialize();
 
   // The AuthN filter requires JWT. The http request contains validated JWT and
   // the authentication should succeed.
   codec_client_ =
       makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response =
-      codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_);
+  auto response = codec_client_->makeHeaderOnlyRequest(kSimpleRequestHeader);
 
-  // Wait for request to upstream[0] (backend)
-  waitForNextUpstreamRequest(0);
+  // Wait for request to upstream (backend)
+  waitForNextUpstreamRequest();
   // Send backend response.
   upstream_request_->encodeHeaders(Http::TestHeaderMapImpl{{":status", "200"}},
                                    true);
@@ -151,98 +163,38 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
   response->waitForEndStream();
   EXPECT_TRUE(response->complete());
   EXPECT_STREQ("200", response->headers().Status()->value().c_str());
-}
 
-TEST_P(AuthenticationFilterIntegrationTest, CheckConsumedJwtHeadersAreRemoved) {
-  const Envoy::Http::LowerCaseString header_location(
-      "location-to-read-jwt-result");
-  const std::string jwt_header =
-      R"(
-     {
-       "iss": "issuer@foo.com",
-       "sub": "sub@foo.com",
-       "aud": "aud1",
-       "non-string-will-be-ignored": 1512754205,
-       "some-other-string-claims": "some-claims-kept"
-     }
-   )";
-  std::string jwt_header_base64 =
-      Base64::encode(jwt_header.c_str(), jwt_header.size());
-  Http::TestHeaderMapImpl request_headers_with_jwt_at_specified_location{
-      {":method", "GET"},
-      {":path", "/"},
-      {":authority", "host"},
-      {"location-to-read-jwt-result", jwt_header_base64}};
-  // In this config, the JWT verification result for "issuer@foo.com" is in the
-  // header "location-to-read-jwt-result"
-  createTestServer(
-      "src/envoy/http/authn/testdata/"
-      "envoy_jwt_with_output_header_location.conf",
-      {"http"});
-  // The AuthN filter requires JWT and the http request contains validated JWT.
-  // In this case, the authentication should succeed and an authn result
-  // should be generated.
-  codec_client_ =
-      makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response = codec_client_->makeHeaderOnlyRequest(
-      request_headers_with_jwt_at_specified_location);
-
-  // Wait for request to upstream[0] (backend)
-  waitForNextUpstreamRequest(0);
-  response->waitForEndStream();
-
-  // After Istio authn, the JWT headers consumed by Istio authn should have
-  // been removed.
-  EXPECT_TRUE(nullptr == upstream_request_->headers().get(header_location));
-}
-
-TEST_P(AuthenticationFilterIntegrationTest, CheckAuthnResultIsExpected) {
-  createTestServer(
-      "src/envoy/http/authn/testdata/envoy_origin_jwt_authn_only.conf",
-      {"http"});
-
-  // The AuthN filter requires JWT and the http request contains validated JWT.
-  // In this case, the authentication should succeed and an authn result
-  // should be generated.
-  codec_client_ =
-      makeHttpConnection(makeClientConnection((lookupPort("http"))));
-  auto response =
-      codec_client_->makeHeaderOnlyRequest(request_headers_with_jwt_);
-
-  // Wait for request to upstream[0] (backend)
-  waitForNextUpstreamRequest(0);
-  response->waitForEndStream();
-
-  // Authn result should be as expected
+  // Verify authn result in header.
+  // TODO(diemvu): find a way to verify data in request info as the use of
+  // header for authentication result will be removed soon.
   const Envoy::Http::HeaderString &header_value =
       upstream_request_->headers().get(kSecIstioAuthnPayloadHeaderKey)->value();
   std::string value_base64(header_value.c_str(), header_value.size());
   const std::string value = Base64::decode(value_base64);
   Result result;
-  google::protobuf::util::JsonParseOptions options;
-  Result expected_result;
+  EXPECT_TRUE(result.ParseFromString(value));
 
-  bool parse_ret = result.ParseFromString(value);
-  EXPECT_TRUE(parse_ret);
-  JsonStringToMessage(
-      R"(
-          {
-            "origin": {
-              "user": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
-              "audiences": [
-               "bookstore-esp-echo.cloudendpointsapis.com"
-              ],
-              "presenter": "",
-              "claims": {
-               "aud": "bookstore-esp-echo.cloudendpointsapis.com",
-               "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
-               "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
-              },
-              raw_claims: "{\"iss\":\"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com\",\"sub\":\"628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com\",\"aud\":\"bookstore-esp-echo.cloudendpointsapis.com\",\"iat\":1512754205,\"exp\":5112754205}"
+  Result expected_result;
+  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
+        origin {
+            user: "https://example.com/test@example.com"
+            audiences: "example_service"
+            claims {
+                key: "aud"
+                value: "example_service"
             }
-          }
-      )",
-      &expected_result, options);
+            claims {
+                key: "iss"
+                value: "https://example.com"
+            }
+            claims {
+                key: "sub"
+                value: "test@example.com"
+            }
+            raw_claims: "{\"iss\":\"https://example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,\"aud\":\"example_service\"}"
+        })",
+                                                    &expected_result));
+
   // Note: TestUtility::protoEqual() uses SerializeAsString() and the output
   // is non-deterministic. Thus, MessageDifferencer::Equals() is used.
   EXPECT_TRUE(MessageDifferencer::Equals(expected_result, result));

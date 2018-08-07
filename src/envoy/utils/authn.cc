@@ -16,6 +16,7 @@
 #include "src/envoy/utils/authn.h"
 #include "common/common/base64.h"
 #include "include/istio/utils/attribute_names.h"
+#include "src/envoy/utils/filter_names.h"
 #include "src/istio/authn/context.pb.h"
 
 using istio::authn::Result;
@@ -53,6 +54,7 @@ bool Authentication::SaveResultToHeader(const istio::authn::Result& result,
 
 void Authentication::SaveAuthAttributesToStruct(
     const istio::authn::Result& result, ::google::protobuf::Struct& data) {
+  // TODO(diemvu): Refactor istio::authn::Result this conversion can be removed.
   if (!result.principal().empty()) {
     setKeyValue(data, istio::utils::AttributeName::kRequestAuthPrincipal,
                 result.principal());
@@ -101,6 +103,17 @@ bool Authentication::FetchResultFromHeader(const Http::HeaderMap& headers,
   }
   std::string value(entry->value().c_str(), entry->value().size());
   return result->ParseFromString(Base64::decode(value));
+}
+
+const ProtobufWkt::Struct* Authentication::GetResultFromRequestInfo(
+    const RequestInfo::RequestInfo& request_info) {
+  const auto& metadata = request_info.dynamicMetadata();
+  const auto& iter =
+      metadata.filter_metadata().find(Utils::IstioFilterName::kAuthentication);
+  if (iter == metadata.filter_metadata().end()) {
+    return nullptr;
+  }
+  return &(iter->second);
 }
 
 void Authentication::ClearResultInHeader(Http::HeaderMap* headers) {

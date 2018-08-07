@@ -27,7 +27,6 @@ namespace Istio {
 namespace AuthN {
 namespace {
 
-const LowerCaseString kSecIstioAuthUserInfoHeaderKey("sec-istio-auth-userinfo");
 const std::string kSecIstioAuthUserinfoHeaderValue =
     R"(
      {
@@ -58,20 +57,8 @@ const std::string kSecIstioAuthUserInfoHeaderWithTwoAudValue =
        }
      )";
 
-Http::TestHeaderMapImpl CreateTestHeaderMap(const LowerCaseString& header_key,
-                                            const std::string& header_value) {
-  // The base64 encoding is done through Base64::encode().
-  // If the test input has special chars, may need to use the counterpart of
-  // Base64UrlDecode().
-  std::string value_base64 =
-      Base64::encode(header_value.c_str(), header_value.size());
-  return Http::TestHeaderMapImpl{{header_key.get(), value_base64}};
-}
-
 TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderTest) {
   JwtPayload payload, expected_payload;
-  Http::TestHeaderMapImpl request_headers_with_jwt = CreateTestHeaderMap(
-      kSecIstioAuthUserInfoHeaderKey, kSecIstioAuthUserinfoHeaderValue);
   ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(
       R"(
       user: "issuer@foo.com/sub@foo.com"
@@ -95,19 +82,16 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderTest) {
       raw_claims: ")" +
           StringUtil::escape(kSecIstioAuthUserinfoHeaderValue) + R"(")",
       &expected_payload));
-  // The payload returned from GetJWTPayloadFromHeaders() should be the same as
+  // The payload returned from ProcessJwtPayload() should be the same as
   // the expected.
-  bool ret = AuthnUtils::GetJWTPayloadFromHeaders(
-      request_headers_with_jwt, kSecIstioAuthUserInfoHeaderKey, &payload);
+  bool ret =
+      AuthnUtils::ProcessJwtPayload(kSecIstioAuthUserinfoHeaderValue, &payload);
   EXPECT_TRUE(ret);
   EXPECT_TRUE(MessageDifferencer::Equals(expected_payload, payload));
 }
 
-TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithNoAudTest) {
+TEST(AuthnUtilsTest, ProcessJwtPayloadWithNoAudTest) {
   JwtPayload payload, expected_payload;
-  Http::TestHeaderMapImpl request_headers_with_jwt =
-      CreateTestHeaderMap(kSecIstioAuthUserInfoHeaderKey,
-                          kSecIstioAuthUserInfoHeaderWithNoAudValue);
   ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(
       R"(
       user: "issuer@foo.com/sub@foo.com"
@@ -127,20 +111,17 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithNoAudTest) {
           StringUtil::escape(kSecIstioAuthUserInfoHeaderWithNoAudValue) +
           R"(")",
       &expected_payload));
-  // The payload returned from GetJWTPayloadFromHeaders() should be the same as
+  // The payload returned from ProcessJwtPayload() should be the same as
   // the expected. When there is no aud,  the aud is not saved in the payload
   // and claims.
-  bool ret = AuthnUtils::GetJWTPayloadFromHeaders(
-      request_headers_with_jwt, kSecIstioAuthUserInfoHeaderKey, &payload);
+  bool ret = AuthnUtils::ProcessJwtPayload(
+      kSecIstioAuthUserInfoHeaderWithNoAudValue, &payload);
   EXPECT_TRUE(ret);
   EXPECT_TRUE(MessageDifferencer::Equals(expected_payload, payload));
 }
 
-TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithTwoAudTest) {
+TEST(AuthnUtilsTest, ProcessJwtPayloadWithTwoAudTest) {
   JwtPayload payload, expected_payload;
-  Http::TestHeaderMapImpl request_headers_with_jwt =
-      CreateTestHeaderMap(kSecIstioAuthUserInfoHeaderKey,
-                          kSecIstioAuthUserInfoHeaderWithTwoAudValue);
   ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(
       R"(
       user: "issuer@foo.com/sub@foo.com"
@@ -163,11 +144,11 @@ TEST(AuthnUtilsTest, GetJwtPayloadFromHeaderWithTwoAudTest) {
           R"(")",
       &expected_payload));
 
-  // The payload returned from GetJWTPayloadFromHeaders() should be the same as
+  // The payload returned from ProcessJwtPayload() should be the same as
   // the expected. When the aud is a string array, the aud is not saved in the
   // claims.
-  bool ret = AuthnUtils::GetJWTPayloadFromHeaders(
-      request_headers_with_jwt, kSecIstioAuthUserInfoHeaderKey, &payload);
+  bool ret = AuthnUtils::ProcessJwtPayload(
+      kSecIstioAuthUserInfoHeaderWithTwoAudValue, &payload);
   EXPECT_TRUE(ret);
   EXPECT_TRUE(MessageDifferencer::Equals(expected_payload, payload));
 }
