@@ -155,14 +155,12 @@ function istioBootstrapGCE() {
 
   for _ in {1..10}; do
     # Copy deb, helper and config files
-    istioCopy $DESTINATION \
-      kubedns \
-      *.pem \
-      cluster.env \
-      istio.VERSION \
-      ${SETUP_ISTIO_VM_SCRIPT}
-
-    if [[ $? -ne 0 ]]; then
+    if ! istioCopy $DESTINATION \
+        kubedns \
+        *.pem \
+        cluster.env \
+        istio.VERSION \
+        ${SETUP_ISTIO_VM_SCRIPT}; then
       echo "scp failed, retry in 10 sec"
       sleep 10
     else
@@ -200,14 +198,12 @@ function istioBootstrapVM() {
 
   for _ in {1..10}; do
     # Copy deb, helper and config files
-    istioCopy $DESTINATION \
-      kubedns \
-      *.pem \
-      cluster.env \
-      istio.VERSION \
-      ${SETUP_ISTIO_VM_SCRIPT}
-
-    if [[ $? -ne 0 ]]; then
+    if ! istioCopy $DESTINATION \
+        kubedns \
+        *.pem \
+        cluster.env \
+        istio.VERSION \
+        ${SETUP_ISTIO_VM_SCRIPT}; then
       echo "scp failed, retry in 10 sec"
       sleep 10
     else
