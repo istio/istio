@@ -731,7 +731,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := model.Environment{
+	environment := &model.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
@@ -753,7 +753,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.mux = s.discoveryService.RestContainer.ServeMux
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
+	// For now we create the gRPC server sourcing data from Pilot's older data model.
+	s.initGrpcServer()
+
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
 	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
 	s.EnvoyXdsServer.Register(s.grpcServer)
@@ -761,7 +764,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
-		s.kubeRegistry.Env = &environment
+		s.kubeRegistry.Env = environment
 	}
 
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
@@ -778,9 +781,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.HTTPListeningAddr = listener.Addr()
 
-	// For now we create the gRPC server sourcing data from Pilot's older data model.
-	s.initGrpcServer()
-	
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err

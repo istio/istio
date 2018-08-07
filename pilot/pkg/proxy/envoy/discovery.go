@@ -171,7 +171,7 @@ func envDuration(env string, def time.Duration) time.Duration {
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
-	model.Environment
+	*model.Environment
 
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -322,7 +322,7 @@ type DiscoveryServiceOptions struct {
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
