@@ -401,6 +401,8 @@ grafana:
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
+    loadBalancerIP:
+    loadBalancerSourceRanges:
 
 prometheus:
   enabled: true
@@ -424,6 +426,8 @@ servicegraph:
     type: ClusterIP
     externalPort: 8088
     internalPort: 8088
+    loadBalancerIP:
+    loadBalancerSourceRanges:
   ingress:
     enabled: false
     # Used to create an Ingress record.
