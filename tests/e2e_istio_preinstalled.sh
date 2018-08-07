@@ -35,7 +35,7 @@ cd "$(dirname ${BASH_SOURCE[0]})"/..
 git checkout ${TAG}
 make init
 
-for t in ${tests[@]}; do
+for t in "${tests[@]}"; do
   make e2e_${t} E2E_ARGS="--skip_setup --namespace=istio-system --istioctl_url=https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl"
 done
 

@@ -118,7 +118,7 @@ if ${SINGLE_MODE}; then
 
     # Check if it's a valid test file
     VALID_TEST=false
-    for T in ${TEST_TARGETS[@]}; do
+    for T in "${TEST_TARGETS[@]}"; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \

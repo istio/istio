@@ -43,4 +43,4 @@ if [ -n "$CIRCLE_PULL_REQUEST" ]; then
 	ARGS+=(--stage=presubmit)
 fi
 
-/go/bin/ci2gubernator ${@} ${ARGS[@]} || true
+/go/bin/ci2gubernator "${@}" "${ARGS[@]}" || true

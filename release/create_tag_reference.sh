@@ -43,7 +43,7 @@ ORG="istio"
 
 source ${SCRIPTPATH}/json_parse_shared.sh
 
-function usage() { 
+function usage() {
   echo "$0
     -b <build> repo xml file used to create release
     -d <date>  date of release (optional, defaults to current ${DATE_STRING} )
@@ -68,9 +68,9 @@ while getopts b:d:e:k:n:o:p:t:v: arg ; do
     p) PRODUCT="${PRODUCT}";;
     t) TOKEN="${OPTARG}";;
     v) VERSION="${OPTARG}";;
-    *) usage;; 
+    *) usage;;
   esac
-done 
+done
 
 [[ ! -f "${BUILD_FILE}" ]] && usage
 [[ -z "${DATE_STRING}" ]] && usage
@@ -94,7 +94,7 @@ function create_tag_reference() {
   # $2 REPO
   # $3 SHA
   # uses external PRODUCT, VERSION, USER_NAME, USER_EMAIL, DATE_STRING
-  
+
   local REQUEST_FILE
   REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
   local RESPONSE_FILE
@@ -163,7 +163,7 @@ EOF
     cat ${RESPONSE_FILE}
     exit 1
   fi
-  
+
   rm ${REQUEST_FILE}
   rm ${RESPONSE_FILE}
 }
@@ -175,7 +175,7 @@ EOF
 
 ORG_REPOS=(api istio proxy)
 
-for GITREPO in ${ORG_REPOS[@]}; do
+for GITREPO in "${ORG_REPOS[@]}"; do
   SHA=$(grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"

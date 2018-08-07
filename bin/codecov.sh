@@ -51,7 +51,7 @@ function wait_for_proc() {
 
 function join_procs() {
   local p
-  for p in ${PIDS[@]}; do
+  for p in "${PIDS[@]}"; do
       if ! wait ${p}; then
           FAILED_TESTS+=(${PKGS[${p}]})
       fi
@@ -96,7 +96,7 @@ echo "Reports are stored in ${FINAL_CODECOV_DIR}"
 
 if [[ -n ${FAILED_TESTS:-} ]]; then
   echo "The following tests failed"
-  for T in ${FAILED_TESTS[@]}; do
+  for T in "${FAILED_TESTS[@]}"; do
     echo "FAIL: $T"
   done
   exit 1
