@@ -193,6 +193,7 @@ type Params struct {
 	ReadinessInitialDelaySeconds uint32                 `json:"readinessInitialDelaySeconds"`
 	ReadinessPeriodSeconds       uint32                 `json:"readinessPeriodSeconds"`
 	ReadinessFailureThreshold    uint32                 `json:"readinessFailureThreshold"`
+	SDSAPIEnabled                bool                   `json:"sdsAPIEnabled"`
 	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
 	// ranges. All outbound traffic can be redirected with the wildcard character "*". Defaults to "*".
 	IncludeIPRanges string `json:"includeIPRanges"`
