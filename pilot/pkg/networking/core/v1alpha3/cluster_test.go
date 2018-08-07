@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -76,7 +76,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 	}, nil)
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &duration.Duration{
+		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -178,7 +178,7 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 	}, nil)
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &duration.Duration{
+		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},

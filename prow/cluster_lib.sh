@@ -36,7 +36,7 @@ function gen_kubeconf_from_sa () {
 
     SERVER=$(kubectl config view --minify=true -o "jsonpath={.clusters[].cluster.server}")
     SECRET_NAME=$(kubectl get sa ${service_account} -n ${NAMESPACE} -o jsonpath='{.secrets[].name}')
-    CA_DATA=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['ca\.crt']}")
+    CA_DATA=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['ca\\.crt']}")
     TOKEN=$(kubectl get secret ${SECRET_NAME} -n ${NAMESPACE} -o "jsonpath={.data['token']}" | base64 --decode)
 
     cat <<EOF > ${filename}
