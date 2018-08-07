@@ -120,8 +120,7 @@ done
 # TODO: more flexibility - maybe a whitelist of users to be captured for output instead of a blacklist.
 if [ -z "${PROXY_UID}" ]; then
   # Default to the UID of ENVOY_USER and root
-  PROXY_UID=$(id -u ${ENVOY_USER:-istio-proxy})
-  if [ $? -ne 0 ]; then
+  if ! PROXY_UID=$(id -u ${ENVOY_USER:-istio-proxy}); then
      PROXY_UID="1337"
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
