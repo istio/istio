@@ -15,7 +15,7 @@
 #   limitations under the License.
 
 if BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null); then
-    if git diff-index --quiet HEAD; then
+    if ! git diff-index --quiet HEAD; then
         BUILD_GIT_REVISION=${BUILD_GIT_REVISION}"-dirty"
     fi
 else
