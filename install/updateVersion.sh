@@ -176,8 +176,8 @@ function gen_istio_files() {
 
 function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
-  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
-  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PROXY_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\\(.*\\):{PILOT_TAG}|image: ${PILOT_HUB}/\\1:${PILOT_TAG}|" istio.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\\(.*\\):{PROXY_TAG}|image: ${PROXY_HUB}/\\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
   popd
 }
 
@@ -220,11 +220,11 @@ function gen_platforms_files() {
 function gen_citadel_extra_files() {
     SRC_DIR=$ROOT/install/kubernetes/citadel_extras
     DEST=$DEST_DIR/install/kubernetes
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" \
     $SRC_DIR/istio-citadel-plugin-certs.yaml.tmpl > $DEST/istio-citadel-plugin-certs.yaml
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" \
     $SRC_DIR/istio-citadel-with-health-check.yaml.tmpl > $DEST/istio-citadel-with-health-check.yaml
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
+    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\\(.*\\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\\1:${CITADEL_TAG}|" \
     $SRC_DIR/istio-citadel-standalone.yaml.tmpl > $DEST/istio-citadel-standalone.yaml
 }
 
@@ -243,8 +243,10 @@ fi
 
 # Set the HUB and TAG to be picked by the Helm template
 if [[ ! -z ${ALL_HUB_TAG} ]]; then
-    export HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    export TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    export HUB
+    TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    export TAG
 fi
 
 # Update the istio.VERSION file

@@ -16,7 +16,8 @@ esac
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-export GOPATH=$(cd $ROOTDIR/../../..; pwd)
+GOPATH=$(cd $ROOTDIR/../../..; pwd)
+export GOPATH
 export PATH=$GOPATH/bin:$PATH
 
 go get -u golang.org/x/tools/cmd/goimports

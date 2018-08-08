@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )

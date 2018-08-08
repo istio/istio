@@ -73,7 +73,8 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)"
+GOPATH="$(cd "$ROOT/../../.." && pwd)"
+export GOPATH
 echo gopath is $GOPATH
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 

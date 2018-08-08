@@ -22,9 +22,9 @@ set -x
 
 function process_result() {
     if [[ $1 -eq 0 ]]; then
-        SUMMARY+="\nPASSED: $2 "
+        SUMMARY+="\\nPASSED: $2 "
     else
-        SUMMARY+="\nFAILED: $2 "
+        SUMMARY+="\\nFAILED: $2 "
         ((FAILURE_COUNT++))
     fi
 }

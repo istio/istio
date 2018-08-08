@@ -327,22 +327,22 @@ function run_fortio_test2() {
 function run_fortio_test_istio_ingress1() {
   get_json_file_name "ingress to s1"
   echo "Using istio ingress to fortio1, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_ingress2() {
   get_json_file_name "ingress to s2"
   echo "Using istio ingress to fortio2, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   get_json_file_name "s1 to s2"
   echo "Using istio f1 to f2, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 function run_fortio_test_istio_2_1() {
   get_json_file_name "s2 to s1"
   echo "Using istio f2 to f1, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\&json=on\&save=on\&qps=$QPS\&t=$DUR\&c=48\&load=Start\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
 }
 
 # Run canonical perf tests.
