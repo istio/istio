@@ -178,6 +178,7 @@ const (
 	AddressFamilyUnix
 )
 
+// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -388,6 +389,7 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
+	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
 
 	// Instances retrieves instances for a service and its ports that match
