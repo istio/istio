@@ -30,8 +30,7 @@ import (
 	"text/template"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -316,8 +315,8 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	return required
 }
 
-func formatDuration(in *duration.Duration) string {
-	dur, err := ptypes.Duration(in)
+func formatDuration(in *types.Duration) string {
+	dur, err := types.DurationFromProto(in)
 	if err != nil {
 		return "1s"
 	}

@@ -15,16 +15,16 @@
 #   limitations under the License.
 
 WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd $WD && pwd)
 
 # Print commands
 set -x
 
 function process_result() {
     if [[ $1 -eq 0 ]]; then
-        SUMMARY+="\nPASSED: $2 "
+        SUMMARY+="\\nPASSED: $2 "
     else
-        SUMMARY+="\nFAILED: $2 "
+        SUMMARY+="\\nFAILED: $2 "
         ((FAILURE_COUNT++))
     fi
 }
@@ -39,11 +39,9 @@ ENVOY_BINARY=$(make where-is-out)/envoy
 START_ENVOY=${WD}/../component/proxy/start_envoy
 
 # Install Fortio
-( cd vendor/istio.io/fortio ; go install . )
+( cd vendor/istio.io/fortio && go install . )
 
 # Run Tests
-TESTSPATH='tests/integration/example/tests'
-TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
 printf "Envoy date:"
@@ -63,5 +61,5 @@ process_result $? sample1
 go test -v ./tests/integration/example/tests/sample2 ${TESTARG[@]} $@
 process_result $? sample2
 
-printf "${SUMMARY}\n"
+printf '%s\n' "${SUMMARY}"
 exit ${FAILURE_COUNT}

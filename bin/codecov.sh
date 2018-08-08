@@ -21,7 +21,7 @@ mkdir -p $COVERAGEDIR
 
 # half the number of cpus seem to saturate
 if [[ -z ${MAXPROCS:-} ]];then
-  MAXPROCS=$[$(getconf _NPROCESSORS_ONLN)/2]
+  MAXPROCS=$(($(getconf _NPROCESSORS_ONLN)/2))
 fi
 PIDS=()
 FAILED_TESTS=()
@@ -29,7 +29,8 @@ FAILED_TESTS=()
 declare -a PKGS
 
 function code_coverage() {
-  local filename="$(echo ${1} | tr '/' '-')"
+  local filename
+  filename="$(echo ${1} | tr '/' '-')"
   ( go test \
     -coverprofile=${COVERAGEDIR}/${filename}.cov \
     -covermode=atomic ${1} \
@@ -40,7 +41,8 @@ function code_coverage() {
 }
 
 function wait_for_proc() {
-  local num=$(jobs -p | wc -l)
+  local num
+  num=$(jobs -p | wc -l)
   while [ ${num} -gt ${MAXPROCS} ]; do
     sleep 2
     num=$(jobs -p|wc -l)
@@ -57,11 +59,11 @@ function join_procs() {
 }
 
 function parse_skipped_tests() {
-  while read entry; do
+  while read -r entry; do
     if [[ "${SKIPPED_TESTS_GREP_ARGS}" != '' ]]; then
       SKIPPED_TESTS_GREP_ARGS+='\|'
     fi
-    SKIPPED_TESTS_GREP_ARGS+="\(${entry}\)"
+    SKIPPED_TESTS_GREP_ARGS+="\\(${entry}\\)"
   done < "${CODECOV_SKIP}"
 }
 

@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -215,29 +214,9 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		Objects:     make([]*Object, 0, len(response.Envelopes)),
 	}
 	for _, envelope := range response.Envelopes {
-		var message proto.Message
-
-		// "istio.io/api" protobufs are compiled with a mix of
-		// golang/protobuf and gogo/protobuf (see
-		// https://github.com/istio/api/issues/543). gogo/protobuf
-		// packages can only decode gogo-compiled
-		// protos. golang/protobuf packages can only decode
-		// golang-compiled protos. Use the existence of the protobuf's
-		// via the message name to differentiate which is which.
-		if proto.MessageType(responseMessageName) != nil {
-			// gogo proto
-			var dynamicAny types.DynamicAny
-			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
-				return c.sendNACKRequest(response, state.version(), err)
-			}
-			message = dynamicAny.Message
-		} else {
-			// golang proto
-			var dynamicAny ptypes.DynamicAny
-			if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
-				return c.sendNACKRequest(response, state.version(), err)
-			}
-			message = dynamicAny.Message
+		var dynamicAny types.DynamicAny
+		if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
+			return c.sendNACKRequest(response, state.version(), err)
 		}
 
 		if response.TypeUrl != envelope.Resource.TypeUrl {
@@ -250,7 +229,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		object := &Object{
 			MessageName: responseMessageName,
 			Metadata:    envelope.Metadata,
-			Resource:    message,
+			Resource:    dynamicAny.Message,
 			Version:     response.VersionInfo,
 		}
 		change.Objects = append(change.Objects, object)

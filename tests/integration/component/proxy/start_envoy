@@ -18,7 +18,7 @@
 #
 
 WD=$(dirname $0)
-WD=$(cd $WD; pwd)
+WD=$(cd $WD && pwd)
 
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"

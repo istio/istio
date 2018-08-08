@@ -1,7 +1,7 @@
 #!/bin/bash
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPTPATH=$( cd "$(dirname "$0")" && pwd -P )
 ROOTDIR=$SCRIPTPATH/..
-cd $ROOTDIR
+cd $ROOTDIR || exit
 
 ADD_LICENSE=$1
 THISYEAR=$(date +"%Y")
@@ -15,18 +15,15 @@ for fn in $(find ${ROOTDIR} -name '*.go' | grep -v vendor | grep -v testdata); d
     continue
   fi
 
-  head -20 $fn | grep "auto\-generated" > /dev/null
-  if [[ $? -eq 0 ]]; then
+  if head -20 $fn | grep "auto\\-generated" > /dev/null; then
           continue
   fi
 
-  head -20 $fn | grep "DO NOT EDIT" > /dev/null
-  if [[ $? -eq 0 ]]; then
+  if head -20 $fn | grep "DO NOT EDIT" > /dev/null; then
           continue
   fi
 
-  head -20 $fn | grep "Apache License, Version 2" > /dev/null
-  if [[ $? -ne 0 ]]; then
+  if ! head -20 $fn | grep "Apache License, Version 2" > /dev/null; then
     if [[ $ADD_LICENSE == true ]]; then
       echo "// Copyright ${THISYEAR} Istio Authors
 //
@@ -45,14 +42,13 @@ for fn in $(find ${ROOTDIR} -name '*.go' | grep -v vendor | grep -v testdata); d
 $(cat ${fn})" > ${fn}
     else
       echo "${fn} missing license"
-      ret=$(($ret+1))
+      ret=$((ret+1))
     fi
   fi
 
-  head -20 $fn | grep Copyright > /dev/null
-  if [[ $? -ne 0 ]]; then
+  if ! head -20 $fn | grep Copyright > /dev/null; then
     echo "${fn} missing Copyright"
-    ret=$(($ret+1))
+    ret=$((ret+1))
   fi
 done
 

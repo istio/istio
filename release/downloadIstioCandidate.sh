@@ -23,7 +23,7 @@ fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases/latest | \
-                  grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
+                  grep tag_name | sed "s/ *\"tag_name\": *\"\\(.*\\)\",*/\\1/")
 fi
 
 NAME="istio-$ISTIO_VERSION"
@@ -33,6 +33,6 @@ curl -L "$URL" | tar xz
 # TODO: change this so the version is in the tgz/directory name (users trying multiple versions)
 echo "Downloaded into $NAME:"
 ls $NAME
-BINDIR="$(cd $NAME/bin; pwd)"
+BINDIR="$(cd $NAME/bin && pwd)"
 echo "Add $BINDIR to your path; e.g copy paste in your shell and/or ~/.profile:"
 echo "export PATH=\"\$PATH:$BINDIR\""

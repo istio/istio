@@ -233,11 +233,12 @@ fi
 if [[ "${DO_GCS}" == "true" ]]; then
   echo "Copying to GCS destination ${GCS_DEST}"
   gsutil -m cp "${UPLOAD_DIR}/deb/istio*.deb" "gs://${GCS_DEST}/deb/"
+  gsutil -m cp "${UPLOAD_DIR}/SHA256SUMS"     "gs://${GCS_DEST}/"
   echo "Done copying to GCS destination"
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
-  if [[ -z "$(which docker)" ]]; then
+  if [[ -z "$(command -v docker)" ]]; then
     echo "Could not find 'docker' in path"
     exit 1
   fi
@@ -254,8 +255,7 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
   fi
 
   echo "pushing images to docker and/or gcr"
-  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${UPLOAD_DIR}"/docker/*.tar.gz; do
     TAR_NAME=$(basename "$TAR_PATH")
     IMAGE_NAME="${TAR_NAME%.tar.gz}"
 

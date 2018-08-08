@@ -87,8 +87,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 fi
 
-ISTIO_GO=$(cd $(dirname $0)/..; pwd)
-
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${GIT_SHA}"
 
@@ -124,13 +122,13 @@ if ${SINGLE_MODE}; then
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \
-              E2E_ARGS="${E2E_ARGS[@]}" \
+              E2E_ARGS="${E2E_ARGS[*]}" \
               JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \
               make with_junit_report TARGET="${SINGLE_TEST}" ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
-      echo "Invalid e2e test target, must be one of ${TEST_TARGETS}"
+      echo "Invalid e2e test target, must be one of ${TEST_TARGETS[*]}"
       # Fail if it's not a valid test file
       process_result 1 'Invalid test target'
     fi
@@ -138,7 +136,7 @@ if ${SINGLE_MODE}; then
 else
     echo "Executing e2e test suite"
     time ISTIO_DOCKER_HUB=$HUB \
-      E2E_ARGS="${E2E_ARGS[@]}" \
+      E2E_ARGS="${E2E_ARGS[*]}" \
       JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit_e2e-all.xml" \
       make e2e_all_junit_report ${E2E_TIMEOUT:+ E2E_TIMEOUT="${E2E_TIMEOUT}"}
 fi

@@ -5,7 +5,8 @@
 
 # Source the file with: ". envsetup.sh"
 
-export TOP=$(cd ../../..; pwd)
+TOP=$(cd ../../.. && pwd)
+export TOP
 
 # Used in the shell scripts.
 export ISTIO_SRC=$TOP
@@ -31,7 +32,7 @@ fi
 
 # Runs make at the top of the tree.
 function m() {
-    (cd $TOP; make $*)
+    (cd $TOP && make "$@")
 }
 
 # Image used by the circleci, including all tools
@@ -70,8 +71,7 @@ function lunch() {
 
     if [ "$env" == "minikube" ]; then
         export KUBECONFIG=${OUT}/minikube.conf
-        minikube status
-        if [ "$?" != "0" ]  || [ ! -f ${KUBECONFIG} ] ; then
+        if minikube status; then
           minikube start
         fi
     fi

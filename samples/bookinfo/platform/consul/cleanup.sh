@@ -19,7 +19,7 @@ SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 # only ask if in interactive mode
 if [[ -t 0 ]];then
   echo -n "namespace ? [default] "
-  read NAMESPACE
+  read -r NAMESPACE
 fi
 
 if [[ -z ${NAMESPACE} ]];then
@@ -36,7 +36,8 @@ for proto in "${protos[@]}"; do
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
-export OUTPUT=$(mktemp)
+OUTPUT=$(mktemp)
+export OUTPUT
 echo "Application cleanup may take up to one minute"
 docker-compose -f $SCRIPTDIR/bookinfo.sidecars.yaml down > ${OUTPUT} 2>&1
 docker-compose -f $SCRIPTDIR/bookinfo.yaml down > ${OUTPUT} 2>&1

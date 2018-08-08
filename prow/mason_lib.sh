@@ -44,11 +44,12 @@ function get_resource() {
   local exited
 
   # Wait up to 10 mn by increment of 10 seconds unit ready or failure
-  for i in {1..60}; do
+  for _ in {1..60}; do
     grep -q READY ${file_log} && ready=true || ready=false
     if [[ ${ready} == true ]]; then
       cat "${info_path}"
-      local project="$(head -n 1 "${info_path}" | tr -d ':')"
+      local project
+      project="$(head -n 1 "${info_path}" | tr -d ':')"
       gcloud config set project "${project}"
       return 0
     fi

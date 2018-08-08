@@ -10,7 +10,7 @@ metadata:
     istio: ingress
   annotations:
     {{- range $key, $val := .Values.service.annotations }}
-    {{ $key }}: {{ $val }}
+    {{ $key }}: {{ $val | quote }}
     {{- end }}
 spec:
 {{- if .Values.service.loadBalancerIP }}
