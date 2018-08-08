@@ -69,6 +69,12 @@ type DiscoveryServer struct {
 
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
+
+	throttle chan time.Time
+
+	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
+	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
+	DebugConfigs bool
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -82,6 +88,21 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	go out.periodicRefresh()
 
 	go out.periodicRefreshMetrics()
+
+	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
+
+	rate := time.Second / 10
+	burstLimit := 100
+	tick := time.NewTicker(rate)
+	out.throttle = make(chan time.Time, burstLimit)
+	go func() {
+		for t := range tick.C {
+			select {
+			case out.throttle <- t:
+			default:
+			}
+		}  // does not exit after tick.Stop()
+	}()
 
 	return out
 }

@@ -52,7 +52,9 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushStatus) er
 	if err != nil {
 		return err
 	}
-	con.HTTPClusters = rawClusters
+	if s.DebugConfigs {
+		con.HTTPClusters = rawClusters
+	}
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {

@@ -350,6 +350,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 	var discReq *xdsapi.DiscoveryRequest
 
+	// rate limit the herd, after restart all endpoints will reconnect to the
+	// poor new pilot and overwhelm it.
+	// TODO: instead of readiness probe, let endpoints connect and wait here for
+	// config to become stable. Will better spread the load.
+	<- s.throttle
+
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushStatus
 	// is initialized)
@@ -542,13 +548,11 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-func (s *DiscoveryServer) bgPushAll(con *XdsConnection, pushEv *XdsEvent) {
-
-}
-
 // Compute and send the new configuration. This is blocking and may be slow
 // for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	<-s.throttle  // rate limit the actual push
+
 	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
 	// (as fail-safe in case of bugs)
 	if !allowConcurrentPush {

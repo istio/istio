@@ -31,7 +31,9 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 	if err != nil {
 		return err
 	}
-	con.HTTPListeners = rawListeners
+	if s.DebugConfigs {
+		con.HTTPListeners = rawListeners
+	}
 	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
 	if version != versionInfo() {
 		// Just report for now - after debugging we can suppress the push.

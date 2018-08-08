@@ -29,11 +29,13 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushStatus) 
 	if err != nil {
 		return err
 	}
-	for _, r := range rawRoutes {
-		con.RouteConfigs[r.Name] = r
-		if adsLog.DebugEnabled() {
-			resp, _ := model.ToJSONWithIndent(r, " ")
-			adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+	if s.DebugConfigs {
+		for _, r := range rawRoutes {
+			con.RouteConfigs[r.Name] = r
+			if adsLog.DebugEnabled() {
+				resp, _ := model.ToJSONWithIndent(r, " ")
+				adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+			}
 		}
 	}
 
