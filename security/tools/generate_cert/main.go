@@ -63,15 +63,15 @@ func checkCmdLine() {
 	switch *mode {
 	case selfSignedMode:
 		if hasCert || hasPriv {
-			log.Fatal("--self-signed is incompatible with --signer-cert or --signer-priv.")
+			log.Fatalf("--mode=%v is incompatible with --signer-cert or --signer-priv.", selfSignedMode)
 		}
 	case signerMode:
 		if !hasCert || !hasPriv {
-			log.Fatalf("Need --self-signed or --signer-cert and --signer-priv.")
+			log.Fatalf("Need --signer-cert and --signer-priv for --mode=%v.", signerMode)
 		}
 	case citadelMode:
 		if hasCert || hasPriv {
-			log.Fatal("--from-citadel is incompatible with --signer-cert or --signer-priv.")
+			log.Fatalf("--mode=%v is incompatible with --signer-cert or --signer-priv.", citadelMode)
 		}
 	default:
 		log.Fatalf("Unsupported mode %v", *mode)
