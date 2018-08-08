@@ -217,14 +217,14 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		keys = []string{attrSrcPrincipal}
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
 		forceRegexPattern = true
+	} else if k == attrRequestGroups {
+		return generateMetadataListMatcher(k, v)
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
 		if err != nil {
 			return nil
 		}
 		keys = []string{attrRequestClaims, claim}
-	} else if k == attrRequestGroups {
-		return generateMetadataListMatcher(k, v)
 	} else {
 		keys = []string{k}
 	}
