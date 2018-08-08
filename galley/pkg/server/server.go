@@ -43,6 +43,7 @@ type Server struct {
 	processor  *runtime.Processor
 	mcp        *server.Server
 	listener   net.Listener
+	controlZ   *ctrlz.Server
 
 	// probes
 	livenessProbe  probe.Controller
@@ -131,7 +132,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		s.readinessProbe.Start()
 	}
 
-	go ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
@@ -170,6 +171,10 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.grpcServer.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.controlZ != nil {
+		s.controlZ.Close()
 	}
 
 	if s.processor != nil {
