@@ -703,7 +703,7 @@ func (k *KubeInfo) deployIstio() error {
 			}
 		}
 		if !validationReady {
-			return errors.New("Timed out waiting for validatingwebhookconfiguration istio-galley to be created")
+			return errors.New("timeout waiting for validatingwebhookconfiguration istio-galley to be created")
 		}
 	}
 	return nil
