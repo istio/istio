@@ -494,6 +494,7 @@ var (
 
 // ResolveHostname produces a FQDN based on either the service or
 // a concat of the namespace + domain
+// Deprecated. Do not use
 func ResolveHostname(meta ConfigMeta, svc *mccpb.IstioService) Hostname {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
@@ -819,7 +820,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Servic
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if service.Hostname != ResolveHostname(spec.ConfigMeta, &mccpb.IstioService{Name: dest.Name}) {
+				if service.Hostname != ResolveShortnameToFQDN(dest.Name, spec.ConfigMeta) {
 					continue
 				}
 				// If destination port is defined, it must match.

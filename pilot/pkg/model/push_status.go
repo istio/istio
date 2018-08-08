@@ -21,9 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"fmt"
-	"strings"
-
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -273,18 +270,6 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 	}
 
 	return out
-}
-
-// parseHostname extracts service name and namespace from the service hostname
-func parseHostname(hostname Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(hostname.String(), ".")
-	if len(parts) < 2 {
-		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
-		return
-	}
-	name = parts[0]
-	namespace = parts[1]
-	return
 }
 
 // InitContext will initialize the data structures used for code generation.

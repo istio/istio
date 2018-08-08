@@ -49,7 +49,7 @@ type Environment struct {
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
-	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND RELFECT A DIFFERENT
+	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	// Deprecated - a local config for ads will be used instead
 	PushStatus *PushStatus
