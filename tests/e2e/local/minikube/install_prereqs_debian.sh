@@ -31,7 +31,7 @@ sudo apt-get install libvirt-daemon-system libvirt-dev libvirt-clients virt-mana
 sudo apt-get install qemu-kvm
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
-sudo usermod -a -G libvirt $(whoami)
+sudo usermod -a -G libvirt "$(whoami)"
 curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 # We run following commands only for making scripts resilient to failures. Hence
 # ignoring any errors from them too.
@@ -41,7 +41,7 @@ sudo virsh net-start default > /dev/null 2>&1
 # Install kubectl
 echo "Checking and Installing Kubectl as required"
 if ! kubectl --help > /dev/null; then
-  curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+  curl -LO https://storage.googleapis.com/kubernetes-release/release/"$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)"/bin/linux/amd64/kubectl
   chmod +x ./kubectl
   sudo mv ./kubectl /usr/local/bin/kubectl
 fi

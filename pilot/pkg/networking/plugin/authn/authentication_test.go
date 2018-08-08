@@ -16,7 +16,6 @@ package authn
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -98,32 +97,6 @@ func TestRequireTls(t *testing.T) {
 	for _, c := range cases {
 		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
 			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
-		}
-	}
-}
-
-func TestJwksURIClusterName(t *testing.T) {
-	cases := []struct {
-		hostname string
-		port     *model.Port
-		expected string
-	}{
-		{
-			hostname: "foo.bar.com",
-			port:     &model.Port{Name: "http", Port: 80},
-			expected: "jwks.foo.bar.com|http",
-		},
-		{
-			hostname: "very.l" + strings.Repeat("o", 180) + "ng.hostname.com",
-			port:     &model.Port{Name: "http", Port: 80},
-			expected: "jwks.very.loooooooooooooooooooooooooooooooooooooooooooooooooo" +
-				"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" +
-				"ooooooooooooooooooooooooa96644bbd2fd09d9b6f9f0114d6c4dc792fa7efe",
-		},
-	}
-	for _, c := range cases {
-		if got := JwksURIClusterName(c.hostname, c.port); c.expected != got {
-			t.Errorf("JwksURIClusterName(%s, %#v): expected (%s), got (%s)", c.hostname, c.port, c.expected, got)
 		}
 	}
 }
@@ -221,238 +194,6 @@ func TestCollectJwtSpecs(t *testing.T) {
 }
 
 func TestConvertPolicyToJwtConfig(t *testing.T) {
-	cases := []struct {
-		name     string
-		in       authn.Policy
-		expected *jwtfilter.JwtAuthentication
-	}{
-		{
-			name:     "empty policy",
-			in:       authn.Policy{},
-			expected: nil,
-		},
-		{
-			name: "no jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			expected: nil,
-		},
-		{
-			name: "one jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								Issuer:     "foo",
-								Audiences:  []string{"dead", "beef"},
-								JwksUri:    "http://abc.com",
-								JwtHeaders: []string{"x-jwt-foo", "x-jwt-foo-another"},
-							},
-						},
-					},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						Issuer:    "foo",
-						Audiences: []string{"dead", "beef"},
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward: true,
-						FromHeaders: []*jwtfilter.JwtHeader{
-							{
-								Name: "x-jwt-foo",
-							},
-							{
-								Name: "x-jwt-foo-another",
-							},
-						},
-						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-		{
-			name: "two jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{
-					{
-						Params: &authn.PeerAuthenticationMethod_Jwt{
-							Jwt: &authn.Jwt{
-								Issuer:     "foo",
-								Audiences:  []string{"dead", "beef"},
-								JwksUri:    "http://abc.com",
-								JwtHeaders: []string{"x-jwt-foo", "x-jwt-foo-another"},
-							},
-						},
-					},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							Issuer:    "bar",
-							JwksUri:   "https://xyz.com",
-							JwtParams: []string{"x-jwt-bar"},
-						},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						Issuer:    "foo",
-						Audiences: []string{"dead", "beef"},
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward: true,
-						FromHeaders: []*jwtfilter.JwtHeader{
-							{
-								Name: "x-jwt-foo",
-							},
-							{
-								Name: "x-jwt-foo-another",
-							},
-						},
-						ForwardPayloadHeader: "istio-sec-0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33",
-					},
-					{
-						Issuer: "bar",
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "https://xyz.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.xyz.com|https",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						FromParams:           []string{"x-jwt-bar"},
-						ForwardPayloadHeader: "istio-sec-62cdb7020ff920e5aa642c3d4066950dd1f01f4d",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-		{
-			name: "duplicate jwt policy",
-			in: authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						Jwt: &authn.Jwt{
-							JwksUri: "http://abc.com",
-						},
-					},
-				},
-					{
-						Params: &authn.PeerAuthenticationMethod_Mtls{},
-					},
-				},
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							JwksUri: "https://xyz.com",
-						},
-					},
-					{
-						Jwt: &authn.Jwt{
-							JwksUri: "http://abc.com",
-						},
-					},
-				},
-			},
-			expected: &jwtfilter.JwtAuthentication{
-				Rules: []*jwtfilter.JwtRule{
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "https://xyz.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.xyz.com|https",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-					{
-						JwksSourceSpecifier: &jwtfilter.JwtRule_RemoteJwks{
-							RemoteJwks: &jwtfilter.RemoteJwks{
-								HttpUri: &jwtfilter.HttpUri{
-									Uri: "http://abc.com",
-									HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-										Cluster: "jwks.abc.com|http",
-									},
-								},
-								CacheDuration: &types.Duration{Seconds: 300},
-							},
-						},
-						Forward:              true,
-						ForwardPayloadHeader: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
-					},
-				},
-				AllowMissingOrFailed: true,
-			},
-		},
-	}
-	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(&c.in, false /*useInlinePublicKey*/); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
-		}
-	}
-}
-
-func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 	ms, err := test.StartNewServer()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
@@ -495,7 +236,7 @@ func TestConvertPolicyToJwtConfigWithInlineKey(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConvertPolicyToJwtConfig(c.in, true); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToJwtConfig(c.in); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("ConvertPolicyToJwtConfig(%#v), got:\n%#v\nwanted:\n%#v\n", c.in, got, c.expected)
 		}
 	}
