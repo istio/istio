@@ -471,9 +471,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
 				upstream = tcp.Route[0].Destination // We pick first destination because TCP has no weighted cluster
-				destSvc, err := env.GetService(model.Hostname(upstream.Host))
-				if err != nil || destSvc == nil {
-					log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+				destSvc, present := push.ServiceByHostname[model.Hostname(upstream.Host)]
+				if !present {
+					log.Debugf("service %q does not exist in the registry", upstream.Host)
 					return nil
 				}
 
@@ -521,9 +521,9 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 					// We ignore all the weighted destinations and pick the first one
 					// since TCP has no weighted cluster
 					upstream := tls.Route[0].Destination
-					destSvc, err := env.GetService(model.Hostname(upstream.Host))
-					if err != nil || destSvc == nil {
-						log.Debugf("failed to retrieve service for destination %q: %v", destSvc, err)
+					destSvc, present := push.ServiceByHostname[model.Hostname(upstream.Host)]
+					if !present {
+						log.Debugf("service %q does not exist in the registry", upstream.Host)
 						continue
 					}
 

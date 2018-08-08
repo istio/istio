@@ -251,17 +251,17 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	svc := in.ServiceInstance.Service.Hostname
-	attr, err := in.Push.GetServiceAttributes(svc)
-	if attr == nil || err != nil {
-		rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
-		return nil
-	}
+	attr := in.ServiceInstance.Service.Attributes
+	//if len(attr) == nil || err != nil {
+	//	rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
+	//	return nil
+	//}
 
 	if !isRbacEnabled(svc.String(), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 
-	service := createServiceMetadata(attr, in.ServiceInstance)
+	service := createServiceMetadata(&attr, in.ServiceInstance)
 	rbacLog.Debugf("building filter config for %v", *service)
 	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
 	if filter != nil {

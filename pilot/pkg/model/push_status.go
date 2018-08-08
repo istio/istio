@@ -249,7 +249,6 @@ func (ps *PushStatus) UpdateMetrics() {
 // This replaces store.VirtualServices
 func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 	configs := ps.VirtualServiceConfigs
-	sortConfigByCreationTime(configs)
 	out := make([]Config, 0)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
@@ -273,8 +272,75 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 		}
 	}
 
-	// Need to parse each rule and convert the shortname to FQDN
-	for _, r := range out {
+	return out
+}
+
+// parseHostname extracts service name and namespace from the service hostname
+func parseHostname(hostname Hostname) (name string, namespace string, err error) {
+	parts := strings.Split(hostname.String(), ".")
+	if len(parts) < 2 {
+		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
+		return
+	}
+	name = parts[0]
+	namespace = parts[1]
+	return
+}
+
+// InitContext will initialize the data structures used for code generation.
+// This should be called before starting the push, from the thread creating
+// the push context.
+func (ps *PushStatus) InitContext(env *Environment) error {
+	ps.Mutex.Lock()
+	defer ps.Mutex.Unlock()
+	if ps.initDone {
+		return nil
+	}
+	ps.Env = env
+	var err error
+	if err = ps.initServiceRegistry(env); err != nil {
+		return err
+	}
+
+	if err = ps.initVirtualServices(env); err != nil {
+		return err
+	}
+
+	if err = ps.initDestinationRules(env); err != nil {
+		return err
+	}
+
+	// TODO: everything else that is used in config generation - the generation
+	// should not have any deps on config store.
+	ps.initDone = true
+	return nil
+}
+
+// Caches list of services in the registry, and creates a map
+// of hostname to service
+func (ps *PushStatus) initServiceRegistry(env *Environment) error {
+	services, err := env.Services()
+	if err != nil {
+		return err
+	}
+	ps.Services = services
+	for _, s := range services {
+		ps.ServiceByHostname[s.Hostname] = s
+	}
+	return nil
+}
+
+// Caches list of virtual services
+func (ps *PushStatus) initVirtualServices(env *Environment) error {
+	vservices, err := env.List(VirtualService.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(vservices)
+	ps.VirtualServiceConfigs = vservices
+	// convert all shortnames in virtual services into FQDNs
+	for _, r := range ps.VirtualServiceConfigs {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -329,99 +395,7 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 			}
 		}
 	}
-
-	return out
-}
-
-// GetServiceAttributes retrieves the UID string of a service and parses
-// the hostname into name and namespace. It was likely the most inefficient
-// method in Istio (and probably beyond).
-func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error) {
-	// The original code was calling GetService(host) in each registry, and
-	// GetServiceAttributes in the registry having the entry.
-
-	// For consul and most others, it was returning hostname, default, nil
-	// For ServiceEntryStore, returns the same thing - but checks if
-	// service exists, and returns the correct namespace (no UID) - but that's
-	// the namespace where the ServiceEntry was defined, not where
-	// the workload is running
-
-	// For k8s - it just parses the name and returns UID, while checking
-	// for existence
-
-	// TODO: lookup the service by hostname (using a hashmap), and use labels
-	// for namespace.
-
-	s, found := ps.ServiceByHostname[hostname]
-	if found && len(s.Namespace) > 0 {
-		// Namespace explicitly set. For consistency with non-k8s platform, the name
-		// will be the full name of the service.
-
-		return &ServiceAttributes{
-			Name:      string(hostname),
-			Namespace: s.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", s.Namespace, hostname),
-		}, nil
-	}
-
-	// TODO: handle custom suffix
-	if strings.HasSuffix(string(hostname), ".cluster.local") {
-		name, namespace, err := parseHostname(hostname)
-		if err == nil {
-			return &ServiceAttributes{
-				Name:      name,
-				Namespace: namespace,
-				UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-			}, nil
-		}
-	}
-
-	return &ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: "default",
-	}, nil
-}
-
-// parseHostname extracts service name and namespace from the service hostname
-func parseHostname(hostname Hostname) (name string, namespace string, err error) {
-	parts := strings.Split(hostname.String(), ".")
-	if len(parts) < 2 {
-		err = fmt.Errorf("missing service name and namespace from the service hostname %q", hostname)
-		return
-	}
-	name = parts[0]
-	namespace = parts[1]
-	return
-}
-
-// InitContext will initialize the data structures used for code generation.
-// This should be called before starting the push, from the thread creating
-// the push context. May also be used by tests.
-func (ps *PushStatus) InitContext(env *Environment) error {
-	ps.Mutex.Lock()
-	defer ps.Mutex.Unlock()
-	if ps.initDone {
-		return nil
-	}
-	ps.Env = env
-	services, err := env.Services()
-	if err == nil {
-		ps.Services = services
-	}
-	for _, s := range services {
-		ps.ServiceByHostname[s.Hostname] = s
-	}
-	vservices, err := env.List(VirtualService.Type, NamespaceAll)
-	if err == nil {
-		ps.VirtualServiceConfigs = vservices
-	}
-	// Still doing linear search and sort
-	ps.initDestinationRules(env)
-	// TODO: everything else that is used in config generation - the generation
-	// should not have any deps on config store.
-
-	ps.initDone = true
-	return err
+	return nil
 }
 
 // Split out of DestinationRule expensive conversions - once per push.

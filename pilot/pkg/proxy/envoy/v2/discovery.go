@@ -101,7 +101,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 			case out.throttle <- t:
 			default:
 			}
-		}  // does not exit after tick.Stop()
+		} // does not exit after tick.Stop()
 	}()
 
 	return out

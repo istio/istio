@@ -337,23 +337,26 @@ func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct,
 }
 
 func addDestinationServiceAttributes(attrs attributes, push *model.PushStatus, destinationHostname model.Hostname) attributes {
+	// TODO: pass Service directly.
 	if destinationHostname == "" {
 		return attrs
 	}
 	attrs["destination.service"] = attrStringValue(destinationHostname.String()) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(destinationHostname.String())
 
-	serviceAttributes, err := push.GetServiceAttributes(destinationHostname)
-	if err == nil && serviceAttributes != nil {
-		if serviceAttributes.Name != "" {
-			attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
-		}
-		if serviceAttributes.Namespace != "" {
-			attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
-		}
-		if serviceAttributes.UID != "" {
-			attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
-		}
+	svc := push.ServiceByHostname[destinationHostname]
+	if svc == nil {
+		return attrs
+	}
+	serviceAttributes := svc.Attributes
+	if serviceAttributes.Name != "" {
+		attrs["destination.service.name"] = attrStringValue(serviceAttributes.Name)
+	}
+	if serviceAttributes.Namespace != "" {
+		attrs["destination.service.namespace"] = attrStringValue(serviceAttributes.Namespace)
+	}
+	if serviceAttributes.UID != "" {
+		attrs["destination.service.uid"] = attrStringValue(serviceAttributes.UID)
 	}
 	return attrs
 }
