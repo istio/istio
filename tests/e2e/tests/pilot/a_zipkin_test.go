@@ -32,7 +32,7 @@ const (
 )
 
 func TestZipkin(t *testing.T) {
-	t.Skipf("Skipping %s", t.Name())
+	t.Skip("https://github.com/istio/istio/issues/7695")
 	for i := 0; i < numTraces; i++ {
 		testName := fmt.Sprintf("index_%d", i)
 		traceSent := false
