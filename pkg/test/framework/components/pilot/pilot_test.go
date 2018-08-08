@@ -22,8 +22,6 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 
-	"github.com/gogo/protobuf/jsonpb"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	envoy_proxy_v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
@@ -96,10 +94,9 @@ func TestLocalPilot(t *testing.T) {
 	t.Fatal(fmt.Errorf("service entry not found in pilot discovery service"))
 }
 
+/*
+TODO: uncomment and modify to test against an active kube environment.
 func TestKubePilot(t *testing.T) {
-	// NOTE: uncomment to test with an existing k8s environment.
-	t.Skip("Skipping kube test - this is used for manual testing only.")
-
 	p, err := pilot.NewKubePilot("", "istio-system", "istio-pilot-6c5c6b586c-9gwn5")
 	if err != nil {
 		t.Fatal(err)
@@ -122,3 +119,4 @@ func TestKubePilot(t *testing.T) {
 	}
 	fmt.Println(str)
 }
+*/
