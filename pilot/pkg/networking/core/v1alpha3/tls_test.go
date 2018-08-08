@@ -22,11 +22,10 @@ import (
 )
 
 func TestVirtualServiceForHost(t *testing.T) {
-	wildcard := &v1alpha3.VirtualService{Hosts: []string{"*"}}
 	cnn := &v1alpha3.VirtualService{Hosts: []string{"www.cnn.com", "*.cnn.com", "*.com"}}
 	cnnEdition := &v1alpha3.VirtualService{Hosts: []string{"edition.cnn.com"}}
 	uk := &v1alpha3.VirtualService{Hosts: []string{"*.co.uk"}}
-	configs := []model.Config{{Spec: wildcard}, {Spec: cnn}, {Spec: cnnEdition}, {Spec: uk}}
+	configs := []model.Config{{Spec: cnn}, {Spec: cnnEdition}, {Spec: uk}}
 
 	tests := []struct {
 		in   string
@@ -36,7 +35,7 @@ func TestVirtualServiceForHost(t *testing.T) {
 		{in: "money.cnn.com", want: cnn},
 		{in: "edition.cnn.com", want: cnnEdition},
 		{in: "bbc.co.uk", want: uk},
-		{in: "www.wikipedia.org", want: wildcard},
+		{in: "www.wikipedia.org", want: nil},
 	}
 
 	f := makeVirtualServiceForHost(configs)
