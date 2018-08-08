@@ -53,7 +53,7 @@ var (
 	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
 	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
 	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
-	mode           = flag.String("mode", "self-signed", "Supported mode: self-signed, signer, citadel")
+	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
 )
 
 func checkCmdLine() {
