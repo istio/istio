@@ -70,8 +70,8 @@ func (wh *Webhook) createOrUpdateWebhookConfig() {
 	// rolling updates to set maxUnavailable to at least one.
 	if !wh.endpointReadyOnce {
 		if err := wh.endpointReady(); err != nil {
-			log.Warnf("%v validatingwebhookconfiguration update deferred: %v/%v endpoint not ready: %v",
-				wh.deploymentNamespace, wh.deploymentName, err)
+			log.Warnf("%v validatingwebhookconfiguration update deferred: %v",
+				wh.webhookConfiguration.Name, err)
 			reportValidationConfigUpdateError(errors.New("endpoint not ready"))
 			return
 		}

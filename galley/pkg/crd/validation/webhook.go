@@ -259,7 +259,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case <-reconcileTickerC:
-			if wh.webhookConfiguration != nil {
+			if wh.webhookConfiguration == nil {
+				if err := wh.rebuildWebhookConfig(); err == nil {
+					wh.createOrUpdateWebhookConfig()
+				}
+			} else {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case event, more := <-wh.keyCertWatcher.Event:
