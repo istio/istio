@@ -130,10 +130,6 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	if o.Port == 0 {
 		// disabled
 		s := &Server{}
-
-		s.shutdown.Add(1)
-		s.shutdown.Done()
-
 		return s, nil
 	}
 
