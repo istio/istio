@@ -65,11 +65,13 @@ IFS=,
 # settings (CIDR range)
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [ -r "${ISTIO_CLUSTER_CONFIG}" ]; then
+  # shellcheck disable=SC1090
   . "${ISTIO_CLUSTER_CONFIG}"
 fi
 
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [ -r "${ISTIO_SIDECAR_CONFIG}" ]; then
+  # shellcheck disable=SC1090
   . "${ISTIO_SIDECAR_CONFIG}"
 fi
 

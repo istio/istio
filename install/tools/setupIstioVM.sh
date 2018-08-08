@@ -25,6 +25,7 @@ ISTIO_STAGING=${ISTIO_STAGING:-.}
 function istioVersionSource() {
   echo "Sourced ${ISTIO_STAGING}/istio.VERSION"
   cat "${ISTIO_STAGING}/istio.VERSION"
+  # shellcheck disable=SC1090
   source "${ISTIO_STAGING}/istio.VERSION"
 }
 

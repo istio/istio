@@ -27,6 +27,7 @@ if [ -f .istiorc ] ; then
 fi
 
 if [ -f "$HOME/.istiorc" ] ; then
+  # shellcheck disable=SC1090
   source "$HOME/.istiorc"
 fi
 
@@ -67,6 +68,7 @@ function lunch() {
     local env=$1
 
     if [[ -f $HOME/.istio/${env} ]]; then
+        # shellcheck disable=SC1090
         source "$HOME/.istio/${env}"
     fi
 

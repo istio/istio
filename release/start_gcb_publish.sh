@@ -31,6 +31,7 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 PROJECT_ID=""
@@ -61,7 +62,7 @@ function usage() {
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -w        specify that script should wait until build done  (optional)
-  
+
     -d <hub>  docker hub                                        (optional, defaults to $DOCKER_DST )
     -r <name> GCR bucket to store build artifacts               (required)
     -s <name> GCS bucket to read build artifacts                (required)
