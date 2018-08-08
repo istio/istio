@@ -264,12 +264,12 @@ type IstioConfigStore interface {
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
 
 	// AuthenticationPolicyByDestination selects authentication policy associated
-	// with a service + port. Hostname must be FQDN.
+	// with a service + port.
 	// If there are more than one policies at different scopes (global, namespace, service)
 	// the one with the most specific scope will be selected. If there are more than
 	// one with the same scope, the first one seen will be used (later, we should
 	// have validation at submitting time to prevent this scenario from happening)
-	AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config
+	AuthenticationPolicyByDestination(service *Service, port *Port) *Config
 
 	// ServiceRoles selects ServiceRoles in the specified namespace.
 	ServiceRoles(namespace string) []Config
@@ -798,9 +798,9 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
-func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostname, port *Port) *Config {
+func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port) *Config {
 	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
-	parts := strings.Split(string(hostname), ".")
+	parts := strings.Split(string(service.Hostname), ".")
 	if len(parts) < 2 {
 		// Bad hostname, return no policy.
 		return nil
@@ -822,7 +822,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(hostname Hostna
 		matchLevel := 0
 		if len(policy.Targets) > 0 {
 			for _, dest := range policy.Targets {
-				if hostname != ResolveHostname(spec.ConfigMeta, &mccpb.IstioService{Name: dest.Name}) {
+				if service.Hostname != ResolveHostname(spec.ConfigMeta, &mccpb.IstioService{Name: dest.Name}) {
 					continue
 				}
 				// If destination port is defined, it must match.
