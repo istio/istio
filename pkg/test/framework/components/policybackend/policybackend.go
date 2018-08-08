@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 
 	"io"
 
@@ -258,7 +258,9 @@ func (p *policyBackend) ExpectReportJSON(t testing.TB, expected ...string) {
 
 	var actual []string
 	for _, a := range acts {
-		m := jsonpb.Marshaler{}
+		m := jsonpb.Marshaler{
+			Indent: "  ",
+		}
 		as, err := m.MarshalToString(a)
 		if err != nil {
 			t.Fatalf("Failed marshalling to string: %v", err)
