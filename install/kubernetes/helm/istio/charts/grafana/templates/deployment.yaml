@@ -82,4 +82,9 @@ spec:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:
       - name: data
+{{- if .Values.persist }}
+        persistentVolumeClaim:
+          claimName: istio-grafana-pvc
+{{- else }}
         emptyDir: {}
+{{- end }}
