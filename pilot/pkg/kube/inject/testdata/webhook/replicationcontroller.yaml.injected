@@ -97,7 +97,7 @@ spec:
         - -x
         - ""
         - -b
-        - 80,
+        - "80"
         - -d
         - ""
         image: docker.io/istio/proxy_init:unittest
