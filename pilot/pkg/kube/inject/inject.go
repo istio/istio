@@ -186,15 +186,28 @@ func validateCIDRList(cidrs string) error {
 	return nil
 }
 
-func validatePortList(ports string) error {
-	if len(ports) > 0 {
-		for _, port := range strings.Split(ports, ",") {
-			if _, err := strconv.ParseInt(port, 10, 16); err != nil {
-				return fmt.Errorf("failed parsing port '%s': %v", port, err)
+func splitPorts(portsString string) []string {
+	return strings.Split(portsString, ",")
+}
+
+func parsePorts(portsString string) ([]int, error) {
+	portsString = strings.TrimSpace(portsString)
+	ports := make([]int, 0)
+	if len(portsString) > 0 {
+		for _, portStr := range splitPorts(portsString) {
+			port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
 			}
+			ports = append(ports, int(port))
 		}
 	}
-	return nil
+	return ports, nil
+}
+
+func validatePortList(ports string) error {
+	_, err := parsePorts(ports)
+	return err
 }
 
 // ValidateInterceptionMode validates the interceptionMode annotation
@@ -375,8 +388,10 @@ func injectionData(sidecarTemplate, version string, spec *corev1.PodSpec, metada
 	}
 
 	funcMap := template.FuncMap{
-		"formatDuration": formatDuration,
-		"isset":          isset,
+		"formatDuration":      formatDuration,
+		"isset":               isset,
+		"includeInboundPorts": includeInboundPorts,
+		"annotationOrDefault": annotationOrDefault,
 	}
 
 	var tmpl bytes.Buffer
@@ -564,9 +579,29 @@ func GenerateTemplateFromParams(params *Params) (string, error) {
 	if err := params.Validate(); err != nil {
 		return "", err
 	}
+
 	var tmp bytes.Buffer
 	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
 	return tmp.String(), err
+}
+
+func includeInboundPorts(containers []corev1.Container) string {
+	parts := make([]string, 0)
+	for _, c := range containers {
+		for _, p := range c.Ports {
+			parts = append(parts, strconv.Itoa(int(p.ContainerPort)))
+		}
+	}
+
+	return strings.Join(parts, ",")
+}
+
+func annotationOrDefault(annotations map[string]string, name, defaultValue string) string {
+	value, ok := annotations[name]
+	if !ok {
+		value = defaultValue
+	}
+	return value
 }
 
 // SidecarInjectionStatus contains basic information about the

@@ -299,7 +299,7 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
+		t.Run(c.want, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
 			if c.enableAuth {
 				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
