@@ -23,9 +23,10 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
+	"strconv"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"strconv"
 )
 
 var (
@@ -78,7 +79,7 @@ type DiscoveryServer struct {
 	DebugConfigs bool
 }
 
-func intEnv(env string, def int ) int {
+func intEnv(env string, def int) int {
 	envValue := os.Getenv(env)
 	if len(envValue) == 0 {
 		return def
