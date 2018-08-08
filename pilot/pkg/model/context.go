@@ -237,7 +237,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
 		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		AuthPolicy:            meshconfig.MeshConfig_NONE,
 		RdsRefreshDelay:       types.DurationProto(1 * time.Second),
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",

@@ -806,12 +806,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
 
-	switch mesh.AuthPolicy {
-	case meshconfig.MeshConfig_NONE, meshconfig.MeshConfig_MUTUAL_TLS:
-	default:
-		errs = multierror.Append(errs, fmt.Errorf("unrecognized auth policy %q", mesh.AuthPolicy))
-	}
-
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid rds refresh delay:"))
 	}
