@@ -19,6 +19,12 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
       containers:
         - name: jaeger
           image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
