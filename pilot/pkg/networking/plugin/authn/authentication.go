@@ -74,11 +74,10 @@ func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualT
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
 				if proxyType == model.Sidecar {
-					if method.GetMtls() != nil {
-						return method.GetMtls()
-					} else {
+					if method.GetMtls() == nil {
 						return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
 					}
+					return method.GetMtls()
 				}
 				return nil
 			default:
