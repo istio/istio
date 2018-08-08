@@ -4,6 +4,7 @@ set -x
 set -e
 
 # Source istio.VERSION
+# shellcheck disable=SC1091
 source ../../istio.VERSION
 # This assume you installed the control plane already
 # kubectl apply -f install/kube/istio-auth.yaml

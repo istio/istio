@@ -22,6 +22,7 @@ export TAG=${ISTIO_TAG:-$USER}
 export OUT=${GOPATH}/out
 
 if [ -f .istiorc ] ; then
+  # shellcheck disable=SC1091
   source .istiorc
 fi
 
