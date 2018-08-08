@@ -266,7 +266,7 @@ func buildIstioMutualTLS(upstreamServiceAccount []string, sni string) *networkin
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
 		SubjectAltNames:   upstreamServiceAccount,
-		Sni: sni,
+		Sni:               sni,
 	}
 }
 
@@ -487,7 +487,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			},
 			Sni: tls.Sni,
 		}
-		
+
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
