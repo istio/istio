@@ -131,13 +131,13 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (mixerplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+func (mixerplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus,
+func (mixerplugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }
@@ -233,7 +233,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 	}
 }
 
-func modifyOutboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, httpRoute route.Route) route.Route {
+func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.PerFilterConfig = addServiceConfig(in.Node, httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
 		DisableCheckCalls: disableClientPolicyChecks(in.Env.Mesh, in.Node),
@@ -270,7 +270,7 @@ func modifyOutboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, h
 	return httpRoute
 }
 
-func buildInboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
 	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
@@ -297,7 +297,7 @@ func buildInboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, ins
 }
 
 func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, node *model.Proxy, destination *model.Service,
-	push *model.PushStatus) listener.Filter {
+	push *model.PushContext) listener.Filter {
 	attrs := attrsCopy(attrsIn)
 	if destination != nil {
 		attrs = addDestinationServiceAttributes(attrs, push, destination.Hostname)
@@ -336,7 +336,7 @@ func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct,
 	return filterConfigs
 }
 
-func addDestinationServiceAttributes(attrs attributes, push *model.PushStatus, destinationHostname model.Hostname) attributes {
+func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, destinationHostname model.Hostname) attributes {
 	// TODO: pass Service directly.
 	if destinationHostname == "" {
 		return attrs

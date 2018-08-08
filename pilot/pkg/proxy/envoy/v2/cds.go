@@ -46,7 +46,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 	return out
 }
 
-func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushStatus) error {
+func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	rawClusters, err := s.generateRawClusters(con, push)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushStatus) er
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.Cluster, error) {
+func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Cluster, error) {
 	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)

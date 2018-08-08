@@ -81,7 +81,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
-func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushStatus, destinationIPAddress string,
+func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -164,7 +164,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushS
 	return out
 }
 
-func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushStatus, destinationIPAddress string,
+func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -247,7 +247,7 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushS
 	return out
 }
 
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushStatus, configs []model.Config, destinationIPAddress string,
+func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, configs []model.Config, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	virtualService := getVirtualServiceForHost(service.Hostname, configs)

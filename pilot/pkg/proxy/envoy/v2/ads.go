@@ -184,11 +184,11 @@ type XdsConnection struct {
 
 	// Set to the current push status when a push is started.
 	// Null after the pushall completes for the node.
-	currentPush *model.PushStatus
+	currentPush *model.PushContext
 
 	// Set if a push request is received while a push is in progress.
 	// Will keep getting updated with the latest push version.
-	nextPush *model.PushStatus
+	nextPush *model.PushContext
 
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan int
@@ -303,7 +303,7 @@ type XdsEvent struct {
 	// Only EDS for the listed clusters will be sent.
 	clusters []string
 
-	push *model.PushStatus
+	push *model.PushContext
 
 	pending *int32
 
@@ -357,7 +357,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	<-s.throttle
 
 	// first call - lazy loading, in tests. This should not happen if readiness
-	// check works, since it assumes ClearCache is called (and as such PushStatus
+	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
 	err := s.env.PushStatus.InitContext(s.env)
@@ -620,7 +620,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
-func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushStatus) {
+func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	push.Mutex.RLock()
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
 		"VirtualServices: %d, ConnectedEndpoints: %d", version,
