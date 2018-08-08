@@ -408,6 +408,8 @@ grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  persist: false
+  storageClassName: ""
   security:
     enabled: false
     adminUser: admin
