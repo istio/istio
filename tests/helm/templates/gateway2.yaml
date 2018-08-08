@@ -1,0 +1,31 @@
+# Gateway config, and associated virtual services
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-gateway2
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https-fortiotls
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/istio/ingressgateway-certs-fortiotls/tls.crt
+      privateKey: /etc/istio/ingressgateway-certs-fortiotls/tls.key
+    hosts:
+    - "fortiotls.{{ .Values.domain }}"
+  - port:
+      number: 443
+      name: https-fortionoistio
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/istio/ingressgateway-certs-fortionoistio/tls.crt
+      privateKey: /etc/istio/ingressgateway-certs-fortionoistio/tls.key
+    hosts:
+    - fortionoistio.{{ .Values.domain }}
+    - fortionoistio1.{{ .Values.domain }}

@@ -1,7 +1,4 @@
 ---
-github_url: https://api.github.com/repos
-istio_repo: istio/istio
-default_github_api_headers: {}
 minimum_cluster_version: 1.9.0
 
 istio_namespace: istio-system
@@ -13,5 +10,3 @@ istio_simple_samples:
     path: httpbin/httpbin.yaml
   - name: sleep
     path: sleep/sleep.yaml
-
-istio_k8s_install_path: "install/kubernetes"

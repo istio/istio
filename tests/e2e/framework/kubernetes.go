@@ -428,7 +428,7 @@ func (k *KubeInfo) doGetIngress(serviceName string, podLabel string, lock sync.L
 func (k *KubeInfo) Teardown() error {
 	log.Info("Cleaning up kubeInfo")
 
-	if *skipSetup || *skipCleanup {
+	if *skipSetup || *skipCleanup || os.Getenv("SKIP_CLEANUP") != "" {
 		return nil
 	}
 	if *installer == helmInstallerName {
@@ -653,7 +653,7 @@ func (k *KubeInfo) deployIstio() error {
 			return err
 		}
 		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.KubeClient, k.RemoteKubeConfig, k.KubeConfig); err != nil {
+		if err := util.CreateMultiClusterSecrets(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
 			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
 		}
@@ -720,6 +720,14 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
+
+	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
+		log.Errorf("Failed to apply %s", yamlFileName)
+		return err
+	}
+
 	// install istio helm chart, which includes addon
 	isSecurityOn := false
 	if *authEnable {
@@ -747,13 +755,11 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set istiotesting.oneNameSpace=true"
 	}
 
-	// create the namespace
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
-		return err
-	}
+	// CRDs installed ahead of time with 2.9.x
+	setValue += " --set global.crds=false"
 
-	// helm install dry run
+	// helm install dry run - dry run seems to have problems
+	// with CRDs even in 2.9.2, pre-install is not executed
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
 	err := util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
 	if err != nil {

@@ -145,3 +145,17 @@ func NumberToFloat(n ast.Number) *big.Float {
 func FloatToNumber(f *big.Float) ast.Number {
 	return ast.Number(f.String())
 }
+
+// NumberToInt converts n to a big int.
+func NumberToInt(n ast.Number) *big.Int {
+	r, ok := new(big.Int).SetString(string(n), 10)
+	if !ok {
+		panic("illegal value")
+	}
+	return r
+}
+
+// IntToNumber converts i to a number.
+func IntToNumber(i *big.Int) ast.Number {
+	return ast.Number(i.String())
+}

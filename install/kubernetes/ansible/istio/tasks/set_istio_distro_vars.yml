@@ -4,7 +4,7 @@
 
 - name: Define var containg Istio definition file full path
   set_fact:
-    istio_definition_full_path: "{{ istio_dir }}/{{ istio_k8s_install_path }}/{{ istio_definition_file_name }}"
+    istio_definition_full_path: "{{ istio_k8s_dir }}/{{ istio_definition_file_name }}"
 
 - name: Show the full path of the definition file to be used
   debug:

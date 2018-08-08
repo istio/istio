@@ -406,6 +406,10 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
+			// short name hosts are not allowed in gateways
+			if host != "*" && !strings.Contains(host, ".") {
+				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
+			}
 			if err := ValidateWildcardDomain(host); err != nil {
 				errs = appendErrors(errs, err)
 			}
@@ -531,14 +535,15 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil
 	}
-	if policy.OutlierDetection == nil && policy.ConnectionPool == nil && policy.LoadBalancer == nil && policy.Tls == nil {
+	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
 	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
-		validateTLS(policy.Tls))
+		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
 func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
@@ -627,6 +632,24 @@ func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		Labels(subset.Labels).Validate(),
 		validateTrafficPolicy(subset.TrafficPolicy))
+}
+
+func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
+	for _, t := range pls {
+		if t.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
+		}
+		if t.OutlierDetection == nil && t.ConnectionPool == nil &&
+			t.LoadBalancer == nil && t.Tls == nil {
+			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
+		} else {
+			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
+				validateConnectionPool(t.ConnectionPool),
+				validateLoadBalancer(t.LoadBalancer),
+				validateTLS(t.Tls))
+		}
+	}
+	return
 }
 
 // ValidateProxyAddress checks that a network address is well-formed
@@ -1192,12 +1215,21 @@ func ValidateServiceRoleBinding(name, namespace string, msg proto.Message) error
 
 // ValidateRbacConfig checks that RbacConfig is well-formed.
 func ValidateRbacConfig(name, namespace string, msg proto.Message) error {
-	if _, ok := msg.(*rbac.RbacConfig); !ok {
+	in, ok := msg.(*rbac.RbacConfig)
+	if !ok {
 		return errors.New("cannot cast to RbacConfig")
 	}
 
 	if name != DefaultRbacConfigName {
 		return fmt.Errorf("rbacConfig has invalid name(%s), name must be %s", name, DefaultRbacConfigName)
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
+		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
+	}
+
+	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
+		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
 	}
 
 	return nil

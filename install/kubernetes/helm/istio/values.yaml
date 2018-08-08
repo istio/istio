@@ -8,6 +8,19 @@ global:
   # Default tag for Istio images.
   tag: release-1.0-latest-daily
 
+  # Gateway used for legacy k8s Ingress resources. By default it is
+  # using 'istio:ingress', to match 0.8 config. It requires that
+  # ingress.enabled is set to true. You can also set it
+  # to ingressgateway, or any other gateway you define in the 'gateway'
+  # section.
+  k8sIngressSelector: ingress
+
+  # k8sIngressHttps will add port 443 on the ingress and ingressgateway.
+  # It REQUIRES that the certificates are installed  in the
+  # expected secrets - enabling this option without certificates
+  # will result in LDS rejection and the ingress will not work.
+  k8sIngressHttps: false
+
   proxy:
     image: proxyv2
 
@@ -127,15 +140,24 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
-
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
     hub: quay.io/coreos
     tag: v1.7.6_coreos.0
 
-# Any customization for istio testing should be here
-istiotesting:
-  oneNameSpace: false
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
+  # Include the crd definition when generating the template.
+  # For 'helm template' and helm install > 2.10 it should be true.
+  # For helm < 2.9, crds must be installed ahead of time with
+  # 'kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+  # and this options must be set off.
+  crds: true
 
 #
 # ingress configuration
@@ -208,6 +230,14 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
+    # Telemetry-related ports are enabled in gateway - but will only redirect if
+    # the gateway configration for the various components are enabled.
+    - port: 15030
+      targetPort: 15030
+      name: http2-prometheus
+    - port: 15031
+      targetPort: 15031
+      name: http2-grafana
     secretVolumes:
     - name: ingressgateway-certs
       secretName: istio-ingressgateway-certs
@@ -215,6 +245,7 @@ gateways:
     - name: ingressgateway-ca-certs
       secretName: istio-ingressgateway-ca-certs
       mountPath: /etc/istio/ingressgateway-ca-certs
+
   istio-egressgateway:
     enabled: true
     labels:
@@ -237,6 +268,7 @@ gateways:
       - name: egressgateway-ca-certs
         secretName: istio-egressgateway-ca-certs
         mountPath: /etc/istio/egressgateway-ca-certs
+
   # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
   # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
   # as non-mtls ports to support upgrades and gradual transition.
@@ -279,6 +311,8 @@ gateways:
       - name: ilbgateway-ca-certs
         secretName: istio-ilbgateway-ca-certs
         mountPath: /etc/istio/ilbgateway-ca-certs
+
+
 #
 # sidecar-injector webhook configuration
 #
@@ -306,9 +340,23 @@ mixer:
   autoscaleMax: 5
   image: mixer
 
+  istio-policy:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
+  istio-telemetry:
+    autoscaleEnabled: true
+    autoscaleMin: 1
+    autoscaleMax: 5
+    cpu:
+      targetAverageUtilization: 80
+
   prometheusStatsdExporter:
     hub: docker.io/prom
-    tag: latest
+    tag: v0.6.0
 
 #
 # pilot configuration
@@ -317,10 +365,15 @@ pilot:
   enabled: true
   replicaCount: 1
   autoscaleMin: 1
-  autoscaleMax: 5
+  autoscaleMax: 1
   image: pilot
   sidecar: true
   traceSampling: 100.0
+  # Resources for a small pilot install
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
 
 #
 # security configuration
@@ -333,49 +386,32 @@ security:
 #
 # addons configuration
 #
+telemetry-gateway:
+  gatewayName: ingressgateway
+  grafanaEnabled: false
+  prometheusEnabled: false
+
 grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  security:
+    enabled: false
+    adminUser: admin
+    adminPassword: admin
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    hosts:
-      - grafana.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: grafana-tls
-      #   hosts:
-      #     - grafana.local
 
 prometheus:
   enabled: true
   replicaCount: 1
   hub: docker.io/prom
-  tag: latest
+  tag: v2.3.1
 
-  ingress:
-    enabled: false
-    # Used to create an Ingress record.
-    #hosts:
-    #  - prometheus.local
-    annotations:
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    tls:
-      # Secrets must be manually created in the namespace.
-      # - secretName: prometheus-tls
-      #   hosts:
-      #     - prometheus.local
   service:
     annotations: {}
     nodePort:
@@ -410,10 +446,14 @@ servicegraph:
 
 tracing:
   enabled: false
+  provider: jaeger
   jaeger:
-    enabled: false
+    hub: docker.io/jaegertracing
+    tag: 1.5
     memory:
       max_traces: 50000
+    ui:
+      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -428,15 +468,12 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  hub: docker.io/jaegertracing
-  tag: 1.5
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -455,7 +492,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.5.0
+  tag: istio-release-1.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -471,9 +508,15 @@ kiali:
       #     - kiali.local
   dashboard:
     username: admin
-    # Default admin password for kiali. Must be set during setup, and
+    # Default admin passphrase for kiali. Must be set during setup, and
     # changed by overriding the secret
-    password: admin
+    passphrase: admin
+
+    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # grafanaURL:
+
+    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # jaegerURL:
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

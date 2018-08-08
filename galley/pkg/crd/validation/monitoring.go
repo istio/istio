@@ -42,6 +42,22 @@ var (
 		Name: "galley_validation_http_error",
 		Help: "Resource validation http serve errors",
 	}, []string{"status"})
+	metricWebhookConfigurationUpdateError = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "galley_validation_config_update_error",
+		Help: "k8s webhook configuration update error",
+	}, []string{"error"})
+	metricWebhookConfigurationUpdates = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "galley_validation_config_updates",
+		Help: "k8s webhook configuration updates",
+	})
+	metricWebhookConfigurationLoadError = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "galley_validation_config_load_error",
+		Help: "k8s webhook configuration (re)load error",
+	}, []string{"error"})
+	metricWebhookConfigurationLoad = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "galley_validation_config_load",
+		Help: "k8s webhook configuration (re)loads",
+	})
 )
 
 func init() {
@@ -50,7 +66,11 @@ func init() {
 		metricCertKeyUpdateError,
 		metricValidationPassed,
 		metricValidationFailed,
-		metricValidationHTTPError)
+		metricValidationHTTPError,
+		metricWebhookConfigurationUpdateError,
+		metricWebhookConfigurationUpdates,
+		metricWebhookConfigurationLoadError,
+		metricWebhookConfigurationLoad)
 }
 
 func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
@@ -74,6 +94,34 @@ func reportValidationHTTPError(status int) {
 	metricValidationHTTPError.With(prometheus.Labels{
 		"status": strconv.Itoa(status),
 	}).Add(1)
+}
+
+func reportValidationConfigUpdateError(err error) {
+	metricWebhookConfigurationUpdateError.With(prometheus.Labels{
+		"error": err.Error(),
+	}).Add(1)
+}
+
+func reportValidationConfigLoadError(err error) {
+	metricWebhookConfigurationLoadError.With(prometheus.Labels{
+		"error": err.Error(),
+	}).Add(1)
+}
+
+func reportValidationConfigLoad() {
+	metricWebhookConfigurationLoad.Add(1)
+}
+
+func reportValidationConfigUpdate() {
+	metricWebhookConfigurationUpdates.Add(1)
+}
+
+func reportValidationCertKeyUpdate() {
+	metricCertKeyUpdate.Add(1)
+}
+
+func reportValidationCertKeyUpdateError(err error) {
+	metricCertKeyUpdateError.With(prometheus.Labels{"error": err.Error()}).Add(1)
 }
 
 const (

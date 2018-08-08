@@ -84,6 +84,9 @@ type jwksResolver struct {
 	// cache for jwksURI.
 	JwksURICache cache.ExpiringCache
 
+	// Callback function to invoke when detecting jwt public key change.
+	PushFunc func()
+
 	// cache for JWT public key.
 	// map key is jwksURI, map value is jwtPubKeyEntry.
 	keyEntries sync.Map
@@ -344,7 +347,10 @@ func (r *jwksResolver) refresh(t time.Time) {
 
 	if hasChange {
 		atomic.AddUint64(&r.keyChangedCount, 1)
-		// TODO(quanlin): send notification to update config and push config to sidecar.
+		// Push public key changes to sidecars.
+		if r.PushFunc != nil {
+			r.PushFunc()
+		}
 	}
 }
 

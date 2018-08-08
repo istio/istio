@@ -20,8 +20,12 @@ spec:
         app: prometheus
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: prometheus
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: prometheus
           image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"

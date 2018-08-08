@@ -1119,6 +1119,12 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
+		{"invalid short name host",
+			&networking.Server{
+				Hosts: []string{"foo"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"short names"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
@@ -1886,7 +1892,28 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: true},
+		{name: "invalid traffic policy, nil entries", in: networking.TrafficPolicy{},
+			valid: false},
 
+		{name: "invalid traffic policy, missing port in port level settings", in: networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: &networking.LoadBalancerSettings_Simple{
+							Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+						},
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+					},
+					OutlierDetection: &networking.OutlierDetection{
+						ConsecutiveErrors: 5,
+					},
+				},
+			},
+		},
+			valid: false},
 		{name: "invalid traffic policy, bad connection pool", in: networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2937,6 +2964,18 @@ func TestValidateRbacConfig(t *testing.T) {
 			caseName: "success proto",
 			name:     DefaultRbacConfigName,
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+		},
+		{
+			caseName:     "empty exclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			expectErrMsg: "exclusion cannot be null (use 'exclusion: {}' for none)",
+		},
+		{
+			caseName:     "empty inclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: "inclusion cannot be null (use 'inclusion: {}' for none)",
 		},
 	}
 	for _, c := range cases {

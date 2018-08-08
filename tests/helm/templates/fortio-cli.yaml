@@ -6,7 +6,7 @@ kind: Deployment
 metadata:
   name: cli-fortio-tls
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:
@@ -41,7 +41,7 @@ kind: Deployment
 metadata:
   name: fortio-cli-raw
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:
@@ -76,7 +76,7 @@ kind: Deployment
 metadata:
   name: fortio-cli-notls
 spec:
-  replicas: 1
+  replicas: 4
   template:
     metadata:
       labels:

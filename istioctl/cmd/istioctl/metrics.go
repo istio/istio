@@ -75,7 +75,7 @@ istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 
 const (
 	wlabel   = "destination_workload"
-	wnslabel = "destination_namespace"
+	wnslabel = "destination_workload_namespace"
 	reqTot   = "istio_requests_total"
 	reqDur   = "istio_request_duration_seconds"
 )
@@ -212,13 +212,13 @@ func metrics(promAPI promv1.API, workload string) (workloadMetrics, error) {
 		wns = parts[1]
 	}
 
-	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter=\"server\"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
-	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter=\"server\",response_code!="200"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
-	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*,"reporter=\"server\"}[1m])) by (le))`,
+	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
+	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code!="200"}[1m]))`, reqTot, wlabel, wname, wnslabel, wns)
+	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
 		0.5, reqDur, wlabel, wname, wnslabel, wns)
-	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*"reporter=\"server\"}[1m])) by (le))`,
+	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
 		0.9, reqDur, wlabel, wname, wnslabel, wns)
-	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter=\"server\"}[1m])) by (le))`,
+	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[1m])) by (le))`,
 		0.99, reqDur, wlabel, wname, wnslabel, wns)
 
 	var me *multierror.Error
@@ -280,13 +280,13 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 
 func printHeader() {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "%13sWORKLOAD\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "")
+	fmt.Fprintf(w, "%40s\tTOTAL RPS\tERROR RPS\tP50 LATENCY\tP90 LATENCY\tP99 LATENCY\t\n", "WORKLOAD")
 	_ = w.Flush()
 }
 
 func printMetrics(wm workloadMetrics) {
 	w := tabwriter.NewWriter(os.Stdout, 13, 1, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "%20s\t", wm.workload)
+	fmt.Fprintf(w, "%40s\t", wm.workload)
 	fmt.Fprintf(w, "%.3f\t", wm.totalRPS)
 	fmt.Fprintf(w, "%.3f\t", wm.errorRPS)
 	fmt.Fprintf(w, "%s\t", wm.p50Latency)

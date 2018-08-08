@@ -36,12 +36,12 @@ import (
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
 )
 

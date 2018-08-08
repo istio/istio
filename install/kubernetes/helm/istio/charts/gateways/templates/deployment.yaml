@@ -7,7 +7,6 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    app: {{ $spec.labels.istio }}
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
@@ -24,8 +23,12 @@ spec:
         {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
     spec:
       serviceAccountName: {{ $key }}-service-account
+{{- if $.Values.global.priorityClassName }}
+      priorityClassName: "{{ $.Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: {{ $spec.labels.istio }}
           image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
@@ -50,7 +53,11 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
+        {{- if $.Values.global.istioNamespace }}
+          - zipkin.{{ $.Values.global.istioNamespace }}:9411
+        {{- else }}
           - zipkin:9411
+        {{- end }}
         {{- if $.Values.global.proxy.envoyStatsd.enabled }}
           - --statsdUdpAddress
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
@@ -61,12 +68,20 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          {{- else }}
           - istio-pilot:15005
+          {{- end }}
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:8080
+          {{- else }}
           - istio-pilot:8080
+          {{- end }}
         {{- end }}
           resources:
 {{- if $spec.resources }}

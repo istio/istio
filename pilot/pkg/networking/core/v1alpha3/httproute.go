@@ -60,7 +60,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "",
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPRoute(node, clusterName, traceOperation)
 
 	if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
 		// Enable websocket on default route

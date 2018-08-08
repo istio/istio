@@ -47,7 +47,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: fortiomaster
+  name: fortio-tproxy
 spec:
   hosts:
   - "fortio-tproxy.{{.Values.domain}}"

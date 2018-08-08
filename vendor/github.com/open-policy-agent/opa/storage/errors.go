@@ -16,6 +16,10 @@ const (
 	// locate a document.
 	NotFoundErr = "storage_not_found_error"
 
+	// WriteConflictErr indicates a write on the path enocuntered a conflicting
+	// value inside the transaction.
+	WriteConflictErr = "storage_write_conflict_error"
+
 	// InvalidPatchErr indicates an invalid patch/write was issued. The patch
 	// was rejected.
 	InvalidPatchErr = "storage_invalid_patch_error"
@@ -63,6 +67,15 @@ func IsNotFound(err error) bool {
 	return false
 }
 
+// IsWriteConflictError returns true if this error a WriteConflictErr.
+func IsWriteConflictError(err error) bool {
+	switch err := err.(type) {
+	case *Error:
+		return err.Code == WriteConflictErr
+	}
+	return false
+}
+
 // IsInvalidPatch returns true if this error is a InvalidPatchErr.
 func IsInvalidPatch(err error) bool {
 	switch err := err.(type) {
@@ -88,6 +101,13 @@ func IsIndexingNotSupported(err error) bool {
 		return err.Code == IndexingNotSupportedErr
 	}
 	return false
+}
+
+func writeConflictError(path Path) *Error {
+	return &Error{
+		Code:    WriteConflictErr,
+		Message: fmt.Sprint(path),
+	}
 }
 
 func triggersNotSupportedError() *Error {

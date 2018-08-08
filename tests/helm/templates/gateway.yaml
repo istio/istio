@@ -9,12 +9,23 @@ spec:
     istio: ingressgateway
   servers:
   - port:
+      number: 443
+      name: https-default
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+      privateKey: /etc/istio/ingressgateway-certs/tls.key
+    hosts:
+    - "*"
+  - port:
       number: 80
       name: http
       protocol: HTTP
     hosts:
     - "prom.{{ .Values.domain }}"
     - "grafana.{{ .Values.domain }}"
+    - "trace.{{ .Values.domain }}"
     - "pilot.{{ .Values.domain }}"
     - "fortio.{{ .Values.domain }}"
     - "fortio2.{{ .Values.domain }}"
@@ -29,6 +40,8 @@ spec:
     - "fortiomaster.{{ .Values.domain }}"
     - "fortiocli.{{ .Values.domain }}"
     - "fortio-tproxy.{{ .Values.domain }}"
+    - "servicegraph.{{ .Values.domain }}"
+    - "kiali.{{ .Values.domain }}"
   - port:
       number: 5201
       protocol: TCP
@@ -63,7 +76,7 @@ spec:
     - destination:
         host: istio-pilot.istio-system.svc.cluster.local
         port:
-          number: 8080
+          number: 9093
 
 ---
 
@@ -83,7 +96,6 @@ spec:
         port:
           number: 8000
 ---
-
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -99,6 +111,56 @@ spec:
         host: grafana.istio-system.svc.cluster.local
         port:
           number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: trace
+spec:
+  hosts:
+  - "trace.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: tracing.istio-system.svc.cluster.local
+        port:
+          number: 80
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: servicegraph
+spec:
+  hosts:
+  - "servicegraph.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: servicegraph.istio-system.svc.cluster.local
+        port:
+          number: 8088
+---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kiali
+spec:
+  hosts:
+  - "kiali.{{ .Values.domain }}"
+  gateways:
+  - istio-gateway
+  http:
+  - route:
+    - destination:
+        host: kiali.istio-system.svc.cluster.local
+        port:
+          number: 20001
 
 
 ---

@@ -35,6 +35,10 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
 	if version != versionInfo() {
 		// Just report for now - after debugging we can suppress the push.
+		// Change1 -> push1
+		// Change2 (after few seconds ) -> push2
+		// push1 may take 10 seconds and be slower - and a sidecar may get
+		// LDS from push2 first, followed by push1 - which will be out of date.
 		adsLog.Warnf("LDS: overlap %s %s %s", con.ConID, version, versionInfo())
 	}
 	err = con.send(response)

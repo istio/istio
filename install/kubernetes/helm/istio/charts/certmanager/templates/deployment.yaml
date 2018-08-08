@@ -23,6 +23,9 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: certmanager
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
         - name: certmanager
           image: "{{ .Values.hub }}/cert-manager-controller:{{ .Values.tag }}"

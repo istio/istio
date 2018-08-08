@@ -196,6 +196,31 @@ func (m *ClusterStats) Validate() error {
 
 	// no validation rules for TotalDroppedRequests
 
+	for idx, item := range m.GetDroppedRequests() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClusterStatsValidationError{
+					Field:  fmt.Sprintf("DroppedRequests[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if v, ok := interface{}(m.GetLoadReportInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClusterStatsValidationError{
+				Field:  "LoadReportInterval",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -229,3 +254,55 @@ func (e ClusterStatsValidationError) Error() string {
 }
 
 var _ error = ClusterStatsValidationError{}
+
+// Validate checks the field values on ClusterStats_DroppedRequests with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *ClusterStats_DroppedRequests) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetCategory()) < 1 {
+		return ClusterStats_DroppedRequestsValidationError{
+			Field:  "Category",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	// no validation rules for DroppedCount
+
+	return nil
+}
+
+// ClusterStats_DroppedRequestsValidationError is the validation error returned
+// by ClusterStats_DroppedRequests.Validate if the designated constraints
+// aren't met.
+type ClusterStats_DroppedRequestsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ClusterStats_DroppedRequestsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sClusterStats_DroppedRequests.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ClusterStats_DroppedRequestsValidationError{}

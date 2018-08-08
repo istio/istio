@@ -3,17 +3,8 @@
 # Whether the cluster is an Openshift (ocp) or upstream Kubernetes (k8s) cluster
 cluster_flavour: ocp
 
-# The GitHub token to use when calling GitHub's API
-# The token is needed in order to avoid getting Rate Limited by GitHub's API
-# Rate Limiting can easily occur in large corporate environments
-# that make outgoing calls through a small range of IPs
-# If the token is not set, then no API Token will be used
-github_api_token: ""
 
 istio:
-
-  # Folder where you want to install the distro on your machine. By default, we will install it here ~/.istio
-  dest: "~/.istio"
 
   # Install istio with or without istio-auth module
   auth: false

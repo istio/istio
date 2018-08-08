@@ -6,6 +6,7 @@ dependencies:
   - name: security
     version: 1.0.0
     # repository: file://../security
+    condition: security.enabled
   - name: ingress
     version: 1.0.0
     # repository: file://../ingress
@@ -42,7 +43,7 @@ dependencies:
     # repository: file://../galley
     condition: galley.enabled
   - name: kiali
-    version: 0.5.0
+    version: 0.5.1
     condition: kiali.enabled
   - name: certmanager
     version: 0.1.0
