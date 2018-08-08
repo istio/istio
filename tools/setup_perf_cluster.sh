@@ -34,16 +34,16 @@ function Usage() {
 }
 
 function List_functions() {
-  grep -E "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
+  grep -E "^function [a-z]" "${BASH_SOURCE[0]}" | sed -e 's/function \([a-z_0-9]*\).*/\1/'
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname "${BASH_SOURCE[0]}")}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
   List_functions
   SOURCED=1
 else
-  TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname "$0")}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   echo "In case of errors, retry at the failed step (readyness checks missing)"
   set -e
@@ -69,19 +69,19 @@ function ExecuteEval() {
 
 
 function create_cluster() {
-  Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
+  Execute gcloud container clusters create "$CLUSTER_NAME" "$GCP_OPTS" --machine-type="$MACHINE_TYPE" --num-nodes="$NUM_NODES" --no-enable-legacy-authorization
 }
 
 function delete_cluster() {
   echo "Deleting CLUSTER_NAME=$CLUSTER_NAME"
-  Execute gcloud container clusters delete $CLUSTER_NAME $GCP_OPTS -q
+  Execute gcloud container clusters delete "$CLUSTER_NAME" "$GCP_OPTS" -q
 }
 
 function create_vm() {
   echo "Obtaining latest ubuntu xenial image name... (takes a few seconds)..."
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
   echo "Creating VM_NAME=$VM_NAME using VM_IMAGE=$VM_IMAGE"
-  Execute gcloud compute instances create $VM_NAME $GCP_OPTS --machine-type $MACHINE_TYPE --image $VM_IMAGE
+  Execute gcloud compute instances create "$VM_NAME" "$GCP_OPTS" --machine-type "$MACHINE_TYPE" --image "$VM_IMAGE"
   echo "Waiting a bit for the VM to come up..."
   #TODO: 'wait for vm to be ready'
   sleep 45
@@ -89,28 +89,30 @@ function create_vm() {
 
 function delete_vm() {
   echo "Deleting VM_NAME=$VM_NAME"
-  Execute gcloud compute instances delete $VM_NAME $GCP_OPTS -q
+  Execute gcloud compute instances delete "$VM_NAME" "$GCP_OPTS" -q
 }
 
 function run_on_vm() {
   echo "*** Remote run: \"$1\"" 1>&2
-  Execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
+  Execute gcloud compute ssh "$VM_NAME" "$GCP_OPTS" --command "$1"
 }
 
 function setup_vm() {
-  Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags https-server
+  Execute gcloud compute instances add-tags "$VM_NAME" "$GCP_OPTS" --tags https-server
+  # shellcheck disable=SC2016
   run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.10/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
-  Execute gcloud compute --project=$PROJECT firewall-rules create default-allow-https --network=default --action=ALLOW --rules=tcp:443 --source-ranges=0.0.0.0/0 --target-tags=https-server || true
+  Execute gcloud compute --project="$PROJECT" firewall-rules create default-allow-https --network=default --action=ALLOW --rules=tcp:443 --source-ranges=0.0.0.0/0 --target-tags=https-server || true
 }
 
 function delete_vm_firewall() {
-  Execute gcloud compute --project=$PROJECT firewall-rules delete default-allow-https -q
+  Execute gcloud compute --project="$PROJECT" firewall-rules delete default-allow-https -q
 }
 
 function update_fortio_on_vm() {
+  # shellcheck disable=SC2016
   run_on_vm 'go get istio.io/fortio && cd go/src/istio.io/fortio && git fetch --tags && git checkout latest_release && make submodule-sync && go build -o ~/go/bin/fortio -ldflags "-X istio.io/fortio/version.tag=$(git describe --tag --match v\*) -X istio.io/fortio/version.buildInfo=$(git rev-parse HEAD)" . && sudo setcap 'cap_net_bind_service=+ep' `which fortio` && fortio version'
 }
 
@@ -119,7 +121,7 @@ function run_fortio_on_vm() {
 }
 
 function get_vm_ip() {
-  VM_IP=$(gcloud compute instances describe $VM_NAME $GCP_OPTS |grep natIP|awk -F": " '{print $2}')
+  VM_IP=$(gcloud compute instances describe "$VM_NAME" "$GCP_OPTS" |grep natIP|awk -F": " '{print $2}')
   VM_URL="http://$VM_IP:443/fortio/"
   echo "+++ VM Ip is $VM_IP - visit (http on port 443 is not a typo:) $VM_URL"
 }
@@ -127,6 +129,7 @@ function get_vm_ip() {
 # assumes run from istio/ (or release) directory
 function install_istio() {
   # You need these permissions to create the necessary RBAC rules for Istio
+  # shellcheck disable=SC2016
   Execute sh -c 'kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"'
   # Use the non debug ingress and remove the -v "2"
   Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
@@ -145,41 +148,41 @@ function delete_istio() {
 }
 
 function kubectl_setup() {
-  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
+  Execute gcloud container clusters get-credentials "$CLUSTER_NAME" "$GCP_OPTS"
 }
 
 function install_non_istio_svc() {
- Execute kubectl create namespace $FORTIO_NAMESPACE
- Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio:latest_release --port=8080
- Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
- Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio:latest_release --port=8080
- Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
+ Execute kubectl create namespace "$FORTIO_NAMESPACE"
+ Execute kubectl -n "$FORTIO_NAMESPACE" run fortio1 --image=istio/fortio:latest_release --port=8080
+ Execute kubectl -n "$FORTIO_NAMESPACE" expose deployment fortio1 --target-port=8080 --type=LoadBalancer
+ Execute kubectl -n "$FORTIO_NAMESPACE" run fortio2 --image=istio/fortio:latest_release --port=8080
+ Execute kubectl -n "$FORTIO_NAMESPACE" expose deployment fortio2 --target-port=8080
 }
 
 function install_istio_svc() {
- Execute kubectl create namespace $ISTIO_NAMESPACE || echo "Error assumed to be ns $ISTIO_NAMESPACE already created"
+ Execute kubectl create namespace "$ISTIO_NAMESPACE" || echo "Error assumed to be ns $ISTIO_NAMESPACE already created"
  FNAME=$TOOLS_DIR/perf_k8svcs
  Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
- Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
+ Execute kubectl apply -n "$ISTIO_NAMESPACE" -f "${FNAME}_istio.yaml"
 }
 
 function install_istio_ingress_rules() {
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
-  Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
+  Execute "$ISTIOCTL" create -n "$ISTIO_NAMESPACE" -f "$FNAME"
 }
 
 function install_istio_cache_busting_rule() {
   FNAME=$TOOLS_DIR/cache_buster.yaml
-  Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
+  Execute "$ISTIOCTL" create -n "$ISTIO_NAMESPACE" -f "$FNAME"
 }
 
 function get_fortio_k8s_ip() {
-  FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  FORTIO_K8S_IP=$(kubectl -n "$FORTIO_NAMESPACE" get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   while [[ -z "${FORTIO_K8S_IP}" ]]
   do
-    echo sleeping to get FORTIO_K8S_IP $FORTIO_K8S_IP
+    echo sleeping to get FORTIO_K8S_IP "$FORTIO_K8S_IP"
     sleep 5
-    FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+    FORTIO_K8S_IP=$(kubectl -n "$FORTIO_NAMESPACE" get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   done
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
 }
@@ -248,12 +251,12 @@ _EOF_
 
 
 function get_non_istio_ingress_ip() {
-  K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  K8S_INGRESS_IP=$(kubectl -n "$FORTIO_NAMESPACE" get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   while [[ -z "${K8S_INGRESS_IP}" ]]
   do
-    echo sleeping to get K8S_INGRESS_IP ${K8S_INGRESS_IP}
+    echo sleeping to get K8S_INGRESS_IP "${K8S_INGRESS_IP}"
     sleep 5
-    K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+    K8S_INGRESS_IP=$(kubectl -n "$FORTIO_NAMESPACE" get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   done
 
 #  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
@@ -261,12 +264,12 @@ function get_non_istio_ingress_ip() {
 }
 
 function get_istio_ingress_ip() {
-  ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  ISTIO_INGRESS_IP=$(kubectl -n "$ISTIO_NAMESPACE" get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   while [[ -z "${ISTIO_INGRESS_IP}" ]]
   do
-    echo sleeping to get ISTIO_INGRESS_IP ${ISTIO_INGRESS_IP}
+    echo sleeping to get ISTIO_INGRESS_IP "${ISTIO_INGRESS_IP}"
     sleep 5
-    ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+    ISTIO_INGRESS_IP=$(kubectl -n "$ISTIO_NAMESPACE" get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
   done
 
   echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
@@ -274,13 +277,13 @@ function get_istio_ingress_ip() {
 }
 
 # Set default QPS to max qps
-if [ -z ${QPS+x} ] || [ $QPS == "" ]; then
+if [ -z ${QPS+x} ] || [ "$QPS" == "" ]; then
   echo "Setting default qps"
   QPS=-1
 fi
 
 # Set default run duration to 30s
-if [ -z ${DUR+x} ] || [ $DUR == "" ]; then
+if [ -z ${DUR+x} ] || [ "$DUR" == "" ]; then
   DUR="30s"
 fi
 
@@ -304,7 +307,7 @@ function get_json_file_name() {
   FNAME=$QPSSTR-$BASE-$VERSION-$TS
   file_escape
   label_escape
-  echo $FNAME
+  echo "$FNAME"
 }
 
 function file_escape() {
@@ -327,22 +330,22 @@ function run_fortio_test2() {
 function run_fortio_test_istio_ingress1() {
   get_json_file_name "ingress to s1"
   echo "Using istio ingress to fortio1, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio1/echo" \| tee "$FNAME.json" \| grep ActualQPS
 }
 function run_fortio_test_istio_ingress2() {
   get_json_file_name "ingress to s2"
   echo "Using istio ingress to fortio2, saving to $FNAME"
-  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "$VM_URL?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://$ISTIO_INGRESS_IP/fortio2/echo" \| tee "$FNAME.json" \| grep ActualQPS
 }
 function run_fortio_test_istio_1_2() {
   get_json_file_name "s1 to s2"
   echo "Using istio f1 to f2, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv2:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio1/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv2:8080/echo" \| tee "$FNAME.json" \| grep ActualQPS
 }
 function run_fortio_test_istio_2_1() {
   get_json_file_name "s2 to s1"
   echo "Using istio f2 to f1, saving to $FNAME"
-  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv1:8080/echo" \| tee $FNAME.json \| grep ActualQPS
+  ExecuteEval curl -s "http://$ISTIO_INGRESS_IP/fortio2/fortio/?labels=$LABELS\\&json=on\\&save=on\\&qps=$QPS\\&t=$DUR\\&c=48\\&load=Start\\&url=http://echosrv1:8080/echo" \| tee "$FNAME.json" \| grep ActualQPS
 }
 
 # Run canonical perf tests.

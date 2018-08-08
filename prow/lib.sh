@@ -23,9 +23,9 @@ function setup_and_export_git_sha() {
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
     if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
-      mv ${GOPATH}/src/github.com/${REPO_OWNER:-istio} ${GOPATH}/src/istio.io
+      mv "${GOPATH}/src/github.com/${REPO_OWNER:-istio}" "${GOPATH}/src/istio.io"
       export ROOT=${GOPATH}/src/istio.io/istio
-      cd ${GOPATH}/src/istio.io/istio || return
+      cd "${GOPATH}/src/istio.io/istio" || return
     fi
 
     if [ -z "${PULL_PULL_SHA:-}" ]; then
