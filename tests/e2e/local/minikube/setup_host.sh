@@ -38,7 +38,6 @@ eval "$(minikube docker-env)"
 while ! kubectl get pods -n kube-system | grep kube-proxy |  grep Running > /dev/null; do
   echo "kube-proxy not ready, will check again in 5 sec"
   sleep 5
-  kubectl get pods -n kube-system |  grep kube-proxy | grep Running > /dev/null
 done
 
 # Set up env ISTIO if not done yet
@@ -64,7 +63,6 @@ echo "local registry started"
 while ! kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null; do
   echo "kube-registry-v0 not ready, will check again in 5 sec"
   sleep 5
-  kubectl get pods -n kube-system | grep kube-registry-v0 | grep Running > /dev/null
 done
 
 #Setup port forwarding
