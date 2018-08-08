@@ -13,6 +13,8 @@ data:
   custom-resources.yaml: |-
     {{- if .Values.global.mtls.enabled }}
       {{- include "security-default.yaml.tpl" . | indent 4}}
+    {{- else }}
+      {{- include "permissive-default.yaml.tpl" . | indent 4}}
     {{- end }}
   run.sh: |-
     {{- include "install-custom-resources.sh.tpl" . | indent 4}}
