@@ -81,7 +81,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
-func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, env *model.Environment, destinationIPAddress string,
+func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushStatus, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -121,9 +121,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, env *model.Enviro
 		for _, tls := range virtualService.Tls {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tls.Route[0].Destination
-			destSvc, err := env.GetService(model.Hostname(dest.Host))
-			if err != nil {
-				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
+			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
+			if !present {
+				log.Debugf("service %q does not exist in the registry", dest.Host)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
@@ -164,7 +164,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, env *model.Enviro
 	return out
 }
 
-func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Environment, destinationIPAddress string,
+func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushStatus, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
 	gateways map[string]bool, virtualService *v1alpha3.VirtualService) []*filterChainOpts {
 
@@ -183,9 +183,9 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Enviro
 		for _, tcp := range virtualService.Tcp {
 			// since we don't support weighted destinations yet there can only be exactly 1 destination
 			dest := tcp.Route[0].Destination
-			destSvc, err := env.GetService(model.Hostname(dest.Host))
-			if err != nil {
-				log.Debugf("failed to retrieve service for destination %q: %v", service.Hostname, err)
+			destSvc, present := push.ServiceByHostname[model.Hostname(dest.Host)]
+			if !present {
+				log.Debugf("service %q does not exist in the registry", dest.Host)
 				continue
 			}
 			clusterName := istio_route.GetDestinationCluster(dest, destSvc, listenPort.Port)
@@ -247,15 +247,15 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Enviro
 	return out
 }
 
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, env *model.Environment, configs []model.Config, destinationIPAddress string,
+func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushStatus, configs []model.Config, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	virtualService := getVirtualServiceForHost(service.Hostname, configs)
 
 	out := make([]*filterChainOpts, 0)
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, env, destinationIPAddress, service, listenPort,
+	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
 		proxyLabels, gateways, virtualService)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, env, destinationIPAddress, service, listenPort,
+	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationIPAddress, service, listenPort,
 		proxyLabels, gateways, virtualService)...)
 
 	return out

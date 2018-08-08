@@ -406,6 +406,7 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 	}
 	vservices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err == nil {
+		sortConfigByCreationTime(vservices)
 		ps.VirtualServiceConfigs = vservices
 	}
 	// Still doing linear search and sort
