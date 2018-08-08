@@ -260,6 +260,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					{
 						Properties: map[string]string{
 							"request.auth.claims[iss]": "test-iss",
+							"request.auth.groups":      "group1",
 							"request.headers[key]":     "value",
 							"source.ip":                "192.1.2.0/24",
 							"source.namespace":         "test-ns",
@@ -506,6 +507,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 								Metadata: generateMetadataStringMatcher(
 									[]string{"request.auth.claims", "iss"}, &metadata.StringMatcher{
 										MatchPattern: &metadata.StringMatcher_Exact{Exact: "test-iss"}}),
+							},
+						},
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									"request.auth.groups", "group1"),
 							},
 						},
 						{
@@ -885,7 +892,7 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 		},
 		{
 			k: attrRequestGroups, v: "test-groups",
-			expect: generateMetadataListMatcher([]string{attrRequestGroups}, "test-groups"),
+			expect: generateMetadataListMatcher(attrRequestGroups, "test-groups"),
 		},
 		{
 			k: attrRequestPresenter, v: "*",

@@ -175,7 +175,7 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(k string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
@@ -191,11 +191,9 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 
 	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	for _, k := range keys {
-		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
-		})
-	}
+	paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+		Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
+	})
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
 		Path:   paths,
@@ -225,12 +223,10 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 			return nil
 		}
 		keys = []string{attrRequestClaims, claim}
+	} else if k == attrRequestGroups {
+		return generateMetadataListMatcher(k, v)
 	} else {
 		keys = []string{k}
-	}
-
-	if k == attrRequestGroups {
-		return generateMetadataListMatcher(keys, v)
 	}
 
 	var stringMatcher *metadata.StringMatcher
