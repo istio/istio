@@ -24,19 +24,17 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-// PushStatus tracks the status of a mush - metrics and errors.
+// PushContext tracks the status of a mush - metrics and errors.
 // Metrics are reset after a push - at the beginning all
 // values are zero, and when push completes the status is reset.
 // The struct is exposed in a debug endpoint - fields public to allow
 // easy serialization as json.
-type PushStatus struct {
-	// TODO: will be renamed as PushContext
-
+type PushContext struct {
 	mutex sync.Mutex
 
 	// ProxyStatus is keyed by the error code, and holds a map keyed
 	// by the ID.
-	ProxyStatus map[string]map[string]PushStatusEvent
+	ProxyStatus map[string]map[string]ProxyPushStatus
 
 	// Start represents the time of last config change that reset the
 	// push status.
@@ -46,7 +44,7 @@ type PushStatus struct {
 
 	// ContextMutex is used to sync the data cache.
 	// Currently it is used directly - to avoid making copies of the
-	// structs. All data is set when the PushStatus object is populated,
+	// structs. All data is set when the PushContext object is populated,
 	// from a single thread - only read locks are needed, data should not
 	// be changed by plugins
 	Mutex sync.RWMutex `json:"-,omitempty"`
@@ -85,9 +83,9 @@ type PushStatus struct {
 	initDone bool
 }
 
-// PushStatusEvent represents an event captured by push status.
+// ProxyPushStatus represents an event captured during config push to proxies.
 // It may contain additional message and the affected proxy.
-type PushStatusEvent struct {
+type ProxyPushStatus struct {
 	Proxy   string `json:"proxy,omitempty"`
 	Message string `json:"message,omitempty"`
 }
@@ -112,7 +110,7 @@ func newPushMetric(name, help string) *PushMetric {
 }
 
 // Add will add an case to the metric.
-func (ps *PushStatus) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
+func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -122,10 +120,10 @@ func (ps *PushStatus) Add(metric *PushMetric, key string, proxy *Proxy, msg stri
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
-		metricMap = map[string]PushStatusEvent{}
+		metricMap = map[string]ProxyPushStatus{}
 		ps.ProxyStatus[metric.Name] = metricMap
 	}
-	ev := PushStatusEvent{Message: msg}
+	ev := ProxyPushStatus{Message: msg}
 	if proxy != nil {
 		ev.Proxy = proxy.ID
 	}
@@ -194,24 +192,24 @@ var (
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
-	LastPushStatus *PushStatus
+	LastPushStatus *PushContext
 
 	// All metrics we registered.
 	metrics []*PushMetric
 )
 
-// NewStatus creates a new PushStatus structure to track push status.
-func NewStatus() *PushStatus {
+// NewStatus creates a new PushContext structure to track push status.
+func NewStatus() *PushContext {
 	// TODO: detect push in progress, don't update status if set
-	return &PushStatus{
+	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]PushStatusEvent{},
+		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		Start:             time.Now(),
 	}
 }
 
 // JSON implements json.Marshaller, with a lock.
-func (ps *PushStatus) JSON() ([]byte, error) {
+func (ps *PushContext) JSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
 	}
@@ -221,14 +219,14 @@ func (ps *PushStatus) JSON() ([]byte, error) {
 }
 
 // OnConfigChange is called when a config change is detected.
-func (ps *PushStatus) OnConfigChange() {
+func (ps *PushContext) OnConfigChange() {
 	LastPushStatus = ps
 	ps.UpdateMetrics()
 }
 
 // UpdateMetrics will update the prometheus metrics based on the
 // current status of the push.
-func (ps *PushStatus) UpdateMetrics() {
+func (ps *PushContext) UpdateMetrics() {
 	ps.mutex.Lock()
 	defer ps.mutex.Unlock()
 
@@ -244,7 +242,7 @@ func (ps *PushStatus) UpdateMetrics() {
 
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
-func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
+func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
 	configs := ps.VirtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
@@ -275,7 +273,7 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushStatus) InitContext(env *Environment) error {
+func (ps *PushContext) InitContext(env *Environment) error {
 	ps.Mutex.Lock()
 	defer ps.Mutex.Unlock()
 	if ps.initDone {
@@ -303,7 +301,7 @@ func (ps *PushStatus) InitContext(env *Environment) error {
 
 // Caches list of services in the registry, and creates a map
 // of hostname to service
-func (ps *PushStatus) initServiceRegistry(env *Environment) error {
+func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	services, err := env.Services()
 	if err != nil {
 		return err
@@ -316,7 +314,7 @@ func (ps *PushStatus) initServiceRegistry(env *Environment) error {
 }
 
 // Caches list of virtual services
-func (ps *PushStatus) initVirtualServices(env *Environment) error {
+func (ps *PushContext) initVirtualServices(env *Environment) error {
 	vservices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -384,7 +382,7 @@ func (ps *PushStatus) initVirtualServices(env *Environment) error {
 }
 
 // Split out of DestinationRule expensive conversions - once per push.
-func (ps *PushStatus) initDestinationRules(env *Environment) error {
+func (ps *PushContext) initDestinationRules(env *Environment) error {
 	configs, err := env.List(DestinationRule.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -396,7 +394,7 @@ func (ps *PushStatus) initDestinationRules(env *Environment) error {
 // SetDestinationRules is updates internal structures using a set of configs.
 // Split out of DestinationRule expensive conversions, computed once per push.
 // This also allows tests to inject a config without having the mock.
-func (ps *PushStatus) SetDestinationRules(configs []Config) {
+func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
 	byHosts := make(map[Hostname]*Config, len(configs))
@@ -411,7 +409,7 @@ func (ps *PushStatus) SetDestinationRules(configs []Config) {
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushStatus) DestinationRule(hostname Hostname) *Config {
+func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
 		return ps.destinationRuleByHosts[c]
 	}
@@ -419,7 +417,7 @@ func (ps *PushStatus) DestinationRule(hostname Hostname) *Config {
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushStatus) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
 	if subsetName == "" {
 		return nil

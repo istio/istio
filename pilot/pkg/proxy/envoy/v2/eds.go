@@ -144,7 +144,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(push *model.PushStatus, clusterName string, edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
 	//var ports model.PortList
@@ -314,7 +314,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	}
 }
 
-func (s *DiscoveryServer) pushEds(push *model.PushStatus, con *XdsConnection) error {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0

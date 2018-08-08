@@ -163,7 +163,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 		// TODO: env to customize
 		//if time.Since(push.Start) > 30*time.Second {
 		// Reset the stats, some errors may still be stale.
-		//s.env.PushStatus = model.NewStatus()
+		//s.env.PushContext = model.NewStatus()
 		//}
 	}
 }
@@ -179,7 +179,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		if s.env.PushStatus != nil {
 			s.env.PushStatus.OnConfigChange()
 		}
-		// PushStatus is reset after a config change. Previous status is
+		// PushContext is reset after a config change. Previous status is
 		// saved.
 		t0 := time.Now()
 		push := model.NewStatus()

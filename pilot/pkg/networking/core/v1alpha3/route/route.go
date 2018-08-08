@@ -87,7 +87,7 @@ type VirtualHostWrapper struct {
 func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	configStore model.IstioConfigStore,
-	push *model.PushStatus,
+	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
@@ -168,7 +168,7 @@ func separateVSHostsAndServices(virtualService model.Config,
 func buildVirtualHostsForVirtualService(
 	node *model.Proxy,
 	configStore model.IstioConfigStore,
-	push *model.PushStatus,
+	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
@@ -246,7 +246,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // Error indicates the given virtualService can't be used on the port.
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
-	push *model.PushStatus,
+	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
@@ -305,7 +305,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(push *model.PushStatus, node *model.Proxy, in *networking.HTTPRoute,
+func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	vsName string,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -666,7 +666,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushStatus, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, dst *networking.DestinationWeight) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}

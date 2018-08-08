@@ -85,7 +85,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		ttl := time.Duration(time.Nanosecond * 100)
-		push := &model.PushStatus{}
+		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -140,7 +140,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubset,
 		}
 
-		push := &model.PushStatus{}
+		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -180,7 +180,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
 
-		push := &model.PushStatus{}
+		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{
 
@@ -230,7 +230,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		rule.Subsets = []*networking.Subset{networkingSubset}
 		cnfg.Spec = networkingDestinationRule
 
-		push := &model.PushStatus{}
+		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
@@ -252,7 +252,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("port selector based traffic policy", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		push := &model.PushStatus{}
+		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
