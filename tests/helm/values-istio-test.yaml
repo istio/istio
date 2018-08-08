@@ -88,6 +88,9 @@ pilot:
   #image: gcr.io/istio-release/pilot:release-1.0-20180720-00-11
   # Override for 0.8 upgrade
   #image: costinm/pilot:costin-dev
+  env:
+    PILOT_PUSH_THROTTLE_COUNT: 100
+    GODEBUG: gctrace=2
   resources:
     requests:
       cpu: 2800m
@@ -126,6 +129,7 @@ prometheus:
 
 kiali:
   enabled: true
+  tag: latest
 
 certmanager:
   enabled: true
