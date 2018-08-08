@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
-    sidecar.istio.io/status: '{"version":"6d1029bd40a030e4930eea3b037216144044225279f0948dcb3ff10832aa7a83","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+    sidecar.istio.io/status: '{"version":"5fa3958d837fdb1606fd07b68c1d937d811dd6992ba31b410ede3a5c9acb906e","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
   creationTimestamp: null
   name: hello
 spec:
@@ -87,7 +87,7 @@ spec:
     - -x
     - ""
     - -b
-    - 80,
+    - "80"
     - -d
     - ""
     image: docker.io/istio/proxy_init:unittest

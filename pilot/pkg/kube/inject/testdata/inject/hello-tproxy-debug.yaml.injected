@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"4debaf670318756d772397a5978bd1fb17b0d8a45e6f708687220cc7f202eaf5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"81b18278f10342f89eaf2a80a90153109424e4054aa65288807f4d9c8da0d753","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -100,7 +100,7 @@ spec:
         - -x
         - ""
         - -b
-        - 80,
+        - "80"
         - -d
         - ""
         image: docker.io/istio/proxy_init:unittest
