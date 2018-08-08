@@ -175,7 +175,21 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-func generateMetadataListMatcher(keys []string, v *metadata.ListMatcher) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+	listMatcher := &metadata.ListMatcher{
+		MatchPattern: &metadata.ListMatcher_OneOf{
+			OneOf: &metadata.ValueMatcher{
+				MatchPattern: &metadata.ValueMatcher_StringMatch{
+					StringMatch: &metadata.StringMatcher{
+						MatchPattern: &metadata.StringMatcher_Exact{
+							Exact: v,
+						},
+					},
+				},
+			},
+		},
+	}
+
 	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
 	for _, k := range keys {
 		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
@@ -187,7 +201,7 @@ func generateMetadataListMatcher(keys []string, v *metadata.ListMatcher) *metada
 		Path:   paths,
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_ListMatch{
-				ListMatch: v,
+				ListMatch: listMatcher,
 			},
 		},
 	}
@@ -215,22 +229,8 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		keys = []string{k}
 	}
 
-	var listMatcher *metadata.ListMatcher
 	if k == attrRequestGroups {
-		listMatcher = &metadata.ListMatcher{
-			MatchPattern: &metadata.ListMatcher_OneOf{
-				OneOf: &metadata.ValueMatcher{
-					MatchPattern: &metadata.ValueMatcher_StringMatch{
-						StringMatch: &metadata.StringMatcher{
-							MatchPattern: &metadata.StringMatcher_Exact{
-								Exact: v,
-							},
-						},
-					},
-				},
-			},
-		}
-		return generateMetadataListMatcher(keys, listMatcher)
+		return generateMetadataListMatcher(keys, v)
 	}
 
 	var stringMatcher *metadata.StringMatcher

@@ -885,19 +885,7 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 		},
 		{
 			k: attrRequestGroups, v: "test-groups",
-			expect: generateMetadataListMatcher([]string{attrRequestGroups}, &metadata.ListMatcher{
-				MatchPattern: &metadata.ListMatcher_OneOf{
-					OneOf: &metadata.ValueMatcher{
-						MatchPattern: &metadata.ValueMatcher_StringMatch{
-							StringMatch: &metadata.StringMatcher{
-								MatchPattern: &metadata.StringMatcher_Exact{
-									Exact: "test-groups",
-								},
-							},
-						},
-					},
-				},
-			}),
+			expect: generateMetadataListMatcher([]string{attrRequestGroups}, "test-groups"),
 		},
 		{
 			k: attrRequestPresenter, v: "*",
