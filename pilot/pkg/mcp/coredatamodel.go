@@ -18,31 +18,21 @@ import (
 
 	mcpclient "istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pilot/pkg/model"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Updater struct {
-	CoreDataModel
-	configStore      model.ConfigStore
-	configDescriptor model.ConfigDescriptor
-	descriptors      map[string]model.ProtoSchema
+	controller  model.ConfigStoreCache
+	descriptors map[string]model.ProtoSchema
 }
 
-type CoreDataModel interface {
-	model.ConfigStore
-	// TODO: ServiceDiscovery
-}
-
-func NewUpdater(store model.ConfigStore, configDescriptor model.ConfigDescriptor) *Updater {
-	descriptors := make(map[string]model.ProtoSchema, len(configDescriptor))
-	for _, config := range configDescriptor {
+func NewUpdater(c model.ConfigStoreCache) *Updater {
+	descriptors := make(map[string]model.ProtoSchema, len(c.ConfigDescriptor()))
+	for _, config := range c.ConfigDescriptor() {
 		descriptors[config.MessageName] = config
 	}
-
 	return &Updater{
-		configStore:      store,
-		configDescriptor: configDescriptor,
-		descriptors:      descriptors,
+		controller:  c,
+		descriptors: descriptors,
 	}
 }
 
@@ -52,30 +42,12 @@ func (u *Updater) Update(change *mcpclient.Change) error {
 		if !ok {
 			return fmt.Errorf("unknown type: %s received by updater", change.MessageName)
 		}
-		c, exists := u.configStore.Get(descriptor.Type, obj.Metadata.Name, "")
+		c, exists := u.controller.Get(descriptor.Type, obj.Metadata.Name, "")
 		if exists {
 			c.Spec = obj.Resource
-			_, err := u.configStore.Update(*c)
+			_, err := u.controller.Update(*c)
 			return err
 		}
-		config := model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:              descriptor.Type,
-				Group:             descriptor.Group,
-				Version:           descriptor.Version,
-				Name:              obj.Metadata.Name,
-				Namespace:         "",
-				Domain:            "",
-				Labels:            map[string]string{},
-				Annotations:       map[string]string{},
-				ResourceVersion:   "",
-				CreationTimestamp: meta_v1.Time{},
-			},
-			Spec: obj.Resource,
-		}
-		_, err := u.configStore.Create(config)
-		return err
 	}
-
 	return nil
 }

@@ -284,8 +284,8 @@ func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
 	//TODO: how to define pilot Node ID?
 	clientNodeID := "some-id"
 	supportedTypes := make([]string, len(model.IstioConfigTypes))
-	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = model.MessageName
+	for _, model := range model.IstioConfigTypes {
+		supportedTypes = append(supportedTypes, model.MessageName)
 	}
 	log.Infof("InitMeshConfigProtocolClient supported types: %+v\n", supportedTypes)
 	u := coredatamodel.NewUpdater(s.istioConfigStore, model.IstioConfigTypes)
@@ -485,7 +485,11 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if args.Config.Controller != nil {
+	if args.MCPServerAddr != "" {
+		u := coredatamodel.NewUpdater()
+		s.configController = u.Store()
+
+	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller
 	} else if args.Config.FileDir != "" {
 		store := memory.Make(model.IstioConfigTypes)

@@ -28,6 +28,8 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pilot/pkg/model"
+	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,7 +44,8 @@ func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	t.Log("building & starting mock mcp server...")
-	mockMcpSession := runMcpServer(g, t)
+	mcpServer, err := runMcpServer(g, t)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Log("building pilot...")
 	istioConfigDir := testhelpers.TempDir()
@@ -56,7 +59,7 @@ func TestPilotMCPClient(t *testing.T) {
 	gateway := runEnvoy(t, pilotGrpcPort, pilotDebugPort)
 
 	defer func() {
-		mockMcpSession.Kill()
+		mcpServer.Close()
 		pilotSession.Kill()
 		gateway.TearDown()
 	}()
@@ -82,17 +85,20 @@ func TestPilotMCPClient(t *testing.T) {
 	}, "180s", "1s").Should(gomega.Succeed())
 }
 
-func runMcpServer(g *gomega.GomegaWithT, t *testing.T) *gexec.Session {
-	path, err := gexec.Build("istio.io/istio/tests/e2e/tests/pilot/mock/mcp")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+func runMcpServer(g *gomega.GomegaWithT, t *testing.T) (*mockmcp.Server, error) {
+	supportedTypes := []string{
+		fmt.Sprintf("type.googleapis.com/%s", model.VirtualService.MessageName),
+		fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName),
+		fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName),
+		fmt.Sprintf("type.googleapis.com/%s", model.EnvoyFilter.MessageName),
+	}
 
-	mockMcpCmd := exec.Command(path)
-	mockMcpSession, err := gexec.Start(mockMcpCmd, os.Stdout, os.Stderr)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	server, err := mockmcp.NewServer(mcpServerPort, supportedTypes)
+	if err != nil {
+		return nil, err
+	}
 
-	t.Log("checking if mock mcp server ready")
-	g.Eventually(mockMcpSession.Out, "10s").Should(gbytes.Say(`serving`))
-	return mockMcpSession
+	return server, nil
 }
 
 func runPilot(istioConfigDir, mcpServerPort string, grpcPort, debugPort int) (*gexec.Session, error) {

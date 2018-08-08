@@ -1,9 +1,10 @@
-package main
+package mcp
 
 import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 
 	"github.com/gogo/protobuf/proto"
 	google_protobuf "github.com/gogo/protobuf/types"
@@ -11,7 +12,6 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mcpserver "istio.io/istio/galley/pkg/mcp/server"
-	"istio.io/istio/pilot/pkg/model"
 )
 
 type mockWatcher struct{}
@@ -59,27 +59,68 @@ func (m mockWatcher) Watch(req *mcp.MeshConfigRequest,
 	}, cancelFunc
 }
 
-func main() {
-	log.Println("starting server")
-	listener, err := net.Listen("tcp", "0.0.0.0:15014")
+type Server struct {
+	// The internal snapshot.Cache that the server is using.
+	Watcher *mockWatcher
+
+	// TypeURLs that were originally passed in.
+	TypeURLs []string
+
+	// Port that the service is listening on.
+	Port int
+
+	// The gRPC compatible address of the service.
+	URL *url.URL
+
+	gs *grpc.Server
+	l  net.Listener
+}
+
+func NewServer(port string, typeUrls []string) (*Server, error) {
+	watcher := mockWatcher{}
+	s := mcpserver.New(watcher, typeUrls)
+
+	addr := fmt.Sprintf("127.0.0.1%s", port)
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("failed to setup listener: %v", err)
-	}
-	// load up all the supported typs for now??!
-	typeURLBase := "type.googleapis.com/"
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
-	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = typeURLBase + model.MessageName
+		return nil, err
 	}
 
-	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
-	server := mcpserver.New(mockWatcher{}, supportedTypes)
-	mcp.RegisterAggregatedMeshConfigServiceServer(grpcServer, server)
+	p := l.Addr().(*net.TCPAddr).Port
 
-	log.Println("serving...")
-	if err = grpcServer.Serve(listener); err != nil {
-		log.Fatalf("failed to server: %v", err)
+	u, err := url.Parse(fmt.Sprintf("tcp://localhost:%d", p))
+	if err != nil {
+		_ = l.Close()
+		return nil, err
 	}
+
+	gs := grpc.NewServer()
+
+	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	go func() { _ = gs.Serve(l) }()
+
+	return &Server{
+		Watcher:  &watcher,
+		TypeURLs: typeUrls,
+		Port:     p,
+		URL:      u,
+		gs:       gs,
+		l:        l,
+	}, nil
+}
+
+func (t *Server) Close() (err error) {
+	if t.gs != nil {
+		t.gs.GracefulStop()
+		t.gs = nil
+	}
+
+	t.l = nil // gRPC stack will close this
+	t.Watcher = nil
+	t.TypeURLs = nil
+	t.Port = 0
+
+	return
 }
 
 var firstGateway = &networking.Gateway{
@@ -91,7 +132,7 @@ var firstGateway = &networking.Gateway{
 				Protocol: "HTTP",
 			},
 			Hosts: []string{
-				"*",
+				"*.example.com",
 			},
 		},
 	},
@@ -106,7 +147,7 @@ var secondGateway = &networking.Gateway{
 				Protocol: "TCP",
 			},
 			Hosts: []string{
-				"*",
+				"*.example.org",
 			},
 		},
 	},
