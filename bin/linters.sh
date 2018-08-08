@@ -5,7 +5,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 WORKSPACE=$SCRIPTPATH/..
 
-cd ${WORKSPACE}
+cd "${WORKSPACE}"
 
 if [[ -z $SKIP_INIT ]];then
   bin/init.sh
@@ -25,7 +25,7 @@ echo 'licenses OK'
 
 echo 'Installing gometalinter ....'
 go get -u gopkg.in/alecthomas/gometalinter.v2
-gometalinter=$(which gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
+gometalinter=$(command -v gometalinter.v2 2> /dev/null || echo "${ISTIO_BIN}/gometalinter.v2")
 $gometalinter --install
 echo 'Gometalinter installed successfully ....'
 
@@ -40,6 +40,14 @@ popd
 
 $gometalinter --config=./mixer/tools/adapterlinter/gometalinter.json ./mixer/adapter/...
 echo 'gometalinter on adapters OK'
+
+echo 'Running testlinter ...'
+pushd tests/util/checker/testlinter
+go install .
+popd
+
+$gometalinter --config=./tests/util/checker/testlinter/testlinter.json ./...
+echo 'testlinter OK'
 
 echo 'Running helm lint on istio & istio-remote ....'
 helm lint ./install/kubernetes/helm/{istio,istio-remote}

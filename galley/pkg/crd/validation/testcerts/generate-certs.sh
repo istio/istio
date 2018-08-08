@@ -86,19 +86,24 @@ limitations under the License.
 
 EOF
 
-echo "// This file was generated using openssl by the gencerts.sh script" >> $outfile
-echo "// and holds raw certificates for the webhook tests." >> $outfile
-echo "" >> $outfile
-echo "package testcerts" >> $outfile
+{
+	echo "// This file was generated using openssl by the gencerts.sh script"
+	echo "// and holds raw certificates for the webhook tests."
+	echo ""
+	echo "package testcerts"
+} >> $outfile
+
 for file in CACert ServerKey ServerCert ClientKey ClientCert; do
 	data=$(cat ${file}.pem)
-	echo "" >> $outfile
-        echo "// ${file} is a test cert for dynamic admission controller." >> $outfile
-	echo "var $file = []byte(\`$data\`)" >> $outfile
+	{
+		echo ""
+		echo "// ${file} is a test cert for dynamic admission controller."
+		echo "var $file = []byte(\`$data\`)"
+	} >> $outfile
 done
 
 # Clean up after we're done.
-rm *.pem
-rm *.csr
-rm *.srl
-rm *.conf
+rm ./*.pem
+rm ./*.csr
+rm ./*.srl
+rm ./*.conf

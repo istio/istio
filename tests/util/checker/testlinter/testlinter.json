@@ -1,0 +1,13 @@
+{
+  "Deadline": "90s",
+  "Linters": {
+    "testlinter": {
+      "Command": "testlinter",
+      "Pattern": "PATH:LINE:COL:MESSAGE",
+      "PartitionStrategy": "directories"
+    }
+  },
+  "Enable": [
+    "testlinter"
+  ]
+}

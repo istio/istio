@@ -25,11 +25,8 @@ import (
 	"strings"
 	"time"
 
-	gogoproto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -107,7 +104,7 @@ func (descriptor ConfigDescriptor) Validate() error {
 		if !IsDNS1123Label(v.Plural) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
 		}
-		if proto.MessageType(v.MessageName) == nil && gogoproto.MessageType(v.MessageName) == nil {
+		if proto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
 		if _, exists := descriptorTypes[v.Type]; exists {
@@ -691,8 +688,8 @@ func ValidateDurationGogo(pd *types.Duration) error {
 }
 
 // ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *duration.Duration) error {
-	dur, err := ptypes.Duration(pd)
+func ValidateDuration(pd *types.Duration) error {
+	dur, err := types.DurationFromProto(pd)
 	if err != nil {
 		return err
 	}
@@ -705,9 +702,9 @@ func ValidateDuration(pd *duration.Duration) error {
 	return nil
 }
 
-// ValidateGogoDuration validates the gogoproto variant of duration.
+// ValidateGogoDuration validates the variant of duration.
 func ValidateGogoDuration(in *types.Duration) error {
-	return ValidateDuration(&duration.Duration{
+	return ValidateDuration(&types.Duration{
 		Seconds: in.Seconds,
 		Nanos:   in.Nanos,
 	})
@@ -723,7 +720,7 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 }
 
 // ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs error) {
+func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
@@ -734,8 +731,8 @@ func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs 
 		return
 	}
 
-	drainDuration, _ := ptypes.Duration(drainTime)
-	parentShutdownDuration, _ := ptypes.Duration(parentShutdown)
+	drainDuration, _ := types.DurationFromProto(drainTime)
+	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
@@ -766,23 +763,23 @@ func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs 
 }
 
 // ValidateRefreshDelay validates the discovery refresh delay time
-func ValidateRefreshDelay(refresh *duration.Duration) error {
+func ValidateRefreshDelay(refresh *types.Duration) error {
 	if err := ValidateDuration(refresh); err != nil {
 		return err
 	}
 
-	refreshDuration, _ := ptypes.Duration(refresh)
+	refreshDuration, _ := types.DurationFromProto(refresh)
 	err := ValidateDurationRange(refreshDuration, discoveryRefreshDelayMin, discoveryRefreshDelayMax)
 	return err
 }
 
 // ValidateConnectTimeout validates the envoy conncection timeout
-func ValidateConnectTimeout(timeout *duration.Duration) error {
+func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err
 	}
 
-	timeoutDuration, _ := ptypes.Duration(timeout)
+	timeoutDuration, _ := types.DurationFromProto(timeout)
 	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
 	return err
 }
@@ -807,12 +804,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
-	}
-
-	switch mesh.AuthPolicy {
-	case meshconfig.MeshConfig_NONE, meshconfig.MeshConfig_MUTUAL_TLS:
-	default:
-		errs = multierror.Append(errs, fmt.Errorf("unrecognized auth policy %q", mesh.AuthPolicy))
 	}
 
 	if err := ValidateRefreshDelay(mesh.RdsRefreshDelay); err != nil {

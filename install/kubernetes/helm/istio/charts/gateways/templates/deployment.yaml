@@ -7,12 +7,10 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
-    release: {{ $.Release.Name }}
-    heritage: {{ $.Release.Service }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
+    {{- template "common_labels" $ }}
 spec:
   replicas: {{ $spec.replicaCount }}
   template:
@@ -106,6 +104,9 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
+{{- if $spec.additionalContainers }}
+{{ toYaml $spec.additionalContainers | indent 8 }}
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -115,6 +116,12 @@ spec:
       - name: {{ .name }}
         secret:
           secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $spec.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
       affinity:

@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -472,10 +471,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
 // TODO: check subsets possibly conflicts between subsets.
-func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
-	if rule == nil {
-		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
-	}
+func isMTlsOn(rule *networking.DestinationRule, port *model.Port) bool {
 	if rule.TrafficPolicy == nil {
 		return false
 	}
@@ -539,16 +535,16 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
 				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ServerProtocol = mTLSModeToString(false)
 			}
 
 			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(rule, p))
 			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ClientProtocol = mTLSModeToString(false)
 			}
 
 			if info.ClientProtocol != info.ServerProtocol {

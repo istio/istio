@@ -78,8 +78,7 @@ GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
 
 if [[ "${PUSH_DOCKER}" == "true" ]]; then
-  for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar.gz
-  do
+  for TAR_PATH in "${OUTPUT_PATH}"/docker/*.tar.gz; do
     BASE_NAME=$(basename "$TAR_PATH")
     TAR_NAME="${BASE_NAME%.*}"
     IMAGE_NAME="${TAR_NAME%.*}"
