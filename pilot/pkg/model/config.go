@@ -799,13 +799,10 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 }
 
 func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Service, port *Port) *Config {
-	// Hostname should be FQDN, so namespace can be extracted by parsing hostname.
-	parts := strings.Split(string(service.Hostname), ".")
-	if len(parts) < 2 {
-		// Bad hostname, return no policy.
+	if len(service.Attributes.Namespace) == 0 {
 		return nil
 	}
-	namespace := parts[1]
+	namespace := service.Attributes.Namespace
 	specs, err := store.List(AuthenticationPolicy.Type, namespace)
 	if err != nil {
 		return nil
