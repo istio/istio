@@ -30,7 +30,7 @@ spec:
       priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
       containers:
-        - name: {{ $spec.labels.istio }}
+        - name: istio-proxy
           image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
@@ -118,6 +118,9 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
+{{- if $spec.additionalContainers }}
+{{ toYaml $spec.additionalContainers | indent 8 }}
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -127,6 +130,12 @@ spec:
       - name: {{ .name }}
         secret:
           secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $spec.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
       affinity:
