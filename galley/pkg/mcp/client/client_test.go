@@ -64,15 +64,7 @@ func (ts *testStream) wantRequest(messageName string, want *mcp.MeshConfigReques
 	select {
 	case got := <-ts.requestC:
 		got = proto.Clone(got).(*mcp.MeshConfigRequest)
-		// verify the presence of errorDetails and the error code. Ignore everything else.
-		if got.ErrorDetail != nil {
-			got.ErrorDetail.Message = ""
-			got.ErrorDetail.Details = nil
-		}
-		if !reflect.DeepEqual(got, want) {
-			return fmt.Errorf("bad request\n got %v \nwant %v", got, want)
-		}
-		return nil
+		return checkRequest(got, want)
 	case <-time.After(time.Second):
 		return fmt.Errorf("no request received")
 	}
@@ -112,6 +104,19 @@ func (ts *testStream) Update(change *Change) error {
 	ts.Lock()
 	defer ts.Unlock()
 	ts.change[change.MessageName] = change
+	return nil
+}
+
+func checkRequest(got *mcp.MeshConfigRequest, want *mcp.MeshConfigRequest) error {
+	// verify the presence of errorDetails and the error code. Ignore everything else.
+	if got.ErrorDetail != nil {
+		got.ErrorDetail.Message = ""
+		got.ErrorDetail.Details = nil
+	}
+	if !reflect.DeepEqual(got, want) {
+		return fmt.Errorf("bad request\n got %v \nwant %v", got, want)
+	}
+
 	return nil
 }
 
@@ -159,6 +164,12 @@ var (
 		fakeType0MessageName,
 		fakeType1MessageName,
 		fakeType2MessageName,
+	}
+
+	supportedTypeUrls = []string{
+		typePrefix + fakeType0MessageName,
+		typePrefix + fakeType1MessageName,
+		typePrefix + fakeType2MessageName,
 	}
 
 	fake0_0      = &fakeType0{fakeTypeBase{"f0_0"}}
@@ -222,8 +233,33 @@ func init() {
 		Metadata: &types.Struct{Fields: map[string]*types.Value{}},
 	}
 	for k, v := range metadata {
-		client.Metadata.Fields[k] = &types.Value{&types.Value_StringValue{v}}
+		client.Metadata.Fields[k] = &types.Value{Kind: &types.Value_StringValue{v}}
 	}
+}
+
+func makeRequest(typeURL, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
+	req := &mcp.MeshConfigRequest{
+		Client:        client,
+		TypeUrl:       typeURL,
+		VersionInfo:   version,
+		ResponseNonce: nonce,
+	}
+	if errorCode != codes.OK {
+		req.ErrorDetail = status.New(errorCode, "").Proto()
+	}
+	return req
+}
+
+func makeResponse(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *mcp.MeshConfigResponse {
+	r := &mcp.MeshConfigResponse{
+		TypeUrl:     typeURL,
+		VersionInfo: version,
+		Nonce:       nonce,
+	}
+	for _, envelope := range envelopes {
+		r.Envelopes = append(r.Envelopes, *envelope)
+	}
+	return r
 }
 
 // Verify reconnect on send error
@@ -248,29 +284,17 @@ func TestSingleTypeCases(t *testing.T) {
 		ts.close()
 	}()
 
-	makeRequest := func(typeURL, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
-		req := &mcp.MeshConfigRequest{
-			Client:        client,
-			TypeUrl:       typeURL,
-			VersionInfo:   version,
-			ResponseNonce: nonce,
-		}
-		if errorCode != codes.OK {
-			req.ErrorDetail = status.New(errorCode, "").Proto()
-		}
-		return req
+	// Check metadata fields first
+	if !reflect.DeepEqual(c.Metadata(), metadata) {
+		t.Fatalf("metadata mismatch: got:\n%v\nwanted:\n%v\n", c.metadata, metadata)
 	}
 
-	makeResponse := func(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *mcp.MeshConfigResponse {
-		r := &mcp.MeshConfigResponse{
-			TypeUrl:     typeURL,
-			VersionInfo: version,
-			Nonce:       nonce,
-		}
-		for _, envelope := range envelopes {
-			r.Envelopes = append(r.Envelopes, *envelope)
-		}
-		return r
+	if c.ID() != key {
+		t.Fatalf("id mismatch: got\n%v\nwanted:\n%v\n", c.ID(), key)
+	}
+
+	if !reflect.DeepEqual(c.SupportedTypeURLs(), supportedTypeUrls) {
+		t.Fatalf("type url mismatch: got:\n%v\nwanted:\n%v\n", c.SupportedTypeURLs(), supportedTypeUrls)
 	}
 
 	wantInitial := make(map[string]*mcp.MeshConfigRequest)
@@ -296,6 +320,7 @@ func TestSingleTypeCases(t *testing.T) {
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
 		wantChange   *Change
+		wantJournal  []RecentRequestInfo
 		updateError  bool
 	}{
 		{
@@ -415,6 +440,7 @@ func TestSingleTypeCases(t *testing.T) {
 					Version:     "type0/v1",
 				}},
 			},
+			wantJournal: nil,
 		},
 	}
 
@@ -436,6 +462,15 @@ func TestSingleTypeCases(t *testing.T) {
 
 		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to receive correct request: %v", step.name, err)
+		}
+
+		entries := c.SnapshotRequestInfo()
+		if len(entries) == 0 {
+			t.Fatal("No journal entries not found.")
+		}
+		lastEntry := entries[len(entries)-1]
+		if err := checkRequest(lastEntry.Request, step.wantRequest); err != nil {
+			t.Fatalf("%v: failed to publish the right journal entries: %v", step.name, err)
 		}
 	}
 }

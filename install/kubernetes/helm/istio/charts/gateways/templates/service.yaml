@@ -8,7 +8,7 @@ metadata:
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   annotations:
     {{- range $key, $val := $spec.serviceAnnotations }}
-    {{ $key }}: {{ $val }}
+    {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}

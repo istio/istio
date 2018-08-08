@@ -43,6 +43,8 @@ e2e_docker: push
 
 endif
 
+E2E_TIMEOUT ?= 25
+
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
@@ -177,19 +179,19 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 test/local/cloudfoundry/e2e_pilotv2: out_dir
 	sudo apt update

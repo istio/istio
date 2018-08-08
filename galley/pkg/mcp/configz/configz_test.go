@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -71,7 +71,7 @@ func TestConfigZ(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
-	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", &empty.Empty{})
+	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", &types.Empty{})
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
