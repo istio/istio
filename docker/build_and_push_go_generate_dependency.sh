@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# TODO: until https://github.com/istio/istio/issues/7745 is fixed.
 # This is a temporary script, only to be used until we have a better official
 # place and procedure for generation. PLEASE use with caution
 # (read: not for general usage).
