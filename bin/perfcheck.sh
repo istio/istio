@@ -72,7 +72,7 @@ fi
 
 # Search and find the baseline files within the project
 function findBaselineFiles() {
-    find ${TARGET_DIR} -name ${BASELINE_FILENAME}
+    find "${TARGET_DIR}" -name ${BASELINE_FILENAME}
 }
 
 # load the baseline file with the name as first parameter
@@ -97,8 +97,8 @@ function loadBaselineFile() {
 function getColumn() {
     local ENTRY="${1}"
     local COLUMN="${2}"
-    local PARTS=( ${ENTRY} )
-    echo ${PARTS[${COLUMN}]}
+    local PARTS=( "${ENTRY}" )
+    echo "${PARTS[${COLUMN}]}"
 }
 
 # given the cleaned-up contents of the baseline or the result output, find and return the entry matching the named benchmark.
