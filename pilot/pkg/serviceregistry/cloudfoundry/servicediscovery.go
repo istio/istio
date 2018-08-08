@@ -53,11 +53,17 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 
 	port := sd.servicePort()
 	for _, route := range resp.GetRoutes() {
+		hostname := model.Hostname(route.Hostname)
 		services = append(services, &model.Service{
-			Hostname:     model.Hostname(route.Hostname),
+			Hostname:     hostname,
 			Ports:        []*model.Port{port},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name: string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+				UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+			},
 		})
 	}
 
@@ -73,12 +79,18 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 
 	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
+		hostname := model.Hostname((internalRoute.Hostname))
 		services = append(services, &model.Service{
-			Hostname:     model.Hostname(internalRoute.Hostname),
+			Hostname:     hostname,
 			Address:      internalRoute.Vip,
 			Ports:        []*model.Port{internalRouteServicePort},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name: string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+				UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+			},
 		})
 	}
 
@@ -139,6 +151,11 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 					Ports:        []*model.Port{port},
 					MeshExternal: false,
 					Resolution:   model.ClientSideLB,
+					Attributes: model.ServiceAttributes{
+						Name: string(hostname),
+						Namespace: model.IstioDefaultConfigNamespace,
+						UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+					},
 				},
 			}
 
@@ -180,6 +197,11 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 						Ports:        []*model.Port{internalRouteServicePort},
 						MeshExternal: false,
 						Resolution:   model.ClientSideLB,
+						Attributes: model.ServiceAttributes{
+							Name: string(hostname),
+							Namespace: model.IstioDefaultConfigNamespace,
+							UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+						},
 					},
 				})
 			}

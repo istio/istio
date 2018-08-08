@@ -88,13 +88,19 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		svcPorts = append(svcPorts, port)
 	}
 
+	hostname := serviceHostname(name)
 	out := &model.Service{
-		Hostname:     serviceHostname(name),
+		Hostname:     hostname,
 		Address:      "0.0.0.0",
 		Ports:        svcPorts,
 		ExternalName: model.Hostname(externalName),
 		MeshExternal: meshExternal,
 		Resolution:   resolution,
+		Attributes: model.ServiceAttributes{
+			Name: string(hostname),
+			Namespace: model.IstioDefaultConfigNamespace,
+			UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+		},
 	}
 
 	return out
@@ -117,6 +123,7 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		resolution = model.DNSLB
 	}
 
+	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     addr,
@@ -125,13 +132,18 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 		},
 		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
-			Hostname: serviceHostname(instance.ServiceName),
+			Hostname: hostname,
 			Address:  instance.ServiceAddress,
 			Ports:    model.PortList{port},
 			// TODO ExternalName come from metadata?
 			ExternalName: model.Hostname(externalName),
 			MeshExternal: meshExternal,
 			Resolution:   resolution,
+			Attributes: model.ServiceAttributes{
+				Name: string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+				UID: fmt.Sprintf("istio://%s/services/%s", namespace, string(hostname)),
+			},
 		},
 		Labels: labels,
 	}

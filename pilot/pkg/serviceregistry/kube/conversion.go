@@ -106,7 +106,6 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	return &model.Service{
 		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:                 ports,
-		Namespace:             svc.Namespace,
 		Address:               addr,
 		ExternalName:          model.Hostname(external),
 		ServiceAccounts:       serviceaccounts,
@@ -114,6 +113,11 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		MeshExternal:          meshExternal,
 		Resolution:            resolution,
 		CreationTime:          svc.CreationTimestamp.Time,
+		Attributes: model.ServiceAttributes{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
+		},
 	}
 }
 

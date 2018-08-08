@@ -273,7 +273,7 @@ func modifyOutboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, h
 func buildInboundRouteConfig(push *model.PushStatus, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
 	config := in.Env.IstioConfigStore
 
-	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
+	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service)
 	out := &mccpb.ServiceConfig{
 		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},

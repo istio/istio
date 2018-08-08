@@ -273,53 +273,9 @@ func (ps *PushStatus) VirtualServices(gateways map[string]bool) []Config {
 	return out
 }
 
-// GetServiceAttributes retrieves the UID string of a service and parses
-// the hostname into name and namespace. It was likely the most inefficient
-// method in Istio (and probably beyond).
+// GetServiceAttributes returns the service's attributes
 func (ps *PushStatus) GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error) {
-	// The original code was calling GetService(host) in each registry, and
-	// GetServiceAttributes in the registry having the entry.
 
-	// For consul and most others, it was returning hostname, default, nil
-	// For ServiceEntryStore, returns the same thing - but checks if
-	// service exists, and returns the correct namespace (no UID) - but that's
-	// the namespace where the ServiceEntry was defined, not where
-	// the workload is running
-
-	// For k8s - it just parses the name and returns UID, while checking
-	// for existence
-
-	// TODO: lookup the service by hostname (using a hashmap), and use labels
-	// for namespace.
-
-	s, found := ps.ServiceByHostname[hostname]
-	if found && len(s.Namespace) > 0 {
-		// Namespace explicitly set. For consistency with non-k8s platform, the name
-		// will be the full name of the service.
-
-		return &ServiceAttributes{
-			Name:      string(hostname),
-			Namespace: s.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", s.Namespace, hostname),
-		}, nil
-	}
-
-	// TODO: handle custom suffix
-	if strings.HasSuffix(string(hostname), ".cluster.local") {
-		name, namespace, err := parseHostname(hostname)
-		if err == nil {
-			return &ServiceAttributes{
-				Name:      name,
-				Namespace: namespace,
-				UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-			}, nil
-		}
-	}
-
-	return &ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: "default",
-	}, nil
 }
 
 // parseHostname extracts service name and namespace from the service hostname
