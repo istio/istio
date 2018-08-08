@@ -829,8 +829,8 @@ func TestGenerateMetadataStringMatcher(t *testing.T) {
 			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "aa"}},
 			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "bb"}},
 		},
-		Value: &metadata.MetadataMatcher_Value{
-			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: &metadata.StringMatcher{
 					MatchPattern: &metadata.StringMatcher_Regex{
 						Regex: "regex",
@@ -880,6 +880,22 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			expect: generateMetadataStringMatcher([]string{attrRequestAudiences}, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Exact{
 					Exact: "test-audiences",
+				},
+			}),
+		},
+		{
+			k: attrRequestGroups, v: "test-groups",
+			expect: generateMetadataListMatcher([]string{attrRequestGroups}, &metadata.ListMatcher{
+				MatchPattern: &metadata.ListMatcher_OneOf{
+					OneOf: &metadata.ValueMatcher{
+						MatchPattern: &metadata.ValueMatcher_StringMatch{
+							StringMatch: &metadata.StringMatcher{
+								MatchPattern: &metadata.StringMatcher_Exact{
+									Exact: "test-groups",
+								},
+							},
+						},
+					},
 				},
 			}),
 		},

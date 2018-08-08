@@ -59,6 +59,7 @@ const (
 	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
+	attrRequestGroups    = "request.auth.groups"    // intended group(s) for this authentication information.
 	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
 	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 
@@ -149,7 +150,7 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 // via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
 func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 	switch k {
-	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
+	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences, attrRequestGroups,
 		attrRequestPresenter:
 		return true
 	}
@@ -166,9 +167,27 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
 		Path:   paths,
-		Value: &metadata.MetadataMatcher_Value{
-			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: v,
+			},
+		},
+	}
+}
+
+func generateMetadataListMatcher(keys []string, v *metadata.ListMatcher) *metadata.MetadataMatcher {
+	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
+	for _, k := range keys {
+		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
+		})
+	}
+	return &metadata.MetadataMatcher{
+		Filter: authn.AuthnFilterName,
+		Path:   paths,
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_ListMatch{
+				ListMatch: v,
 			},
 		},
 	}
@@ -194,6 +213,24 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		keys = []string{attrRequestClaims, claim}
 	} else {
 		keys = []string{k}
+	}
+
+	var listMatcher *metadata.ListMatcher
+	if k == attrRequestGroups {
+		listMatcher = &metadata.ListMatcher{
+			MatchPattern: &metadata.ListMatcher_OneOf{
+				OneOf: &metadata.ValueMatcher{
+					MatchPattern: &metadata.ValueMatcher_StringMatch{
+						StringMatch: &metadata.StringMatcher{
+							MatchPattern: &metadata.StringMatcher_Exact{
+								Exact: v,
+							},
+						},
+					},
+				},
+			},
+		}
+		return generateMetadataListMatcher(keys, listMatcher)
 	}
 
 	var stringMatcher *metadata.StringMatcher
