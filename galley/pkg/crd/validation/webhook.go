@@ -50,7 +50,7 @@ var (
 )
 
 const (
-	waitEndpointReadyDelay = 100 * time.Millisecond
+	watchDebounceDelay = 100 * time.Millisecond
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
