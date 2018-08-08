@@ -62,28 +62,31 @@ func NewPlugin() plugin.Plugin {
 	return Plugin{}
 }
 
-// RequireTLS returns true and pointer to mTLS params if the policy use mTLS for (peer) authentication.
+// GetMutualTLS returns pointer to mTLS params if the policy use mTLS for (peer) authentication.
 // (note that mTLS params can still be nil). Otherwise, return (false, nil).
-// TODO(incfly): delete this since we now we setup filter chain match and tls context all together.
-func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.MutualTls) {
+// TODO(incfly): remove proxyType parameter and handle the checking from callers.
+func GetMutualTLS(policy *authn.Policy, proxyType model.NodeType) *authn.MutualTls {
 	if policy == nil {
-		return false, nil
+		return nil
 	}
 	if len(policy.Peers) > 0 {
 		for _, method := range policy.Peers {
 			switch method.GetParams().(type) {
 			case *authn.PeerAuthenticationMethod_Mtls:
 				if proxyType == model.Sidecar {
-					return true, method.GetMtls()
+					if method.GetMtls() != nil {
+						return method.GetMtls()
+					} else {
+						return &authn.MutualTls{Mode: authn.MutualTls_STRICT}
+					}
 				}
-
-				return false, nil
+				return nil
 			default:
 				continue
 			}
 		}
 	}
-	return false, nil
+	return nil
 }
 
 // setupFilterChains sets up filter chains based on authentication policy.
@@ -125,39 +128,35 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 			Value: true,
 		},
 	}
-	for _, method := range authnPolicy.Peers {
-		switch method.GetParams().(type) {
-		case *authn.PeerAuthenticationMethod_Mtls:
-			if method.GetMtls().GetMode() == authn.MutualTls_STRICT {
-				log.Infof("Allow only istio mutual TLS traffic")
-				return []plugin.FilterChain{
+	mtls := GetMutualTLS(authnPolicy, model.Sidecar)
+	if mtls == nil {
+		return nil
+	}
+	if mtls.GetMode() == authn.MutualTls_STRICT {
+		log.Debug("Allow only istio mutual TLS traffic")
+		return []plugin.FilterChain{
+			{
+				TLSContext: tls,
+			}}
+	}
+	if mtls.GetMode() == authn.MutualTls_PERMISSIVE {
+		log.Debug("Allow both, ALPN istio and legacy traffic")
+		return []plugin.FilterChain{
+			{
+				FilterChainMatch: alpnIstioMatch,
+				TLSContext:       tls,
+				RequiredListenerFilters: []ldsv2.ListenerFilter{
 					{
-						TLSContext: tls,
-					}}
-			}
-			if method.GetMtls().GetMode() == authn.MutualTls_PERMISSIVE {
-				log.Infof("Allow both, ALPN istio and legacy traffic")
-				return []plugin.FilterChain{
-					{
-						FilterChainMatch: alpnIstioMatch,
-						TLSContext:       tls,
-						RequiredListenerFilters: []ldsv2.ListenerFilter{
-							{
-								Name:   EnvoyTLSInspectorFilterName,
-								Config: &types.Struct{},
-							},
-						},
+						Name:   EnvoyTLSInspectorFilterName,
+						Config: &types.Struct{},
 					},
-					{
-						FilterChainMatch: &ldsv2.FilterChainMatch{},
-					},
-				}
-			}
-		default:
-			continue
+				},
+			},
+			{
+				FilterChainMatch: &ldsv2.FilterChainMatch{},
+			},
 		}
 	}
-	// No peer authentication found.
 	return nil
 }
 
@@ -165,7 +164,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	hostname := in.ServiceInstance.Service.Hostname
 	port := in.ServiceInstance.Endpoint.ServicePort
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.Mesh, in.Env.IstioConfigStore, hostname, port)
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, hostname, port)
 	return setupFilterChains(authnPolicy)
 }
 

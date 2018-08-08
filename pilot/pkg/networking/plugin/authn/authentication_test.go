@@ -37,19 +37,16 @@ func TestRequireTls(t *testing.T) {
 	cases := []struct {
 		name           string
 		in             *authn.Policy
-		expected       bool
 		expectedParams *authn.MutualTls
 	}{
 		{
 			name:           "Null policy",
 			in:             nil,
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
 			name:           "Empty policy",
 			in:             &authn.Policy{},
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
@@ -59,8 +56,7 @@ func TestRequireTls(t *testing.T) {
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected:       true,
-			expectedParams: nil,
+			expectedParams: &authn.MutualTls{Mode: authn.MutualTls_STRICT},
 		},
 		{
 			name: "Policy with mTls and Jwt",
@@ -78,7 +74,6 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       true,
 			expectedParams: &authn.MutualTls{AllowTls: true},
 		},
 		{
@@ -90,13 +85,12 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       false,
 			expectedParams: nil,
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
-			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
+		if params := GetMutualTLS(c.in, model.Sidecar); !reflect.DeepEqual(c.expectedParams, params) {
+			t.Errorf("%s: requireTLS(%v): got(%v) != want(%v)\n", c.name, c.in, params, c.expectedParams)
 		}
 	}
 }
