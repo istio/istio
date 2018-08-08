@@ -89,7 +89,7 @@ pilot:
   # Override for 0.8 upgrade
   #image: costinm/pilot:costin-dev
   env:
-    PILOT_PUSH_THROTTLE_COUNT: 100
+    PILOT_PUSH_THROTTLE: 50
     GODEBUG: gctrace=2
   resources:
     requests:
