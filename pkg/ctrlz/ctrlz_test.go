@@ -25,7 +25,13 @@ func TestStartStop(t *testing.T) {
 	listeningTestProbe = wg.Done
 	defer func() { listeningTestProbe = nil }()
 	o := DefaultOptions()
-	go Run(o, nil)
+	s, _ := Run(o, nil)
 	wg.Wait()
-	Stop()
+	s.Close()
+
+	listeningTestProbe = nil
+	o = DefaultOptions()
+	o.Port = 0
+	s, _ = Run(o, nil)
+	s.Close()
 }

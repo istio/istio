@@ -63,7 +63,7 @@ func TestConfigZ(t *testing.T) {
 	defer cancel()
 
 	o := ctrlz.DefaultOptions()
-	go ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
+	ctrlz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
 
@@ -80,6 +80,8 @@ func TestConfigZ(t *testing.T) {
 	t.Run("configz with 1 request", func(tt *testing.T) { testConfigZWithOneRequest(tt, baseURL) })
 
 	t.Run("configj with 1 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
+
+	ctrlz.Close()
 }
 
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
