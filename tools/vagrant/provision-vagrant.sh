@@ -31,9 +31,13 @@ mv "$HOME/go" "$HOME/.go"
 touch "$HOME/.${shell_profile}"
 {
     echo '# GoLang'
+    # shellcheck disable=SC2016
     echo 'export GOROOT=$HOME/.go'
+    # shellcheck disable=SC2016
     echo 'export PATH=$PATH:$GOROOT/bin'
+    # shellcheck disable=SC2016
     echo 'export GOPATH=$HOME/golang'
+    # shellcheck disable=SC2016
     echo 'export PATH=$PATH:$GOPATH/bin'
 } >> "$HOME/.${shell_profile}"
 

@@ -42,7 +42,7 @@ function usage() {
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
-  exit ${2:-1}
+  exit "${2:-1}"
 }
 
 while getopts d:i:o:v: arg ; do
@@ -141,7 +141,7 @@ for unwanted_manifest in \
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
 done
 
-ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy
@@ -151,4 +151,4 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf $TEMP_DIR
+rm -rf "$TEMP_DIR"
