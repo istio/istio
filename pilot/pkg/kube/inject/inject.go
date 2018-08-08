@@ -192,17 +192,18 @@ func splitPorts(portsString string) []string {
 }
 
 func parsePorts(portsString string) ([]int, error) {
+	portsString = strings.TrimSpace(portsString)
+	ports := make([]int, 0)
 	if len(portsString) > 0 {
-		ports := make([]int, len(portsString))
-		for i, portStr := range splitPorts(portsString) {
-			port, err := strconv.ParseInt(portStr, 10, 16)
+		for _, portStr := range splitPorts(portsString) {
+			port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
 			if err != nil {
 				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
 			}
-			ports[i] = int(port)
+			ports = append(ports, int(port))
 		}
 	}
-	return nil, nil
+	return ports, nil
 }
 
 func validatePortList(ports string) error {
