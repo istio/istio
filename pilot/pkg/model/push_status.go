@@ -52,13 +52,13 @@ type PushStatus struct {
 	// structs. All data is set when the PushStatus object is populated,
 	// from a single thread - only read locks are needed, data should not
 	// be changed by plugins
-	Mutex sync.RWMutex
+	Mutex sync.RWMutex `json:"-,omitempty"`
 
 	// Services list all services in the system at the time push started.
-	Services []*Service
+	Services []*Service `json:"-,omitempty"`
 
 	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service
+	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
 
 	//
 	//ConfigsByType map[string][]*Config
@@ -75,7 +75,7 @@ type PushStatus struct {
 	// for a service.
 	//	ServiceAccounts map[string][]string
 	// Temp: the code in alpha3 should use VirtualService directly
-	VirtualServiceConfigs []Config
+	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*Config
@@ -83,7 +83,7 @@ type PushStatus struct {
 	//TODO: gateways              []*networking.Gateway
 
 	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment
+	Env *Environment `json:"-,omitempty"`
 
 	initDone bool
 }
