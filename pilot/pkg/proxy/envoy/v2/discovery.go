@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"strconv"
 )
 
 var (
@@ -77,6 +78,18 @@ type DiscoveryServer struct {
 	DebugConfigs bool
 }
 
+func intEnv(env string, def int ) int {
+	envValue := os.Getenv(env)
+	if len(envValue) == 0 {
+		return def
+	}
+	n, err := strconv.Atoi(envValue)
+	if err == nil && n > 0 {
+		return n
+	}
+	return def
+}
+
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
 func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) *DiscoveryServer {
 	out := &DiscoveryServer{
@@ -91,8 +104,11 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 
 	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
 
-	rate := time.Second / 10
-	burstLimit := 100
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
+
+	rate := time.Second / time.Duration(pushThrottle)
+	burstLimit := pushBurst
 	tick := time.NewTicker(rate)
 	out.throttle = make(chan time.Time, burstLimit)
 	go func() {
