@@ -25,6 +25,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"strings"
 )
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
@@ -62,7 +63,9 @@ func GenCSRTemplate(options CertOptions) (*x509.CertificateRequest, error) {
 			return nil, err
 		}
 		if options.IsDualUse {
-			template.Subject.CommonName = h
+			// only first hostname used for CN
+			first := strings.SplitN(h, ",", 2)[0]
+			template.Subject.CommonName = first
 		}
 		template.ExtraExtensions = []pkix.Extension{*s}
 	}

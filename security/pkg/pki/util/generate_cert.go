@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -218,7 +219,9 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 			return nil, err
 		}
 		if options.IsDualUse {
-			subject.CommonName = options.Host
+			// only first hostname used for CN
+			first := strings.SplitN(h, ",", 2)[0]
+			subject.CommonName = first
 		}
 		exts = []pkix.Extension{*s}
 	}

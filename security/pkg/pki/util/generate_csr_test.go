@@ -70,19 +70,35 @@ func TestGenCSRWithInvalidOption(t *testing.T) {
 }
 
 func TestGenCSRTemplateForDualUse(t *testing.T) {
-	opts := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
-		IsDualUse:  true,
+	tt := map[string]struct {
+		host       string
+		expectedCN string
+	}{
+		"Single host": {
+			host:       "bla.com",
+			expectedCN: "bla.com",
+		},
+		"Multiple hosts": {
+			host:       "a.org,b.net,c.groups",
+			expectedCN: "a.org",
+		},
 	}
 
-	csr, err := GenCSRTemplate(opts)
-	if err != nil {
-		t.Error(err)
-	}
+	for _, tc := range tt {
+		opts := CertOptions{
+			Host:       tc.host,
+			Org:        "MyOrg",
+			RSAKeySize: 512,
+			IsDualUse:  true,
+		}
 
-	if csr.Subject.CommonName != opts.Host {
-		t.Errorf("unexpected value for 'CommonName' field: want %v but got %v", opts.Host, csr.Subject.CommonName)
+		csr, err := GenCSRTemplate(opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if csr.Subject.CommonName != tc.expectedCN {
+			t.Errorf("unexpected value for 'CommonName' field: want %v but got %v", tc.expectedCN, csr.Subject.CommonName)
+		}
 	}
 }

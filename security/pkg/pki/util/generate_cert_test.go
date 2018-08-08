@@ -244,6 +244,32 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 				CommonName:  "spiffe://domain/ns/bar/sa/foo",
 			},
 		},
+		{
+			name: "Generate dual-use cert with multiple host names",
+			certOptions: CertOptions{
+				Host:         "a,b,c",
+				NotBefore:    notBefore,
+				TTL:          ttl,
+				SignerCert:   caCert,
+				SignerPriv:   caPriv,
+				Org:          "",
+				IsCA:         false,
+				IsSelfSigned: false,
+				IsClient:     true,
+				IsServer:     true,
+				RSAKeySize:   512,
+				IsDualUse:    true,
+			},
+			verifyFields: &VerifyFields{
+				ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+				IsCA:        false,
+				KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				NotBefore:   notBefore,
+				TTL:         ttl,
+				Org:         "MyOrg",
+				CommonName:  "a", // only first host used for CN
+			},
+		},
 	}
 
 	for _, c := range cases {
