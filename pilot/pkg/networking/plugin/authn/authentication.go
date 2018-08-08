@@ -46,9 +46,6 @@ const (
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
 
-	// Defautl cache duration for JWT public key. This should be moved to a global config.
-	jwtPublicKeyCacheSeconds = 60 * 5
-
 	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
 	// EnvoyRawBufferMatch is the transport protocol name when tls multiplexed is used.
@@ -88,21 +85,6 @@ func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.Mu
 	return false, nil
 }
 
-// JwksURIClusterName returns cluster name for the jwks URI. This should be used
-// to override the name for outbound cluster that are added for Jwks URI so that they
-// can be referred correctly in the JWT filter config.
-func JwksURIClusterName(hostname string, port *model.Port) string {
-	const clusterPrefix = "jwks."
-	const maxClusterNameLength = 189 - len(clusterPrefix)
-	name := hostname + "|" + port.Name
-	if len(name) > maxClusterNameLength {
-		prefix := name[:maxClusterNameLength-sha1.Size*2]
-		sum := sha1.Sum([]byte(name))
-		name = fmt.Sprintf("%s%x", prefix, sum)
-	}
-	return clusterPrefix + name
-}
-
 // CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
@@ -131,7 +113,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -154,37 +136,18 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		if useInlinePublicKey {
-			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
-			}
+		jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+		if err != nil {
+			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+		}
 
-			// Put empty string in config even if above ResolveJwtPubKey fails.
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-				LocalJwks: &jwtfilter.DataSource{
-					Specifier: &jwtfilter.DataSource_InlineString{
-						InlineString: jwtPubKey,
-					},
+		// Put empty string in config even if above ResolveJwtPubKey fails.
+		jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+			LocalJwks: &jwtfilter.DataSource{
+				Specifier: &jwtfilter.DataSource_InlineString{
+					InlineString: jwtPubKey,
 				},
-			}
-		} else {
-			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			}
-
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
-				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &jwtfilter.HttpUri{
-						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-							Cluster: JwksURIClusterName(hostname, port),
-						},
-					},
-					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-				},
-			}
+			},
 		}
 
 		ret.Rules = append(ret.Rules, jwt)
@@ -242,7 +205,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
-	filterConfigProto := ConvertPolicyToJwtConfig(policy, true /*useInlinePublicKey*/)
+	filterConfigProto := ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
