@@ -109,7 +109,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  revision = "c17582cc6514d173e4309d4e3bb16a150efcfcf7"
+  branch = "revert_grpc_version_update"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"

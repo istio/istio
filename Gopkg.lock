@@ -335,6 +335,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
+    "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
@@ -347,7 +348,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
+  revision = "c17582cc6514d173e4309d4e3bb16a150efcfcf7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"

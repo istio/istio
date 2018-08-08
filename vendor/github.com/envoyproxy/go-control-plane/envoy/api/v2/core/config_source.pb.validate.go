@@ -74,6 +74,20 @@ func (m *ApiConfigSource) Validate() error {
 		}
 	}
 
+	if d := m.GetRequestTimeout(); d != nil {
+		dur := *d
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return ApiConfigSourceValidationError{
+				Field:  "RequestTimeout",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
+	}
+
 	return nil
 }
 
