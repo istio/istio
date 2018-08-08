@@ -31,7 +31,7 @@
       ],
       "name": "gcr.io/istio-testing/istio-builder:0.5.4",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
+      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     }
   ],
   "options": {
