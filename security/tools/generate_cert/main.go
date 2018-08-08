@@ -27,8 +27,9 @@ import (
 	"os/exec"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/util"
 	k8s "k8s.io/api/core/v1"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
