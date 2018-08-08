@@ -50,7 +50,6 @@ var (
 )
 
 const (
-	watchDebounceDelay     = 100 * time.Millisecond
 	waitEndpointReadyDelay = 100 * time.Millisecond
 )
 
