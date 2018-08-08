@@ -508,7 +508,6 @@ func PodExec(n, pod, container, command string, muteOutput bool, kubeconfig stri
 	if muteOutput {
 		return ShellSilent("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s", kubeconfig, pod, n, container, command)
 	}
-	fmt.Printf("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s \n", kubeconfig, pod, n, container, command)
 	return Shell("kubectl exec --kubeconfig=%s %s -n %s -c %s -- %s ", kubeconfig, pod, n, container, command)
 }
 
