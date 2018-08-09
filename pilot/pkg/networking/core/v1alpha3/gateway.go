@@ -156,8 +156,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err = errs.ErrorOrNil()
 	if len(listeners) == 0 {
-		log.Errorf("buildGatewayListeners: Have zero listeners: %v", err.Error())
-		return []*xdsapi.Listener{}, nil
+		log.Error("buildGatewayListeners: Have zero listeners")
+		return []*xdsapi.Listener{}, err
 	}
 
 	if err != nil {
