@@ -56,7 +56,7 @@ type Change struct {
 
 // Updater provides configuration changes in batches of the same protobuf message type.
 type Updater interface {
-	// Update is invoked when the client receives new configuration updates
+	// Apply is invoked when the client receives new configuration updates
 	// from the server. The caller should return an error if any of the provided
 	// configuration resources are invalid or cannot be applied. The client will
 	// propagate errors back to the server accordingly.
