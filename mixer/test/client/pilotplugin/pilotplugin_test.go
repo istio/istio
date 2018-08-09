@@ -305,7 +305,14 @@ const (
 )
 
 var (
-	svc  = model.Service{Hostname: "svc.ns3"}
+	svc = model.Service{
+		Hostname: "svc.ns3",
+		Attributes: model.ServiceAttributes{
+			Name:      "svc",
+			Namespace: "ns3",
+			UID:       "istio://ns3/services/svc",
+		},
+	}
 	mesh = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer:            "mixer_server:9091",
@@ -313,6 +320,11 @@ var (
 			EnableClientSidePolicyCheck: true,
 		},
 		ServiceDiscovery: mock{},
+	}
+	pushContext = model.PushContext{
+		ServiceByHostname: map[model.Hostname]*model.Service{
+			model.Hostname("svc.ns3"): &svc,
+		},
 	}
 	serverParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -325,6 +337,7 @@ var (
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
+		Push:            &pushContext,
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -337,6 +350,7 @@ var (
 			},
 		},
 		Service: &svc,
+		Push:    &pushContext,
 	}
 )
 
