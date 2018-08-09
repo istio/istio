@@ -162,7 +162,7 @@ func setupFilterChains(authnPolicy *authn.Policy) []plugin.FilterChain {
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.Service, port)
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
 	return setupFilterChains(authnPolicy)
 }
 
