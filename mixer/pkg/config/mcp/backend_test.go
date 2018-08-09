@@ -61,8 +61,8 @@ type testState struct {
 	server  *mcptest.Server
 	backend store.Backend
 
-	// updateWg is used to synchronize between w.r.t. to the Updater.Update call.
-	// updateWg.Done() will be called each time Updater.Update call completes successfully.
+	// updateWg is used to synchronize between w.r.t. to the Updater.Apply call.
+	// updateWg.Done() will be called each time Updater.Apply call completes successfully.
 	// Test authors need to call add on this, before sending updates through the server.
 	updateWg sync.WaitGroup
 }
