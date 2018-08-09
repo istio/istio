@@ -116,11 +116,7 @@ func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableO
 func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
 	// collect workload labels
-	workloadInstances, err := in.Env.GetProxyServiceInstances(in.Node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", in.Node.ID, err)
-		return nil
-	}
+	workloadInstances := in.ProxyInstances
 
 	var workloadLabels model.LabelsCollection
 	for _, w := range workloadInstances {
