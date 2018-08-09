@@ -183,14 +183,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e60ea12cc6af851334368f7df0e3e7f6827189a482324c9e3e9772f279a24df2"
-  name = "github.com/bradfitz/slice"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "d9036e2120b5ddfa53f3ebccd618c4af275f47da"
-
-[[projects]]
   digest = "1:dbe9e40f035ae057794d474c7e1a3e862a9571a29cd9e5f98ae8a72284c1e381"
   name = "github.com/cactus/go-statsd-client"
   packages = [
@@ -1271,14 +1263,6 @@
   pruneopts = "NUT"
   revision = "35aad584952c3e7020db7b839f6b102de6271f89"
   version = "v1.7.1"
-
-[[projects]]
-  branch = "master"
-  digest = "1:2d5791bbafb386740ff5ad5b3259ea6a9290e97ca1a7dff3f8dbe3bfaf261910"
-  name = "go4.org"
-  packages = ["reflectutil"]
-  pruneopts = "NUT"
-  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
 
 [[projects]]
   branch = "master"
