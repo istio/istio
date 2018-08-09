@@ -6,7 +6,7 @@ metadata:
   name: meshexpansion-pilot
 spec:
   hosts:
-  - "pilot.istio-system"
+  - "pilot.{{ $spec.namespace | default $.Release.Namespace }}"
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -14,7 +14,7 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.{{ $spec.namespace | default $.Release.Namespace }}.svc.cluster.local
         port:
           number: 15011
 
@@ -30,7 +30,7 @@ metadata:
   name: ilb-meshexpansion-pilot
 spec:
   hosts:
-  - "meshexpansionilb.istio-system"
+  - "meshexpansionilb.{{ $spec.namespace | default $.Release.Namespace }}"
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -38,14 +38,14 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.{{ $spec.namespace | default $.Release.Namespace }}.svc.cluster.local
         port:
           number: 15011
   - match:
     - port: 15010
     route:
     - destination:
-        host: istio-pilot.istio-system.svc.cluster.local
+        host: istio-pilot.{{ $spec.namespace | default $.Release.Namespace }}.svc.cluster.local
         port:
           number: 15010
   - match:
