@@ -44,7 +44,7 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-8080}
 
 # If set, override the default
-CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy MTLS"
+CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy MUTUAL_TLS"
 if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
   CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy ${ISTIO_CP_AUTH}"
 fi
