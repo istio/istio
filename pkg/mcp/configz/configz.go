@@ -18,9 +18,9 @@ import (
 	"html/template"
 	"net/http"
 
-	"istio.io/istio/galley/pkg/mcp/client"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
+	"istio.io/istio/pkg/mcp/client"
 )
 
 // configzTopic topic is a Topic fw.implementation that exposes the state info about an MCP client.
