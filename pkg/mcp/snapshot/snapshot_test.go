@@ -28,7 +28,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/server"
 )
 
 // fake protobuf types that implements required resource interface

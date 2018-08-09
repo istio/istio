@@ -24,15 +24,13 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/galley/pkg/mcp/configz"
-	"istio.io/istio/galley/pkg/metadata/kube"
-
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
-
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/client"
+	"istio.io/istio/galley/pkg/kube/converter/legacy"
+	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/probe"
 )
 

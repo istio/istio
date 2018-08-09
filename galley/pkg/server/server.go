@@ -27,11 +27,11 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/mcp/server"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
 

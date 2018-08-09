@@ -24,8 +24,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/galley/pkg/mcp/server"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 // Server is a simple MCP server, used for testing purposes.
