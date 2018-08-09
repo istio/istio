@@ -49,9 +49,9 @@ import (
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
+	coredatamodel "istio.io/istio/pilot/pkg/config/mcp"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
-	coredatamodel "istio.io/istio/pilot/pkg/mcp"
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -215,9 +215,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initServiceControllers(&args); err != nil {
 		return nil, err
 	}
-	if err := s.initMeshConfigProtocolClient(&args); err != nil {
-		return nil, err
-	}
 	if err := s.initDiscoveryService(&args); err != nil {
 		return nil, err
 	}
@@ -272,38 +269,38 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
-	serverAddr := args.MCPServerAddr
-	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
-	if err != nil {
-		log.Infof("Unable connecting to MCP Server: %v\n", err)
-		return err
-	}
-
-	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	//TODO: how to define pilot Node ID?
-	clientNodeID := "some-id"
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
-	for _, model := range model.IstioConfigTypes {
-		supportedTypes = append(supportedTypes, model.MessageName)
-	}
-	log.Infof("InitMeshConfigProtocolClient supported types: %+v\n", supportedTypes)
-	u := coredatamodel.NewUpdater(s.istioConfigStore, model.IstioConfigTypes)
-	mcpClient := mcpclient.New(cl, supportedTypes, u, clientNodeID, map[string]string{})
-
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		ctx, cancel := context.WithCancel(context.Background())
-		go mcpClient.Run(ctx)
-		go func() {
-			<-stop
-			cancel()
-		}()
-
-		return nil
-	})
-
-	return nil
-}
+//func (s *Server) initMeshConfigProtocolClient(args *PilotArgs) error {
+//	serverAddr := args.MCPServerAddr
+//	conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+//	if err != nil {
+//		log.Infof("Unable connecting to MCP Server: %v\n", err)
+//		return err
+//	}
+//
+//	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
+//	//TODO: how to define pilot Node ID?
+//	clientNodeID := "some-id"
+//	supportedTypes := make([]string, len(model.IstioConfigTypes))
+//	for _, model := range model.IstioConfigTypes {
+//		supportedTypes = append(supportedTypes, model.MessageName)
+//	}
+//	log.Infof("InitMeshConfigProtocolClient supported types: %+v\n", supportedTypes)
+//	u := coredatamodel.NewUpdater(s.istioConfigStore, model.IstioConfigTypes)
+//	mcpClient := mcpclient.New(cl, supportedTypes, u, clientNodeID, map[string]string{})
+//
+//	s.addStartFunc(func(stop <-chan struct{}) error {
+//		ctx, cancel := context.WithCancel(context.Background())
+//		go mcpClient.Run(ctx)
+//		go func() {
+//			<-stop
+//			cancel()
+//		}()
+//
+//		return nil
+//	})
+//
+//	return nil
+//}
 
 func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 	s.clusterStore = clusterregistry.NewClustersStore()
@@ -486,8 +483,39 @@ func (c *mockController) Run(<-chan struct{}) {}
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	if args.MCPServerAddr != "" {
-		u := coredatamodel.NewUpdater()
-		s.configController = u.Store()
+		store := memory.Make(model.IstioConfigTypes)
+		mcpController := coredatamodel.NewController(store, log.RegisterScope("coredatamodel", "mcp controller debugging", 0))
+		mcpUpdater := coredatamodel.NewUpdater(mcpController)
+
+		serverAddr := args.MCPServerAddr
+		conn, err := grpc.Dial(serverAddr, grpc.WithInsecure())
+		if err != nil {
+			log.Infof("Unable connecting to MCP Server: %v\n", err)
+			return err
+		}
+
+		cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
+		//TODO: how to define pilot Node ID?
+		clientNodeID := "some-id"
+		supportedTypes := make([]string, len(model.IstioConfigTypes))
+		for _, model := range model.IstioConfigTypes {
+			supportedTypes = append(supportedTypes, model.MessageName)
+		}
+		log.Infof("mcp client initialized with supported types: %+v\n", supportedTypes)
+		mcpClient := mcpclient.New(cl, supportedTypes, mcpUpdater, clientNodeID, map[string]string{})
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			ctx, cancel := context.WithCancel(context.Background())
+			go mcpClient.Run(ctx)
+			go mcpController.Run(stop)
+			go func() {
+				<-stop
+				cancel()
+			}()
+
+			return nil
+		})
+		s.configController = mcpController
 
 	} else if args.Config.Controller != nil {
 		s.configController = args.Config.Controller

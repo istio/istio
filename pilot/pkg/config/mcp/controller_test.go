@@ -20,9 +20,9 @@ import (
 
 	"github.com/onsi/gomega"
 	networking "istio.io/api/networking/v1alpha3"
+	coredatamodel "istio.io/istio/pilot/pkg/config/mcp"
+	"istio.io/istio/pilot/pkg/config/mcp/fakes"
 	"istio.io/istio/pilot/pkg/config/memory"
-	coredatamodel "istio.io/istio/pilot/pkg/mcp"
-	"istio.io/istio/pilot/pkg/mcp/fakes"
 	"istio.io/istio/pilot/pkg/model"
 )
 

@@ -45,6 +45,7 @@ func (u *Updater) Update(change *mcpclient.Change) error {
 		c, exists := u.controller.Get(descriptor.Type, obj.Metadata.Name, "")
 		if exists {
 			c.Spec = obj.Resource
+			fmt.Println("----------------> got update")
 			_, err := u.controller.Update(*c)
 			return err
 		}
