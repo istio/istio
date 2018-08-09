@@ -10,6 +10,5 @@ spec:
   - name: tcp
     protocol: TCP
     port: 20001
-    name: http-kiali
   selector:
     app: kiali
