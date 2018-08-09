@@ -163,41 +163,6 @@ TEST_P(AuthenticationFilterIntegrationTest, CheckValidJwtPassAuthentication) {
   response->waitForEndStream();
   EXPECT_TRUE(response->complete());
   EXPECT_STREQ("200", response->headers().Status()->value().c_str());
-
-  // Verify authn result in header.
-  // TODO(diemvu): find a way to verify data in request info as the use of
-  // header for authentication result will be removed soon.
-  const Envoy::Http::HeaderString &header_value =
-      upstream_request_->headers().get(kSecIstioAuthnPayloadHeaderKey)->value();
-  std::string value_base64(header_value.c_str(), header_value.size());
-  const std::string value = Base64::decode(value_base64);
-  Result result;
-  EXPECT_TRUE(result.ParseFromString(value));
-
-  Result expected_result;
-  ASSERT_TRUE(Protobuf::TextFormat::ParseFromString(R"(
-        origin {
-            user: "https://example.com/test@example.com"
-            audiences: "example_service"
-            claims {
-                key: "aud"
-                value: "example_service"
-            }
-            claims {
-                key: "iss"
-                value: "https://example.com"
-            }
-            claims {
-                key: "sub"
-                value: "test@example.com"
-            }
-            raw_claims: "{\"iss\":\"https://example.com\",\"sub\":\"test@example.com\",\"exp\":2001001001,\"aud\":\"example_service\"}"
-        })",
-                                                    &expected_result));
-
-  // Note: TestUtility::protoEqual() uses SerializeAsString() and the output
-  // is non-deterministic. Thus, MessageDifferencer::Equals() is used.
-  EXPECT_TRUE(MessageDifferencer::Equals(expected_result, result));
 }
 
 }  // namespace

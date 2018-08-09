@@ -20,7 +20,7 @@
 #include <map>
 #include <string>
 
-#include "google/protobuf/map.h"
+#include "google/protobuf/struct.pb.h"
 #include "mixer/v1/attributes.pb.h"
 
 namespace istio {
@@ -89,18 +89,24 @@ class AttributesBuilder {
     }
   }
 
-  void AddProtobufStringMap(
-      const std::string& key,
-      const google::protobuf::Map<std::string, ::std::string>& string_map) {
-    if (string_map.empty()) {
+  void AddProtoStructStringMap(const std::string& key,
+                               const google::protobuf::Struct& struct_map) {
+    if (struct_map.fields().empty()) {
       return;
     }
     auto entries = (*attributes_->mutable_attributes())[key]
                        .mutable_string_map_value()
                        ->mutable_entries();
     entries->clear();
-    for (const auto& map_it : string_map) {
-      (*entries)[map_it.first] = map_it.second;
+    for (const auto& field : struct_map.fields()) {
+      // Ignore all fields that are not string.
+      switch (field.second.kind_case()) {
+        case google::protobuf::Value::kStringValue:
+          (*entries)[field.first] = field.second.string_value();
+          break;
+        default:
+          break;
+      }
     }
   }
 

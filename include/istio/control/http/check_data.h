@@ -19,7 +19,7 @@
 #include <map>
 #include <string>
 
-#include "src/istio/authn/context.pb.h"
+#include "google/protobuf/struct.pb.h"
 
 namespace istio {
 namespace control {
@@ -81,14 +81,9 @@ class CheckData {
   virtual bool FindCookie(const std::string &name,
                           std::string *value) const = 0;
 
-  // If the request has a JWT token and it is verified, get its payload as
-  // string map, and return true. Otherwise return false.
-  virtual bool GetJWTPayload(
-      std::map<std::string, std::string> *payload) const = 0;
-
-  // If the request has authentication result in header, parses data into the
-  // output result; returns true if success. Otherwise, returns false.
-  virtual bool GetAuthenticationResult(istio::authn::Result *result) const = 0;
+  // Returns a pointer to the authentication result from request info dynamic
+  // metadata, if available. Otherwise, returns nullptr.
+  virtual const ::google::protobuf::Struct *GetAuthenticationResult() const = 0;
 };
 
 // An interfact to update request HTTP headers with Istio attributes.

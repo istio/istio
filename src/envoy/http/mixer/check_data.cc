@@ -38,8 +38,9 @@ const std::set<std::string> RequestHeaderExclusives = {
 }  // namespace
 
 CheckData::CheckData(const HeaderMap& headers,
+                     const envoy::api::v2::core::Metadata& metadata,
                      const Network::Connection* connection)
-    : headers_(headers), connection_(connection) {
+    : headers_(headers), metadata_(metadata), connection_(connection) {
   if (headers_.Path()) {
     query_params_ = Utility::parseQueryString(std::string(
         headers_.Path()->value().c_str(), headers_.Path()->value().size()));
@@ -166,42 +167,8 @@ bool CheckData::FindCookie(const std::string& name, std::string* value) const {
   return false;
 }
 
-bool CheckData::GetJWTPayload(
-    std::map<std::string, std::string>* payload) const {
-  const HeaderEntry* entry =
-      headers_.get(JwtAuth::JwtAuthenticator::JwtPayloadKey());
-  if (!entry) {
-    return false;
-  }
-  std::string value(entry->value().c_str(), entry->value().size());
-  std::string payload_str = JwtAuth::Base64UrlDecode(value);
-  // Return an empty string if Base64 decode fails.
-  if (payload_str.empty()) {
-    ENVOY_LOG(error, "Invalid {} header, invalid base64: {}",
-              JwtAuth::JwtAuthenticator::JwtPayloadKey().get(), value);
-    return false;
-  }
-  try {
-    auto json_obj = Json::Factory::loadFromString(payload_str);
-    json_obj->iterate(
-        [payload](const std::string& key, const Json::Object& obj) -> bool {
-          // will throw execption if value type is not string.
-          try {
-            (*payload)[key] = obj.asString();
-          } catch (...) {
-          }
-          return true;
-        });
-  } catch (...) {
-    ENVOY_LOG(error, "Invalid {} header, invalid json: {}",
-              JwtAuth::JwtAuthenticator::JwtPayloadKey().get(), payload_str);
-    return false;
-  }
-  return true;
-}
-
-bool CheckData::GetAuthenticationResult(istio::authn::Result* result) const {
-  return Utils::Authentication::FetchResultFromHeader(headers_, result);
+const ::google::protobuf::Struct* CheckData::GetAuthenticationResult() const {
+  return Utils::Authentication::GetResultFromMetadata(metadata_);
 }
 
 }  // namespace Mixer

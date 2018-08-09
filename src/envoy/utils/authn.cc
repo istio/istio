@@ -25,10 +25,6 @@ namespace Envoy {
 namespace Utils {
 namespace {
 
-// The HTTP header to save authentication result.
-const Http::LowerCaseString kAuthenticationOutputHeaderLocation(
-    "sec-istio-authn-payload");
-
 // Helper function to set a key/value pair into Struct.
 static void setKeyValue(::google::protobuf::Struct& data, std::string key,
                         std::string value) {
@@ -36,21 +32,6 @@ static void setKeyValue(::google::protobuf::Struct& data, std::string key,
 }
 
 }  // namespace
-
-bool Authentication::SaveResultToHeader(const istio::authn::Result& result,
-                                        Http::HeaderMap* headers) {
-  if (HasResultInHeader(*headers)) {
-    ENVOY_LOG(warn,
-              "Authentication result already exist in header. Cannot save");
-    return false;
-  }
-
-  std::string payload_data;
-  result.SerializeToString(&payload_data);
-  headers->addCopy(kAuthenticationOutputHeaderLocation,
-                   Base64::encode(payload_data.c_str(), payload_data.size()));
-  return true;
-}
 
 void Authentication::SaveAuthAttributesToStruct(
     const istio::authn::Result& result, ::google::protobuf::Struct& data) {
@@ -104,37 +85,14 @@ void Authentication::SaveAuthAttributesToStruct(
   }
 }
 
-bool Authentication::FetchResultFromHeader(const Http::HeaderMap& headers,
-                                           istio::authn::Result* result) {
-  const auto entry = headers.get(kAuthenticationOutputHeaderLocation);
-  if (entry == nullptr) {
-    return false;
-  }
-  std::string value(entry->value().c_str(), entry->value().size());
-  return result->ParseFromString(Base64::decode(value));
-}
-
-const ProtobufWkt::Struct* Authentication::GetResultFromRequestInfo(
-    const RequestInfo::RequestInfo& request_info) {
-  const auto& metadata = request_info.dynamicMetadata();
+const ProtobufWkt::Struct* Authentication::GetResultFromMetadata(
+    const envoy::api::v2::core::Metadata& metadata) {
   const auto& iter =
       metadata.filter_metadata().find(Utils::IstioFilterName::kAuthentication);
   if (iter == metadata.filter_metadata().end()) {
     return nullptr;
   }
   return &(iter->second);
-}
-
-void Authentication::ClearResultInHeader(Http::HeaderMap* headers) {
-  headers->remove(kAuthenticationOutputHeaderLocation);
-}
-
-bool Authentication::HasResultInHeader(const Http::HeaderMap& headers) {
-  return headers.get(kAuthenticationOutputHeaderLocation) != nullptr;
-}
-
-const Http::LowerCaseString& Authentication::GetHeaderLocation() {
-  return kAuthenticationOutputHeaderLocation;
 }
 
 }  // namespace Utils

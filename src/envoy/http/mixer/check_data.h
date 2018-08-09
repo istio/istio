@@ -17,7 +17,9 @@
 
 #include "common/common/logger.h"
 #include "common/http/utility.h"
+#include "envoy/api/v2/core/base.pb.h"
 #include "envoy/http/header_map.h"
+#include "google/protobuf/struct.pb.h"
 #include "include/istio/control/http/controller.h"
 #include "src/istio/authn/context.pb.h"
 
@@ -28,7 +30,9 @@ namespace Mixer {
 class CheckData : public ::istio::control::http::CheckData,
                   public Logger::Loggable<Logger::Id::filter> {
  public:
-  CheckData(const HeaderMap& headers, const Network::Connection* connection);
+  CheckData(const HeaderMap& headers,
+            const envoy::api::v2::core::Metadata& metadata,
+            const Network::Connection* connection);
 
   // Find "x-istio-attributes" headers, if found base64 decode
   // its value and remove it from the headers.
@@ -56,13 +60,11 @@ class CheckData : public ::istio::control::http::CheckData,
 
   bool FindCookie(const std::string& name, std::string* value) const override;
 
-  bool GetJWTPayload(
-      std::map<std::string, std::string>* payload) const override;
-
-  bool GetAuthenticationResult(istio::authn::Result* result) const override;
+  const ::google::protobuf::Struct* GetAuthenticationResult() const override;
 
  private:
   const HeaderMap& headers_;
+  const envoy::api::v2::core::Metadata& metadata_;
   const Network::Connection* connection_;
   Utility::QueryParams query_params_;
 };

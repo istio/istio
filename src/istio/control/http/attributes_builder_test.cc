@@ -40,9 +40,7 @@ namespace {
 MATCHER_P(EqualsAttribute, expected, "") {
   const auto matched = MessageDifferencer::Equals(arg, expected);
   if (!matched) {
-    std::string out_str;
-    TextFormat::PrintToString(arg, &out_str);
-    GOOGLE_LOG(INFO) << "\n===" << out_str << "===";
+    GOOGLE_LOG(INFO) << arg.DebugString() << " vs " << expected.DebugString();
   }
   return matched;
 }
@@ -356,6 +354,107 @@ attributes {
 }
 )";
 
+constexpr char kAuthenticationResultStruct[] = R"(
+fields {
+  key: "request.auth.audiences"
+  value {
+    string_value: "thisisaud"
+  }
+}
+fields {
+  key: "request.auth.claims"
+  value {
+    struct_value {
+      fields {
+        key: "iss"
+        value {
+          string_value: "thisisiss"
+        }
+      }
+      fields {
+        key: "sub"
+        value {
+          string_value: "thisissub"
+        }
+      }
+      fields {
+        key: "aud"
+        value {
+          string_value: "thisisaud"
+        }
+      }
+      fields {
+        key: "azp"
+        value {
+          string_value: "thisisazp"
+        }
+      }
+      fields {
+        key: "email"
+        value {
+          string_value: "thisisemail@email.com"
+        }
+      }
+      fields {
+        key: "iat"
+        value {
+          string_value: "1512754205"
+        }
+      }
+      fields {
+        key: "exp"
+        value {
+          string_value: "5112754205"
+        }
+      }
+    }
+  }
+}
+fields {
+  key: "request.auth.groups"
+  value {
+    list_value {
+      values {
+        string_value: "group1"
+      }
+      values {
+        string_value: "group2"
+      }
+    }
+  }
+}
+fields {
+  key: "request.auth.presenter"
+  value {
+    string_value: "thisisazp"
+  }
+}
+fields {
+  key: "request.auth.principal"
+  value {
+    string_value: "thisisiss/thisissub"
+  }
+}
+fields {
+  key: "request.auth.raw_claims"
+  value {
+    string_value: "test_raw_claims"
+  }
+}
+fields {
+  key: "source.principal"
+  value {
+    string_value: "test_user"
+  }
+}
+fields {
+  key: "source.user"
+  value {
+    string_value: "test_user"
+  }
+}
+)";
+
 void ClearContextTime(const std::string &name, RequestContext *request) {
   // Override timestamp with -
   utils::AttributesBuilder builder(&request->attributes);
@@ -448,8 +547,8 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithoutAuthnFilter) {
             }
             return false;
           }));
-  EXPECT_CALL(mock_data, GetAuthenticationResult(_))
-      .WillOnce(testing::Return(false));
+  EXPECT_CALL(mock_data, GetAuthenticationResult())
+      .WillOnce(testing::Return(nullptr));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -507,23 +606,12 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
             }
             return false;
           }));
-  EXPECT_CALL(mock_data, GetAuthenticationResult(_))
-      .WillOnce(Invoke([](istio::authn::Result *result) -> bool {
-        result->set_principal("thisisiss/thisissub");
-        result->set_peer_user("test_user");
-        result->mutable_origin()->add_audiences("thisisaud");
-        result->mutable_origin()->set_presenter("thisisazp");
-        (*result->mutable_origin()->mutable_claims())["iss"] = "thisisiss";
-        (*result->mutable_origin()->mutable_claims())["sub"] = "thisissub";
-        (*result->mutable_origin()->mutable_claims())["aud"] = "thisisaud";
-        (*result->mutable_origin()->mutable_claims())["azp"] = "thisisazp";
-        (*result->mutable_origin()->mutable_claims())["email"] =
-            "thisisemail@email.com";
-        (*result->mutable_origin()->mutable_claims())["iat"] = "1512754205";
-        (*result->mutable_origin()->mutable_claims())["exp"] = "5112754205";
-        result->mutable_origin()->set_raw_claims("test_raw_claims");
-        return true;
-      }));
+  google::protobuf::Struct authn_result;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(kAuthenticationResultStruct, &authn_result));
+
+  EXPECT_CALL(mock_data, GetAuthenticationResult())
+      .WillOnce(testing::Return(&authn_result));
 
   RequestContext request;
   AttributesBuilder builder(&request);

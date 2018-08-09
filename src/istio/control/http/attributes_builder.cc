@@ -15,6 +15,8 @@
 
 #include "src/istio/control/http/attributes_builder.h"
 
+#include <set>
+
 #include "include/istio/utils/attribute_names.h"
 #include "include/istio/utils/attributes_builder.h"
 #include "include/istio/utils/status.h"
@@ -74,45 +76,35 @@ void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {
     builder.AddString(utils::AttributeName::kDestinationPrincipal,
                       destination_principal);
   }
+  static const std::set<std::string> kAuthenticationStringAttributes = {
+      utils::AttributeName::kRequestAuthPrincipal,
+      utils::AttributeName::kSourceUser,
+      utils::AttributeName::kSourcePrincipal,
+      utils::AttributeName::kRequestAuthAudiences,
+      utils::AttributeName::kRequestAuthPresenter,
+      utils::AttributeName::kRequestAuthRawClaims,
+  };
+  const auto *authn_result = check_data->GetAuthenticationResult();
+  if (authn_result != nullptr) {
+    // Not all data in authentication results need to be sent to mixer (e.g
+    // groups), so we need to iterate on pre-approved attributes only.
+    for (const auto &attribute : kAuthenticationStringAttributes) {
+      const auto &iter = authn_result->fields().find(attribute);
+      if (iter != authn_result->fields().end() &&
+          !iter->second.string_value().empty()) {
+        builder.AddString(attribute, iter->second.string_value());
+      }
+    }
 
-  istio::authn::Result authn_result;
-  if (check_data->GetAuthenticationResult(&authn_result)) {
-    if (!authn_result.principal().empty()) {
-      builder.AddString(utils::AttributeName::kRequestAuthPrincipal,
-                        authn_result.principal());
-    }
-    if (!authn_result.peer_user().empty()) {
-      // TODO(diemtvu): remove kSourceUser once migration to source.principal is
-      // over. https://github.com/istio/istio/issues/4689
-      builder.AddString(utils::AttributeName::kSourceUser,
-                        authn_result.peer_user());
-      builder.AddString(utils::AttributeName::kSourcePrincipal,
-                        authn_result.peer_user());
-    }
-    if (authn_result.has_origin()) {
-      const auto &origin = authn_result.origin();
-      if (!origin.audiences().empty()) {
-        // TODO(diemtvu): this should be send as repeated field once mixer
-        // support string_list (https://github.com/istio/istio/issues/2802) For
-        // now, just use the first value.
-        builder.AddString(utils::AttributeName::kRequestAuthAudiences,
-                          origin.audiences(0));
-      }
-      if (!origin.presenter().empty()) {
-        builder.AddString(utils::AttributeName::kRequestAuthPresenter,
-                          origin.presenter());
-      }
-      if (!origin.claims().empty()) {
-        builder.AddProtobufStringMap(utils::AttributeName::kRequestAuthClaims,
-                                     origin.claims());
-      }
-      if (!origin.raw_claims().empty()) {
-        builder.AddString(utils::AttributeName::kRequestAuthRawClaims,
-                          origin.raw_claims());
-      }
+    // Add string-map attribute (kRequestAuthClaims)
+    const auto &claims =
+        authn_result->fields().find(utils::AttributeName::kRequestAuthClaims);
+    if (claims != authn_result->fields().end()) {
+      builder.AddProtoStructStringMap(utils::AttributeName::kRequestAuthClaims,
+                                      claims->second.struct_value());
     }
   }
-}  // namespace http
+}
 
 void AttributesBuilder::ExtractForwardedAttributes(CheckData *check_data) {
   std::string forwarded_data;

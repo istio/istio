@@ -31,6 +31,7 @@ using Envoy::Http::Istio::AuthN::FilterContext;
 using istio::authn::Payload;
 using istio::authn::Result;
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;
+using testing::AtLeast;
 using testing::Invoke;
 using testing::NiceMock;
 using testing::ReturnRef;
@@ -120,6 +121,7 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
   RequestInfo::RequestInfoImpl request_info(Http::Protocol::Http2);
   EXPECT_CALL(decoder_callbacks_, requestInfo())
+      .Times(AtLeast(1))
       .WillRepeatedly(ReturnRef(request_info));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
       .Times(1)
@@ -128,7 +130,8 @@ TEST_F(AuthenticationFilterTest, PeerFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
-  EXPECT_FALSE(Utils::Authentication::HasResultInHeader(request_headers_));
+  EXPECT_FALSE(Utils::Authentication::GetResultFromMetadata(
+      request_info.dynamicMetadata()));
 }
 
 TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
@@ -140,6 +143,10 @@ TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
   EXPECT_CALL(filter_, createOriginAuthenticator(_))
       .Times(1)
       .WillOnce(Invoke(createAlwaysFailAuthenticator));
+  RequestInfo::RequestInfoImpl request_info(Http::Protocol::Http2);
+  EXPECT_CALL(decoder_callbacks_, requestInfo())
+      .Times(AtLeast(1))
+      .WillRepeatedly(ReturnRef(request_info));
   EXPECT_CALL(decoder_callbacks_, encodeHeaders_(_, _))
       .Times(1)
       .WillOnce(testing::Invoke([](Http::HeaderMap &headers, bool) {
@@ -147,7 +154,8 @@ TEST_F(AuthenticationFilterTest, PeerPassOrginFail) {
       }));
   EXPECT_EQ(Http::FilterHeadersStatus::StopIteration,
             filter_.decodeHeaders(request_headers_, true));
-  EXPECT_FALSE(Utils::Authentication::HasResultInHeader(request_headers_));
+  EXPECT_FALSE(Utils::Authentication::GetResultFromMetadata(
+      request_info.dynamicMetadata()));
 }
 
 TEST_F(AuthenticationFilterTest, AllPass) {
@@ -159,14 +167,15 @@ TEST_F(AuthenticationFilterTest, AllPass) {
       .WillOnce(Invoke(createAlwaysPassAuthenticator));
   RequestInfo::RequestInfoImpl request_info(Http::Protocol::Http2);
   EXPECT_CALL(decoder_callbacks_, requestInfo())
+      .Times(AtLeast(1))
       .WillRepeatedly(ReturnRef(request_info));
 
   EXPECT_EQ(Http::FilterHeadersStatus::Continue,
             filter_.decodeHeaders(request_headers_, true));
 
   EXPECT_EQ(1, request_info.dynamicMetadata().filter_metadata_size());
-  const auto *data =
-      Utils::Authentication::GetResultFromRequestInfo(request_info);
+  const auto *data = Utils::Authentication::GetResultFromMetadata(
+      request_info.dynamicMetadata());
   ASSERT_TRUE(data);
 
   ProtobufWkt::Struct expected_data;
