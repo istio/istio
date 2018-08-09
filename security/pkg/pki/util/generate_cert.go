@@ -28,8 +28,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"strings"
 	"time"
+
+	"istio.io/istio/pkg/log"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -219,9 +220,13 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 			return nil, err
 		}
 		if options.IsDualUse {
-			// only first hostname used for CN
-			first := strings.SplitN(h, ",", 2)[0]
-			subject.CommonName = first
+			cn, err := DualUseCommonName(h)
+			if err != nil {
+				// log and continue
+				log.Errorf("dual-use failed for cert template - omitting CN (%v)", err)
+			} else {
+				subject.CommonName = cn
+			}
 		}
 		exts = []pkix.Extension{*s}
 	}
