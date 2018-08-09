@@ -425,17 +425,10 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
-  shellcheck:
-    docker:
-      - image: koalaman/shellcheck-alpine:v0.5.0
-    steps:
-      - checkout
-      - run:
-          name: Check Scripts
-          command: /root/project/tools/run_shellcheck.sh
-
   lint:
-    <<: *defaults
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/lint:go1.10-k8s1.10.4-helm2.7.2-minikube0.25-shellcheck5.0
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
@@ -443,6 +436,9 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+      - run:
+          name: Check Scripts
+          command: /go/src/istio.io/istio/tools/run_shellcheck.sh
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
       - run:
           name: Creating vendor diff
@@ -567,7 +563,6 @@ workflows:
 
   all:
     jobs:
-      - shellcheck
       - lint
       - build
       - test
