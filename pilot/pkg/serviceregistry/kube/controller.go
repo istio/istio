@@ -541,15 +541,15 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
 				out = append(out, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushStatus.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 				}
 			}
 		}
 	}
 	if len(out) == 0 {
 		if c.Env != nil {
-			c.Env.PushStatus.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushStatus
+			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
+			status := c.Env.PushContext
 			if status == nil {
 				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
 			}

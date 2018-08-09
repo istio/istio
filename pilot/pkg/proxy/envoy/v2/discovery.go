@@ -97,7 +97,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
-	env.PushStatus = model.NewStatus()
+	env.PushContext = model.NewStatus()
 
 	go out.periodicRefresh()
 
@@ -151,7 +151,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo(), s.env.PushStatus)
+		s.AdsPushAll(versionInfo(), s.env.PushContext)
 	}
 }
 
@@ -172,7 +172,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		push := s.env.PushStatus
+		push := s.env.PushContext
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
@@ -193,8 +193,8 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
 		// Reset the status during the push.
 		//afterPush := true
-		if s.env.PushStatus != nil {
-			s.env.PushStatus.OnConfigChange()
+		if s.env.PushContext != nil {
+			s.env.PushContext.OnConfigChange()
 		}
 		// PushContext is reset after a config change. Previous status is
 		// saved.
@@ -212,7 +212,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
-		s.env.PushStatus = push
+		s.env.PushContext = push
 		version = time.Now().Format(time.RFC3339)
 		versionMutex.Unlock()
 

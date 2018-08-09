@@ -163,7 +163,7 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushStatus, instances, services)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
 }
 
 type fakePlugin struct {
@@ -224,7 +224,7 @@ func buildListenerEnv() model.Environment {
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushStatus:       model.NewStatus(),
+		PushContext:      model.NewStatus(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

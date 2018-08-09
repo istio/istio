@@ -44,7 +44,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 	env := buildEnvForClustersWithRingHashLb()
 
-	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(2))
@@ -93,9 +93,9 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 		MixerSAN:         []string{},
 	}
 
-	env.PushStatus = model.NewStatus()
-	env.PushStatus.InitContext(env)
-	env.PushStatus.SetDestinationRules([]model.Config{
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    model.DestinationRule.Type,
 			Version: model.DestinationRule.Version,
@@ -138,7 +138,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	env := buildEnvForClustersWithIstioMutualWithSNI("foo.com")
 
-	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(3))
@@ -150,7 +150,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	// Check if SNI values are being automatically populated
 	env = buildEnvForClustersWithIstioMutualWithSNI("")
 
-	clusters, err = configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(3))
@@ -195,9 +195,9 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 		MixerSAN:         []string{},
 	}
 
-	env.PushStatus = model.NewStatus()
-	env.PushStatus.InitContext(env)
-	env.PushStatus.SetDestinationRules([]model.Config{
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
 		{ConfigMeta: model.ConfigMeta{
 			Type:    model.DestinationRule.Type,
 			Version: model.DestinationRule.Version,

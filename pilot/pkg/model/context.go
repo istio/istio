@@ -52,7 +52,7 @@ type Environment struct {
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
 	// Deprecated - a local config for ads will be used instead
-	PushStatus *PushContext
+	PushContext *PushContext
 }
 
 // Proxy defines the proxy attributes used by xDS identification

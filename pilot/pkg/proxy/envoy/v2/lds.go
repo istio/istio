@@ -32,7 +32,7 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, o
 		return err
 	}
 	if s.DebugConfigs {
-		con.HTTPListeners = rawListeners
+		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
 	if version != versionInfo() {

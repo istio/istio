@@ -198,9 +198,9 @@ type XdsConnection struct {
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
 
-	HTTPListeners []*xdsapi.Listener                    `json:"-"`
-	RouteConfigs  map[string]*xdsapi.RouteConfiguration `json:"-"`
-	HTTPClusters  []*xdsapi.Cluster
+	LDSListeners []*xdsapi.Listener                    `json:"-"`
+	RouteConfigs map[string]*xdsapi.RouteConfiguration `json:"-"`
+	CDSClusters  []*xdsapi.Cluster
 
 	// Last nonce sent and ack'd (timestamps) used for debugging
 	ClusterNonceSent, ClusterNonceAcked   string
@@ -245,7 +245,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.env.PushStatus)
+	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump.Configs["clusters"] = *clustersAny
 
 	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
-	listeners, err := s.generateRawListeners(conn, s.env.PushStatus)
+	listeners, err := s.generateRawListeners(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	}
 	configDump.Configs["listeners"] = *listenersAny
 
-	routes, err := s.generateRawRoutes(conn, s.env.PushStatus)
+	routes, err := s.generateRawRoutes(conn, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -313,14 +313,14 @@ type XdsEvent struct {
 
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
-		pushChannel:   make(chan *XdsEvent, 1),
-		doneChannel:   make(chan int, 1),
-		PeerAddr:      peerAddr,
-		Clusters:      []string{},
-		Connect:       time.Now(),
-		stream:        stream,
-		HTTPListeners: []*xdsapi.Listener{},
-		RouteConfigs:  map[string]*xdsapi.RouteConfiguration{},
+		pushChannel:  make(chan *XdsEvent, 1),
+		doneChannel:  make(chan int, 1),
+		PeerAddr:     peerAddr,
+		Clusters:     []string{},
+		Connect:      time.Now(),
+		stream:       stream,
+		LDSListeners: []*xdsapi.Listener{},
+		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
 
@@ -360,17 +360,17 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// check works, since it assumes ClearCache is called (and as such PushContext
 	// is initialized)
 	// InitContext returns immediately if the context was already initialized.
-	err := s.env.PushStatus.InitContext(s.env)
+	err := s.env.PushContext.InitContext(s.env)
 	if err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	if s.env.PushStatus.Services == nil {
+	if s.env.PushContext.Services == nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
-		adsLog.Warnf("Not initialized %v", s.env.PushStatus)
+		adsLog.Warnf("Not initialized %v", s.env.PushContext)
 		return err
 	}
 
@@ -434,7 +434,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// soon as the CDS push is returned.
 				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
 				con.CDSWatch = true
-				err := s.pushCds(con, s.env.PushStatus)
+				err := s.pushCds(con, s.env.PushContext)
 				if err != nil {
 					return err
 				}
@@ -454,7 +454,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// too verbose - sent immediately after EDS response is received
 				adsLog.Debugf("ADS:LDS: REQ %s %v", con.ConID, peerAddr)
 				con.LDSWatch = true
-				err := s.pushLds(con, s.env.PushStatus, true, versionInfo())
+				err := s.pushLds(con, s.env.PushContext, true, versionInfo())
 				if err != nil {
 					return err
 				}
@@ -480,7 +480,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, s.env.PushStatus)
+				err := s.pushRoute(con, s.env.PushContext)
 				if err != nil {
 					return err
 				}
@@ -516,7 +516,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 				con.Clusters = clusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
-				err := s.pushEds(s.env.PushStatus, con)
+				err := s.pushEds(s.env.PushContext, con)
 				if err != nil {
 					return err
 				}
@@ -614,7 +614,7 @@ func adsClientCount() int {
 
 // AdsPushAll is used only by tests (after refactoring)
 func AdsPushAll(s *DiscoveryServer) {
-	s.AdsPushAll(versionInfo(), s.env.PushStatus)
+	s.AdsPushAll(versionInfo(), s.env.PushContext)
 }
 
 // AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
@@ -628,11 +628,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 	monServices.Set(float64(len(push.Services)))
 	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
 
-	pushStatus := s.env.PushStatus
+	pushContext := s.env.PushContext
 
 	push.Mutex.RUnlock()
 
 	t0 := time.Now()
+
 	// First update all cluster load assignments. This is computed for each cluster once per config change
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
@@ -710,7 +711,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		to := time.After(PushTimeout)
 		select {
 		case client.pushChannel <- &XdsEvent{
-			push:    pushStatus,
+			push:    pushContext,
 			pending: &pendingPush,
 			version: version,
 		}:
