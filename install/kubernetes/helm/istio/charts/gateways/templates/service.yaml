@@ -21,6 +21,10 @@ spec:
 {{- if $spec.loadBalancerIP }}
   loadBalancerIP: "{{ $spec.loadBalancerIP }}"
 {{- end }}
+{{- if $spec.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+{{ toYaml $spec.loadBalancerSourceRanges | indent 4 }}
+{{- end }}
   type: {{ .type }}
   selector:
     {{- range $key, $val := $spec.labels }}

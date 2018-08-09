@@ -101,7 +101,7 @@ items:
           - -x
           - ""
           - -b
-          - 80,
+          - "80"
           - -d
           - ""
           image: docker.io/istio/proxy_init:unittest
@@ -222,7 +222,7 @@ items:
           - -x
           - ""
           - -b
-          - 81,
+          - "81"
           - -d
           - ""
           image: docker.io/istio/proxy_init:unittest
