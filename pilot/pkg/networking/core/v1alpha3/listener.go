@@ -412,6 +412,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	configs := env.VirtualServices(meshGateway)
+	virtualServiceForHost := makeVirtualServiceForHost(configs)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflicit resolution
@@ -530,8 +531,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(node, env, configs,
-					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
+				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(node, env,
+					destinationIPAddress, service, servicePort, proxyLabels, meshGateway, virtualServiceForHost)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
 				continue

@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"sort"
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
@@ -61,19 +62,6 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
 	return gatewayMatch && labelMatch && portMatch
-}
-
-// Select the virtual service pertaining to the service being processed.
-func getVirtualServiceForHost(host model.Hostname, configs []model.Config) *v1alpha3.VirtualService {
-	for _, config := range configs {
-		virtualService := config.Spec.(*v1alpha3.VirtualService)
-		for _, vsHost := range virtualService.Hosts {
-			if model.Hostname(vsHost).Matches(host) {
-				return virtualService
-			}
-		}
-	}
-	return nil
 }
 
 // hashRuntimeTLSMatchPredicates hashes runtime predicates of a TLS match
@@ -247,10 +235,11 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, env *model.Enviro
 	return out
 }
 
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, env *model.Environment, configs []model.Config, destinationIPAddress string,
-	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
+func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, env *model.Environment, destinationIPAddress string,
+	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection, gateways map[string]bool,
+	byHost virtualServiceForHost) []*filterChainOpts {
 
-	virtualService := getVirtualServiceForHost(service.Hostname, configs)
+	virtualService := byHost(service.Hostname)
 
 	out := make([]*filterChainOpts, 0)
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, env, destinationIPAddress, service, listenPort,
@@ -259,4 +248,32 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, env *model.Env
 		proxyLabels, gateways, virtualService)...)
 
 	return out
+}
+
+// Get the most specific matching virtual service for a host. If no virtual service exists, return nil.
+// For example, if virtual services with hosts "*" and "*.com" exist, match "abc.com" to "*.com" instead of "*".
+type virtualServiceForHost func(model.Hostname) *v1alpha3.VirtualService
+
+func makeVirtualServiceForHost(configs []model.Config) virtualServiceForHost {
+	byHostname := make(map[model.Hostname]*v1alpha3.VirtualService)
+	hostnames := make(model.Hostnames, 0)
+	for _, config := range configs {
+		vs := config.Spec.(*v1alpha3.VirtualService)
+		if vs != nil {
+			for _, vsHost := range vs.Hosts {
+				hostname := model.Hostname(vsHost)
+				hostnames = append(hostnames, hostname)
+				byHostname[hostname] = vs
+			}
+		}
+	}
+	sort.Sort(hostnames) // order from most to least specific
+	return func(hostname model.Hostname) *v1alpha3.VirtualService {
+		for _, vsHost := range hostnames {
+			if vsHost.Matches(hostname) {
+				return byHostname[vsHost] // first match is the most specific
+			}
+		}
+		return nil
+	}
 }
