@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Check and setup Minikube environment
+# shellcheck source=tests/e2e/local/minikube/setup_minikube_env.sh
 . ./setup_minikube_env.sh
 
 # Remove old imges.

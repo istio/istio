@@ -21,6 +21,7 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/json_parse_shared.sh
 source "${SCRIPTPATH}/json_parse_shared.sh"
 
 # parse_result_file(): parses the result from a build query.
