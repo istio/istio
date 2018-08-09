@@ -155,8 +155,9 @@ func KubeExport(namespace, resource, name string, kubeconfig string) (string, er
 	var cmd string
 	if namespace == "" {
 		cmd = fmt.Sprintf("kubectl get %s %s -o yaml --kubeconfig=%s --export", resource, name, kubeconfig)
+	} else {
+		cmd = fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
 	}
-	cmd = fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
