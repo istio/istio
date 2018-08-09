@@ -59,9 +59,12 @@ const (
 	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
-	attrRequestGroups    = "request.auth.groups"    // intended group(s) for this authentication information.
 	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
 	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+
+	// organizes all auth derived claims under auth.derived.claims
+	authDerivedClaims = "auth.derived.claims"
+	groupsClaim       = "groups" // groups claim.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -150,11 +153,11 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 // via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
 func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 	switch k {
-	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences, attrRequestGroups,
+	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
 		attrRequestPresenter:
 		return true
 	}
-	return strings.HasPrefix(k, attrRequestClaims)
+	return strings.HasPrefix(k, attrRequestClaims) || strings.HasPrefix(k, authDerivedClaims)
 }
 
 func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *metadata.MetadataMatcher {
@@ -175,7 +178,7 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-func generateMetadataListMatcher(key string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
 	forceRegexPattern := false
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
@@ -188,9 +191,11 @@ func generateMetadataListMatcher(key string, v string) *metadata.MetadataMatcher
 	}
 
 	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-		Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: key},
-	})
+	for _, k := range keys {
+		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
+		})
+	}
 
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
@@ -218,6 +223,12 @@ func generateMetaKeys(k string) ([]string, error) {
 			return nil, err
 		}
 		keys = []string{attrRequestClaims, claim}
+	} else if strings.HasPrefix(k, authDerivedClaims) {
+		claim, err := extractNameInBrackets(strings.TrimPrefix(k, authDerivedClaims))
+		if err != nil {
+			return nil, err
+		}
+		keys = []string{authDerivedClaims, claim}
 	} else {
 		keys = []string{k}
 	}
@@ -258,10 +269,6 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
 func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
-	if k == attrRequestGroups {
-		return generateMetadataListMatcher(k, v)
-	}
-
 	keys, err := generateMetaKeys(k)
 	if err != nil {
 		return nil
@@ -271,6 +278,18 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		// Change the value to a regular expression to match the namespace part.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
 		forceRegexPattern = true
+	}
+
+	//Handle the claims under authDerivedClaims
+	if len(keys) == 2 && keys[0] == authDerivedClaims {
+		switch keys[1] {
+		case groupsClaim:
+			return generateMetadataListMatcher(keys, v)
+		//Place other derived claims here
+		//case ...
+		default:
+			rbacLog.Errorf("unsupported claim key: %s", keys[1])
+		}
 	}
 
 	stringMatcher := createStringMatcher(v, forceRegexPattern)
