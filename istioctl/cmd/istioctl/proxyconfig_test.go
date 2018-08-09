@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/version"
 )
 
 type execTestCase struct {
@@ -202,4 +203,8 @@ func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path strin
 		return results, nil
 	}
 	return nil, fmt.Errorf("unable to find any Pilot instances")
+}
+
+func (client mockExecConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
+	return nil, nil
 }

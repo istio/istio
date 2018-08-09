@@ -632,7 +632,7 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(contextCmd)
-	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(version.CobraCommandWithOptions(version.CobraOptions{GetRemoteVersion: getRemoteInfo}))
 	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 	rootCmd.AddCommand(experimentalCmd)
 
@@ -641,6 +641,15 @@ func init() {
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",
 	}))
+}
+
+func getRemoteInfo() (*version.MeshInfo, error) {
+	kubeClient, err := clientExecFactory(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubeClient.GetIstioVersions(istioNamespace)
 }
 
 func main() {
