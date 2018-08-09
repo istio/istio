@@ -26,6 +26,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+	"istio.io/istio/galley/pkg/mcp/snapshot"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/ctrlz"
@@ -67,6 +68,9 @@ func TestConfigZ(t *testing.T) {
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
 
+	time.Sleep(2 * time.Second)
+	fmt.Println("After Delay")
+
 	t.Run("configz with no requests", func(tt *testing.T) { testConfigZWithNoRequest(tt, baseURL) })
 
 	b := snapshot.NewInMemoryBuilder()
@@ -96,21 +100,21 @@ func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	if !strings.Contains(data, "type.googleapis.com/google.protobuf.Empty") {
 		t.Fatalf("Supported urls should have been displayed: %q", data)
 	}
-	if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 1 {
-		t.Fatalf("Only supported urls should have been displayed: %q", data)
+	if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 2 {
+		t.Fatalf("Only supported urls and the initial ACK request should have been displayed: %q", data)
 	}
 }
 
 func testConfigZWithOneRequest(t *testing.T, baseURL string) {
 	for i := 0; i < 10; i++ {
 		data := request(t, baseURL+"/configz")
-		if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 2 {
+		if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 3 {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 		return
 	}
-	t.Fatal("Both supported urls and a recent request should have been displayed")
+	t.Fatal("Both supported urls, the initial request, and a recent ACK request should have been displayed")
 }
 
 func testConfigJWithOneRequest(t *testing.T, baseURL string) {
@@ -135,8 +139,8 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 		t.Fatalf("Should have contained supported type urls: %v", data)
 	}
 
-	if len(m["LatestRequests"].([]interface{})) != 1 {
-		t.Fatalf("There should have been a single LatestRequest entry: %v", data)
+	if len(m["LatestRequests"].([]interface{})) != 2 {
+		t.Fatalf("There should have been an initial request and subsequent ACK LatestRequest entry: %v", data)
 	}
 }
 
