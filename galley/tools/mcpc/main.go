@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/client"
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/kube/converter/legacy"

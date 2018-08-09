@@ -44,7 +44,7 @@ func TestGet_Panic(t *testing.T) {
 
 func TestIdentity(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct", true)
+	b.Register("type.googleapis.com/google.protobuf.Struct")
 	s := b.Build()
 
 	info := s.Get("type.googleapis.com/google.protobuf.Struct")
@@ -90,7 +90,7 @@ func TestIdentity(t *testing.T) {
 
 func TestIdentity_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b.Register("type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
 	info := s.Get("type.googleapis.com/google.protobuf.Empty")
@@ -114,7 +114,7 @@ func TestIdentity_Error(t *testing.T) {
 
 func TestLegacyMixerResource(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct", true)
+	b.Register("type.googleapis.com/google.protobuf.Struct")
 	s := b.Build()
 
 	info := s.Get("type.googleapis.com/google.protobuf.Struct")
@@ -166,7 +166,7 @@ func TestLegacyMixerResource(t *testing.T) {
 
 func TestLegayMixerResource_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Any", true)
+	b.Register("type.googleapis.com/google.protobuf.Any")
 	s := b.Build()
 
 	info := s.Get("type.googleapis.com/google.protobuf.Any")

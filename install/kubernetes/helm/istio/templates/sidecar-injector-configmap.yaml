@@ -29,28 +29,13 @@ data:
         - "-m"
         - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         - "-i"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeOutboundIPRanges\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.includeIPRanges }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ annotationOrDefault .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundIPRanges` " }} "{{ .Values.global.proxy.includeIPRanges }}" {{ " ]]\"" }}
         - "-x"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeOutboundIPRanges\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.excludeIPRanges }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ annotationOrDefault .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeOutboundIPRanges` " }} "{{ .Values.global.proxy.excludeIPRanges }}" {{ " ]]\"" }}
         - "-b"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/includeInboundPorts\"  ]]\"" }}
-        {{ "[[ else -]]" }}
-        - {{ "[[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]" }}
+        - {{ "\"[[ annotationOrDefault .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
-        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\") -]]" }}
-        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/excludeInboundPorts\" ]]\"" }}
-        {{ "[[ else -]]" }}
-        - "{{ .Values.global.proxy.excludeInboundPorts }}"
-        {{ "[[ end -]]" }}
+        - {{ "\"[[ annotationOrDefault .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ " ]]\"" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:

@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// nolint: testlinter
 func TestInvalidSkip(t *testing.T) {
 	t.Skip("invalid skip without url to GitHub issue.")
 	SetCount()
@@ -20,6 +21,7 @@ func TestInvalidSkip(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/6041")
 }
 
+// nolint: testlinter
 func TestInvalidShort(t *testing.T) {
 	SetCount()
 	if Count(1) != 1 {
@@ -38,6 +40,7 @@ func TestInvalidShort(t *testing.T) {
 	}
 }
 
+// nolint: testlinter
 func TestInvalidSleep(t *testing.T) {
 	SetCount()
 	if Count(1) != 1 {
@@ -53,6 +56,7 @@ func TestInvalidSleep(t *testing.T) {
 	}
 }
 
+// nolint: testlinter
 func TestInvalidGoroutine(t *testing.T) {
 	go SetCount()
 	if Count(5) != 5 {

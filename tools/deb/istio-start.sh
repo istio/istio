@@ -23,13 +23,15 @@ set -e
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
-  . $ISTIO_SIDECAR_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
 ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
-  . $ISTIO_CLUSTER_CONFIG
+  # shellcheck disable=SC1090
+  . "$ISTIO_CLUSTER_CONFIG"
 fi
 
 # Set defaults
@@ -61,12 +63,12 @@ fi
 if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
   # Update iptables, based on current config. This is for backward compatibility with the init image mode.
   # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-  ${ISTIO_BIN_BASE}/istio-iptables.sh "${@}"
+  "${ISTIO_BIN_BASE}/istio-iptables.sh" "${@}"
   exit 0
 fi
 
 # Update iptables, based on config file
-${ISTIO_BIN_BASE}/istio-iptables.sh
+"${ISTIO_BIN_BASE}/istio-iptables.sh"
 
 EXEC_USER=istio-proxy
 if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then

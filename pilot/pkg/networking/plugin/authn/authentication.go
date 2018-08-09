@@ -29,7 +29,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -46,9 +45,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
-
-	// Defautl cache duration for JWT public key. This should be moved to a global config.
-	jwtPublicKeyCacheSeconds = 60 * 5
 
 	// EnvoyTLSInspectorFilterName is the name for Envoy TLS sniffing listener filter.
 	EnvoyTLSInspectorFilterName = "envoy.listener.tls_inspector"
@@ -89,21 +85,6 @@ func RequireTLS(policy *authn.Policy, proxyType model.NodeType) (bool, *authn.Mu
 	return false, nil
 }
 
-// JwksURIClusterName returns cluster name for the jwks URI. This should be used
-// to override the name for outbound cluster that are added for Jwks URI so that they
-// can be referred correctly in the JWT filter config.
-func JwksURIClusterName(hostname string, port *model.Port) string {
-	const clusterPrefix = "jwks."
-	const maxClusterNameLength = 189 - len(clusterPrefix)
-	name := hostname + "|" + port.Name
-	if len(name) > maxClusterNameLength {
-		prefix := name[:maxClusterNameLength-sha1.Size*2]
-		sum := sha1.Sum([]byte(name))
-		name = fmt.Sprintf("%s%x", prefix, sum)
-	}
-	return clusterPrefix + name
-}
-
 // CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
@@ -132,7 +113,7 @@ func OutputLocationForJwtIssuer(issuer string) string {
 }
 
 // ConvertPolicyToJwtConfig converts policy into Jwt filter config for envoy.
-func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jwtfilter.JwtAuthentication {
+func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication {
 	policyJwts := CollectJwtSpecs(policy)
 	if len(policyJwts) == 0 {
 		return nil
@@ -155,37 +136,18 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy, useInlinePublicKey bool) *jw
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
-		if useInlinePublicKey {
-			jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
-			}
+		jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
+		if err != nil {
+			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)
+		}
 
-			// Put empty string in config even if above ResolveJwtPubKey fails.
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
-				LocalJwks: &jwtfilter.DataSource{
-					Specifier: &jwtfilter.DataSource_InlineString{
-						InlineString: jwtPubKey,
-					},
+		// Put empty string in config even if above ResolveJwtPubKey fails.
+		jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_LocalJwks{
+			LocalJwks: &jwtfilter.DataSource{
+				Specifier: &jwtfilter.DataSource_InlineString{
+					InlineString: jwtPubKey,
 				},
-			}
-		} else {
-			hostname, port, _, err := model.ParseJwksURI(policyJwt.JwksUri)
-			if err != nil {
-				log.Warnf("Cannot parse jwks_uri %q: %v", policyJwt.JwksUri, err)
-			}
-
-			jwt.JwksSourceSpecifier = &jwtfilter.JwtRule_RemoteJwks{
-				RemoteJwks: &jwtfilter.RemoteJwks{
-					HttpUri: &jwtfilter.HttpUri{
-						Uri: policyJwt.JwksUri,
-						HttpUpstreamType: &jwtfilter.HttpUri_Cluster{
-							Cluster: JwksURIClusterName(hostname, port),
-						},
-					},
-					CacheDuration: &types.Duration{Seconds: jwtPublicKeyCacheSeconds},
-				},
-			}
+			},
 		}
 
 		ret.Rules = append(ret.Rules, jwt)
@@ -243,7 +205,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
 func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
-	filterConfigProto := ConvertPolicyToJwtConfig(policy, true /*useInlinePublicKey*/)
+	filterConfigProto := ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
@@ -336,7 +298,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.Mesh, in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+		in.Env.IstioConfigStore, in.ServiceInstance.Service, in.ServiceInstance.Endpoint.ServicePort)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
@@ -362,8 +324,8 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 }
 
 // RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(mesh, store, hostname, port)
+func (Plugin) RequireTLSMultiplexing(store model.IstioConfigStore, service *model.Service, port *model.Port) bool {
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(store, service, port)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return false
 	}
@@ -381,7 +343,7 @@ func (Plugin) RequireTLSMultiplexing(mesh *meshconfig.MeshConfig, store model.Is
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -394,6 +356,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

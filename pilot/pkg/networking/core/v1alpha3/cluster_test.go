@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -44,7 +44,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 	env := buildEnvForClustersWithRingHashLb()
 
-	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(2))
@@ -76,7 +76,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 	}, nil)
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &duration.Duration{
+		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -84,13 +84,23 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 
 	ttl := time.Duration(time.Nanosecond * 100)
 	configStore := &fakes.IstioConfigStore{}
-	configStore.DestinationRuleReturns(
-		&model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -109,16 +119,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 					},
 				},
 			},
-		},
-	)
-
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
-		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
-	}
+		}})
 
 	return env
 }
@@ -137,7 +138,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	env := buildEnvForClustersWithIstioMutualWithSNI("foo.com")
 
-	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(3))
@@ -149,14 +150,14 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	// Check if SNI values are being automatically populated
 	env = buildEnvForClustersWithIstioMutualWithSNI("")
 
-	clusters, err = configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(3))
 
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
-	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal(cluster.Name))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.example.org"))
 }
 
 func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environment {
@@ -178,20 +179,30 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 	}, nil)
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &duration.Duration{
+		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
 	}
 
 	configStore := &fakes.IstioConfigStore{}
-	configStore.DestinationRuleReturns(
-		&model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
 				Subsets: []*networking.Subset{
@@ -214,16 +225,7 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 					},
 				},
 			},
-		},
-	)
-
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		ServiceAccounts:  &fakes.ServiceAccounts{},
-		IstioConfigStore: configStore,
-		Mesh:             meshConfig,
-		MixerSAN:         []string{},
-	}
+		}})
 
 	return env
 }

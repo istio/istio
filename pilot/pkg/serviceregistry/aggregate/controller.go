@@ -169,20 +169,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return nil, errs
 }
 
-// GetServiceAttributes retrieves the custom attributes of a service if exists
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	var errs error
-	for _, r := range c.GetRegistries() {
-		svc, err := r.GetService(hostname)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if svc != nil {
-			return r.GetServiceAttributes(svc.Hostname)
-		}
-	}
-	return nil, errs
-}
-
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (c *Controller) ManagementPorts(addr string) model.PortList {

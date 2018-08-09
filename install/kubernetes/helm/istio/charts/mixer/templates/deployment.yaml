@@ -198,9 +198,9 @@ metadata:
   name: istio-{{ $mname }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
-    release: {{ $.Release.Name }}
+    app: istio-mixer
     istio: mixer
+    {{- template "common_labels" $ }}
 spec:
   replicas: {{ $.Values.replicaCount }}
   template:

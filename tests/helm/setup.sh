@@ -1,17 +1,16 @@
-#/bin/bash
+#!/bin/bash
 
 
 
 function testIstioSystem() {
-   pushd $TOP/src/istio.io/istio
+   pushd "$TOP/src/istio.io/istio" || return
    helm -n istio-system template \
-    --set global.tag=$TAG \
-    --set global.hub=$HUB \
+    --set global.tag="$TAG" \
+    --set global.hub="$HUB" \
     --values tests/helm/values-istio-test.yaml \
     install/kubernetes/helm/istio  | \
         kubectl apply -n istio-system -f -
-   popd
-
+   popd || return
 }
 
 # Install istio
@@ -32,11 +31,11 @@ function testInstall() {
 # Apply the helm template
 function testApply() {
    local F=${1:-"istio/fortio:latest"}
-   pushd $TOP/src/istio.io/istio
+   pushd "$TOP/src/istio.io/istio" || return
    helm -n test template \
-    --set fortioImage=$F \
+    --set fortioImage="$F" \
     tests/helm |kubectl -n test apply -f -
-   popd
+   popd || return
 }
 
 function testApply1() {
@@ -50,29 +49,29 @@ function testApply1() {
 # Similar scripts can setup DNS using a different provider
 function testCreateDNS() {
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction start --zone="$DNS_ZONE"
 
   #  gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=grafana.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=prom.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=fortio2.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=pilot.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=fortio.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=fortioraw.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=bookinfo.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=httpbin.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=citadel.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=mixer.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="prom.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortio2.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="pilot.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortio.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="fortioraw.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="bookinfo.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="httpbin.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="citadel.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="mixer.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction execute --zone="$DNS_ZONE"
 }
 
 # Run this after adding a new name for ingress testing
 function testAddDNS() {
     local N=$1
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction start --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction start --zone="$DNS_ZONE"
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction add ingress10.${DNS_DOMAIN}. --name=${N}.v10.${DNS_DOMAIN}. --ttl=300 --type=CNAME --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction add "ingress10.${DNS_DOMAIN}." --name="${N}.v10.${DNS_DOMAIN}." --ttl=300 --type=CNAME --zone="$DNS_ZONE"
 
-    gcloud dns --project=$DNS_PROJECT record-sets transaction execute --zone=$DNS_ZONE
+    gcloud dns --project="$DNS_PROJECT" record-sets transaction execute --zone="$DNS_ZONE"
 }

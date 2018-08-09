@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -45,9 +44,14 @@ type Environment struct {
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
 
-	// PushStatus holds informations during push generation. It is reset on config change, at the beginning
+	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
-	PushStatus *PushStatus
+	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
+	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
+	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
+	// CONFIG AND PUSH
+	// Deprecated - a local config for ads will be used instead
+	PushContext *PushContext
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -211,12 +215,12 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		BinaryPath:             BinaryPathFilename,
 		ServiceCluster:         ServiceClusterName,
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
-		DrainDuration:          ptypes.DurationProto(2 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
+		DrainDuration:          types.DurationProto(2 * time.Second),
+		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
+		DiscoveryRefreshDelay:  types.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
-		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
@@ -235,16 +239,15 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,
-		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
+		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
 		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		AuthPolicy:            meshconfig.MeshConfig_NONE,
-		RdsRefreshDelay:       ptypes.DurationProto(1 * time.Second),
+		RdsRefreshDelay:       types.DurationProto(1 * time.Second),
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
-		SdsRefreshDelay:       ptypes.DurationProto(15 * time.Second),
+		SdsRefreshDelay:       types.DurationProto(15 * time.Second),
 	}
 }
 

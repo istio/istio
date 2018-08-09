@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -261,13 +260,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      string(hostname),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
-}
-
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
@@ -472,10 +464,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
 // TODO: check subsets possibly conflicts between subsets.
-func isMTlsOn(mesh *meshconfig.MeshConfig, rule *networking.DestinationRule, port *model.Port) bool {
-	if rule == nil {
-		return mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS
-	}
+func isMTlsOn(rule *networking.DestinationRule, port *model.Port) bool {
 	if rule.TrafficPolicy == nil {
 		return false
 	}
@@ -532,23 +521,23 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
 				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
 				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ServerProtocol = mTLSModeToString(false)
 			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(rule, p))
 			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ClientProtocol = mTLSModeToString(false)
 			}
 
 			if info.ClientProtocol != info.ServerProtocol {
@@ -617,7 +606,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
-// PushStatusHandler dumps the last PushStatus
+// PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
 		return
@@ -730,7 +719,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -750,7 +739,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
