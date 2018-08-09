@@ -164,8 +164,9 @@ type deployableConfig struct {
 	Namespace string
 	YamlFiles []string
 	// List of resources must be removed during deployableConfig setup, and restored
-	// during teardown. Typically, these are resources added by default installation and need to
-	// be modified for test. These resources are in the same namespace defined above.
+	// during teardown. These resources must exist before deployableConfig setup runs, and should be
+	// in the same namespace defined above. Typically, they are added by the default Istio installation
+	// (e.g the default global authentication policy) and need to be modified for tests.
 	Removes    []resource
 	applied    []string
 	removed    []string
@@ -176,7 +177,7 @@ type deployableConfig struct {
 func (c *deployableConfig) Setup() error {
 	c.removed = []string{}
 	for _, r := range c.Removes {
-		content, err := util.KubeExport(c.Namespace, r.Kind, r.Name, c.kubeconfig)
+		content, err := util.KubeGetYaml(c.Namespace, r.Kind, r.Name, c.kubeconfig)
 		if err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()

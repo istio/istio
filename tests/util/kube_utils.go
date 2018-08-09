@@ -150,14 +150,12 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
-// KubeExport kubectl get yaml content for given resource.
-func KubeExport(namespace, resource, name string, kubeconfig string) (string, error) {
-	var cmd string
+// KubeGetYaml kubectl get yaml content for given resource.
+func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, error) {
 	if namespace == "" {
-		cmd = fmt.Sprintf("kubectl get %s %s -o yaml --kubeconfig=%s --export", resource, name, kubeconfig)
-	} else {
-		cmd = fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+		namespace = "default"
 	}
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
 
 	return Shell(cmd)
 }
