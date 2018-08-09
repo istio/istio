@@ -143,8 +143,8 @@ if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
 
   cp "${KEYFILE}" "${KEYFILE_ENC}"
   gcloud kms decrypt \
-       --ciphertext-file=$KEYFILE_ENC \
-       --plaintext-file=$KEYFILE_TEMP \
+       --ciphertext-file="$KEYFILE_ENC" \
+       --plaintext-file="$KEYFILE_TEMP" \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
@@ -245,10 +245,10 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
 
   if [[ "${DO_DOCKERHUB}" == "true" && "${ADD_DOCKER_KEY}" == "true" ]]; then
     echo "using istio cred for docker"
-    gsutil cp gs://istio-secrets/dockerhub_config.json.enc $HOME/.docker/config.json.enc
+    gsutil cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
     gcloud kms decrypt \
-       --ciphertext-file=$HOME/.docker/config.json.enc \
-       --plaintext-file=$HOME/.docker/config.json \
+       --ciphertext-file="$HOME/.docker/config.json.enc" \
+       --plaintext-file="$HOME/.docker/config.json" \
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
@@ -283,10 +283,10 @@ fi
 if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
   echo "Beginning tag of github"
   if [[ -n "${KEYFILE}" ]]; then
-    ${SCRIPTPATH}/create_tag_reference.sh -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
+    "${SCRIPTPATH}/create_tag_reference.sh" -k "$KEYFILE" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   else
-    ${SCRIPTPATH}/create_tag_reference.sh -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
+    "${SCRIPTPATH}/create_tag_reference.sh" -t "$TOKEN" -v "$VERSION" -o "${ORG}" \
            -e "${USER_EMAIL}" -n "${USER_NAME}" -b "${UPLOAD_DIR}/manifest.xml"
   fi
   echo "Completed tag of github"
@@ -296,14 +296,14 @@ fi
 
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
-  SHA=$(grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \")
+  SHA=$(grep "$ORG/$REPO" "${UPLOAD_DIR}/manifest.xml" | cut -f 6 -d \")
 
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then
-    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -k "$KEYFILE" \
+    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -k "$KEYFILE" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   else
-    ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -t "$TOKEN" \
+    "${SCRIPTPATH}/create_github_release.sh" -o "$ORG" -r "$REPO" -t "$TOKEN" \
            -v "$VERSION" -s "$SHA" -u "${UPLOAD_DIR}"
   fi
   echo "Completed release to github"

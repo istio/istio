@@ -205,6 +205,7 @@ gateways:
       #  memory: 256Mi
 
     loadBalancerIP: ""
+    loadBalancerSourceRanges: {}
     serviceAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
 
@@ -393,6 +394,8 @@ grafana:
   enabled: false
   replicaCount: 1
   image: grafana
+  persist: false
+  storageClassName: ""
   security:
     enabled: false
     adminUser: admin

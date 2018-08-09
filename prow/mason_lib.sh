@@ -37,7 +37,7 @@ function get_resource() {
     --boskos-url='http://boskos.boskos.svc.cluster.local' \
     --owner="${owner}" \
     --info-save "${info_path}" \
-    --kubeconfig-save ${HOME}/.kube/config > ${file_log} 2>&1 &
+    --kubeconfig-save "${HOME}/.kube/config" > "${file_log}" 2>&1 &
   MASON_CLIENT_PID=$!
 
   local ready
@@ -45,7 +45,7 @@ function get_resource() {
 
   # Wait up to 10 mn by increment of 10 seconds unit ready or failure
   for _ in {1..60}; do
-    grep -q READY ${file_log} && ready=true || ready=false
+    grep -q READY "${file_log}" && ready=true || ready=false
     if [[ ${ready} == true ]]; then
       cat "${info_path}"
       local project

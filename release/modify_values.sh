@@ -26,14 +26,14 @@ function fix_values_yaml() {
   tarball_name="$4"
 
   gsutil cp "${GCS_PATH}/${tarball_name}" .
-  eval $unzip_cmd        ${tarball_name}
-  rm                     ${tarball_name}
+  eval "$unzip_cmd"     "${tarball_name}"
+  rm                    "${tarball_name}"
 
-  sed -i     "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
-  sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./${folder_name}/install/kubernetes/helm/istio*/values.yaml
+  sed -i     "s|hub: gcr.io/istio-release|hub: ${HUB}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
+  sed -i "s|tag: release-1.0-latest-daily|tag: ${TAG}|g" ./"${folder_name}"/install/kubernetes/helm/istio*/values.yaml
 
-  eval $zip_cmd ${tarball_name} ${folder_name}
-  rm -rf                       "${folder_name}"
+  eval "$zip_cmd" "${tarball_name}" "${folder_name}"
+  rm -rf                            "${folder_name}"
 
   gsutil cp "${tarball_name}" "${GCS_PATH}/${tarball_name}"
   gsutil cp "${tarball_name}" "${GCS_PATH}/docker.io/${tarball_name}"

@@ -8,13 +8,7 @@ ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 # See https://github.com/koalaman/shellcheck/wiki for details on each code's
 # corresponding rule.
 EXCLUDES="1090,"
-EXCLUDES="${EXCLUDES}1091,"
-EXCLUDES="${EXCLUDES}2016,"
-EXCLUDES="${EXCLUDES}2046,"
-EXCLUDES="${EXCLUDES}2068,"
-EXCLUDES="${EXCLUDES}2086,"
-EXCLUDES="${EXCLUDES}2191,"
-EXCLUDES="${EXCLUDES}2206"
+EXCLUDES="${EXCLUDES}1091"
 
 # All files ending in .sh.
 SH_FILES=$( \
