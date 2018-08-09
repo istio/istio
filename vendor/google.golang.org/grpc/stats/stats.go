@@ -16,7 +16,7 @@
  *
  */
 
-//go:generate protoc --go_out=plugins=grpc:. grpc_testing/test.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --go_out=plugins=grpc:. grpc_testing/test.proto
 
 // Package stats is for collecting and reporting various network and RPC stats.
 // This package is for monitoring purpose only. All fields are read-only.

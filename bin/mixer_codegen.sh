@@ -13,7 +13,7 @@ if [ ! -e "$ROOT/Gopkg.lock" ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep -m 1 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
@@ -183,7 +183,7 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err";
   fi
 
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "$TMPL_GEN_MAP"
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go api -t $templateDS --go_out $templateHG --proto_out $templateHSP $TMPL_GEN_MAP
 
   err=$($protoc "$IMPORTS" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
@@ -198,7 +198,7 @@ if [ "$opttemplate" = true ]; then
   fi
 
   templateYaml=${template/.proto/.yaml}
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" template -d "$templateSDS" -o "$templateYaml" -n "$(basename "$(dirname "${template}")")"
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go template -d $templateSDS -o $templateYaml -n $(basename "$(dirname "${template}")")
 
   rm "$templatePG"
 
@@ -222,7 +222,7 @@ if [ "$optadapter" = true ]; then
   die "config generation failure: $err";
   fi
 
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" adapter -c "$adapteCfdDS" -o "$(dirname "${file}")" "${extraflags}"
+  go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -c $adapteCfdDS -o $(dirname "${file}") ${extraflags}
 
   exit 0
 fi
