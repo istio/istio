@@ -205,30 +205,27 @@ func generateMetadataListMatcher(k string, v string) *metadata.MetadataMatcher {
 	}
 }
 
-// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+func generateKeys(k string) ([]string, error) {
 	var keys []string
-	forceRegexPattern := false
 
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}, so we change the key to
-		// attrSrcPrincipal and change the value to a regular expression to match the namespace part.
+		// attrSrcPrincipal.
 		keys = []string{attrSrcPrincipal}
-		v = fmt.Sprintf(`*/ns/%s/*`, v)
-		forceRegexPattern = true
-	} else if k == attrRequestGroups {
-		return generateMetadataListMatcher(k, v)
 	} else if strings.HasPrefix(k, attrRequestClaims) {
 		claim, err := extractNameInBrackets(strings.TrimPrefix(k, attrRequestClaims))
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		keys = []string{attrRequestClaims, claim}
 	} else {
 		keys = []string{k}
 	}
+	return keys, nil
+}
 
+func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatcher {
 	var stringMatcher *metadata.StringMatcher
 	// Check if v is "*" first to make sure we won't generate an empty prefix/suffix StringMatcher,
 	// the Envoy StringMatcher doesn't allow empty prefix/suffix.
@@ -257,6 +254,27 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 			},
 		}
 	}
+	return stringMatcher
+}
+
+// createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
+func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+	if k == attrRequestGroups {
+		return generateMetadataListMatcher(k, v)
+	}
+
+	keys, err := generateKeys(k)
+	if err != nil {
+		return nil
+	}
+	forceRegexPattern := false
+	if k == attrSrcNamespace {
+		// Change the value to a regular expression to match the namespace part.
+		v = fmt.Sprintf(`*/ns/%s/*`, v)
+		forceRegexPattern = true
+	}
+
+	stringMatcher := createStringMatcher(v, forceRegexPattern)
 
 	return generateMetadataStringMatcher(keys, stringMatcher)
 }
