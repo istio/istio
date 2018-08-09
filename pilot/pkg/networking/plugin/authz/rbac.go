@@ -59,9 +59,9 @@ const (
 	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
+	attrRequestGroups    = "request.auth.groups"    // intended group(s) for this authentication information.
 	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
 	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	groupsClaim          = "groups"                 // groups claim.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -150,7 +150,7 @@ func (service serviceMetadata) match(rule *rbacproto.AccessRule) bool {
 // via dynamic metadata matcher. This means these attributes are depending on the output of authn filter.
 func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 	switch k {
-	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences,
+	case attrSrcNamespace, attrSrcUser, attrSrcPrincipal, attrRequestPrincipal, attrRequestAudiences, attrRequestGroups,
 		attrRequestPresenter:
 		return true
 	}
@@ -175,7 +175,7 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(key string, v string) *metadata.MetadataMatcher {
 	forceRegexPattern := false
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
@@ -188,11 +188,9 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 
 	paths := make([]*metadata.MetadataMatcher_PathSegment, 0)
-	for _, k := range keys {
-		paths = append(paths, &metadata.MetadataMatcher_PathSegment{
-			Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: k},
-		})
-	}
+	paths = append(paths, &metadata.MetadataMatcher_PathSegment{
+		Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: key},
+	})
 
 	return &metadata.MetadataMatcher{
 		Filter: authn.AuthnFilterName,
@@ -205,7 +203,8 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 }
 
-func generateKeys(k string) ([]string, error) {
+// Generate keys for metadata paths
+func generateMetaKeys(k string) ([]string, error) {
 	var keys []string
 
 	if k == attrSrcNamespace {
@@ -259,7 +258,11 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
 func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
-	keys, err := generateKeys(k)
+	if k == attrRequestGroups {
+		return generateMetadataListMatcher(k, v)
+	}
+
+	keys, err := generateMetaKeys(k)
 	if err != nil {
 		return nil
 	}
@@ -268,10 +271,6 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		// Change the value to a regular expression to match the namespace part.
 		v = fmt.Sprintf(`*/ns/%s/*`, v)
 		forceRegexPattern = true
-	}
-
-	if len(keys) == 2 && keys[0] == attrRequestClaims && keys[1] == groupsClaim {
-		return generateMetadataListMatcher(keys, v)
 	}
 
 	stringMatcher := createStringMatcher(v, forceRegexPattern)
