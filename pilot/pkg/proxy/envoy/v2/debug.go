@@ -260,13 +260,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      string(hostname),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
-}
-
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
@@ -528,7 +521,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
@@ -538,7 +531,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				info.ServerProtocol = mTLSModeToString(false)
 			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			destConfig := s.env.PushContext.DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
@@ -613,7 +606,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
-// PushStatusHandler dumps the last PushStatus
+// PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
 		return
@@ -726,7 +719,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -746,7 +739,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue

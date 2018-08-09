@@ -49,26 +49,12 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	cacheSizeGauge = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_size",
-			Help:      "Current size (in bytes) of a single cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
 	cacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_hit",
 			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
-	cacheMissCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_miss",
-			Help:      "Count of cache misses for a particular cache within Pilot",
 		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -185,7 +171,7 @@ func envDuration(env string, def time.Duration) time.Duration {
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
-	model.Environment
+	*model.Environment
 
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -249,42 +235,6 @@ func (c *discoveryCache) cachedDiscoveryResponse(key string) ([]byte, uint32, bo
 	atomic.AddUint64(&entry.hit, 1)
 	cacheHitCounter.With(c.cacheSizeLabels()).Inc()
 	return entry.data, entry.resourceCount, true
-}
-
-func (c *discoveryCache) updateCachedDiscoveryResponse(key string, resourceCount uint32, data []byte) {
-	if c.disabled {
-		return
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	entry, ok := c.cache[key]
-	var cacheSizeDelta float64
-	if !ok {
-		entry = &discoveryCacheEntry{}
-		c.cache[key] = entry
-		cacheSizeDelta = float64(len(key) + len(data))
-	} else if entry.data != nil {
-		cacheSizeDelta = float64(len(data) - len(entry.data))
-		log.Warnf("Overriding cached data for entry %v", key)
-	}
-	entry.resourceCount = resourceCount
-	entry.data = data
-	atomic.AddUint64(&entry.miss, 1)
-	cacheMissCounter.With(c.cacheSizeLabels()).Inc()
-	cacheSizeGauge.With(c.cacheSizeLabels()).Add(cacheSizeDelta)
-}
-
-func (c *discoveryCache) clear() {
-	// Reset the cache size metric for this cache.
-	cacheSizeGauge.Delete(c.cacheSizeLabels())
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, v := range c.cache {
-		v.data = nil
-	}
 }
 
 func (c *discoveryCache) resetStats() {
@@ -372,7 +322,7 @@ type DiscoveryServiceOptions struct {
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),

@@ -25,6 +25,7 @@ ISTIO_STAGING=${ISTIO_STAGING:-.}
 function istioVersionSource() {
   echo "Sourced ${ISTIO_STAGING}/istio.VERSION"
   cat "${ISTIO_STAGING}/istio.VERSION"
+  # shellcheck disable=SC1090
   source "${ISTIO_STAGING}/istio.VERSION"
 }
 
@@ -44,7 +45,7 @@ function istioNetworkInit() {
   systemctl restart dnsmasq
 
   # Update DHCP - if needed
-  if grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null; then
+  if ! grep "^prepend domain-name-servers 127.0.0.1;" /etc/dhcp/dhclient.conf > /dev/null; then
     echo 'prepend domain-name-servers 127.0.0.1;' >> /etc/dhcp/dhclient.conf
     # TODO: find a better way to re-trigger dhclient
     dhclient -v -1

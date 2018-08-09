@@ -19,8 +19,8 @@ import (
 	"time"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/server"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/server"
 )
 
 var scope = log.RegisterScope("snapshot", "mcp snapshot", 0)

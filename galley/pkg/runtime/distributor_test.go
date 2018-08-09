@@ -17,7 +17,7 @@ package runtime
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 func TestInMemoryDistributor_SetSnapshot(t *testing.T) {

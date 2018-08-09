@@ -5,13 +5,13 @@ about: Suggest an idea to improve Istio
 ---
 
 **Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is
+<sub><sup>A clear and concise description of what the problem is</sup></sub>
 
 **Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+<sub><sup>A clear and concise description of what you want to happen.</sup></sub>
 
 **Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+<sub><sup>A clear and concise description of any alternative solutions or features you've considered.</sup></sub>
 
 **Additional context**
-Add any other context about the feature request here.
+<sub><sup>Add any other context about the feature request here.</sup></sub>

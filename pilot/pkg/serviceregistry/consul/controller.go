@@ -78,17 +78,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return convertService(endpoints), nil
 }
 
-// GetServiceAttributes retrieves namespace of a service if it exists.
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	svc, err := c.GetService(hostname)
-	if svc != nil {
-		return &model.ServiceAttributes{
-			Name:      string(hostname),
-			Namespace: model.IstioDefaultConfigNamespace}, nil
-	}
-	return nil, err
-}
-
 func (c *Controller) getServices() (map[string][]string, error) {
 	data, _, err := c.client.Catalog().Services(nil)
 	if err != nil {

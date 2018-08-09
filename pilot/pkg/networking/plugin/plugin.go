@@ -82,7 +82,7 @@ type InputParams struct {
 	Port *model.Port
 
 	// Push holds stats and other information about the current push.
-	Push *model.PushStatus
+	Push *model.PushContext
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -125,11 +125,11 @@ type Plugin interface {
 	OnInboundListener(in *InputParams, mutable *MutableObjects) error
 
 	// OnOutboundCluster is called whenever a new cluster is added to the CDS output.
-	OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+	OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnInboundCluster is called whenever a new cluster is added to the CDS output.
-	OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+	OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
 		cluster *xdsapi.Cluster)
 
 	// OnOutboundRouteConfiguration is called whenever a new set of virtual hosts (a set of virtual hosts with routes) is

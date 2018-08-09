@@ -23,8 +23,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 // State is the in-memory state of Galley.

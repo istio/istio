@@ -31,8 +31,8 @@ spec:
           args:
           - proxy
           - ingress
-          - -v
-          - "2"
+          - --log_output_level
+          - 'info'
           - --discoveryRefreshDelay
           - '1s' #discoveryRefreshDelay
           - --drainDuration

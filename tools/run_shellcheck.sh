@@ -5,10 +5,10 @@
 TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 
+# Set global rule exclusions here, separated by comma (e.g. SC1090,SC1091).
 # See https://github.com/koalaman/shellcheck/wiki for details on each code's
 # corresponding rule.
-EXCLUDES="1090,"
-EXCLUDES="${EXCLUDES}1091"
+EXCLUDES=""
 
 # All files ending in .sh.
 SH_FILES=$( \

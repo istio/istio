@@ -256,17 +256,17 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 	svc := in.ServiceInstance.Service.Hostname
-	attr, err := in.Env.GetServiceAttributes(svc)
-	if attr == nil || err != nil {
-		rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
-		return nil
-	}
+	attr := in.ServiceInstance.Service.Attributes
+	//if len(attr) == nil || err != nil {
+	//	rbacLog.Errorf("rbac plugin disabled: invalid service %s: %v", svc, err)
+	//	return nil
+	//}
 
 	if !isRbacEnabled(string(svc), attr.Namespace, in.Env.IstioConfigStore) {
 		return nil
 	}
 
-	service := createServiceMetadata(attr, in.ServiceInstance)
+	service := createServiceMetadata(&attr, in.ServiceInstance)
 	rbacLog.Debugf("building filter config for %v", *service)
 	filter := buildHTTPFilter(service, in.Env.IstioConfigStore)
 	if filter != nil {
@@ -280,7 +280,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -293,7 +293,7 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
