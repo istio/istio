@@ -1,32 +1,12 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: a-dr-mtls
-spec:
-  host: a
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: b-dr-mtls
-spec:
-  host: b
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
----
-apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
   name: c-dr-mtls
 spec:
   host: c
   trafficPolicy:
     tls:
-      mode: DISABLE
+      mode: ISTIO_MUTUAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -41,4 +21,4 @@ spec:
     - port:
         number: 80
       tls:
-        mode: DISABLE
+        mode: ISTIO_MUTUAL
