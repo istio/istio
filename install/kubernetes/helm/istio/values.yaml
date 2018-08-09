@@ -373,6 +373,9 @@ pilot:
     requests:
       cpu: 500m
       memory: 2048Mi
+  env:
+    PILOT_PUSH_THROTTLE_COUNT: 100
+    GODEBUG: gctrace=2
 
 #
 # security configuration
