@@ -88,6 +88,10 @@ type Service struct {
 
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -172,6 +176,7 @@ const (
 	AddressFamilyUnix
 )
 
+// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -382,10 +387,8 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
+	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
-
-	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.

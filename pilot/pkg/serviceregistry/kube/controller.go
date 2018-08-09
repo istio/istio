@@ -251,23 +251,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 	return svc, nil
 }
 
-// GetServiceAttributes returns istio attributes for a service in the registry if it is present
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("GetServiceAttributes() => error %v", err)
-		return nil, err
-	}
-	if _, exists := c.serviceByKey(name, namespace); exists {
-		return &model.ServiceAttributes{
-			Name:      name,
-			Namespace: namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-		}, nil
-	}
-	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
-}
-
 // serviceByKey retrieves a service by name and namespace
 func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	item, exists, err := c.services.informer.GetStore().GetByKey(KeyFunc(name, namespace))
@@ -558,15 +541,15 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
 				out = append(out, nrEP...)
 				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushStatus.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 				}
 			}
 		}
 	}
 	if len(out) == 0 {
 		if c.Env != nil {
-			c.Env.PushStatus.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushStatus
+			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
+			status := c.Env.PushContext
 			if status == nil {
 				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
 			}
