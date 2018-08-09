@@ -42,7 +42,7 @@ func (wh *Webhook) endpointReady() error {
 	}
 
 	if len(endpoints.Subsets) == 0 {
-		return fmt.Errorf("%s/%v endpoint not ready: not subsets", wh.deploymentNamespace, wh.deploymentName)
+		return fmt.Errorf("%s/%v endpoint not ready: no subsets", wh.deploymentNamespace, wh.deploymentName)
 	}
 
 	for _, subset := range endpoints.Subsets {
@@ -67,7 +67,7 @@ func (wh *Webhook) createOrUpdateWebhookConfig() {
 	// the rest of the system. Minimize this problem by waiting the
 	// galley endpoint is available at least once before
 	// self-registering. Subsequent Istio upgrades rely on deployment
-	// rolling updates to set maxUnavailable to at least one.
+	// rolling updates to set maxUnavailable to zero.
 	if !wh.endpointReadyOnce {
 		if err := wh.endpointReady(); err != nil {
 			log.Warnf("%v validatingwebhookconfiguration update deferred: %v",
