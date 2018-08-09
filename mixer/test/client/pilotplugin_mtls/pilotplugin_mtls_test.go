@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -28,6 +29,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -73,6 +75,18 @@ static_resources:
     - socket_address:
         address: 127.0.0.1
         port_value: {{.Ports.ServerProxyPort}}
+    tls_context:
+      common_tls_context:
+        tls_certificates:
+          certificate_chain:
+            filename: testdata/client.cert
+          private_key:
+            filename: testdata/client-key.cert
+        validation_context:
+          trusted_ca:
+            filename: testdata/root.cert
+          verify_subject_alt_name: ["spiffe://cluster.local/ns/default/sa/server"]
+      sni: istio.io
   - name: "inbound|||backend"
     connect_timeout: 5s
     type: STATIC
@@ -121,7 +135,10 @@ static_resources:
 `
 	checkAttributesOkInbound = `
 {
-  "connection.mtls": false,
+  "connection.mtls": true,
+  "destination.principal": "cluster.local/ns/default/sa/server",
+  "source.principal": "cluster.local/ns/default/sa/client",
+  "source.user": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -200,7 +217,10 @@ static_resources:
 
 	reportAttributesOkInbound = `
 {
-  "connection.mtls": false,
+  "connection.mtls": true,
+  "destination.principal": "cluster.local/ns/default/sa/server",
+  "source.principal": "cluster.local/ns/default/sa/client",
+  "source.user": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -401,10 +421,26 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 		t.Error(err)
 	}
 	serverManager.HttpFilters = append(serverMutable.FilterChains[0].HTTP, serverManager.HttpFilters...)
-	serverListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
-		Name:   util.HTTPConnectionManager,
-		Config: pilotutil.MessageToStruct(serverManager),
-	}}}}
+	serverListener.FilterChains = []listener.FilterChain{{
+		Filters: []listener.Filter{{
+			Name:   util.HTTPConnectionManager,
+			Config: pilotutil.MessageToStruct(serverManager)}},
+		// turn on mTLS on downstream
+		TlsContext: &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{{
+					CertificateChain: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server.cert"}},
+					PrivateKey:       &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/server-key.cert"}},
+				}},
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{Specifier: &core.DataSource_Filename{Filename: "testdata/root.cert"}},
+					},
+				},
+			},
+			RequireClientCertificate: &types.BoolValue{Value: true},
+		},
+	}}
 
 	clientMutable := plugin.MutableObjects{Listener: clientListener, FilterChains: []plugin.FilterChain{{}}}
 	if err := p.OnOutboundListener(&clientParams, &clientMutable); err != nil {
