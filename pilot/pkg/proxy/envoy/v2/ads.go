@@ -20,7 +20,6 @@ import (
 	"os"
 	"reflect"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -350,6 +349,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 	var discReq *xdsapi.DiscoveryRequest
 
+	t0 := time.Now()
 	// rate limit the herd, after restart all endpoints will reconnect to the
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
@@ -432,7 +432,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// CDS REQ is the first request an envoy makes. This shows up
 				// immediately after connect. It is followed by EDS REQ as
 				// soon as the CDS push is returned.
-				adsLog.Infof("ADS:CDS: REQ %s %v raw: %s ", con.ConID, peerAddr, discReq.String())
+				adsLog.Infof("ADS:CDS: REQ %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 				con.CDSWatch = true
 				err := s.pushCds(con, s.env.PushContext)
 				if err != nil {
@@ -671,18 +671,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 
 	pendingPush := int32(len(pending))
 
-	// Experimental throttles for the push, to deal with memory spikes.
-	// If it works will be replaced with a rate control.
-	pushThrottleCountEnv := os.Getenv("PILOT_PUSH_THROTTLE_COUNT")
-	pushThrottle := 0
-	if pushThrottleCountEnv != "" {
-		var err error
-		pushThrottle, err = strconv.Atoi(pushThrottleCountEnv)
-		if err != nil {
-			adsLog.Warnf("Invalid push throttle %s", pushThrottleCountEnv)
-		}
-	}
-
 	tstart := time.Now()
 	i := 0
 	// Will keep trying to push to sidecars until another push starts.
@@ -702,9 +690,6 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext) {
 		pending = pending[1:]
 
 		i++
-		if pushThrottle > 0 && i%pushThrottle == 0 {
-			time.Sleep(100 * time.Millisecond)
-		}
 		// Using non-blocking push has problems if 2 pushes happen too close to each other
 		client := c
 		// TODO: this should be in a thread group, to do multiple pushes in parallel.

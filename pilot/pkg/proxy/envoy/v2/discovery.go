@@ -108,6 +108,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
 	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
+	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
 	rate := time.Second / time.Duration(pushThrottle)
 	burstLimit := pushBurst
 	tick := time.NewTicker(rate)
