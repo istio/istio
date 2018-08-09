@@ -368,8 +368,10 @@ message ServiceEntry {
     DNS = 2;
   };
 
-  // Service discovery mode for the hosts. If not set, Istio will attempt
-  // to infer the discovery mode based on the value of hosts and endpoints.
+  // REQUIRED: Service discovery mode for the hosts. Care must be taken
+  // when setting the resolution mode to NONE for a TCP port without
+  // accompanying IP addresses. In such cases, traffic to any IP on 
+  // said port will be allowed (i.e. 0.0.0.0:<port>).
   Resolution resolution = 5;
 
   // Endpoint defines a network address (IP or hostname) associated with

@@ -67,6 +67,10 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 						Address:      newAddress,
 						Ports:        svcPorts,
 						Resolution:   resolution,
+						Attributes: model.ServiceAttributes{
+							Name:      host,
+							Namespace: model.IstioDefaultConfigNamespace,
+						},
 					})
 				} else if net.ParseIP(address) != nil {
 					out = append(out, &model.Service{
@@ -76,6 +80,10 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 						Address:      address,
 						Ports:        svcPorts,
 						Resolution:   resolution,
+						Attributes: model.ServiceAttributes{
+							Name:      host,
+							Namespace: model.IstioDefaultConfigNamespace,
+						},
 					})
 				}
 			}
@@ -87,6 +95,10 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 				Address:      model.UnspecifiedIP,
 				Ports:        svcPorts,
 				Resolution:   resolution,
+				Attributes: model.ServiceAttributes{
+					Name:      host,
+					Namespace: model.IstioDefaultConfigNamespace,
+				},
 			})
 		}
 	}

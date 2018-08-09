@@ -144,7 +144,7 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
 	//var ports model.PortList
@@ -156,10 +156,10 @@ func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsClust
 		var p int
 		var subsetName string
 		_, subsetName, hostname, p = model.ParseSubsetKey(clusterName)
-		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
+		labels = push.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
@@ -304,7 +304,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 		}
 
 		if len(con.Clusters) > 0 {
-			err := s.pushEds(con)
+			err := s.pushEds(s.env.PushContext, con)
 			if err != nil {
 				adsLog.Errorf("Closing EDS connection, failure to push %v", err)
 				return err
@@ -314,7 +314,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	}
 }
 
-func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
+func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0
@@ -330,7 +330,7 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			if err := s.updateCluster(clusterName, c); err != nil {
+			if err := s.updateCluster(push, clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}

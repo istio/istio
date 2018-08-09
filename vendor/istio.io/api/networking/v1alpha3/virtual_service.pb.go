@@ -374,19 +374,16 @@ type HTTPRoute struct {
 	// Rewrite HTTP URIs and Authority headers. Rewrite cannot be used with
 	// Redirect primitive. Rewrite will be performed before forwarding.
 	Rewrite *HTTPRewrite `protobuf:"bytes,4,opt,name=rewrite" json:"rewrite,omitempty"`
-	// Indicates that a HTTP/1.1 client connection to this particular route
-	// should be allowed (and expected) to upgrade to a WebSocket connection.
-	// The default is false. Istio's reference sidecar implementation (Envoy)
-	// expects the first request to this route to contain the WebSocket
-	// upgrade headers. Otherwise, the request will be rejected. Note that
-	// Websocket allows secondary protocol negotiation which may then be
-	// subject to further routing rules based on the protocol selected.
+	// Deprecated. Websocket upgrades are done automatically starting from Istio 1.0.
+	// $hide_from_docs
 	WebsocketUpgrade bool `protobuf:"varint,5,opt,name=websocket_upgrade,json=websocketUpgrade,proto3" json:"websocket_upgrade,omitempty"`
 	// Timeout for HTTP requests.
 	Timeout *google_protobuf.Duration `protobuf:"bytes,6,opt,name=timeout" json:"timeout,omitempty"`
 	// Retry policy for HTTP requests.
 	Retries *HTTPRetry `protobuf:"bytes,7,opt,name=retries" json:"retries,omitempty"`
-	// Fault injection policy to apply on HTTP traffic.
+	// Fault injection policy to apply on HTTP traffic at the client side.
+	// Note that timeouts or retries will not be enabled when faults are
+	// enabled on the client side.
 	Fault *HTTPFaultInjection `protobuf:"bytes,8,opt,name=fault" json:"fault,omitempty"`
 	// Mirror HTTP traffic to a another destination in addition to forwarding
 	// the requests to the intended destination. Mirrored traffic is on a

@@ -23,11 +23,11 @@ spec:
 {{- end }}
       containers:
         - name: jaeger
-          image: "{{ .Values.hub }}/all-in-one:{{ .Values.tag }}"
+          image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
-            - containerPort: {{ .Values.service.uiPort }}
+            - containerPort: {{ .Values.jaeger.ui.port }}
             - containerPort: 5775
               protocol: UDP
             - containerPort: 6831
@@ -47,11 +47,11 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: {{ .Values.service.uiPort }}
+              port: {{ .Values.jaeger.ui.port }}
           readinessProbe:
             httpGet:
               path: /
-              port: {{ .Values.service.uiPort }}
+              port: {{ .Values.jaeger.ui.port }}
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

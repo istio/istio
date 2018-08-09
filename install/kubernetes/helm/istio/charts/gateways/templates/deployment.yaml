@@ -7,7 +7,6 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    app: {{ $spec.labels.istio }}
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
@@ -31,7 +30,7 @@ spec:
       priorityClassName: "{{ $.Values.global.priorityClassName }}"
 {{- end }}
       containers:
-        - name: {{ $spec.labels.istio }}
+        - name: istio-proxy
           image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
@@ -54,7 +53,11 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
+        {{- if $.Values.global.istioNamespace }}
+          - zipkin.{{ $.Values.global.istioNamespace }}:9411
+        {{- else }}
           - zipkin:9411
+        {{- end }}
         {{- if $.Values.global.proxy.envoyStatsd.enabled }}
           - --statsdUdpAddress
           - {{ $.Values.global.proxy.envoyStatsd.host }}:{{ $.Values.global.proxy.envoyStatsd.port }}
@@ -65,12 +68,20 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - istio-pilot.istio-system:15005
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          {{- else }}
+          - istio-pilot:15005
+          {{- end }}
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot.istio-system:8080
+          {{- if $.Values.global.istioNamespace }}
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:8080
+          {{- else }}
+          - istio-pilot:8080
+          {{- end }}
         {{- end }}
           resources:
 {{- if $spec.resources }}
@@ -107,6 +118,9 @@ spec:
             mountPath: {{ .mountPath | quote }}
             readOnly: true
           {{- end }}
+{{- if $spec.additionalContainers }}
+{{ toYaml $spec.additionalContainers | indent 8 }}
+{{- end }}
       volumes:
       - name: istio-certs
         secret:
@@ -116,6 +130,12 @@ spec:
       - name: {{ .name }}
         secret:
           secretName: {{ .secretName | quote }}
+          optional: true
+      {{- end }}
+      {{- range $spec.configVolumes }}
+      - name: {{ .name }}
+        configMap:
+          name: {{ .configMapName | quote }}
           optional: true
       {{- end }}
       affinity:
