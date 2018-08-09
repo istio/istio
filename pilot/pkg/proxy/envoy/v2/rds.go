@@ -24,16 +24,18 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushStatus) error {
+func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext) error {
 	rawRoutes, err := s.generateRawRoutes(con, push)
 	if err != nil {
 		return err
 	}
-	for _, r := range rawRoutes {
-		con.RouteConfigs[r.Name] = r
-		if adsLog.DebugEnabled() {
-			resp, _ := model.ToJSONWithIndent(r, " ")
-			adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+	if s.DebugConfigs {
+		for _, r := range rawRoutes {
+			con.RouteConfigs[r.Name] = r
+			if adsLog.DebugEnabled() {
+				resp, _ := model.ToJSONWithIndent(r, " ")
+				adsLog.Debugf("RDS: Adding route %s for node %s", resp, con.modelNode)
+			}
 		}
 	}
 
@@ -50,7 +52,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushStatus) 
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.RouteConfiguration, error) {
+func (s *DiscoveryServer) generateRawRoutes(con *XdsConnection, push *model.PushContext) ([]*xdsapi.RouteConfiguration, error) {
 	rc := make([]*xdsapi.RouteConfiguration, 0)
 	// TODO: Follow this logic for other xDS resources as well
 	// And cache/retrieve this info on-demand, not for every request from every proxy
