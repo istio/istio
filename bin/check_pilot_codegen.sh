@@ -6,7 +6,7 @@ set -ex
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
-pushd $ROOTDIR
+pushd "$ROOTDIR"
 
 expected='/tmp/types.go'
 

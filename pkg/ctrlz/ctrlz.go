@@ -56,13 +56,13 @@ var coreTopics = []fw.Topic{
 
 var allTopics []fw.Topic
 var topicMutex sync.Mutex
-var shutdown sync.WaitGroup
-var listener net.Listener
+var listeningTestProbe func()
 
-var server = http.Server{
-	ReadTimeout:    10 * time.Second,
-	WriteTimeout:   10 * time.Second,
-	MaxHeaderBytes: 1 << 20,
+// Server represents a running ControlZ instance.
+type Server struct {
+	shutdown   sync.WaitGroup
+	httpServer http.Server
+	listener   net.Listener
 }
 
 func augmentLayout(layout *template.Template, page string) *template.Template {
@@ -121,20 +121,16 @@ func RegisterTopic(t fw.Topic) {
 	allTopics = append(allTopics, t)
 }
 
-var listeningTestProbe func()
-
 // Run starts up the ControlZ listeners.
 //
 // ControlZ uses the set of standard core topics, the
 // supplied custom topics, as well as any topics registered
 // via the RegisterTopic function.
-func Run(o *Options, customTopics []fw.Topic) {
-	shutdown.Add(1)
-	defer shutdown.Done()
-
+func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 	if o.Port == 0 {
 		// disabled
-		return
+		s := &Server{}
+		return s, nil
 	}
 
 	topicMutex.Lock()
@@ -176,29 +172,47 @@ func Run(o *Options, customTopics []fw.Topic) {
 		addr = ""
 	}
 
-	server.Addr = fmt.Sprintf("%s:%d", addr, o.Port)
-	server.Handler = router
+	s := &Server{
+		httpServer: http.Server{
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+			Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
+			Handler:        router,
+		},
+	}
 
 	var err error
-	if listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
-		log.Errorf("Failed to start ctrlz server: %v", err)
-		return
+	if s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
+		log.Errorf("Unable to start ControlZ: %v", err)
+		return nil, err
 	}
+
+	s.shutdown.Add(1)
+	go s.listen(o.Port)
+
+	return s, nil
+}
+
+func (s *Server) listen(port uint16) {
+	log.Infof("ControlZ available at %s:%d", getLocalIP(), port)
 
 	if listeningTestProbe != nil {
 		listeningTestProbe()
 	}
 
-	log.Infof("ControlZ available at %s:%d", getLocalIP(), o.Port)
-	server.Serve(listener)
+	_ = s.httpServer.Serve(s.listener)
 	log.Infof("ControlZ terminated")
+	s.shutdown.Done()
 }
 
-// Stop terminates ControlZ.
+// Close terminates ControlZ.
 //
-// Stop is not normally used by programs that expose ControlZ, it is primarily intended to be
+// Close is not normally used by programs that expose ControlZ, it is primarily intended to be
 // used by tests.
-func Stop() {
-	listener.Close()
-	shutdown.Wait()
+func (s *Server) Close() {
+	if s.listener != nil {
+		_ = s.listener.Close()
+		s.shutdown.Wait()
+	}
 }

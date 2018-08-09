@@ -19,9 +19,9 @@
 
 # Separate (and parallel) jobs are doing lint, coverage, etc.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # No unset vars, print commands as they're executed, and exit on any non-zero
 # return code
@@ -29,11 +29,11 @@ set -u
 set -x
 set -e
 
-source ${ROOT}/prow/lib.sh
+source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
 echo 'Build'
-(cd ${ROOT}; make build)
+(cd "${ROOT}"; make build)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
