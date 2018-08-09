@@ -342,6 +342,18 @@ attributes {
     string_value: "NR"
   }
 }
+attributes {
+  key: "rbac.permissive.response_code"
+  value {
+    string_value: "403"
+  }
+}
+attributes {
+  key: "rbac.permissive.effective_policy_id"
+  value {
+    string_value: "policy-foo"
+  }
+}
 )";
 
 void ClearContextTime(const std::string &name, RequestContext *request) {
@@ -561,6 +573,12 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
         status->message = "grpc-message";
         return true;
       }));
+  EXPECT_CALL(mock_data, GetRbacReportInfo(_))
+      .WillOnce(Invoke([](ReportData::RbacReportInfo *report_info) -> bool {
+        report_info->permissive_resp_code = "403";
+        report_info->permissive_policy_id = "policy-foo";
+        return true;
+      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -610,6 +628,12 @@ TEST(AttributesBuilderTest, TestReportAttributesWithDestIP) {
         info->response_flags = "NR";
       }));
   EXPECT_CALL(mock_data, GetGrpcStatus(_)).WillOnce(testing::Return(false));
+  EXPECT_CALL(mock_data, GetRbacReportInfo(_))
+      .WillOnce(Invoke([](ReportData::RbacReportInfo *report_info) -> bool {
+        report_info->permissive_resp_code = "403";
+        report_info->permissive_policy_id = "policy-foo";
+        return true;
+      }));
 
   RequestContext request;
   SetDestinationIp(&request, "1.2.3.4");

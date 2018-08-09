@@ -18,6 +18,7 @@
 #include "common/request_info/utility.h"
 #include "envoy/http/header_map.h"
 #include "envoy/request_info/request_info.h"
+#include "extensions/filters/http/well_known_names.h"
 #include "include/istio/control/http/controller.h"
 #include "src/envoy/utils/utils.h"
 
@@ -25,6 +26,9 @@ namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
+const std::string kRbacPermissivePolicyIDField = "shadow_effective_policyID";
+const std::string kRbacPermissiveRespCodeField = "shadow_response_code";
+
 // Set of headers excluded from response.headers attribute.
 const std::set<std::string> ResponseHeaderExclusives = {};
 
@@ -113,6 +117,32 @@ class ReportData : public ::istio::control::http::ReportData {
     // If not response body, grpc-status is in response headers.
     return ExtractGrpcStatus(trailers_, status) ||
            ExtractGrpcStatus(headers_, status);
+  }
+
+  // Get Rbac related attributes.
+  bool GetRbacReportInfo(RbacReportInfo *report_info) const override {
+    const auto filter_meta = info_.dynamicMetadata().filter_metadata();
+    const auto filter_it =
+        filter_meta.find(Extensions::HttpFilters::HttpFilterNames::get().Rbac);
+    if (filter_it == filter_meta.end()) {
+      return false;
+    }
+
+    const auto &data_struct = filter_it->second;
+    const auto resp_code_it =
+        data_struct.fields().find(kRbacPermissiveRespCodeField);
+    if (resp_code_it != data_struct.fields().end()) {
+      report_info->permissive_resp_code = resp_code_it->second.string_value();
+    }
+
+    const auto policy_id_it =
+        data_struct.fields().find(kRbacPermissivePolicyIDField);
+    if (policy_id_it != data_struct.fields().end()) {
+      report_info->permissive_policy_id = policy_id_it->second.string_value();
+    }
+
+    return !report_info->permissive_resp_code.empty() ||
+           !report_info->permissive_policy_id.empty();
   }
 };
 

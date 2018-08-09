@@ -91,5 +91,11 @@ const char AttributeName::kRequestAuthRawClaims[] = "request.auth.raw_claims";
 const char AttributeName::kResponseGrpcStatus[] = "response.grpc_status";
 const char AttributeName::kResponseGrpcMessage[] = "response.grpc_message";
 
+// Rbac attributes
+const char AttributeName::kRbacPermissiveResponseCode[] =
+    "rbac.permissive.response_code";
+const char AttributeName::kRbacPermissivePolicyId[] =
+    "rbac.permissive.effective_policy_id";
+
 }  // namespace utils
 }  // namespace istio
