@@ -140,25 +140,30 @@ func TestServiceDiscovery_Services(t *testing.T) {
 	g.Expect(serviceModels).To(gomega.HaveLen(5))
 	g.Expect(serviceModels).To(gomega.ConsistOf([]*model.Service{
 		{
-			Hostname: "process-guid-a.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-a.cfapps.io",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Attributes: model.ServiceAttributes{Name: "process-guid-a.cfapps.io", Namespace: "default"},
 		},
 		{
-			Hostname: "process-guid-a.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-a.cfapps.io",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Attributes: model.ServiceAttributes{Name: "process-guid-a.cfapps.io", Namespace: "default"},
 		},
 		{
-			Hostname: "process-guid-b.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-b.cfapps.io",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Attributes: model.ServiceAttributes{Name: "process-guid-b.cfapps.io", Namespace: "default"},
 		},
 		{
-			Hostname: "process-guid-z.cfapps.io",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Hostname:   "process-guid-z.cfapps.io",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+			Attributes: model.ServiceAttributes{Name: "process-guid-z.cfapps.io", Namespace: "default"},
 		},
 		{
-			Hostname: "something.apps.internal",
-			Address:  "127.1.1.1",
-			Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolTCP, Name: "tcp"}},
+			Hostname:   "something.apps.internal",
+			Address:    "127.1.1.1",
+			Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolTCP, Name: "tcp"}},
+			Attributes: model.ServiceAttributes{Name: "something.apps.internal", Namespace: "default"},
 		},
 	}))
 }
@@ -184,8 +189,9 @@ func TestServiceDiscovery_GetService_Success(t *testing.T) {
 
 	g.Expect(err).To(gomega.BeNil())
 	g.Expect(serviceModel).To(gomega.Equal(&model.Service{
-		Hostname: "process-guid-b.cfapps.io",
-		Ports:    []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+		Hostname:   "process-guid-b.cfapps.io",
+		Ports:      []*model.Port{{Port: defaultServicePort, Protocol: model.ProtocolHTTP, Name: "http"}},
+		Attributes: model.ServiceAttributes{Name: "process-guid-b.cfapps.io", Namespace: "default"},
 	}))
 }
 
@@ -211,33 +217,6 @@ func TestServiceDiscovery_GetService_ClientError(t *testing.T) {
 
 	g.Expect(err).To(gomega.MatchError("getting services: potato"))
 	g.Expect(serviceModel).To(gomega.BeNil())
-}
-
-func TestServiceDiscovery_GetServiceAttributes_Success(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	state := newSDTestState()
-
-	state.routesRepo.GetReturns(routesResponse, nil)
-
-	attr, err := state.serviceDiscovery.GetServiceAttributes("process-guid-b.cfapps.io")
-
-	g.Expect(err).To(gomega.BeNil())
-	g.Expect(attr).To(gomega.Equal(&model.ServiceAttributes{
-		Name:      "process-guid-b.cfapps.io",
-		Namespace: "default",
-	}))
-}
-
-func TestServiceDiscovery_GetServiceAttributes_NotFound(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	state := newSDTestState()
-
-	state.routesRepo.GetReturns(routesResponse, nil)
-
-	attr, err := state.serviceDiscovery.GetServiceAttributes("does-not-exist.cfapps.io")
-
-	g.Expect(err).To(gomega.BeNil())
-	g.Expect(attr).To(gomega.BeNil())
 }
 
 func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T) {
@@ -270,6 +249,10 @@ func TestServiceDiscovery_Internal_Instances_Filtering_By_Hostname(t *testing.T)
 						Name:     "tcp",
 					},
 				},
+				Attributes: model.ServiceAttributes{
+					Name:      "something.apps.internal",
+					Namespace: "default",
+				},
 			},
 		},
 	}))
@@ -296,6 +279,10 @@ func TestServiceDiscovery_Instances_Filtering_By_Label(t *testing.T) {
 	service := &model.Service{
 		Hostname: "process-guid-a.cfapps.io",
 		Ports:    []*model.Port{servicePort},
+		Attributes: model.ServiceAttributes{
+			Name:      "process-guid-a.cfapps.io",
+			Namespace: "default",
+		},
 	}
 
 	g.Expect(instances).To(gomega.Equal([]*model.ServiceInstance{

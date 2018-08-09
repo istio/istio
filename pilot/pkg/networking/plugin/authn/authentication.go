@@ -298,7 +298,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(
-		in.Env.IstioConfigStore, in.ServiceInstance.Service.Hostname, in.ServiceInstance.Endpoint.ServicePort)
+		in.Env.IstioConfigStore, in.ServiceInstance.Service, in.ServiceInstance.Endpoint.ServicePort)
 
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
@@ -324,8 +324,8 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 }
 
 // RequireTLSMultiplexing returns true if any one of MTLS mode is `PERMISSIVE`.
-func (Plugin) RequireTLSMultiplexing(store model.IstioConfigStore, hostname model.Hostname, port *model.Port) bool {
-	authnPolicy := model.GetConsolidateAuthenticationPolicy(store, hostname, port)
+func (Plugin) RequireTLSMultiplexing(store model.IstioConfigStore, service *model.Service, port *model.Port) bool {
+	authnPolicy := model.GetConsolidateAuthenticationPolicy(store, service, port)
 	if authnPolicy == nil || len(authnPolicy.Peers) == 0 {
 		return false
 	}
@@ -343,7 +343,7 @@ func (Plugin) RequireTLSMultiplexing(store model.IstioConfigStore, hostname mode
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -356,6 +356,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
