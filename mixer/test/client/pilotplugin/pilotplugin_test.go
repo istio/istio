@@ -101,7 +101,7 @@ static_resources:
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "source.namespace": "ns2",
   "request.headers": {
@@ -134,7 +134,7 @@ static_resources:
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "request.headers": {
      ":method": "GET",
@@ -164,7 +164,7 @@ static_resources:
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "source.namespace": "ns2",
   "check.cache_hit": false,
@@ -213,7 +213,7 @@ static_resources:
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -286,12 +286,6 @@ type mock struct{}
 func (mock) ID(*core.Node) string {
 	return id
 }
-func (mock) GetServiceAttributes(host model.Hostname) (*model.ServiceAttributes, error) {
-	if host == svc.Hostname {
-		return &model.ServiceAttributes{Name: "svc", Namespace: "ns3", UID: "svcuid"}, nil
-	}
-	return nil, nil
-}
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
@@ -311,7 +305,14 @@ const (
 )
 
 var (
-	svc  = model.Service{Hostname: "svc.ns3"}
+	svc = model.Service{
+		Hostname: "svc.ns3",
+		Attributes: model.ServiceAttributes{
+			Name:      "svc",
+			Namespace: "ns3",
+			UID:       "istio://ns3/services/svc",
+		},
+	}
 	mesh = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
 			MixerCheckServer:            "mixer_server:9091",
@@ -319,6 +320,11 @@ var (
 			EnableClientSidePolicyCheck: true,
 		},
 		ServiceDiscovery: mock{},
+	}
+	pushContext = model.PushContext{
+		ServiceByHostname: map[model.Hostname]*model.Service{
+			model.Hostname("svc.ns3"): &svc,
+		},
 	}
 	serverParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -331,6 +337,7 @@ var (
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
+		Push:            &pushContext,
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -343,6 +350,7 @@ var (
 			},
 		},
 		Service: &svc,
+		Push:    &pushContext,
 	}
 )
 
