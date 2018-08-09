@@ -22,10 +22,12 @@ export TAG=${ISTIO_TAG:-$USER}
 export OUT=${GOPATH}/out
 
 if [ -f .istiorc ] ; then
+  # shellcheck disable=SC1091
   source .istiorc
 fi
 
 if [ -f "$HOME/.istiorc" ] ; then
+  # shellcheck disable=SC1090
   source "$HOME/.istiorc"
 fi
 
@@ -66,6 +68,7 @@ function lunch() {
     local env=$1
 
     if [[ -f $HOME/.istio/${env} ]]; then
+        # shellcheck disable=SC1090
         source "$HOME/.istio/${env}"
     fi
 

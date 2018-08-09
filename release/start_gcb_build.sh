@@ -25,6 +25,7 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# shellcheck source=release/gcb_build_lib.sh
 source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 PROJECT_ID=""

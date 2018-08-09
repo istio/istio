@@ -51,8 +51,11 @@ USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 
+# shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
+# shellcheck source=prow/mason_lib.sh
 source "${ROOT}/prow/mason_lib.sh"
+# shellcheck source=prow/cluster_lib.sh
 source "${ROOT}/prow/cluster_lib.sh"
 
 function cleanup() {
