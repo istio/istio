@@ -152,18 +152,21 @@ func runRetriableTest(t *testing.T, cluster, testName string, retries int, f fun
 	})
 }
 
-type Resource {
+type resource struct {
+	// Kind of the resource
 	Kind string
+	// Name of the resource
 	Name string
 }
+
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace  string
-	YamlFiles  []string
+	Namespace string
+	YamlFiles []string
 	// List of resources must be removed during deployableConfig setup, and restored
 	// during teardown. Typically, these are resources added by default installation and need to
 	// be modified for test. These resources are in the same namespace defined above.
-	Removes    []Resource
+	Removes    []resource
 	applied    []string
 	removed    []string
 	kubeconfig string
@@ -171,7 +174,7 @@ type deployableConfig struct {
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
-	c.replaced = []string{}
+	c.removed = []string{}
 	for _, r := range c.Removes {
 		content, err := util.KubeExport(c.Namespace, r.Kind, r.Name, c.kubeconfig)
 		if err != nil {
@@ -179,12 +182,12 @@ func (c *deployableConfig) Setup() error {
 			_ = c.Teardown()
 			return err
 		}
-		if err := util.KubeDeleteContents(c.Namespace, content); err != nil {
+		if err := util.KubeDeleteContents(c.Namespace, content, c.kubeconfig); err != nil {
 			// Run the teardown function now and return
 			_ = c.Teardown()
 			return err
 		}
-		c.replaced = append(c.removed, content)
+		c.removed = append(c.removed, content)
 	}
 	c.applied = []string{}
 	// Apply the configs.
