@@ -337,7 +337,7 @@ func newTestState(mockCopilotServerAddress string, servicePort int) *testState {
 	creds := testhelpers.GenerateMTLS()
 	clientTLSFiles := creds.CreateClientTLSFiles()
 	return &testState{
-		creds:                 creds,
+		creds: creds,
 		copilotConfigFilePath: filepath.Join(creds.TempDir, "config.yaml"),
 		istioConfigDir:        testhelpers.TempDir(),
 		copilotConfig: &cloudfoundry.Config{
