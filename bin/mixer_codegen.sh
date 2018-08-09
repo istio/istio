@@ -5,9 +5,8 @@ die () {
   exit 1
 }
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
+WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT=$(dirname $WD)
 
 if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
@@ -21,13 +20,7 @@ set -e
 
 outdir=$ROOT
 file=$ROOT
-protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
-
-# BUGBUG: we override the use of protoc-min-version here, since using
-#         that tool prevents warnings from protoc-gen-docs from being
-#         displayed. If protoc-min-version gets fixed to allow this
-#         data though, then remove this override
-protoc="protoc"
+protoc="$ROOT/bin/protoc.sh"
 
 optimport=$ROOT
 template=$ROOT
