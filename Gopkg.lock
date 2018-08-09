@@ -313,7 +313,7 @@
 
 [[projects]]
   branch = "revert_grpc_version_update"
-  digest = "1:a67fc4d1c5bee4ceef8778a9cdb167eaa88b7e72503d0b4780c7c1cdc77d4419"
+  digest = "1:905697620ddaf709aa8603c2e5cdb7220929d28870fa6996e65feea57dc20faa"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
