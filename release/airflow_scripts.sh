@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(rkrishnap): $m_commit is never defined in this file.
 # shellcheck disable=SC2154
 
 function get_git_commit_cmd() {
@@ -22,7 +21,7 @@ function get_git_commit_cmd() {
     git config --global user.email "testrunner@istio.io"
     git clone "$MFEST_URL" green-builds || exit 2
 
-    pushd green-builds || return
+    pushd green-builds || exit 3
     git checkout "$BRANCH"
     git checkout "$MFEST_COMMIT" || exit 3
     ISTIO_SHA=$(grep "$GITHUB_ORG/$GITHUB_REPO" "$MFEST_FILE" | cut -f 6 -d \") || exit 4
@@ -30,14 +29,14 @@ function get_git_commit_cmd() {
     PROXY_SHA=$(grep "$GITHUB_ORG/proxy"        "$MFEST_FILE" | cut -f 6 -d \") || exit 6
     if [ -z "${ISTIO_SHA}" ] || [ -z "${API_SHA}" ] || [ -z "${PROXY_SHA}" ]; then
       echo "ISTIO_SHA:$ISTIO_SHA API_SHA:$API_SHA PROXY_SHA:$PROXY_SHA some shas not found"
-      exit 7
+      exit 8
     fi
-    popd || return #green-builds
+    popd || exit 9 #green-builds
 
     git clone "$ISTIO_REPO" istio-code -b "$BRANCH"
-    pushd istio-code/release || return
+    pushd istio-code/release  || exit 10
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
-    git checkout "${ISTIO_SHA}" || exit 8
+    git checkout "${ISTIO_SHA}" || exit 11
 
     TS_SHA=$( git show -s --format=%ct "${ISTIO_SHA}")
     TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
@@ -45,47 +44,49 @@ function get_git_commit_cmd() {
     DIFF_DAYS=$((DIFF_SEC/86400))
     if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
        echo ERROR: "${ISTIO_SHA}" is $DIFF_DAYS days older than head of branch "$BRANCH"
-       exit 9
+       exit 12
     fi
-    popd || return #istio-code/release
+    popd || exit 13 #istio-code/release
 
     if [ "$VERIFY_CONSISTENCY" = "true" ]; then
       PROXY_REPO=$(dirname "$ISTIO_REPO")/proxy
       echo "$PROXY_REPO"
-      git clone "$PROXY_REPO" proxy-code -b "$BRANCH"
-      pushd proxy-code || return
+      git clone "$PROXY_REPO" proxy-code -b "$BRANCH" --depth 1
+      pushd proxy-code || exit 14
       PROXY_HEAD_SHA=$(git rev-parse HEAD)
       PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
-      popd || return
+      popd             || exit 15 # proxy-code
+
       if [ "$PROXY_HEAD_SHA" != "$PROXY_SHA" ]; then
-        echo "inconsistent shas     PROXY_HEAD_SHA     $PROXY_HEAD_SHA != $PROXY_SHA PROXY_SHA" 1>&2
-        exit 10
+        echo "inconsistent shas PROXY_HEAD_SHA         $PROXY_HEAD_SHA != $PROXY_SHA PROXY_SHA" 1>&2
+        exit 16
       fi
       if [ "$PROXY_HEAD_API_SHA" != "$API_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA != $API_SHA   API_SHA"   1>&2
-        exit 11
+        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_SHA   API_SHA" 1>&2
+        exit 17
       fi
       if [ "$ISTIO_HEAD_SHA" != "$ISTIO_SHA" ]; then
-        echo "inconsistent shas     ISTIO_HEAD_SHA     $ISTIO_HEAD_SHA != $ISTIO_SHA ISTIO_SHA" 1>&2
-        exit 12
+        echo "inconsistent shas ISTIO_HEAD_SHA         $ISTIO_HEAD_SHA != $ISTIO_SHA ISTIO_SHA" 1>&2
+        exit 18
       fi
     fi
 
-    pushd istio-code/release || return
+    pushd istio-code/release || exit 19
     gsutil cp ./*.sh   "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
     gsutil cp ./*.json "gs://$GCS_RELEASE_TOOLS_PATH/data/release/"
-    cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
-    popd || return #istio-code/release
+    #cp airflow_scripts.sh /home/airflow/gcs/data/airflow_scripts.sh
+    popd || exit 20 #istio-code/release
 
-    pushd green-builds || return
+    pushd green-builds || exit 21
     git rev-parse HEAD
 }
 
 function build_template() {
-    # TODO: Merge these json/script changes into istio/istio master and change these path back.
-    # Currently we did changes and push those to a test-version folder manually
-    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.json .
-    gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/*.sh .
+#    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
+#    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
+
+    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
+    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh   .
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \
@@ -109,6 +110,7 @@ function test_command() {
 }
 
 function modify_values_command() {
+    # TODO: Merge these changes into istio/istio master and stop using this task
     gsutil cp gs://istio-release-pipeline-data/release-tools/test-version/data/release/modify_values.sh .
     chmod u+x modify_values.sh
     echo "PIPELINE TYPE is $PIPELINE_TYPE"
