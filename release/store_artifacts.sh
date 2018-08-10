@@ -98,4 +98,4 @@ fi
 pushd "${ROOT}"
 tar -cvzf "${OUTPUT_PATH}/source.tar.gz" .
 popd
-gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"
+gsutil -m cp -r "${OUTPUT_PATH}"/* "${GCS_PATH}/"

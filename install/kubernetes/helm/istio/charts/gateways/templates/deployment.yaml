@@ -29,7 +29,7 @@ spec:
 {{- end }}
       containers:
         - name: istio-proxy
-          image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := $spec.ports }}
