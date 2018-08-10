@@ -453,6 +453,11 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+				cluster.Name)
+			return
+		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
