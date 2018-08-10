@@ -67,7 +67,17 @@ func TestConfigZ(t *testing.T) {
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
 
-	t.Run("configz with no requests", func(tt *testing.T) { testConfigZWithNoRequest(tt, baseURL) })
+	// wait for client to make first watch request
+	for {
+		if status := s.Cache.Status("zoo"); status != nil {
+			if status.Watches() > 0 {
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Run("configz with initial requests", func(tt *testing.T) { testConfigZWithNoRequest(tt, baseURL) })
 
 	b := snapshot.NewInMemoryBuilder()
 	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
@@ -75,11 +85,22 @@ func TestConfigZ(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
+	prevSnapshotTime := time.Now()
 	s.Cache.SetSnapshot("zoo", b.Build())
 
-	t.Run("configz with 1 request", func(tt *testing.T) { testConfigZWithOneRequest(tt, baseURL) })
+	// wait for client to ACK the pushed snapshot
+	for {
+		if status := s.Cache.Status("zoo"); status != nil {
+			if status.LastWatchRequestTime().After(prevSnapshotTime) {
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
-	t.Run("configj with 1 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
+	t.Run("configz with 2 request", func(tt *testing.T) { testConfigZWithOneRequest(tt, baseURL) })
+
+	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
 
 	ctrlz.Close()
 }
