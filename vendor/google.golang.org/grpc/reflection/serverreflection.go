@@ -16,7 +16,7 @@
  *
  */
 
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh --go_out=plugins=grpc:. grpc_reflection_v1alpha/reflection.proto
+//go:generate protoc --go_out=plugins=grpc:. grpc_reflection_v1alpha/reflection.proto
 
 /*
 Package reflection implements server reflection service.
