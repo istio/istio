@@ -257,7 +257,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 // for rules to ensure stream resources are not leaked.
 func (c *Client) Run(ctx context.Context) {
 	initRequests := make([]*mcp.MeshConfigRequest, 0, len(c.state))
-	for typeURL, _ := range c.state {
+	for typeURL := range c.state {
 		initRequests = append(initRequests, &mcp.MeshConfigRequest{
 			Client:  c.clientInfo,
 			TypeUrl: typeURL,
