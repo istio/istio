@@ -44,7 +44,6 @@ var (
 	org            = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
 	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
-	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 )
 
 func fatalf(template string, args ...interface{}) {
@@ -105,7 +104,6 @@ func main() {
 		IsCA:         *isCA,
 		IsSelfSigned: *isSelfSigned,
 		IsClient:     *isClient,
-		RSAKeySize:   *keySize,
 	})
 
 	if err != nil {

@@ -49,7 +49,6 @@ func GrpcProtocolProvider(caAddress string, dialOpts []grpc.DialOption) (protoco
 type LivenessCheckController struct {
 	interval           time.Duration
 	serviceIdentityOrg string
-	rsaKeySize         int
 	caAddress          string
 	ca                 *ca.IstioCA
 	livenessProbe      *probe.Probe
@@ -70,7 +69,6 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 
 	return &LivenessCheckController{
 		interval:      probeCheckInterval,
-		rsaKeySize:    2048,
 		livenessProbe: livenessProbe,
 		ca:            ca,
 		caAddress:     caAddr,
@@ -81,8 +79,7 @@ func NewLivenessCheckController(probeCheckInterval time.Duration, caAddr string,
 func (c *LivenessCheckController) checkGrpcServer() error {
 	// generates certificate and private key for test
 	opts := util.CertOptions{
-		Host:       LivenessProbeClientIdentity,
-		RSAKeySize: 2048,
+		Host: LivenessProbeClientIdentity,
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)
@@ -92,7 +89,7 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 
 	certPEM, signErr := c.ca.Sign(csrPEM, c.interval, false)
 	if signErr != nil {
-		return signErr.(ca.Error)
+		return signErr.(*ca.Error)
 	}
 
 	// Store certificate chain and private key to generate CSR
@@ -142,9 +139,8 @@ func (c *LivenessCheckController) checkGrpcServer() error {
 	}
 
 	csr, _, err := util.GenCSR(util.CertOptions{
-		Host:       LivenessProbeClientIdentity,
-		Org:        c.serviceIdentityOrg,
-		RSAKeySize: c.rsaKeySize,
+		Host: LivenessProbeClientIdentity,
+		Org:  c.serviceIdentityOrg,
 	})
 	if err != nil {
 		return err

@@ -184,8 +184,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 
 func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	opts := util.CertOptions{
-		Host:       strings.Join(s.hostnames, ","),
-		RSAKeySize: 2048,
+		Host: strings.Join(s.hostnames, ","),
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

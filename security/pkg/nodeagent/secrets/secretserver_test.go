@@ -34,7 +34,6 @@ func createBundle(t *testing.T, host string) util.KeyCertBundle {
 		IsSelfSigned: true,
 		TTL:          time.Hour,
 		Org:          "Root CA",
-		RSAKeySize:   2048,
 	}
 	rootCertBytes, rootKeyBytes, err := util.GenCertKeyFromOptions(rootCAOpts)
 	if err != nil {

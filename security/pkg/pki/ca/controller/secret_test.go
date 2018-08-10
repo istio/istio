@@ -349,7 +349,6 @@ func TestUpdateSecret(t *testing.T) {
 		opts := util.CertOptions{
 			IsSelfSigned: true,
 			TTL:          tc.ttl,
-			RSAKeySize:   512,
 		}
 		bs, _, err := util.GenCertKeyFromOptions(opts)
 		if err != nil {

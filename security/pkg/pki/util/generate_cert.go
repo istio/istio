@@ -20,8 +20,9 @@ package util
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -64,21 +65,18 @@ type CertOptions struct {
 
 	// Whether this certificate is for a server.
 	IsServer bool
-
-	// The size of RSA private key to be generated.
-	RSAKeySize int
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
 func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, err error) {
-	// Generate a RSA private&public key pair.
+	// Generate an elliptic private&public key pair.
 	// The public key will be bound to the certificate generated below. The
 	// private key will be used to sign this certificate in the self-signed
 	// case, otherwise the certificate is signed by the signer private key
 	// as specified in the CertOptions.
-	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cert generation fails at RSA key generation (%v)", err)
+		return nil, nil, fmt.Errorf("cert generation fails at key generation (%v)", err)
 	}
 	template, err := genCertTemplateFromOptions(options)
 	if err != nil {
@@ -93,8 +91,7 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 		return nil, nil, fmt.Errorf("cert generation fails at X509 cert creation (%v)", err)
 	}
 
-	pemCert, pemKey = encodePem(false, certBytes, priv)
-	err = nil
+	pemCert, pemKey, err = encodePem(false, certBytes, priv)
 	return
 }
 
@@ -236,14 +233,17 @@ func genSerialNum() (*big.Int, error) {
 	return serialNum, nil
 }
 
-func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []byte) {
+func encodePem(isCSR bool, csrOrCert []byte, priv *ecdsa.PrivateKey) ([]byte, []byte, error) {
 	encodeMsg := "CERTIFICATE"
 	if isCSR {
 		encodeMsg = "CERTIFICATE REQUEST"
 	}
 	csrOrCertPem := pem.EncodeToMemory(&pem.Block{Type: encodeMsg, Bytes: csrOrCert})
 
-	privDer := x509.MarshalPKCS1PrivateKey(priv)
-	privPem := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: privDer})
-	return csrOrCertPem, privPem
+	privDer, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return nil, nil, err
+	}
+	privPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: privDer})
+	return csrOrCertPem, privPem, nil
 }

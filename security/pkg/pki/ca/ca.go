@@ -38,9 +38,6 @@ const (
 	cAPrivateKeyID = "ca-key.pem"
 	// cASecret stores the key/cert of self-signed CA for persistency purpose.
 	cASecret = "istio-ca-secret"
-
-	// The size of a private key for a self-signed Istio CA.
-	caKeySize = 2048
 )
 
 // cATypes is the enum for the CA type.
@@ -104,7 +101,6 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
-			RSAKeySize:   caKeySize,
 		}
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 		if ckErr != nil {

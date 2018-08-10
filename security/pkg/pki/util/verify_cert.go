@@ -15,6 +15,7 @@
 package util
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
@@ -80,8 +81,18 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 		return err
 	}
 
-	if !reflect.DeepEqual(priv.(*rsa.PrivateKey).PublicKey, *cert.PublicKey.(*rsa.PublicKey)) {
-		return fmt.Errorf("the generated private key and cert doesn't match")
+	privKey, privOk := priv.(*ecdsa.PrivateKey)
+	pubKey, pubOk := cert.PublicKey.(*ecdsa.PublicKey)
+	privRsaKey, privRsaOk := priv.(*rsa.PrivateKey)
+	pubRsaKey, pubRsaOk := cert.PublicKey.(*rsa.PublicKey)
+	if privOk && pubOk {
+		if !reflect.DeepEqual(privKey.PublicKey, *pubKey) {
+			return fmt.Errorf("the generated private key and cert doesn't match")
+		}
+	} else if privRsaOk && pubRsaOk {
+		if !reflect.DeepEqual(privRsaKey.PublicKey, *pubRsaKey) {
+			return fmt.Errorf("the generated private key and cert doesn't match")
+		}
 	}
 
 	if strings.HasPrefix(host, "spiffe") {

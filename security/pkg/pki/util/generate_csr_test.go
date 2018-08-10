@@ -24,9 +24,8 @@ import (
 func TestGenCSR(t *testing.T) {
 	// Options to generate a CSR.
 	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: 512,
+		Host: "test_ca.com",
+		Org:  "MyOrg",
 	}
 
 	csrPem, _, err := GenCSR(csrOptions)
@@ -51,20 +50,5 @@ func TestGenCSR(t *testing.T) {
 	}
 	if !strings.HasSuffix(string(csr.Extensions[0].Value[:]), "test_ca.com") {
 		t.Errorf("csr host does not match")
-	}
-}
-
-func TestGenCSRWithInvalidOption(t *testing.T) {
-	// Options with invalid Key size.
-	csrOptions := CertOptions{
-		Host:       "test_ca.com",
-		Org:        "MyOrg",
-		RSAKeySize: -1,
-	}
-
-	csr, priv, err := GenCSR(csrOptions)
-
-	if err == nil || csr != nil || priv != nil {
-		t.Errorf("Should have failed")
 	}
 }
