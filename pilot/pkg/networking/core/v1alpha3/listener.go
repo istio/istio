@@ -772,15 +772,14 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env                 *model.Environment
-	proxy               *model.Proxy
-	proxyInstances      []*model.ServiceInstance
-	ip                  string
-	port                int
-	protocol            model.Protocol
-	bindToPort          bool
-	filterChainOpts     []*filterChainOpts
-	requireTLSInspector bool
+	env             *model.Environment
+	proxy           *model.Proxy
+	proxyInstances  []*model.ServiceInstance
+	ip              string
+	port            int
+	protocol        model.Protocol
+	bindToPort      bool
+	filterChainOpts []*filterChainOpts
 }
 
 func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,

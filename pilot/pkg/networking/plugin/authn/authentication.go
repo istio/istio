@@ -166,21 +166,6 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 	return setupFilterChains(authnPolicy)
 }
 
-// JwksURIClusterName returns cluster name for the jwks URI. This should be used
-// to override the name for outbound cluster that are added for Jwks URI so that they
-// can be referred correctly in the JWT filter config.
-func JwksURIClusterName(hostname string, port *model.Port) string {
-	const clusterPrefix = "jwks."
-	const maxClusterNameLength = 189 - len(clusterPrefix)
-	name := hostname + "|" + port.Name
-	if len(name) > maxClusterNameLength {
-		prefix := name[:maxClusterNameLength-sha1.Size*2]
-		sum := sha1.Sum([]byte(name))
-		name = fmt.Sprintf("%s%x", prefix, sum)
-	}
-	return clusterPrefix + name
-}
-
 // CollectJwtSpecs returns a list of all JWT specs (ponters) defined the policy. This
 // provides a convenient way to iterate all Jwt specs.
 func CollectJwtSpecs(policy *authn.Policy) []*authn.Jwt {
