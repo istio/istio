@@ -1,4 +1,3 @@
-{{- if .Values.sidecarInjectorWebhook.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -49,7 +48,11 @@ data:
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
           - /bin/sh
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        {{- if contains "/" .Values.global.proxy_init.image }}
+        image: "{{ .Values.global.proxy_init.image }}"
+        {{- else }}
+        image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
+        {{- end }}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -156,4 +159,3 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
-{{- end }}
