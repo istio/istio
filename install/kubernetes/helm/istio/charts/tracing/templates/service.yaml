@@ -39,6 +39,6 @@ items:
       - name: http-query
         port: 80
         protocol: TCP
-        targetPort: {{ .Values.service.uiPort }}
+        targetPort: {{ .Values.jaeger.ui.port }}
     selector:
       app: jaeger

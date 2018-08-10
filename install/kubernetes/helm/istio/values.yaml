@@ -370,6 +370,9 @@ pilot:
     requests:
       cpu: 500m
       memory: 2048Mi
+  env:
+    PILOT_PUSH_THROTTLE_COUNT: 100
+    GODEBUG: gctrace=2
 
 #
 # security configuration
@@ -444,8 +447,12 @@ tracing:
   enabled: false
   provider: jaeger
   jaeger:
+    hub: docker.io/jaegertracing
+    tag: 1.5
     memory:
       max_traces: 50000
+    ui:
+      port: 16686
     ingress:
       enabled: false
       # Used to create an Ingress record.
@@ -460,15 +467,12 @@ tracing:
         #   hosts:
         #     - jaeger.local
   replicaCount: 1
-  hub: docker.io/jaegertracing
-  tag: 1.5
   service:
     annotations: {}
     name: http
     type: ClusterIP
     externalPort: 9411
     internalPort: 9411
-    uiPort: 16686
   ingress:
     enabled: false
     # Used to create an Ingress record.
@@ -487,7 +491,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.5.0
+  tag: istio-release-1.0
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -506,6 +510,12 @@ kiali:
     # Default admin passphrase for kiali. Must be set during setup, and
     # changed by overriding the secret
     passphrase: admin
+
+    # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
+    # grafanaURL:
+
+    # Override the automatically detected Jaeger URL, usefull when Jaeger service has no ExternalIPs
+    # jaegerURL:
 
 # Certmanager uses ACME to sign certificates. Since Istio gateways are
 # mounting the TLS secrets the Certificate CRDs must be created in the

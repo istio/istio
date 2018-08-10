@@ -57,6 +57,7 @@ const (
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
 	maxDeploymentRolloutTime       = 480 * time.Second
+	maxValidationReadyCheckTime    = 30 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
 	caCertFileName                 = "samples/certs/ca-cert.pem"
@@ -688,7 +689,24 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	return util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig)
+	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
+		return err
+	}
+
+	if *useGalleyConfigValidator {
+		timeout := time.Now().Add(maxValidationReadyCheckTime)
+		var validationReady bool
+		for time.Now().Before(timeout) {
+			if _, err := util.ShellSilent("kubectl get validatingwebhookconfiguration istio-galley --kubeconfig=%s", k.KubeConfig); err == nil {
+				validationReady = true
+				break
+			}
+		}
+		if !validationReady {
+			return errors.New("timeout waiting for validatingwebhookconfiguration istio-galley to be created")
+		}
+	}
+	return nil
 }
 
 // DeployTiller deploys tiller in Istio mesh or returns error

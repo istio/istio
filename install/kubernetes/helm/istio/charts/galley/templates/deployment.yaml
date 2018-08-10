@@ -37,6 +37,7 @@ spec:
           command:
           - /usr/local/bin/galley
           - validator
+          - --deployment-namespace={{ .Release.Namespace }}
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
