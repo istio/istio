@@ -38,7 +38,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
@@ -245,15 +244,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			protocol:       protocol,
 		}
 
-		for _, p := range configgen.Plugins {
-			if authnPolicy, ok := p.(authn.Plugin); ok {
-				if authnPolicy.RequireTLSMultiplexing(env.IstioConfigStore, instance.Service, instance.Endpoint.ServicePort) {
-					listenerOpts.tlsMultiplexed = true
-					log.Infof("Uses TLS multiplexing for %v %v\n", string(instance.Service.Hostname), *instance.Endpoint.ServicePort)
-				}
-			}
-		}
-
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if old, exists := listenerMap[listenerMapKey]; exists {
 			push.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
@@ -262,39 +252,55 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			continue
 		}
 		listenerType = plugin.ModelProtocolToListenerProtocol(protocol)
+		allChains := []plugin.FilterChain{}
+		var httpOpts *httpListenerOpts
+		var tcpNetworkFilters []listener.Filter
 		switch listenerType {
 		case plugin.ListenerProtocolHTTP:
-			httpOpts := &httpListenerOpts{
+			httpOpts = &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, push, instance),
 				rds:              "", // no RDS for inbound traffic
 				useRemoteAddress: false,
 				direction:        http_conn.INGRESS,
 			}
-			if listenerOpts.tlsMultiplexed {
-				listenerOpts.filterChainOpts = []*filterChainOpts{
-					{
-						httpOpts:          httpOpts,
-						transportProtocol: authn.EnvoyRawBufferMatch,
-					}, {
-						httpOpts:          httpOpts,
-						transportProtocol: authn.EnvoyTLSMatch,
-					},
-				}
-			} else {
-				listenerOpts.filterChainOpts = []*filterChainOpts{
-					{
-						httpOpts: httpOpts,
-					},
-				}
-			}
 		case plugin.ListenerProtocolTCP:
-			listenerOpts.filterChainOpts = []*filterChainOpts{{
-				networkFilters: buildInboundNetworkFilters(instance),
-			}}
+			tcpNetworkFilters = buildInboundNetworkFilters(instance)
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, instance.Endpoint.ServicePort)
 			continue
+		}
+		for _, p := range configgen.Plugins {
+			params := &plugin.InputParams{
+				ListenerProtocol: listenerType,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             endpoint.ServicePort,
+			}
+			chains := p.OnInboundFilterChains(params)
+			if len(chains) == 0 {
+				continue
+			}
+			if len(allChains) != 0 {
+				log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+			}
+			allChains = append(allChains, chains...)
+		}
+		// Construct the default filter chain.
+		if len(allChains) == 0 {
+			log.Infof("Use default filter chain for %v", endpoint)
+			allChains = []plugin.FilterChain{plugin.FilterChain{}}
+		}
+		for _, chain := range allChains {
+			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+				httpOpts:        httpOpts,
+				networkFilters:  tcpNetworkFilters,
+				tlsContext:      chain.TLSContext,
+				match:           chain.FilterChainMatch,
+				listenerFilters: chain.RequiredListenerFilters,
+			})
 		}
 
 		// call plugins
@@ -752,12 +758,13 @@ type httpListenerOpts struct {
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
-	sniHosts          []string
-	destinationCIDRs  []string
-	transportProtocol string
-	tlsContext        *auth.DownstreamTlsContext
-	httpOpts          *httpListenerOpts
-	networkFilters    []listener.Filter
+	sniHosts         []string
+	destinationCIDRs []string
+	tlsContext       *auth.DownstreamTlsContext
+	httpOpts         *httpListenerOpts
+	match            *listener.FilterChainMatch
+	listenerFilters  []listener.ListenerFilter
+	networkFilters   []listener.Filter
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -771,7 +778,6 @@ type buildListenerOpts struct {
 	protocol        model.Protocol
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
-	tlsMultiplexed  bool
 }
 
 func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpOpts *httpListenerOpts,
@@ -861,19 +867,16 @@ func buildHTTPConnectionManager(env *model.Environment, node *model.Proxy, httpO
 func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	filterChains := make([]listener.FilterChain, 0, len(opts.filterChainOpts))
 
+	// TODO(incfly): consider changing this to map to handle duplicated listener filters from different chains?
 	var listenerFilters []listener.ListenerFilter
-	if opts.tlsMultiplexed {
-		listenerFilters = []listener.ListenerFilter{
-			{
-				Name:   authn.EnvoyTLSInspectorFilterName,
-				Config: &google_protobuf.Struct{},
-			},
-		}
-	}
 
 	for _, chain := range opts.filterChainOpts {
-		match := &listener.FilterChainMatch{
-			TransportProtocol: chain.transportProtocol,
+		listenerFilters = append(listenerFilters, chain.listenerFilters...)
+		match := &listener.FilterChainMatch{}
+		needMatch := false
+		if chain.match != nil {
+			needMatch = true
+			match = chain.match
 		}
 		if len(chain.sniHosts) > 0 {
 			sort.Strings(chain.sniHosts)
@@ -890,7 +893,6 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 				match.ServerNames = chain.sniHosts
 			}
 		}
-
 		if len(chain.destinationCIDRs) > 0 {
 			sort.Strings(chain.destinationCIDRs)
 			for _, d := range chain.destinationCIDRs {
@@ -904,7 +906,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 			}
 		}
 
-		if reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
+		if !needMatch && reflect.DeepEqual(*match, listener.FilterChainMatch{}) {
 			match = nil
 		}
 		filterChains = append(filterChains, listener.FilterChain{
