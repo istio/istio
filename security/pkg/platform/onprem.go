@@ -39,9 +39,9 @@ type OnPremClientImpl struct {
 	certChainFile string
 }
 
-// CitadelDnsSan is the hardcoded DNS SAN used to identify citadel server.
+// CitadelDNSSan is the hardcoded DNS SAN used to identify citadel server.
 // The user may use an IP address to connect to the mesh.
-const CitadelDnsSan = "istio-citadel"
+const CitadelDNSSan = "istio-citadel"
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
 func NewOnPremClientImpl(rootCert, key, certChain string) (*OnPremClientImpl, error) {
@@ -140,7 +140,7 @@ func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials
 		Certificates: []tls.Certificate{certificate},
 	}
 	config.RootCAs = certPool
-	config.ServerName = CitadelDnsSan
+	config.ServerName = CitadelDNSSan
 
 	return credentials.NewTLS(&config), nil
 }
