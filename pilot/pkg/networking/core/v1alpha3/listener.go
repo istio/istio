@@ -284,11 +284,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				continue
 			}
 			if len(allChains) != 0 {
-				log.Errorf("Found two plugin returns non empty filter chains!")
-				allChains = []plugin.FilterChain{}
-				break
+				log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
 			}
-			allChains = chains
+			allChains = append(allChains, chains...)
 		}
 		// Construct the default filter chain.
 		if len(allChains) == 0 {
