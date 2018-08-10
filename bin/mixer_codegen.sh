@@ -6,14 +6,14 @@ die () {
 }
 
 WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT=$(dirname $WD)
+ROOT="$(dirname $WD)"
 
 if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep -m 1 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
 
 set -e
@@ -183,7 +183,8 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err";
   fi
 
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "$TMPL_GEN_MAP"
+  IFS=" " read -r -a TMPL_GEN_MAP_ARRAY <<< "$TMPL_GEN_MAP"
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP_ARRAY[@]}"
 
   err=$($protoc "$IMPORTS" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
@@ -222,7 +223,8 @@ if [ "$optadapter" = true ]; then
   die "config generation failure: $err";
   fi
 
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" adapter -c "$adapteCfdDS" -o "$(dirname "${file}")" "${extraflags}"
+  IFS=" " read -r -a extraflags_array <<< "$extraflags"
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" adapter -c "$adapteCfdDS" -o "$(dirname "${file}")" "${extraflags_array[@]}"
 
   exit 0
 fi
