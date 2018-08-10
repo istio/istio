@@ -226,8 +226,9 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
-    # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
