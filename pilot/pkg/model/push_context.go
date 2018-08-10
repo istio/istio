@@ -243,6 +243,9 @@ func (ps *PushContext) UpdateMetrics() {
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
+	ps.mutex.Lock()
+	defer ps.mutex.Unlock()
+
 	configs := ps.VirtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
