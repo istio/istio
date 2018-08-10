@@ -58,5 +58,5 @@ CITADEL_ARGS="${CITADEL_ARGS} --root-cert ${CERTS_DIR}/root-cert.pem"
 if [ ${EXEC_USER} == ${USER:-} ] ; then
   ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}
 else
-  su -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}" ${EXEC_USER}
+  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}" ${EXEC_USER}
 fi
