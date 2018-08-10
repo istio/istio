@@ -77,7 +77,7 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 		return nil, err
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, CitadelDnsSan)
 	if err != nil {
 		return nil, err
 	}

@@ -69,7 +69,7 @@ func NewAwsClientImpl(rootCert string) *AwsClientImpl {
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.
 func (ci *AwsClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
-	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, "")
+	creds, err := credentials.NewClientTLSFromFile(ci.rootCertFile, CitadelDnsSan)
 	if err != nil {
 		return nil, err
 	}
