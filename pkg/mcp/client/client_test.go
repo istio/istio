@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go get github.com/golang/mock/gomock
-//go:generate go install github.com/golang/mock/mockgen
 package client
 
 import (

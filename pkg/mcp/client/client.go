@@ -304,9 +304,9 @@ func (c *Client) Run(ctx context.Context) {
 			} else {
 				response, err := c.stream.Recv()
 				if err != nil {
-					// if err != io.EOF {
-					log.Errorf("Error receiving MCP response: %v", err)
-					// }
+					if err != io.EOF {
+						log.Errorf("Error receiving MCP response: %v", err)
+					}
 					break
 				}
 

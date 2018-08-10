@@ -26,7 +26,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/ctrlz"
@@ -67,9 +66,6 @@ func TestConfigZ(t *testing.T) {
 	ctrlz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
-
-	time.Sleep(2 * time.Second)
-	fmt.Println("After Delay")
 
 	t.Run("configz with no requests", func(tt *testing.T) { testConfigZWithNoRequest(tt, baseURL) })
 
