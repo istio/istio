@@ -525,8 +525,8 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
-				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
-				info.ServerProtocol = mTLSModeToString(serverSideTLS)
+				mtls := authn_plugin.GetMutualTLS(policy, model.Sidecar)
+				info.ServerProtocol = mTLSModeToString(mtls != nil)
 			} else {
 				info.ServerProtocol = mTLSModeToString(false)
 			}

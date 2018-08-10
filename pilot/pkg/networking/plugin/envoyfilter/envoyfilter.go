@@ -75,6 +75,11 @@ func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, rou
 	// do nothing
 }
 
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (envoyfilterplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
 func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableObjects, direction string) error {
 	filterCRD := getFilterForWorkload(in)
 	if filterCRD == nil {
