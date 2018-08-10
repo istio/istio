@@ -242,6 +242,11 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	return nil
 }
 
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path

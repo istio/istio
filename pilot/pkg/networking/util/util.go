@@ -37,6 +37,21 @@ const (
 	BlackHoleCluster = "BlackHoleCluster"
 )
 
+// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
+var ALPNH2Only = []string{"h2"}
+
+// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
+var ALPNInMeshH2 = []string{"istio", "h2"}
+
+// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
+// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
+var ALPNInMesh = []string{"istio"}
+
+// ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
+var ALPNHttp = []string{"h2", "http/1.1"}
+
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
 	if len(addr) == 0 {
