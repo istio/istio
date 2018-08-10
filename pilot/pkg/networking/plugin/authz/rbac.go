@@ -178,6 +178,7 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 	}
 }
 
+//Generate a metadata list matcher for the given path keys and value.
 func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
@@ -222,12 +223,6 @@ func generateMetaKeys(k string) ([]string, error) {
 			return nil, err
 		}
 		keys = []string{attrRequestClaims, claim}
-	} else if strings.HasPrefix(k, authDerivedClaims) {
-		claim, err := extractNameInBrackets(strings.TrimPrefix(k, authDerivedClaims))
-		if err != nil {
-			return nil, err
-		}
-		keys = []string{authDerivedClaims, claim}
 	} else {
 		keys = []string{k}
 	}
@@ -280,16 +275,11 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		forceRegexPattern = true
 	}
 
-	// Handle the claims under authDerivedClaims
-	if len(keys) == 2 && keys[0] == authDerivedClaims {
-		switch keys[1] {
-		case groupsClaim:
-			return generateMetadataListMatcher(keys, v)
-		//Place other derived claims here
-		//case ...
-		default:
-			rbacLog.Errorf("unsupported claim key: %s", keys[1])
-		}
+	// Handle the claims under attrRequestClaims
+	if len(keys) == 2 && keys[0] == attrRequestClaims {
+		//Store under auth.derived.claims
+		keys[0] = authDerivedClaims
+		return generateMetadataListMatcher(keys, v)
 	}
 
 	stringMatcher := createStringMatcher(v, forceRegexPattern)

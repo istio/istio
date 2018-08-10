@@ -259,7 +259,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"auth.derived.claims[groups]": "group*",
+							"request.auth.claims[groups]": "group*",
 							"request.auth.claims[iss]":    "test-iss",
 							"request.headers[key]":        "value",
 							"source.ip":                   "192.1.2.0/24",
@@ -510,9 +510,8 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						},
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataStringMatcher(
-									[]string{"request.auth.claims", "iss"}, &metadata.StringMatcher{
-										MatchPattern: &metadata.StringMatcher_Exact{Exact: "test-iss"}}),
+								Metadata: generateMetadataListMatcher(
+									[]string{authDerivedClaims, "iss"}, "test-iss"),
 							},
 						},
 						{
@@ -867,16 +866,12 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}),
 		},
 		{
-			k: "auth.derived.claims[groups]", v: "group*",
+			k: "request.auth.claims[groups]", v: "group*",
 			expect: generateMetadataListMatcher([]string{authDerivedClaims, "groups"}, "group*"),
 		},
 		{
-			k: "request.auth.claims[iss]", v: "test-iss*",
-			expect: generateMetadataStringMatcher([]string{attrRequestClaims, "iss"}, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Prefix{
-					Prefix: "test-iss",
-				},
-			}),
+			k: "request.auth.claims[iss]", v: "test-iss",
+			expect: generateMetadataListMatcher([]string{authDerivedClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user",
