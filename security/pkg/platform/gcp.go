@@ -61,7 +61,7 @@ func NewGcpClientImpl(rootCert, ca string) *GcpClientImpl {
 		rootCertFile: rootCert,
 		caAddr:       ca,
 		// The expected token is independent of the URL of the server.
-		fetcher:      &cred.GcpTokenFetcher{Aud: "grpc://istio-citadel:8060"},
+		fetcher: &cred.GcpTokenFetcher{Aud: "grpc://istio-citadel:8060"},
 	}
 }
 

@@ -24,8 +24,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/istio/security/pkg/pki/util"
 	"strings"
+
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 // OnPremClientImpl is the implementation of on premise metadata client.
@@ -91,10 +92,10 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	if len(serviceIDs) != 1 {
 		for _, s := range serviceIDs {
 			if strings.HasPrefix(s, "spiffe://") {
-				return serviceIDs[0], nil
+				return s, nil
 			}
 		}
-		return "", fmt.Errorf("cert has %v SAN fields, should be 1", len(serviceIDs))
+		return "", fmt.Errorf("cert does not have siffe:// SAN fields")
 	}
 	return serviceIDs[0], nil
 }
