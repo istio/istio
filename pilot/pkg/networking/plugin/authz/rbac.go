@@ -179,12 +179,11 @@ func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *me
 }
 
 func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
-	forceRegexPattern := false
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
 				MatchPattern: &metadata.ValueMatcher_StringMatch{
-					StringMatch: createStringMatcher(v, forceRegexPattern),
+					StringMatch: createStringMatcher(v, false),
 				},
 			},
 		},
@@ -271,6 +270,7 @@ func createStringMatcher(v string, forceRegexPattern bool) *metadata.StringMatch
 func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 	keys, err := generateMetaKeys(k)
 	if err != nil {
+		rbacLog.Errorf("failed to generate meta matcher key %s, err: %v", k, err)
 		return nil
 	}
 	forceRegexPattern := false
@@ -280,7 +280,7 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 		forceRegexPattern = true
 	}
 
-	//Handle the claims under authDerivedClaims
+	// Handle the claims under authDerivedClaims
 	if len(keys) == 2 && keys[0] == authDerivedClaims {
 		switch keys[1] {
 		case groupsClaim:
