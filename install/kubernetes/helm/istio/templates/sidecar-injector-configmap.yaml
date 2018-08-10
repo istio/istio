@@ -1,4 +1,4 @@
-{{- if .Values.sidecarInjectorWebhook.enabled }}
+{{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
