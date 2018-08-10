@@ -11,7 +11,11 @@ items:
     template:
       metadata:
         annotations:
+<<<<<<< HEAD
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+=======
+          sidecar.istio.io/status: '{"version":"982d1f2d999ba8362ce0e9dad26fcc0ac3a1baf140a3b1471ddc8ba2a2847896","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+>>>>>>> f5b834ce5... Add namespace to serviceCluster parameter used by Envoy as the service name for span data
         creationTimestamp: null
         labels:
           app: hello
@@ -34,7 +38,7 @@ items:
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello
+          - hello:default
           - --drainDuration
           - 2s
           - --parentShutdownDuration
@@ -166,7 +170,7 @@ items:
           - --binaryPath
           - /usr/local/bin/envoy
           - --serviceCluster
-          - hello
+          - hello:default
           - --drainDuration
           - 2s
           - --parentShutdownDuration
