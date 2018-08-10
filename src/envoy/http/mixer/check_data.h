@@ -62,6 +62,11 @@ class CheckData : public ::istio::control::http::CheckData,
 
   const ::google::protobuf::Struct* GetAuthenticationResult() const override;
 
+  bool GetUrlPath(std::string* url_path) const override;
+
+  bool GetRequestQueryParams(
+      std::map<std::string, std::string>* query_params) const override;
+
  private:
   const HeaderMap& headers_;
   const envoy::api::v2::core::Metadata& metadata_;

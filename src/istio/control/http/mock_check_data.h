@@ -46,6 +46,9 @@ class MockCheckData : public CheckData {
                      const ::google::protobuf::Struct *());
   MOCK_CONST_METHOD0(IsMutualTLS, bool());
   MOCK_CONST_METHOD1(GetRequestedServerName, bool(std::string *name));
+  MOCK_CONST_METHOD1(GetUrlPath, bool(std::string *));
+  MOCK_CONST_METHOD1(GetRequestQueryParams,
+                     bool(std::map<std::string, std::string> *));
 };
 
 // The mock object for HeaderUpdate interface.

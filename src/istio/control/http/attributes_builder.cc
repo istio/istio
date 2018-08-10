@@ -66,6 +66,16 @@ void AttributesBuilder::ExtractRequestHeaderAttributes(CheckData *check_data) {
       builder.AddString(it.name, it.default_value);
     }
   }
+
+  std::string query_path;
+  if (check_data->GetUrlPath(&query_path)) {
+    builder.AddString(utils::AttributeName::kRequestUrlPath, query_path);
+  }
+
+  std::map<std::string, std::string> query_map;
+  if (check_data->GetRequestQueryParams(&query_map) && query_map.size() > 0) {
+    builder.AddStringMap(utils::AttributeName::kRequestQueryParams, query_map);
+  }
 }
 
 void AttributesBuilder::ExtractAuthAttributes(CheckData *check_data) {

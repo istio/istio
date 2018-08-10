@@ -84,6 +84,15 @@ class CheckData {
   // Returns a pointer to the authentication result from request info dynamic
   // metadata, if available. Otherwise, returns nullptr.
   virtual const ::google::protobuf::Struct *GetAuthenticationResult() const = 0;
+
+  // Get request url path, which strips query part from the http path header.
+  // Return true if url path is found, otherwise return false.
+  virtual bool GetUrlPath(std::string *url_path) const = 0;
+
+  // Get request queries with string map format. Return true if query params are
+  // found, otherwise return false.
+  virtual bool GetRequestQueryParams(
+      std::map<std::string, std::string> *query_params) const = 0;
 };
 
 // An interfact to update request HTTP headers with Istio attributes.

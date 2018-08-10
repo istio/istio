@@ -85,7 +85,7 @@ attributes {
       }
       entries {
         key: "path"
-        value: "/books"
+        value: "/books?a=b&c=d"
       }
     }
   }
@@ -99,7 +99,22 @@ attributes {
 attributes {
   key: "request.path"
   value {
-    string_value: "/books"
+    string_value: "/books?a=b&c=d"
+  }
+}
+attributes {
+  key: "request.query_params"
+  value {
+    string_map_value {
+      entries {
+        key: "a"
+        value: "b"
+      }
+      entries {
+        key: "c"
+        value: "d"
+      }
+    }
   }
 }
 attributes {
@@ -113,6 +128,12 @@ attributes {
   value {
     timestamp_value {
     }
+  }
+}
+attributes {
+  key: "request.url_path"
+  value {
+    string_value: "/books"
   }
 }
 )";
@@ -134,7 +155,7 @@ attributes {
       }
       entries {
         key: "path"
-        value: "/books"
+        value: "/books?a=b&c=d"
       }
     }
   }
@@ -148,7 +169,28 @@ attributes {
 attributes {
   key: "request.path"
   value {
+    string_value: "/books?a=b&c=d"
+  }
+}
+attributes {
+  key: "request.url_path"
+  value {
     string_value: "/books"
+  }
+}
+attributes {
+  key: "request.query_params"
+  value {
+    string_map_value {
+      entries {
+        key: "a"
+        value: "b"
+      }
+      entries {
+        key: "c"
+        value: "d"
+      }
+    }
   }
 }
 attributes {
@@ -531,7 +573,7 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithoutAuthnFilter) {
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
-        map["path"] = "/books";
+        map["path"] = "/books?a=b&c=d";
         map["host"] = "localhost";
         return map;
       }));
@@ -539,7 +581,7 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithoutAuthnFilter) {
       .WillRepeatedly(Invoke(
           [](CheckData::HeaderType header_type, std::string *value) -> bool {
             if (header_type == CheckData::HEADER_PATH) {
-              *value = "/books";
+              *value = "/books?a=b&c=d";
               return true;
             } else if (header_type == CheckData::HEADER_HOST) {
               *value = "localhost";
@@ -549,6 +591,18 @@ TEST(AttributesBuilderTest, TestCheckAttributesWithoutAuthnFilter) {
           }));
   EXPECT_CALL(mock_data, GetAuthenticationResult())
       .WillOnce(testing::Return(nullptr));
+
+  EXPECT_CALL(mock_data, GetUrlPath(_))
+      .WillOnce(Invoke([](std::string *path) -> bool {
+        *path = "/books";
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetRequestQueryParams(_))
+      .WillOnce(Invoke([](std::map<std::string, std::string> *map) -> bool {
+        (*map)["a"] = "b";
+        (*map)["c"] = "d";
+        return true;
+      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -590,7 +644,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
   EXPECT_CALL(mock_data, GetRequestHeaders())
       .WillOnce(Invoke([]() -> std::map<std::string, std::string> {
         std::map<std::string, std::string> map;
-        map["path"] = "/books";
+        map["path"] = "/books?a=b&c=d";
         map["host"] = "localhost";
         return map;
       }));
@@ -598,7 +652,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
       .WillRepeatedly(Invoke(
           [](CheckData::HeaderType header_type, std::string *value) -> bool {
             if (header_type == CheckData::HEADER_PATH) {
-              *value = "/books";
+              *value = "/books?a=b&c=d";
               return true;
             } else if (header_type == CheckData::HEADER_HOST) {
               *value = "localhost";
@@ -612,6 +666,17 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
 
   EXPECT_CALL(mock_data, GetAuthenticationResult())
       .WillOnce(testing::Return(&authn_result));
+  EXPECT_CALL(mock_data, GetUrlPath(_))
+      .WillOnce(Invoke([](std::string *path) -> bool {
+        *path = "/books";
+        return true;
+      }));
+  EXPECT_CALL(mock_data, GetRequestQueryParams(_))
+      .WillOnce(Invoke([](std::map<std::string, std::string> *map) -> bool {
+        (*map)["a"] = "b";
+        (*map)["c"] = "d";
+        return true;
+      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);

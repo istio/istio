@@ -171,6 +171,29 @@ const ::google::protobuf::Struct* CheckData::GetAuthenticationResult() const {
   return Utils::Authentication::GetResultFromMetadata(metadata_);
 }
 
+bool CheckData::GetUrlPath(std::string* url_path) const {
+  if (!headers_.Path()) {
+    return false;
+  }
+  const HeaderString& path = headers_.Path()->value();
+  const char* query_start = Utility::findQueryStringStart(path);
+  if (query_start != nullptr) {
+    *url_path = std::string(path.c_str(), query_start - path.c_str());
+  } else {
+    *url_path = std::string(path.c_str(), path.size());
+  }
+  return true;
+}
+
+bool CheckData::GetRequestQueryParams(
+    std::map<std::string, std::string>* query_params) const {
+  if (!headers_.Path()) {
+    return false;
+  }
+  *query_params = Utility::parseQueryString(headers_.Path()->value().c_str());
+  return true;
+}
+
 }  // namespace Mixer
 }  // namespace Http
 }  // namespace Envoy

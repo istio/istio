@@ -35,6 +35,8 @@ struct AttributeName {
   static const char kRequestPath[];
   static const char kRequestReferer[];
   static const char kRequestScheme[];
+  static const char kRequestUrlPath[];
+  static const char kRequestQueryParams[];
   static const char kRequestBodySize[];
   // Total size of request received, including request headers, body, and
   // trailers.
