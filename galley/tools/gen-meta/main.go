@@ -222,6 +222,7 @@ package kube
 import (
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
+	"istio.io/istio/galley/pkg/metadata"
 )
 
 // Types in the schema.

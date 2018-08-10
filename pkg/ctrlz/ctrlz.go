@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate go-bindata --nocompress --nometadata --pkg ctrlz -o assets.gen.go assets/...
+//go:generate $GOPATH/src/istio.io/istio/bin/go-bindata.sh --nocompress --nometadata --pkg ctrlz -o assets.gen.go assets/...
 
 // Package ctrlz implements Istio's introspection facility. When components
 // integrate with ControlZ, they automatically gain an IP port which allows operators
