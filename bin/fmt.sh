@@ -4,6 +4,7 @@
 # fmt.sh -c check only.
 
 set -e
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 check=false
@@ -29,7 +30,7 @@ if [[ -z ${GO_FILES} ]];then
 fi
 
 if [ $check = false ]; then
-  $goimports -w -local istio.io "${GO_FILES}"
+  $goimports -w -local istio.io ${GO_FILES}
   exit $?
 fi
 
