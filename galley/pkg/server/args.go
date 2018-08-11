@@ -24,6 +24,15 @@ import (
 	"istio.io/istio/pkg/probe"
 )
 
+const (
+	defaultCertDir         = "/etc/istio/certs/"
+	defaultConfigMapFolder = "/etc/istio/config"
+
+	defaultCertFile   = defaultCertDir + "cert-chain.pem"
+	defaultCACertFile = defaultCertDir + "root-cert.pem"
+	defaultCertKey    = defaultCertDir + "key.pem"
+)
+
 // Args contains the startup arguments to instantiate Galley.
 type Args struct {
 	// The path to kube configuration file.
@@ -44,6 +53,21 @@ type Args struct {
 	// Maximum number of outstanding RPCs per connection
 	MaxConcurrentStreams uint
 
+	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
+	Insecure bool
+
+	// CertificateFile to use for mTLS gRPC.
+	CertificateFile string
+
+	// KeyFile to use for mTLS gRPC.
+	KeyFile string
+
+	// CACertificateFile is the trusted root certificate authority's cert file.
+	CACertificateFile string
+
+	// ConfigMapFolder is the folder where Galley will look for Kubernetes Config Map based configuration.
+	ConfigMapFolder string
+
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -61,9 +85,14 @@ type Args struct {
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:             "tcp://127.0.0.1:9901",
+		APIAddress:             "tcp://0.0.0.0:9901",
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
+		Insecure:               false,
+		CertificateFile:        defaultCertFile,
+		KeyFile:                defaultCertKey,
+		CACertificateFile:      defaultCACertFile,
+		ConfigMapFolder:        defaultConfigMapFolder,
 		LoggingOptions:         log.DefaultOptions(),
 		LivenessProbeOptions:   &probe.Options{},
 		ReadinessProbeOptions:  &probe.Options{},
@@ -81,6 +110,11 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
+	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
+	fmt.Fprintf(buf, "KeyFile: %s\n", a.KeyFile)
+	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CertificateFile)
+	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CACertificateFile)
+	fmt.Fprintf(buf, "ConfigMapFolder: %s\n", a.ConfigMapFolder)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "LivenessProbeOptions: %#v\n", *a.LivenessProbeOptions)
 	fmt.Fprintf(buf, "ReadinessProbeOptions: %#v\n", *a.ReadinessProbeOptions)
