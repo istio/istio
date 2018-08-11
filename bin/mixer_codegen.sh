@@ -13,9 +13,6 @@ if [ ! -e "$ROOT/Gopkg.lock" ]; then
   exit 1
 fi
 
-GOGO_VERSION=$(sed -n '/gogo\/protobuf/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep -m 1 'version =' | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
-GENDOCS_VERSION=$(sed -n '/protoc-gen-docs/,/\[\[projects/p' "$ROOT/Gopkg.lock" | grep revision | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
-
 set -e
 
 outdir=$ROOT
@@ -64,44 +61,6 @@ if [ "$ROOT" != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
   die "Istio not found in GOPATH/src/istio.io/"
 fi
 
-PROTOC_PATH=$(command -v protoc)
- if [ -z "$PROTOC_PATH" ] ; then
-    die "protoc was not found, please install it first"
- fi
-
-GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
-GOGOSLICK="protoc-gen-gogoslick"
-GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
-GENDOCS="protoc-gen-docs"
-GENDOCS_PATH=vendor/github.com/istio/tools/$GENDOCS
-
-if [ ! -e "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ]; then
-echo "Building protoc-gen-gogoslick..."
-pushd "$ROOT"
-go build --pkgdir "$GOGOSLICK_PATH" -o "$ROOT/bin/$GOGOSLICK-$GOGO_VERSION" ./$GOGOPROTO_PATH/$GOGOSLICK
-popd
-echo "Done."
-fi
-
-if [ ! -e "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION" ]; then
-echo "Building protoc-gen-docs..."
-pushd "$ROOT/$GENDOCS_PATH"
-go build --pkgdir $GENDOCS_PATH -o "$ROOT/bin/$GENDOCS-$GENDOCS_VERSION"
-popd
-echo "Done."
-fi
-
-PROTOC_MIN_VERSION="protoc-min-version"
-MIN_VERSION_PATH=$ROOT/$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
-
-if [ ! -e "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ]; then
-echo "Building protoc-min-version..."
-pushd "$ROOT"
-go build --pkgdir "$MIN_VERSION_PATH" -o "$ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION" ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
-popd
-echo "Done."
-fi
-
 imports=(
  "${ROOT}"
  "${ROOT}/vendor/istio.io/api"
@@ -135,10 +94,10 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$MAPPINGS:"
+PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:"
 PLUGIN+=$outdir
 
-GENDOCS_PLUGIN="--plugin=$ROOT/bin/$GENDOCS-$GENDOCS_VERSION --docs-${GENDOCS_VERSION}_out=warnings=true,mode=html_fragment_with_front_matter:"
+GENDOCS_PLUGIN="--docs_out=warnings=true,mode=html_fragment_with_front_matter:"
 GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
 GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
 
@@ -160,7 +119,7 @@ if [ "$opttemplate" = true ]; then
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick-${GOGO_VERSION}_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
+  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
   TMPL_PLUGIN+=$outdir
 
   descriptor_set="_proto.descriptor_set"
