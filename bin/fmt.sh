@@ -4,6 +4,7 @@
 # fmt.sh -c check only.
 
 set -e
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
 check=false
