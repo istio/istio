@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/galley/pkg/crd/validation/testcerts"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 var (
