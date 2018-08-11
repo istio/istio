@@ -53,7 +53,7 @@ var _ io.Closer = &Server{}
 // from the Port field of the returned server struct.
 func NewServer(port int, typeUrls []string) (*Server, error) {
 	cache := snapshot.New()
-	s := server.New(cache, typeUrls)
+	s := server.New(cache, typeUrls, nil)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
@@ -63,7 +63,7 @@ func NewServer(port int, typeUrls []string) (*Server, error) {
 
 	p := l.Addr().(*net.TCPAddr).Port
 
-	u, err := url.Parse(fmt.Sprintf("tcp://localhost:%d", p))
+	u, err := url.Parse(fmt.Sprintf("mcpi://localhost:%d", p))
 	if err != nil {
 		_ = l.Close()
 		return nil, err

@@ -44,9 +44,9 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const (
