@@ -126,7 +126,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(a.MaxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
 	var interceptors []grpc.UnaryServerInterceptor
 	var err error
