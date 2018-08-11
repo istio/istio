@@ -79,7 +79,7 @@ func newTestBackend() *testStore {
 }
 
 func registerTestStore(builders map[string]Builder) {
-	builders["test"] = func(u *url.URL, gv *schema.GroupVersion) (Backend, error) {
+	builders["test"] = func(u *url.URL, gv *schema.GroupVersion, credFolder string) (Backend, error) {
 		return newTestBackend(), nil
 	}
 }
@@ -226,7 +226,7 @@ func TestRegistry(t *testing.T) {
 		{"://", false},
 		{"test://", true},
 	} {
-		_, err := r.NewStore(c.u, groupVersion)
+		_, err := r.NewStore(c.u, groupVersion, "/etc")
 		ok := err == nil
 		if ok != c.ok {
 			t.Errorf("Want %v, Got %v, Err %v", c.ok, ok, err)

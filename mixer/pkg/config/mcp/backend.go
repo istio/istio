@@ -18,12 +18,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pkg/mcp/creds"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
@@ -46,13 +49,22 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builders["mcp"] = func(u *url.URL, gv *schema.GroupVersion) (store.Backend, error) { return newStore(u, nil) }
+	builder := func(u *url.URL, gv *schema.GroupVersion, certFolder string) (store.Backend, error) {
+		return newStore(u, certFolder, nil)
+	}
+
+	builders["mcp"] = builder
+	builders["mcpi"] = builder
 }
 
 // NewStore creates a new Store instance.
-func newStore(u *url.URL, fn updateHookFn) (store.Backend, error) {
+func newStore(u *url.URL, certFolder string, fn updateHookFn) (store.Backend, error) {
+	insecure := u.Scheme == "mcpi"
+
 	return &backend{
 		serverAddress: u.Host,
+		insecure:      insecure,
+		certFolder:    certFolder,
 		Probe:         probe.NewProbe(),
 		updateHook:    fn,
 	}, nil
@@ -66,8 +78,14 @@ type backend struct {
 	// mapping of CRD <> typeURLs.
 	mapping *mapping
 
+	// Use insecure communication for gRPC.
+	insecure bool
+
 	// address of the MCP server.
 	serverAddress string
+
+	// The folder from which to load certificates.
+	certFolder string
 
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
@@ -115,12 +133,33 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, err := grpc.DialContext(ctx, b.serverAddress, grpc.WithInsecure())
+
+	securityOption := grpc.WithInsecure()
+	if !b.insecure {
+		address := b.serverAddress
+		if strings.Contains(address, ":") {
+			address = strings.Split(address, ":")[0]
+		}
+
+		watcher, err := creds.WatchFolder(ctx.Done(), b.certFolder)
+		if err != nil {
+			return err
+		}
+		credentials, err := creds.CreateForClient(address, watcher)
+		if err != nil {
+			return err
+		}
+
+		securityOption = grpc.WithTransportCredentials(credentials)
+	}
+
+	conn, err := grpc.DialContext(ctx, b.serverAddress, securityOption)
 	if err != nil {
 		cancel()
 		scope.Errorf("Error connecting to server: %v\n", err)
 		return err
 	}
+
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 	c := client.New(cl, messageNames, b, mixerNodeID, map[string]string{})
 	configz.Register(c)
