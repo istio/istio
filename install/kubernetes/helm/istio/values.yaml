@@ -3,10 +3,10 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: gcr.io/istio-release
+  hub: docker.io/istio
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: 1.0.0
 
   # Gateway used for legacy k8s Ingress resources. By default it is
   # using 'istio:ingress', to match 0.8 config. It requires that
@@ -20,6 +20,14 @@ global:
   # expected secrets - enabling this option without certificates
   # will result in LDS rejection and the ingress will not work.
   k8sIngressHttps: false
+
+  sofamesh:
+    hub: docker.io/sofa-mesh
+    binaryPath: /usr/local/bin/mosn
+    sidecar:
+      pilot: false
+      policy: false
+      telemetry: false
 
   proxy:
     image: proxyv2

@@ -186,7 +186,7 @@ const (
 	ConfigPathDir = "/etc/istio/proxy"
 
 	// BinaryPathFilename envoy binary location
-	BinaryPathFilename = "/usr/local/bin/envoy"
+	BinaryPathFilename = "/usr/local/bin/mosn"
 
 	// ServiceClusterName service cluster name used in xDS calls
 	ServiceClusterName = "istio-proxy"

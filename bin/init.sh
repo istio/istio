@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# Init script downloads or updates envoy and the go dependencies. Called from Makefile, which sets
+# Init script downloads or updates mosn and the go dependencies. Called from Makefile, which sets
 # the needed environment variables.
 
 ROOT=$(cd $(dirname $0)/..; pwd)
@@ -85,7 +85,7 @@ set_download_command () {
     echo wget is not installed.
 
     echo Error: curl is not installed or does not support https, wget is not installed. \
-         Cannot download envoy. Please install wget or add support of https to curl.
+         Cannot download mosn. Please install wget or add support of https to curl.
     exit 1
 }
 
@@ -94,50 +94,50 @@ if [ -z ${PROXY_REPO_SHA:-} ] ; then
 fi
 
 # Normally set by the Makefile.
-ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}
-ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_DEBUG_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_ENVOY_VERSION}.tar.gz}
-ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-https://storage.googleapis.com/istio-build/proxy/envoy-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}
-# TODO Change url when official envoy release for MAC is available
-ISTIO_ENVOY_MAC_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL:-https://storage.googleapis.com/istio-on-macos/releases/0.7.1/istio-proxy-0.7.1-macos.tar.gz}
+ISTIO_MOSN_VERSION=${ISTIO_MOSN_VERSION:-${PROXY_REPO_SHA}}
+ISTIO_MOSN_DEBUG_URL=${ISTIO_MOSN_DEBUG_URL:-http://storage.googleapis.com/sofa-mesh/proxy/mosn-debug-${ISTIO_MOSN_VERSION}.tar.gz}
+ISTIO_MOSN_RELEASE_URL=${ISTIO_MOSN_RELEASE_URL:-http://storage.googleapis.com/sofa-mesh/proxy/mosn-alpha-${ISTIO_MOSN_VERSION}.tar.gz}
+# TODO Change url when official mosn release for MAC is available
+ISTIO_MOSN_MAC_RELEASE_URL=${ISTIO_MOSN_MAC_RELEASE_URL:-https://storage.googleapis.com/istio-on-macos/releases/0.7.1/istio-proxy-0.7.1-macos.tar.gz}
 
 # Normally set by the Makefile.
 # Variables for the extracted debug/release Envoy artifacts.
-ISTIO_ENVOY_DEBUG_DIR=${ISTIO_ENVOY_DEBUG_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/debug"}
-ISTIO_ENVOY_DEBUG_NAME=${ISTIO_ENVOY_DEBUG_NAME:-"envoy-debug-$ISTIO_ENVOY_VERSION"}
-ISTIO_ENVOY_DEBUG_PATH=${ISTIO_ENVOY_DEBUG_PATH:-"$ISTIO_ENVOY_DEBUG_DIR/$ISTIO_ENVOY_DEBUG_NAME"}
-ISTIO_ENVOY_RELEASE_DIR=${ISTIO_ENVOY_RELEASE_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/release"}
-ISTIO_ENVOY_RELEASE_NAME=${ISTIO_ENVOY_RELEASE_NAME:-"envoy-$ISTIO_ENVOY_VERSION"}
-ISTIO_ENVOY_RELEASE_PATH=${ISTIO_ENVOY_RELEASE_PATH:-"$ISTIO_ENVOY_RELEASE_DIR/$ISTIO_ENVOY_RELEASE_NAME"}
+ISTIO_MOSN_DEBUG_DIR=${ISTIO_MOSN_DEBUG_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/debug"}
+ISTIO_MOSN_DEBUG_NAME=${ISTIO_MOSN_DEBUG_NAME:-"mosn-debug-$ISTIO_MOSN_VERSION"}
+ISTIO_MOSN_DEBUG_PATH=${ISTIO_MOSN_DEBUG_PATH:-"$ISTIO_MOSN_DEBUG_DIR/$ISTIO_MOSN_DEBUG_NAME"}
+ISTIO_MOSN_RELEASE_DIR=${ISTIO_MOSN_RELEASE_DIR:-"${OUT_DIR}/${GOOS}_${GOARCH}/release"}
+ISTIO_MOSN_RELEASE_NAME=${ISTIO_MOSN_RELEASE_NAME:-"mosn-$ISTIO_MOSN_VERSION"}
+ISTIO_MOSN_RELEASE_PATH=${ISTIO_MOSN_RELEASE_PATH:-"$ISTIO_MOSN_RELEASE_DIR/$ISTIO_MOSN_RELEASE_NAME"}
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
-# Save envoy in $ISTIO_ENVOY_DIR
-if [ ! -f "$ISTIO_ENVOY_DEBUG_PATH" ] || [ ! -f "$ISTIO_ENVOY_RELEASE_PATH" ] ; then
+# Save mosn in $ISTIO_MOSN_DIR
+if [ ! -f "$ISTIO_MOSN_DEBUG_PATH" ] || [ ! -f "$ISTIO_MOSN_RELEASE_PATH" ] ; then
     # Clear out any old versions of Envoy.
-    rm -f ${ISTIO_OUT}/envoy ${ROOT}/pilot/pkg/proxy/envoy/envoy ${ISTIO_BIN}/envoy
+    rm -f ${ISTIO_OUT}/mosn ${ROOT}/pilot/pkg/proxy/mosn/mosn ${ISTIO_BIN}/mosn
 
-    # Download debug envoy binary.
-    mkdir -p $ISTIO_ENVOY_DEBUG_DIR
-    pushd $ISTIO_ENVOY_DEBUG_DIR
+    # Download debug mosn binary.
+    mkdir -p $ISTIO_MOSN_DEBUG_DIR
+    pushd $ISTIO_MOSN_DEBUG_DIR
     if [ "$LOCAL_OS" == "Darwin" ] && [ "$GOOS" != "linux" ]; then
-       ISTIO_ENVOY_DEBUG_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+       ISTIO_MOSN_DEBUG_URL=${ISTIO_MOSN_MAC_RELEASE_URL}
     fi
-    echo "Downloading envoy debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_DEBUG_URL} | tar xz
-    cp usr/local/bin/envoy $ISTIO_ENVOY_DEBUG_PATH
+    echo "Downloading mosn debug artifact: ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_DEBUG_URL}"
+    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_DEBUG_URL} | tar xz
+    cp usr/local/bin/mosn $ISTIO_MOSN_DEBUG_PATH
     rm -rf usr
     popd
 
-    # Download release envoy binary.
-    mkdir -p $ISTIO_ENVOY_RELEASE_DIR
-    pushd $ISTIO_ENVOY_RELEASE_DIR
+    # Download release mosn binary.
+    mkdir -p $ISTIO_MOSN_RELEASE_DIR
+    pushd $ISTIO_MOSN_RELEASE_DIR
     if [ "$LOCAL_OS" == "Darwin" ] && [ "$GOOS" != "linux" ]; then
-       ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_MAC_RELEASE_URL}
+       ISTIO_MOSN_RELEASE_URL=${ISTIO_MOSN_MAC_RELEASE_URL}
     fi
-    echo "Downloading envoy release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_RELEASE_URL} | tar xz
-    cp usr/local/bin/envoy $ISTIO_ENVOY_RELEASE_PATH
+    echo "Downloading mosn release artifact: ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_RELEASE_URL}"
+    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_RELEASE_URL} | tar xz
+    cp usr/local/bin/mosn $ISTIO_MOSN_RELEASE_PATH
     rm -rf usr
     popd
 fi
@@ -145,23 +145,23 @@ fi
 mkdir -p ${ISTIO_OUT}
 mkdir -p ${ISTIO_BIN}
 
-# copy debug envoy binary used for local tests such as ones in mixer/test/clients
+# copy debug mosn binary used for local tests such as ones in mixer/test/clients
 if [ "$LOCAL_OS" == "Darwin" ]; then
-    # Download darwin envoy binary.
-    DARWIN_ENVOY_DIR=$(mktemp -d)
-    pushd $DARWIN_ENVOY_DIR
-    echo "Downloading envoy darwin binary: ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_MAC_RELEASE_URL}"
-    time ${DOWNLOAD_COMMAND} ${ISTIO_ENVOY_MAC_RELEASE_URL} | tar xz
-    cp usr/local/bin/envoy ${ISTIO_OUT}/envoy
-    cp usr/local/bin/envoy ${ISTIO_BIN}/envoy
+    # Download darwin mosn binary.
+    DARWIN_MOSN_DIR=$(mktemp -d)
+    pushd $DARWIN_MOSN_DIR
+    echo "Downloading mosn darwin binary: ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_MAC_RELEASE_URL}"
+    time ${DOWNLOAD_COMMAND} ${ISTIO_MOSN_MAC_RELEASE_URL} | tar xz
+    cp usr/local/bin/mosn ${ISTIO_OUT}/mosn
+    cp usr/local/bin/mosn ${ISTIO_BIN}/mosn
     popd
-    rm -rf $DARWIN_ENVOY_DIR
+    rm -rf $DARWIN_MOSN_DIR
 else
-    cp -f ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_OUT}/envoy
-    # TODO(nmittler): Remove once tests no longer use the envoy binary directly.
+    cp -f ${ISTIO_MOSN_DEBUG_PATH} ${ISTIO_OUT}/mosn
+    # TODO(nmittler): Remove once tests no longer use the mosn binary directly.
     # circleCI expects this in the bin directory
-    # Make sure the envoy binary exists. This is only used for tests, so use the debug binary.
-    cp ${ISTIO_ENVOY_DEBUG_PATH} ${ISTIO_BIN}/envoy
+    # Make sure the mosn binary exists. This is only used for tests, so use the debug binary.
+    cp ${ISTIO_MOSN_DEBUG_PATH} ${ISTIO_BIN}/mosn
 fi
 
 ${ROOT}/bin/init_helm.sh

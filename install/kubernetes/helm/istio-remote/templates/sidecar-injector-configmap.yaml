@@ -15,7 +15,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
+        image: {{ .Values.global.sofamesh.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
         args:
         - "-p"
         - {{ "[[ .MeshConfig.ProxyListenPort ]]" }}
@@ -59,7 +59,7 @@ data:
         - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
         command:
           - /bin/sh
-        image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}
+        image: {{ .Values.global.sofamesh.hub }}/proxy_init:{{ .Values.global.tag }}
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
@@ -71,7 +71,7 @@ data:
         image: {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\") -]]" }}
         {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyImage\" ]]\"" }}
         {{ "[[ else -]]" }}
-        {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+        {{ .Values.global.sofamesh.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
         {{ "[[ end -]]" }}
         args:
         - proxy

@@ -3,10 +3,15 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: gcr.io/istio-release
+  hub: docker.io/istio
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: 1.0.0
+
+  sofamesh:
+    hub: docker.io/sofa-mesh
+    binaryPath: /usr/local/bin/mosn
+    
 
   proxy:
     image: proxyv2
