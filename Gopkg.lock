@@ -20,7 +20,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8a768ab68d5be3ef0f51dac417cc113a61c8d5e59af9c6daeb6dc34862e06e32"
+  digest = "1:6ed512f144d92229093795a6049d4bb8f220696262b37777efbda841961121d9"
   name = "code.cloudfoundry.org/copilot"
   packages = [
     ".",
@@ -28,7 +28,7 @@
     "testhelpers",
   ]
   pruneopts = "NUT"
-  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
+  revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
   digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
@@ -853,12 +853,12 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:444f6d964ae6fafecd68e991ca960bad03ca3fa9cf7434dbb2683133072e8910"
+  digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
   name = "github.com/onsi/ginkgo"
   packages = ["config"]
   pruneopts = "NUT"
-  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
-  version = "v1.4.0"
+  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
