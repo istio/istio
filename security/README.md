@@ -27,7 +27,7 @@ It generates the private key and CSR (certificate signing request) locally, send
 Istio Security uses [Kubernetes service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) to identify who runs the service:
 
 *   A service account in Istio has the format "spiffe://\<_domain_\>/ns/\<_namespace_>/sa/\<_serviceaccount_\>".
-    *   _domain_ is customizable via command line, defaulting to _cluster.local_.
+    *   _domain_ is customizable via a command line parameter (`-identity-domain`), defaulting to _cluster.local_.
     *   _namespace_ is the namespace of the Kubernetes service account.
     *   _serviceaccount_ is the Kubernetes service account name.
 

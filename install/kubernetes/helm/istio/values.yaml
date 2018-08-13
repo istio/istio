@@ -384,6 +384,7 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
 # addons configuration
