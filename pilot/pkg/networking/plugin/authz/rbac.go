@@ -64,7 +64,6 @@ const (
 
 	// organizes all auth derived claims under auth.derived.claims
 	authDerivedClaims = "auth.derived.claims"
-	groupsClaim       = "groups" // groups claim.
 
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
@@ -157,7 +156,7 @@ func attributesEnforcedInDynamicMetadataMatcher(k string) bool {
 		attrRequestPresenter:
 		return true
 	}
-	return strings.HasPrefix(k, attrRequestClaims) || strings.HasPrefix(k, authDerivedClaims)
+	return strings.HasPrefix(k, attrRequestClaims)
 }
 
 func generateMetadataStringMatcher(keys []string, v *metadata.StringMatcher) *metadata.MetadataMatcher {
