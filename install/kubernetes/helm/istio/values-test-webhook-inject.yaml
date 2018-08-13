@@ -435,13 +435,3 @@ tracing:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
-
-aspen-mesh-agent:
-  image: quay.io/aspenmesh/agent:master-211
-  resources: {}
-    # limits:
-    #  cpu: 100m
-    #  memory: 128Mi
-    # requests:
-    #  cpu: 100m
-    #  memory: 128Mi
