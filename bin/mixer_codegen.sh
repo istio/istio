@@ -124,11 +124,15 @@ if [ "$opttemplate" = true ]; then
   templateHSP=${template/.proto/$handler_service}
   templatePG=${template/.proto/$pb_go}
   # generate the descriptor set for the intermediate artifacts
-  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  DESCRIPTOR=(
+    "--include_imports"
+    "--include_source_info"
+    "--descriptor_set_out=$templateDS"
+  )
   if [ "$gendoc" = true ]; then
-    err=$($protoc "$DESCRIPTOR" "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
   else
-    err=$($protoc "$DESCRIPTOR" "${IMPORTS[@]}" "$PLUGIN" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
