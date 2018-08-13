@@ -13,8 +13,9 @@ global:
   # configmap in those.
   omitSidecarInjectorConfigMap: true
 
-  # Istio control plane namespace: modify this if you installed the
-  # control plane in a different namespace than istio-system.
+  # Istio control plane namespace: This specifies where the Istio control
+  # plane was installed earlier.  Modify this if you installed the control
+  # plane in a different namespace than istio-system.
   istioNamespace: istio-system
 
   proxy:
