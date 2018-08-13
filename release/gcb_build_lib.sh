@@ -44,8 +44,9 @@ source "${SCRIPTPATH}/json_parse_shared.sh"
 # }
 #
 
-# XXX this is ugly, but BUILD_FAILED is being used by calling scripts which call run_build
 BUILD_FAILED=0
+# XXX this is ugly, but BUILD_FAILED is being used by calling scripts which call run_build
+export BUILD_FAILED
 
 function parse_result_file {
   local INPUT_FILE="$1"
