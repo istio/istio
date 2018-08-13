@@ -252,10 +252,11 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 // the server. This function blocks and should typically be run in a goroutine.
 // The client will continue to attempt to re-establish the stream with the server
 // indefinitely. The function exits when the provided context is canceled.
-//
-// See https://godoc.org/google.golang.org/grpc#ClientConn.NewStream
-// for rules to ensure stream resources are not leaked.
 func (c *Client) Run(ctx context.Context) {
+
+	// See https://godoc.org/google.golang.org/grpc#ClientConn.NewStream
+	// for rules to ensure stream resources are not leaked.
+
 	initRequests := make([]*mcp.MeshConfigRequest, 0, len(c.state))
 	for typeURL := range c.state {
 		initRequests = append(initRequests, &mcp.MeshConfigRequest{
@@ -284,21 +285,18 @@ func (c *Client) Run(ctx context.Context) {
 			retry = time.After(reestablishStreamDelay)
 		}
 
-		var nextInitRequest int
-
-		// The version and nonce information is reset for each new
-		// stream. Begin the request/response loop by re-sending empty
-		// requests to starts watches for each supported
-		// type_url. Subsequent requests for a given stream are
-		// generated in response to a received response from the
-		// server.
+		// The client begins each new stream by sending an empty
+		// request for each supported type. The server sends a
+		// response when resources are available. After processing a
+		// response, the client sends a new request specifying the
+		// last version applied and nonce provided by the server.
 		for {
 			var req *mcp.MeshConfigRequest
 			var version string
 
-			// Send the entire batch of initial requests before trying
-			// to receive responses.
 			if nextInitRequest < len(initRequests) {
+				// Send the entire batch of initial requests before
+				// trying to receive responses.
 				req = initRequests[nextInitRequest]
 				nextInitRequest++
 			} else {
