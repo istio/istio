@@ -145,8 +145,12 @@ if [ "$opttemplate" = true ]; then
   fi
 
   templateSDS=${template/.proto/_handler_service.descriptor_set}
-  SDESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateSDS"
-  err=$($protoc "$SDESCRIPTOR" "${IMPORTS[@]}" "$PLUGIN" "$templateHSP")
+  SDESCRIPTOR=(
+    "--include_imports"
+    "--include_source_info"
+    "--descriptor_set_out=$templateSDS"
+  )
+  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
