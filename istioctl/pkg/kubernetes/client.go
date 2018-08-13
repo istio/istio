@@ -169,7 +169,7 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 	cmd := []string{"/usr/local/bin/pilot-agent", "request", method, path, string(body)}
 	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
-		return stdout.Bytes(), err
+		return stdout.Bytes(), fmt.Errorf("%s %q on pod %q failed with\nstdout: %s\nstderr: %s\nerr: %s", method, path, podName, stdout, stderr, err)
 	} else if stderr.String() != "" {
 		return nil, fmt.Errorf("error execing into %v: %v", podName, stderr.String())
 	}

@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -30,9 +29,9 @@ type execTestCase struct {
 	args             []string
 
 	// Typically use one of the three
-	expectedOutput string         // Expected constant output
-	expectedRegexp *regexp.Regexp // Expected regexp output
-	goldenFilename string         // Expected output stored in golden file
+	expectedOutput string // Expected constant output
+	expectedString string // String output is expected to contain
+	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
@@ -50,30 +49,30 @@ func TestProxyConfig(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-config", " "),
-			expectedRegexp: regexp.MustCompile("^A group of commands used to retrieve information about.*"),
+			expectedString: "A group of commands used to retrieve information about",
 		},
 		{ // case 1 short name 'pc'
 			args:           strings.Split("pc", " "),
-			expectedRegexp: regexp.MustCompile("^A group of commands used to retrieve information about.*"),
+			expectedString: "A group of commands used to retrieve information about",
 		},
 		{ // case 2 clusters invalid
 			args:           strings.Split("proxy-config clusters invalid", " "),
-			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl get invalid" should fail
 		},
 		{ // case 3 listeners invalid
 			args:           strings.Split("proxy-config listeners invalid", " "),
-			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl get invalid" should fail
 		},
 		{ // case 4 routes invalid
 			args:           strings.Split("proxy-config routes invalid", " "),
-			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl get invalid" should fail
 		},
 		{ // case 5 bootstrap invalid
 			args:           strings.Split("proxy-config bootstrap invalid", " "),
-			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			expectedString: "unable to retrieve Pod: pods \"invalid\" not found",
 			wantException:  true, // "istioctl get invalid" should fail
 		},
 		{ // case 6 clusters valid
@@ -126,13 +125,10 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q",
-			strings.Join(c.args, " "), output, c.expectedOutput)
+		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
 	}
-
-	if c.expectedRegexp != nil && !c.expectedRegexp.MatchString(output) {
-		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-			strings.Join(c.args, " "), output, c.expectedRegexp)
+	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
+		t.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v", strings.Join(c.args, " "), output, c.expectedString)
 	}
 
 	if c.goldenFilename != "" {

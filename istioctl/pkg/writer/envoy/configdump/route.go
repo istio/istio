@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -67,7 +66,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 			filteredRoutes = append(filteredRoutes, route)
 		}
 	}
-	out, err := json.MarshalIndent(filteredRoutes, "", "    ")
+	out, err := filteredRoutes.MarshalIndentedJSON()
 	if err != nil {
 		return err
 	}
@@ -92,11 +91,17 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*xdsapi.RouteConfiguration,
 	if err != nil {
 		return nil, err
 	}
-	routes := []*xdsapi.RouteConfiguration{}
+	routes := make([]*xdsapi.RouteConfiguration, 0, len(routeDump.DynamicRouteConfigs)+len(routeDump.StaticRouteConfigs))
 	for _, route := range routeDump.DynamicRouteConfigs {
+		if route.RouteConfig == nil {
+			continue
+		}
 		routes = append(routes, route.RouteConfig)
 	}
 	for _, route := range routeDump.StaticRouteConfigs {
+		if route.RouteConfig == nil {
+			continue
+		}
 		routes = append(routes, route.RouteConfig)
 	}
 	if len(routes) == 0 {

@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -32,12 +31,10 @@ type ConfigWriter struct {
 
 // Prime loads the config dump into the writer ready for printing
 func (c *ConfigWriter) Prime(b []byte) error {
-	cd := configdump.Wrapper{}
-	err := json.Unmarshal(b, &cd)
-	if err != nil {
+	c.configDump = &configdump.Wrapper{}
+	if err := c.configDump.UnmarshalJSON(b); err != nil {
 		return fmt.Errorf("error unmarshalling config dump response from Envoy: %v", err)
 	}
-	c.configDump = &cd
 	return nil
 }
 

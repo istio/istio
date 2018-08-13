@@ -40,10 +40,8 @@ func (w *Wrapper) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
-	buf := bytes.NewBuffer(b)
-	jsonum := &jsonpb.Unmarshaler{}
 	cd := &adminapi.ConfigDump{}
-	err := jsonum.Unmarshal(buf, cd)
+	err := (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(bytes.NewReader(b), cd)
 	*w = Wrapper{cd}
 	return err
 

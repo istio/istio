@@ -15,7 +15,6 @@
 package configdump
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -108,7 +107,7 @@ func (c *ConfigWriter) PrintListenerDump(filter ListenerFilter) error {
 			filteredListeners = append(filteredListeners, listener)
 		}
 	}
-	out, err := json.MarshalIndent(filteredListeners, "", "    ")
+	out, err := filteredListeners.MarshalIndentedJSON()
 	if err != nil {
 		return err
 	}
@@ -133,14 +132,19 @@ func (c *ConfigWriter) retrieveSortedListenerSlice() ([]*xdsapi.Listener, error)
 	if err != nil {
 		return nil, err
 	}
-	listeners := []*xdsapi.Listener{}
-	for _, listener := range listenerDump.DynamicActiveListeners {
-		listeners = append(listeners, listener.Listener)
+	listeners := make([]*xdsapi.Listener, 0, len(listenerDump.StaticListeners)+len(listenerDump.DynamicActiveListeners))
+	for _, l := range listenerDump.DynamicActiveListeners {
+		if l.Listener == nil {
+			continue
+		}
+		listeners = append(listeners, l.Listener)
 	}
-	// Static listeners not currently in use, leaving this code here in case they ever are
-	// for _, listener := range listenerDump.StaticListeners {
-	// 	listeners = append(listeners, &listener)
-	// }
+	for _, l := range listenerDump.StaticListeners {
+		if l.Listener == nil {
+			continue
+		}
+		listeners = append(listeners, l.Listener)
+	}
 	if len(listeners) == 0 {
 		return nil, fmt.Errorf("no listeners found")
 	}

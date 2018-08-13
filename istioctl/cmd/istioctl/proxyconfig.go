@@ -193,12 +193,12 @@ func handleNamespace() string {
 func setupEnvoyConfigWriter(podName, podNamespace string, out io.Writer) (*configdump.ConfigWriter, error) {
 	kubeClient, err := clientExecFactory(kubeconfig, configContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
 	debug, err := kubeClient.EnvoyDo(podName, podNamespace, "GET", path, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute command on envoy: %v", err)
 	}
 	cw := &configdump.ConfigWriter{Stdout: out}
 	err = cw.Prime(debug)
