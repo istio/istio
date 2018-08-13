@@ -79,6 +79,9 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
+
+	// The default SPIFFE URL value for identity domain
+	defaultIdentityDomain = "cluster.local"
 )
 
 type keyCertBundleRotator interface {
@@ -136,6 +139,9 @@ type cliOptions struct { // nolint: maligned
 	// Custom domain options, for control plane and special service accounts
 	// comma separated list of SERVICE_ACCOUNT.NAMESPACE:DOMAIN
 	customDNSNames string
+
+	// domain to use in SPIFFE identity URLs
+	identityDomain string
 }
 
 var (
@@ -199,6 +205,8 @@ func init() {
 			selfSignedCAOrgDefault))
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", defaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
+	flags.StringVar(&opts.identityDomain, "identity-domain", defaultIdentityDomain,
+		fmt.Sprintf("The domain to use for identities (default: %s)", defaultIdentityDomain))
 
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
@@ -267,7 +275,7 @@ func main() {
 	}
 }
 
-// fqdn returns the k8s cluster dns name for the citdal service.
+// fqdn returns the k8s cluster dns name for the Citadel service.
 func fqdn() string {
 	return fmt.Sprintf("istio-citadel.%v.svc.cluster.local", opts.istioCaStorageNamespace)
 }
@@ -319,8 +327,9 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
-		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
+	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.identityDomain,
+		opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, cs.CoreV1(),
+		opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("Failed to create secret controller: %v", err)
 	}
@@ -517,5 +526,4 @@ func verifyCommandLineOptions() {
 		fatalf("Workload cert grace period ratio %f is invalid. It should be within [0, 1]",
 			opts.workloadCertGracePeriodRatio)
 	}
-
 }
