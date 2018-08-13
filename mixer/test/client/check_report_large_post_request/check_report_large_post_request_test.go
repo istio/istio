@@ -38,7 +38,6 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "request.headers": {
      ":method": "POST",
@@ -55,6 +54,7 @@ const checkAttributesOkPost = `
 const reportAttributesOkPost = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "request.host": "*",
@@ -70,7 +70,6 @@ const reportAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
