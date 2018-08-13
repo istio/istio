@@ -60,6 +60,7 @@ type Server struct {
 
 	checkCache *checkcache.Cache
 	dispatcher dispatcher.Dispatcher
+	controlZ   *ctrlz.Server
 
 	// probes
 	livenessProbe  probe.Controller
@@ -125,7 +126,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
-	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(int(a.MaxMessageSize)))
+	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxMessageSize)))
 
 	var interceptors []grpc.UnaryServerInterceptor
 	var err error
@@ -233,7 +234,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		s.readinessProbe.Start()
 	}
 
-	go ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
@@ -267,6 +268,10 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.server.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.controlZ != nil {
+		s.controlZ.Close()
 	}
 
 	if s.checkCache != nil {

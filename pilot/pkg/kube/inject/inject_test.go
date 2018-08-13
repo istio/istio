@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -299,16 +299,16 @@ func TestIntoResourceFile(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.in, func(t *testing.T) {
+		t.Run(c.want, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
 			if c.enableAuth {
 				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 			}
 			if c.duration != 0 {
-				mesh.DefaultConfig.DrainDuration = ptypes.DurationProto(c.duration)
-				mesh.DefaultConfig.ParentShutdownDuration = ptypes.DurationProto(c.duration)
-				mesh.DefaultConfig.DiscoveryRefreshDelay = ptypes.DurationProto(c.duration)
-				mesh.DefaultConfig.ConnectTimeout = ptypes.DurationProto(c.duration)
+				mesh.DefaultConfig.DrainDuration = types.DurationProto(c.duration)
+				mesh.DefaultConfig.ParentShutdownDuration = types.DurationProto(c.duration)
+				mesh.DefaultConfig.DiscoveryRefreshDelay = types.DurationProto(c.duration)
+				mesh.DefaultConfig.ConnectTimeout = types.DurationProto(c.duration)
 			}
 			if c.tproxy {
 				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_TPROXY

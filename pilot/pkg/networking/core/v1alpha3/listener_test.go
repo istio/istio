@@ -163,7 +163,7 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, instances, services)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
 }
 
 type fakePlugin struct {
@@ -179,11 +179,11 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
-func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
@@ -191,6 +191,10 @@ func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeC
 }
 
 func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+}
+
+func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
 }
 
 func isHTTPListener(listener *xdsapi.Listener) bool {
@@ -224,7 +228,7 @@ func buildListenerEnv() model.Environment {
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushStatus:       model.NewStatus(),
+		PushContext:      model.NewStatus(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

@@ -65,7 +65,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(32))
-	grpcOptions = append(grpcOptions, grpc.MaxMsgSize(1024*1024))
+	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(1024*1024))
 
 	// get everything wired up
 	ts.gs = grpc.NewServer(grpcOptions...)

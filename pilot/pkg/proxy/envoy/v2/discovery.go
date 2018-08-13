@@ -16,6 +16,7 @@ package v2
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 )
@@ -71,15 +71,23 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	// The next fields are updated by v2 discovery, based on config change events (currently
-	// the global invalidation). They are computed once - will not change. The new alpha3
-	// API should use this instead of directly accessing ServiceDiscovery or IstioConfigStore.
-	modelMutex      sync.RWMutex
-	services        []*model.Service
-	virtualServices []*networking.VirtualService
-	// Temp: the code in alpha3 should use VirtualService directly
-	virtualServiceConfigs []model.Config
-	//TODO: gateways              []*networking.Gateway
+	throttle chan time.Time
+
+	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
+	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
+	DebugConfigs bool
+}
+
+func intEnv(env string, def int) int {
+	envValue := os.Getenv(env)
+	if len(envValue) == 0 {
+		return def
+	}
+	n, err := strconv.Atoi(envValue)
+	if err == nil && n > 0 {
+		return n
+	}
+	return def
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -88,11 +96,30 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		env:             env,
 		ConfigGenerator: generator,
 	}
-	env.PushStatus = model.NewStatus()
+	env.PushContext = model.NewStatus()
 
 	go out.periodicRefresh()
 
 	go out.periodicRefreshMetrics()
+
+	out.DebugConfigs = os.Getenv("PILOT_DEBUG_ADSZ_CONFIG") == "1"
+
+	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
+	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
+
+	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
+	rate := time.Second / time.Duration(pushThrottle)
+	burstLimit := pushBurst
+	tick := time.NewTicker(rate)
+	out.throttle = make(chan time.Time, burstLimit)
+	go func() {
+		for t := range tick.C {
+			select {
+			case out.throttle <- t:
+			default:
+			}
+		} // does not exit after tick.Stop()
+	}()
 
 	return out
 }
@@ -124,7 +151,7 @@ func (s *DiscoveryServer) periodicRefresh() {
 	defer ticker.Stop()
 	for range ticker.C {
 		adsLog.Infof("ADS: periodic push of envoy configs %s", versionInfo())
-		s.AdsPushAll(versionInfo())
+		s.AdsPushAll(versionInfo(), s.env.PushContext)
 	}
 }
 
@@ -145,16 +172,16 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	ticker := time.NewTicker(periodicRefreshMetrics)
 	defer ticker.Stop()
 	for range ticker.C {
-		push := s.env.PushStatus
+		push := s.env.PushContext
 		if push.End != timeZero {
 			model.LastPushStatus = push
 		}
 		push.UpdateMetrics()
 		// TODO: env to customize
-		if time.Since(push.Start) > 30*time.Second {
-			// Reset the stats, some errors may still be stale.
-			s.env.PushStatus = model.NewStatus()
-		}
+		//if time.Since(push.Start) > 30*time.Second {
+		// Reset the stats, some errors may still be stale.
+		//s.env.PushContext = model.NewStatus()
+		//}
 	}
 }
 
@@ -164,44 +191,34 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 // This is currently called from v1 and has attenuation/throttling.
 func (s *DiscoveryServer) ClearCacheFunc() func() {
 	return func() {
-		s.updateModel()
-
 		// Reset the status during the push.
 		//afterPush := true
-		if s.env.PushStatus != nil {
-			s.env.PushStatus.OnConfigChange()
+		if s.env.PushContext != nil {
+			s.env.PushContext.OnConfigChange()
 		}
-		// PushStatus is reset after a config change. Previous status is
+		// PushContext is reset after a config change. Previous status is
 		// saved.
-		s.env.PushStatus = model.NewStatus()
+		t0 := time.Now()
+		push := model.NewStatus()
+		err := push.InitContext(s.env)
+		if err != nil {
+			adsLog.Errorf("XDS: failed to update services %v", err)
+			// We can't push if we can't read the data - stick with previous version.
+			// TODO: metric !!
+			// TODO: metric !!
+			return
+		}
+		initContextTime := time.Since(t0)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
+		s.env.PushContext = push
 		version = time.Now().Format(time.RFC3339)
 		versionMutex.Unlock()
 
-		s.AdsPushAll(versionInfo())
-	}
-}
+		adsLog.Infof("Context init for push %v %s", initContextTime, version)
 
-func (s *DiscoveryServer) updateModel() {
-	s.modelMutex.Lock()
-	defer s.modelMutex.Unlock()
-	services, err := s.env.Services()
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update services %v", err)
-	} else {
-		s.services = services
-	}
-	vservices, err := s.env.List(model.VirtualService.Type, model.NamespaceAll)
-	if err != nil {
-		adsLog.Errorf("XDS: failed to update virtual services %v", err)
-	} else {
-		s.virtualServiceConfigs = vservices
-		s.virtualServices = make([]*networking.VirtualService, 0, len(vservices))
-		for _, ss := range vservices {
-			s.virtualServices = append(s.virtualServices, ss.Spec.(*networking.VirtualService))
-		}
+		go s.AdsPushAll(versionInfo(), push)
 	}
 }
 

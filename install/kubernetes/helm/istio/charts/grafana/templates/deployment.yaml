@@ -19,6 +19,12 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
       containers:
         - name: {{ .Chart.Name }}
 {{- if contains "/" .Values.image }}
@@ -76,4 +82,9 @@ spec:
       {{- include "nodeaffinity" . | indent 6 }}
       volumes:
       - name: data
+{{- if .Values.persist }}
+        persistentVolumeClaim:
+          claimName: istio-grafana-pvc
+{{- else }}
         emptyDir: {}
+{{- end }}

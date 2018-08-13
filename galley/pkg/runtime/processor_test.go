@@ -22,13 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 var testSchema = func() *resource.Schema {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty", true)
+	b.Register("type.googleapis.com/google.protobuf.Empty")
 	return b.Build()
 }()
 

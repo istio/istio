@@ -19,9 +19,9 @@
 # e2e-suite triggered after istio/presubmit succeeded #
 #######################################################
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
 
 # Exit immediately for non zero status
 set -e
@@ -51,8 +51,11 @@ USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 
+# shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
+# shellcheck source=prow/mason_lib.sh
 source "${ROOT}/prow/mason_lib.sh"
+# shellcheck source=prow/cluster_lib.sh
 source "${ROOT}/prow/cluster_lib.sh"
 
 function cleanup() {
@@ -71,7 +74,7 @@ if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
   INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
   FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
 
-  E2E_ARGS=(--mason_info="${INFO_PATH}")
+  E2E_ARGS=("--mason_info=${INFO_PATH}")
 
   setup_and_export_git_sha
 
@@ -84,7 +87,7 @@ fi
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
+  E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
 fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
@@ -109,7 +112,7 @@ for ((i=1; i<=$#; i++)); do
         TEST_TARGETS+=(e2e_galley)
         ;;
     esac
-    E2E_ARGS+=( ${!i} )
+    E2E_ARGS+=( "${!i}" )
 done
 
 echo 'Running ISTIO E2E Test(s)'
@@ -118,7 +121,7 @@ if ${SINGLE_MODE}; then
 
     # Check if it's a valid test file
     VALID_TEST=false
-    for T in ${TEST_TARGETS[@]}; do
+    for T in "${TEST_TARGETS[@]}"; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
             VALID_TEST=true
             time ISTIO_DOCKER_HUB=$HUB \

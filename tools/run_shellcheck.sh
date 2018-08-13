@@ -5,19 +5,6 @@
 TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 
-# See https://github.com/koalaman/shellcheck/wiki for details on each code's
-# corresponding rule.
-EXCLUDES="1090,"
-EXCLUDES="${EXCLUDES}1091,"
-EXCLUDES="${EXCLUDES}1117,"
-EXCLUDES="${EXCLUDES}2016,"
-EXCLUDES="${EXCLUDES}2046,"
-EXCLUDES="${EXCLUDES}2068,"
-EXCLUDES="${EXCLUDES}2086,"
-EXCLUDES="${EXCLUDES}2155,"
-EXCLUDES="${EXCLUDES}2191,"
-EXCLUDES="${EXCLUDES}2206"
-
 # All files ending in .sh.
 SH_FILES=$( \
     find "${ISTIO_ROOT}" \
@@ -34,5 +21,9 @@ SHEBANG_FILES=$( \
             head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
         done)
 
+# Set global rule exclusions with the "excludes" flag, separated by comma (e.g.
+# "--excludes=SC1090,SC1091"). See https://github.com/koalaman/shellcheck/wiki
+# for details on each code's corresponding rule.
+
 echo "${SH_FILES}" "${SHEBANG_FILES}" \
-    | xargs shellcheck --exclude="${EXCLUDES}"
+    | xargs shellcheck

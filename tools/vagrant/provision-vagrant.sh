@@ -31,9 +31,13 @@ mv "$HOME/go" "$HOME/.go"
 touch "$HOME/.${shell_profile}"
 {
     echo '# GoLang'
+    # shellcheck disable=SC2016
     echo 'export GOROOT=$HOME/.go'
+    # shellcheck disable=SC2016
     echo 'export PATH=$PATH:$GOROOT/bin'
+    # shellcheck disable=SC2016
     echo 'export GOPATH=$HOME/golang'
+    # shellcheck disable=SC2016
     echo 'export PATH=$PATH:$GOPATH/bin'
 } >> "$HOME/.${shell_profile}"
 
@@ -41,8 +45,8 @@ mkdir -p $HOME/golang/{src,pkg,bin}
 mkdir -p $HOME/golang/src/istio.io
 
 chown -R vagrant:vagrant /home/vagrant/golang
-echo -e "\nGo $VERSION was installed.\nMake sure to relogin into your shell or run:"
-echo -e "\n\tsource $HOME/.${shell_profile}\n\nto update your environment variables."
+echo -e "\\nGo $VERSION was installed.\\nMake sure to relogin into your shell or run:"
+echo -e "\\n\\tsource $HOME/.${shell_profile}\\n\\nto update your environment variables."
 rm -f /tmp/go.tar.gz
 
 # install minikube

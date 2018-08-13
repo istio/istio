@@ -27,7 +27,7 @@ const (
 	cfLabel = "cfapp"
 )
 
-//go:generate counterfeiter -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
 type routeCacher interface {
 	Get() (*copilotapi.RoutesResponse, error)
 	GetInternal() (*copilotapi.InternalRoutesResponse, error)
@@ -52,11 +52,16 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 
 	port := sd.servicePort()
 	for _, route := range resp.GetRoutes() {
+		hostname := model.Hostname(route.Hostname)
 		services = append(services, &model.Service{
-			Hostname:     model.Hostname(route.Hostname),
+			Hostname:     hostname,
 			Ports:        []*model.Port{port},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name:      string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+			},
 		})
 	}
 
@@ -72,12 +77,17 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 
 	for _, internalRoute := range internalRoutesResp.GetInternalRoutes() {
+		hostname := model.Hostname((internalRoute.Hostname))
 		services = append(services, &model.Service{
-			Hostname:     model.Hostname(internalRoute.Hostname),
+			Hostname:     hostname,
 			Address:      internalRoute.Vip,
 			Ports:        []*model.Port{internalRouteServicePort},
 			MeshExternal: false,
 			Resolution:   model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name:      string(hostname),
+				Namespace: model.IstioDefaultConfigNamespace,
+			},
 		})
 	}
 
@@ -94,17 +104,6 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 		if svc.Hostname == hostname {
 			return svc, nil
 		}
-	}
-	return nil, nil
-}
-
-// GetServiceAttributes implements a service catalog operation
-func (sd *ServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	svc, _ := sd.GetService(hostname)
-	if svc != nil {
-		return &model.ServiceAttributes{
-			Name:      string(hostname),
-			Namespace: model.IstioDefaultConfigNamespace}, nil
 	}
 	return nil, nil
 }
@@ -149,6 +148,10 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 					Ports:        []*model.Port{port},
 					MeshExternal: false,
 					Resolution:   model.ClientSideLB,
+					Attributes: model.ServiceAttributes{
+						Name:      string(hostname),
+						Namespace: model.IstioDefaultConfigNamespace,
+					},
 				},
 			}
 
@@ -190,6 +193,10 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labe
 						Ports:        []*model.Port{internalRouteServicePort},
 						MeshExternal: false,
 						Resolution:   model.ClientSideLB,
+						Attributes: model.ServiceAttributes{
+							Name:      string(hostname),
+							Namespace: model.IstioDefaultConfigNamespace,
+						},
 					},
 				})
 			}

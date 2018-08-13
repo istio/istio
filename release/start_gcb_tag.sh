@@ -32,7 +32,8 @@ set -o pipefail
 set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-source ${SCRIPTPATH}/gcb_build_lib.sh
+# shellcheck source=release/gcb_build_lib.sh
+source "${SCRIPTPATH}/gcb_build_lib.sh"
 
 PROJECT_ID=""
 KEY_FILE_PATH=""
@@ -59,7 +60,7 @@ function usage() {
     -u <url>  URL to git repo with manifest file                (required)
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
-    -w        specify that script should wait until build done  (optional)  
+    -w        specify that script should wait until build done  (optional)
 
     -s <name> GCS bucket to read build artifacts                (required)
     -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
@@ -105,7 +106,7 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 # generate the substitutions file
-cat << EOF > ${SUBS_FILE}
+cat << EOF > "${SUBS_FILE}"
   "substitutions": {
     "_VER_STRING": "${VER_STRING}",
     "_MFEST_URL": "${REPO}",
@@ -119,9 +120,9 @@ cat << EOF > ${SUBS_FILE}
   }
 EOF
 
-run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_tag.template.json" \
+run_build "cloud_tag.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
 rm -f "${SUBS_FILE}"
-exit $BUILD_FAILED
+exit "$BUILD_FAILED"

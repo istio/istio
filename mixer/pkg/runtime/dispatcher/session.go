@@ -111,18 +111,6 @@ func (s *session) dispatch() error {
 	}
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
 
-	// TODO: some adapters assume destination service existence, pass via context
-	destinationService := ""
-	v, ok := s.bag.Get("destination.service")
-	if ok {
-		destinationService = v.(string)
-	}
-	ctx := adapter.NewContextWithRequestData(s.ctx, &adapter.RequestData{
-		DestinationService: adapter.Service{
-			FullName: destinationService,
-		},
-	})
-
 	// Ensure that we can run dispatches to all destinations in parallel.
 	s.ensureParallelism(destinations.Count())
 
@@ -136,7 +124,7 @@ func (s *session) dispatch() error {
 			// We buffer states for report calls and dispatch them later
 			state = s.reportStates[destination]
 			if state == nil {
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				s.reportStates[destination] = state
 			}
 		}
@@ -182,7 +170,7 @@ func (s *session) dispatch() error {
 				}
 
 				// for other templates, dispatch for each instance individually.
-				state = s.impl.getDispatchState(ctx, destination)
+				state = s.impl.getDispatchState(s.ctx, destination)
 				state.instances = append(state.instances, instance)
 				if s.variety == tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
 					state.mapper = group.Mappers[j]

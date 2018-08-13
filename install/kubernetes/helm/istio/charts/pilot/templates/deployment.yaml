@@ -51,9 +51,9 @@ spec:
 {{- end }}
           readinessProbe:
             httpGet:
-              path: /debug/endpointz
+              path: /ready
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 30
             timeoutSeconds: 5
           env:
@@ -95,7 +95,7 @@ spec:
             readOnly: true
 {{- if .Values.sidecar }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003

@@ -38,6 +38,9 @@ BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+# Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
+IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
+
 GCFLAGS=${GCFLAGS:-}
 export CGO_ENABLED=0
 
@@ -50,7 +53,7 @@ fi
 # at the beginning of the build and used throughout
 if [[ -z ${BUILDINFO} ]];then
     BUILDINFO=$(mktemp)
-    ${ROOT}/bin/get_workspace_status > ${BUILDINFO}
+    "${ROOT}/bin/get_workspace_status" > "${BUILDINFO}"
 fi
 
 # BUILD LD_EXTRAFLAGS
@@ -61,7 +64,7 @@ done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain.
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
-        ${V} ${GOBUILDFLAGS} ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
-        -o ${OUT} \
-        -pkgdir=${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH} \
+        ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
+        -o "${OUT}" \
+        -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${BUILDPATH}"

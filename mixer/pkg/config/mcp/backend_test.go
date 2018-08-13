@@ -24,13 +24,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"istio.io/istio/galley/pkg/metadata/kube"
-
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
-	"istio.io/istio/galley/pkg/mcp/testing"
+	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/testing"
 )
 
 var (
