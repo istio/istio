@@ -38,8 +38,8 @@ type CertificateWatcher struct {
 
 	stopCh <-chan struct{}
 
-	cert      tls.Certificate
 	certMutex sync.Mutex
+	cert      tls.Certificate
 
 	// Even though CA cert is not being watched, this type is still responsible for holding on to it
 	// to pass into one of the create methods.
@@ -94,6 +94,9 @@ func (c *CertificateWatcher) start() error {
 	}
 	c.set(&cert)
 
+	// TODO: https://github.com/istio/istio/issues/7877
+	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
+	//
 	certFileWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err

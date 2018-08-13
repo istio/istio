@@ -85,6 +85,10 @@ func TestWatchFiles(t *testing.T) {
 				t.Fatalf("Error creating temp dir: %v", err)
 			}
 
+			defer func() {
+				_ = os.RemoveAll(dir)
+			}()
+
 			certFile := path.Join(dir, "foo.pem")
 			keyFile := path.Join(dir, "key.pem")
 			caCertFile := path.Join(dir, "bar.pem")

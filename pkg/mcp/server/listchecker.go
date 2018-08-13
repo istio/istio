@@ -26,8 +26,8 @@ import (
 
 // ListAuthChecker implements AuthChecker function and is backed by a set of ids.
 type ListAuthChecker struct {
-	ids      map[string]struct{}
 	idsMutex sync.Mutex
+	ids      map[string]struct{}
 
 	// overridable functions for testing
 	extractIDsFn func(exts []pkix.Extension) ([]string, error)

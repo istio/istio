@@ -84,8 +84,8 @@ type Server struct {
 // percolated up to the gRPC stack.
 //
 // Note that it is possible that this method can be called with nil authInfo. This can happen either if there
-// is no peer info, or if the underlying gRPC stream is nil. The implementations should be resilient in this
-// case and apply appropriate policy.
+// is no peer info, or if the underlying gRPC stream is insecure. The implementations should be resilient in
+// this case and apply appropriate policy.
 type AuthChecker interface {
 	Check(authInfo credentials.AuthInfo) error
 }
@@ -144,7 +144,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	if s.authCheck != nil {
 		if err := s.authCheck.Check(authInfo); err != nil {
 			log.Infof("newConnection: auth check handler returned error: %v", err)
-			return nil, err
+			return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 		}
 	}
 
