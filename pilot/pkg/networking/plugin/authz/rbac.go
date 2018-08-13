@@ -62,9 +62,6 @@ const (
 	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
 	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
 
-	// organizes all auth derived claims under auth.derived.claims
-	authDerivedClaims = "auth.derived.claims"
-
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
@@ -276,8 +273,8 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 
 	// Handle the claims under attrRequestClaims
 	if len(keys) == 2 && keys[0] == attrRequestClaims {
-		//Store under auth.derived.claims
-		keys[0] = authDerivedClaims
+		//Generate a metadata list matcher for the given path keys and value.
+		//On proxy side, the value should be of list type.
 		return generateMetadataListMatcher(keys, v)
 	}
 

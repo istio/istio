@@ -505,13 +505,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 						{
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataListMatcher(
-									[]string{authDerivedClaims, "groups"}, "group*"),
+									[]string{attrRequestClaims, "groups"}, "group*"),
 							},
 						},
 						{
 							Identifier: &policy.Principal_Metadata{
 								Metadata: generateMetadataListMatcher(
-									[]string{authDerivedClaims, "iss"}, "test-iss"),
+									[]string{attrRequestClaims, "iss"}, "test-iss"),
 							},
 						},
 						{
@@ -867,11 +867,11 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 		},
 		{
 			k: "request.auth.claims[groups]", v: "group*",
-			expect: generateMetadataListMatcher([]string{authDerivedClaims, "groups"}, "group*"),
+			expect: generateMetadataListMatcher([]string{attrRequestClaims, "groups"}, "group*"),
 		},
 		{
 			k: "request.auth.claims[iss]", v: "test-iss",
-			expect: generateMetadataListMatcher([]string{authDerivedClaims, "iss"}, "test-iss"),
+			expect: generateMetadataListMatcher([]string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user",
