@@ -27,7 +27,7 @@ It generates the private key and CSR (certificate signing request) locally, send
 Istio Security uses [Kubernetes service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) to identify who runs the service:
 
 *   A service account in Istio has the format "spiffe://\<_domain_\>/ns/\<_namespace_>/sa/\<_serviceaccount_\>".
-    *   _domain_ is currently _cluster.local_. We will support customization of domain in the near future.
+    *   _domain_ is customizable via command line, defaulting to _cluster.local_.
     *   _namespace_ is the namespace of the Kubernetes service account.
     *   _serviceaccount_ is the Kubernetes service account name.
 
@@ -53,7 +53,7 @@ Service-to-service communication is tunneled through the client side [Envoy](htt
 
 ### Key management
 
-Istio v0.2 supports services running on both Kubernetes pods and VM/bare-metal machines. We use different key provisioning mechanisms for each scenario.
+Istio supports services running on both Kubernetes pods and VM/bare-metal machines. We use different key provisioning mechanisms for each scenario.
 
 For services running on Kubernetes pods, the per-cluster Citadel automates the key & certificate management process. It mainly performs four critical operations :
 
