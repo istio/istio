@@ -285,6 +285,8 @@ func (c *Client) Run(ctx context.Context) {
 			retry = time.After(reestablishStreamDelay)
 		}
 
+		var nextInitRequest int
+
 		// The client begins each new stream by sending an empty
 		// request for each supported type. The server sends a
 		// response when resources are available. After processing a
