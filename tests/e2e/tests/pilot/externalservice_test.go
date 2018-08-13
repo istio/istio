@@ -24,52 +24,75 @@ func TestServiceEntry(t *testing.T) {
 	// done to avoid applying config changes more than necessary.
 	cases := []struct {
 		name              string
-		config            string
+		configs           []string
 		url               string
 		shouldBeReachable bool
 	}{
 		{
 			name:              "REACHABLE_www.google.com_over_google_80",
-			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-google.yaml"},
 			url:               "http://www.google.com",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_bing.com_over_google_80",
-			config:            "testdata/networking/v1alpha3/service-entry-google.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-google.yaml"},
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
 			name:              "REACHABLE_www.bing.com_over_bing_wildcard_80",
-			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml"},
 			url:               "http://www.bing.com",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_bing.com_over_bing_wildcard_80",
-			config:            "testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-wildcard-bing.yaml"},
 			url:               "http://bing.com",
 			shouldBeReachable: false,
 		},
 		{
 			name:              "REACHABLE_wikipedia.org_over_cidr_range",
-			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml"},
 			url:               "https://www.wikipedia.org",
 			shouldBeReachable: true,
 		},
 		{
 			name:              "UNREACHABLE_google.com_over_cidr_range",
-			config:            "testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml",
+			configs:           []string{"testdata/networking/v1alpha3/service-entry-tcp-wikipedia-cidr.yaml"},
 			url:               "https://google.com",
+			shouldBeReachable: false,
+		},
+		{
+			name: "REACHABLE_google.com_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://www.google.com",
+			shouldBeReachable: true,
+		},
+		{
+			name: "REACHABLE_cnn.com_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://edition.cnn.com",
+			shouldBeReachable: true,
+		},
+		{
+			name: "UNREACHABLE_wikipedia.org_over_google_sni_and_cnn_sni",
+			configs: []string{
+				"testdata/networking/v1alpha3/service-entry-google-sni.yaml",
+				"testdata/networking/v1alpha3/service-entry-cnn-sni.yaml"},
+			url:               "https://www.wikipedia.org",
 			shouldBeReachable: false,
 		},
 	}
 
 	var cfgs *deployableConfig
-	applyRuleFunc := func(t *testing.T, ruleYaml string) {
-		configChange := cfgs == nil || cfgs.YamlFiles[0] != ruleYaml
-		if configChange {
+	applyRuleFunc := func(t *testing.T, ruleYamls []string) {
+		if isConfigChanged(cfgs, ruleYamls) {
 			// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 			// a delay when we push the new config.
 			if cfgs != nil {
@@ -82,7 +105,7 @@ func TestServiceEntry(t *testing.T) {
 			// Apply the new rule
 			cfgs = &deployableConfig{
 				Namespace:  tc.Kube.Namespace,
-				YamlFiles:  []string{ruleYaml},
+				YamlFiles:  ruleYamls,
 				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfgs.Setup(); err != nil {
@@ -100,7 +123,7 @@ func TestServiceEntry(t *testing.T) {
 	for _, cs := range cases {
 		t.Run(cs.name, func(t *testing.T) {
 			// Apply the rule
-			applyRuleFunc(t, cs.config)
+			applyRuleFunc(t, cs.configs)
 
 			for cluster := range tc.Kube.Clusters {
 				// Make the requests and verify the reachability
@@ -121,4 +144,16 @@ func TestServiceEntry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func isConfigChanged(cfgs *deployableConfig, ruleYamls []string) bool {
+	if cfgs == nil || len(cfgs.YamlFiles) != len(ruleYamls) {
+		return true
+	}
+	for i := range ruleYamls {
+		if cfgs.YamlFiles[i] != ruleYamls[i] {
+			return true
+		}
+	}
+	return false
 }
