@@ -1,0 +1,6 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: servicecontrol
+metadata:
+  name: invalid-servicecontrol
+spec:
+  badField: foo
