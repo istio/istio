@@ -211,7 +211,7 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		s.env.PushContext = push
 		versionLocal := time.Now().Format(time.RFC3339)
 		initContextTime := time.Since(t0)
-		adsLog.Infof("InitContext %v for push takes %s", version, initContextTime)
+		adsLog.Infof("InitContext %v for push takes %s", versionLocal, initContextTime)
 
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
