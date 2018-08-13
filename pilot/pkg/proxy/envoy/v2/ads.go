@@ -177,7 +177,7 @@ type XdsConnection struct {
 
 	modelNode *model.Proxy
 
-	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// Sending on this channel results in push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
@@ -391,7 +391,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received or the ticker ticks
+		// Block until either a request is received or a push triggered.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {

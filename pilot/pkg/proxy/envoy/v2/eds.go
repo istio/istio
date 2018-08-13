@@ -248,7 +248,7 @@ func (s *DiscoveryServer) StreamEndpoints(stream xdsapi.EndpointDiscoveryService
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received or the ticker ticks
+		// Block until either a request is received or a push triggered.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
