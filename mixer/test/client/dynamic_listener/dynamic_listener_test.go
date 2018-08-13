@@ -87,7 +87,6 @@ static_resources:
 const checkAttributesOkGet = `
 {
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
 	"key": "count%s",
