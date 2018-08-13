@@ -53,9 +53,9 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 							runRetriableTest(t, cluster, testName, 15, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
-								if src == "t" && (dst == "c" || (dst == "d" && port == "80")) {
+								if src == "t" && (dst == "c" || dst == "d") {
 									if len(resp.ID) == 0 {
-										// t cannot talk to c nor d:80
+										// t cannot talk to c nor d
 										return nil
 									}
 									return errAgain
