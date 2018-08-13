@@ -58,7 +58,7 @@ const secIstioAuthUserinfoHeaderValue = `
 const respExpected = "Origin authentication failed."
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {
-	t.Skip("https://github.com/istio/proxy/issues/1910")
+	t.Skip("https://github.com/istio/istio/issues/7867")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestPeerJwtBoundToOrigin, t)
 	// In the Envoy config, principal_binding binds to origin
 	s.SetFiltersBeforeMixer(authnConfig)
