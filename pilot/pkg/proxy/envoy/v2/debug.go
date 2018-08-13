@@ -561,7 +561,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
+		adsClientsMutex.RLock()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		adsClientsMutex.RUnlock()
 		return
 	}
 	writeAllADS(w)
