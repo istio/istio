@@ -133,12 +133,13 @@ static_resources:
   "request.scheme": "http"
 }
 `
+	// "source.principal": "cluster.local/ns/default/sa/client",
+	// "source.user": "cluster.local/ns/default/sa/client",
+	// "connection.requested_server_name": "istio.io",
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
   "destination.principal": "cluster.local/ns/default/sa/server",
-  "source.principal": "cluster.local/ns/default/sa/client",
-  "source.user": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -173,6 +174,7 @@ static_resources:
   "connection.mtls": false,
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "destination.ip": "[127 0 0 1]",
@@ -215,14 +217,15 @@ static_resources:
   "response.total_size": "*"
 }`
 
+	// "source.principal": "cluster.local/ns/default/sa/client",
+	// "source.user": "cluster.local/ns/default/sa/client",
 	reportAttributesOkInbound = `
 {
   "connection.mtls": true,
   "destination.principal": "cluster.local/ns/default/sa/server",
-  "source.principal": "cluster.local/ns/default/sa/client",
-  "source.user": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
   "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
