@@ -84,8 +84,8 @@ function build_template() {
 #    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
 #    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
 
-    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
-    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh   .
+    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.json .
+    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.sh   .
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p $PROJECT_ID -r $GCR_STAGING_DEST -s $GCS_BUILD_PATH \

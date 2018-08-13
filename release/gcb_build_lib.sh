@@ -44,6 +44,8 @@ source ${SCRIPTPATH}/json_parse_shared.sh
 #
 
 BUILD_FAILED=0
+# XXX this is ugly, but BUILD_FAILED is being used by calling scripts which call run_build
+export BUILD_FAILED
 
 function parse_result_file {
   local INPUT_FILE="$1"
@@ -93,25 +95,24 @@ function parse_result_file {
       ;;
     *)
       echo "unrecognized status: ${STATUS_VALUE}"
-      cat $INPUT_FILE
+      cat "$INPUT_FILE"
       BUILD_FAILED=1
       return 2
   esac
 }
 
 function run_build() {
-  local MFEST_URL=$1
-  local MFEST_FILE=$2
-  local MFEST_VER=$3
-  local TEMPLATE_NAME=$4
-  local SUBS_FILE=$5
-  local PROJ_ID=$6
-  local SERVICE_ACCT=$7
-  local SERVICE_KEY_FILE=$8
-  local WAIT=$9
-  
-  local REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
-  local RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
+  local TEMPLATE_NAME=$1
+  local SUBS_FILE=$2
+  local PROJ_ID=$3
+  local SERVICE_ACCT=$4
+  local SERVICE_KEY_FILE=$5
+  local WAIT=$6
+
+  local REQUEST_FILE
+  REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
+  local RESULT_FILE
+  RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 
   # generate the json file, first strip off the closing } in the last line of the template
   head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}" > "${REQUEST_FILE}"
