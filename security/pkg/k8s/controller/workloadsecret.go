@@ -348,13 +348,18 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("Failed to convert to secret object: %v", newObj)
 		return
 	}
+	namespace := scrt.GetNamespace()
+	name := scrt.GetName()
 
 	certBytes := scrt.Data[CertChainID]
 	cert, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
-		// TODO: we should refresh secret in this case since the secret contains an
-		// invalid cert.
-		log.Errora(err)
+		log.Warnf("Failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
+			namespace, name, err)
+		if err = sc.refreshSecret(scrt); err != nil {
+			log.Errora(err)
+		}
+
 		return
 	}
 
@@ -375,28 +380,29 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	// one held by the ca (this may happen when the CA is restarted and
 	// a new self-signed CA cert is generated).
 	if certLifeTimeLeft < gracePeriod || !bytes.Equal(rootCertificate, scrt.Data[RootCertID]) {
-		namespace := scrt.GetNamespace()
-		name := scrt.GetName()
-
 		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
 			"or the root certificate is outdated", namespace, name)
 
-		saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-
-		chain, key, err := sc.generateKeyAndCert(saName, namespace)
-		if err != nil {
-			log.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
-				saName, namespace, err)
-
-			return
-		}
-
-		scrt.Data[CertChainID] = chain
-		scrt.Data[PrivateKeyID] = key
-		scrt.Data[RootCertID] = rootCertificate
-
-		if _, err = sc.core.Secrets(namespace).Update(scrt); err != nil {
+		if err = sc.refreshSecret(scrt); err != nil {
 			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
+}
+
+// refreshSecret is an inner func to refresh cert secrets when necessary
+func (sc *SecretController) refreshSecret(scrt *v1.Secret) error {
+	namespace := scrt.GetNamespace()
+	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
+
+	chain, key, err := sc.generateKeyAndCert(saName, namespace)
+	if err != nil {
+		return err
+	}
+
+	scrt.Data[CertChainID] = chain
+	scrt.Data[PrivateKeyID] = key
+	scrt.Data[RootCertID] = sc.ca.GetCAKeyCertBundle().GetRootCertPem()
+
+	_, err = sc.core.Secrets(namespace).Update(scrt)
+	return err
 }
