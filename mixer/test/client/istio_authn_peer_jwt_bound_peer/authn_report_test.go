@@ -162,6 +162,7 @@ var reportAttributesOkGet = `
 `
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToPeer(t *testing.T) {
+	t.Skip("issue https://github.com/istio/proxy/issues/1910")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestPeerJwtBoundToPeer, t)
 	// In the Envoy config, principal_binding binds to peer
 	s.SetFiltersBeforeMixer(authnConfig)

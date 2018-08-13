@@ -133,6 +133,7 @@ static_resources:
   "request.scheme": "http"
 }
 `
+	// See issue https://github.com/istio/proxy/issues/1910
 	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
 	// "connection.requested_server_name": "istio.io",
@@ -217,6 +218,7 @@ static_resources:
   "response.total_size": "*"
 }`
 
+	// See issue https://github.com/istio/proxy/issues/1910
 	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
 	reportAttributesOkInbound = `

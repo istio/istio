@@ -156,6 +156,7 @@ var reportAttributesOkGet = `
 `
 
 func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
+	t.Skip("issue https://github.com/istio/proxy/issues/1910")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer, t)
 	// In the Envoy config, no binding to origin, binds to peer by default.
 	s.SetFiltersBeforeMixer(authnConfig)
