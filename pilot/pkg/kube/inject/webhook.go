@@ -448,7 +448,7 @@ var (
 func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	var statusBytes []byte
 	if pod.ObjectMeta.Annotations != nil {
-		if value, ok := annotationStatus.getValue(pod.ObjectMeta.Annotations); ok {
+		if value, ok := pod.ObjectMeta.Annotations[annotationStatus.name]; ok {
 			statusBytes = []byte(value)
 		}
 	}

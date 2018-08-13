@@ -38,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
+	"github.com/hashicorp/go-multierror"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
@@ -48,78 +50,45 @@ var (
 		return nil
 	}
 
-	annotationValidators = make([]*annotationValidator, 0)
+	annotationRegistry = []*registeredAnnotation{
+		{"sidecar.istio.io/inject", alwaysValidFunc},
+		{"sidecar.istio.io/status", alwaysValidFunc},
+		{"sidecar.istio.io/proxyImage", alwaysValidFunc},
+		{"sidecar.istio.io/interceptionMode", validateInterceptionMode},
+		{"traffic.sidecar.istio.io/includeOutboundIPRanges", ValidateIncludeIPRanges},
+		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
+		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
+		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
+	}
 
-	annotationPolicy = registerAnnotation(&annotationValidator{
-		name:      "sidecar.istio.io/inject",
-		validator: alwaysValidFunc,
-	})
-	annotationStatus = registerAnnotation(&annotationValidator{
-		name:      "sidecar.istio.io/status",
-		validator: alwaysValidFunc,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "sidecar.istio.io/proxyImage",
-		validator: alwaysValidFunc,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "sidecar.istio.io/interceptionMode",
-		validator: validateInterceptionMode,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "traffic.sidecar.istio.io/includeOutboundIPRanges",
-		validator: ValidateIncludeIPRanges,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "traffic.sidecar.istio.io/excludeOutboundIPRanges",
-		validator: ValidateExcludeIPRanges,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "traffic.sidecar.istio.io/includeInboundPorts",
-		validator: ValidateIncludeInboundPorts,
-	})
-	_ = registerAnnotation(&annotationValidator{
-		name:      "traffic.sidecar.istio.io/excludeInboundPorts",
-		validator: ValidateExcludeInboundPorts,
-	})
+	annotationPolicy = annotationRegistry[0]
+	annotationStatus = annotationRegistry[1]
 )
 
-func registerAnnotation(v *annotationValidator) *annotationValidator {
-	annotationValidators = append(annotationValidators, v)
-	return v
-}
+type annotationValidationFunc func(value string) error
 
-func validateAnnotations(annotations map[string]string) error {
-	for _, validator := range annotationValidators {
-		if err := validator.validate(annotations); err != nil {
-			return err
+func validateAnnotations(annotations map[string]string) (err error) {
+	for _, validator := range annotationRegistry {
+		if e := validator.validate(annotations); e != nil {
+			err = multierror.Append(err, e)
 		}
 	}
-	return nil
+	return
 }
 
-type annotationValidator struct {
+type registeredAnnotation struct {
 	name      string
-	validator func(value string) error
+	validator annotationValidationFunc
 }
 
-func (v *annotationValidator) getValue(annotations map[string]string) (string, bool) {
-	val, ok := annotations[v.name]
-	return val, ok
-}
-
-func (v *annotationValidator) getValueOrDefault(annotations map[string]string, defaultValue string) string {
+func (v *registeredAnnotation) getValueOrDefault(annotations map[string]string, defaultValue string) string {
 	if val, ok := annotations[v.name]; ok {
 		return val
 	}
 	return defaultValue
 }
 
-func (v *annotationValidator) setValue(annotations map[string]string, value string) {
-	annotations[v.name] = value
-}
-
-func (v *annotationValidator) validate(annotations map[string]string) error {
+func (v *registeredAnnotation) validate(annotations map[string]string) error {
 	if val, ok := annotations[v.name]; ok {
 		if err := v.validator(val); err != nil {
 			return fmt.Errorf("injection failed. Invalid value for annotation %s: %s. Error: %v", v.name, val, err)
@@ -395,7 +364,7 @@ func injectRequired(ignored []string, namespacePolicy InjectionPolicy, podSpec *
 	if log.DebugEnabled() {
 		// Build a log message for the annotations.
 		annotationStr := ""
-		for _, a := range annotationValidators {
+		for _, a := range annotationRegistry {
 			annotationStr += fmt.Sprintf("%s:%s ", a.name, a.getValueOrDefault(annotations, "(unset)"))
 		}
 
@@ -618,7 +587,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	annotationStatus.setValue(metadata.Annotations, status)
+	metadata.Annotations[annotationStatus.name] = status
 
 	return out, nil
 }
