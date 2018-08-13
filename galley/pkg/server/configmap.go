@@ -53,6 +53,8 @@ func watchAccessList(stopCh <-chan struct{}, folder string) (*server.ListAuthChe
 		return nil, err
 	}
 
+	// TODO: https://github.com/istio/istio/issues/7877
+	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
 	if err = watcher.Watch(accesslistfile); err != nil {
 		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accesslistfile, err)
 	}
