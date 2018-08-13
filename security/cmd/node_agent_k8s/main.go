@@ -71,7 +71,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
 
-	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", "prod-istioca.sandbox.googleapis.com:443", "CA endpoint")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", "istioca.googleapis.com:443", "CA endpoint")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CARootFile, "caRootFile", "/etc/istio/roots.pem",
 		"path of CA file for setup channel credential to CA endpoint.")
 
