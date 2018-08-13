@@ -74,9 +74,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestCoreDumpGenerated(t *testing.T) {
-
 	if os.Getenv("MINIKUBE") == "true" {
 		t.Skipf("Skipping %s in minikube environment", t.Name())
+	}
+	for _, e := range os.Environ() {
+		t.Log(e)
 	}
 	// Simplest way to create out of process core file.
 	crashContainer := "ingressgateway"
