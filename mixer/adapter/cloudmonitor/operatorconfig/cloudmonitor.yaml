@@ -1,0 +1,40 @@
+# instance configuration for template 'metric'
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+ name: requestcount
+ namespace: istio-system
+spec:
+ value: "1"
+ dimensions:
+   source_service: source.labels["app"] | source.service | "unknown"
+   source_version: source.labels["version"] | "unknown"
+   destination_service: destination.labels["app"] | destination.service | destination.service.host | "unknown"
+   destination_version: destination.labels["version"] | "unknown"
+   response_code: response.code | 200
+ monitored_resource_type: '"UNSPECIFIED"'
+---
+# handler configuration for adapter 'metric'
+apiVersion: "config.istio.io/v1alpha2"
+kind: cloudmonitor
+metadata:
+ name: cloudmonitorhandler
+ namespace: istio-system
+spec:
+ regiondId: cn-hangzhou
+ accessKeyId:
+ accessKeySecret:
+ groupId: 1
+---
+# rule to dispatch to your handler
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+ name: mysamplerule
+ namespace: istio-system
+spec:
+ match: "true"
+ actions:
+ - handler: cloudmonitorhandler.cloudmonitor
+   instances:
+   - requestcount.metric

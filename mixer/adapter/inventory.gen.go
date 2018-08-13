@@ -19,6 +19,7 @@ package adapter
 import (
 	bypass "istio.io/istio/mixer/adapter/bypass"
 	circonus "istio.io/istio/mixer/adapter/circonus"
+	cloudmonitor "istio.io/istio/mixer/adapter/cloudmonitor"
 	cloudwatch "istio.io/istio/mixer/adapter/cloudwatch"
 	denier "istio.io/istio/mixer/adapter/denier"
 	dogstatsd "istio.io/istio/mixer/adapter/dogstatsd"
@@ -45,6 +46,7 @@ func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 		bypass.GetInfo,
 		circonus.GetInfo,
+		cloudmonitor.GetInfo,
 		cloudwatch.GetInfo,
 		denier.GetInfo,
 		dogstatsd.GetInfo,

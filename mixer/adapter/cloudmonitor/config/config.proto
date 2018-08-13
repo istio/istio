@@ -1,0 +1,58 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY Type, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: CloudMonitor
+// $description: Adapter for cloudmonitor metrics.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudmonitot.html
+// $aliases:
+// $  - /docs/reference/config/adapters/cloudmonitor.html
+
+// The CloudMonitor adapter enables Istio to deliver metrics to
+// [AliCloud CloudMonitor](https://cloudmonitor.console.aliyun.com/).
+//
+// To push metrics to CloudMonitor using this adapter you must provide AliCloud credentials the AliCloud SDK.
+// (see [AliCloud official SDK](https://github.com/aliyun/alibaba-cloud-sdk-go)).
+//
+// The handler configuration must contain the same metrics as the instance configuration.
+// The metrics specified in both instance and handler configurations will be sent to CloudMonitor.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+package adapter.cloudmonitor.config;
+
+option go_package="config";
+
+// Configuration for the `cloudmonitor` adapter.
+message Params {
+    // The Id of one region where the AliCloud Cloud Monitor service instance is located
+    string regiond_id = 1;
+    // The access key Id of AliCloud access account
+    string access_key_id = 2;
+    // The access key secret of AliCloud access account
+    string access_key_secret = 3;
+    // The Id of application group within AliCloud Cloud Monitor service instance
+    int64 group_id = 4;
+
+    // A map of Istio metric name to CloudMonitor metric info.
+    map<string, MetricList> metric_info = 5;
+
+    // CloudMonitor metric format.
+    // [CloudMonitor Custom Metric Request](https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/services/cms/put_custom_metric.go)
+    message MetricList {
+
+    }
+
+
+}

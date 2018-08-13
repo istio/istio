@@ -1,0 +1,83 @@
+---
+title: CloudMonitor
+description: Adapter for cloudmonitor metrics.
+location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudmonitot.html
+layout: protoc-gen-docs
+generator: protoc-gen-docs
+aliases:
+  - /docs/reference/config/adapters/cloudmonitor.html
+number_of_entries: 2
+---
+<p>The CloudMonitor adapter enables Istio to deliver metrics to
+<a href="https://cloudmonitor.console.aliyun.com/">AliCloud CloudMonitor</a>.</p>
+
+<p>To push metrics to CloudMonitor using this adapter you must provide AliCloud credentials the AliCloud SDK.
+(see <a href="https://github.com/aliyun/alibaba-cloud-sdk-go">AliCloud official SDK</a>).</p>
+
+<p>The handler configuration must contain the same metrics as the instance configuration.
+The metrics specified in both instance and handler configurations will be sent to CloudMonitor.</p>
+
+<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/">metric template</a>.</p>
+
+<h2 id="Params">Params</h2>
+<section>
+<p>Configuration for the <code>cloudmonitor</code> adapter.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Params-regiond_id">
+<td><code>regiondId</code></td>
+<td><code>string</code></td>
+<td>
+<p>The Id of one region where the AliCloud Cloud Monitor service instance is located</p>
+
+</td>
+</tr>
+<tr id="Params-access_key_id">
+<td><code>accessKeyId</code></td>
+<td><code>string</code></td>
+<td>
+<p>The access key Id of AliCloud access account</p>
+
+</td>
+</tr>
+<tr id="Params-access_key_secret">
+<td><code>accessKeySecret</code></td>
+<td><code>string</code></td>
+<td>
+<p>The access key secret of AliCloud access account</p>
+
+</td>
+</tr>
+<tr id="Params-group_id">
+<td><code>groupId</code></td>
+<td><code>int64</code></td>
+<td>
+<p>The Id of application group within AliCloud Cloud Monitor service instance</p>
+
+</td>
+</tr>
+<tr id="Params-metric_info">
+<td><code>metricInfo</code></td>
+<td><code>map&lt;string,&nbsp;<a href="#Params-MetricList">Params.MetricList</a>&gt;</code></td>
+<td>
+<p>A map of Istio metric name to CloudMonitor metric info.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Params-MetricList">Params.MetricList</h2>
+<section>
+<p>CloudMonitor metric format.
+<a href="https://github.com/aliyun/alibaba-cloud-sdk-go/blob/master/services/cms/put_custom_metric.go">CloudMonitor Custom Metric Request</a></p>
+
+</section>
