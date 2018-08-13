@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -57,7 +58,7 @@ import (
 // we may only need to search in a small list.
 
 var (
-	edsClusterMutex sync.Mutex
+	edsClusterMutex sync.RWMutex
 	edsClusters     = map[string]*EdsCluster{}
 
 	// Tracks connections, increment on each new connection.
@@ -220,11 +221,8 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 }
 
 func connectionID(node string) string {
-	edsClusterMutex.Lock()
-	connectionNumber++
-	c := connectionNumber
-	edsClusterMutex.Unlock()
-	return node + "-" + strconv.Itoa(int(c))
+	atomic.AddInt64(&connectionNumber, 1)
+	return node + "-" + strconv.FormatInt(atomic.LoadInt64(&connectionNumber), 10)
 }
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
@@ -387,8 +385,8 @@ func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection 
 // getEdsCluster returns a cluster.
 func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	// separate method only to have proper lock.
-	edsClusterMutex.Lock()
-	defer edsClusterMutex.Unlock()
+	edsClusterMutex.RLock()
+	defer edsClusterMutex.RUnlock()
 	return edsClusters[clusterName]
 }
 
