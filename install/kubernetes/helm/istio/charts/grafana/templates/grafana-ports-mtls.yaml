@@ -1,3 +1,4 @@
+{{ define "grafana-default.yaml.tpl" }}
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
 metadata:
@@ -8,3 +9,4 @@ spec:
   - name: grafana
     ports:
     - number: {{ .Values.service.externalPort }}
+{{- end }}
