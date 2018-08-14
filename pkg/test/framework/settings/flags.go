@@ -18,38 +18,29 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"istio.io/istio/pkg/log"
 )
 
-var settings = defaultSettings()
-var showHelp = false
-var logOptions = log.DefaultOptions()
-
-// The command we use to parse flags.
-var cmdForLog = &cobra.Command{}
+var (
+	settings = defaultSettings()
+	// TODO(nmittler): Add logging options to flags.
+	logOptions = log.DefaultOptions()
+)
 
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
-	// First, attach the logOptions to the cobra command. This just establishes their relationship.
-	logOptions.AttachCobraFlags(cmdForLog)
+	flag.StringVar(&settings.WorkDir, "work_dir", os.TempDir(),
+		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	// Attach our own flags to Cobra flags. This is how we will read them.
-	attachFlags(cmdForLog.PersistentFlags().StringVar, cmdForLog.PersistentFlags().BoolVar)
+	flag.StringVar((*string)(&settings.Environment), "environment", string(settings.Environment),
+		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
+			Local, Kubernetes))
 
-	// Apply the flags captured in cobra to the regular Go flags, so that Go flag code won't barf when
-	// it sees these flags.
-	cmdForLog.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-		if f.Value.Type() == "bool" {
-			_ = flag.Bool(f.Name, false, f.Usage)
-		} else {
-			_ = flag.String(f.Name, f.Value.String(), f.Usage)
-		}
-	})
+	flag.StringVar(&settings.KubeConfig, "config", settings.KubeConfig,
+		"The path to the kube config file for cluster environments")
+
+	flag.BoolVar(&settings.NoCleanup, "no-cleanup", settings.NoCleanup, "Do not cleanup resources after test completion")
 }
 
 func processFlags() error {
@@ -57,21 +48,9 @@ func processFlags() error {
 	applyEnvironmentVariables(settings)
 
 	flag.Parse()
-	if err := cmdForLog.PersistentFlags().Parse(os.Args[1:]); err != nil {
-		if err == pflag.ErrHelp {
-			showHelp = true
-		} else {
-			return err
-		}
-	}
 
 	if err := log.Configure(logOptions); err != nil {
 		return err
-	}
-
-	if showHelp {
-		doShowHelp()
-		os.Exit(0)
 	}
 
 	// TODO: Instead of using hub/tag, we should be using the local registry to load images from.
@@ -84,38 +63,6 @@ func processFlags() error {
 	settings.Tag = tag
 
 	return nil
-}
-
-func attachFlags(stringVar func(*string, string, string, string), boolVar func(*bool, string, bool, string)) {
-	stringVar(&settings.WorkDir, "work_dir", os.TempDir(),
-		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
-
-	stringVar((*string)(&settings.Environment), "environment", string(settings.Environment),
-		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: [%s, %s]",
-			Local, Kubernetes))
-
-	stringVar(&settings.KubeConfig, "config", settings.KubeConfig,
-		"The path to the kube config file for cluster environments")
-
-	boolVar(&showHelp, "hh", showHelp,
-		"Show the help page for the test framework")
-
-	boolVar(&settings.NoCleanup, "no-cleanup", settings.NoCleanup, "Do not cleanup resources after test completion")
-}
-
-func doShowHelp() {
-	var lines []string
-	cmdForLog.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-		line := fmt.Sprintf("  -%-24s %s", f.Name, f.Usage)
-		lines = append(lines, line)
-	})
-
-	fmt.Printf(
-		`Command-line options for the test framework:
-		
-%s
-
-`, strings.Join(lines, "\n"))
 }
 
 func applyEnvironmentVariables(a *Settings) {
