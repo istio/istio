@@ -16,7 +16,7 @@ RUN sudo apt-get update && \
     sudo apt-get -y install \
     wget software-properties-common make cmake python python-pip pkg-config \
     zlib1g-dev bash-completion bc libtool automake zip time g++-6 gcc-6 \
-    clang-6.0 rsync ninja-build
+    clang-6.0 clang-format-6.0 rsync ninja-build
 
 # ~100M, depends on g++, zlib1g-dev, bash-completions
 RUN curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && \
