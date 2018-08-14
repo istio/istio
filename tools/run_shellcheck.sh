@@ -27,8 +27,8 @@ SHEBANG_FILES=$( \
             head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
         done)
 
-# Set global rule exclusions with the "excludes" flag, separated by comma (e.g.
-# "--excludes=SC1090,SC1091"). See https://github.com/koalaman/shellcheck/wiki
+# Set global rule exclusions with the "exclude" flag, separated by comma (e.g.
+# "--exclude=SC1090,SC1091"). See https://github.com/koalaman/shellcheck/wiki
 # for details on each code's corresponding rule.
 
 echo "${SH_FILES}" "${SHEBANG_FILES}" \
