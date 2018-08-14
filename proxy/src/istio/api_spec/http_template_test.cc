@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/api_spec/http_template.h"
+#include "proxy/src/istio/api_spec/http_template.h"
 #include "gtest/gtest.h"
 
 #include <ostream>

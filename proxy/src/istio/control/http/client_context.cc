@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/control/http/client_context.h"
+#include "proxy/src/istio/control/http/client_context.h"
 
 using ::istio::mixer::v1::config::client::ServiceConfig;
 

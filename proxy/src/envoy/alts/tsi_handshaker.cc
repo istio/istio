@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/envoy/alts/tsi_handshaker.h"
+#include "proxy/src/envoy/alts/tsi_handshaker.h"
 #include "common/buffer/buffer_impl.h"
 #include "common/common/assert.h"
 

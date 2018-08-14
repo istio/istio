@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/origin_authenticator.h"
+#include "proxy/src/envoy/http/authn/origin_authenticator.h"
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/protobuf/protobuf.h"
 #include "envoy/api/v2/core/base.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "src/envoy/http/authn/test_utils.h"
+#include "proxy/src/envoy/http/authn/test_utils.h"
 #include "test/mocks/http/mocks.h"
 #include "test/test_common/utility.h"
 

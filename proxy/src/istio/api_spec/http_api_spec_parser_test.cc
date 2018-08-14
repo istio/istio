@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "include/istio/api_spec/http_api_spec_parser.h"
+#include "proxy/include/istio/api_spec/http_api_spec_parser.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
-#include "include/istio/utils/attributes_builder.h"
-#include "src/istio/control/http/mock_check_data.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/src/istio/control/http/mock_check_data.h"
 
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;

@@ -12,9 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/envoy/utils/grpc_transport.h"
+#include "proxy/src/envoy/utils/grpc_transport.h"
 #include "absl/types/optional.h"
-#include "src/envoy/utils/header_update.h"
+#include "proxy/src/envoy/utils/header_update.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;

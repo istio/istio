@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/api_spec/path_matcher.h"
+#include "proxy/src/istio/api_spec/path_matcher.h"
 
 #include <memory>
 #include <ostream>

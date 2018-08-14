@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/jwt_auth/token_extractor.h"
+#include "proxy/src/envoy/http/jwt_auth/token_extractor.h"
 #include "common/common/utility.h"
 #include "common/http/utility.h"
 

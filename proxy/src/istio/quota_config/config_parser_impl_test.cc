@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "include/istio/quota_config/config_parser.h"
-#include "include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/quota_config/config_parser.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"

@@ -12,9 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/istio/mixerclient/client_impl.h"
-#include "include/istio/mixerclient/check_response.h"
-#include "include/istio/utils/protobuf.h"
+#include "proxy/src/istio/mixerclient/client_impl.h"
+#include "proxy/include/istio/mixerclient/check_response.h"
+#include "proxy/include/istio/utils/protobuf.h"
 
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;

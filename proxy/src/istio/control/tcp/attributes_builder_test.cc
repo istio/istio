@@ -13,15 +13,15 @@
  * limitations under the License.
  */
 
-#include "src/istio/control/tcp/attributes_builder.h"
+#include "proxy/src/istio/control/tcp/attributes_builder.h"
 
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
-#include "include/istio/utils/attribute_names.h"
-#include "include/istio/utils/attributes_builder.h"
-#include "src/istio/control/tcp/mock_check_data.h"
-#include "src/istio/control/tcp/mock_report_data.h"
+#include "proxy/include/istio/utils/attribute_names.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/src/istio/control/tcp/mock_check_data.h"
+#include "proxy/src/istio/control/tcp/mock_report_data.h"
 
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;

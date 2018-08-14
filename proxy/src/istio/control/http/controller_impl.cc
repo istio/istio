@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/istio/control/http/controller_impl.h"
-#include "src/istio/control/http/request_handler_impl.h"
+#include "proxy/src/istio/control/http/controller_impl.h"
+#include "proxy/src/istio/control/http/request_handler_impl.h"
 
 using ::istio::mixer::v1::config::client::ServiceConfig;
 using ::istio::mixerclient::Statistics;

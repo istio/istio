@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/check_cache.h"
+#include "proxy/src/istio/mixerclient/check_cache.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/istio/utils/attributes_builder.h"
-#include "include/istio/utils/protobuf.h"
-#include "src/istio/mixerclient/status_test_util.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/utils/protobuf.h"
+#include "proxy/src/istio/mixerclient/status_test_util.h"
 
 using namespace std::chrono;
 using ::google::protobuf::util::Status;

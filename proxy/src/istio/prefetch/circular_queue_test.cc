@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/prefetch/circular_queue.h"
+#include "proxy/src/istio/prefetch/circular_queue.h"
 #include "gtest/gtest.h"
 
 namespace istio {

@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/filter_context.h"
-#include "src/envoy/utils/filter_names.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/http/authn/filter_context.h"
+#include "proxy/src/envoy/utils/filter_names.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
 using istio::authn::Result;

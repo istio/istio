@@ -15,7 +15,7 @@
 
 #include <chrono>
 
-#include "src/envoy/utils/stats.h"
+#include "proxy/src/envoy/utils/stats.h"
 
 namespace Envoy {
 namespace Utils {

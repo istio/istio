@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/quota_cache.h"
-#include "include/istio/utils/protobuf.h"
+#include "proxy/src/istio/mixerclient/quota_cache.h"
+#include "proxy/include/istio/utils/protobuf.h"
 
 using namespace std::chrono;
 using ::google::protobuf::util::Status;

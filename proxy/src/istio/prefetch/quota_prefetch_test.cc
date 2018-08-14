@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "include/istio/prefetch/quota_prefetch.h"
+#include "proxy/include/istio/prefetch/quota_prefetch.h"
 #include "gtest/gtest.h"
 
 #include <list>

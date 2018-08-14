@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/prefetch/time_based_counter.h"
+#include "proxy/src/istio/prefetch/time_based_counter.h"
 #include "gtest/gtest.h"
 
 namespace istio {

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/api_spec/http_api_spec_parser_impl.h"
+#include "proxy/src/istio/api_spec/http_api_spec_parser_impl.h"
 #include "google/protobuf/stubs/logging.h"
 
 #include <algorithm>

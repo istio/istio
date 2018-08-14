@@ -13,15 +13,15 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/http_filter.h"
+#include "proxy/src/envoy/http/authn/http_filter.h"
 #include "authentication/v1alpha1/policy.pb.h"
 #include "common/http/utility.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
-#include "src/envoy/http/authn/origin_authenticator.h"
-#include "src/envoy/http/authn/peer_authenticator.h"
-#include "src/envoy/utils/authn.h"
-#include "src/envoy/utils/filter_names.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/http/authn/origin_authenticator.h"
+#include "proxy/src/envoy/http/authn/peer_authenticator.h"
+#include "proxy/src/envoy/utils/authn.h"
+#include "proxy/src/envoy/utils/filter_names.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
 using istio::envoy::config::filter::http::authn::v2alpha1::FilterConfig;

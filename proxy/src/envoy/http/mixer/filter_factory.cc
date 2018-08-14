@@ -17,9 +17,9 @@
 #include "envoy/json/json_object.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/filter_config.h"
-#include "src/envoy/http/mixer/control_factory.h"
-#include "src/envoy/http/mixer/filter.h"
-#include "src/envoy/utils/config.h"
+#include "proxy/src/envoy/http/mixer/control_factory.h"
+#include "proxy/src/envoy/http/mixer/filter.h"
+#include "proxy/src/envoy/utils/config.h"
 
 using ::istio::mixer::v1::config::client::HttpClientConfig;
 using ::istio::mixer::v1::config::client::ServiceConfig;

@@ -21,10 +21,10 @@
 
 #include "fmt/printf.h"
 #include "gmock/gmock.h"
-#include "include/istio/utils/attribute_names.h"
+#include "proxy/include/istio/utils/attribute_names.h"
 #include "mixer/v1/check.pb.h"
 #include "mixer/v1/report.pb.h"
-#include "src/envoy/utils/filter_names.h"
+#include "proxy/src/envoy/utils/filter_names.h"
 #include "test/integration/http_protocol_integration.h"
 
 using ::google::protobuf::util::error::Code;

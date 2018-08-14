@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/referenced.h"
+#include "proxy/src/istio/mixerclient/referenced.h"
 
-#include "include/istio/utils/attributes_builder.h"
-#include "include/istio/utils/md5.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/utils/md5.h"
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"

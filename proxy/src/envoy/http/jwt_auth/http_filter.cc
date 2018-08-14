@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/jwt_auth/http_filter.h"
+#include "proxy/src/envoy/http/jwt_auth/http_filter.h"
 
 #include "common/http/message_impl.h"
 #include "common/http/utility.h"
 #include "envoy/http/async_client.h"
-#include "src/envoy/utils/filter_names.h"
+#include "proxy/src/envoy/utils/filter_names.h"
 
 #include <chrono>
 #include <string>

@@ -16,8 +16,8 @@
 //
 // Tests of SimpleLRUCache
 
-#include "include/istio/utils/simple_lru_cache.h"
-#include "include/istio/utils/simple_lru_cache_inl.h"
+#include "proxy/include/istio/utils/simple_lru_cache.h"
+#include "proxy/include/istio/utils/simple_lru_cache_inl.h"
 
 #include <math.h>
 #include <unistd.h>

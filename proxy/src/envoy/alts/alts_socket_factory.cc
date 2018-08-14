@@ -13,18 +13,18 @@
  * limitations under the License.
  */
 
-#include "src/envoy/alts/alts_socket_factory.h"
+#include "proxy/src/envoy/alts/alts_socket_factory.h"
 #include "absl/strings/str_join.h"
 #include "common/common/assert.h"
 #include "common/protobuf/protobuf.h"
 #include "common/protobuf/utility.h"
 #include "envoy/registry/registry.h"
 #include "envoy/server/transport_socket_config.h"
-#include "src/envoy/alts/alts_socket.pb.h"
-#include "src/envoy/alts/alts_socket.pb.validate.h"
-#include "src/envoy/alts/transport_security_interface_wrapper.h"
-#include "src/envoy/alts/tsi_handshaker.h"
-#include "src/envoy/alts/tsi_transport_socket.h"
+#include "proxy/src/envoy/alts/alts_socket.pb.h"
+#include "proxy/src/envoy/alts/alts_socket.pb.validate.h"
+#include "proxy/src/envoy/alts/transport_security_interface_wrapper.h"
+#include "proxy/src/envoy/alts/tsi_handshaker.h"
+#include "proxy/src/envoy/alts/tsi_transport_socket.h"
 
 namespace Envoy {
 namespace Server {

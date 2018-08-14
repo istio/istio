@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include "src/envoy/tcp/mixer/filter.h"
+#include "proxy/src/envoy/tcp/mixer/filter.h"
 #include "common/common/enum_to_int.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixerclient::CheckResponseInfo;

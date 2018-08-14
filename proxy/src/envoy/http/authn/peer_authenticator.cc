@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/peer_authenticator.h"
+#include "proxy/src/envoy/http/authn/peer_authenticator.h"
 #include "common/http/utility.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using istio::authn::Payload;
 

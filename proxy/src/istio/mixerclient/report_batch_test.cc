@@ -13,10 +13,10 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/report_batch.h"
+#include "proxy/src/istio/mixerclient/report_batch.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
 
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;

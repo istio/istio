@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/attribute_compressor.h"
-#include "include/istio/utils/attributes_builder.h"
+#include "proxy/src/istio/mixerclient/attribute_compressor.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
 
 #include <time.h>
 #include "google/protobuf/text_format.h"

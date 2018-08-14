@@ -15,10 +15,10 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "include/istio/mixerclient/check_response.h"
-#include "include/istio/mixerclient/client.h"
-#include "include/istio/utils/attributes_builder.h"
-#include "src/istio/mixerclient/status_test_util.h"
+#include "proxy/include/istio/mixerclient/check_response.h"
+#include "proxy/include/istio/mixerclient/client.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/src/istio/mixerclient/status_test_util.h"
 
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;

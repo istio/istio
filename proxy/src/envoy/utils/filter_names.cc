@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/utils/filter_names.h"
+#include "proxy/src/envoy/utils/filter_names.h"
 
 namespace Envoy {
 namespace Utils {

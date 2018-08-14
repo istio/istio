@@ -13,15 +13,15 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/filter.h"
+#include "proxy/src/envoy/http/mixer/filter.h"
 
 #include "common/common/base64.h"
 #include "common/protobuf/utility.h"
-#include "include/istio/utils/status.h"
-#include "src/envoy/http/mixer/check_data.h"
-#include "src/envoy/http/mixer/report_data.h"
-#include "src/envoy/utils/authn.h"
-#include "src/envoy/utils/header_update.h"
+#include "proxy/include/istio/utils/status.h"
+#include "proxy/src/envoy/http/mixer/check_data.h"
+#include "proxy/src/envoy/http/mixer/report_data.h"
+#include "proxy/src/envoy/utils/authn.h"
+#include "proxy/src/envoy/utils/header_update.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::ServiceConfig;

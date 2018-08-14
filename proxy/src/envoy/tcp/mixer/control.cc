@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/envoy/tcp/mixer/control.h"
-#include "src/envoy/utils/mixer_control.h"
+#include "proxy/src/envoy/tcp/mixer/control.h"
+#include "proxy/src/envoy/utils/mixer_control.h"
 
 using ::istio::mixerclient::Statistics;
 

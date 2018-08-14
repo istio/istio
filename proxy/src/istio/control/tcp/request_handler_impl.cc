@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/istio/control/tcp/request_handler_impl.h"
-#include "src/istio/control/tcp/attributes_builder.h"
+#include "proxy/src/istio/control/tcp/request_handler_impl.h"
+#include "proxy/src/istio/control/tcp/attributes_builder.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixerclient::CancelFunc;

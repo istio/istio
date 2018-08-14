@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/authn/origin_authenticator.h"
+#include "proxy/src/envoy/http/authn/origin_authenticator.h"
 #include "authentication/v1alpha1/policy.pb.h"
 
 using istio::authn::Payload;

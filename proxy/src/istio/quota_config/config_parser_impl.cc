@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/quota_config/config_parser_impl.h"
+#include "proxy/src/istio/quota_config/config_parser_impl.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "include/istio/utils/md5.h"
+#include "proxy/include/istio/utils/md5.h"
 #include "gtest/gtest.h"
 
 namespace istio {

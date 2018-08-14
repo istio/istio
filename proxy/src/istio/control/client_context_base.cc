@@ -14,9 +14,9 @@
  */
 
 #include "client_context_base.h"
-#include "include/istio/mixerclient/check_response.h"
-#include "include/istio/utils/attribute_names.h"
-#include "include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/mixerclient/check_response.h"
+#include "proxy/include/istio/utils/attribute_names.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::config::client::NetworkFailPolicy;

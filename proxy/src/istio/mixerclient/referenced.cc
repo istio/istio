@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/referenced.h"
+#include "proxy/src/istio/mixerclient/referenced.h"
 
 #include "global_dictionary.h"
 

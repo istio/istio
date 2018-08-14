@@ -17,8 +17,8 @@
 #include "common/common/utility.h"
 #include "extensions/filters/http/well_known_names.h"
 #include "fmt/printf.h"
-#include "src/envoy/utils/filter_names.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/src/envoy/utils/filter_names.h"
+#include "proxy/src/istio/authn/context.pb.h"
 #include "test/integration/http_protocol_integration.h"
 
 using google::protobuf::util::MessageDifferencer;

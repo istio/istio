@@ -15,7 +15,7 @@
 
 #include "authn_utils.h"
 #include "common/json/json_loader.h"
-#include "src/envoy/http/jwt_auth/jwt.h"
+#include "proxy/src/envoy/http/jwt_auth/jwt.h"
 
 namespace Envoy {
 namespace Http {

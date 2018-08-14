@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/alts/tsi_frame_protector.h"
+#include "proxy/src/envoy/alts/tsi_frame_protector.h"
 
 #include "common/common/assert.h"
 

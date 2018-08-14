@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/istio/mixerclient/delta_update.h"
+#include "proxy/src/istio/mixerclient/delta_update.h"
 
 #include "google/protobuf/util/message_differencer.h"
 

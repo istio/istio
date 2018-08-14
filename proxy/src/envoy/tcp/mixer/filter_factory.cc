@@ -15,8 +15,8 @@
 
 #include "envoy/registry/registry.h"
 #include "envoy/server/filter_config.h"
-#include "src/envoy/tcp/mixer/control_factory.h"
-#include "src/envoy/tcp/mixer/filter.h"
+#include "proxy/src/envoy/tcp/mixer/control_factory.h"
+#include "proxy/src/envoy/tcp/mixer/filter.h"
 
 using ::istio::mixer::v1::config::client::TcpClientConfig;
 

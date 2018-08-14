@@ -14,8 +14,8 @@
  */
 
 #include "service_context.h"
-#include "include/istio/utils/attribute_names.h"
-#include "src/istio/control/http/attributes_builder.h"
+#include "proxy/include/istio/utils/attribute_names.h"
+#include "proxy/src/istio/control/http/attributes_builder.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::ServiceConfig;

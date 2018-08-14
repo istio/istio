@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/envoy/alts/tsi_transport_socket.h"
+#include "proxy/src/envoy/alts/tsi_transport_socket.h"
 
 #include "common/common/assert.h"
 #include "common/common/enum_to_int.h"

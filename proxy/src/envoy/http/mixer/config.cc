@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/config.h"
-#include "src/envoy/utils/config.h"
+#include "proxy/src/envoy/http/mixer/config.h"
+#include "proxy/src/envoy/utils/config.h"
 
 namespace Envoy {
 namespace Http {

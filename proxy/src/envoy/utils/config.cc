@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "src/envoy/utils/config.h"
+#include "proxy/src/envoy/utils/config.h"
 #include "common/common/logger.h"
 #include "google/protobuf/stubs/status.h"
 #include "google/protobuf/util/json_util.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using ::google::protobuf::Message;
 using ::google::protobuf::util::Status;

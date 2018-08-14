@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/utils/utils.h"
 #include "mixer/v1/config/client/client_config.pb.h"
 #include "test/test_common/utility.h"
 

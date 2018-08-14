@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include "src/envoy/http/mixer/check_data.h"
+#include "proxy/src/envoy/http/mixer/check_data.h"
 #include "common/common/base64.h"
-#include "src/envoy/http/jwt_auth/jwt.h"
-#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
-#include "src/envoy/utils/authn.h"
-#include "src/envoy/utils/header_update.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/src/envoy/http/jwt_auth/jwt.h"
+#include "proxy/src/envoy/http/jwt_auth/jwt_authenticator.h"
+#include "proxy/src/envoy/utils/authn.h"
+#include "proxy/src/envoy/utils/header_update.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 using HttpCheckData = ::istio::control::http::CheckData;
 

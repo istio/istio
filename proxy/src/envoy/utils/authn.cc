@@ -13,11 +13,11 @@
  * limitations under the License.
  */
 
-#include "src/envoy/utils/authn.h"
+#include "proxy/src/envoy/utils/authn.h"
 #include "common/common/base64.h"
-#include "include/istio/utils/attribute_names.h"
-#include "src/envoy/utils/filter_names.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/include/istio/utils/attribute_names.h"
+#include "proxy/src/envoy/utils/filter_names.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 using istio::authn::Result;
 

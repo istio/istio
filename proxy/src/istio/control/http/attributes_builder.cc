@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#include "src/istio/control/http/attributes_builder.h"
+#include "proxy/src/istio/control/http/attributes_builder.h"
 
 #include <set>
 
-#include "include/istio/utils/attribute_names.h"
-#include "include/istio/utils/attributes_builder.h"
-#include "include/istio/utils/status.h"
+#include "proxy/include/istio/utils/attribute_names.h"
+#include "proxy/include/istio/utils/attributes_builder.h"
+#include "proxy/include/istio/utils/status.h"
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_StringMap;

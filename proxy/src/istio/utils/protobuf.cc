@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "include/istio/utils/protobuf.h"
+#include "proxy/include/istio/utils/protobuf.h"
 
 using namespace std::chrono;
 

@@ -14,11 +14,11 @@
  */
 
 #include "gtest/gtest.h"
-#include "src/istio/control/mock_mixer_client.h"
-#include "src/istio/control/tcp/client_context.h"
-#include "src/istio/control/tcp/controller_impl.h"
-#include "src/istio/control/tcp/mock_check_data.h"
-#include "src/istio/control/tcp/mock_report_data.h"
+#include "proxy/src/istio/control/mock_mixer_client.h"
+#include "proxy/src/istio/control/tcp/client_context.h"
+#include "proxy/src/istio/control/tcp/controller_impl.h"
+#include "proxy/src/istio/control/tcp/mock_check_data.h"
+#include "proxy/src/istio/control/tcp/mock_report_data.h"
 
 using ::google::protobuf::util::Status;
 using ::istio::mixer::v1::Attributes;
