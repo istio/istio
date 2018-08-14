@@ -112,10 +112,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
-		credentials, err := creds.CreateForServer(watcher)
-		if err != nil {
-			return nil, err
-		}
+		credentials := creds.CreateForServer(watcher)
 
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
 	}
