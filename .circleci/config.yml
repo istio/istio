@@ -486,6 +486,8 @@ jobs:
     resource_class: xlarge
     steps:
       - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: echo "deb http://packages.cloud.google.com/apt cloud-sdk-$(lsb_release -c -s) main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+      - run: curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
       - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config google-cloud-sdk
       - checkout
       - restore_cache:
