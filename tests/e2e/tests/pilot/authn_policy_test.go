@@ -27,17 +27,17 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		// The whole authn test suites should be rewritten after PR #TBD for better consistency.
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
-	// Define the default permissive global mesh resource. 
+	// Define the default permissive global mesh resource.
 	globalPermissive := resource{
-	    Kind: "MeshPolicy",
-	    Name: "default",
+		Kind: "MeshPolicy",
+		Name: "default",
 	}
-	// This policy will remove the permissive policy and enable mTLS mesh policy.	
-	globalCfg := &deployableConfig{	
-		Namespace:  "", // Use blank for cluster CRD.		
- 		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
- 		Removes: []resource{globalPermissive},
- 		kubeconfig: tc.Kube.KubeConfig,		
+	// This policy will remove the permissive policy and enable mTLS mesh policy.
+	globalCfg := &deployableConfig{
+		Namespace:  "", // Use blank for cluster CRD.
+		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
+		Removes:    []resource{globalPermissive},
+		kubeconfig: tc.Kube.KubeConfig,
 	}
 	// This policy disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
@@ -46,8 +46,8 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		kubeconfig: tc.Kube.KubeConfig,
 	}
 	if err := globalCfg.Setup(); err != nil {
- 		t.Fatal(err)
- 	}
+		t.Fatal(err)
+	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
