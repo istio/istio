@@ -189,8 +189,8 @@ func (b *backend) List() map[store.Key]*store.BackEndResource {
 	return result
 }
 
-// Update implements client.Updater.Update.
-func (b *backend) Update(change *client.Change) error {
+// Apply implements client.Updater.Apply
+func (b *backend) Apply(change *client.Change) error {
 	b.state.Lock()
 	defer b.state.Unlock()
 	defer b.callUpdateHook()
