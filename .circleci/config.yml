@@ -493,7 +493,7 @@ jobs:
             - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
       - run: rm ~/.gitconfig
       - run: openssl aes-256-cbc -d -in .circleci/accounts/istio-circle-ci.gcp.serviceaccount -out serviceaccount.json -k "${GCS_BUCKET_TOKEN}" -md sha256
-      - run: make proxy.release BAZEL_BUILD_ARGS="--config=release"
+      - run: make proxy.build BAZEL_BUILD_ARGS="--config=release"
       - run: gsutil cp -n bazel-bin/proxy/src/envoy/envoy_tar.tar.gz gs://istio-build/proxy/envoy-release-$(tools/last_proxy_change).tar.gz
       - save_cache:
           key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
@@ -716,3 +716,4 @@ workflows:
       - proxy_linux_asan
       - proxy_linux_tsan
       - proxy_macos
+      - proxy_release
