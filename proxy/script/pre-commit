@@ -1,0 +1,71 @@
+#!/bin/bash
+#
+# Copyright 2016 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+
+ROOT="$(git rev-parse --show-toplevel)"
+SKIP="$(git config --bool hooks.clang-format.skip)"
+
+if [[ "${SKIP}" == "true" ]]; then
+  echo "Skipping clang-format since it's disabled."
+  exit 0
+fi
+
+CLANG_DIRECTORY="${HOME}/clang"
+CLANG_FORMAT="${CLANG_DIRECTORY}/bin/clang-format"
+if [[ ! -x "${CLANG_FORMAT}" ]]; then
+  CLANG_FORMAT="$(command -v clang-format)"
+fi
+
+if [[ ! -x "${CLANG_FORMAT}" ]]; then
+  echo "Skipping clang-format: " \
+      "\"${CLANG_FORMAT}\" doesn't exists or not executable"
+  exit 0
+fi
+
+CLANG_FORMAT_VERSION="$(${CLANG_FORMAT} -version | cut -d ' ' -f 3)"
+CLANG_FORMAT_VERSION_REQUIRED="5.0.0"
+if ! [[ "${CLANG_FORMAT_VERSION}" =~ "${CLANG_FORMAT_VERSION_REQUIRED}" ]]; then
+  echo "Skipping: clang-format ${CLANG_FORMAT_VERSION_REQUIRED} required."
+  exit 0
+fi
+
+DIRTY_FILES=($(git diff --name-only | grep -E '\.(h|c|cc|proto)$'))
+if [[ "${#DIRTY_FILES}" -ne 0 ]]; then
+  echo "Found dirty files: ${DIRTY_FILES[@]}"
+  echo "stash or add them before commit."
+  exit 1
+fi
+
+SOURCE_FILES=($(git ls-files | grep -E '\.(h|c|cc|proto)$'))
+
+if [[ "${#SOURCE_FILES}" -ne 0 ]]; then
+  pushd "${ROOT}" > /dev/null
+  "${CLANG_FORMAT}" -style=Google -i "${SOURCE_FILES[@]}"
+  git add "${SOURCE_FILES[@]}"
+  echo "Formatted all source codes"
+  popd > /dev/null
+else
+  echo "No source files."
+fi
+
+BUILDIFIER="$(which buildifier)"
+if [[ -x "${BUILDIFIER}" ]]; then
+  ${BUILDIFIER} -showlog -mode=check $(find . -iname BUILD -type f)
+else
+  echo "Buildifier does not exist"
+fi

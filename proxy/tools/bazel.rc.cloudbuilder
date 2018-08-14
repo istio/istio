@@ -1,0 +1,10 @@
+build --workspace_status_command=tools/bazel_get_workspace_status
+
+# This is from Bazel's former travis setup, to avoid blowing up the RAM usage.
+startup --host_jvm_args=-Xmx8192m
+startup --host_jvm_args=-Xms8192m
+startup --batch
+
+# This is so we understand failures better
+build --verbose_failures
+

@@ -1,0 +1,11 @@
+# Used for automated builds triggered on git commit
+
+steps:
+- name: gcr.io/istio-io/istio-builder:0.4.4
+  args:
+  - "-c"
+  - "cp tools/bazel.rc.cloudbuilder \"$${HOME}/.bazelrc\" && ./script/release-binary"
+  entrypoint: bash
+options:
+  machineType: N1_HIGHCPU_32
+timeout: 1800s

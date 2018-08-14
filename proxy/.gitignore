@@ -1,0 +1,5 @@
+/bazel-*
+.idea/*
+docker/envoy
+*.iml
+/artifacts

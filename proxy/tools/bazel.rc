@@ -1,0 +1,60 @@
+# Copied from https://github.com/envoyproxy/envoy/blob/master/tools/bazel.rc
+# Envoy specific Bazel build/test options.
+
+build --workspace_status_command=tools/bazel_get_workspace_status
+
+# Basic ASAN/UBSAN that works for gcc
+build:asan --define ENVOY_CONFIG_ASAN=1
+build:asan --copt -fsanitize=address,undefined
+build:asan --linkopt -fsanitize=address,undefined
+build:asan --copt -fno-sanitize=vptr
+build:asan --linkopt -fno-sanitize=vptr
+build:asan --linkopt -ldl
+build:asan --define tcmalloc=disabled
+build:asan --build_tag_filters=-no_asan
+build:asan --test_tag_filters=-no_asan
+build:asan --define signal_trace=disabled
+
+# Clang 5.0 ASAN
+build:clang-asan --define ENVOY_CONFIG_ASAN=1
+build:clang-asan --copt -D__SANITIZE_ADDRESS__
+build:clang-asan --copt -fsanitize=address,undefined
+build:clang-asan --linkopt -fsanitize=address,undefined
+build:clang-asan --copt -fno-sanitize=vptr
+build:clang-asan --linkopt -fno-sanitize=vptr
+build:clang-asan --copt -fno-sanitize-recover=all
+build:clang-asan --linkopt -ldl
+build:clang-asan --define tcmalloc=disabled
+build:clang-asan --build_tag_filters=-no_asan
+build:clang-asan --test_tag_filters=-no_asan
+build:clang-asan --define signal_trace=disabled
+build:clang-asan --test_env=ASAN_SYMBOLIZER_PATH
+
+# Clang 5.0 TSAN
+build:clang-tsan --define ENVOY_CONFIG_TSAN=1
+build:clang-tsan --copt -fsanitize=thread
+build:clang-tsan --linkopt -fsanitize=thread
+build:clang-tsan --define tcmalloc=disabled
+
+# Clang 5.0 MSAN - broken today since we need to rebuild lib[std]c++ and external deps with MSAN
+# support (see https://github.com/envoyproxy/envoy/issues/443).
+build:clang-msan --define ENVOY_CONFIG_MSAN=1
+build:clang-msan --copt -fsanitize=memory
+build:clang-msan --linkopt -fsanitize=memory
+build:clang-msan --define tcmalloc=disabled
+build:clang-msan --copt -fsanitize-memory-track-origins=2
+
+# Test options
+test --test_env=HEAPCHECK=normal --test_env=PPROF_PATH
+
+# Release builds without debug symbols.
+build:release -c opt
+build:release --strip=always
+
+# Release builds with debug symbols
+build:release-symbol -c opt
+
+# Add compile option for all C++ files
+build --cxxopt -Wnon-virtual-dtor
+build --cxxopt -Wformat
+build --cxxopt -Wformat-security

@@ -1,0 +1,59 @@
+static_resources:
+  listeners:
+  - address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 5000
+    filter_chains:
+    - filters:
+      - name: envoy.tcp_proxy
+        config:
+          stat_prefix: client_tcp
+          cluster: server_envoy
+  - address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 5005
+    filter_chains:
+    - transport_socket:
+        name: alts
+        config:
+          handshaker_service: "169.254.169.254:8080"
+          # If you want to enable the peer validation, please uncomment peer_service_accounts and
+          # replace it with the actual service account used in your environment.
+          # peer_service_accounts: ["test-service-account"]
+      filters:
+      - name: envoy.tcp_proxy
+        config:
+          stat_prefix: server_tcp
+          cluster: tcp_backend
+  clusters:
+  - name: server_envoy
+    transport_socket:
+      name: alts
+      config:
+        handshaker_service: "169.254.169.254:8080"
+        # If you want to enable the peer validation, please uncomment peer_service_accounts and
+        # replace it with the actual service account used in your environment.
+        # peer_service_accounts: ["test-service-account"]
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: 5005
+  - name: tcp_backend
+    connect_timeout: 0.25s
+    type: strict_dns
+    lb_policy: round_robin
+    hosts:
+    - socket_address:
+        address: 127.0.0.1
+        port_value: 5050
+admin:
+  access_log_path: "/dev/null"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8001

@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Copyright 2017 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+# Checks the source code files for proper license headers.
+
+ISTIO_COPYRIGHT='Copyright 20[0-9][0-9] Istio Authors\. All Rights Reserved\.'
+ISTIO_LICENSE='Apache License, Version 2\.0'
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+function is_source_code_file() {
+  first_line="$(head -1 ${1} | xargs --null)"
+  filename="$(basename ${1})"
+  [[ "${filename}" == 'BUILD' ]] && return 0
+  [[ "${first_line}" == '#!/bin/bash' ]] && return 0
+  extension="$(echo ${1} | awk -F . '{if (NF>1) {print $NF}}')"
+  [[ "${extension}" == "c" ||
+     "${extension}" == "cc" ||
+     "${extension}" == "h" ||
+     "${extension}" == "py" ||
+     "${extension}" == "go" ||
+     "${extension}" == "bzl" ]] && return 0
+  return 1
+}
+
+BAD_LICENSE=0
+
+for file in $(git ls-files)
+do
+  base="$(echo ${file} | awk -F / '{print $1}')"
+  [[ "${base}" == "contrib" || "${base}" == "google" || "${base}" == "third_party" ]] && continue
+  if is_source_code_file "${file}"; then
+    istio_copyright_count="$(head -n 15 ${file} | grep "${ISTIO_COPYRIGHT}" | wc -l)"
+    istio_license_count="$(head -n 15 ${file} | grep "${ISTIO_LICENSE}" | wc -l)"
+    if [[ "${istio_copyright_count}" != 1 || "${istio_license_count}" != 1 ]]; then
+      echo ${file}
+      BAD_LICENSE=1
+    fi
+  fi
+done
+
+[[ ${BAD_LICENSE} == 0 ]] || (echo "Found invalid license headers." && exit 1)
