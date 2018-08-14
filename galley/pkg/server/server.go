@@ -92,7 +92,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	distributor := snapshot.New()
 	s.processor = runtime.NewProcessor(src, distributor)
 
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs())
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), nil)
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
