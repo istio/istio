@@ -52,5 +52,4 @@ proxy.artifacts: proxy.build
 proxy.deb:
 	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/tools/deb:istio-proxy
 
-
 .PHONY: proxy.build proxy.clean proxy.test proxy.check proxy.artifacts

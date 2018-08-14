@@ -1,0 +1,5 @@
+#!/bin/sh
+#
+# Print SHA of last change to proxy codebase
+
+git log -n 1 --pretty=format:%H -- proxy/ WORKSPACE tools/bazel*

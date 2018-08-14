@@ -478,6 +478,33 @@ jobs:
       - store_artifacts:
           path: /home/circleci/project/bazel-bin/src/envoy/envoy
           destination: /proxy/bin
+  proxy_release:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+      - run: rm ~/.gitconfig
+      - run: openssl aes-256-cbc -d -in .circleci/accounts/istio-circle-ci.gcp.serviceaccount -out serviceaccount.json -k "${GCS_BUCKET_TOKEN}" -md sha256
+      - run: make proxy.release BAZEL_BUILD_ARGS="--config=release"
+      - run: gsutil cp -n bazel-bin/proxy/src/envoy/envoy_tar.tar.gz gs://istio-build/proxy/envoy-release-$(tools/last_proxy_change).tar.gz
+      - save_cache:
+          key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/tools/deb/istio-proxy.deb
+          destination: /proxy/deb
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/src/envoy/envoy
+          destination: /proxy/bin
   proxy_linux_asan:
     docker:
       - image: istio/ci:go1.9-bazel0.11
