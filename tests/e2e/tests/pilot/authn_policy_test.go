@@ -36,18 +36,18 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 	globalCfg := &deployableConfig{	
 		Namespace:  "", // Use blank for cluster CRD.		
  		YamlFiles:  []string{"testdata/authn/v1alpha1/global-mtls.yaml.tmpl"},
- 		Removes: []resource{globalPermissive},		
+ 		Removes: []resource{globalPermissive},
  		kubeconfig: tc.Kube.KubeConfig,		
 	}
-	// This policy disable mTLS for c and d:80.	
+	// This policy disable mTLS for c and d:80.
 	cfgs := &deployableConfig{
 		Namespace:  tc.Kube.Namespace,
 		YamlFiles:  []string{"testdata/authn/v1alpha1/authn-policy.yaml.tmpl", "testdata/authn/destination-rule.yaml.tmpl"},
 		kubeconfig: tc.Kube.KubeConfig,
 	}
-	if err := globalCfg.Setup(); err != nil {		
- 		t.Fatal(err)		
- 	}	
+	if err := globalCfg.Setup(); err != nil {
+ 		t.Fatal(err)
+ 	}
 	if err := cfgs.Setup(); err != nil {
 		t.Fatal(err)
 	}
