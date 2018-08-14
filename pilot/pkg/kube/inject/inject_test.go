@@ -23,6 +23,10 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
+	"fmt"
+
+	"regexp"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -37,6 +41,12 @@ const (
 	// Tag name should be kept in sync with value in
 	// platform/kube/inject/refresh.sh
 	unitTestTag = "unittest"
+
+	statusReplacement = "sidecar.istio.io/status: '{\"version\":\"\","
+)
+
+var (
+	statusPattern = regexp.MustCompile("sidecar.istio.io/status: '{\"version\":\"([0-9a-f]+)\",")
 )
 
 func TestImageName(t *testing.T) {
@@ -299,8 +309,9 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
-		t.Run(c.want, func(t *testing.T) {
+	for i, c := range cases {
+		testName := fmt.Sprintf("[%02d] %s", i, c.want)
+		t.Run(testName, func(t *testing.T) {
 			mesh := model.DefaultMeshConfig()
 			if c.enableAuth {
 				mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
@@ -352,9 +363,17 @@ func TestIntoResourceFile(t *testing.T) {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
-			util.CompareContent(got.Bytes(), wantFilePath, t)
+			// The version string is a maintenance pain for this test. Strip the version string before comparing.
+			wantBytes := stripVersion(util.ReadFile(wantFilePath, t))
+			gotBytes := stripVersion(got.Bytes())
+
+			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
 		})
 	}
+}
+
+func stripVersion(yaml []byte) []byte {
+	return statusPattern.ReplaceAllLiteral(yaml, []byte(statusReplacement))
 }
 
 func TestInvalidParams(t *testing.T) {

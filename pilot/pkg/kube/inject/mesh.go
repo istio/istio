@@ -17,7 +17,15 @@ package inject
 const (
 	sidecarTemplateDelimBegin = "[["
 	sidecarTemplateDelimEnd   = "]]"
-	parameterizedTemplate     = `
+
+	// nolint: lll
+	parameterizedTemplate = `
+[[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
+[[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]
+[[- $includeOutboundIPRangesKey     := "traffic.sidecar.istio.io/includeOutboundIPRanges" -]]
+[[- $excludeOutboundIPRangesKey     := "traffic.sidecar.istio.io/excludeOutboundIPRanges" -]]
+[[- $includeInboundPortsKey         := "traffic.sidecar.istio.io/includeInboundPorts" -]]
+[[- $excludeInboundPortsKey         := "traffic.sidecar.istio.io/excludeInboundPorts" -]]
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -27,15 +35,15 @@ initContainers:
   - "-u"
   - {{ .SidecarProxyUID }}
   - "-m"
-  - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+  - [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
   - "-i"
-  - "[[ annotationOrDefault .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges" "{{ .IncludeIPRanges }}" ]]"
+  - "[[ annotation .ObjectMeta $includeOutboundIPRangesKey "{{ .IncludeIPRanges }}" ]]"
   - "-x"
-  - "[[ annotationOrDefault .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges" "{{ .ExcludeIPRanges }}" ]]"
+  - "[[ annotation .ObjectMeta $excludeOutboundIPRangesKey "{{ .ExcludeIPRanges }}" ]]"
   - "-b"
-  - "[[ annotationOrDefault .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" (includeInboundPorts .Spec.Containers) ]]"
+  - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
-  - "[[ annotationOrDefault .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" "{{ .ExcludeInboundPorts }}" ]]"
+  - "[[ annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}" ]]"
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -64,11 +72,7 @@ initContainers:
 {{ end -}}
 containers:
 - name: istio-proxy
-  image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
-  "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
-  [[ else -]]
-  {{ .ProxyImage }}
-  [[ end -]]
+  image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
   args:
   - proxy
   - sidecar
@@ -122,7 +126,7 @@ containers:
       fieldRef:
         fieldPath: metadata.name
   - name: ISTIO_META_INTERCEPTION_MODE
-    value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+    value: [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -139,13 +143,13 @@ containers:
     readOnlyRootFilesystem: false
     {{ else }}
     readOnlyRootFilesystem: true
-    {{ end }}
-    [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     capabilities:
       add:
       - NET_ADMIN
     [[ end -]]
-    [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    {{ end -}}
+    [[ if ne (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
     [[ end -]]
   restartPolicy: Always
