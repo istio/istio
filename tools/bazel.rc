@@ -1,7 +1,7 @@
 # Copied from https://github.com/envoyproxy/envoy/blob/master/tools/bazel.rc
 # Envoy specific Bazel build/test options.
 
-#build --workspace_status_command=bazel/get_workspace_status
+build --workspace_status_command=tools/bazel_get_workspace_status
 
 # Basic ASAN/UBSAN that works for gcc
 build:asan --define ENVOY_CONFIG_ASAN=1
