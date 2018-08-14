@@ -76,6 +76,9 @@ const (
 
 	// The key for the environment variable that specifies the namespace.
 	listenedNamespaceKey = "NAMESPACE"
+
+	// The default SPIFFE URL value for identity domain
+	defaultIdentityDomain = "cluster.local"
 )
 
 type keyCertBundleRotator interface {
