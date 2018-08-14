@@ -73,8 +73,7 @@ func TestValidate(t *testing.T) {
 		},
 		// length of instance and handler metrics does not match
 		{
-			&config.Params{
-			},
+			&config.Params{},
 			map[string]*metric.Type{
 				"metric": {
 					Value: istio_policy_v1beta1.STRING,
@@ -85,10 +84,10 @@ func TestValidate(t *testing.T) {
 		// instance and handler metrics do not match
 		{
 			&config.Params{
-				RegiondId: "cn-hangzhou",
-				AccessKeyId: "test",
+				RegiondId:       "cn-hangzhou",
+				AccessKeyId:     "test",
 				AccessKeySecret: "test",
-				GroupId: 1,
+				GroupId:         1,
 				MetricInfo: map[string]*config.Params_MetricList{
 					"metric": {},
 				},
@@ -104,9 +103,7 @@ func TestValidate(t *testing.T) {
 		{
 			&config.Params{
 				MetricInfo: map[string]*config.Params_MetricList{
-					"requestcount": {
-
-					},
+					"requestcount": {},
 				},
 			},
 			map[string]*metric.Type{

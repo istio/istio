@@ -20,11 +20,13 @@ package cloudmonitor
 import (
 	"context"
 
+	"fmt"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/cms"
+
+	"istio.io/istio/mixer/adapter/cloudmonitor/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/mixer/adapter/cloudmonitor/config"
-	"github.com/aliyun/alibaba-cloud-sdk-go/services/cms"
-	"fmt"
 )
 
 const (

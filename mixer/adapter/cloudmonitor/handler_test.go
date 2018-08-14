@@ -15,27 +15,26 @@
 package cloudmonitor
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
-	"istio.io/istio/mixer/adapter/cloudmonitor/config"
-	"istio.io/istio/mixer/template/metric"
-	"istio.io/istio/mixer/pkg/adapter"
-	"reflect"
-	"istio.io/istio/mixer/pkg/adapter/test"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/cms"
-	"encoding/json"
+
+	"istio.io/istio/mixer/adapter/cloudmonitor/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type mockCloudMonitorClient struct {
 	cms.Client
 }
 
-
 type mockFailCloudMonitorClient struct {
 	cms.Client
 }
-
-
 
 func TestGenerateMetricData(t *testing.T) {
 	env := test.NewEnv(t)
@@ -66,17 +65,16 @@ func TestGenerateMetricData(t *testing.T) {
 			},
 			[]*CustomMetricRequest{
 				{
-					GroupId: 1,
+					GroupId:    1,
 					MetricName: "requestcount",
 					Dimensions: map[string]interface{}{
 						"arbitraryDimension": 50.0,
 					},
-					Type: 0,
+					Type:   0,
 					Period: 60,
-					Values:     map[string]interface{}{
+					Values: map[string]interface{}{
 						"value": 1.0,
 					},
-
 				},
 			},
 		},
@@ -91,7 +89,6 @@ func TestGenerateMetricData(t *testing.T) {
 		md := h.generateMetricData(c.insts)
 		var metricList []CustomMetricRequest
 		json.Unmarshal([]byte(md.MetricList), &metricList)
-
 
 		if len(c.expectedMetricData) != len(metricList) {
 			t.Errorf("Expected %v metric data items but got %v", len(c.expectedMetricData), len(metricList))
@@ -114,9 +111,7 @@ func TestGenerateMetricData(t *testing.T) {
 func generateCfgWithName(metricName string) *config.Params {
 	return &config.Params{
 		MetricInfo: map[string]*config.Params_MetricList{
-			metricName: {
-
-			},
+			metricName: {},
 		},
 	}
 }
@@ -166,4 +161,3 @@ func TestGetNumericValue(t *testing.T) {
 		}
 	}
 }
-
