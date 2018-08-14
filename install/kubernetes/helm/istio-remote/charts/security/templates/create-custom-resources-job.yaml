@@ -58,7 +58,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
-    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
   labels:
     app: istio-security
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
