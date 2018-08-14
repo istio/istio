@@ -458,6 +458,7 @@
             "dynamicRouteConfigs": [
                 {
                     "versionInfo": "2018-06-19 06:21:16.597131985 +0000 UTC m=+38444.053119011",
+                    "lastUpdated": "2018-06-19T06:21:16.597131985+00:00",
                     "routeConfig": {
                         "name": "15004",
                         "virtualHosts": [
