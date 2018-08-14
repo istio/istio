@@ -28,6 +28,7 @@ envoy_cc_test(
     deps = [
         "@envoy//source/common/common:utility_lib",
         "@envoy//test/integration:http_protocol_integration_lib",
+        "//include/istio/utils:attribute_names_header",
         "//src/envoy/http/authn:filter_lib",
         "//src/envoy/http/jwt_auth:http_filter_factory",
         "//src/envoy/http/jwt_auth:jwt_lib",
