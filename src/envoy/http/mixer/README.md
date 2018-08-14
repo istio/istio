@@ -12,7 +12,7 @@ Please make sure to modify both the original one and the copy together if necess
 ## Build Mixer server
 
 * Follow https://github.com/istio/istio/blob/master/mixer/doc/running-local-mixer.md to run a Mixer server locally. 
-Follow https://github.com/istio/istio/blob/master/DEV-GUIDE.md to build Istio, which includes building Mixer server. 
+Follow https://github.com/istio/istio/wiki/Dev-Guide to build Istio, which includes building Mixer server. 
   
 ## Build Envoy proxy
 
