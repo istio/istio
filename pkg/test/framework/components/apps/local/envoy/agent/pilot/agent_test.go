@@ -46,6 +46,7 @@ const (
 )
 
 func TestAgent(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7910")
 	p, configStore, pilotStopFn := newPilot(namespace, t)
 	defer pilotStopFn()
 
