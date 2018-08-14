@@ -28,7 +28,7 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 		t.Skipf("Skipping %s: authn=true", t.Name())
 	}
 	// Define the default permissive global mesh resource. 
-	globalPermissive := &resource{
+	globalPermissive := resource{
 	    Kind: "MeshPolicy",
 	    Name: "default",
 	}
