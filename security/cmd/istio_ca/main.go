@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/collateral"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
@@ -129,6 +130,7 @@ type cliOptions struct { // nolint: maligned
 	probeCheckInterval   time.Duration
 
 	loggingOptions *log.Options
+	ctrlzOptions   *ctrlz.Options
 
 	// Whether to append DNS names to the certificate
 	appendDNSNames bool
@@ -144,6 +146,7 @@ type cliOptions struct { // nolint: maligned
 var (
 	opts = cliOptions{
 		loggingOptions:       log.DefaultOptions(),
+		ctrlzOptions:         ctrlz.DefaultOptions(),
 		LivenessProbeOptions: &probe.Options{},
 	}
 
@@ -264,6 +267,8 @@ func init() {
 	rootCmd.AddCommand(cmd.NewProbeCmd())
 
 	opts.loggingOptions.AttachCobraFlags(rootCmd)
+	opts.ctrlzOptions.AttachCobraFlags(rootCmd)
+
 	cmd.InitializeFlags(rootCmd)
 }
 
@@ -283,6 +288,8 @@ func runCA() {
 	if err := log.Configure(opts.loggingOptions); err != nil {
 		fatalf("Failed to configure logging (%v)", err)
 	}
+
+	_, _ = ctrlz.Run(opts.ctrlzOptions, nil)
 
 	if value, exists := os.LookupEnv(listenedNamespaceKey); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
