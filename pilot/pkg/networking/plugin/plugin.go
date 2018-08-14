@@ -16,6 +16,7 @@ package plugin
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
@@ -86,6 +87,13 @@ type InputParams struct {
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
 type FilterChain struct {
+	// FilterChainMatch is the match used to select the filter chain.
+	FilterChainMatch *listener.FilterChainMatch
+	// TLSContext is the TLS settings for this filter chains.
+	TLSContext *auth.DownstreamTlsContext
+	// RequiredListenerFilters are the filters needed for the whole listener, not particular to this
+	// filter chain.
+	RequiredListenerFilters []listener.ListenerFilter
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
@@ -100,7 +108,7 @@ type MutableObjects struct {
 	// Listener is the listener being built. Must be initialized before Plugin methods are called.
 	Listener *xdsapi.Listener
 
-	// FilterChains is the set of filter chains that will be attached to Listener
+	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain
 }
 
@@ -130,4 +138,8 @@ type Plugin interface {
 
 	// OnInboundRouteConfiguration is called whenever a new set of virtual hosts are added to the inbound path.
 	OnInboundRouteConfiguration(in *InputParams, routeConfiguration *xdsapi.RouteConfiguration)
+
+	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
+	// configuration, like FilterChainMatch and TLSContext.
+	OnInboundFilterChains(in *InputParams) []FilterChain
 }

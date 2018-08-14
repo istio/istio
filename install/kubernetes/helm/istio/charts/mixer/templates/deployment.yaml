@@ -46,7 +46,7 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -141,7 +141,7 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -212,6 +212,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- with $.Values.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}

@@ -226,6 +226,7 @@ dump_pilot() {
     dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
     dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
     dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
+    dump_pilot_url "${pilot_pod}" debug/authenticationz "${pilot_dir}"
     dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
   fi
 }

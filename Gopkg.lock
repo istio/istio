@@ -20,7 +20,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8a768ab68d5be3ef0f51dac417cc113a61c8d5e59af9c6daeb6dc34862e06e32"
+  digest = "1:6ed512f144d92229093795a6049d4bb8f220696262b37777efbda841961121d9"
   name = "code.cloudfoundry.org/copilot"
   packages = [
     ".",
@@ -28,7 +28,7 @@
     "testhelpers",
   ]
   pruneopts = "NUT"
-  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
+  revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
   digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
@@ -313,7 +313,7 @@
 
 [[projects]]
   branch = "revert_grpc_version_update"
-  digest = "1:a67fc4d1c5bee4ceef8778a9cdb167eaa88b7e72503d0b4780c7c1cdc77d4419"
+  digest = "1:905697620ddaf709aa8603c2e5cdb7220929d28870fa6996e65feea57dc20faa"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -335,6 +335,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
+    "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
@@ -347,7 +348,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
+  revision = "c17582cc6514d173e4309d4e3bb16a150efcfcf7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -853,12 +854,12 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:444f6d964ae6fafecd68e991ca960bad03ca3fa9cf7434dbb2683133072e8910"
+  digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
   name = "github.com/onsi/ginkgo"
   packages = ["config"]
   pruneopts = "NUT"
-  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
-  version = "v1.4.0"
+  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
@@ -1743,13 +1744,53 @@
 
 [[projects]]
   branch = "release-7.0"
-  digest = "1:4cc378e26ec0deae9afe65aa024a272067708c03f5381c1f43e84a4128df8bb4"
+  digest = "1:4dbf985105b3520427e8ee72f9d3045904679b428d474b8d9c2e00d023937020"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
     "discovery/fake",
     "dynamic",
     "dynamic/fake",
+    "informers",
+    "informers/admissionregistration",
+    "informers/admissionregistration/v1alpha1",
+    "informers/admissionregistration/v1beta1",
+    "informers/apps",
+    "informers/apps/v1",
+    "informers/apps/v1beta1",
+    "informers/apps/v1beta2",
+    "informers/autoscaling",
+    "informers/autoscaling/v1",
+    "informers/autoscaling/v2beta1",
+    "informers/batch",
+    "informers/batch/v1",
+    "informers/batch/v1beta1",
+    "informers/batch/v2alpha1",
+    "informers/certificates",
+    "informers/certificates/v1beta1",
+    "informers/core",
+    "informers/core/v1",
+    "informers/events",
+    "informers/events/v1beta1",
+    "informers/extensions",
+    "informers/extensions/v1beta1",
+    "informers/internalinterfaces",
+    "informers/networking",
+    "informers/networking/v1",
+    "informers/policy",
+    "informers/policy/v1beta1",
+    "informers/rbac",
+    "informers/rbac/v1",
+    "informers/rbac/v1alpha1",
+    "informers/rbac/v1beta1",
+    "informers/scheduling",
+    "informers/scheduling/v1alpha1",
+    "informers/settings",
+    "informers/settings/v1alpha1",
+    "informers/storage",
+    "informers/storage/v1",
+    "informers/storage/v1alpha1",
+    "informers/storage/v1beta1",
     "kubernetes",
     "kubernetes/fake",
     "kubernetes/scheme",
@@ -1809,6 +1850,30 @@
     "kubernetes/typed/storage/v1alpha1/fake",
     "kubernetes/typed/storage/v1beta1",
     "kubernetes/typed/storage/v1beta1/fake",
+    "listers/admissionregistration/v1alpha1",
+    "listers/admissionregistration/v1beta1",
+    "listers/apps/v1",
+    "listers/apps/v1beta1",
+    "listers/apps/v1beta2",
+    "listers/autoscaling/v1",
+    "listers/autoscaling/v2beta1",
+    "listers/batch/v1",
+    "listers/batch/v1beta1",
+    "listers/batch/v2alpha1",
+    "listers/certificates/v1beta1",
+    "listers/core/v1",
+    "listers/events/v1beta1",
+    "listers/extensions/v1beta1",
+    "listers/networking/v1",
+    "listers/policy/v1beta1",
+    "listers/rbac/v1",
+    "listers/rbac/v1alpha1",
+    "listers/rbac/v1beta1",
+    "listers/scheduling/v1alpha1",
+    "listers/settings/v1alpha1",
+    "listers/storage/v1",
+    "listers/storage/v1alpha1",
+    "listers/storage/v1beta1",
     "pkg/apis/clientauthentication",
     "pkg/apis/clientauthentication/v1alpha1",
     "pkg/version",
@@ -2121,6 +2186,7 @@
     "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/dynamic",
     "k8s.io/client-go/dynamic/fake",
+    "k8s.io/client-go/informers",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
     "k8s.io/client-go/kubernetes/scheme",

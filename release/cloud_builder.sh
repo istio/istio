@@ -90,21 +90,21 @@ fi
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH make istio-archive
-  cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/"
+  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
   mkdir -p "${OUTPUT_PATH}/gcr.io"
-  cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/gcr.io/"
+  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/gcr.io/"
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS}"
-cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
+cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
 mkdir -p "${OUTPUT_PATH}/docker.io"
-cp "${ISTIO_OUT}/archive/istio-*z*" "${OUTPUT_PATH}/docker.io/"
+cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/docker.io/"
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
 # this copy is being done here instead of above because we
 # are conservative, if new artifacts are created we don't
 # inadvertently clobber them
-  cp "${OUTPUT_PATH}/gcr.io/istio-*z*" "${OUTPUT_PATH}/"
+  cp "${OUTPUT_PATH}"/gcr.io/istio-*z* "${OUTPUT_PATH}/"
 fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then

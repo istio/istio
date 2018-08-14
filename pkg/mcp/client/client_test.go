@@ -111,7 +111,7 @@ func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
 	}
 }
 
-func (ts *testStream) Update(change *Change) error {
+func (ts *testStream) Apply(change *Change) error {
 	if ts.updateError {
 		return errors.New("update error")
 	}

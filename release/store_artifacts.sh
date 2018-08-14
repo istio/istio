@@ -89,8 +89,12 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     fi
     gcloud auth configure-docker -q
     docker load -i "${TAR_PATH}"
-    docker tag "istio/${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    echo "FROM istio/${IMAGE_NAME}:${VER_STRING}
+COPY LICENSES.txt /" > Dockerfile
+    docker build -t "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}" .
     docker push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    # Include the license text in the tarball as well (overwrite old $TAR_PATH).
+    docker save -o "${TAR_PATH}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
 
@@ -98,4 +102,4 @@ fi
 pushd "${ROOT}"
 tar -cvzf "${OUTPUT_PATH}/source.tar.gz" .
 popd
-gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"
+gsutil -m cp -r "${OUTPUT_PATH}"/* "${GCS_PATH}/"

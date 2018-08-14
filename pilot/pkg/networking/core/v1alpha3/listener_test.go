@@ -193,6 +193,10 @@ func (p *fakePlugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeC
 func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
 }
 
+func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
 func isHTTPListener(listener *xdsapi.Listener) bool {
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
 		return listener.FilterChains[0].Filters[0].Name == "envoy.http_connection_manager"

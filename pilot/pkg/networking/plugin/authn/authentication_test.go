@@ -20,6 +20,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
@@ -29,25 +30,23 @@ import (
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
 func TestRequireTls(t *testing.T) {
 	cases := []struct {
 		name           string
 		in             *authn.Policy
-		expected       bool
 		expectedParams *authn.MutualTls
 	}{
 		{
 			name:           "Null policy",
 			in:             nil,
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
 			name:           "Empty policy",
 			in:             &authn.Policy{},
-			expected:       false,
 			expectedParams: nil,
 		},
 		{
@@ -57,8 +56,7 @@ func TestRequireTls(t *testing.T) {
 					Params: &authn.PeerAuthenticationMethod_Mtls{},
 				}},
 			},
-			expected:       true,
-			expectedParams: nil,
+			expectedParams: &authn.MutualTls{Mode: authn.MutualTls_STRICT},
 		},
 		{
 			name: "Policy with mTls and Jwt",
@@ -76,7 +74,6 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       true,
 			expectedParams: &authn.MutualTls{AllowTls: true},
 		},
 		{
@@ -88,13 +85,12 @@ func TestRequireTls(t *testing.T) {
 					},
 				},
 			},
-			expected:       false,
 			expectedParams: nil,
 		},
 	}
 	for _, c := range cases {
-		if got, params := RequireTLS(c.in, model.Sidecar); got != c.expected || !reflect.DeepEqual(c.expectedParams, params) {
-			t.Errorf("%s: requireTLS(%v): got(%v, %v) != want(%v, %v)\n", c.name, c.in, got, params, c.expected, c.expectedParams)
+		if params := GetMutualTLS(c.in, model.Sidecar); !reflect.DeepEqual(c.expectedParams, params) {
+			t.Errorf("%s: requireTLS(%v): got(%v) != want(%v)\n", c.name, c.in, params, c.expectedParams)
 		}
 	}
 }
@@ -521,24 +517,49 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 }
 
-func TestBuildListenerTLSContex(t *testing.T) {
+func TestOnInboundFilterChains(t *testing.T) {
+	tlsContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: &types.BoolValue{Value: true},
+	}
 	cases := []struct {
 		name     string
 		in       *authn.Policy
-		expected *auth.DownstreamTlsContext
+		expected []plugin.FilterChain
 	}{
 		{
-			name:     "nil policy",
-			in:       nil,
+			name: "NoAuthnPolicy",
+			in:   nil,
+			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
 		{
-			name:     "empty policy",
-			in:       &authn.Policy{},
-			expected: nil,
-		},
-		{
-			name: "non-mTLS policy",
+			name: "NonMTLSPolicy",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -553,7 +574,7 @@ func TestBuildListenerTLSContex(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name: "mTLS policy with nil param",
+			name: "mTLSWithNilParamMode",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
@@ -561,83 +582,68 @@ func TestBuildListenerTLSContex(t *testing.T) {
 					},
 				},
 			},
-			expected: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/cert-chain.pem",
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/key.pem",
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
-								},
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2", "http/1.1"},
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
-				RequireClientCertificate: &types.BoolValue{true},
 			},
 		},
 		{
-			name: "mTLS policy allowTls",
+			name: "StrictMTLS",
 			in: &authn.Policy{
 				Peers: []*authn.PeerAuthenticationMethod{
 					{
 						Params: &authn.PeerAuthenticationMethod_Mtls{
-							&authn.MutualTls{
-								AllowTls: true,
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_STRICT,
 							},
 						},
 					},
 				},
 			},
-			expected: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/cert-chain.pem",
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/key.pem",
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: "/etc/certs/root-cert.pem",
-								},
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2", "http/1.1"},
+			// Only one filter chain with mTLS settings should be generated.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
 				},
-				RequireClientCertificate: &types.BoolValue{false},
+			},
+		},
+		{
+			name: "PermissiveMTLS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{
+							Mtls: &authn.MutualTls{
+								Mode: authn.MutualTls_PERMISSIVE,
+							},
+						},
+					},
+				},
+			},
+			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: tlsContext,
+					FilterChainMatch: &listener.FilterChainMatch{
+						ApplicationProtocols: []string{"istio"},
+					},
+					RequiredListenerFilters: []listener.ListenerFilter{
+						{
+							Name:   "envoy.listener.tls_inspector",
+							Config: &types.Struct{},
+						},
+					},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{},
+				},
 			},
 		},
 	}
 	for _, c := range cases {
-		if got := buildListenerTLSContext(c.in, nil, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
-			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
+		if got := setupFilterChains(c.in); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}
 }

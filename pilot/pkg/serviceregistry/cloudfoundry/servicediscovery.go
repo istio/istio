@@ -27,7 +27,7 @@ const (
 	cfLabel = "cfapp"
 )
 
-//go:generate counterfeiter -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o ./fakes/route_cacher.go --fake-name RouteCacher . routeCacher
 type routeCacher interface {
 	Get() (*copilotapi.RoutesResponse, error)
 	GetInternal() (*copilotapi.InternalRoutesResponse, error)

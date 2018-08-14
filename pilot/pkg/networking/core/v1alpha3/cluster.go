@@ -82,6 +82,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
@@ -89,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			updateEds(env, defaultCluster, service.Hostname)
+			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -101,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
-					updateEds(env, subsetCluster, service.Hostname)
+					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
@@ -123,7 +126,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	return clusters
 }
 
-func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
+func updateEds(cluster *v2.Cluster) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
@@ -401,18 +404,6 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
-
-// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
-
-// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMesh = []string{"istio"}
-
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
@@ -450,9 +441,14 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
+		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
+				cluster.Name)
+			return
+		}
 		cluster.TlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
 				TlsCertificates: []*auth.TlsCertificate{
@@ -479,13 +475,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 		}
 	}
 }

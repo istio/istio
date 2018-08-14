@@ -38,7 +38,7 @@ import (
 type updater struct {
 }
 
-func (u *updater) Update(c *client.Change) error {
+func (u *updater) Apply(c *client.Change) error {
 	return nil
 }
 
