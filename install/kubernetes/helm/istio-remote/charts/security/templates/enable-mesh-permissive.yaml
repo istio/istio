@@ -1,0 +1,16 @@
+{{ define "security-permissive.yaml.tpl" }}
+# Authentication policy to enable permissive mode for all services (that have sidecar) in the mesh.
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+  name: "default"
+  labels:
+    app: istio-security
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  peers:
+  - mtls:
+      mode: PERMISSIVE
+{{- end }}
