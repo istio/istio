@@ -221,8 +221,8 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 }
 
 func connectionID(node string) string {
-	atomic.AddInt64(&connectionNumber, 1)
-	return node + "-" + strconv.FormatInt(atomic.LoadInt64(&connectionNumber), 10)
+	id := atomic.AddInt64(&connectionNumber, 1)
+	return node + "-" + strconv.FormatInt(id, 10)
 }
 
 // StreamEndpoints implements xdsapi.EndpointDiscoveryServiceServer.StreamEndpoints().
