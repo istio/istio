@@ -496,7 +496,9 @@ spec:
     - connection_security_policy
     buckets:
       explicit_buckets:
-        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+        bounds: [0.004, 0.006, 0.008, 0.012, 0.017, 0.025, 0.036, 0.053,
+                 0.076, 0.110, 0.159, 0.229, 0.331, 0.479, 0.692, 1.000,
+                 1.778, 3.162, 5.623, 10 ]
   - name: request_bytes
     instance_name: requestsize.metric.{{ .Release.Namespace }}
     kind: DISTRIBUTION
