@@ -41,7 +41,7 @@ spec:
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
-          - --healthCheckInterval=2s
+          - --healthCheckInterval=1s
           - --healthCheckFile=/health
           - --webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
@@ -58,18 +58,18 @@ spec:
                 - /usr/local/bin/galley
                 - probe
                 - --probe-path=/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
           readinessProbe:
             exec:
               command:
                 - /usr/local/bin/galley
                 - probe
                 - --probe-path=/health
-                - --interval=4s
-            initialDelaySeconds: 4
-            periodSeconds: 4
+                - --interval=10s
+            initialDelaySeconds: 5
+            periodSeconds: 5
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
