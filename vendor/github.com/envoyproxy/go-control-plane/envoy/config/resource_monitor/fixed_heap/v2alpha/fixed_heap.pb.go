@@ -29,9 +29,10 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// The fixed heap resource monitor reports the Envoy process memory pressure, computed as a
+// fraction of currently reserved heap memory divided by a statically configured maximum
+// specified in the FixedHeapConfig.
 type FixedHeapConfig struct {
-	// Limit of the Envoy process heap size. This is used to calculate heap memory pressure which
-	// is defined as (current heap size)/max_heap_size_bytes.
 	MaxHeapSizeBytes uint64 `protobuf:"varint,1,opt,name=max_heap_size_bytes,json=maxHeapSizeBytes,proto3" json:"max_heap_size_bytes,omitempty"`
 }
 

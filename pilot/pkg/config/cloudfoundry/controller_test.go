@@ -166,6 +166,7 @@ func TestGet(t *testing.T) {
 							},
 							Subset: "some-guid-a",
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -181,6 +182,7 @@ func TestGet(t *testing.T) {
 							},
 							Subset: "some-guid-z",
 						},
+						Weight: 100,
 					},
 				},
 			},
@@ -394,17 +396,20 @@ var routes = []*copilotapi.RouteWithBackends{
 		Hostname:        "some-external-route.example.com",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-z",
+		RouteWeight:     100,
 	},
 	{
 		Hostname:        "some-external-route.example.com",
 		Path:            "/some/path",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-a",
+		RouteWeight:     100,
 	},
 	{
 		Hostname:        "other.example.com",
 		Backends:        nil,
 		CapiProcessGuid: "some-guid-x",
+		RouteWeight:     100,
 	},
 }
 

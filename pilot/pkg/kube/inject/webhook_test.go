@@ -153,7 +153,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{sidecarAnnotationPolicyKey: "true"},
+				Annotations: map[string]string{annotationPolicy.name: "true"},
 			},
 			want: true,
 		},
@@ -163,7 +163,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{sidecarAnnotationPolicyKey: "false"},
+				Annotations: map[string]string{annotationPolicy.name: "false"},
 			},
 			want: false,
 		},
@@ -192,7 +192,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-on-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{sidecarAnnotationPolicyKey: "true"},
+				Annotations: map[string]string{annotationPolicy.name: "true"},
 			},
 			want: true,
 		},
@@ -202,7 +202,7 @@ func TestInjectRequired(t *testing.T) {
 			meta: &metav1.ObjectMeta{
 				Name:        "force-off-policy",
 				Namespace:   "test-namespace",
-				Annotations: map[string]string{sidecarAnnotationPolicyKey: "false"},
+				Annotations: map[string]string{annotationPolicy.name: "false"},
 			},
 			want: false,
 		},
@@ -420,13 +420,14 @@ func TestHelmInject(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
-		input := filepath.Join("testdata/webhook", c.inputFile)
-		want := filepath.Join("testdata/webhook", c.wantFile)
-		t.Run(c.inputFile, func(t *testing.T) {
+	for ci, c := range cases {
+		inputFile := filepath.Join("testdata/webhook", c.inputFile)
+		wantFile := filepath.Join("testdata/webhook", c.wantFile)
+		testName := fmt.Sprintf("[%02d] %s", ci, c.inputFile)
+		t.Run(testName, func(t *testing.T) {
 			// Split multi-part yaml documents. Input and output will have the same number of parts.
-			inputYAMLs := splitYamlDoc(input, t)
-			wantYAMLs := splitYamlDoc(want, t)
+			inputYAMLs := splitYamlFile(inputFile, t)
+			wantYAMLs := splitYamlFile(wantFile, t)
 
 			for i := 0; i < len(inputYAMLs); i++ {
 				t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
@@ -558,10 +559,15 @@ func getHelmValues(t *testing.T) string {
 	return string(util.ReadFile(valuesFile, t))
 }
 
-func splitYamlDoc(yamlFile string, t *testing.T) [][]byte {
+func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
-	yamlDoc := util.ReadFile(yamlFile, t)
-	stringParts := strings.Split(string(yamlDoc), yamlSeparator)
+	yamlBytes := util.ReadFile(yamlFile, t)
+	return splitYamlBytes(yamlBytes, t)
+}
+
+func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
+	t.Helper()
+	stringParts := strings.Split(string(yaml), yamlSeparator)
 	byteParts := make([][]byte, 0)
 	for _, stringPart := range stringParts {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
@@ -672,7 +678,7 @@ func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deploymen
 func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
-	annotations(got)[sidecarAnnotationStatusKey] = annotations(want)[sidecarAnnotationStatusKey]
+	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
 	gotIstioCerts := istioCerts(got)
 	wantIstioCerts := istioCerts(want)
 	gotIstioCerts.Secret.DefaultMode = wantIstioCerts.Secret.DefaultMode
@@ -765,7 +771,7 @@ func makeTestData(t testing.TB, skip bool) []byte {
 	}
 
 	if skip {
-		pod.ObjectMeta.Annotations[sidecarAnnotationPolicyKey] = "false"
+		pod.ObjectMeta.Annotations[annotationPolicy.name] = "false"
 	}
 
 	raw, err := json.Marshal(&pod)

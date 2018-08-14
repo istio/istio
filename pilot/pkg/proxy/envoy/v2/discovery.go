@@ -16,14 +16,14 @@ package v2
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
-
-	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -72,7 +72,7 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	throttle chan time.Time
+	rateLimiter *rate.Limiter
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
 	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
@@ -108,19 +108,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 	pushThrottle := intEnv("PILOT_PUSH_THROTTLE", 10)
 	pushBurst := intEnv("PILOT_PUSH_BURST", 100)
 
-	adsLog.Infof("Starting ADS server with throttle=%d burst=%d", pushThrottle, pushBurst)
-	rate := time.Second / time.Duration(pushThrottle)
-	burstLimit := pushBurst
-	tick := time.NewTicker(rate)
-	out.throttle = make(chan time.Time, burstLimit)
-	go func() {
-		for t := range tick.C {
-			select {
-			case out.throttle <- t:
-			default:
-			}
-		} // does not exit after tick.Stop()
-	}()
+	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
+	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
 
 	return out
 }

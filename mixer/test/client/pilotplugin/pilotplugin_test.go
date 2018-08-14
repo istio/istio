@@ -93,7 +93,6 @@ static_resources:
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
@@ -123,7 +122,6 @@ static_resources:
 	checkAttributesOkInbound = `
 {
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -156,9 +154,9 @@ static_resources:
 	reportAttributesOkOutbound = `
 {
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "destination.ip": "[127 0 0 1]",
@@ -204,9 +202,9 @@ static_resources:
 	reportAttributesOkInbound = `
 {
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
   "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",

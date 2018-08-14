@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: SignalFx
-// $description: Adapter that sends Istio metrics to SignalFx
+// $description: Adapter that sends metrics to SignalFx.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
 
 // The `signalfx` adapter collects Istio metrics and trace spans and sends them

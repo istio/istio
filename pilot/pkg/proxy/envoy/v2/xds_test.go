@@ -299,6 +299,7 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7869")
 	defer func() {
 		if testEnv != nil {
 			testEnv.TearDown()

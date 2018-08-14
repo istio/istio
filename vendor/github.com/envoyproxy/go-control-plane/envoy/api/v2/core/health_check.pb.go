@@ -538,7 +538,9 @@ type HealthCheck_HttpHealthCheck struct {
 	// <arch_overview_health_checking_identity>` for more information.
 	ServiceName string `protobuf:"bytes,5,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	// Specifies a list of HTTP headers that should be added to each request that is sent to the
-	// health checked cluster.
+	// health checked cluster. For more information, including details on header value syntax, see
+	// the documentation on :ref:`custom request headers
+	// <config_http_conn_man_headers_custom_request_headers>`.
 	RequestHeadersToAdd []*HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
 	// If set, health checks will be made using http/2.
 	UseHttp2 bool `protobuf:"varint,7,opt,name=use_http2,json=useHttp2,proto3" json:"use_http2,omitempty"`

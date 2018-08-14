@@ -42,7 +42,7 @@ type updater struct {
 }
 
 // Update interface method implementation.
-func (u *updater) Update(ch *client.Change) error {
+func (u *updater) Apply(ch *client.Change) error {
 	fmt.Printf("Incoming change: %v\n", ch.MessageName)
 
 	for i, o := range ch.Objects {

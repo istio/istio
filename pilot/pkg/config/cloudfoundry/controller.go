@@ -291,6 +291,7 @@ func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute 
 						},
 					},
 				},
+				Weight: route.GetRouteWeight(),
 			},
 		},
 	}

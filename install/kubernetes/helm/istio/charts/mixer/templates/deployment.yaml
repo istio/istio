@@ -212,6 +212,9 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- with $.Values.podAnnotations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
 {{- if eq $mname "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
