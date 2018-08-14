@@ -331,6 +331,13 @@ security:
   selfSigned: true # indicate if self-signed CA is used.
 
 #
+# nodeagent configuration
+#
+nodeagent:
+  enabled: false
+  image: node-agent-k8s
+
+#
 # addons configuration
 #
 grafana:
