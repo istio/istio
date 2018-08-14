@@ -31,10 +31,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	// try to re-establish the bi-directional grpc stream after this delay.
-	reestablishStreamDelay = time.Second
+// try to re-establish the bi-directional grpc stream after this delay.
+var reestablishStreamDelay = time.Second
 
+const (
 	typeURLBase = "type.googleapis.com/"
 )
 
@@ -176,7 +176,7 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedMessageNames 
 // Probe point for test code to determine when the client is finished processing responses.
 var handleResponseDoneProbe = func() {}
 
-func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) error {
+func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) *mcp.MeshConfigRequest {
 	log.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
 
 	errorDetails, _ := status.FromError(err)
@@ -187,12 +187,10 @@ func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version strin
 		ResponseNonce: response.Nonce,
 		ErrorDetail:   errorDetails.Proto(),
 	}
-	c.journal.record(req)
-
-	return c.stream.Send(req)
+	return req
 }
 
-func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
+func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfigRequest {
 	if handleResponseDoneProbe != nil {
 		defer handleResponseDoneProbe()
 	}
@@ -247,66 +245,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) error {
 		VersionInfo:   response.VersionInfo,
 		ResponseNonce: response.Nonce,
 	}
-	c.journal.record(req)
-
-	if err := c.stream.Send(req); err != nil {
-		return err
-	}
-	state.setVersion(response.VersionInfo)
-	return nil
-}
-
-// openStream should only be called from `Run()` methods for/select loop.
-func (c *Client) openStream(ctx context.Context) error {
-	retry := time.After(time.Nanosecond)
-
-tryAgain:
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-retry:
-			log.Info("Trying to establish new MCP stream")
-			stream, err := c.client.StreamAggregatedResources(ctx)
-			if err != nil {
-				log.Errorf("Failed to create a new MCP stream: %v", err)
-				retry = time.After(reestablishStreamDelay)
-				continue tryAgain
-			}
-			log.Info("New MCP stream created")
-			c.stream = stream
-
-			for typeURL, state := range c.state {
-				req := &mcp.MeshConfigRequest{
-					Client:  c.clientInfo,
-					TypeUrl: typeURL,
-				}
-				if err := c.stream.Send(req); err != nil {
-					log.Errorf("Failed to send initial MCP request for %q: %v", typeURL, err)
-
-					// Close the send-side of the stream on send errors and
-					// drain receive until we receive EOF.
-					//
-					// See RecvMsg and SendMsg grpc comments in Run() below for rationale.
-					if err := c.stream.CloseSend(); err != nil {
-						log.Errorf("Error closing MCP stream after initial send failure: %v", err)
-					}
-					for {
-						if _, err := c.stream.Recv(); err != nil {
-							if err == io.EOF {
-								break
-							}
-							log.Errorf("Recv() error while waiting for MCP stream to close: %v", err)
-						}
-					}
-					retry = time.After(reestablishStreamDelay)
-					continue tryAgain
-				}
-				state.setVersion("")
-			}
-			return nil
-		}
-	}
+	return req
 }
 
 // Run starts the run loop for request and receiving configuration updates from
@@ -314,71 +253,88 @@ tryAgain:
 // The client will continue to attempt to re-establish the stream with the server
 // indefinitely. The function exits when the provided context is canceled.
 func (c *Client) Run(ctx context.Context) {
-	responseC := make(chan *mcp.MeshConfigResponse)
-	var responseError error
-	receive := func() {
-		for {
-			// On non-nil error the stream is closed or aborted. In either case,
-			// close the receive channel to signal to the for/select loop to re-establish
-			// the stream.
-			//
-			// (from https://godoc.org/google.golang.org/grpc#Stream)
-			//
-			// RecvMsg blocks until it receives a message or the stream is done. On
-			// client side, it returns io.EOF when the stream is done. On any other
-			// error, it aborts the stream and returns an RPC status.
-			response, err := c.stream.Recv()
-			if err != nil {
-				responseError = err
-				close(responseC)
-				return
-			}
-			responseC <- response
-		}
-	}
 
-	// establish the bidirectional grpc stream and start a dedicated
-	// goroutine to convert the synchronous stream.Recv() to a channel
-	// of responses.
-	if err := c.openStream(ctx); err != nil {
-		return
+	// See https://godoc.org/google.golang.org/grpc#ClientConn.NewStream
+	// for rules to ensure stream resources are not leaked.
+
+	initRequests := make([]*mcp.MeshConfigRequest, 0, len(c.state))
+	for typeURL := range c.state {
+		initRequests = append(initRequests, &mcp.MeshConfigRequest{
+			Client:  c.clientInfo,
+			TypeUrl: typeURL,
+		})
 	}
-	go receive()
 
 	for {
-		select {
-		case response, more := <-responseC:
-			if !more {
-				log.Errorf("Stream receive error: %v", responseError)
-
-				// re-establish the stream and start a new receive goroutine
-				// on any kind of error until the context is canceled.
-				if err := c.openStream(ctx); err != nil {
-					return
-				}
-				// reopen the stream and start receiving again
-				responseC = make(chan *mcp.MeshConfigResponse)
-				go receive()
-				continue
+		retry := time.After(time.Nanosecond)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-retry:
 			}
 
-			if err := c.handleResponse(response); err != nil {
+			log.Info("(re)trying to establish new MCP stream")
+			var err error
+			if c.stream, err = c.client.StreamAggregatedResources(ctx); err == nil {
+				log.Info("New MCP stream created")
+				break
+			}
+
+			log.Errorf("Failed to create a new MCP stream: %v", err)
+			retry = time.After(reestablishStreamDelay)
+		}
+
+		var nextInitRequest int
+
+		// The client begins each new stream by sending an empty
+		// request for each supported type. The server sends a
+		// response when resources are available. After processing a
+		// response, the client sends a new request specifying the
+		// last version applied and nonce provided by the server.
+		for {
+			var req *mcp.MeshConfigRequest
+			var version string
+
+			if nextInitRequest < len(initRequests) {
+				// Send the entire batch of initial requests before
+				// trying to receive responses.
+				req = initRequests[nextInitRequest]
+				nextInitRequest++
+			} else {
+				response, err := c.stream.Recv()
+				if err != nil {
+					if err != io.EOF {
+						log.Errorf("Error receiving MCP response: %v", err)
+					}
+					break
+				}
+
+				version = response.VersionInfo
+				req = c.handleResponse(response)
+			}
+
+			c.journal.record(req)
+
+			if err := c.stream.Send(req); err != nil {
 				log.Errorf("Error sending MCP request: %v", err)
-				if err := c.stream.CloseSend(); err != nil {
-					log.Errorf("Error closing MCP stream after send failure: %v", err)
-				}
 
-				// Don't immediately reconnect - wait for stream.Recv() to indicate the stream is closed.
+				// (from https://godoc.org/google.golang.org/grpc#ClientConn.NewStream)
 				//
-				// (from https://godoc.org/google.golang.org/grpc#Stream)
-				//
-				// Stream.SendMsg() may return a non-nil error when something wrong happens sending
-				// the request. The returned error indicates the status of this sending, not the final
-				// status of the RPC. Always call Stream.RecvMsg() to drain the stream and get the final
-				// status, otherwise there could be leaked resources.
+				// SendMsg is generally called by generated code. On error, SendMsg aborts
+				// the stream. If the error was generated by the client, the status is
+				// returned directly; otherwise, io.EOF is returned and the status of
+				// the stream may be discovered using RecvMsg.
+				if err != io.EOF {
+					break
+				}
+			} else {
+				if req.ErrorDetail == nil && req.TypeUrl != "" {
+					if state, ok := c.state[req.TypeUrl]; ok {
+						state.setVersion(version)
+					}
+				}
 			}
-		case <-ctx.Done():
-			return
 		}
 	}
 }
