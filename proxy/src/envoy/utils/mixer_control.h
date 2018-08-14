@@ -18,8 +18,8 @@
 #include "envoy/event/dispatcher.h"
 #include "envoy/runtime/runtime.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/istio/mixerclient/client.h"
-#include "src/envoy/utils/config.h"
+#include "proxy/include/istio/mixerclient/client.h"
+#include "proxy/src/envoy/utils/config.h"
 
 using ::istio::mixer::v1::Attributes;
 

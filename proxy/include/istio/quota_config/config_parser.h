@@ -19,7 +19,7 @@
 #include <memory>
 #include <vector>
 
-#include "include/istio/quota_config/requirement.h"
+#include "proxy/include/istio/quota_config/requirement.h"
 #include "mixer/v1/attributes.pb.h"
 #include "mixer/v1/config/client/quota.pb.h"
 

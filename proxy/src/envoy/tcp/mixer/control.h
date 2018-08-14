@@ -19,9 +19,9 @@
 #include "envoy/runtime/runtime.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/istio/control/tcp/controller.h"
-#include "src/envoy/tcp/mixer/config.h"
-#include "src/envoy/utils/stats.h"
+#include "proxy/include/istio/control/tcp/controller.h"
+#include "proxy/src/envoy/tcp/mixer/config.h"
+#include "proxy/src/envoy/utils/stats.h"
 
 namespace Envoy {
 namespace Tcp {

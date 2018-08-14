@@ -18,7 +18,7 @@
 
 #include <string>
 
-#include "include/istio/control/http/check_data.h"
+#include "proxy/include/istio/control/http/check_data.h"
 #include "mixer/v1/attributes.pb.h"
 #include "mixer/v1/config/client/api_spec.pb.h"
 

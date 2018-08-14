@@ -18,8 +18,8 @@
 #include "common/common/logger.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "envoy/http/filter.h"
-#include "src/envoy/http/authn/authenticator_base.h"
-#include "src/envoy/http/authn/filter_context.h"
+#include "proxy/src/envoy/http/authn/authenticator_base.h"
+#include "proxy/src/envoy/http/authn/filter_context.h"
 
 namespace Envoy {
 namespace Http {

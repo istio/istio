@@ -18,7 +18,7 @@
 #include "common/common/logger.h"
 #include "envoy/http/header_map.h"
 #include "envoy/json/json_object.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {

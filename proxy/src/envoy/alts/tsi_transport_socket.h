@@ -17,8 +17,8 @@
 #include "common/buffer/buffer_impl.h"
 #include "common/network/raw_buffer_socket.h"
 #include "envoy/network/transport_socket.h"
-#include "src/envoy/alts/tsi_frame_protector.h"
-#include "src/envoy/alts/tsi_handshaker.h"
+#include "proxy/src/envoy/alts/tsi_frame_protector.h"
+#include "proxy/src/envoy/alts/tsi_handshaker.h"
 
 namespace Envoy {
 namespace Security {

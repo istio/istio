@@ -16,11 +16,11 @@
 #ifndef ISTIO_MIXERCLIENT_CLIENT_IMPL_H
 #define ISTIO_MIXERCLIENT_CLIENT_IMPL_H
 
-#include "include/istio/mixerclient/client.h"
-#include "src/istio/mixerclient/attribute_compressor.h"
-#include "src/istio/mixerclient/check_cache.h"
-#include "src/istio/mixerclient/quota_cache.h"
-#include "src/istio/mixerclient/report_batch.h"
+#include "proxy/include/istio/mixerclient/client.h"
+#include "proxy/src/istio/mixerclient/attribute_compressor.h"
+#include "proxy/src/istio/mixerclient/check_cache.h"
+#include "proxy/src/istio/mixerclient/quota_cache.h"
+#include "proxy/src/istio/mixerclient/report_batch.h"
 
 #include <atomic>
 

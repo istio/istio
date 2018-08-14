@@ -31,7 +31,7 @@ TOP = r"""/* Copyright 2017 Istio Authors. All Rights Reserved.
  * limitations under the License.
  */
 
-#include "src/istio/mixerclient/global_dictionary.h"
+#include "proxy/src/istio/mixerclient/global_dictionary.h"
 
 namespace istio {
 namespace mixerclient {

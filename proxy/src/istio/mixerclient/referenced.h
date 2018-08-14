@@ -18,7 +18,7 @@
 
 #include <vector>
 
-#include "include/istio/utils/md5.h"
+#include "proxy/include/istio/utils/md5.h"
 #include "mixer/v1/check.pb.h"
 
 namespace istio {

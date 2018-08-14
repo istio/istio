@@ -19,8 +19,8 @@
 #include "envoy/http/header_map.h"
 #include "envoy/request_info/request_info.h"
 #include "extensions/filters/http/well_known_names.h"
-#include "include/istio/control/http/controller.h"
-#include "src/envoy/utils/utils.h"
+#include "proxy/include/istio/control/http/controller.h"
+#include "proxy/src/envoy/utils/utils.h"
 
 namespace Envoy {
 namespace Http {

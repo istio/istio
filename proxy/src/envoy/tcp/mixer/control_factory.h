@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "src/envoy/tcp/mixer/control.h"
+#include "proxy/src/envoy/tcp/mixer/control.h"
 
 namespace Envoy {
 namespace Tcp {

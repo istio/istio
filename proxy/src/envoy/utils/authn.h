@@ -17,7 +17,7 @@
 #include "common/protobuf/protobuf.h"
 #include "envoy/api/v2/core/base.pb.h"
 #include "google/protobuf/struct.pb.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Utils {

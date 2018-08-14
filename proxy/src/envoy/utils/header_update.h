@@ -19,7 +19,7 @@
 #include "common/common/logger.h"
 #include "envoy/http/header_map.h"
 
-#include "include/istio/control/http/controller.h"
+#include "proxy/include/istio/control/http/controller.h"
 
 namespace Envoy {
 namespace Utils {

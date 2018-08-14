@@ -16,10 +16,10 @@
 #ifndef ISTIO_CONTROL_HTTP_REQUEST_HANDLER_IMPL_H
 #define ISTIO_CONTROL_HTTP_REQUEST_HANDLER_IMPL_H
 
-#include "include/istio/control/http/request_handler.h"
-#include "src/istio/control/http/client_context.h"
-#include "src/istio/control/http/service_context.h"
-#include "src/istio/control/request_context.h"
+#include "proxy/include/istio/control/http/request_handler.h"
+#include "proxy/src/istio/control/http/client_context.h"
+#include "proxy/src/istio/control/http/service_context.h"
+#include "proxy/src/istio/control/request_context.h"
 
 namespace istio {
 namespace control {

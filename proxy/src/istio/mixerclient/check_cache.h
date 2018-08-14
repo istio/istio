@@ -25,11 +25,11 @@
 #include <utility>
 
 #include "google/protobuf/stubs/status.h"
-#include "include/istio/mixerclient/client.h"
-#include "include/istio/mixerclient/options.h"
-#include "include/istio/utils/simple_lru_cache.h"
-#include "include/istio/utils/simple_lru_cache_inl.h"
-#include "src/istio/mixerclient/referenced.h"
+#include "proxy/include/istio/mixerclient/client.h"
+#include "proxy/include/istio/mixerclient/options.h"
+#include "proxy/include/istio/utils/simple_lru_cache.h"
+#include "proxy/include/istio/utils/simple_lru_cache_inl.h"
+#include "proxy/src/istio/mixerclient/referenced.h"
 
 namespace istio {
 namespace mixerclient {

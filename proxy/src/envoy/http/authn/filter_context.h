@@ -20,7 +20,7 @@
 #include "envoy/api/v2/core/base.pb.h"
 #include "envoy/config/filter/http/authn/v2alpha1/config.pb.h"
 #include "envoy/network/connection.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {

@@ -16,10 +16,10 @@
 #ifndef ISTIO_CONTROL_TCP_CLIENT_CONTEXT_H
 #define ISTIO_CONTROL_TCP_CLIENT_CONTEXT_H
 
-#include "include/istio/control/tcp/controller.h"
-#include "include/istio/quota_config/config_parser.h"
-#include "src/istio/control/client_context_base.h"
-#include "src/istio/control/request_context.h"
+#include "proxy/include/istio/control/tcp/controller.h"
+#include "proxy/include/istio/quota_config/config_parser.h"
+#include "proxy/src/istio/control/client_context_base.h"
+#include "proxy/src/istio/control/request_context.h"
 
 namespace istio {
 namespace control {

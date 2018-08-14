@@ -19,11 +19,11 @@
 #include "envoy/runtime/runtime.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/istio/control/http/controller.h"
-#include "src/envoy/http/mixer/config.h"
-#include "src/envoy/utils/grpc_transport.h"
-#include "src/envoy/utils/mixer_control.h"
-#include "src/envoy/utils/stats.h"
+#include "proxy/include/istio/control/http/controller.h"
+#include "proxy/src/envoy/http/mixer/config.h"
+#include "proxy/src/envoy/utils/grpc_transport.h"
+#include "proxy/src/envoy/utils/mixer_control.h"
+#include "proxy/src/envoy/utils/stats.h"
 
 namespace Envoy {
 namespace Http {

@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "src/envoy/http/jwt_auth/jwt_authenticator.h"
+#include "proxy/src/envoy/http/jwt_auth/jwt_authenticator.h"
 
 #include "common/common/logger.h"
 #include "envoy/http/filter.h"

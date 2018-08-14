@@ -16,7 +16,7 @@
 #ifndef ISTIO_QUOTA_CONFIG_CONFIG_PARSER_IMPL_H_
 #define ISTIO_QUOTA_CONFIG_CONFIG_PARSER_IMPL_H_
 
-#include "include/istio/quota_config/config_parser.h"
+#include "proxy/include/istio/quota_config/config_parser.h"
 
 #include <regex>
 #include <unordered_map>

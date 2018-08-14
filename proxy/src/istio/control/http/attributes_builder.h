@@ -16,9 +16,9 @@
 #ifndef ISTIO_CONTROL_HTTP_ATTRIBUTES_BUILDER_H
 #define ISTIO_CONTROL_HTTP_ATTRIBUTES_BUILDER_H
 
-#include "include/istio/control/http/check_data.h"
-#include "include/istio/control/http/report_data.h"
-#include "src/istio/control/request_context.h"
+#include "proxy/include/istio/control/http/check_data.h"
+#include "proxy/include/istio/control/http/report_data.h"
+#include "proxy/src/istio/control/request_context.h"
 
 namespace istio {
 namespace control {

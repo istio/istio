@@ -21,7 +21,7 @@
 #include "common/common/logger.h"
 #include "common/config/datasource.h"
 #include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
-#include "src/envoy/http/jwt_auth/jwt.h"
+#include "proxy/src/envoy/http/jwt_auth/jwt.h"
 
 namespace Envoy {
 namespace Http {

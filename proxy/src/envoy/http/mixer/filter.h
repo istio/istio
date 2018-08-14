@@ -18,7 +18,7 @@
 #include "common/common/logger.h"
 #include "envoy/access_log/access_log.h"
 #include "envoy/http/filter.h"
-#include "src/envoy/http/mixer/control.h"
+#include "proxy/src/envoy/http/mixer/control.h"
 
 namespace Envoy {
 namespace Http {

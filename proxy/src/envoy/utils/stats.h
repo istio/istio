@@ -18,7 +18,7 @@
 #include "envoy/event/dispatcher.h"
 #include "envoy/event/timer.h"
 #include "envoy/stats/stats_macros.h"
-#include "include/istio/mixerclient/client.h"
+#include "proxy/include/istio/mixerclient/client.h"
 
 namespace Envoy {
 namespace Utils {

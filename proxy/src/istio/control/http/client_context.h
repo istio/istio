@@ -16,8 +16,8 @@
 #ifndef ISTIO_CONTROL_HTTP_CLIENT_CONTEXT_H
 #define ISTIO_CONTROL_HTTP_CLIENT_CONTEXT_H
 
-#include "include/istio/control/http/controller.h"
-#include "src/istio/control/client_context_base.h"
+#include "proxy/include/istio/control/http/controller.h"
+#include "proxy/src/istio/control/client_context_base.h"
 
 namespace istio {
 namespace control {

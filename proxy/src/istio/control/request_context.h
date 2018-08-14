@@ -17,7 +17,7 @@
 #define ISTIO_CONTROL_REQUEST_CONTEXT_H
 
 #include "google/protobuf/stubs/status.h"
-#include "include/istio/quota_config/requirement.h"
+#include "proxy/include/istio/quota_config/requirement.h"
 #include "mixer/v1/attributes.pb.h"
 
 #include <vector>

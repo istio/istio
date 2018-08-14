@@ -17,7 +17,7 @@
 #define ISTIO_CONTROL_TCP_MOCK_REPORT_DATA_H
 
 #include "gmock/gmock.h"
-#include "include/istio/control/tcp/report_data.h"
+#include "proxy/include/istio/control/tcp/report_data.h"
 
 namespace istio {
 namespace control {

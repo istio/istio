@@ -18,7 +18,7 @@
 
 #include "gmock/gmock.h"
 #include "google/protobuf/struct.pb.h"
-#include "include/istio/control/http/check_data.h"
+#include "proxy/include/istio/control/http/check_data.h"
 
 namespace istio {
 namespace control {

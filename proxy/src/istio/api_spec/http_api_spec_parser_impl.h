@@ -16,8 +16,8 @@
 #ifndef ISTIO_API_SPEC_HTTP_ISTIO_API_SPEC_PARSER_IMPL_H_
 #define ISTIO_API_SPEC_HTTP_ISTIO_API_SPEC_PARSER_IMPL_H_
 
-#include "include/istio/api_spec/http_api_spec_parser.h"
-#include "src/istio/api_spec/path_matcher.h"
+#include "proxy/include/istio/api_spec/http_api_spec_parser.h"
+#include "proxy/src/istio/api_spec/path_matcher.h"
 
 #include <regex>
 #include <vector>

@@ -20,8 +20,8 @@
 #include "envoy/api/v2/core/base.pb.h"
 #include "envoy/http/header_map.h"
 #include "google/protobuf/struct.pb.h"
-#include "include/istio/control/http/controller.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/include/istio/control/http/controller.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {

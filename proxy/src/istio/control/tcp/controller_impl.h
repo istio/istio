@@ -18,8 +18,8 @@
 
 #include <memory>
 
-#include "include/istio/control/tcp/controller.h"
-#include "src/istio/control/tcp/client_context.h"
+#include "proxy/include/istio/control/tcp/controller.h"
+#include "proxy/src/istio/control/tcp/client_context.h"
 
 namespace istio {
 namespace control {

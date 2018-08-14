@@ -195,7 +195,7 @@ class JwtVerificationFilterIntegrationTest
 class JwtVerificationFilterIntegrationTestWithJwks
     : public JwtVerificationFilterIntegrationTest {
   std::string ConfigPath() override {
-    return "src/envoy/http/jwt_auth/integration_test/envoy.conf.jwk";
+    return "proxy/src/envoy/http/jwt_auth/integration_test/envoy.conf.jwk";
   }
 
  protected:
@@ -350,7 +350,7 @@ class JwtVerificationFilterIntegrationTestWithInjectedJwtResult
   // With allow_missing_or_failed option being true, a request without JWT
   // will reach the backend. This is to test the injected JWT result.
   std::string ConfigPath() override {
-    return "src/envoy/http/jwt_auth/integration_test/"
+    return "proxy/src/envoy/http/jwt_auth/integration_test/"
            "envoy_allow_missing_or_failed_jwt.conf.jwk";
   }
 };

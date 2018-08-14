@@ -16,8 +16,8 @@
 #pragma once
 
 #include "common/common/logger.h"
-#include "src/envoy/http/mixer/control.h"
-#include "src/envoy/utils/stats.h"
+#include "proxy/src/envoy/http/mixer/control.h"
+#include "proxy/src/envoy/utils/stats.h"
 
 namespace Envoy {
 namespace Http {

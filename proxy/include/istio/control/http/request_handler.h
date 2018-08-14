@@ -16,9 +16,9 @@
 #ifndef ISTIO_CONTROL_HTTP_REQUEST_HANDLER_H
 #define ISTIO_CONTROL_HTTP_REQUEST_HANDLER_H
 
-#include "include/istio/control/http/check_data.h"
-#include "include/istio/control/http/report_data.h"
-#include "include/istio/mixerclient/client.h"
+#include "proxy/include/istio/control/http/check_data.h"
+#include "proxy/include/istio/control/http/report_data.h"
+#include "proxy/include/istio/mixerclient/client.h"
 
 namespace istio {
 namespace control {

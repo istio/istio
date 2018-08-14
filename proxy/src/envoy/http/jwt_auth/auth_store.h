@@ -20,8 +20,8 @@
 #include "envoy/config/filter/http/jwt_auth/v2alpha1/config.pb.h"
 #include "envoy/server/filter_config.h"
 #include "envoy/thread_local/thread_local.h"
-#include "src/envoy/http/jwt_auth/pubkey_cache.h"
-#include "src/envoy/http/jwt_auth/token_extractor.h"
+#include "proxy/src/envoy/http/jwt_auth/pubkey_cache.h"
+#include "proxy/src/envoy/http/jwt_auth/token_extractor.h"
 
 namespace Envoy {
 namespace Http {

@@ -19,11 +19,11 @@
 #include <memory>
 #include <unordered_map>
 
-#include "include/istio/control/http/controller.h"
-#include "include/istio/utils/simple_lru_cache.h"
-#include "include/istio/utils/simple_lru_cache_inl.h"
-#include "src/istio/control/http/client_context.h"
-#include "src/istio/control/http/service_context.h"
+#include "proxy/include/istio/control/http/controller.h"
+#include "proxy/include/istio/utils/simple_lru_cache.h"
+#include "proxy/include/istio/utils/simple_lru_cache_inl.h"
+#include "proxy/src/istio/control/http/client_context.h"
+#include "proxy/src/istio/control/http/service_context.h"
 
 namespace istio {
 namespace control {

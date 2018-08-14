@@ -16,7 +16,7 @@
 #pragma once
 
 #include "mixer/v1/config/client/client_config.pb.h"
-#include "src/envoy/utils/config.h"
+#include "proxy/src/envoy/utils/config.h"
 
 namespace Envoy {
 namespace Tcp {

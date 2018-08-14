@@ -17,7 +17,7 @@
 
 #include "common/protobuf/protobuf.h"
 #include "gmock/gmock.h"
-#include "src/istio/authn/context.pb.h"
+#include "proxy/src/istio/authn/context.pb.h"
 
 namespace Envoy {
 namespace Http {

@@ -18,7 +18,7 @@
 #include "common/common/logger.h"
 #include "envoy/network/connection.h"
 #include "envoy/network/filter.h"
-#include "src/envoy/tcp/mixer/control.h"
+#include "proxy/src/envoy/tcp/mixer/control.h"
 
 namespace Envoy {
 namespace Tcp {

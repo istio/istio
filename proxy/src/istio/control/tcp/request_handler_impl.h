@@ -16,9 +16,9 @@
 #ifndef ISTIO_CONTROL_TCP_REQUEST_HANDLER_IMPL_H
 #define ISTIO_CONTROL_TCP_REQUEST_HANDLER_IMPL_H
 
-#include "include/istio/control/tcp/request_handler.h"
-#include "src/istio/control/request_context.h"
-#include "src/istio/control/tcp/client_context.h"
+#include "proxy/include/istio/control/tcp/request_handler.h"
+#include "proxy/src/istio/control/request_context.h"
+#include "proxy/src/istio/control/tcp/client_context.h"
 
 namespace istio {
 namespace control {
