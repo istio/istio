@@ -119,8 +119,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
-        securityContext:
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

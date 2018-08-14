@@ -56,7 +56,6 @@ data:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - args:
@@ -68,8 +67,6 @@ data:
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
-        securityContext:
-          privileged: true
       {{ end }}
       containers:
       - name: istio-proxy

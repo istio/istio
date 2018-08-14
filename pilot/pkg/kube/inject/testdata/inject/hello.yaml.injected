@@ -76,7 +76,6 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: true
           readOnlyRootFilesystem: false
           runAsUser: 1337
         volumeMounts:
@@ -109,7 +108,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

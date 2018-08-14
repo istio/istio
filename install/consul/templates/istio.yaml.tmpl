@@ -23,7 +23,6 @@ services:
           - apiserver
     ports:
       - "8080:8080"
-    privileged: true
     environment:
       - SERVICE_IGNORE=1
     command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]

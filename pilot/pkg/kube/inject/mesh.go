@@ -79,8 +79,6 @@ initContainers:
   imagePullPolicy: IfNotPresent
   name: enable-core-dump
   resources: {}
-  securityContext:
-    privileged: true
 {{ end -}}
 containers:
 - name: istio-proxy
