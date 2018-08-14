@@ -25,12 +25,13 @@ import (
 )
 
 const (
-	defaultCertDir         = "/etc/istio/certs/"
-	defaultConfigMapFolder = "/etc/istio/config"
-
+	defaultCertDir    = "/etc/istio/certs/"
 	defaultCertFile   = defaultCertDir + "cert-chain.pem"
 	defaultCACertFile = defaultCertDir + "root-cert.pem"
 	defaultCertKey    = defaultCertDir + "key.pem"
+
+	defaultConfigMapFolder = "/etc/istio/config/"
+	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -65,8 +66,8 @@ type Args struct {
 	// CACertificateFile is the trusted root certificate authority's cert file.
 	CACertificateFile string
 
-	// ConfigMapFolder is the folder where Galley will look for Kubernetes Config Map based configuration.
-	ConfigMapFolder string
+	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
+	AccessListFile string
 
 	// The logging options to use
 	LoggingOptions *log.Options
@@ -92,7 +93,7 @@ func DefaultArgs() *Args {
 		CertificateFile:        defaultCertFile,
 		KeyFile:                defaultCertKey,
 		CACertificateFile:      defaultCACertFile,
-		ConfigMapFolder:        defaultConfigMapFolder,
+		AccessListFile:         defaultAccessListFile,
 		LoggingOptions:         log.DefaultOptions(),
 		LivenessProbeOptions:   &probe.Options{},
 		ReadinessProbeOptions:  &probe.Options{},
@@ -114,7 +115,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "KeyFile: %s\n", a.KeyFile)
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CACertificateFile)
-	fmt.Fprintf(buf, "ConfigMapFolder: %s\n", a.ConfigMapFolder)
+	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "LivenessProbeOptions: %#v\n", *a.LivenessProbeOptions)
 	fmt.Fprintf(buf, "ReadinessProbeOptions: %#v\n", *a.ReadinessProbeOptions)

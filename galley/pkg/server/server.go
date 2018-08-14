@@ -103,7 +103,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	var checker *server.ListAuthChecker
 	if !a.Insecure {
 
-		checker, err = watchAccessList(s.stopCh, a.ConfigMapFolder)
+		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
 			return nil, err
 		}

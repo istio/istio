@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -38,17 +37,8 @@ allowed:
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	actual := checker.String()
-	expected := `
-Allowed ids:
-spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account
-`
-
-	actual = strings.TrimSpace(actual)
-	expected = strings.TrimSpace(expected)
-
-	if actual != expected {
-		t.Fatalf("Mismatch:\ngot:\n%v\nwanted:\n%v\n", actual, expected)
+	if !checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account") {
+		t.Fatal("Expected spiffe id to be allowed.")
 	}
 }
 
@@ -67,13 +57,15 @@ func TestWatchAccessList_Initial_Unparseable(t *testing.T) {
 
 func TestWatchAccessList_Initial_NotExists(t *testing.T) {
 	folder, err := ioutil.TempDir(os.TempDir(), "testWatchAccessList")
+	file := path.Join(folder, "accesslist.yaml")
+
 	if err != nil {
 		t.Fatalf("error creating tmp folder: %v", err)
 	}
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	if _, err = watchAccessList(stopCh, folder); err == nil {
+	if _, err = watchAccessList(stopCh, file); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
@@ -98,39 +90,28 @@ allowed:
 
 	writeFile(t, file, updated)
 
-	expected := `
-Allowed ids:
-spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account
-`
-	expected = strings.TrimSpace(expected)
-
-	var actual string
 	for i := 0; i < 100; i++ {
-		actual = checker.String()
-		actual = strings.TrimSpace(actual)
-
-		if actual == expected {
+		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account") {
 			return
 		}
 
 		time.Sleep(time.Millisecond * 10)
 	}
 
-	t.Fatalf("Mismatch:\ngot:\n%v\nwanted:\n%v\n", actual, expected)
+	t.Fatal("Expected spiffe id to be allowed.")
 }
 
 func setupWatchAccessList(t *testing.T, initialdata string) (string, chan struct{}, *server.ListAuthChecker, error) {
 	folder, err := ioutil.TempDir(os.TempDir(), "testWatchAccessList")
+	file := path.Join(folder, "accesslist.yaml")
 	if err != nil {
 		t.Fatalf("error creating tmp folder: %v", err)
 	}
 
-	file := path.Join(folder, accesslistfilename)
-
 	writeFile(t, file, initialdata)
 
 	stopCh := make(chan struct{})
-	checker, err := watchAccessList(stopCh, folder)
+	checker, err := watchAccessList(stopCh, file)
 	return file, stopCh, checker, err
 }
 

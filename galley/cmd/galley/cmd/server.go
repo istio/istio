@@ -54,8 +54,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"The location of the key file for mutual TLS")
 	cmd.PersistentFlags().StringVarP(&sa.CACertificateFile, "caCertFile", "", sa.CACertificateFile,
 		"The location of the certificate file for the root certificate authority")
-	cmd.PersistentFlags().StringVarP(&sa.ConfigMapFolder, "configMapFolder", "", sa.ConfigMapFolder,
-		"The config map mount folder for config map based settings")
+	cmd.PersistentFlags().StringVarP(&sa.AccessListFile, "accessListFile", "", sa.AccessListFile,
+		"The access list yaml file that contains the allowd mTLS peer ids.")
 	cmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
 		"Path to the file for the liveness probe.")
 	cmd.PersistentFlags().DurationVar(&sa.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", sa.LivenessProbeOptions.UpdateInterval,

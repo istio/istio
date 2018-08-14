@@ -74,6 +74,15 @@ func (l *ListAuthChecker) Set(ids ...string) {
 	l.ids = newIds
 }
 
+// Allowed checks whether the given id is allowed.
+func (l *ListAuthChecker) Allowed(id string) bool {
+	l.idsMutex.Lock()
+	defer l.idsMutex.Unlock()
+
+	_, found := l.ids[id]
+	return found
+}
+
 // String is an implementation of Stringer.String.
 func (l *ListAuthChecker) String() string {
 	var ids []string

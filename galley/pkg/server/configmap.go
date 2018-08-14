@@ -17,7 +17,6 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
-	"path"
 	"sync"
 
 	"github.com/howeyc/fsnotify"
@@ -27,17 +26,11 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 )
 
-const (
-	accesslistfilename = "accesslist.yaml"
-)
-
 type accessList struct {
 	Allowed []string
 }
 
-func watchAccessList(stopCh <-chan struct{}, folder string) (*server.ListAuthChecker, error) {
-
-	accesslistfile := path.Join(folder, accesslistfilename)
+func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.ListAuthChecker, error) {
 
 	// Do the initial read.
 	list, err := readAccessList(accesslistfile)
@@ -61,8 +54,7 @@ func watchAccessList(stopCh <-chan struct{}, folder string) (*server.ListAuthChe
 
 	// Coordinate the goroutines for orderly shutdown
 	var exitSignal sync.WaitGroup
-	exitSignal.Add(1)
-	exitSignal.Add(1)
+	exitSignal.Add(2)
 
 	go func() {
 		defer exitSignal.Done()
@@ -77,7 +69,6 @@ func watchAccessList(stopCh <-chan struct{}, folder string) (*server.ListAuthChe
 						checker.Set(list.Allowed...)
 					}
 				}
-				break
 
 			case <-stopCh:
 				return
@@ -94,7 +85,6 @@ func watchAccessList(stopCh <-chan struct{}, folder string) (*server.ListAuthChe
 			select {
 			case e := <-watcher.Error:
 				log.Errorf("error event while watching access list file: %v", e)
-				break
 
 			case <-stopCh:
 				return
