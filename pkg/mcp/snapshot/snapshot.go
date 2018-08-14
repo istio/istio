@@ -105,7 +105,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	c.watchCount++
 	watchID := c.watchCount
 
-	log.Infof("Watch(): created watch %d for %s from nodeID %q, version1 %q",
+	log.Infof("Watch(): created watch %d for %s from nodeID %q, version %q",
 		watchID, request.TypeUrl, nodeID, request.VersionInfo)
 
 	info.mu.Lock()
@@ -132,13 +132,13 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	// update the existing entry
 	c.snapshots[node] = snapshot
 
-	// trigger existing watches for which version1 changed
+	// trigger existing watches for which version changed
 	if info, ok := c.status[node]; ok {
 		info.mu.Lock()
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
-				log.Infof("SetSnapshot(): respond to watch %d with new version1 %q", id, version)
+				log.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
 
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
