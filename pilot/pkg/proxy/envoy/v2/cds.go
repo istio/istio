@@ -48,7 +48,7 @@ func (con *XdsConnection) clusters(response []*xdsapi.Cluster) *xdsapi.Discovery
 
 func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-	rawClusters, err := s.generateRawClusters(con, push)
+	rawClusters, err := s.generateRawClusters(con.modelNode, push)
 	if err != nil {
 		return err
 	}
@@ -70,18 +70,18 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext) e
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawClusters(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, push)
+func (s *DiscoveryServer) generateRawClusters(node *model.Proxy, push *model.PushContext) ([]*xdsapi.Cluster, error) {
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, node, push)
 	if err != nil {
-		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
+		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", node, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 		return nil, err
 	}
 
 	for _, c := range rawClusters {
 		if err = c.Validate(); err != nil {
-			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", con.modelNode, err)
-			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", con.modelNode, err, c)
+			retErr := fmt.Errorf("CDS: Generated invalid cluster for node %v: %v", node, err)
+			adsLog.Errorf("CDS: Generated invalid cluster for node %s: %v, %v", node, err, c)
 			pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)
 			// Generating invalid clusters is a bug.
 			// Panic instead of trying to recover from that, since we can't
