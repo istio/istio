@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	timeout       = 10 * time.Second
+	timeout       = 20 * time.Second
 	retryInterval = 500 * time.Millisecond
 	domain        = "svc.local"
 	namespace     = "istio-system"
