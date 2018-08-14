@@ -515,7 +515,7 @@ jobs:
       # To build docker containers or run tests in a docker
       - setup_remote_docker
       - run: rm ~/.gitconfig
-      - run: make proxy_test_tsan
+      - run: make proxy.test_tsan
       - save_cache:
           key: linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
