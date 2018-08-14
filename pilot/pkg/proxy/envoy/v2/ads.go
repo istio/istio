@@ -244,7 +244,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
+	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
