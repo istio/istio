@@ -2,6 +2,12 @@
 #
 # Runs shellcheck on all shell scripts in the istio repository.
 
+if ! command -v shellcheck > /dev/null; then
+    echo 'error: ShellCheck is not installed'
+    echo 'Visit https://github.com/koalaman/shellcheck#installing'
+    exit 1
+fi
+
 TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
 
