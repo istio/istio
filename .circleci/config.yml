@@ -80,7 +80,7 @@ jobs:
       - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     steps:
       - run: sudo ntpdate -vu time.apple.com
-      - run: brew install automake bazel cmake coreutils go libtool ninja wget
+      - run: brew install bazel cmake coreutils go libtool ninja wget
       - checkout
       - restore_cache:
           keys:
