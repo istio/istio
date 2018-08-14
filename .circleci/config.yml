@@ -486,13 +486,14 @@ jobs:
     resource_class: xlarge
     steps:
       - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config google-cloud-sdk
       - checkout
       - restore_cache:
           keys:
             - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
       - run: rm ~/.gitconfig
       - run: openssl aes-256-cbc -d -in .circleci/accounts/istio-circle-ci.gcp.serviceaccount -out serviceaccount.json -k "${GCS_BUCKET_TOKEN}" -md sha256
+      - run: gcloud auth activate-service-account --key-file serviceaccount.json
       - run: make proxy.build BAZEL_BUILD_ARGS="--config=release"
       - run: gsutil cp -n bazel-bin/proxy/src/envoy/envoy_tar.tar.gz gs://istio-build/proxy/envoy-release-$(tools/last_proxy_change).tar.gz
       - save_cache:
