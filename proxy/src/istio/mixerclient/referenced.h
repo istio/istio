@@ -18,8 +18,8 @@
 
 #include <vector>
 
-#include "proxy/include/istio/utils/md5.h"
 #include "mixer/v1/check.pb.h"
+#include "proxy/include/istio/utils/md5.h"
 
 namespace istio {
 namespace mixerclient {

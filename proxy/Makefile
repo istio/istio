@@ -23,34 +23,34 @@ BAZEL_TEST_ARGS ?=
 HUB ?=
 TAG ?=
 
-build:
-	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+proxy.build:
+	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/...
 
 # Build only envoy - fast
-build_envoy:
-	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //src/envoy:envoy
+proxy.build_envoy:
+	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/src/envoy:envoy
 
-clean:
+proxy.clean:
 	@bazel clean
 
-test:
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+proxy.test:
+	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //proxy/...
 
-test_asan:
-	CC=clang-5.0 CXX=clang++-5.0 bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-asan //...
+proxy.test_asan:
+	CC=clang-5.0 CXX=clang++-5.0 bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-asan //proxy/...
 
-test_tsan:
-	CC=clang-5.0 CXX=clang++-5.0 bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //...
+proxy.test_tsan:
+	CC=clang-5.0 CXX=clang++-5.0 bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //proxy/...
 
-check:
-	@script/check-license-headers
-	@script/check-style
+proxy.check:
+	@proxy/script/check-license-headers
+	@proxy/script/check-style
 
-artifacts: build
-	@script/push-debian.sh -c opt -p $(ARTIFACTS_DIR)
+proxy.artifacts: proxy.build
+	@proxy/script/push-debian.sh -c opt -p $(ARTIFACTS_DIR)
 
-deb:
-	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //tools/deb:istio-proxy
+proxy.deb:
+	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/tools/deb:istio-proxy
 
 
-.PHONY: build clean test check artifacts
+.PHONY: proxy.build proxy.clean proxy.test proxy.check proxy.artifacts

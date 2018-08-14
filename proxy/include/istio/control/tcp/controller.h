@@ -16,9 +16,9 @@
 #ifndef ISTIO_CONTROL_TCP_CONTROLLER_H
 #define ISTIO_CONTROL_TCP_CONTROLLER_H
 
+#include "mixer/v1/config/client/client_config.pb.h"
 #include "proxy/include/istio/control/tcp/request_handler.h"
 #include "proxy/include/istio/mixerclient/client.h"
-#include "mixer/v1/config/client/client_config.pb.h"
 
 namespace istio {
 namespace control {

@@ -17,9 +17,9 @@
 #define ISTIO_CONTROL_HTTP_SERVICE_CONTEXT_H
 
 #include "google/protobuf/stubs/status.h"
+#include "mixer/v1/attributes.pb.h"
 #include "proxy/include/istio/api_spec/http_api_spec_parser.h"
 #include "proxy/include/istio/quota_config/config_parser.h"
-#include "mixer/v1/attributes.pb.h"
 #include "proxy/src/istio/control/http/client_context.h"
 
 namespace istio {

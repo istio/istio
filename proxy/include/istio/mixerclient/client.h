@@ -17,8 +17,8 @@
 #define ISTIO_MIXERCLIENT_CLIENT_H
 
 #include "environment.h"
-#include "proxy/include/istio/quota_config/requirement.h"
 #include "options.h"
+#include "proxy/include/istio/quota_config/requirement.h"
 
 #include <vector>
 

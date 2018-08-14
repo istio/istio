@@ -16,8 +16,8 @@
 #ifndef ISTIO_CONTROL_CLIENT_CONTEXT_BASE_H
 #define ISTIO_CONTROL_CLIENT_CONTEXT_BASE_H
 
-#include "proxy/include/istio/mixerclient/client.h"
 #include "mixer/v1/config/client/client_config.pb.h"
+#include "proxy/include/istio/mixerclient/client.h"
 #include "request_context.h"
 
 namespace istio {

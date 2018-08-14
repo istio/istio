@@ -659,6 +659,8 @@ include .circleci/Makefile
 # Building the debian file, docker.istio.deb and istio.deb
 include tools/deb/istio.mk
 
+include proxy/Makefile
+
 #-----------------------------------------------------------------------------
 # Target: e2e tests
 #-----------------------------------------------------------------------------

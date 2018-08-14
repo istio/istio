@@ -40,7 +40,7 @@ function is_source_code_file() {
 
 BAD_LICENSE=0
 
-for file in $(git ls-files)
+for file in $(git ls-files proxy/)
 do
   base="$(echo ${file} | awk -F / '{print $1}')"
   [[ "${base}" == "contrib" || "${base}" == "google" || "${base}" == "third_party" ]] && continue
