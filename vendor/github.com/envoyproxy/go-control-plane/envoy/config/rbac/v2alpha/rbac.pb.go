@@ -21,7 +21,7 @@ import math "math"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import envoy_api_v2_core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-import envoy_type_matcher2 "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+import envoy_type_matcher3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
 import io "io"
 
@@ -203,7 +203,7 @@ type Permission_DestinationPort struct {
 	DestinationPort uint32 `protobuf:"varint,6,opt,name=destination_port,json=destinationPort,proto3,oneof"`
 }
 type Permission_Metadata struct {
-	Metadata *envoy_type_matcher2.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
+	Metadata *envoy_type_matcher3.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
 }
 type Permission_NotRule struct {
 	NotRule *Permission `protobuf:"bytes,8,opt,name=not_rule,json=notRule,oneof"`
@@ -267,7 +267,7 @@ func (m *Permission) GetDestinationPort() uint32 {
 	return 0
 }
 
-func (m *Permission) GetMetadata() *envoy_type_matcher2.MetadataMatcher {
+func (m *Permission) GetMetadata() *envoy_type_matcher3.MetadataMatcher {
 	if x, ok := m.GetRule().(*Permission_Metadata); ok {
 		return x.Metadata
 	}
@@ -399,7 +399,7 @@ func _Permission_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buf
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(envoy_type_matcher2.MetadataMatcher)
+		msg := new(envoy_type_matcher3.MetadataMatcher)
 		err := b.DecodeMessage(msg)
 		m.Rule = &Permission_Metadata{msg}
 		return true, err
@@ -525,7 +525,7 @@ type Principal_Header struct {
 	Header *envoy_api_v2_route.HeaderMatcher `protobuf:"bytes,6,opt,name=header,oneof"`
 }
 type Principal_Metadata struct {
-	Metadata *envoy_type_matcher2.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
+	Metadata *envoy_type_matcher3.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
 }
 type Principal_NotId struct {
 	NotId *Principal `protobuf:"bytes,8,opt,name=not_id,json=notId,oneof"`
@@ -589,7 +589,7 @@ func (m *Principal) GetHeader() *envoy_api_v2_route.HeaderMatcher {
 	return nil
 }
 
-func (m *Principal) GetMetadata() *envoy_type_matcher2.MetadataMatcher {
+func (m *Principal) GetMetadata() *envoy_type_matcher3.MetadataMatcher {
 	if x, ok := m.GetIdentifier().(*Principal_Metadata); ok {
 		return x.Metadata
 	}
@@ -724,7 +724,7 @@ func _Principal_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buff
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(envoy_type_matcher2.MetadataMatcher)
+		msg := new(envoy_type_matcher3.MetadataMatcher)
 		err := b.DecodeMessage(msg)
 		m.Identifier = &Principal_Metadata{msg}
 		return true, err
@@ -2054,7 +2054,7 @@ func (m *Permission) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &envoy_type_matcher2.MetadataMatcher{}
+			v := &envoy_type_matcher3.MetadataMatcher{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -2430,7 +2430,7 @@ func (m *Principal) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &envoy_type_matcher2.MetadataMatcher{}
+			v := &envoy_type_matcher3.MetadataMatcher{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
