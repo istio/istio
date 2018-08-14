@@ -60,5 +60,5 @@ pkg_deb(
     package = "istio-proxy",
     postinst = "postinst.sh",
     tags = ["manual"],
-    version_file = "//:deb_version",
+    version_file = "//proxy:deb_version",
 )

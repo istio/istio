@@ -449,6 +449,98 @@ jobs:
       - store_artifacts:
           path: /go/out/dep.diff
 
+  proxy_build:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: rm ~/.gitconfig
+      - run: make proxy.check
+      - run: make proxy.deb
+      - run: make proxy.test
+      - save_cache:
+          key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/tools/deb/istio-proxy.deb
+          destination: /proxy/deb
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/src/envoy/envoy
+          destination: /proxy/bin
+  proxy_linux_asan:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_asan-bazel-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: rm ~/.gitconfig
+      - run: make proxy.test_asan
+      - save_cache:
+          key: linux_asan-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+  proxy_linux_tsan:
+    docker:
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    resource_class: xlarge
+    steps:
+      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
+      - checkout
+      - restore_cache:
+          keys:
+            - linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: rm ~/.gitconfig
+      - run: make proxy_test_tsan
+      - save_cache:
+          key: linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+  proxy_macos:
+    macos:
+      xcode: "9.3.0"
+    environment:
+      - BAZEL_STARTUP_ARGS: "--output_base /Users/distiller/.cache/bazel"
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+    steps:
+      - run: sudo ntpdate -vu time.apple.com
+      - run: brew install bazel cmake coreutils go libtool ninja wget
+      - checkout
+      - restore_cache:
+          keys:
+            - macos_fastbuild_v2-bazel-cache-{{ checksum "WORKSPACE" }}
+      - run: rm ~/.gitconfig
+      - run: make proxy.build_envoy
+      - run: make proxy.test
+      - save_cache:
+          key: macos_fastbuild_v2-bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /Users/distiller/.cache/bazel
+
   nightly:
     <<: *defaults
     resource_class: xlarge
@@ -593,3 +685,7 @@ workflows:
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
+      - proxy_build
+      - proxy_linux_asan
+      - proxy_linux_tsan
+      - proxy_macos
