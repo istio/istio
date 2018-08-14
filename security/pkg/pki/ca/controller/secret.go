@@ -113,9 +113,6 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, iden
 	gracePeriodRatio float32, minGracePeriod time.Duration, core corev1.CoreV1Interface, forCA bool,
 	namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
-	if identityDomain == "" {
-		return nil, fmt.Errorf("identity domain is required")
-	}
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
 	}
