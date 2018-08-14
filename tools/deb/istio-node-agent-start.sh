@@ -50,13 +50,15 @@ fi
 
 CERTS_DIR=${CERTS_DIR:-/etc/certs}
 
-CITADEL_ARGS="--ca-address ${CITADEL_ADDRESS}"
-CITADEL_ARGS="${CITADEL_ARGS} --cert-chain ${CERTS_DIR}/cert-chain.pem"
-CITADEL_ARGS="${CITADEL_ARGS} --key ${CERTS_DIR}/key.pem"
-CITADEL_ARGS="${CITADEL_ARGS} --root-cert ${CERTS_DIR}/root-cert.pem"
+CITADEL_ARGS=(
+  "--ca-address" "${CITADEL_ADDRESS}"
+  "--cert-chain" "${CERTS_DIR}/cert-chain.pem"
+  "--key" "${CERTS_DIR}/key.pem"
+  "--root-cert" "${CERTS_DIR}/root-cert.pem"
+)
 
-if [ ${EXEC_USER} == ${USER:-} ] ; then
-  ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}
+if [ "${EXEC_USER}" == "${USER:-}" ] ; then
+  "${ISTIO_BIN_BASE}/node_agent" "${CITADEL_ARGS[@]}"
 else
-  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS}" ${EXEC_USER}
+  su -s /bin/sh -c "exec ${ISTIO_BIN_BASE}/node_agent ${CITADEL_ARGS[*]}" "${EXEC_USER}"
 fi
