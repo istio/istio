@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	settings   = defaultSettings()
+	settings = defaultSettings()
+	// TODO(nmittler): Add logging options to flags.
 	logOptions = log.DefaultOptions()
 )
 
