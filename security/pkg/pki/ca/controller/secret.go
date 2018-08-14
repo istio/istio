@@ -87,6 +87,9 @@ type SecretController struct {
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
 
+	// Whether the certificates are for dual-use clients (SAN+CN).
+	dualUse bool
+
 	// Whether the certificates are for CAs.
 	forCA bool
 
@@ -105,7 +108,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -121,6 +124,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 		certTTL:          certTTL,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
+		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
 		dnsNames:         dnsNames,
@@ -314,6 +318,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
+		IsDualUse:  sc.dualUse,
 	}
 
 	csrPEM, keyPEM, err := util.GenCSR(options)

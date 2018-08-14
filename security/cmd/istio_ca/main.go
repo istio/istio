@@ -136,6 +136,9 @@ type cliOptions struct { // nolint: maligned
 	// Custom domain options, for control plane and special service accounts
 	// comma separated list of SERVICE_ACCOUNT.NAMESPACE:DOMAIN
 	customDNSNames string
+
+	// Enable dual-use certs - SPIFFE in SAN and in CommonName
+	dualUse bool
 }
 
 var (
@@ -246,6 +249,10 @@ func init() {
 	flags.StringVar(&opts.customDNSNames, "custom-dns-names", "",
 		"The list of account.namespace:customdns names, separated by comma.")
 
+	// Dual-use certficate signing
+	flags.BoolVar(&opts.dualUse, "experimental-dual-use",
+		false, "Enable dual-use mode. Generates certificates with a CommonName identical to the SAN.")
+
 	rootCmd.AddCommand(version.CobraCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
@@ -319,8 +326,10 @@ func runCA() {
 	cs := createClientset()
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc, err := controller.NewSecretController(ca, opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
-		opts.workloadCertMinGracePeriod, cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
+	sc, err := controller.NewSecretController(ca,
+		opts.workloadCertTTL, opts.workloadCertGracePeriodRatio,
+		opts.workloadCertMinGracePeriod, opts.dualUse,
+		cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("Failed to create secret controller: %v", err)
 	}
@@ -415,7 +424,8 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.istioCaStorageNamespace, core)
+			opts.maxWorkloadCertTTL, opts.selfSignedCAOrg, opts.dualUse,
+			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}
