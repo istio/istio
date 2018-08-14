@@ -30,13 +30,13 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/control/http:headers_lib",
-        "//include/istio/utils:attribute_names_header",
-        "//src/istio/api_spec:api_spec_lib",
-        "//src/istio/authn:context_proto",
-        "//src/istio/control:common_lib",
-        "//src/istio/utils:attribute_names_lib",
-        "//src/istio/utils:utils_lib",
+        "//proxy/include/istio/control/http:headers_lib",
+        "//proxy/include/istio/utils:attribute_names_header",
+        "//proxy/src/istio/api_spec:api_spec_lib",
+        "//proxy/src/istio/authn:context_proto",
+        "//proxy/src/istio/control:common_lib",
+        "//proxy/src/istio/utils:attribute_names_lib",
+        "//proxy/src/istio/utils:utils_lib",
     ],
 )
 
@@ -74,6 +74,6 @@ cc_test(
         ":control_lib",
         ":mock_headers",
         "//external:googletest_main",
-        "//src/istio/control:mock_mixer_client",
+        "//proxy/src/istio/control:mock_mixer_client",
     ],
 )

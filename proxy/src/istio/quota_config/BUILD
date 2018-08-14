@@ -23,7 +23,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:mixer_client_config_cc_proto",
-        "//include/istio/quota_config:headers_lib",
+        "//proxy/include/istio/quota_config:headers_lib",
     ],
 )
 
@@ -39,6 +39,6 @@ cc_test(
     deps = [
         ":config_parser_lib",
         "//external:googletest_main",
-        "//include/istio/utils:headers_lib",
+        "//proxy/include/istio/utils:headers_lib",
     ],
 )

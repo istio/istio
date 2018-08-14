@@ -56,12 +56,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:mixer_api_cc_proto",
-        "//include/istio/mixerclient:headers_lib",
-        "//include/istio/quota_config:requirement_header",
-        "//include/istio/utils:simple_lru_cache",
-        "//src/istio/prefetch:quota_prefetch_lib",
-        "//src/istio/utils:md5_lib",
-        "//src/istio/utils:utils_lib",
+        "//proxy/include/istio/mixerclient:headers_lib",
+        "//proxy/include/istio/quota_config:requirement_header",
+        "//proxy/include/istio/utils:simple_lru_cache",
+        "//proxy/src/istio/prefetch:quota_prefetch_lib",
+        "//proxy/src/istio/utils:md5_lib",
+        "//proxy/src/istio/utils:utils_lib",
     ],
 )
 
@@ -146,7 +146,7 @@ cc_test(
     size = "small",
     srcs = ["client_impl_test.cc"],
     linkopts = select({
-        "//:darwin": [],
+        "//proxy:darwin": [],
         "//conditions:default": [
             "-lm",
             "-lpthread",

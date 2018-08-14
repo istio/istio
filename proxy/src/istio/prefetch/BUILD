@@ -24,7 +24,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/prefetch:headers_lib",
+        "//proxy/include/istio/prefetch:headers_lib",
     ],
 )
 

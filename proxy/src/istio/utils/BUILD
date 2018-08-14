@@ -23,7 +23,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:protobuf",
-        "//include/istio/utils:headers_lib",
+        "//proxy/include/istio/utils:headers_lib",
     ],
 )
 
@@ -33,7 +33,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:boringssl_crypto",
-        "//include/istio/utils:headers_lib",
+        "//proxy/include/istio/utils:headers_lib",
     ],
 )
 
@@ -48,7 +48,7 @@ cc_test(
     linkstatic = 1,
     deps = [
         "//external:googletest_main",
-        "//include/istio/utils:simple_lru_cache",
+        "//proxy/include/istio/utils:simple_lru_cache",
     ],
 )
 
@@ -74,6 +74,6 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/utils:attribute_names_header",
+        "//proxy/include/istio/utils:attribute_names_header",
     ],
 )

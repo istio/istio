@@ -26,6 +26,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:mixer_api_cc_proto",
-        "//include/istio/quota_config:requirement_header",
+        "//proxy/include/istio/quota_config:requirement_header",
     ],
 )

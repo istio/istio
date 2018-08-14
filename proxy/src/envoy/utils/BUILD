@@ -32,9 +32,9 @@ envoy_cc_library(
     repository = "@envoy",
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/utils:attribute_names_header",
-        "//src/istio/authn:context_proto",
-        "//src/istio/utils:attribute_names_lib",
+        "//proxy/include/istio/utils:attribute_names_header",
+        "//proxy/src/istio/authn:context_proto",
+        "//proxy/src/istio/utils:attribute_names_lib",
         ":filter_names_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
@@ -61,8 +61,8 @@ envoy_cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:mixer_client_config_cc_proto",
-        "//src/istio/control/http:control_lib",
-        "//src/istio/mixerclient:mixerclient_lib",
+        "//proxy/src/istio/control/http:control_lib",
+        "//proxy/src/istio/mixerclient:mixerclient_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

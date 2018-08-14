@@ -27,10 +27,10 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//include/istio/control/tcp:headers_lib",
-        "//include/istio/utils:attribute_names_header",
-        "//src/istio/control:common_lib",
-        "//src/istio/utils:attribute_names_lib",
+        "//proxy/include/istio/control/tcp:headers_lib",
+        "//proxy/include/istio/utils:attribute_names_header",
+        "//proxy/src/istio/control:common_lib",
+        "//proxy/src/istio/utils:attribute_names_lib",
     ],
 )
 
@@ -61,6 +61,6 @@ cc_test(
     deps = [
         ":control_lib",
         "//external:googletest_main",
-        "//src/istio/control:mock_mixer_client",
+        "//proxy/src/istio/control:mock_mixer_client",
     ],
 )

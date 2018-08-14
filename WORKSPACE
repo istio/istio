@@ -16,7 +16,7 @@
 #
 
 load(
-     "//:repositories.bzl",
+     "//proxy:repositories.bzl",
      "googletest_repositories",
      "mixerapi_dependencies",
 )

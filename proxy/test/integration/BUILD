@@ -28,11 +28,11 @@ envoy_cc_test(
     deps = [
         "@envoy//source/common/common:utility_lib",
         "@envoy//test/integration:http_protocol_integration_lib",
-        "//include/istio/utils:attribute_names_header",
-        "//src/envoy/http/authn:filter_lib",
-        "//src/envoy/http/jwt_auth:http_filter_factory",
-        "//src/envoy/http/jwt_auth:jwt_lib",
-        "//src/envoy/utils:filter_names_lib",
-        "//src/envoy/http/mixer:filter_lib",
+        "//proxy/include/istio/utils:attribute_names_header",
+        "//proxy/src/envoy/http/authn:filter_lib",
+        "//proxy/src/envoy/http/jwt_auth:http_filter_factory",
+        "//proxy/src/envoy/http/jwt_auth:jwt_lib",
+        "//proxy/src/envoy/utils:filter_names_lib",
+        "//proxy/src/envoy/http/mixer:filter_lib",
     ],
 )
