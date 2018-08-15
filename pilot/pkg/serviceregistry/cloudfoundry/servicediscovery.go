@@ -108,11 +108,6 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 	return nil, nil
 }
 
-// Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, errors.New("not implemented. use InstancesByPort instead")
-}
-
 // InstancesByPort implements a service catalog operation
 func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, _ int, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.RoutesRepo.Get()

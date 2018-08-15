@@ -158,36 +158,6 @@ func (d *ServiceEntryStore) WorkloadHealthCheckInfo(addr string) model.ProbeList
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-// This is only called from v1 code paths - which don't support ServiceEntry,
-// so it production it should never happen in v1/alpha1 case
-// However, since we implement this method, v1 users will still get the ServiceEntry.
-// This contradicts the general migration policy of keeping alpha3 separated, but
-// may help in cases where mesh expansion is moved with some workloads still using
-// v1.
-func (d *ServiceEntryStore) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	portMap := make(map[string]bool)
-	for _, port := range ports {
-		portMap[port] = true
-	}
-
-	out := []*model.ServiceInstance{}
-	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
-			if instance.Service.Hostname == hostname &&
-				labels.HasSubsetOf(instance.Labels) &&
-				portMatchEnvoyV1(instance, portMap) {
-				out = append(out, instance)
-			}
-		}
-	}
-
-	return out, nil
-}
-
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,

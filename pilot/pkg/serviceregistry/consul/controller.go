@@ -15,7 +15,6 @@
 package consul
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -112,13 +111,6 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // might revisit this function.
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
-}
-
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
 }
 
 // InstancesByPort retrieves instances for a service that match
