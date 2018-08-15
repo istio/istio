@@ -15,7 +15,6 @@
 package cloudmonitor
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -65,7 +64,7 @@ func TestGenerateMetricData(t *testing.T) {
 			},
 			[]*CustomMetricRequest{
 				{
-					GroupId:    1,
+					GroupID:    1,
 					MetricName: "requestcount",
 					Dimensions: map[string]interface{}{
 						"arbitraryDimension": 50.0,
@@ -86,9 +85,9 @@ func TestGenerateMetricData(t *testing.T) {
 			t.Error("Test case has the wrong type of handler.")
 		}
 
-		md := h.generateMetricData(c.insts)
-		var metricList []CustomMetricRequest
-		json.Unmarshal([]byte(md.MetricList), &metricList)
+		metricList := h.generateMetricData(c.insts)
+		//var metricList []CustomMetricRequest
+		//json.Unmarshal([]byte(md.MetricList), &metricList)
 
 		if len(c.expectedMetricData) != len(metricList) {
 			t.Errorf("Expected %v metric data items but got %v", len(c.expectedMetricData), len(metricList))

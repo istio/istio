@@ -72,7 +72,8 @@ func (h *handler) sendMetricsToCloudMonitor(metricData []*CustomMetricRequest) (
 		}
 
 		customMetricRequest := cms.CreatePutCustomMetricRequest()
-		output, _ := json.Marshal(&metricData)
+		batchMetricData := metricData[i:size]
+		output, _ := json.Marshal(&batchMetricData)
 		customMetricRequest.MetricList = string(output)
 
 		_, err := h.client.PutCustomMetric(customMetricRequest)
