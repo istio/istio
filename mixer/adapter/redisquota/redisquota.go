@@ -298,11 +298,12 @@ func (h *handler) getKeyAndQuotaAmount(instance *quota.Instance, quota *config.P
 				// override key and max amount
 				key = key + "-" + hash
 				maxAmount = quota.Overrides[idx].MaxAmount
-			} else {
-				// This should not be happen
-				return "", 0, fmt.Errorf("quota override dimension hash lookup failed: %v in %v",
-					h.limits[instance.Name].Overrides[idx].Dimensions, h.dimensionHash)
+				return key, maxAmount, nil
 			}
+
+			// This should not be happen
+			return "", 0, fmt.Errorf("quota override dimension hash lookup failed: %v in %v",
+				h.limits[instance.Name].Overrides[idx].Dimensions, h.dimensionHash)
 		}
 	}
 
