@@ -151,5 +151,6 @@ spec:
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
+          optional: true   
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

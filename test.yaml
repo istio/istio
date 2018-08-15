@@ -1,0 +1,640 @@
+---
+# Source: istio/templates/configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
+  labels:
+    app: istio
+    chart: istio-1.0.0
+    release: istio
+    heritage: Tiller
+data:
+  mesh: |-
+    # Set the following variable to true to disable policy checks by the Mixer.
+    # Note that metrics will still be reported to the Mixer.
+    disablePolicyChecks: false
+
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: true
+
+    # Set accessLogFile to empty string to disable access log.
+    accessLogFile: "/dev/stdout"
+    #
+    # Deprecated: mixer is using EDS
+
+    # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    sdsUdsPath: ""
+    
+    # How frequently should Envoy fetch key/cert from NodeAgent.
+    sdsRefreshDelay: 15s
+
+    #
+    defaultConfig:
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      binaryPath: "/usr/local/bin/envoy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # The mode used to redirect inbound connections to Envoy. This setting
+      # has no effect on outbound traffic: iptables REDIRECT is always used for
+      # outbound connections.
+      # If "REDIRECT", use iptables REDIRECT to NAT and redirect to Envoy.
+      # The "REDIRECT" mode loses source addresses during redirection.
+      # If "TPROXY", use iptables TPROXY to redirect to Envoy.
+      # The "TPROXY" mode preserves both the source and destination IP
+      # addresses and ports, so that they can be used for advanced filtering
+      # and manipulation.
+      # The "TPROXY" mode also configures the sidecar to run with the
+      # CAP_NET_ADMIN capability, which is required to use TPROXY.
+      #interceptionMode: REDIRECT
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Zipkin trace collector
+      zipkinAddress: zipkin.istio-system:9411
+      #
+      # Mutual TLS authentication between sidecars and istio control plane.
+      controlPlaneAuthPolicy: NONE
+      #
+      # Address where istio Pilot service is running
+      discoveryAddress: istio-pilot.istio-system:15007
+
+---
+# Source: istio/templates/sidecar-injector-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-sidecar-injector
+  namespace: istio-system
+  labels:
+    app: istio
+    chart: istio-1.0.0
+    release: istio
+    heritage: Tiller
+    istio: sidecar-injector
+data:
+  config: |-
+    policy: enabled
+    template: |-
+      initContainers:
+      - name: istio-init
+        image: "docker.io/istio/proxy_init:1.0.0"
+        args:
+        - "-p"
+        - [[ .MeshConfig.ProxyListenPort ]]
+        - "-u"
+        - 1337
+        - "-m"
+        - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+        - "-i"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"  ]]"
+        [[ else -]]
+        - "*"
+        [[ end -]]
+        - "-x"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges"  ]]"
+        [[ else -]]
+        - ""
+        [[ end -]]
+        - "-b"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts"  ]]"
+        [[ else -]]
+        - [[ range .Spec.Containers -]][[ range .Ports -]][[ .ContainerPort -]], [[ end -]][[ end -]][[ end]]
+        - "-d"
+        [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
+        - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
+        [[ else -]]
+        - ""
+        [[ end -]]
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+        restartPolicy: Always
+      
+      containers:
+      - name: istio-proxy
+        image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
+        "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
+        [[ else -]]
+        docker.io/istio/proxyv2:1.0.0
+        [[ end -]]
+        args:
+        - proxy
+        - sidecar
+        - --configPath
+        - [[ .ProxyConfig.ConfigPath ]]
+        - --binaryPath
+        - [[ .ProxyConfig.BinaryPath ]]
+        - --serviceCluster
+        [[ if ne "" (index .ObjectMeta.Labels "app") -]]
+        - [[ index .ObjectMeta.Labels "app" ]]
+        [[ else -]]
+        - "istio-proxy"
+        [[ end -]]
+        - --drainDuration
+        - [[ formatDuration .ProxyConfig.DrainDuration ]]
+        - --parentShutdownDuration
+        - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
+        - --discoveryAddress
+        - [[ .ProxyConfig.DiscoveryAddress ]]
+        - --discoveryRefreshDelay
+        - [[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]
+        - --zipkinAddress
+        - [[ .ProxyConfig.ZipkinAddress ]]
+        - --connectTimeout
+        - [[ formatDuration .ProxyConfig.ConnectTimeout ]]
+        - --proxyAdminPort
+        - [[ .ProxyConfig.ProxyAdminPort ]]
+        - --controlPlaneAuthPolicy
+        - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/controlPlaneAuthPolicy") .ProxyConfig.ControlPlaneAuthPolicy ]]
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ISTIO_META_INTERCEPTION_MODE
+          value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: false
+          readOnlyRootFilesystem: true
+          [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+          capabilities:
+            add:
+            - NET_ADMIN
+          runAsGroup: 1337
+          [[ else -]]
+          runAsUser: 1337
+          [[ end -]]
+        restartPolicy: Always
+        resources:
+          [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyCPU") -]]
+          requests:
+            cpu: "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyCPU" ]]"
+            memory: "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyMemory" ]]"
+        [[ else -]]
+          requests:
+            cpu: 10m
+          
+        [[ end -]]
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          [[ if eq .Spec.ServiceAccountName "" -]]
+          secretName: istio.default
+          [[ else -]]
+          secretName: [[ printf "istio.%s" .Spec.ServiceAccountName ]]
+          [[ end -]]
+
+---
+# Source: istio/charts/pilot/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: istio-system
+  labels:
+    app: istio-pilot
+    chart: pilot-1.0.0
+    heritage: Tiller
+    release: istio
+
+---
+# Source: istio/templates/crds.yaml
+# 
+# these CRDs only make sense when pilot is enabled
+#
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualservices.networking.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+  labels:
+    app: istio-pilot
+spec:
+  group: networking.istio.io
+  names:
+    kind: VirtualService
+    listKind: VirtualServiceList
+    plural: virtualservices
+    singular: virtualservice
+    categories:
+    - istio-io
+    - networking-istio-io
+  scope: Namespaced
+  version: v1alpha3
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationrules.networking.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+  labels:
+    app: istio-pilot
+spec:
+  group: networking.istio.io
+  names:
+    kind: DestinationRule
+    listKind: DestinationRuleList
+    plural: destinationrules
+    singular: destinationrule
+    categories:
+    - istio-io
+    - networking-istio-io
+  scope: Namespaced
+  version: v1alpha3
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceentries.networking.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+  labels:
+    app: istio-pilot
+spec:
+  group: networking.istio.io
+  names:
+    kind: ServiceEntry
+    listKind: ServiceEntryList
+    plural: serviceentries
+    singular: serviceentry
+    categories:
+    - istio-io
+    - networking-istio-io
+  scope: Namespaced
+  version: v1alpha3
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: gateways.networking.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+    "helm.sh/hook-weight": "-5"
+  labels:
+    app: istio-pilot
+spec:
+  group: networking.istio.io
+  names:
+    kind: Gateway
+    plural: gateways
+    singular: gateway
+    categories:
+    - istio-io
+    - networking-istio-io
+  scope: Namespaced
+  version: v1alpha3 
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: envoyfilters.networking.istio.io
+  annotations:
+    "helm.sh/hook": crd-install
+  labels:
+    app: istio-pilot
+spec:
+  group: networking.istio.io
+  names:
+    kind: EnvoyFilter
+    plural: envoyfilters
+    singular: envoyfilter
+    categories:
+    - istio-io
+    - networking-istio-io
+  scope: Namespaced
+  version: v1alpha3
+---
+#
+
+# these CRDs only make sense when security is enabled
+#
+
+#
+# 
+---
+# Source: istio/charts/pilot/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio-pilot-istio-system
+  labels:
+    app: istio-pilot
+    chart: pilot-1.0.0
+    heritage: Tiller
+    release: istio
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["rbac.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["authentication.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "watch", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# Source: istio/charts/pilot/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-pilot-istio-system
+  labels:
+    app: istio-pilot
+    chart: pilot-1.0.0
+    heritage: Tiller
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-pilot-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-pilot-service-account
+    namespace: istio-system
+
+---
+# Source: istio/charts/pilot/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: istio-system
+  labels:
+    app: istio-pilot
+    chart: pilot-1.0.0
+    release: istio
+    heritage: Tiller
+spec:
+  ports:
+  - port: 15010
+    name: grpc-xds # direct
+  - port: 15011
+    name: https-xds # mTLS
+  - port: 8080
+    name: http-legacy-discovery # direct
+  - port: 9093
+    name: http-monitoring
+  selector:
+    istio: pilot
+
+---
+# Source: istio/charts/pilot/templates/deployment.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-pilot
+  namespace: istio-system
+  # TODO: default template doesn't have this, which one is right ?
+  labels:
+    app: istio-pilot
+    chart: pilot-1.0.0
+    release: istio
+    heritage: Tiller
+    istio: pilot
+  annotations:
+    checksum/config-volume: f8da08b6b8c170dde721efd680270b2901e750d4aa186ebb6c22bef5b78a43f9
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: pilot
+        app: pilot
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-pilot-service-account
+      containers:
+        - name: discovery
+          image: "docker.io/istio/pilot:1.0.0"
+          imagePullPolicy: IfNotPresent
+          args:
+          - "discovery"
+          - --secureGrpcAddr
+          - ":15011"
+          ports:
+          - containerPort: 8080
+          - containerPort: 15010
+          - containerPort: 15011
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: PILOT_THROTTLE
+            value: "500"
+          - name: PILOT_CACHE_SQUASH
+            value: "5"
+          - name: GODEBUG
+            value: "gctrace=2"
+          - name: PILOT_PUSH_THROTTLE_COUNT
+            value: "100"
+          - name: PILOT_TRACE_SAMPLING
+            value: "100"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2048Mi
+            
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio          
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: beta.kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+
+---
+# Source: istio/charts/pilot/templates/gateway.yaml
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-autogenerated-k8s-ingress
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingress
+  servers:
+  - port:
+      number: 80
+      protocol: HTTP2
+      name: http
+    hosts:
+    - "*"
+
+---
+
+---
+# Source: istio/charts/pilot/templates/autoscale.yaml
+
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: istio-pilot
+spec:
+    maxReplicas: 5
+    minReplicas: 1
+    scaleTargetRef:
+      apiVersion: apps/v1beta1
+      kind: Deployment
+      name: istio-pilot
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: 80
+---
+
+---
+# Source: istio/charts/gateways/templates/autoscale.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/clusterrole.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/clusterrolebindings.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/deployment.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/service.yaml
+
+
+---
+# Source: istio/charts/gateways/templates/serviceaccount.yaml
+
+
+---
+# Source: istio/charts/pilot/templates/meshexpansion.yaml
+
+
+---
+# Source: istio/charts/telemetry-gateway/templates/gateway.yaml
+
+
+---
+# Source: istio/templates/install-custom-resources.sh.tpl
