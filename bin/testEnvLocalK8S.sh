@@ -198,6 +198,7 @@ function startEnvoy() {
     "${ISTIO_OUT}/envoy" -c tests/testdata/multicluster/envoy_local_v2.yaml \
         --base-id 4 --service-cluster xds_cluster \
         --service-node local.test \
+        --allow-unknown-fields \
         --log-level debug \
         --log-path "${LOG_DIR}/envoy.log"&
     echo $! > "$LOG_DIR/envoy4.pid"
