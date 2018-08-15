@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/tracing"
 )
@@ -53,8 +54,8 @@ type Args struct {
 	// If this is empty (and ConfigStore isn't specified), "k8s://" will be used.
 	ConfigStoreURL string
 
-	// The folder to read service account certificates from. This is used for connecting to the MCP backend.
-	CertFolder string
+	// The certificate file locations for the MCP config backend.
+	CertificateInfo store.CertificateInfo
 
 	// For testing; this one is used for the backend store if ConfigStoreURL is empty. Specifying both is invalid.
 	ConfigStore store.Store
@@ -106,13 +107,17 @@ type Args struct {
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIPort:                9091,
-		MonitoringPort:         9093,
-		MaxMessageSize:         1024 * 1024,
-		MaxConcurrentStreams:   1024,
-		APIWorkerPoolSize:      1024,
-		AdapterWorkerPoolSize:  1024,
-		CertFolder:             "/etc/certs",
+		APIPort:               9091,
+		MonitoringPort:        9093,
+		MaxMessageSize:        1024 * 1024,
+		MaxConcurrentStreams:  1024,
+		APIWorkerPoolSize:     1024,
+		AdapterWorkerPoolSize: 1024,
+		CertificateInfo: store.CertificateInfo{
+			CertificateFile:   "/etc/certs/" + creds.DefaultCertificateFile,
+			KeyFile:           "/etc/certs/" + creds.DefaultKeyFile,
+			CACertificateFile: "/etc/certs/" + creds.DefaultCACertificateFile,
+		},
 		ConfigDefaultNamespace: constant.DefaultConfigNamespace,
 		LoggingOptions:         log.DefaultOptions(),
 		TracingOptions:         tracing.DefaultOptions(),
@@ -155,7 +160,9 @@ func (a *Args) String() string {
 	fmt.Fprint(buf, "SingleThreaded: ", a.SingleThreaded, "\n")
 	fmt.Fprint(buf, "NumCheckCacheEntries: ", a.NumCheckCacheEntries, "\n")
 	fmt.Fprint(buf, "ConfigStoreURL: ", a.ConfigStoreURL, "\n")
-	fmt.Fprint(buf, "CertFolder: ", a.CertFolder, "\n")
+	fmt.Fprint(buf, "CertificateFile: ", a.CertificateInfo.CertificateFile, "\n")
+	fmt.Fprint(buf, "KeyFile: ", a.CertificateInfo.KeyFile, "\n")
+	fmt.Fprint(buf, "CACertificateFile: ", a.CertificateInfo.CACertificateFile, "\n")
 	fmt.Fprint(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n")
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)

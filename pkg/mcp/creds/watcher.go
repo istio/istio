@@ -30,6 +30,15 @@ import (
 
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
 
+const (
+	// DefaultCertificateFile is the default name to use for the certificate file.
+	DefaultCertificateFile = "cert-chain.pem"
+	// DefaultKeyFile is the default name to use for the key file.
+	DefaultKeyFile = "key.pem"
+	// DefaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
+	DefaultCACertificateFile = "root-cert.pem"
+)
+
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
 type CertificateWatcher struct {
 	caCertFile string
@@ -53,9 +62,9 @@ type CertificateWatcher struct {
 //
 // Internally WatchFolder will call WatchFiles.
 func WatchFolder(stop <-chan struct{}, folder string) (*CertificateWatcher, error) {
-	certFile := path.Join(folder, "cert-chain.pem")
-	keyFile := path.Join(folder, "key.pem")
-	caCertFile := path.Join(folder, "root-cert.pem")
+	certFile := path.Join(folder, DefaultCertificateFile)
+	keyFile := path.Join(folder, DefaultKeyFile)
+	caCertFile := path.Join(folder, DefaultCACertificateFile)
 
 	return WatchFiles(stop, certFile, keyFile, caCertFile)
 }
