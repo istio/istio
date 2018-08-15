@@ -214,5 +214,7 @@ var (
 		"context.reporter.type",
 		"context.reporter.kind",
 		"connection.requested_server_name",
+		"request.url_path",
+		"request.query_params",
     }
 )
