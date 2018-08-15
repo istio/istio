@@ -16,9 +16,9 @@ package configdump
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
-	"github.com/bradfitz/slice"
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	proto "github.com/gogo/protobuf/types"
 )
@@ -55,7 +55,7 @@ func (w *Wrapper) GetDynamicRouteDump(stripVersions bool) (*adminapi.RoutesConfi
 		return nil, err
 	}
 	drc := routeDump.GetDynamicRouteConfigs()
-	slice.Sort(drc, func(i, j int) bool {
+	sort.Slice(drc, func(i, j int) bool {
 		return drc[i].RouteConfig.Name < drc[j].RouteConfig.Name
 	})
 	if stripVersions {
