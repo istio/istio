@@ -228,7 +228,7 @@ func buildListenerEnv() model.Environment {
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushContext:      model.NewStatus(),
+		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

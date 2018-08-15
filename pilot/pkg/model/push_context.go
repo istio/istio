@@ -198,8 +198,8 @@ var (
 	metrics []*PushMetric
 )
 
-// NewStatus creates a new PushContext structure to track push status.
-func NewStatus() *PushContext {
+// NewPushContext creates a new PushContext structure to track push status.
+func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceByHostname: map[Hostname]*Service{},
