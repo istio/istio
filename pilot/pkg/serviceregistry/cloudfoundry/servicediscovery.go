@@ -15,7 +15,6 @@
 package cloudfoundry
 
 import (
-	"errors"
 	"fmt"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"

@@ -230,11 +230,6 @@ func (d *ServiceEntryStore) update() {
 }
 
 // returns true if an instance's port matches with any in the provided list
-func portMatchEnvoyV1(instance *model.ServiceInstance, portMap map[string]bool) bool {
-	return len(portMap) == 0 || portMap[instance.Endpoint.ServicePort.Name]
-}
-
-// returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.Endpoint.ServicePort.Port
 }
@@ -253,7 +248,7 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
-func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a
 	// service, with service instances, and dns.
 	return nil

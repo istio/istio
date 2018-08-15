@@ -276,7 +276,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	for _, r := range c.GetRegistries() {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts

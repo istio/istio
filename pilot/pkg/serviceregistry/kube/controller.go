@@ -492,7 +492,7 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
@@ -507,13 +507,18 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 		return nil
 	}
 
+	instances := make([]*model.ServiceInstance, 0)
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
-	instances, err := c.Instances(hostname, ports, model.LabelsCollection{})
-	if err != nil {
-		log.Warnf("Instances(%s) error: %v", hostname, err)
-		return nil
+	for _, port := range ports {
+		svcinstances, err := c.InstancesByPort(hostname, port, model.LabelsCollection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+			return nil
+		}
+		instances = append(instances, svcinstances...)
 	}
+
 	for _, si := range instances {
 		if si.ServiceAccount != "" {
 			saSet[si.ServiceAccount] = true
