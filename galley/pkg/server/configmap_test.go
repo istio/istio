@@ -90,7 +90,7 @@ allowed:
 
 	writeFile(t, file, updated)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 3000; i++ {
 		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
 			return
 		}
