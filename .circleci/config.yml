@@ -492,14 +492,14 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+            - linux_release-bazel-cache-{{ checksum "WORKSPACE" }}
       - run: rm ~/.gitconfig
       - run: openssl aes-256-cbc -d -in .circleci/accounts/istio-circle-ci.gcp.serviceaccount -out serviceaccount.json -k "${GCS_BUCKET_TOKEN}" -md sha256
       - run: gcloud auth activate-service-account --key-file serviceaccount.json
       - run: make proxy.build BAZEL_BUILD_ARGS="--config=release"
       - run: gsutil cp -n bazel-bin/proxy/src/envoy/envoy_tar.tar.gz gs://istio-build/proxy/envoy-release-$(tools/last_proxy_change).tar.gz
       - save_cache:
-          key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
+          key: linux_release-bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel
       - store_artifacts:
