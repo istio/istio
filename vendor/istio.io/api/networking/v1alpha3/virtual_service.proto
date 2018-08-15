@@ -18,7 +18,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
 // $title: Traffic Routing
-// $description: Configuration affecting traffic routing
+// $description: Configuration affecting traffic routing.
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 // $aliases:
 // $  - /docs/reference/config/istio.routing.v1alpha1/
