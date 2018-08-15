@@ -74,7 +74,23 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// DO NOT CALL PLUGINS for this cluster.
 	clusters = append(clusters, buildBlackHoleCluster())
 
-	return clusters, nil // TODO: normalize/dedup/order
+	return normalizeClusters(clusters), nil
+}
+
+// resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
+// for any clusters that share the same name the first cluster is kept and the others are discarded.
+func normalizeClusters(clusters []*v2.Cluster) []*v2.Cluster {
+	have := make(map[string]bool)
+	out := make([]*v2.Cluster, 0, len(clusters))
+	for _, cluster := range clusters {
+		if !have[cluster.Name] {
+			out = append(out, cluster)
+		} else {
+			log.Warnf("duplicate cluster name: %q", cluster.Name)
+		}
+		have[cluster.Name] = true
+	}
+	return out
 }
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
