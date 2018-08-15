@@ -91,7 +91,7 @@ func createState(t *testing.T) *testState {
 		st.updateWg.Done()
 	}
 
-	if st.backend, err = newStore(st.server.URL, "", hookFn); err != nil {
+	if st.backend, err = newStore(st.server.URL, nil, hookFn); err != nil {
 		t.Fatal(err)
 	}
 

@@ -49,8 +49,8 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builder := func(u *url.URL, gv *schema.GroupVersion, certFolder string) (store.Backend, error) {
-		return newStore(u, certFolder, nil)
+	builder := func(u *url.URL, gv *schema.GroupVersion, certInfo *store.CertificateInfo) (store.Backend, error) {
+		return newStore(u, certInfo, nil)
 	}
 
 	builders["mcp"] = builder
@@ -58,13 +58,13 @@ func Register(builders map[string]store.Builder) {
 }
 
 // NewStore creates a new Store instance.
-func newStore(u *url.URL, certFolder string, fn updateHookFn) (store.Backend, error) {
+func newStore(u *url.URL, certInfo *store.CertificateInfo, fn updateHookFn) (store.Backend, error) {
 	insecure := u.Scheme == "mcpi"
 
 	return &backend{
 		serverAddress: u.Host,
 		insecure:      insecure,
-		certFolder:    certFolder,
+		certInfo:      certInfo,
 		Probe:         probe.NewProbe(),
 		updateHook:    fn,
 	}, nil
@@ -84,8 +84,8 @@ type backend struct {
 	// address of the MCP server.
 	serverAddress string
 
-	// The folder from which to load certificates.
-	certFolder string
+	// The location of the certificate files.
+	certInfo *store.CertificateInfo
 
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
@@ -141,15 +141,11 @@ func (b *backend) Init(kinds []string) error {
 			address = strings.Split(address, ":")[0]
 		}
 
-		watcher, err := creds.WatchFolder(ctx.Done(), b.certFolder)
+		watcher, err := creds.WatchFiles(ctx.Done(), b.certInfo.CertificateFile, b.certInfo.KeyFile, b.certInfo.CACertificateFile)
 		if err != nil {
 			return err
 		}
-		credentials, err := creds.CreateForClient(address, watcher)
-		if err != nil {
-			return err
-		}
-
+		credentials := creds.CreateForClient(address, watcher)
 		securityOption = grpc.WithTransportCredentials(credentials)
 	}
 
