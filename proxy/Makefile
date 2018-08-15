@@ -24,7 +24,7 @@ HUB ?=
 TAG ?=
 
 proxy.build:
-	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/...
+	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //proxy/... //proxy/src/envoy:envoy_tar
 
 # Build only envoy - fast
 proxy.build_envoy:
