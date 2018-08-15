@@ -449,40 +449,12 @@ jobs:
       - store_artifacts:
           path: /go/out/dep.diff
 
-  proxy_build:
-    docker:
-      - image: istio/ci:go1.9-bazel0.11
-    environment:
-      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
-    resource_class: xlarge
-    steps:
-      - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config
-      - checkout
-      - restore_cache:
-          keys:
-            - linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
-      # To build docker containers or run tests in a docker
-      - setup_remote_docker
-      - run: rm ~/.gitconfig
-      - run: make proxy.check
-      - run: make proxy.deb
-      - run: make proxy.test
-      - save_cache:
-          key: linux_fastbuild-bazel-cache-{{ checksum "WORKSPACE" }}
-          paths:
-            - /home/circleci/.cache/bazel
-      - store_artifacts:
-          path: /home/circleci/project/bazel-bin/tools/deb/istio-proxy.deb
-          destination: /proxy/deb
-      - store_artifacts:
-          path: /home/circleci/project/bazel-bin/src/envoy/envoy
-          destination: /proxy/bin
   proxy_release:
     docker:
       - image: istio/ci:go1.9-bazel0.11
     environment:
-      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+      - BAZEL_TEST_ARGS: "--jobs=8 --config=release --test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+      - BAZEL_BUILD_ARGS: "--jobs=8 --config=release"
     resource_class: xlarge
     steps:
       - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
@@ -496,7 +468,10 @@ jobs:
       - run: rm ~/.gitconfig
         #- run: openssl aes-256-cbc -d -in .circleci/accounts/istio-circle-ci.gcp.serviceaccount -out serviceaccount.json -k "${GCS_BUCKET_TOKEN}" -md sha256
         #- run: gcloud auth activate-service-account --key-file serviceaccount.json
-      - run: make proxy.build BAZEL_BUILD_ARGS="--config=release"
+      - run: make proxy.check
+      - run: make proxy.build
+      - run: make proxy.deb
+      - run: make proxy.test
         #- run: gsutil cp -n bazel-bin/proxy/src/envoy/envoy_tar.tar.gz gs://istio-build/proxy/envoy-release-$(tools/last_proxy_change).tar.gz
       - save_cache:
           key: linux_release-bazel-cache-{{ checksum "WORKSPACE" }}
@@ -512,7 +487,7 @@ jobs:
     docker:
       - image: istio/ci:go1.9-bazel0.11
     environment:
-      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+      - BAZEL_TEST_ARGS: "--jobs=8 --test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
       - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
@@ -521,8 +496,6 @@ jobs:
       - restore_cache:
           keys:
             - linux_asan-bazel-cache-{{ checksum "WORKSPACE" }}
-      # To build docker containers or run tests in a docker
-      - setup_remote_docker
       - run: rm ~/.gitconfig
       - run: make proxy.test_asan
       - save_cache:
@@ -533,7 +506,7 @@ jobs:
     docker:
       - image: istio/ci:go1.9-bazel0.11
     environment:
-      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
+      - BAZEL_TEST_ARGS: "--jobs=8 --test_env=ENVOY_IP_TEST_VERSIONS=v4only --test_output=all"
     resource_class: xlarge
     steps:
       - run: curl -Lo /tmp/bazel.deb https://github.com/bazelbuild/bazel/releases/download/0.15.2/bazel_0.15.2-linux-x86_64.deb && sudo dpkg -i /tmp/bazel.deb && rm /tmp/bazel.deb
@@ -542,8 +515,6 @@ jobs:
       - restore_cache:
           keys:
             - linux_tsan-bazel-cache-{{ checksum "WORKSPACE" }}
-      # To build docker containers or run tests in a docker
-      - setup_remote_docker
       - run: rm ~/.gitconfig
       - run: make proxy.test_tsan
       - save_cache:
@@ -718,7 +689,6 @@ workflows:
       - e2e-pilot-cloudfoundry-v1alpha3-v2:
           requires:
             - build
-      - proxy_build
       - proxy_linux_asan
       - proxy_linux_tsan
       - proxy_macos
