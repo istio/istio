@@ -19,6 +19,10 @@ import (
 
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
+	"time"
+
+	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -90,6 +94,16 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 						return er
 					}
 					vVal.Value = &v1beta1.Value_DoubleValue{ev}
+					return nil
+				}
+			case v1beta1.TIMESTAMP:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.Evaluate(bag)
+					if er != nil {
+						return er
+					}
+					ts := ev.(time.Time)
+					vVal.Value = &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{&types.Timestamp{ts.Unix(), int32(ts.Nanosecond())}}}
 					return nil
 				}
 			default:
