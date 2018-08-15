@@ -60,8 +60,9 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		KeyUsage:    x509.KeyUsageCertSign,
 		IsCA:        true,
 		Org:         "MyOrg",
+		Host:        caCertOptions.Host,
 	}
-	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, caCertOptions.Host, fields) != nil {
+	if VerifyCertificate(caPrivPem, caCertPem, caCertPem, fields) != nil {
 		t.Error(err)
 	}
 
@@ -280,7 +281,8 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		}
 
 		for _, host := range strings.Split(certOptions.Host, ",") {
-			if err := VerifyCertificate(privPem, certPem, caCertPem, host, c.verifyFields); err != nil {
+			c.verifyFields.Host = host
+			if err := VerifyCertificate(privPem, certPem, caCertPem, c.verifyFields); err != nil {
 				t.Errorf("[%s] cert verification error: %v", c.name, err)
 			}
 		}
