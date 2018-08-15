@@ -74,6 +74,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCoreDumpGenerated(t *testing.T) {
+	log.Infof("TEST_ENV:(%s)", os.Getenv("TEST_ENV"))
 	if strings.Contains(os.Getenv("TEST_ENV"), "minikube") {
 		t.Skipf("Skipping %s in minikube environment", t.Name())
 	}
