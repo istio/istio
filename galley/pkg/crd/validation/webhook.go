@@ -51,6 +51,7 @@ var (
 
 const (
 	watchDebounceDelay = 100 * time.Millisecond
+	reconcilePeriod    = 5 * time.Second
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -245,7 +246,7 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {
-		reconcileTickerC = time.NewTicker(time.Second).C
+		reconcileTickerC = time.NewTicker(reconcilePeriod).C
 	}
 
 	for {
