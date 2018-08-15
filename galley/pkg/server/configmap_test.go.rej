@@ -1,0 +1,13 @@
+--- galley/pkg/server/configmap_test.go
++++ galley/pkg/server/configmap_test.go
+@@ -90,8 +90,8 @@ allowed:
+ 
+ 	writeFile(t, file, updated)
+ 
+-	for i := 0; i < 100; i++ {
+-		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account") {
++	for i := 0; i < 3000; i++ {
++		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
+ 			return
+ 		}
+ 

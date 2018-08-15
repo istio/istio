@@ -19,10 +19,38 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
+
+	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pkg/mcp/server"
 )
+
+type fakeWatcher struct {
+	events chan fsnotify.Event
+	errors chan error
+	added  chan string
+}
+
+func (w *fakeWatcher) Add(path string) error {
+	w.added <- path
+	return nil
+}
+
+func (w *fakeWatcher) Close() error                { return nil }
+func (w *fakeWatcher) Events() chan fsnotify.Event { return w.events }
+func (w *fakeWatcher) Errors() chan error          { return w.errors }
+
+func newFakeWatcherFunc() (func() (fileWatcher, error), *fakeWatcher) {
+	w := &fakeWatcher{
+		events: make(chan fsnotify.Event, 1),
+		errors: make(chan error, 1),
+		added:  make(chan string, 1),
+	}
+	newWatcher := func() (fileWatcher, error) {
+		return w, nil
+	}
+	return newWatcher, w
+}
 
 func TestWatchAccessList_Basic(t *testing.T) {
 	initial := `
@@ -71,6 +99,14 @@ func TestWatchAccessList_Initial_NotExists(t *testing.T) {
 }
 
 func TestWatchAccessList_Update(t *testing.T) {
+	var fake *fakeWatcher
+	newFileWatcher, fake = newFakeWatcherFunc()
+	defer func() {
+		newFileWatcher = newFsnotifyWatcher
+		readFile = ioutil.ReadFile
+		watchEventHandledProbe = nil
+	}()
+
 	initial := `
 allowed:
     - spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account
@@ -83,22 +119,36 @@ allowed:
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
+	gotAddedFile := <-fake.added
+	if gotAddedFile != file {
+		t.Fatalf("watched wrong file: got %v want %v", gotAddedFile, file)
+	}
+
 	updated := `
 allowed:
     - spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account
 `
 
-	writeFile(t, file, updated)
-
-	for i := 0; i < 3000; i++ {
-		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
-			return
+	// inject the updated file read into the watcher
+	readFile = func(filename string) ([]byte, error) {
+		if filename != file {
+			t.Fatalf("read wrong filename: got %v want %v", filename, file)
 		}
-
-		time.Sleep(time.Millisecond * 10)
+		return []byte(updated), nil
 	}
 
-	t.Fatal("Expected spiffe id to be allowed.")
+	// fake the watch `Write` event and wait for the event to be handled and the accesslist updated.
+	watchEventHandled := make(chan struct{})
+	watchEventHandledProbe = func() { close(watchEventHandled) }
+	fake.events <- fsnotify.Event{
+		Name: file,
+		Op:   fsnotify.Write,
+	}
+	<-watchEventHandled
+
+	if !checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
+		t.Fatal("Expected spiffe id to be allowed.")
+	}
 }
 
 func setupWatchAccessList(t *testing.T, initialdata string) (string, chan struct{}, *server.ListAuthChecker, error) {

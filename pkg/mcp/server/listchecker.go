@@ -17,6 +17,7 @@ package server
 import (
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -80,6 +81,7 @@ func (l *ListAuthChecker) Allowed(id string) bool {
 	defer l.idsMutex.Unlock()
 
 	_, found := l.ids[id]
+	fmt.Printf("#%v\n", l.ids)
 	return found
 }
 
