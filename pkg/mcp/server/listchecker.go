@@ -17,6 +17,8 @@ package server
 import (
 	"crypto/x509/pkix"
 	"errors"
+	"sort"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc/credentials"
@@ -70,6 +72,31 @@ func (l *ListAuthChecker) Set(ids ...string) {
 	l.idsMutex.Lock()
 	defer l.idsMutex.Unlock()
 	l.ids = newIds
+}
+
+// Allowed checks whether the given id is allowed.
+func (l *ListAuthChecker) Allowed(id string) bool {
+	l.idsMutex.Lock()
+	defer l.idsMutex.Unlock()
+
+	_, found := l.ids[id]
+	return found
+}
+
+// String is an implementation of Stringer.String.
+func (l *ListAuthChecker) String() string {
+	var ids []string
+	for id := range l.ids {
+		ids = append(ids, id)
+	}
+
+	sort.Strings(ids)
+
+	result := `Allowed ids:
+`
+	result += strings.Join(ids, "\n")
+
+	return result
 }
 
 // Check is an implementation of AuthChecker.Check.
