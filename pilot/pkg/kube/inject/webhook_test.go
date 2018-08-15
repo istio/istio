@@ -893,10 +893,7 @@ func TestRunAndServe(t *testing.T) {
          "name":"istio-init",
          "resources":{
 
-         },
-         "terminationMessagePath":"/dev/termination-log",
-         "terminationMessagePolicy":"File",
-         "imagePullPolicy":"IfNotPresent"
+         }
       }
    },
    {
@@ -906,20 +903,14 @@ func TestRunAndServe(t *testing.T) {
          "name":"istio-proxy",
          "resources":{
 
-         },
-         "terminationMessagePath":"/dev/termination-log",
-         "terminationMessagePolicy":"File",
-         "imagePullPolicy":"IfNotPresent"
+         }
       }
    },
    {
       "op":"add",
       "path":"/spec/volumes/-",
       "value":{
-         "name":"istio-envoy",
-         "emptyDir":{
-
-         }
+         "name":"istio-envoy"
       }
    },
    {
