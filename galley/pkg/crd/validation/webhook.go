@@ -28,7 +28,7 @@ import (
 	"github.com/howeyc/fsnotify"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -178,14 +178,14 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		deploymentNamespace: p.DeploymentNamespace,
 	}
 
-	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
+	if galleyDeployment, err := wh.clientset.AppsV1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
 		log.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
 			wh.deploymentNamespace, wh.deploymentName)
 	} else {
 		wh.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
 				galleyDeployment,
-				extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
+				appsv1.SchemeGroupVersion.WithKind("Deployment"),
 			),
 		}
 	}

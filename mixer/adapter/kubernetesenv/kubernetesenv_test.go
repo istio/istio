@@ -169,7 +169,7 @@ func TestKubegen_Generate(t *testing.T) {
 	testPodToNoControllerPodOut.SetSourcePodName("test-pod")
 	testPodToNoControllerPodOut.SetSourcePodUid("kubernetes://test-pod.testns")
 	testPodToNoControllerPodOut.SetSourceServiceAccountName("test")
-	testPodToNoControllerPodOut.SetSourceOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/deployments/test-deployment")
+	testPodToNoControllerPodOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	testPodToNoControllerPodOut.SetSourceWorkloadName("test-deployment")
 	testPodToNoControllerPodOut.SetSourceWorkloadNamespace("testns")
 	testPodToNoControllerPodOut.SetSourceWorkloadUid("istio://testns/workloads/test-deployment")
@@ -200,7 +200,7 @@ func TestKubegen_Generate(t *testing.T) {
 	altTestPodToAltTestPod2Out.SetDestinationPodName("alt-test-pod-2")
 	altTestPodToAltTestPod2Out.SetDestinationNamespace("testns")
 	altTestPodToAltTestPod2Out.SetDestinationPodUid("kubernetes://alt-test-pod-2.testns")
-	altTestPodToAltTestPod2Out.SetDestinationOwner("kubernetes://apis/apps/v1beta2/namespaces/testns/deployments/test-deployment")
+	altTestPodToAltTestPod2Out.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadName("test-deployment")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadNamespace("testns")
 	altTestPodToAltTestPod2Out.SetDestinationWorkloadUid("istio://testns/workloads/test-deployment")
@@ -264,7 +264,7 @@ func TestKubegen_Generate(t *testing.T) {
 	notFoundToNoControllerOut.SetDestinationPodName("test-pod")
 	notFoundToNoControllerOut.SetDestinationPodUid("kubernetes://test-pod.testns")
 	notFoundToNoControllerOut.SetDestinationServiceAccountName("test")
-	notFoundToNoControllerOut.SetDestinationOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/deployments/test-deployment")
+	notFoundToNoControllerOut.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/deployments/test-deployment")
 	notFoundToNoControllerOut.SetDestinationWorkloadName("test-deployment")
 	notFoundToNoControllerOut.SetDestinationWorkloadNamespace("testns")
 	notFoundToNoControllerOut.SetDestinationWorkloadUid("istio://testns/workloads/test-deployment")
@@ -297,24 +297,24 @@ func TestKubegen_Generate(t *testing.T) {
 	ipToReplicaSetSvcOut.SetDestinationWorkloadUid("istio://testns/workloads/not-found-replicaset")
 
 	replicasetToReplicaSetIn := &kubernetes_apa_tmpl.Instance{
-		DestinationUid: "kubernetes://extv1beta1-replicaset-with-no-deployment-pod.testns",
-		SourceUid:      "kubernetes://appsv1beta2-replicaset-with-no-deployment-pod.testns",
+		DestinationUid: "kubernetes://appsv1-replicaset-with-no-deployment-pod.testns",
+		SourceUid:      "kubernetes://appsv1-replicaset-with-no-deployment-pod-2.testns",
 	}
 
 	replicaSetToReplicaSetOut := kubernetes_apa_tmpl.NewOutput()
 	replicaSetToReplicaSetOut.SetSourceLabels(map[string]string{"app": "some-app"})
 	replicaSetToReplicaSetOut.SetSourceNamespace("testns")
-	replicaSetToReplicaSetOut.SetSourceOwner("kubernetes://apis/apps/v1beta2/namespaces/testns/replicasets/not-found-replicaset")
-	replicaSetToReplicaSetOut.SetSourcePodName("appsv1beta2-replicaset-with-no-deployment-pod")
-	replicaSetToReplicaSetOut.SetSourcePodUid("kubernetes://appsv1beta2-replicaset-with-no-deployment-pod.testns")
+	replicaSetToReplicaSetOut.SetSourceOwner("kubernetes://apis/apps/v1/namespaces/testns/replicasets/not-found-replicaset")
+	replicaSetToReplicaSetOut.SetSourcePodName("appsv1-replicaset-with-no-deployment-pod-2")
+	replicaSetToReplicaSetOut.SetSourcePodUid("kubernetes://appsv1-replicaset-with-no-deployment-pod-2.testns")
 	replicaSetToReplicaSetOut.SetSourceWorkloadName("not-found-replicaset")
 	replicaSetToReplicaSetOut.SetSourceWorkloadNamespace("testns")
 	replicaSetToReplicaSetOut.SetSourceWorkloadUid("istio://testns/workloads/not-found-replicaset")
 	replicaSetToReplicaSetOut.SetDestinationLabels(map[string]string{"app": "some-app"})
 	replicaSetToReplicaSetOut.SetDestinationNamespace("testns")
-	replicaSetToReplicaSetOut.SetDestinationOwner("kubernetes://apis/extensions/v1beta1/namespaces/testns/replicasets/test-replicaset-without-deployment")
-	replicaSetToReplicaSetOut.SetDestinationPodName("extv1beta1-replicaset-with-no-deployment-pod")
-	replicaSetToReplicaSetOut.SetDestinationPodUid("kubernetes://extv1beta1-replicaset-with-no-deployment-pod.testns")
+	replicaSetToReplicaSetOut.SetDestinationOwner("kubernetes://apis/apps/v1/namespaces/testns/replicasets/test-replicaset-without-deployment")
+	replicaSetToReplicaSetOut.SetDestinationPodName("appsv1-replicaset-with-no-deployment-pod")
+	replicaSetToReplicaSetOut.SetDestinationPodUid("kubernetes://appsv1-replicaset-with-no-deployment-pod.testns")
 	replicaSetToReplicaSetOut.SetDestinationWorkloadName("test-replicaset-without-deployment")
 	replicaSetToReplicaSetOut.SetDestinationWorkloadNamespace("testns")
 	replicaSetToReplicaSetOut.SetDestinationWorkloadUid("istio://testns/workloads/test-replicaset-without-deployment")
@@ -397,13 +397,13 @@ var k8sobjs = []runtime.Object{
 			Namespace: "testns",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "Deployment",
 					Name:       "test-deployment",
 				},
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &falseVar,
 					Kind:       "Deployment",
 					Name:       "not-exist-deployment",
@@ -415,20 +415,6 @@ var k8sobjs = []runtime.Object{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-replicaset-without-deployment",
 			Namespace: "testns",
-		},
-	},
-	&appsv1.ReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-appsv1beta2-replicaset-with-deployment",
-			Namespace: "testns",
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "apps/v1beta2",
-					Controller: &trueVar,
-					Kind:       "Deployment",
-					Name:       "test-deployment",
-				},
-			},
 		},
 	},
 	&appsv1.ReplicaSet{
@@ -470,7 +456,7 @@ var k8sobjs = []runtime.Object{
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset-with-deployment",
@@ -507,22 +493,22 @@ var k8sobjs = []runtime.Object{
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "apps/v1beta2",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
-					Name:       "test-appsv1beta2-replicaset-with-deployment",
+					Name:       "test-appsv1-replicaset-with-deployment",
 				},
 			},
 		},
 	},
 	&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "extv1beta1-replicaset-with-no-deployment-pod",
+			Name:      "appsv1-replicaset-with-no-deployment-pod",
 			Namespace: "testns",
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "extensions/v1beta1",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "test-replicaset-without-deployment",
@@ -532,12 +518,12 @@ var k8sobjs = []runtime.Object{
 	},
 	&v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "appsv1beta2-replicaset-with-no-deployment-pod",
+			Name:      "appsv1-replicaset-with-no-deployment-pod-2",
 			Namespace: "testns",
 			Labels:    map[string]string{"app": "some-app"},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "apps/v1beta2",
+					APIVersion: "apps/v1",
 					Controller: &trueVar,
 					Kind:       "ReplicaSet",
 					Name:       "not-found-replicaset",

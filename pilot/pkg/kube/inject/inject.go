@@ -31,7 +31,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	"k8s.io/api/batch/v2alpha1"
+	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -575,7 +575,7 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
-	if job, ok := out.(*v2alpha1.CronJob); ok {
+	if job, ok := out.(*v1beta1.CronJob); ok {
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		deploymentMetadata = &job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec

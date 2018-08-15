@@ -16,11 +16,10 @@ package inject
 
 import (
 	openshiftv1 "github.com/openshift/api/apps/v1"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/batch/v2alpha1"
+	"k8s.io/api/batch/v1beta1"
 	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,14 +40,14 @@ var (
 		{v1.SchemeGroupVersion, &v1.ReplicationController{}, "replicationcontrollers", "/api"},
 		{v1.SchemeGroupVersion, &v1.Pod{}, "pods", "/api"},
 
-		{v1beta1.SchemeGroupVersion, &v1beta1.Deployment{}, "deployments", "/apis"},
-		{v1beta1.SchemeGroupVersion, &v1beta1.DaemonSet{}, "daemonsets", "/apis"},
-		{v1beta1.SchemeGroupVersion, &v1beta1.ReplicaSet{}, "replicasets", "/apis"},
+		{appsv1.SchemeGroupVersion, &appsv1.Deployment{}, "deployments", "/apis"},
+		{appsv1.SchemeGroupVersion, &appsv1.DaemonSet{}, "daemonsets", "/apis"},
+		{appsv1.SchemeGroupVersion, &appsv1.ReplicaSet{}, "replicasets", "/apis"},
 
 		{batchv1.SchemeGroupVersion, &batchv1.Job{}, "jobs", "/apis"},
-		{v2alpha1.SchemeGroupVersion, &v2alpha1.CronJob{}, "cronjobs", "/apis"},
+		{v1beta1.SchemeGroupVersion, &v1beta1.CronJob{}, "cronjobs", "/apis"},
 
-		{appsv1beta1.SchemeGroupVersion, &appsv1beta1.StatefulSet{}, "statefulsets", "/apis"},
+		{appsv1.SchemeGroupVersion, &appsv1.StatefulSet{}, "statefulsets", "/apis"},
 
 		{v1.SchemeGroupVersion, &v1.List{}, "lists", "/apis"},
 

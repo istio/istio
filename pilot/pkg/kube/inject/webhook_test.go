@@ -32,7 +32,7 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/helm/pkg/chartutil"
@@ -676,16 +676,16 @@ func applyJSONPatch(input, patch []byte, t *testing.T) []byte {
 	return prettyJSON(patchedJSON, t)
 }
 
-func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deployment {
+func jsonToDeployment(deploymentJSON []byte, t *testing.T) *appsv1.Deployment {
 	t.Helper()
-	var deployment extv1beta1.Deployment
+	var deployment appsv1.Deployment
 	if err := json.Unmarshal(deploymentJSON, &deployment); err != nil {
 		t.Fatal(err)
 	}
 	return &deployment
 }
 
-func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
+func compareDeployments(got, want *appsv1.Deployment, name string, t *testing.T) {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
@@ -732,11 +732,11 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	util.CompareBytes([]byte(gotString), []byte(wantString), name, t)
 }
 
-func annotations(d *extv1beta1.Deployment) map[string]string {
+func annotations(d *appsv1.Deployment) map[string]string {
 	return d.Spec.Template.ObjectMeta.Annotations
 }
 
-func istioCerts(d *extv1beta1.Deployment) *corev1.Volume {
+func istioCerts(d *appsv1.Deployment) *corev1.Volume {
 	for i := 0; i < len(d.Spec.Template.Spec.Volumes); i++ {
 		v := &d.Spec.Template.Spec.Volumes[i]
 		if v.Name == "istio-certs" {
@@ -746,7 +746,7 @@ func istioCerts(d *extv1beta1.Deployment) *corev1.Volume {
 	return nil
 }
 
-func istioInit(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
+func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	t.Helper()
 	for i := 0; i < len(d.Spec.Template.Spec.InitContainers); i++ {
 		c := &d.Spec.Template.Spec.InitContainers[i]
@@ -758,7 +758,7 @@ func istioInit(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
 	return nil
 }
 
-func istioProxy(d *extv1beta1.Deployment, t *testing.T) *corev1.Container {
+func istioProxy(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	t.Helper()
 	for i := 0; i < len(d.Spec.Template.Spec.Containers); i++ {
 		c := &d.Spec.Template.Spec.Containers[i]
