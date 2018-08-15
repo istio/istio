@@ -34,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/kubernetes/pkg/apis/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
@@ -45,9 +44,6 @@ var (
 	runtimeScheme = runtime.NewScheme()
 	codecs        = serializer.NewCodecFactory(runtimeScheme)
 	deserializer  = codecs.UniversalDeserializer()
-
-	// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-	defaulter = runtime.ObjectDefaulter(runtimeScheme)
 )
 
 const (
@@ -57,14 +53,6 @@ const (
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
 	_ = admissionregistrationv1beta1.AddToScheme(runtimeScheme)
-
-	// The `v1` package from k8s.io/kubernetes/pkgp/apis/core/v1 has
-	// the object defaulting functions which are not included in
-	// k8s.io/api/corev1. The default functions are required by
-	// runtime.ObjectDefaulter to workaround lack of server-side
-	// defaulting with webhooks (see
-	// https://github.com/kubernetes/kubernetes/issues/57982).
-	_ = v1.AddToScheme(runtimeScheme)
 }
 
 // Webhook implements a mutating webhook for automatic proxy injection.
@@ -246,20 +234,6 @@ func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	wh.mu.Lock()
 	defer wh.mu.Unlock()
 	return wh.cert, nil
-}
-
-// TODO(https://github.com/kubernetes/kubernetes/issues/57982)
-// remove this workaround once server-side defaulting is fixed.
-func applyDefaultsWorkaround(initContainers, containers []corev1.Container, volumes []corev1.Volume) {
-	// runtime.ObjectDefaulter only accepts top-level resources. Construct
-	// a dummy pod with fields we needed defaulted.
-	defaulter.Default(&corev1.Pod{
-		Spec: corev1.PodSpec{
-			InitContainers: initContainers,
-			Containers:     containers,
-			Volumes:        volumes,
-		},
-	})
 }
 
 // It would be great to use https://github.com/mattbaird/jsonpatch to
@@ -506,7 +480,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return toAdmissionResponse(err)
 	}
 
-	applyDefaultsWorkaround(spec.InitContainers, spec.Containers, spec.Volumes)
 	annotations := map[string]string{annotationStatus.name: status}
 	for k, v := range spec.Annotations {
 		annotations[k] = v
