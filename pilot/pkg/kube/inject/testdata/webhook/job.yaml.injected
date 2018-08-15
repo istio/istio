@@ -28,7 +28,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - istio-proxy
+        - pi:default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
