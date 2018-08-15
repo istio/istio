@@ -34,9 +34,14 @@
   digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
   name = "contrib.go.opencensus.io/exporter/stackdriver"
   packages = ["."]
+<<<<<<< HEAD
   pruneopts = "NUT"
   revision = "b98abe41e381c878749ef1aa9eb0798616afbb43"
   version = "v0.2.0"
+=======
+  revision = "37aa2801fbf0205003e15636096ebf0373510288"
+  version = "v0.5.0"
+>>>>>>> WIP: OpenCensus conversion for Mixer
 
 [[projects]]
   digest = "1:add5f01e863553e80ded66e1cba646ad947932e66f90813741d51c97a1ee7a59"
@@ -1223,6 +1228,8 @@
   digest = "1:773b6907f497ea5abddc9ee90cdde179b119c0c8a04b0f02cb2fff955ed8cab4"
   name = "go.opencensus.io"
   packages = [
+    ".",
+    "exporter/prometheus",
     "exporter/stackdriver/propagation",
     "internal",
     "internal/tagencoding",
@@ -1237,9 +1244,14 @@
     "trace/internal",
     "trace/propagation",
   ]
+<<<<<<< HEAD
   pruneopts = "NUT"
   revision = "c3ed530f775d85e577ca652cb052a52c078aad26"
   version = "v0.11.0"
+=======
+  revision = "e262766cd0d230a1bb7c37281e345e465f19b41b"
+  version = "v0.14.0"
+>>>>>>> WIP: OpenCensus conversion for Mixer
 
 [[projects]]
   digest = "1:8eff4c694254322268936dc162805ff95ac846435e909f011ba43805bb9b4e0f"
@@ -1979,6 +1991,7 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
+<<<<<<< HEAD
   input-imports = [
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/logging",
@@ -2211,5 +2224,8 @@
     "k8s.io/kubernetes/pkg/apis/core",
     "k8s.io/kubernetes/pkg/apis/core/v1",
   ]
+=======
+  inputs-digest = "494f05633d3ee4e57cf71139a7023fcb8a6e46a86d6892eed7062b13bf634e32"
+>>>>>>> WIP: OpenCensus conversion for Mixer
   solver-name = "gps-cdcl"
   solver-version = 1

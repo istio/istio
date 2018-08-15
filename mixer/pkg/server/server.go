@@ -22,13 +22,16 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
+	oprometheus "github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/exporter/prometheus"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -226,6 +229,20 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
+
+	exporter, err := prometheus.NewExporter(prometheus.Options{Registry: oprometheus.DefaultRegisterer.(*oprometheus.Registry)})
+	if err != nil {
+		return nil, fmt.Errorf("could not build prometheus exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
+
+	// Register the views to collect server request count.
+	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
+		return nil, fmt.Errorf("could not register default server views: %v", err)
+	}
+
+	grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
 
