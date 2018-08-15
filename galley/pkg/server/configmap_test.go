@@ -91,7 +91,7 @@ allowed:
 	writeFile(t, file, updated)
 
 	for i := 0; i < 100; i++ {
-		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account") {
+		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
 			return
 		}
 
