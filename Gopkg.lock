@@ -13,8 +13,8 @@
     "monitoring/apiv3",
     "trace/apiv2"
   ]
-  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
-  version = "v0.23.0"
+  revision = "64a2037ec6be8a4b0c1d1f706ed35b428b989239"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"

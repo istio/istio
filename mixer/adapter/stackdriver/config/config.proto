@@ -73,7 +73,9 @@ message Params {
     // Describes how to represent an Istio metric in Stackdriver.
     // See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
     message MetricInfo {
+        // The kind of measurement for a metric, which describes how the data is reported. Ex: Gauge.
         google.api.MetricDescriptor.MetricKind kind = 1;
+        // The type of the metric's value. Ex: Distribution.
         google.api.MetricDescriptor.ValueType value = 2;
 
         // Describes buckets for DISTRIBUTION valued metrics.
@@ -222,6 +224,26 @@ message Params {
             string destination = 2;
             // Filter that specifies any filtering to be done on logs.
             string filter = 3;
+            // Determines the kind of IAM identity returned as WriterIdentity in the new
+            // sink. If this value is omitted or set to false, and if the sink's parent is a
+            // project, then the value returned as WriterIdentity is the same group or
+            // service account used by Stackdriver Logging before the addition of writer
+            // identities to the API. The sink's destination must be in the same project as
+            // the sink itself.
+            //
+            // If this field is set to true, or if the sink is owned by a non-project
+            // resource such as an organization, then the value of WriterIdentity will
+            // be a unique service account used only for exports from the new sink.
+            bool UniqueWriterIdentity = 4;
+
+            // These fields apply only to UpdateSinkOpt calls. The corresponding sink field
+            // is updated if and only if the Update field is true.
+            // Upate sink destination.
+            bool UpdateDestination = 5;
+            // Update sink filter.
+            bool UpdateFilter = 6;
+            // Update inlcudes children.
+            bool UpdateIncludeChildren = 7;
         }
         // If SinkInfo is provided, Stackriver logs would be exported to that sink.
         SinkInfo sink_info = 4;
