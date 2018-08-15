@@ -82,6 +82,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
@@ -89,7 +92,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			updateEds(env, defaultCluster, service.Hostname)
+			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -101,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
-					updateEds(env, subsetCluster, service.Hostname)
+					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
@@ -123,7 +126,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	return clusters
 }
 
-func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
+func updateEds(cluster *v2.Cluster) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}

@@ -131,6 +131,7 @@ type Webhook struct {
 	deploymentName       string
 	ownerRefs            []v1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
+	endpointReadyOnce    bool
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
@@ -200,15 +201,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 	}
 
-	if wh.webhookConfigFile != "" {
-		log.Info("server-side configuration validation enabled")
-		if err = wh.rebuildWebhookConfig(); err == nil {
-			wh.createOrUpdateWebhookConfig()
-		}
-	} else {
-		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
-	}
-
 	// mtls disabled because apiserver webhook cert usage is still TBD.
 	wh.server.TLSConfig = &tls.Config{GetCertificate: wh.getCert}
 	h := http.NewServeMux()
@@ -245,6 +237,12 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
 
+	if wh.webhookConfigFile != "" {
+		log.Info("server-side configuration validation enabled")
+	} else {
+		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
+	}
+
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {
 		reconcileTickerC = time.NewTicker(time.Second).C
@@ -261,7 +259,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case <-reconcileTickerC:
-			if wh.webhookConfiguration != nil {
+			if wh.webhookConfiguration == nil {
+				if err := wh.rebuildWebhookConfig(); err == nil {
+					wh.createOrUpdateWebhookConfig()
+				}
+			} else {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case event, more := <-wh.keyCertWatcher.Event:

@@ -91,6 +91,9 @@ type SecretController struct {
 	// Length of the grace period for the certificate rotation.
 	gracePeriodRatio float32
 
+	// Whether the certificates are for dual-use clients (SAN+CN).
+	dualUse bool
+
 	// Whether the certificates are for CAs.
 	forCA bool
 
@@ -110,8 +113,8 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, identityDomain string,
-	gracePeriodRatio float32, minGracePeriod time.Duration, core corev1.CoreV1Interface, forCA bool,
-	namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
+  gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
+	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
 		return nil, fmt.Errorf("grace period ratio %f should be within [0, 1]", gracePeriodRatio)
@@ -131,6 +134,7 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, iden
 		identityDomain:   identityDomain,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
+		dualUse:          dualUse,
 		core:             core,
 		forCA:            forCA,
 		dnsNames:         dnsNames,
@@ -315,7 +319,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 			}
 		}
 		// Custom overrides using CLI
-		if e, ok := sc.dnsNames[saName+"."+saName]; ok {
+		if e, ok := sc.dnsNames[saName+"."+saNamespace]; ok {
 			for _, d := range e.CustomDomains {
 				id += "," + d
 			}
@@ -324,6 +328,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 	options := util.CertOptions{
 		Host:       id,
 		RSAKeySize: keySize,
+		IsDualUse:  sc.dualUse,
 	}
 
 	csrPEM, keyPEM, err := util.GenCSR(options)

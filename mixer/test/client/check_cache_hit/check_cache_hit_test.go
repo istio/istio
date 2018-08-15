@@ -42,7 +42,6 @@ const checkAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "request.headers": {
     ":method": "GET",
@@ -60,6 +59,7 @@ const checkAttributesOkGet = `
 // In reportAttributesOkGet[1], check.cache_hit and quota.cache_hit are true.
 var reportAttributesOkGet = [...]string{`{
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -78,7 +78,6 @@ var reportAttributesOkGet = [...]string{`{
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -106,6 +105,7 @@ var reportAttributesOkGet = [...]string{`{
 }`,
 	`{
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -124,7 +124,6 @@ var reportAttributesOkGet = [...]string{`{
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": true,
   "quota.cache_hit": true,

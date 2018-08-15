@@ -159,7 +159,7 @@ func TestSecretController(t *testing.T) {
 			},
 		}
 		controller, err := NewSecretController(createFakeCA(), defaultTTL, DefaultIdentityDomain,
-			tc.gracePeriodRatio, defaultMinGracePeriod, client.CoreV1(), false,
+			tc.gracePeriodRatio, defaultMinGracePeriod, false, client.CoreV1(), false,
 			metav1.NamespaceAll, webhooks)
 		if tc.shouldFail {
 			if err == nil {
@@ -199,9 +199,9 @@ func TestSecretContent(t *testing.T) {
 	saName := "test-serviceaccount"
 	saNamespace := "test-namespace"
 	client := fake.NewSimpleClientset()
-	controller, err := NewSecretController(createFakeCA(), defaultTTL, DefaultIdentityDomain,
-		defaultGracePeriodRatio, defaultMinGracePeriod, client.CoreV1(), false,
-		metav1.NamespaceAll, map[string]DNSNameEntry{})
+	controller, err := NewSecretController(createFakeCA(), defaultTTL, DefaultIdentityDomain, 
+    defaultGracePeriodRatio, defaultMinGracePeriod,	false, client.CoreV1(), false, 
+    metav1.NamespaceAll, map[string]DNSNameEntry{})
 	if err != nil {
 		t.Errorf("Failed to create secret controller: %v", err)
 	}
@@ -229,8 +229,8 @@ func TestSecretContent(t *testing.T) {
 func TestDeletedIstioSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	controller, err := NewSecretController(createFakeCA(), defaultTTL, DefaultIdentityDomain,
-		defaultGracePeriodRatio, defaultMinGracePeriod, client.CoreV1(), false,
-		metav1.NamespaceAll, nil)
+    defaultGracePeriodRatio, defaultMinGracePeriod,	false, client.CoreV1(), false, 
+    metav1.NamespaceAll, nil)
 	if err != nil {
 		t.Errorf("failed to create secret controller: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestUpdateSecret(t *testing.T) {
 	for k, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		controller, err := NewSecretController(createFakeCA(), time.Hour, DefaultIdentityDomain,
-			tc.gracePeriodRatio, tc.minGracePeriod, client.CoreV1(), false, metav1.NamespaceAll, nil)
+      tc.gracePeriodRatio, tc.minGracePeriod,	false, client.CoreV1(), false, metav1.NamespaceAll, nil)
 		if err != nil {
 			t.Errorf("failed to create secret controller: %v", err)
 		}

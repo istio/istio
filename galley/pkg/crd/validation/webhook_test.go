@@ -38,12 +38,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 const (
