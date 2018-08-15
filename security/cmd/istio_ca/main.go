@@ -141,7 +141,7 @@ type cliOptions struct { // nolint: maligned
 	// domain to use in SPIFFE identity URLs
 	identityDomain string
 
-  // Enable dual-use certs - SPIFFE in SAN and in CommonName
+	// Enable dual-use certs - SPIFFE in SAN and in CommonName
 	dualUse bool
 }
 
@@ -336,7 +336,7 @@ func runCA() {
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca,
 		opts.workloadCertTTL, opts.identityDomain,
-    opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
+		opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
 		cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
 		fatalf("Failed to create secret controller: %v", err)

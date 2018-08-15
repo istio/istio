@@ -113,7 +113,7 @@ type SecretController struct {
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
 func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, identityDomain string,
-  gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
+	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
