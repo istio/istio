@@ -837,6 +837,19 @@
   version = "v0.0.6"
 
 [[projects]]
+  branch = "master"
+  digest = "1:853fe95bef4c5e8a70dcd405b5206b38a9ff09e9c26fef93d1d0adeaea39f9ce"
+  name = "github.com/mailru/easyjson"
+  packages = [
+    ".",
+    "buffer",
+    "jlexer",
+    "jwriter",
+  ]
+  pruneopts = "NUT"
+  revision = "03f2033d19d5860aef995fe360ac7d395cd8ce65"
+
+[[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
@@ -1124,7 +1137,7 @@
   revision = "1ccfd2ff508314074672f4450a917011a2060408"
 
 [[projects]]
-  digest = "1:f7225d606bc5e230cd8cca3bb8bf2c05bd4dcd8a912cbe32c8d7f41dca4a61f5"
+  digest = "1:183b47156976ba69b98895217fbbd4287617cf21dfeb8ae45bb3756625cdceb2"
   name = "github.com/signalfx/golib"
   packages = [
     "datapoint",
@@ -1135,10 +1148,11 @@
     "sfxclient",
     "timekeeper",
     "trace",
+    "trace/format",
   ]
   pruneopts = "NUT"
-  revision = "b1be94c3ec8d1fdeccd62735b851489f0b3798e0"
-  version = "v1.1.6"
+  revision = "271e7b77c46c2cb201be901a302cb181a9d1645a"
+  version = "v2.0.0"
 
 [[projects]]
   digest = "1:6989062eb7ccf25cf38bf4fe3dba097ee209f896cda42cefdca3927047bef7b6"
