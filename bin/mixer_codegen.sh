@@ -86,8 +86,7 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:"
-PLUGIN+=$outdir
+PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:$outdir"
 
 GENDOCS_PLUGIN="--docs_out=warnings=true,mode=html_fragment_with_front_matter:"
 GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
@@ -111,8 +110,7 @@ if [ "$opttemplate" = true ]; then
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:"
-  TMPL_PLUGIN+=$outdir
+  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:$outdir"
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
