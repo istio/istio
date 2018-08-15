@@ -18,7 +18,7 @@ spec:
     type: COUNTER
   - name: tcpbytereceived.metric.istio-system
     type: COUNTER
-  trace_sample_probability: 0.5
+  tracing_sample_probability: 0.5
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -44,7 +44,7 @@ spec:
   match: context.protocol == "tcp"
   actions:
   - handler: handler.signalfx
-    instances:    
+    instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---

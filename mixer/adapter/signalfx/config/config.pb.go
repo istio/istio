@@ -36,9 +36,6 @@
 	  # be passed to SignalFx unmodified. The tags that have comments are interpreted
 	  # in a special manner, but are still optional.
 	  spanTags:
-	    # This is used to determine whether the span pertains to the client or
-	    # server side of the request.
-	    context.reporter.local: context.reporter.local
 	    # This gets put into the remoteEndpoint.ipv4 field
 	    destination.ip: destination.ip | ip("0.0.0.0")
 	    # This gets flattened out to individual tags of the form
