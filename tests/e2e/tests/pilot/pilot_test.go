@@ -30,6 +30,7 @@ import (
 	"go.uber.org/multierr"
 
 	"istio.io/istio/pilot/pkg/kube/inject"
+	util2 "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
@@ -70,6 +71,76 @@ func TestMain(m *testing.M) {
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))
+}
+
+func TestCoreDumpGenerated(t *testing.T) {
+	if os.Getenv("MINIKUBE") == "true" {
+		t.Skipf("Skipping %s in minikube environment", t.Name())
+	}
+	for _, e := range os.Environ() {
+		t.Log(e)
+	}
+	// Simplest way to create out of process core file.
+	crashContainer := "ingressgateway"
+	crashProgPath := "/tmp/crashing_program"
+	coreDir := "var/istio/proxy"
+	script := `#!/bin/bash
+kill -SIGSEGV $$
+`
+	err := ioutil.WriteFile(crashProgPath, []byte(script), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ingressGatewayPod, err := getIngressGatewayPodName()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := util2.CopyFilesToPod(crashContainer, ingressGatewayPod, tc.Kube.Namespace, crashProgPath, crashProgPath); err != nil {
+		t.Fatalf("could not copy file to pod %s: %v", ingressGatewayPod, err)
+	}
+
+	out, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, crashProgPath, false, "")
+	if !strings.HasPrefix(out, "command terminated with exit code 139") {
+		t.Fatalf("did not get expected crash error for %s in pod %s, got: %v", crashProgPath, ingressGatewayPod, err)
+	}
+
+	// No easy way to look for a specific core file.
+	response, err := util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "find "+coreDir, false, "")
+	if !strings.Contains(response, "core.") {
+		t.Fatalf("%s did not contain core file, contents: %s, err:%v", coreDir, response, err)
+	}
+
+	response, err = util.PodExec(tc.Kube.Namespace, ingressGatewayPod, crashContainer, "rm "+getCorefilename(response), false, "")
+	if err != nil {
+		t.Fatalf("could not remove core file, response:%s, err:%v", response, err)
+	}
+}
+
+func getIngressGatewayPodName() (string, error) {
+	label := "istio=ingressgateway"
+	res, err := util.Shell("kubectl -n %s -l=%s get pods -o=jsonpath='{range .items[*]}{.metadata.name}{\" \"}{"+
+		".metadata.labels.%s}{\"\\n\"}{end}'", tc.Kube.Namespace, label, label)
+	if err != nil {
+		return "", err
+	}
+
+	rv := strings.Split(res, "\n")
+	if len(rv) < 2 {
+		return "", fmt.Errorf("bad response for get ingressgateway: %s", res)
+	}
+
+	return strings.TrimSpace(rv[0]), nil
+}
+
+func getCorefilename(resp string) string {
+	for _, line := range strings.Split(resp, "\n") {
+		if strings.Contains(line, "core.") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
 }
 
 func setTestConfig() error {

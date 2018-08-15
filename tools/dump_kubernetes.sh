@@ -7,6 +7,8 @@
 #   definitions, configmaps, secrets (names only) and "all" as defined by
 #   kubectl.
 
+COREDUMP_DIR="/var/istio/proxy"
+
 error() {
   echo "$*" >&2
 }
@@ -118,13 +120,14 @@ copy_core_dumps_if_istio_proxy() {
   local namespace="${1}"
   local pod="${2}"
   local container="${3}"
+  local got_core_dump=0
 
   if [ "istio-proxy" = "${container}" ]; then
     local out_dir="${LOG_DIR}/${namespace}/${pod}"
     mkdir -p "${out_dir}"
     local core_dumps
     core_dumps=$(kubectl exec -n "${namespace}" "${pod}" -c "${container}" -- \
-        find /etc/istio/proxy /var/istio/proxy -name 'core.*')
+        find ${COREDUMP_DIR} -name 'core.*')
     for f in ${core_dumps}; do
       local out_file
       out_file="${out_dir}/$(basename "${f}")"
@@ -133,7 +136,12 @@ copy_core_dumps_if_istio_proxy() {
           cat "${f}" > "${out_file}"
 
       log "Copied ${namespace}/${pod}/${container}:${f} to ${out_file}"
+      got_core_dump=1
     done
+  fi
+
+  if [[ ${got_core_dump} -eq 1 ]]; then
+    return 255
   fi
 }
 
@@ -255,9 +263,15 @@ main() {
   dump_time
   dump_pilot
   dump_resources
-  tap_containers dump_logs_for_container copy_core_dumps_if_istio_proxy
+  tap_containers
+  dump_logs_for_container
 
   local exit_code=0
+  if copy_core_dumps_if_istio_proxy; then
+    log "FAIL: core file detected! Please check prior message for location."
+    exit_code=255
+  fi
+
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then
       exit_code=255
