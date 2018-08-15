@@ -35,17 +35,6 @@ const (
 	dimensionLimit = 10
 )
 
-var supportedValueTypes = map[string]bool{
-	"STRING":   true,
-	"INT64":    true,
-	"DOUBLE":   true,
-	"DURATION": true,
-}
-
-var supportedDurationUnits = map[string]bool{
-	"Seconds": true,
-}
-
 type (
 	builder struct {
 		adpCfg      *config.Params
@@ -91,16 +80,16 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		ce = ce.Append("metricInfo", fmt.Errorf("metricInfo and instance config must contain the same metrics"))
 	}
 	if len(b.adpCfg.GetRegiondId()) == 0 {
-		ce = ce.Append("RegionId", fmt.Errorf("RegionId should not be empty"))
+		ce = ce.Append("RegionId", fmt.Errorf("regionId should not be empty"))
 	}
 	if len(b.adpCfg.GetAccessKeyId()) == 0 {
-		ce = ce.Append("AccessKeyId", fmt.Errorf("AccessKeyId should not be empty"))
+		ce = ce.Append("AccessKeyId", fmt.Errorf("accessKeyId should not be empty"))
 	}
 	if len(b.adpCfg.GetAccessKeySecret()) == 0 {
-		ce = ce.Append("AccessKeySecret", fmt.Errorf("AccessKeySecret should not be empty"))
+		ce = ce.Append("AccessKeySecret", fmt.Errorf("accessKeySecret should not be empty"))
 	}
 	if b.adpCfg.GetGroupId() == 0 {
-		ce = ce.Append("GroupId", fmt.Errorf("GroupId should be non-empty and greater than zero"))
+		ce = ce.Append("GroupId", fmt.Errorf("groupId should be non-empty and greater than zero"))
 	}
 	for k, v := range b.metricTypes {
 		// validate handler config contains required metric config
@@ -131,7 +120,6 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 // adapter.Handler#Close
 func (h *handler) Close() error { return nil }
 
-////////////////// Bootstrap //////////////////////////
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{

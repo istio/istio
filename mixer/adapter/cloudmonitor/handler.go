@@ -22,6 +22,8 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/cms"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/mixer/template/metric"
 )
 
@@ -33,9 +35,9 @@ const (
 	metricDatumLimit = 100
 )
 
-// Custom Metric Request
+// CustomMetricRequest which represents the custom metric request
 type CustomMetricRequest struct {
-	GroupId    int64                  `json:"groupId"`
+	GroupID    int64                  `json:"groupId"`
 	MetricName string                 `json:"metricName"`
 	Dimensions map[string]interface{} `json:"dimensions"`
 	Time       int64                  `json:"time"`
@@ -44,7 +46,7 @@ type CustomMetricRequest struct {
 	Values     map[string]interface{} `json:"values"`
 }
 
-// Expands the identity of a metric.
+// Dimension which expands the identity of a metric.
 type Dimension struct {
 	_ struct{} `type:"structure"`
 
@@ -59,26 +61,40 @@ type Dimension struct {
 	Value *string `min:"1" type:"string" required:"true"`
 }
 
-func (h *handler) sendMetricsToCloudMonitor(customMetricRequest *cms.PutCustomMetricRequest) (*cms.PutCustomMetricResponse, error) {
-	response, err := h.client.PutCustomMetric(customMetricRequest)
-	if err != nil {
-		panic(err)
+func (h *handler) sendMetricsToCloudMonitor(metricData []*CustomMetricRequest) (int, error) {
+	callCount := 0
+	var multiError *multierror.Error
+
+	for i := 0; i < len(metricData); i += metricDatumLimit {
+		size := i + metricDatumLimit
+		if len(metricData) < size {
+			size = len(metricData)
+		}
+
+		customMetricRequest := cms.CreatePutCustomMetricRequest()
+		output, _ := json.Marshal(&metricData)
+		customMetricRequest.MetricList = string(output)
+
+		_, err := h.client.PutCustomMetric(customMetricRequest)
+		if err == nil {
+			callCount++
+		} else {
+			multiError = multierror.Append(multiError, err)
+		}
 	}
 
-	return response, err
+	return callCount, multiError.ErrorOrNil()
 }
 
-func (h *handler) generateMetricData(insts []*metric.Instance) *cms.PutCustomMetricRequest {
-	customMetricRequest := cms.CreatePutCustomMetricRequest()
-
+func (h *handler) generateMetricData(insts []*metric.Instance) []*CustomMetricRequest {
 	metricData := make([]*CustomMetricRequest, 0, len(insts))
-	fmt.Println(h.cfg.GetMetricInfo())
+	//fmt.Println(h.cfg.GetMetricInfo())
 	for _, inst := range insts {
 		cmMetric := h.cfg.GetMetricInfo()[inst.Name]
 		fmt.Printf("cmMetric Size: %d.\n", cmMetric.Size())
 
 		datum := CustomMetricRequest{
-			GroupId:    h.cfg.GroupId,
+			GroupID:    h.cfg.GroupId,
 			MetricName: inst.Name,
 		}
 		d := make(map[string]interface{}, len(inst.Dimensions))
@@ -103,10 +119,7 @@ func (h *handler) generateMetricData(insts []*metric.Instance) *cms.PutCustomMet
 		metricData = append(metricData, &datum)
 	}
 
-	output, _ := json.Marshal(&metricData)
-	customMetricRequest.MetricList = string(output)
-
-	return customMetricRequest
+	return metricData
 }
 
 func getNumericValue(value interface{}) (float64, error) {
