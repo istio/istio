@@ -125,7 +125,7 @@ var (
 
 			log.Infof("Proxy role: %#v", role)
 
-			proxyConfig := meshconfig.ProxyConfig{}
+			proxyConfig := model.DefaultProxyConfig()
 
 			// set all flags
 			proxyConfig.AvailabilityZone = availabilityZone

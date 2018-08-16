@@ -36,9 +36,6 @@ const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
-
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 )
 
 var (
@@ -66,7 +63,7 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg 
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
 	}
 
 	for _, v := range cliarg {
