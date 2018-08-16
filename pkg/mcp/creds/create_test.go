@@ -113,7 +113,12 @@ func TestWatchFiles(t *testing.T) {
 
 			stopCh := make(chan struct{})
 			defer close(stopCh)
-			_, err = WatchFiles(stopCh, certFile, keyFile, caCertFile)
+			options := Options{
+				CertificateFile:   certFile,
+				KeyFile:           keyFile,
+				CACertificateFile: caCertFile,
+			}
+			_, err = WatchFiles(stopCh, &options)
 			if testCase.err != "" && err == nil {
 				t.Fatalf("Expected error not found: %v", testCase.err)
 			}

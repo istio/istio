@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/howeyc/fsnotify"
@@ -35,11 +36,11 @@ const (
 	// DefaultCertDir is the default directory in which MCP options reside.
 	DefaultCertDir = "/etc/istio/certs/"
 	// DefaultCertificateFile is the default name to use for the certificate file.
-	DefaultCertificateFile = DefaultCertDir + "cert-chain.pem"
+	DefaultCertificateFile = "cert-chain.pem"
 	// DefaultKeyFile is the default name to use for the key file.
-	DefaultKeyFile = DefaultCertDir + "key.pem"
+	DefaultKeyFile = "key.pem"
 	// DefaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
-	DefaultCACertificateFile = DefaultCertDir + "root-cert.pem"
+	DefaultCACertificateFile = "root-cert.pem"
 )
 
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
@@ -83,7 +84,11 @@ type Options struct {
 
 // DefaultOptions returns default credential options.
 func DefaultOptions() *Options {
-	return &Options{}
+	return &Options{
+		CertificateFile:   filepath.Join(DefaultCertDir, DefaultCertificateFile),
+		KeyFile:           filepath.Join(DefaultCertDir, DefaultKeyFile),
+		CACertificateFile: filepath.Join(DefaultCertDir, DefaultCACertificateFile),
+	}
 }
 
 // AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
