@@ -94,7 +94,7 @@ MWYyZDFlMmU2N2Rm
 
 Set the namespace where Istio was installed:
 ```
-$ NAMESPACE=istio-sysem
+$ NAMESPACE=istio-system
 ```
 
 Create secret for Grafana:
