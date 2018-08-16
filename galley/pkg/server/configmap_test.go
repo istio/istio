@@ -90,12 +90,12 @@ allowed:
 
 	writeFile(t, file, updated)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		if checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
 			return
 		}
 
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 500)
 	}
 
 	t.Fatal("Expected spiffe id to be allowed.")
