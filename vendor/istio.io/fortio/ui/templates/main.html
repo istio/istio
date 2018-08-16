@@ -1,0 +1,95 @@
+<!DOCTYPE html><html><head><title>Φορτίο v{{.Version}}</title>
+<script src="{{.ChartJSPath}}"></script>
+<script src="{{.Version}}/static/js/fortio_chart.js"></script>
+<link rel="icon" href="../favicon.ico" />
+</head>
+<body style="background: linear-gradient(to right, #d8aa20 , #c75228);">
+<a href="http://fortio.org/"><img src="{{.LogoPath}}" alt="." height="69" width="45" align="right" /></a>
+<img src="{{.LogoPath}}" alt="." height="92" width="60" align="right" />
+<img src="{{.LogoPath}}" alt="istio logo" height="123" width="80" align="right" />
+<h1>Φορτίο (fortio) v{{.Version}}{{if not .DoLoad}} control UI{{end}}</h1>
+<p>Up for {{.UpTime}} (since {{.StartTime}}).
+{{if .DoLoad}}
+<p>{{.Labels}} {{.TargetURL}}
+<div id="running">
+Running load test... Results pending...
+<br />
+<progress id="progressBar" max="100" value="0" style="width: 100%"></progress>
+<br />
+<button type="submit" onclick='javascript:fetch("./?stop=Stop&runid={{.RunID}}");'>Interrupt</button>
+</div>
+<script>runTestForDuration({{.TestExpectedDurationSeconds}})</script>
+<div class="chart-container" id="cc1" style="position: relative; height:75vh; width:98vw; display:none;">
+<canvas style="background-color: #fff;" id="chart1"></canvas>
+</div>
+<div id="update" style="visibility: hidden">
+<form id="updtForm" action="javascript:updateChart()">
+<input type="submit" value="Update:" />
+Time axis min <input type="text" name="xmin" size="5" /> ms,
+max <input type="text" name="xmax" size="5" /> ms,
+logarithmic: <input name="xlog" type="checkbox" onclick="updateChart()" /> -
+Count axis logarithmic: <input name="ylog" type="checkbox" onclick="updateChart()" />
+</form>
+</div>
+<pre>{{else}}
+{{if .DoStop}}
+<p>Stoping runs as per request.</p>
+{{else}}
+<form>
+<div>
+Title/Labels: <input type="text" name="labels" size="40" value="Fortio" /> (empty to skip title)<br />
+URL: <input type="text" name="url" size="80" value="http://{{.URLHostPort}}/echo?delay=250us:30,5ms:5&status=503:0.5,429:1.5" /> <br />
+QPS: <input type="text" name="qps" size="6" value="1000" />
+Duration: <input id="duration" type="text" name="t" size="6" value="3s" />
+or run until interrupted: <input type="checkbox" name="t" onchange="toggleDuration(this)" />
+or run for exactly <input type="text" name="n" size="6" value="" /> calls. <br />
+Threads/Simultaneous connections: <input type="text" name="c" size="6" value="8" /> <br />
+Percentiles: <input type="text" name="p" size="20" value="50, 75, 90, 99, 99.9" /> <br />
+Histogram Resolution: <input type="text" name="r" size="8" value="0.0001" /> <br />
+Headers: <br />
+{{ range $name, $vals := .Headers }}{{range $val := $vals}}
+<input type="text" name="H" size=40 value="{{$name}}: {{ $val }}" /> <br />
+{{end}}{{end}} <!-- 3 extra header lines, TODO(#283): add a JS 'more headers' button -->
+<input type="text" name="H" size=40 value="" /> <br />
+<input type="text" name="H" size=40 value="" /> <br />
+<input type="text" name="H" size=40 value="" /> <br />
+Use standard go client instead of fastclient <input type="checkbox" name="stdclient"/> <br />
+Load using http: <input type="radio" name="runner" value="http" checked/> or
+grpc: <input type="radio" name="runner" value="grpc"/>
+(grpc secure transport (tls): <input type="checkbox" name="grpc-secure" />,
+using ping backend: <input type="checkbox" name="ping" />,
+ping delay: <input type="text" name="grpc-ping-delay" size="6" value="0" />) <br />
+JSON output: <input type="checkbox" name="json" />,
+Save output: <input type="checkbox" name="save" checked /> <br />
+<input type="submit" name="load" value="Start"/>
+</div>
+</form>
+<p><i>Or</i></p>
+<div>
+Browse <a href='browse'>saved results</a> (or <a href="data/">raw JSON</a>)
+</div>
+<p><i>Or</i></p>
+<form action="javascript:document.location += 'fetch/' + document.getElementById('uri').value">
+<div>
+Debug fetch http://<input type="text" id="uri" name="uri" value="" size=50/>
+</div>
+</form>
+<p><i>Or</i></p>
+<a href="{{.DebugPath}}">debug</a> and <a href="{{.DebugPath}}?env=dump">debug with env dump</a> and <a href="../debug/pprof/">Internal PPROF</a>
+<p><i>Or</i></p>
+<form action="sync">
+<div>
+Sync/download tsv or xml s3 bucket data from:<br />
+<input type="text" name="url" value="" size=50/>
+</div>
+</form>
+<p><i>Or</i></p>
+<form method="POST">
+<div>
+Interrupt runs from this server: <input type="submit" name="stop" value="Stop" />
+</div>
+</form>
+{{end}}
+</body>
+</html>
+{{end}}
