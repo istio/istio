@@ -410,8 +410,8 @@ grafana:
   security:
     enabled: false
     secretName: grafana
-    usernnameKey: username
-    passworkdKey: password
+    usernameKey: username
+    passwordKey: password
   service:
     annotations: {}
     name: http
