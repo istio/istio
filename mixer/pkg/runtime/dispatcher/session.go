@@ -190,8 +190,8 @@ func (s *session) dispatch() error {
 		}
 	}
 
-	stats.Record(ctx, monitoring.DestinationsPerRequest.M(int64(ndestinations)))
-	stats.Record(ctx, monitoring.InstancesPerRequest.M(int64(ninputs)))
+	stats.Record(s.ctx, monitoring.DestinationsPerRequest.M(int64(ndestinations)))
+	stats.Record(s.ctx, monitoring.InstancesPerRequest.M(int64(ninputs)))
 
 	s.waitForDispatched()
 

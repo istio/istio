@@ -108,31 +108,31 @@ func init() {
 
 	runtimeViews := []*view.View{
 		// config views
-		newView(AttributesTotal, configKeys, view.Sum()),
-		newView(HandlersTotal, configKeys, view.Sum()),
-		newView(InstancesTotal, configKeys, view.Sum()),
-		newView(InstanceErrs, configKeys, view.Sum()),
-		newView(RulesTotal, configKeys, view.Sum()),
-		newView(RuleErrs, configKeys, view.Sum()),
-		newView(AdapterInfosTotal, configKeys, view.Sum()),
-		newView(AdapterErrs, configKeys, view.Sum()),
-		newView(TemplatesTotal, configKeys, view.Sum()),
-		newView(TemplateErrs, configKeys, view.Sum()),
-		newView(MatchErrors, configKeys, view.Sum()),
-		newView(UnsatisfiedActionHandlers, configKeys, view.Sum()),
-		newView(HandlerValidationErrors, configKeys, view.Sum()),
-		newView(NewHandlersTotal, configKeys, view.Sum()),
-		newView(ReusedHandlersTotal, configKeys, view.Sum()),
-		newView(ClosedHandlersTotal, configKeys, view.Sum()),
-		newView(BuildFailuresTotal, configKeys, view.Sum()),
-		newView(CloseFailuresTotal, configKeys, view.Sum()),
+		newView(AttributesTotal, configKeys, view.Count()),
+		newView(HandlersTotal, configKeys, view.Count()),
+		newView(InstancesTotal, configKeys, view.Count()),
+		newView(InstanceErrs, configKeys, view.Count()),
+		newView(RulesTotal, configKeys, view.Count()),
+		newView(RuleErrs, configKeys, view.Count()),
+		newView(AdapterInfosTotal, configKeys, view.Count()),
+		newView(AdapterErrs, configKeys, view.Count()),
+		newView(TemplatesTotal, configKeys, view.Count()),
+		newView(TemplateErrs, configKeys, view.Count()),
+		newView(MatchErrors, configKeys, view.Count()),
+		newView(UnsatisfiedActionHandlers, configKeys, view.Count()),
+		newView(HandlerValidationErrors, configKeys, view.Count()),
+		newView(NewHandlersTotal, configKeys, view.Count()),
+		newView(ReusedHandlersTotal, configKeys, view.Count()),
+		newView(ClosedHandlersTotal, configKeys, view.Count()),
+		newView(BuildFailuresTotal, configKeys, view.Count()),
+		newView(CloseFailuresTotal, configKeys, view.Count()),
 
 		// env views
 		newView(WorkersTotal, envConfigKeys, view.LastValue()),
 		newView(DaemonsTotal, envConfigKeys, view.LastValue()),
 
 		// dispatch views
-		newView(DispatchesTotal, dispatchKeys, view.Sum()),
+		newView(DispatchesTotal, dispatchKeys, view.Count()),
 		newView(DispatchDurationsSeconds, dispatchKeys, view.Distribution(durationBuckets...)),
 
 		// others

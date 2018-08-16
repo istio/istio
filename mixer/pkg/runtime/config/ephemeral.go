@@ -194,7 +194,7 @@ func (e *Ephemeral) processAttributeManifests(monitoringCtx context.Context, err
 		cfg := obj.Spec
 		for an, at := range cfg.(*config.AttributeManifest).Attributes {
 			attrs[an] = at
-
+			stats.Record(monitoringCtx, monitoring.AttributesTotal.M(1))
 			log.Debugf("Attribute '%s': '%s'.", an, at.ValueType)
 		}
 	}
@@ -210,16 +210,13 @@ func (e *Ephemeral) processAttributeManifests(monitoringCtx context.Context, err
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
 				attrs[an] = at
-
+				stats.Record(monitoringCtx, monitoring.AttributesTotal.M(1))
 				log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
 			}
 		}
 	}
 
 	log.Debug("Completed processing attributes.")
-	log.Errorf(" ==| adding to AttributesTotal: %d with context: %v", len(attrs), tag.FromContext(monitoringCtx))
-	stats.Record(monitoringCtx, monitoring.AttributesTotal.M(int64(len(attrs))))
-
 	return attrs
 }
 
@@ -245,10 +242,9 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(monitoringCtx context.Con
 		}
 
 		handlers[cfg.Name] = cfg
+		stats.Record(monitoringCtx, monitoring.HandlersTotal.M(1))
 	}
 
-	log.Errorf("handler context: %v", tag.FromContext(monitoringCtx))
-	stats.Record(monitoringCtx, monitoring.HandlersTotal.M(int64(len(handlers))))
 	return handlers
 }
 
@@ -309,10 +305,9 @@ func (e *Ephemeral) processDynamicHandlerConfigs(adapters map[string]*Adapter, m
 		}
 
 		handlers[cfg.Name] = cfg
+		stats.Record(monitoringCtx, monitoring.HandlersTotal.M(1))
 	}
 
-	log.Errorf("handler context: %v", tag.FromContext(monitoringCtx))
-	stats.Record(monitoringCtx, monitoring.HandlersTotal.M(int64(len(handlers))))
 	return handlers
 }
 
@@ -389,9 +384,9 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 		}
 
 		instances[cfg.Name] = cfg
+		stats.Record(monitoringCtx, monitoring.InstancesTotal.M(1))
 	}
 
-	stats.Record(monitoringCtx, monitoring.InstancesTotal.M(int64(len(instances))))
 	return instances
 }
 
@@ -443,9 +438,9 @@ func (e *Ephemeral) processInstanceConfigs(attributes ast.AttributeDescriptorFin
 		}
 
 		instances[cfg.Name] = cfg
+		stats.Record(monitoringCtx, monitoring.InstancesTotal.M(1))
 	}
 
-	stats.Record(monitoringCtx, monitoring.InstancesTotal.M(int64(len(instances))))
 	return instances
 }
 
@@ -719,7 +714,6 @@ func (e *Ephemeral) processDynamicTemplateConfigs(monitoringCtx context.Context,
 		if templateKey.Kind != constant.TemplateKind {
 			continue
 		}
-		log.Errorf("ephemeral monitoring context: %v", tag.FromContext(monitoringCtx))
 		stats.Record(monitoringCtx, monitoring.TemplatesTotal.M(1))
 
 		templateName := templateKey.String()
