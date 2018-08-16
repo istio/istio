@@ -12,6 +12,10 @@
 set -ex
 
 SECURITY_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+<<<<<<< HEAD
+=======
+DOCKER_IMAGE="citadel,citadel-test,node-agent,node-agent-test"
+>>>>>>> 84e3ddf4c... Remove flexvolume driver, clean up node_agent_k8s dir (#6305)
 
 ARGS=""
 HUB=""
