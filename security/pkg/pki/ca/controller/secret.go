@@ -50,6 +50,9 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
+	// The default SPIFFE URL value for identity domain
+	DefaultIdentityDomain = "cluster.local"
+
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
 
@@ -82,6 +85,7 @@ type DNSNameEntry struct {
 type SecretController struct {
 	ca             ca.CertificateAuthority
 	certTTL        time.Duration
+	identityDomain string
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
@@ -108,7 +112,8 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, identityDomain string,
+	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
 	if gracePeriodRatio < 0 || gracePeriodRatio > 1 {
@@ -119,9 +124,14 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, grac
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
+	if identityDomain == "" {
+		identityDomain = DefaultIdentityDomain
+	}
+
 	c := &SecretController{
 		ca:               ca,
 		certTTL:          certTTL,
+		identityDomain:   identityDomain,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		dualUse:          dualUse,
@@ -298,7 +308,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := fmt.Sprintf("%s://cluster.local/ns/%s/sa/%s", util.URIScheme, saNamespace, saName)
+	id := fmt.Sprintf("%s://%s/ns/%s/sa/%s", util.URIScheme, sc.identityDomain, saNamespace, saName)
 	if sc.dnsNames != nil {
 		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {

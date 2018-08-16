@@ -19,6 +19,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"time"
 
 	"istio.io/istio/mixer/pkg/config/crd"
 
@@ -145,11 +146,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
-	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
-	}
-
 	// get the network stuff setup
 	network := "tcp"
 	address := fmt.Sprintf(":%d", a.APIPort)
@@ -206,10 +202,18 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
+	// this method initializes the store
 	if err = p.runtimeListen(rt); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
+
+	// block wait for the config store to sync
+	log.Info("Awaiting for config store sync...")
+	if err := st.WaitForSynced(30 * time.Second); err != nil {
+		return nil, err
+	}
+
 	s.dispatcher = rt.Dispatcher()
 
 	if a.NumCheckCacheEntries > 0 {
@@ -232,6 +236,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		rt.RegisterProbe(s.readinessProbe, "dispatcher")
 		st.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()
+	}
+
+	log.Info("Starting monitor server...")
+	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)

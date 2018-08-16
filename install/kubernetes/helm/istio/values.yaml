@@ -360,6 +360,10 @@ mixer:
     hub: docker.io/prom
     tag: v0.6.0
 
+    # Configuration to be included as the statsd_exporter mapping configuration.
+    # See https://github.com/prometheus/statsd_exporter/tree/master#metric-mapping-and-configuration
+    mapping: {}
+
 #
 # pilot configuration
 #
@@ -387,6 +391,7 @@ security:
   replicaCount: 1
   image: citadel
   selfSigned: true # indicate if self-signed CA is used.
+  identityDomain: cluster.local # indicate the domain used in SPIFFE identity URL
 
 #
 # addons configuration
@@ -460,7 +465,7 @@ tracing:
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing
-    tag: 1.5
+    tag: 1.6
     memory:
       max_traces: 50000
     ui:

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
@@ -131,6 +132,12 @@ func (b *backend) Init(kinds []string) error {
 	go c.Run(ctx)
 	b.cancel = cancel
 
+	return nil
+}
+
+// WaitForSynced implements store.Backend interface.
+func (b *backend) WaitForSynced(time.Duration) error {
+	// TODO(ozevren): implement for MCP
 	return nil
 }
 
