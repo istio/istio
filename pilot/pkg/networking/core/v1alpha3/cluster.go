@@ -83,6 +83,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
