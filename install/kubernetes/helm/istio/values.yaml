@@ -196,13 +196,13 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
-    resources: {}
+    resources:
+      requests:
+        cpu: 500m
+      #  memory: 256Mi
       # limits:
       #  cpu: 100m
       #  memory: 128Mi
-      #requests:
-      #  cpu: 1800m
-      #  memory: 256Mi
 
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
@@ -254,6 +254,9 @@ gateways:
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5
+    resources:
+      requests:
+        cpu: 500m
     serviceAnnotations: {}
     type: ClusterIP #change to NodePort or LoadBalancer if need be
     ports:
