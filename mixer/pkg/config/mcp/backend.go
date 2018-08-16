@@ -16,6 +16,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -26,8 +27,6 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/pkg/mcp/creds"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/metadata/kube"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -49,8 +49,8 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builder := func(u *url.URL, gv *schema.GroupVersion, certInfo *store.CertificateInfo) (store.Backend, error) {
-		return newStore(u, certInfo, nil)
+	builder := func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options) (store.Backend, error) {
+		return newStore(u, credOptions, nil)
 	}
 
 	builders["mcp"] = builder
@@ -58,13 +58,19 @@ func Register(builders map[string]store.Builder) {
 }
 
 // NewStore creates a new Store instance.
-func newStore(u *url.URL, certInfo *store.CertificateInfo, fn updateHookFn) (store.Backend, error) {
-	insecure := u.Scheme == "mcpi"
+func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Backend, error) {
+	insecure := true
+	if u.Scheme == "mcp" {
+		insecure = false
+		if credOptions == nil {
+			return nil, errors.New("no credentials specified with secure MCP scheme")
+		}
+	}
 
 	return &backend{
 		serverAddress: u.Host,
 		insecure:      insecure,
-		certInfo:      certInfo,
+		credOptions:   credOptions,
 		Probe:         probe.NewProbe(),
 		updateHook:    fn,
 	}, nil
@@ -84,8 +90,8 @@ type backend struct {
 	// address of the MCP server.
 	serverAddress string
 
-	// The location of the certificate files.
-	certInfo *store.CertificateInfo
+	// MCP credential options
+	credOptions *creds.Options
 
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
@@ -141,7 +147,7 @@ func (b *backend) Init(kinds []string) error {
 			address = strings.Split(address, ":")[0]
 		}
 
-		watcher, err := creds.WatchFiles(ctx.Done(), b.certInfo.CertificateFile, b.certInfo.KeyFile, b.certInfo.CACertificateFile)
+		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
 			return err
 		}

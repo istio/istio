@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/mcp/creds"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gogo/protobuf/proto"
@@ -79,7 +80,7 @@ func newTestBackend() *testStore {
 }
 
 func registerTestStore(builders map[string]Builder) {
-	builders["test"] = func(u *url.URL, gv *schema.GroupVersion, _ *CertificateInfo) (Backend, error) {
+	builders["test"] = func(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (Backend, error) {
 		return newTestBackend(), nil
 	}
 }

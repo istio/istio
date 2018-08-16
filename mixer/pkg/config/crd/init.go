@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/mcp/creds"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -62,7 +63,7 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 }
 
 // NewStore creates a new Store instance.
-func NewStore(u *url.URL, gv *schema.GroupVersion, _ *store.CertificateInfo) (store.Backend, error) {
+func NewStore(u *url.URL, gv *schema.GroupVersion, _ *creds.Options) (store.Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
 	retryTimeout := crdRetryTimeout

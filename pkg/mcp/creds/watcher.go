@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/log"
 )
@@ -31,19 +32,19 @@ import (
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
 
 const (
+	// DefaultCertDir is the default directory in which MCP options reside.
+	DefaultCertDir = "/etc/istio/certs/"
 	// DefaultCertificateFile is the default name to use for the certificate file.
-	DefaultCertificateFile = "cert-chain.pem"
+	DefaultCertificateFile = DefaultCertDir + "cert-chain.pem"
 	// DefaultKeyFile is the default name to use for the key file.
-	DefaultKeyFile = "key.pem"
+	DefaultKeyFile = DefaultCertDir + "key.pem"
 	// DefaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
-	DefaultCACertificateFile = "root-cert.pem"
+	DefaultCACertificateFile = DefaultCertDir + "root-cert.pem"
 )
 
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
 type CertificateWatcher struct {
-	caCertFile string
-	certFile   string
-	keyFile    string
+	options Options
 
 	stopCh <-chan struct{}
 
@@ -62,23 +63,50 @@ type CertificateWatcher struct {
 //
 // Internally WatchFolder will call WatchFiles.
 func WatchFolder(stop <-chan struct{}, folder string) (*CertificateWatcher, error) {
-	certFile := path.Join(folder, DefaultCertificateFile)
-	keyFile := path.Join(folder, DefaultKeyFile)
-	caCertFile := path.Join(folder, DefaultCACertificateFile)
+	cred := &Options{
+		CertificateFile:   path.Join(folder, DefaultCertificateFile),
+		KeyFile:           path.Join(folder, DefaultKeyFile),
+		CACertificateFile: path.Join(folder, DefaultCACertificateFile),
+	}
+	return WatchFiles(stop, cred)
+}
 
-	return WatchFiles(stop, certFile, keyFile, caCertFile)
+// Options defines the credential options required for MCP.
+type Options struct {
+	// CertificateFile to use for mTLS gRPC.
+	CertificateFile string
+	// KeyFile to use for mTLS gRPC.
+	KeyFile string
+	// CACertificateFile is the trusted root certificate authority's cert file.
+	CACertificateFile string
+}
+
+// DefaultOptions returns default credential options.
+func DefaultOptions() *Options {
+	return &Options{}
+}
+
+// AttachCobraFlags attaches a set of Cobra flags to the given Cobra command.
+//
+// Cobra is the command-line processor that Istio uses. This command attaches
+// the necessary set of flags to configure the MCP options.
+func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&c.CertificateFile, "certFile", "", c.CertificateFile,
+		"The location of the certificate file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&c.KeyFile, "keyFile", "", c.KeyFile,
+		"The location of the key file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&c.CACertificateFile, "caCertFile", "", c.CACertificateFile,
+		"The location of the certificate file for the root certificate authority")
 }
 
 // WatchFiles loads certificate & key files from the file system. The method will start a background
 // go-routine and watch for credential file changes. Callers should pass the return result to one of the
-// create functions to create a transport credentials that can dynamically use rotated certificates.
+// create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
-func WatchFiles(stopCh <-chan struct{}, certFile, keyFile, caCertFile string) (*CertificateWatcher, error) {
+func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*CertificateWatcher, error) {
 	w := &CertificateWatcher{
-		caCertFile: caCertFile,
-		certFile:   certFile,
-		keyFile:    keyFile,
-		stopCh:     stopCh,
+		options: *credentials,
+		stopCh:  stopCh,
 	}
 
 	if err := w.start(); err != nil {
@@ -92,12 +120,12 @@ func WatchFiles(stopCh <-chan struct{}, certFile, keyFile, caCertFile string) (*
 // fails.
 func (c *CertificateWatcher) start() error {
 	// Load CA Cert file
-	caCertPool, err := loadCACert(c.caCertFile)
+	caCertPool, err := loadCACert(c.options.CACertificateFile)
 	if err != nil {
 		return err
 	}
 
-	cert, err := loadCertPair(c.certFile, c.keyFile)
+	cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 	if err != nil {
 		return err
 	}
@@ -116,16 +144,17 @@ func (c *CertificateWatcher) start() error {
 		return err
 	}
 
-	if err = certFileWatcher.Watch(c.certFile); err != nil {
+	if err = certFileWatcher.Watch(c.options.CertificateFile); err != nil {
 		return err
 	}
 
-	if err = keyFileWatcher.Watch(c.keyFile); err != nil {
+	if err = keyFileWatcher.Watch(c.options.KeyFile); err != nil {
 		_ = certFileWatcher.Close()
 		return err
 	}
 
-	scope.Debugf("Begin watching certificate files: %s, %s: ", c.certFile, c.keyFile)
+	scope.Debugf("Begin watching certificate files: %s, %s: ",
+		c.options.CertificateFile, c.options.KeyFile)
 
 	// Coordinate the goroutines for orderly shutdown
 	var exitSignal sync.WaitGroup
@@ -153,7 +182,7 @@ func (c *CertificateWatcher) watch(
 		select {
 		case e := <-certFileWatcher.Event:
 			if e.IsCreate() || e.IsModify() {
-				cert, err := loadCertPair(c.certFile, c.keyFile)
+				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
 				}
@@ -163,7 +192,7 @@ func (c *CertificateWatcher) watch(
 
 		case e := <-keyFileWatcher.Event:
 			if e.IsCreate() || e.IsModify() {
-				cert, err := loadCertPair(c.certFile, c.keyFile)
+				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
 				}

@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/mcp/creds"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/gogo/protobuf/proto"
@@ -261,16 +262,8 @@ func WithBackend(b Backend) Store {
 	return &store{backend: b}
 }
 
-// CertificateInfo is used to pass certificate file information to the config backend. This is mainly used
-// by the MCP backend.
-type CertificateInfo struct {
-	CertificateFile   string
-	KeyFile           string
-	CACertificateFile string
-}
-
 // Builder is the type of function to build a Backend.
-type Builder func(u *url.URL, gv *schema.GroupVersion, certInfo *CertificateInfo) (Backend, error)
+type Builder func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options) (Backend, error)
 
 // RegisterFunc is the type to register a builder for URL scheme.
 type RegisterFunc func(map[string]Builder)
@@ -297,7 +290,7 @@ const (
 )
 
 // NewStore creates a new Store instance with the specified backend.
-func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion, certInfo *CertificateInfo) (Store, error) {
+func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion, credOptions *creds.Options) (Store, error) {
 	u, err := url.Parse(configURL)
 
 	if err != nil {
@@ -310,7 +303,7 @@ func (r *Registry) NewStore(configURL string, groupVersion *schema.GroupVersion,
 		b = newFsStore(u.Path)
 	default:
 		if builder, ok := r.builders[u.Scheme]; ok {
-			b, err = builder(u, groupVersion, certInfo)
+			b, err = builder(u, groupVersion, credOptions)
 			if err != nil {
 				return nil, err
 			}
