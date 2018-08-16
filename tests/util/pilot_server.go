@@ -168,8 +168,7 @@ func setup() error {
 	MockTestServer = s
 
 	// Start the server.
-	_, err = s.Start(stop)
-	if err != nil {
+	if err := s.Start(stop); err != nil {
 		return err
 	}
 
