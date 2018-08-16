@@ -298,6 +298,7 @@ func TestStoreFailToInit(t *testing.T) {
 }
 
 func TestCrdsAreNotReady(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7958")
 	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
 	s, _, _ := getTempClient()
 	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
@@ -316,6 +317,7 @@ func TestCrdsAreNotReady(t *testing.T) {
 }
 
 func TestCrdsRetryMakeSucceed(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
@@ -358,6 +360,7 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 }
 
 func TestCrdsRetryAsynchronously(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7958")
 	fakeDiscovery := &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
 			Resources: []*metav1.APIResourceList{
