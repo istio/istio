@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -62,10 +63,6 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 		{
 			input:        "badAttribute",
 			builderError: errors.New("unknown attribute"),
-		},
-		{
-			input:        "response.time",
-			builderError: errors.New("unsupported type"),
 		},
 		{
 			input:        "incorrectMessage",
@@ -119,6 +116,11 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 
 func TestValueTypeEncoder(t *testing.T) {
 	compiler := compiled.NewBuilder(StatdardVocabulary())
+	now := time.Now()
+	ts, err := types.TimestampProto(now)
+	if err != nil {
+		t.Fatalf("invalid time: %v", err)
+	}
 	for _, tst := range []struct {
 		input    interface{}
 		output   v1beta1.Value
@@ -167,6 +169,13 @@ func TestValueTypeEncoder(t *testing.T) {
 			output: v1beta1.Value{Value: &v1beta1.Value_BoolValue{false}},
 			bag: map[string]interface{}{
 				"test.bool": false,
+			},
+		},
+		{
+			input:  "response.time",
+			output: v1beta1.Value{Value: &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{ts}}},
+			bag: map[string]interface{}{
+				"response.time": now,
 			},
 		},
 	} {
