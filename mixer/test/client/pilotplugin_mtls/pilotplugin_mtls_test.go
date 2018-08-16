@@ -136,10 +136,10 @@ static_resources:
 	// See issue https://github.com/istio/proxy/issues/1910
 	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
-	// "connection.requested_server_name": "istio.io",
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -224,6 +224,7 @@ static_resources:
 	reportAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -401,6 +402,9 @@ func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionM
 			Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
+			ListenerFilters: []listener.ListenerFilter{{
+				Name: "envoy.listener.tls_inspector",
+			}},
 		}, &hcm.HttpConnectionManager{
 			CodecType:  hcm.AUTO,
 			StatPrefix: route,
