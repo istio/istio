@@ -37,7 +37,7 @@ type Snapshot interface {
 type Cache struct {
 	mu         sync.RWMutex
 	snapshots  map[string]Snapshot
-	status     map[string]*statusInfo
+	status     map[string]*StatusInfo
 	watchCount int64
 }
 
@@ -45,7 +45,7 @@ type Cache struct {
 func New() *Cache {
 	return &Cache{
 		snapshots: make(map[string]Snapshot),
-		status:    make(map[string]*statusInfo),
+		status:    make(map[string]*StatusInfo),
 	}
 }
 
@@ -56,11 +56,28 @@ type responseWatch struct {
 	responseC chan<- *server.WatchResponse
 }
 
-type statusInfo struct {
+// StatusInfo records watch status information of a remote client.
+type StatusInfo struct {
 	mu                   sync.Mutex
 	client               *mcp.Client
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
+	totalWatches         int
+}
+
+// Watches returns the number of open watches.
+func (si *StatusInfo) Watches() int {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	return len(si.watches)
+}
+
+// LastWatchRequestTime returns the time the most recent watch request
+// was received.
+func (si *StatusInfo) LastWatchRequestTime() time.Time {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	return si.lastWatchRequestTime
 }
 
 // Watch returns a watch for an MCP request.
@@ -73,7 +90,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 
 	info, ok := c.status[nodeID]
 	if !ok {
-		info = &statusInfo{
+		info = &StatusInfo{
 			client:  request.Client,
 			watches: make(map[int64]*responseWatch),
 		}
@@ -105,7 +122,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	c.watchCount++
 	watchID := c.watchCount
 
-	log.Infof("Watch(): created watch %d for %s from nodeID %q, version1 %q",
+	log.Infof("Watch(): created watch %d for %s from nodeID %q, version %q",
 		watchID, request.TypeUrl, nodeID, request.VersionInfo)
 
 	info.mu.Lock()
@@ -132,13 +149,13 @@ func (c *Cache) SetSnapshot(node string, snapshot Snapshot) {
 	// update the existing entry
 	c.snapshots[node] = snapshot
 
-	// trigger existing watches for which version1 changed
+	// trigger existing watches for which version changed
 	if info, ok := c.status[node]; ok {
 		info.mu.Lock()
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
-				log.Infof("SetSnapshot(): respond to watch %d with new version1 %q", id, version)
+				log.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
 
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
@@ -179,4 +196,14 @@ func (c *Cache) ClearStatus(node string) {
 		info.mu.Unlock()
 	}
 	delete(c.status, node)
+}
+
+// Status returns informational status for a client.
+func (c *Cache) Status(node string) *StatusInfo {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if info, ok := c.status[node]; ok {
+		return info
+	}
+	return nil
 }

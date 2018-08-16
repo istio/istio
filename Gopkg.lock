@@ -20,7 +20,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8a768ab68d5be3ef0f51dac417cc113a61c8d5e59af9c6daeb6dc34862e06e32"
+  digest = "1:6ed512f144d92229093795a6049d4bb8f220696262b37777efbda841961121d9"
   name = "code.cloudfoundry.org/copilot"
   packages = [
     ".",
@@ -28,7 +28,7 @@
     "testhelpers",
   ]
   pruneopts = "NUT"
-  revision = "1e7e324f8366ded261140272c9e44d0ee681bdbf"
+  revision = "6bade2a0677a5cd76f937ef4cd2e426f55742ad1"
 
 [[projects]]
   digest = "1:0a7b52c5d11037c41b6e80e72a87a0ee974096434769d347bb960a9317526af0"
@@ -183,14 +183,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  branch = "master"
-  digest = "1:e60ea12cc6af851334368f7df0e3e7f6827189a482324c9e3e9772f279a24df2"
-  name = "github.com/bradfitz/slice"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "d9036e2120b5ddfa53f3ebccd618c4af275f47da"
-
-[[projects]]
   digest = "1:dbe9e40f035ae057794d474c7e1a3e862a9571a29cd9e5f98ae8a72284c1e381"
   name = "github.com/cactus/go-statsd-client"
   packages = [
@@ -313,7 +305,7 @@
 
 [[projects]]
   branch = "revert_grpc_version_update"
-  digest = "1:a67fc4d1c5bee4ceef8778a9cdb167eaa88b7e72503d0b4780c7c1cdc77d4419"
+  digest = "1:905697620ddaf709aa8603c2e5cdb7220929d28870fa6996e65feea57dc20faa"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -335,6 +327,7 @@
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/metrics/v2",
+    "envoy/config/overload/v2alpha",
     "envoy/config/ratelimit/v2",
     "envoy/config/rbac/v2alpha",
     "envoy/config/trace/v2",
@@ -347,7 +340,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "9d935e3a33c28e3d6ac75a9db53b0da3b511fb86"
+  revision = "c17582cc6514d173e4309d4e3bb16a150efcfcf7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -853,12 +846,12 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:444f6d964ae6fafecd68e991ca960bad03ca3fa9cf7434dbb2683133072e8910"
+  digest = "1:ff74f0a23b59c8bd133c5438394d274c67cdfa693d9d97e09e00086a2499c42f"
   name = "github.com/onsi/ginkgo"
   packages = ["config"]
   pruneopts = "NUT"
-  revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
-  version = "v1.4.0"
+  revision = "3774a09d95489ccaa16032e0770d08ea77ba6184"
+  version = "v1.6.0"
 
 [[projects]]
   digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
@@ -1271,14 +1264,6 @@
   pruneopts = "NUT"
   revision = "35aad584952c3e7020db7b839f6b102de6271f89"
   version = "v1.7.1"
-
-[[projects]]
-  branch = "master"
-  digest = "1:2d5791bbafb386740ff5ad5b3259ea6a9290e97ca1a7dff3f8dbe3bfaf261910"
-  name = "go4.org"
-  packages = ["reflectutil"]
-  pruneopts = "NUT"
-  revision = "9599cf28b011184741f249bd9f9330756b506cbc"
 
 [[projects]]
   branch = "master"
@@ -2003,7 +1988,6 @@
     "github.com/aws/aws-sdk-go/awstesting/unit",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface",
-    "github.com/bradfitz/slice",
     "github.com/cactus/go-statsd-client/statsd",
     "github.com/cactus/go-statsd-client/statsd/statsdtest",
     "github.com/cenkalti/backoff",

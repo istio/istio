@@ -32,6 +32,7 @@ type VerifyFields struct {
 	KeyUsage    x509.KeyUsage
 	IsCA        bool
 	Org         string
+	CommonName  string
 }
 
 // VerifyCertificate verifies a given PEM encoded certificate by
@@ -124,6 +125,11 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 	if org := expectedFields.Org; org != "" && !reflect.DeepEqual([]string{org}, cert.Issuer.Organization) {
 		return fmt.Errorf("unexpected value for 'Organization' field: want %v but got %v",
 			[]string{org}, cert.Issuer.Organization)
+	}
+
+	if cn := expectedFields.CommonName; cn != cert.Subject.CommonName {
+		return fmt.Errorf("unexpected value for 'CommonName' field: want %v but got %v",
+			cn, cert.Subject.CommonName)
 	}
 
 	return nil

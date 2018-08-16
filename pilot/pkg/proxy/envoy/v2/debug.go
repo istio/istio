@@ -97,8 +97,6 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -561,7 +559,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
 		AdsPushAll(s)
+		adsClientsMutex.RLock()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
+		adsClientsMutex.RUnlock()
 		return
 	}
 	writeAllADS(w)
@@ -669,7 +669,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 		AdsPushAll(s)
 	}
 
-	edsClusterMutex.Lock()
+	edsClusterMutex.RLock()
 	comma := false
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
@@ -689,7 +689,7 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.WriteHeader(404)
 	}
-	edsClusterMutex.Unlock()
+	edsClusterMutex.RUnlock()
 }
 
 // cdsz implements a status and debug interface for CDS.

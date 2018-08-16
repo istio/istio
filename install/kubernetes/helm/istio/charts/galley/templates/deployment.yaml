@@ -68,6 +68,25 @@ spec:
                 - --interval=4s
             initialDelaySeconds: 4
             periodSeconds: 4
+        - name: server
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+          - containerPort: 9901
+          command:
+          - /usr/local/bin/galley
+          - server
+          - --insecure=false
+          - --keyFile=/etc/istio/certs/key.pem
+          - --certFile=/etc/istio/certs/cert-chain.pem
+          - --caCertFile=/etc/istio/certs/root-cert.pem
+          volumeMounts:
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+          - name: config
+            mountPath: /etc/istio/config
+            readOnly: true
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}

@@ -21,6 +21,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -37,27 +38,24 @@ type testStream struct {
 	sync.Mutex
 	change map[string]*Change
 
-	requestC  chan *mcp.MeshConfigRequest  // received from client
-	responseC chan *mcp.MeshConfigResponse // to-be-sent to client
+	requestC        chan *mcp.MeshConfigRequest  // received from client
+	responseC       chan *mcp.MeshConfigResponse // to-be-sent to client
+	responseClosedC chan struct{}
 
 	updateError bool
-	sendError   bool
-	recvError   bool
+	sendError   int32
+	recvError   int32
 
 	grpc.ClientStream
 }
 
 func newTestStream() *testStream {
 	return &testStream{
-		requestC:  make(chan *mcp.MeshConfigRequest, 10),
-		responseC: make(chan *mcp.MeshConfigResponse, 10),
-		change:    make(map[string]*Change),
+		requestC:        make(chan *mcp.MeshConfigRequest, 10),
+		responseC:       make(chan *mcp.MeshConfigResponse, 10),
+		responseClosedC: make(chan struct{}, 10),
+		change:          make(map[string]*Change),
 	}
-}
-
-func (ts *testStream) close() {
-	close(ts.requestC)
-	close(ts.responseC)
 }
 
 func (ts *testStream) wantRequest(messageName string, want *mcp.MeshConfigRequest) error {
@@ -71,33 +69,49 @@ func (ts *testStream) wantRequest(messageName string, want *mcp.MeshConfigReques
 }
 
 func (ts *testStream) sendResponseToClient(response *mcp.MeshConfigResponse) {
-	ts.responseC <- response
+	if atomic.CompareAndSwapInt32(&ts.recvError, 1, 0) {
+		ts.responseClosedC <- struct{}{}
+	} else {
+		ts.responseC <- response
+	}
 }
 
 func (ts *testStream) StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient, error) { // nolint: lll
+	go func() {
+		<-ctx.Done()
+		ts.responseClosedC <- struct{}{}
+	}()
 	return ts, nil
 }
 
 func (ts *testStream) Send(request *mcp.MeshConfigRequest) error {
-	if ts.sendError {
+	if atomic.CompareAndSwapInt32(&ts.sendError, 1, 0) {
 		return errors.New("send error")
 	}
-	ts.requestC <- request
-	return nil
+	select {
+	case <-ts.responseClosedC:
+		return errors.New("send error")
+	case ts.requestC <- request:
+		return nil
+	}
 }
 
 func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
-	if ts.recvError {
+	if atomic.CompareAndSwapInt32(&ts.recvError, 1, 0) {
 		return nil, errors.New("recv error")
 	}
-	response, more := <-ts.responseC
-	if !more {
+	select {
+	case response, more := <-ts.responseC:
+		if !more {
+			return nil, io.EOF
+		}
+		return response, nil
+	case <-ts.responseClosedC:
 		return nil, io.EOF
 	}
-	return response, nil
 }
 
-func (ts *testStream) Update(change *Change) error {
+func (ts *testStream) Apply(change *Change) error {
 	if ts.updateError {
 		return errors.New("update error")
 	}
@@ -262,9 +276,6 @@ func makeResponse(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *m
 	return r
 }
 
-// Verify reconnect on send error
-// Verify reconnect on receive error
-
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
 
@@ -281,7 +292,6 @@ func TestSingleTypeCases(t *testing.T) {
 	defer func() {
 		cancelClient()
 		wg.Wait()
-		ts.close()
 	}()
 
 	// Check metadata fields first
@@ -446,9 +456,7 @@ func TestSingleTypeCases(t *testing.T) {
 
 	// install probe to monitor when the client is finished handling responses
 	responseDone := make(chan struct{})
-	handleResponseDoneProbe = func() {
-		responseDone <- struct{}{}
-	}
+	handleResponseDoneProbe = func() { responseDone <- struct{}{} }
 	defer func() { handleResponseDoneProbe = nil }()
 
 	for _, step := range steps {
@@ -457,7 +465,8 @@ func TestSingleTypeCases(t *testing.T) {
 		ts.sendResponseToClient(step.sendResponse)
 		<-responseDone
 		if !reflect.DeepEqual(ts.change[step.wantChange.MessageName], step.wantChange) {
-			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v", step.name, ts.change, step.wantChange)
+			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
+				step.name, ts.change[step.wantChange.MessageName], step.wantChange)
 		}
 
 		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {
@@ -471,6 +480,164 @@ func TestSingleTypeCases(t *testing.T) {
 		lastEntry := entries[len(entries)-1]
 		if err := checkRequest(lastEntry.Request, step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to publish the right journal entries: %v", step.name, err)
+		}
+	}
+}
+
+func TestReconnect(t *testing.T) {
+	ts := newTestStream()
+
+	c := New(ts, []string{fakeType0MessageName}, ts, key, metadata)
+	ctx, cancelClient := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		c.Run(ctx)
+		wg.Done()
+	}()
+
+	defer func() {
+		cancelClient()
+		wg.Wait()
+	}()
+
+	steps := []struct {
+		name         string
+		sendResponse *mcp.MeshConfigResponse
+		wantRequest  *mcp.MeshConfigRequest
+		wantChange   *Change
+		sendError    bool
+		recvError    bool
+	}{
+		{
+			name:         "Initial request (type0)",
+			sendResponse: nil, // client initiates the exchange
+			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_0.Metadata,
+					Resource:    fake0_0,
+					Version:     "type0/v0",
+				}},
+			},
+		},
+		{
+			name:         "ACK request (type0)",
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
+			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_0.Metadata,
+					Resource:    fake0_0,
+					Version:     "type0/v0",
+				}},
+			},
+		},
+		{
+			name:         "send error",
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
+			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_0.Metadata,
+					Resource:    fake0_0,
+					Version:     "type0/v0",
+				}},
+			},
+			sendError: true,
+		},
+		{
+			name:         "ACK request after reconnect on send error",
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
+			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n1", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_1.Metadata,
+					Resource:    fake0_1,
+					Version:     "type0/v1",
+				}},
+			},
+		},
+		{
+			name:         "recv error",
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
+			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_1.Metadata,
+					Resource:    fake0_1,
+					Version:     "type0/v1",
+				}},
+			},
+			recvError: true,
+		},
+		{
+			name:         "ACK request after reconnect on recv error",
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
+			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v2", "type0/n2", codes.OK),
+			wantChange: &Change{
+				MessageName: fakeType0MessageName,
+				Objects: []*Object{{
+					MessageName: fakeType0MessageName,
+					Metadata:    fakeResource0_2.Metadata,
+					Resource:    fake0_2,
+					Version:     "type0/v2",
+				}},
+			},
+		},
+	}
+
+	// install probe to monitor when the client is finished handling responses
+	responseDone := make(chan struct{})
+	handleResponseDoneProbe = func() { responseDone <- struct{}{} }
+	prevDelay := reestablishStreamDelay
+	reestablishStreamDelay = 10 * time.Millisecond
+
+	defer func() {
+		handleResponseDoneProbe = nil
+		reestablishStreamDelay = prevDelay
+	}()
+
+	for _, step := range steps {
+		if step.sendError {
+			atomic.StoreInt32(&ts.sendError, 1)
+		} else {
+			atomic.StoreInt32(&ts.sendError, 0)
+		}
+		if step.recvError {
+			atomic.StoreInt32(&ts.recvError, 1)
+		} else {
+			atomic.StoreInt32(&ts.recvError, 0)
+		}
+
+		if step.sendResponse != nil {
+			ts.sendResponseToClient(step.sendResponse)
+
+			if !step.recvError {
+				<-responseDone
+			}
+
+			if !step.sendError {
+				if !reflect.DeepEqual(ts.change[step.wantChange.MessageName], step.wantChange) {
+					t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
+						step.name, ts.change[step.wantChange.MessageName].Objects[0], step.wantChange.Objects[0])
+				}
+			}
+		}
+
+		if err := ts.wantRequest(fakeType0MessageName, step.wantRequest); err != nil {
+			t.Fatalf("%v: failed to receive correct request: %v", step.name, err)
 		}
 	}
 }

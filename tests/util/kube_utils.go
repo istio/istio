@@ -150,6 +150,16 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// KubeGetYaml kubectl get yaml content for given resource.
+func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, error) {
+	if namespace == "" {
+		namespace = "default"
+	}
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+
+	return Shell(cmd)
+}
+
 // KubeApplyContentSilent kubectl apply from contents silently
 func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)

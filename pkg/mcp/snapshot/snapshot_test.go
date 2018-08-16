@@ -343,6 +343,10 @@ func TestClearStatus(t *testing.T) {
 				t.Fatalf("CreateWatch() failed: %v", err)
 			}
 
+			if status := c.Status(key); status == nil {
+				t.Fatal("no status found")
+			}
+
 			c.ClearStatus(key)
 
 			// verify that ClearStatus() cancels the open watch and

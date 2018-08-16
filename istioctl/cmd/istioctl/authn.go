@@ -31,10 +31,10 @@ service registry, and check if TLS settings are compatible between them.
 `,
 		Example: `
 # Check settings for all known services in the service registry:
-istioclt authn tls-check
+istioctl authn tls-check
 
 # Check settings for a specific service
-istioclt authn tls-check foo.bar.svc.cluster.local
+istioctl authn tls-check foo.bar.svc.cluster.local
 `,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

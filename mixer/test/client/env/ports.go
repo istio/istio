@@ -55,6 +55,7 @@ const (
 	DynamicListenerTest
 	PilotPluginTest
 	PilotPluginTCPTest
+	PilotPluginTLSTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

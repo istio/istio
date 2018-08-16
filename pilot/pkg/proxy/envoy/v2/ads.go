@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -177,7 +178,7 @@ type XdsConnection struct {
 
 	modelNode *model.Proxy
 
-	// Sending on this channel results in  push. We may also make it a channel of objects so
+	// Sending on this channel results in a push. We may also make it a channel of objects so
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
@@ -243,7 +244,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
 
 	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
-	clusters, err := s.generateRawClusters(conn, s.env.PushContext)
+	clusters, err := s.generateRawClusters(conn.modelNode, s.env.PushContext)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +354,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// poor new pilot and overwhelm it.
 	// TODO: instead of readiness probe, let endpoints connect and wait here for
 	// config to become stable. Will better spread the load.
-	<-s.throttle
+	s.rateLimiter.Wait(context.TODO())
 
 	// first call - lazy loading, in tests. This should not happen if readiness
 	// check works, since it assumes ClearCache is called (and as such PushContext
@@ -391,7 +392,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	go receiveThread(con, reqChannel, &receiveError)
 
 	for {
-		// Block until either a request is received or the ticker ticks
+		// Block until either a request is received or a push is triggered.
 		select {
 		case discReq, ok = <-reqChannel:
 			if !ok {
@@ -550,7 +551,7 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 // Compute and send the new configuration. This is blocking and may be slow
 // for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
-	<-s.throttle // rate limit the actual push
+	s.rateLimiter.Wait(context.TODO()) // rate limit the actual push
 
 	// Prevent 2 overlapping pushes. Disabled if push suppression is disabled
 	// (as fail-safe in case of bugs)

@@ -229,8 +229,9 @@ gateways:
     - port: 8060
       targetPort: 8060
       name: tcp-citadel-grpc-tls
-    # Telemetry-related ports are enabled in gateway - but will only redirect if
-    # the gateway configration for the various components are enabled.
+    - port: 853
+      targetPort: 853
+      name: tcp-dns-tls
     - port: 15030
       targetPort: 15030
       name: http2-prometheus
@@ -353,6 +354,8 @@ mixer:
     cpu:
       targetAverageUtilization: 80
 
+  podAnnotations: {}
+
   prometheusStatsdExporter:
     hub: docker.io/prom
     tag: v0.6.0
@@ -409,6 +412,8 @@ grafana:
     type: ClusterIP
     externalPort: 3000
     internalPort: 3000
+    loadBalancerIP:
+    loadBalancerSourceRanges:
 
 prometheus:
   enabled: true
@@ -432,6 +437,8 @@ servicegraph:
     type: ClusterIP
     externalPort: 8088
     internalPort: 8088
+    loadBalancerIP:
+    loadBalancerSourceRanges:
   ingress:
     enabled: false
     # Used to create an Ingress record.

@@ -46,7 +46,16 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"Maximum size of individual gRPC messages")
 	cmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", sa.MaxConcurrentStreams,
 		"Maximum number of outstanding RPCs per connection")
-
+	cmd.PersistentFlags().BoolVarP(&sa.Insecure, "insecure", "", sa.Insecure,
+		"Use insecure gRPC communication")
+	cmd.PersistentFlags().StringVarP(&sa.CertificateFile, "certFile", "", sa.CertificateFile,
+		"The location of the certificate file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&sa.KeyFile, "keyFile", "", sa.KeyFile,
+		"The location of the key file for mutual TLS")
+	cmd.PersistentFlags().StringVarP(&sa.CACertificateFile, "caCertFile", "", sa.CACertificateFile,
+		"The location of the certificate file for the root certificate authority")
+	cmd.PersistentFlags().StringVarP(&sa.AccessListFile, "accessListFile", "", sa.AccessListFile,
+		"The access list yaml file that contains the allowd mTLS peer ids.")
 	cmd.PersistentFlags().StringVar(&sa.LivenessProbeOptions.Path, "livenessProbePath", sa.LivenessProbeOptions.Path,
 		"Path to the file for the liveness probe.")
 	cmd.PersistentFlags().DurationVar(&sa.LivenessProbeOptions.UpdateInterval, "livenessProbeInterval", sa.LivenessProbeOptions.UpdateInterval,
