@@ -24,7 +24,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
@@ -118,6 +117,10 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 func TestValueTypeEncoder(t *testing.T) {
 	compiler := compiled.NewBuilder(StatdardVocabulary())
 	now := time.Now()
+	ts, err := types.TimestampProto(now)
+	if err != nil {
+		t.Fatalf("invalid time: %v", err)
+	}
 	for _, tst := range []struct {
 		input    interface{}
 		output   v1beta1.Value
@@ -170,7 +173,7 @@ func TestValueTypeEncoder(t *testing.T) {
 		},
 		{
 			input:  "response.time",
-			output: v1beta1.Value{Value: &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{&types.Timestamp{now.Unix(), int32(now.Nanosecond())}}}},
+			output: v1beta1.Value{Value: &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{ts}}},
 			bag: map[string]interface{}{
 				"response.time": now,
 			},

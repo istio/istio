@@ -16,11 +16,9 @@ package dynamic
 
 import (
 	"fmt"
-
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-
 	"time"
 
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/policy/v1beta1"
@@ -102,8 +100,11 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 					if er != nil {
 						return er
 					}
-					ts := ev.(time.Time)
-					vVal.Value = &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{&types.Timestamp{ts.Unix(), int32(ts.Nanosecond())}}}
+					ts, er := types.TimestampProto(ev.(time.Time))
+					if er != nil {
+						return er
+					}
+					vVal.Value = &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{ts}}
 					return nil
 				}
 			default:
