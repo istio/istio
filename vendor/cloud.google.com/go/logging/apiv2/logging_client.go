@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/internal/version"
+	"github.com/golang/protobuf/proto"
 	gax "github.com/googleapis/gax-go"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
@@ -59,21 +60,8 @@ func defaultCallOptions() *CallOptions {
 					codes.Unavailable,
 				}, gax.Backoff{
 					Initial:    100 * time.Millisecond,
-					Max:        1000 * time.Millisecond,
-					Multiplier: 1.2,
-				})
-			}),
-		},
-		{"list", "idempotent"}: {
-			gax.WithRetry(func() gax.Retryer {
-				return gax.OnCodes([]codes.Code{
-					codes.DeadlineExceeded,
-					codes.Internal,
-					codes.Unavailable,
-				}, gax.Backoff{
-					Initial:    100 * time.Millisecond,
-					Max:        1000 * time.Millisecond,
-					Multiplier: 1.2,
+					Max:        60000 * time.Millisecond,
+					Multiplier: 1.3,
 				})
 			}),
 		},
@@ -81,13 +69,15 @@ func defaultCallOptions() *CallOptions {
 	return &CallOptions{
 		DeleteLog:                        retry[[2]string{"default", "idempotent"}],
 		WriteLogEntries:                  retry[[2]string{"default", "non_idempotent"}],
-		ListLogEntries:                   retry[[2]string{"list", "idempotent"}],
+		ListLogEntries:                   retry[[2]string{"default", "idempotent"}],
 		ListMonitoredResourceDescriptors: retry[[2]string{"default", "idempotent"}],
 		ListLogs: retry[[2]string{"default", "idempotent"}],
 	}
 }
 
 // Client is a client for interacting with Stackdriver Logging API.
+//
+// Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type Client struct {
 	// The connection to the service.
 	conn *grpc.ClientConn
@@ -155,13 +145,14 @@ func (c *Client) DeleteLog(ctx context.Context, req *loggingpb.DeleteLogRequest,
 	return err
 }
 
-// WriteLogEntries ## Log entry resources
-//
-// Writes log entries to Stackdriver Logging. This API method is the
+// WriteLogEntries writes log entries to Stackdriver Logging. This API method is the
 // only way to send log entries to Stackdriver Logging. This method
 // is used, directly or indirectly, by the Stackdriver Logging agent
 // (fluentd) and all logging libraries configured to use Stackdriver
 // Logging.
+// A single request may contain log entries for a maximum of 1000
+// different resources (projects, organizations, billing accounts or
+// folders)
 func (c *Client) WriteLogEntries(ctx context.Context, req *loggingpb.WriteLogEntriesRequest, opts ...gax.CallOption) (*loggingpb.WriteLogEntriesResponse, error) {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.WriteLogEntries[0:len(c.CallOptions.WriteLogEntries):len(c.CallOptions.WriteLogEntries)], opts...)
@@ -184,6 +175,7 @@ func (c *Client) ListLogEntries(ctx context.Context, req *loggingpb.ListLogEntri
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListLogEntries[0:len(c.CallOptions.ListLogEntries):len(c.CallOptions.ListLogEntries)], opts...)
 	it := &LogEntryIterator{}
+	req = proto.Clone(req).(*loggingpb.ListLogEntriesRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*loggingpb.LogEntry, string, error) {
 		var resp *loggingpb.ListLogEntriesResponse
 		req.PageToken = pageToken
@@ -211,6 +203,7 @@ func (c *Client) ListLogEntries(ctx context.Context, req *loggingpb.ListLogEntri
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
@@ -220,6 +213,7 @@ func (c *Client) ListMonitoredResourceDescriptors(ctx context.Context, req *logg
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListMonitoredResourceDescriptors[0:len(c.CallOptions.ListMonitoredResourceDescriptors):len(c.CallOptions.ListMonitoredResourceDescriptors)], opts...)
 	it := &MonitoredResourceDescriptorIterator{}
+	req = proto.Clone(req).(*loggingpb.ListMonitoredResourceDescriptorsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*monitoredrespb.MonitoredResourceDescriptor, string, error) {
 		var resp *loggingpb.ListMonitoredResourceDescriptorsResponse
 		req.PageToken = pageToken
@@ -247,6 +241,7 @@ func (c *Client) ListMonitoredResourceDescriptors(ctx context.Context, req *logg
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
@@ -256,6 +251,7 @@ func (c *Client) ListLogs(ctx context.Context, req *loggingpb.ListLogsRequest, o
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListLogs[0:len(c.CallOptions.ListLogs):len(c.CallOptions.ListLogs)], opts...)
 	it := &StringIterator{}
+	req = proto.Clone(req).(*loggingpb.ListLogsRequest)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
 		var resp *loggingpb.ListLogsResponse
 		req.PageToken = pageToken
@@ -283,6 +279,7 @@ func (c *Client) ListLogs(ctx context.Context, req *loggingpb.ListLogsRequest, o
 		return nextPageToken, nil
 	}
 	it.pageInfo, it.nextFunc = iterator.NewPageInfo(fetch, it.bufLen, it.takeBuf)
+	it.pageInfo.MaxSize = int(req.PageSize)
 	return it
 }
 
