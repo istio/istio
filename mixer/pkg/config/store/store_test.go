@@ -21,12 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/mcp/creds"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gogo/protobuf/proto"
-
 	cfg "istio.io/api/policy/v1beta1"
+	"istio.io/istio/pkg/mcp/creds"
 )
 
 type testStore struct {

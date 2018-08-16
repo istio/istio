@@ -21,12 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/mcp/creds"
+	"github.com/gogo/protobuf/proto"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/gogo/protobuf/proto"
-
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/probe"
 )
 
