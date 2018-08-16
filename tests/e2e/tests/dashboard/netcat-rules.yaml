@@ -9,7 +9,7 @@ spec:
   selector:
     app: netcat-srv
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: netcat-srv
@@ -40,7 +40,7 @@ spec:
   selector:
     app: netcat-client
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: netcat-client

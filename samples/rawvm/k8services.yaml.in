@@ -12,7 +12,7 @@ spec:
   selector:
     app: echosrv
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 # 2 pods for service inside the cluster, will get istio injected
 kind: Deployment
 metadata:
@@ -42,7 +42,7 @@ spec:
   selector:
     app: mysqlclient-istio
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 # 1 pod, will get istio injected
 kind: Deployment
 metadata:

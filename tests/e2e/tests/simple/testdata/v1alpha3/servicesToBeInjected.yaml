@@ -49,7 +49,7 @@ spec:
 ---
 # 2 deployments so we can change routing rules
 # 1st deployment, 1 pod for service inside the cluster, will get istio injected
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echosrv-deployment-1
@@ -77,7 +77,7 @@ spec:
 ---
 # 2nd deployment, 1 pod for service inside the cluster, will get istio injected
 # same as above except for the version and extra port
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echosrv-deployment-2

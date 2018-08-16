@@ -10,7 +10,7 @@ spec:
     maxReplicas: {{ $spec.autoscaleMax }}
     minReplicas: {{ $spec.autoscaleMin }}
     scaleTargetRef:
-      apiVersion: apps/v1beta1
+      apiVersion: apps/v1
       kind: Deployment
       name: {{ $key }}
     metrics:

@@ -228,7 +228,7 @@
 
 {{- $mixers := list "policy" "telemetry" }}
 {{- range $idx, $mname := $mixers }}
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: istio-{{ $mname }}

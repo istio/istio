@@ -39,7 +39,7 @@ spec:
   selector:
     app: fortiottlssmall
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiottlssmall
@@ -74,7 +74,7 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttlssmall

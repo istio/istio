@@ -1,7 +1,7 @@
 ## Fortio clients generating traffic on different components.
 # Generally use the ingress gateway - to capture non-istio service as well.
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-tls
@@ -36,7 +36,7 @@ spec:
             cpu: 1000m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-cli-raw
@@ -71,7 +71,7 @@ spec:
             cpu: 1000m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortio-cli-notls
@@ -107,7 +107,7 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio10rc1
@@ -143,7 +143,7 @@ spec:
             memory: "1G"
 
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio080
@@ -178,7 +178,7 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-tproxy-direct
@@ -211,7 +211,7 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-v1-direct
@@ -245,7 +245,7 @@ spec:
             cpu: 500m
             memory: "1G"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-noistio1

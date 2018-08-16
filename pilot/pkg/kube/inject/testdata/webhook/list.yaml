@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: List
 items:
-  - apiVersion: extensions/v1beta1
+  - apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: hello-v1
@@ -22,7 +22,7 @@ items:
                 - name: http
                   containerPort: 80
 
-  - apiVersion: extensions/v1beta1
+  - apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: hello-v2

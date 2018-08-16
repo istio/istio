@@ -1,6 +1,6 @@
 # This yaml brings up node agent as a DaemonSet, which takes FlexVolume driver connection.
 # A detailed tutorial will be added soon.
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nodeagent

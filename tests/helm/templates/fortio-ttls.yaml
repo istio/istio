@@ -43,7 +43,7 @@ spec:
   selector:
     app: fortiottls
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortiottls
@@ -93,7 +93,7 @@ spec:
         port:
           number: 8080
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls-notls
@@ -128,7 +128,7 @@ spec:
             cpu: 10m
             memory: "100M"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls-tls
@@ -161,7 +161,7 @@ spec:
             cpu: 10m
             memory: "100M"
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cli-fortio-ttls

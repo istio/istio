@@ -157,7 +157,7 @@ subjects:
 ---
 
 # Deployment: nginx-default-http-backend
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-default-http-backend
@@ -216,7 +216,7 @@ spec:
 ---
 
 # Deployment: nginx-ingress-controller
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-ingress-controller

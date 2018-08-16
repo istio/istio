@@ -31,7 +31,7 @@ spec:
   selector:
     name: fortionoistio
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortionoistio
@@ -91,7 +91,7 @@ spec:
   selector:
     name: fortionoistio1
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fortionoistio1

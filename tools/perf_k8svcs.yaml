@@ -13,7 +13,7 @@ spec:
   selector:
     app: echosrv1
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-svc-deployment1
@@ -45,7 +45,7 @@ spec:
   selector:
     app: echosrv2
 ---
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: echo-svc-deployment2

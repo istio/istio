@@ -28,7 +28,7 @@ spec:
   selector:
     app: c
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: c-v1
@@ -93,7 +93,7 @@ spec:
 {{end}}
 ---
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: c-v2
