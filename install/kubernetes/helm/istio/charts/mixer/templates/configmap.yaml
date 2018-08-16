@@ -11,3 +11,4 @@ metadata:
     istio: mixer
 data:
   mapping.conf: |-
+{{ toYaml .Values.prometheusStatsdExporter.mapping | indent 4 }}
