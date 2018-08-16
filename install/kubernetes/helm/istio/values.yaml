@@ -522,11 +522,10 @@ kiali:
       #   hosts:
       #     - kiali.local
   dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
-
+    secretName: kiali
+    usernameKey: username
+    passphraseKey: passphrase
+    
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:
 
