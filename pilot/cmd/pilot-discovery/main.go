@@ -43,14 +43,14 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-discovery",
-		Short:        "Istio Pilot",
+		Short:        "Istio Pilot.",
 		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
 	}
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
-		Short: "Start Istio proxy discovery service",
+		Short: "Start Istio proxy discovery service.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
