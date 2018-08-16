@@ -55,8 +55,8 @@ func newFsnotifyWatcher() (fileWatcher, error) {
 }
 
 var (
-	newFileWatcher         func() (fileWatcher, error) = newFsnotifyWatcher
-	readFile                                           = ioutil.ReadFile
+	newFileWatcher         = newFsnotifyWatcher
+	readFile               = ioutil.ReadFile
 	watchEventHandledProbe func()
 )
 
