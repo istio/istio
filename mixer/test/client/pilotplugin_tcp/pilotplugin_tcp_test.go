@@ -98,7 +98,6 @@ const (
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "context.time": "*",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
