@@ -237,6 +237,7 @@ ident                         : dest.istio-system
 			"ident":       "dest.istio-system",
 		},
 		expectedCheckResult: adapter.CheckResult{ValidDuration: 123 * time.Second, ValidUseCount: 123},
+		// nolint
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
 attr.string                   : bar
@@ -311,6 +312,7 @@ ident                         : dest.istio-system
 			"attr.string": "bar",
 			"ident":       "dest.istio-system",
 		},
+		// nolint
 		log: `
 [treport] InstanceBuilderFn() => name: 'treport', bag: '---
 attr.string                   : bar
@@ -537,6 +539,7 @@ ident                         : dest.istio-system
 			DeduplicationID: "42",
 			Amount:          64,
 		},
+		// nolint
 		log: `
 [tquota] InstanceBuilderFn() => name: 'tquota', bag: '---
 attr.string                   : bar
@@ -625,6 +628,7 @@ ident                         : dest.istio-system
 		responseAttrs: map[string]interface{}{
 			"prefix.generated.string": "boz",
 		},
+		// nolint
 		log: `
 [tapa] InstanceBuilderFn() => name: 'tapa', bag: '---
 attr.string                   : bar
