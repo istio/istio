@@ -308,9 +308,6 @@ func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
 	}
-	if strings.ToLower(name) != name {
-		return fmt.Errorf("must be in lower case")
-	}
 	return nil
 }
 
