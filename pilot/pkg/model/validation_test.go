@@ -1301,7 +1301,7 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 		valid bool
 	}{
 		{name: "header1", valid: true},
-		{name: "X-Requested-With", valid:true},
+		{name: "X-Requested-With", valid: true},
 		{name: "", valid: false},
 	}
 
