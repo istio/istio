@@ -30,7 +30,7 @@ import (
 var errUnsupported = errors.New("this operation is not supported by the cloudfoundry copilot controller")
 
 // CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
-//go:generate counterfeiter -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o fakes/copilot_client.go --fake-name CopilotClient . CopilotClient
 type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
@@ -41,7 +41,7 @@ type storage struct {
 	destinationRules map[string]*model.Config
 }
 
-//go:generate counterfeiter -o fakes/logger.go --fake-name Logger . logger
+//go:generate $GOPATH/src/istio.io/istio/bin/counterfeiter.sh -o fakes/logger.go --fake-name Logger . logger
 type logger interface {
 	Warnf(template string, args ...interface{})
 	Infof(template string, args ...interface{})
@@ -291,6 +291,7 @@ func createHTTPRoute(route *copilotapi.RouteWithBackends) *networking.HTTPRoute 
 						},
 					},
 				},
+				Weight: route.GetRouteWeight(),
 			},
 		},
 	}

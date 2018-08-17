@@ -214,7 +214,7 @@ func main() {
 	}
 
 	if matchDetail {
-		fmt.Println("\n\n")
+		fmt.Printf("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had inexact licenses:")
 		fmt.Println("===========================================================")
@@ -226,7 +226,7 @@ func main() {
 			fmt.Println("-----------------------------------------------------------")
 		}
 
-		fmt.Println("\n\n")
+		fmt.Printf("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("The following packages had exact licenses:")
 		fmt.Println("===========================================================")
@@ -238,7 +238,7 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Println("\n\n")
+		fmt.Printf("\n\n")
 		fmt.Println("===========================================================")
 		fmt.Println("Package licenses")
 		fmt.Println("===========================================================")

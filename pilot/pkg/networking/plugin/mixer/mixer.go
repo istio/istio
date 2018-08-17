@@ -174,6 +174,11 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 	}
 }
 
+// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
+func (mixerplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
 func buildUpstreamName(address string) string {
 	host, port, _ := net.SplitHostPort(address)
 	v, _ := strconv.Atoi(port)
@@ -341,7 +346,6 @@ func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, 
 	if destinationHostname == "" {
 		return attrs
 	}
-	attrs["destination.service"] = attrStringValue(string(destinationHostname)) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
 	svc := push.ServiceByHostname[destinationHostname]

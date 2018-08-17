@@ -28,6 +28,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -238,7 +239,94 @@ func TestMultipleRequests(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
+	go func() {
+		if err := s.StreamAggregatedResources(stream); err != nil {
+			t.Errorf("Stream() => got %v, want no error", err)
+		}
+	}()
+
+	var rsp *mcp.MeshConfigResponse
+
+	// check a response
+	select {
+	case rsp = <-stream.sent:
+		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+			t.Errorf("watch counts => got %v, want %v", config.counts, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("got no response")
+	}
+
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:        client,
+		TypeUrl:       fakeType0TypeURL,
+		VersionInfo:   rsp.VersionInfo,
+		ResponseNonce: rsp.Nonce,
+	}
+
+	// check a response
+	select {
+	case <-stream.sent:
+		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+			t.Errorf("watch counts => got %v, want %v", config.counts, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("got no response")
+	}
+}
+
+func TestAuthCheck_Failure(t *testing.T) {
+	config := makeMockConfigWatcher()
+	config.setResponse(&WatchResponse{
+		TypeURL:   fakeType0TypeURL,
+		Version:   "1",
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
+	})
+
+	// make a request
+	stream := makeMockStream(t)
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
+		TypeUrl: fakeType0TypeURL,
+	}
+
+	checker := NewListAuthChecker()
+	s := New(config, WatchResponseTypes, checker)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		if err := s.StreamAggregatedResources(stream); err == nil {
+			t.Error("Stream() => expected error not found")
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+type fakeAuthChecker struct{}
+
+func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
+	return nil
+}
+
+func TestAuthCheck_Success(t *testing.T) {
+	config := makeMockConfigWatcher()
+	config.setResponse(&WatchResponse{
+		TypeURL:   fakeType0TypeURL,
+		Version:   "1",
+		Envelopes: []*mcp.Envelope{fakeEnvelope0},
+	})
+
+	// make a request
+	stream := makeMockStream(t)
+	stream.recv <- &mcp.MeshConfigRequest{
+		Client:  client,
+		TypeUrl: fakeType0TypeURL,
+	}
+
+	s := New(config, WatchResponseTypes, &fakeAuthChecker{})
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -286,7 +374,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -324,7 +412,7 @@ func TestWatchClosed(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
@@ -347,7 +435,7 @@ func TestSendError(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	// check that response fails since watch gets closed
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
@@ -373,7 +461,7 @@ func TestReceiveError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -397,7 +485,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -419,7 +507,7 @@ func TestStaleNonce(t *testing.T) {
 		TypeUrl: fakeType0TypeURL,
 	}
 	stop := make(chan struct{})
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -484,7 +572,7 @@ func TestAggregatedHandlers(t *testing.T) {
 		TypeUrl: fakeType2TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -522,7 +610,7 @@ func TestAggregateRequestType(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{Client: client}
 
-	s := New(config, WatchResponseTypes)
+	s := New(config, WatchResponseTypes, nil)
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}

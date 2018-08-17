@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
@@ -134,6 +135,12 @@ func (b *backend) Init(kinds []string) error {
 	return nil
 }
 
+// WaitForSynced implements store.Backend interface.
+func (b *backend) WaitForSynced(time.Duration) error {
+	// TODO(ozevren): implement for MCP
+	return nil
+}
+
 // Stop implements store.backend.Stop.
 func (b *backend) Stop() {
 	if b.cancel != nil {
@@ -189,8 +196,8 @@ func (b *backend) List() map[store.Key]*store.BackEndResource {
 	return result
 }
 
-// Update implements client.Updater.Update.
-func (b *backend) Update(change *client.Change) error {
+// Apply implements client.Updater.Apply
+func (b *backend) Apply(change *client.Change) error {
 	b.state.Lock()
 	defer b.state.Unlock()
 	defer b.callUpdateHook()

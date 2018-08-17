@@ -443,6 +443,12 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+# TODO: https://github.com/istio/istio/issues/7861
+# We can re-enable this after it runs for 1 week straight as a non-required gate, and by consulting with the
+# test-infra team.
+#      - run:
+#          name: Check Scripts
+#          command: /go/src/istio.io/istio/tools/run_shellcheck.sh
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
       - run:
           name: Creating vendor diff

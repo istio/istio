@@ -43,7 +43,7 @@ function get_git_commit_cmd() {
     DIFF_SEC=$((TS_HEAD - TS_SHA))
     DIFF_DAYS=$((DIFF_SEC/86400))
     if [ "$CHECK_GREEN_SHA_AGE" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
-       echo ERROR: "${ISTIO_SHA}" is $DIFF_DAYS days older than head of branch "$BRANCH"
+       echo ERROR: "${ISTIO_SHA}" is "$DIFF_DAYS" days older than head of branch "$BRANCH"
        exit 12
     fi
     popd || exit 13 #istio-code/release
@@ -85,8 +85,8 @@ function build_template() {
 #    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.json .
 #    gsutil cp gs://istio-release-pipeline-data/release-tools/data/release/*.sh .
 
-    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.json .
-    gsutil cp gs://$GCS_RELEASE_TOOLS_PATH/data/release/*.sh   .
+    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.json .
+    gsutil cp gs://"$GCS_RELEASE_TOOLS_PATH"/data/release/*.sh   .
     chmod u+x ./*
 
     ./start_gcb_build.sh -w -p "$PROJECT_ID" -r "$GCR_STAGING_DEST" -s "$GCS_BUILD_PATH" \

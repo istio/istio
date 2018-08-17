@@ -35,7 +35,7 @@ docker run istio/fortio load http://www.google.com/ # For a test run
 Or download the binary distribution, for instance:
 
 ```shell
-curl -L https://github.com/istio/fortio/releases/download/v1.0.0/fortio-linux_x64-1.0.0.tgz \
+curl -L https://github.com/istio/fortio/releases/download/v1.1.0/fortio-linux_x64-1.1.0.tgz \
  | sudo tar -C / -xvzpf -
 ```
 
@@ -56,7 +56,9 @@ or start simple http and grpc ping servers, as well as a basic web UI, result gr
 with the `server` command or issue grpc ping messages using the `grpcping` command.
 It can also fetch a single URL's for debugging when using the `curl` command (or the `-curl` flag to the load command).
 You can run just the redirector with `redirect`.
-Lastly if you saved JSON results (using the web UI or directly from the command line), you can browse and graph those results using the `report` command.
+If you saved JSON results (using the web UI or directly from the command line), you can browse and graph those results using the `report` command.
+The `version` command will print version and build information, `fortio version -s` just the version.
+Lastly, you can learn which flags are available using `help` command.
 
 Most important flags for http load generation:
 
@@ -72,138 +74,154 @@ Most important flags for http load generation:
 | `-json filename` | Filename or `-` for stdout to output json result (relative to `-data-dir` by default, should end with .json if you want `fortio report` to show them; using `-a` is typicallly a better option)|
 | `-labels "l1 l2 ..."` |  Additional config data/labels to add to the resulting JSON, defaults to target URL and hostname|
 
+You can switch from http GET queries to POST by setting `-content-type` or passing one of the `-payload-*` option.
 
-Full list of command line flags:
+Full list of command line flags (`fortio help`):
 <details>
 <!-- use release/updateFlags.sh to update this section -->
 <pre>
-Φορτίο 1.0.0 usage:
-	fortio command [flags] target
-where command is one of: load (load testing), server (starts grpc ping and http
-echo/ui/redirect/proxy servers), grpcping (grpc client), report (report only UI
-server), redirect (redirect only server), or curl (single URL debug).  where
-target is a url (http load tests) or host:port (grpc health test).  flags are:
-  -H value
-	Additional Header(s)
-  -L	Follow redirects (implies -std-client) - do not use for load test
+Φορτίο 1.1.0 usage:
+        fortio command [flags] target
+where command is one of: load (load testing), server (starts grpc ping and
+http echo/ui/redirect/proxy servers), grpcping (grpc client), report (report
+only UI server), redirect (redirect only server), or curl (single URL debug).
+where target is a url (http load tests) or host:port (grpc health test).
+flags are:
+  -H header
+        Additional header(s)
+  -L    Follow redirects (implies -std-client) - do not use for load test
   -P value
-	Proxies to run, e.g -P "localport1 dest_host1:dest_port1" -P "[::1]:0
-	www.google.com:443" ...
-  -a	Automatically save JSON result with filename based on labels & timestamp
+        Proxies to run, e.g -P "localport1 dest_host1:dest_port1" -P "[::1]:0
+www.google.com:443" ...
+  -a    Automatically save JSON result with filename based on labels & timestamp
   -abort-on int
-	Http code that if encountered aborts the run. e.g. 503 or -1 for socket
-	errors.
+        Http code that if encountered aborts the run. e.g. 503 or -1 for socket
+errors.
   -allow-initial-errors
-	Allow and don't abort on initial warmup errors
+        Allow and don't abort on initial warmup errors
   -base-url string
-	base URL used as prefix for data/index.tsv generation. (when empty, the
-	url from the first request is used)
+        base URL used as prefix for data/index.tsv generation. (when empty, the
+url from the first request is used)
   -c int
-	Number of connections/goroutine/threads (default 4)
-  -cacert string
-	Path to a custom CA certificate file to be used for the GRPC client TLS,
-	if empty, use https:// prefix for standard internet CAs TLS
-  -cert string
-	Path to the certificate file to be used for GRPC server TLS
+        Number of connections/goroutine/threads (default 4)
+  -cacert Path
+        Path to a custom CA certificate file to be used for the GRPC client
+TLS, if empty, use https:// prefix for standard internet CAs TLS
+  -cert Path
+        Path to the certificate file to be used for GRPC server TLS
   -compression
-	Enable http compression
+        Enable http compression
+  -content-type string
+        Sets http content type. Setting this value switches the request method
+from GET to POST.
   -curl
-	Just fetch the content once
-  -data-dir string
-	Directory where JSON results are stored/read (default ".")
+        Just fetch the content once
+  -data-dir Directory
+        Directory where JSON results are stored/read (default ".")
   -echo-debug-path string
-	http echo server URI for debug, empty turns off that part (more secure)
-	(default "/debug")
+        http echo server URI for debug, empty turns off that part (more secure)
+(default "/debug")
   -gomaxprocs int
-	Setting for runtime.GOMAXPROCS, <1 doesn't change the default
+        Setting for runtime.GOMAXPROCS, <1 doesn't change the default
   -grpc
-	Use GRPC (health check by default, add -ping for ping) for load testing
+        Use GRPC (health check by default, add -ping for ping) for load testing
   -grpc-max-streams uint
-	MaxConcurrentStreams for the grpc server. Default (0) is to leave the
-	option unset.
+        MaxConcurrentStreams for the grpc server. Default (0) is to leave the
+option unset.
   -grpc-ping-delay duration
-	grpc ping delay in response
+        grpc ping delay in response
   -grpc-port string
-	grpc server port. Can be in the form of host:port, ip:port or port or
-	"disabled" to not start the grpc server. (default "8079")
+        grpc server port. Can be in the form of host:port, ip:port or port or
+/unix/domain/path or "disabled" to not start the grpc server. (default "8079")
   -halfclose
-	When not keepalive, whether to half close the connection (only for fast
-	http)
+        When not keepalive, whether to half close the connection (only for fast
+http)
   -health
-	grpc ping client mode: use health instead of ping
+        grpc ping client mode: use health instead of ping
   -healthservice string
-	which service string to pass to health check
+        which service string to pass to health check
   -http-port string
-	http echo server port. Can be in the form of host:port, ip:port or port.
-	(default "8080")
+        http echo server port. Can be in the form of host:port, ip:port, port
+or /unix/domain/path. (default "8080")
   -http1.0
-	Use http1.0 (instead of http 1.1)
-  -httpbufferkb int
-	Size of the buffer (max data size) for the optimized http client in
-	kbytes (default 128)
+        Use http1.0 (instead of http 1.1)
+  -httpbufferkb kbytes
+        Size of the buffer (max data size) for the optimized http client in
+kbytes (default 128)
   -httpccch
-	Check for Connection: Close Header
+        Check for Connection: Close Header
   -https-insecure
-	Long form of the -k flag
-  -json string
-	Json output to provided file or '-' for stdout (empty = no json output,
-	unless -a is used)
-  -k	Do not verify certs in https connections
+        Long form of the -k flag
+  -json path
+        Json output to provided file path or '-' for stdout (empty = no json
+output, unless -a is used)
+  -k    Do not verify certs in https connections
   -keepalive
-	Keep connection alive (only for fast http 1.1) (default true)
-  -key string
-	Path to the key file used for GRPC server TLS
+        Keep connection alive (only for fast http 1.1) (default true)
+  -key Path
+        Path to the key file used for GRPC server TLS
   -labels string
-	Additional config data/labels to add to the resulting JSON, defaults to
-	target URL and hostname
+        Additional config data/labels to add to the resulting JSON, defaults to
+target URL and hostname
   -logcaller
-	Logs filename and line number of callers to log (default true)
+        Logs filename and line number of callers to log (default true)
   -loglevel value
-	loglevel, one of [Debug Verbose Info Warning Error Critical Fatal]
-	(default Info)
+        loglevel, one of [Debug Verbose Info Warning Error Critical Fatal]
+(default Info)
   -logprefix string
-	Prefix to log lines before logged messages (default "> ")
+        Prefix to log lines before logged messages (default "> ")
   -maxpayloadsizekb int
-	MaxPayloadSize is the maximum size of payload to be generated by the
-	EchoHandler size= argument. In Kbytes. (default 256)
+        MaxPayloadSize is the maximum size of payload to be generated by the
+EchoHandler size= argument. In Kbytes. (default 256)
   -n int
-	Run for exactly this number of calls instead of duration. Default (0) is
-	to use duration (-t). Default is 1 when used as grpc ping count.
+        Run for exactly this number of calls instead of duration. Default (0)
+is to use duration (-t). Default is 1 when used as grpc ping count.
   -p string
-	List of pXX to calculate (default "50,75,90,99,99.9")
+        List of pXX to calculate (default "50,75,90,99,99.9")
   -payload string
-	Payload string to send along
+        Payload string to send along
+  -payload-file path
+        File path to be use as payload (POST for http), replaces -payload when
+set.
+  -payload-size int
+        Additional random payload size, replaces -payload when set > 0, must be
+smaller than -maxpayloadsizekb. Setting this switches http to POST.
   -ping
-	grpc load test: use ping instead of health
-  -profile string
-	write .cpu and .mem profiles to file
+        grpc load test: use ping instead of health
+  -profile file
+        write .cpu and .mem profiles to file
   -qps float
-	Queries Per Seconds or 0 for no wait/max qps (default 8)
+        Queries Per Seconds or 0 for no wait/max qps (default 8)
   -quiet
-	Quiet mode: sets the loglevel to Error and reduces the output.
+        Quiet mode: sets the loglevel to Error and reduces the output.
   -r float
-	Resolution of the histogram lowest buckets in seconds (default 0.001)
+        Resolution of the histogram lowest buckets in seconds (default 0.001)
   -redirect-port string
-	Redirect all incoming traffic to https URL (need ingress to work
-	properly). Can be in the form of host:port, ip:port, port or "disabled"
-	to disable the feature. (default "8081")
+        Redirect all incoming traffic to https URL (need ingress to work
+properly). Can be in the form of host:port, ip:port, port or "disabled" to
+disable the feature. (default "8081")
   -s int
-	Number of streams per grpc connection (default 1)
-  -static-dir string
-	Absolute path to the dir containing the static files dir
+        Number of streams per grpc connection (default 1)
+  -static-dir path
+        Absolute path to the dir containing the static files dir
   -stdclient
-	Use the slower net/http standard client (works for TLS)
+        Use the slower net/http standard client (works for TLS)
   -sync string
-	index.tsv or s3/gcs bucket xml URL to fetch at startup for server modes.
+        index.tsv or s3/gcs bucket xml URL to fetch at startup for server modes.
   -sync-interval duration
-	Refresh the url every given interval (default, no refresh)
+        Refresh the url every given interval (default, no refresh)
   -t duration
-	How long to run the test or 0 to run until ^C (default 5s)
+        How long to run the test or 0 to run until ^C (default 5s)
   -timeout duration
-	Connection and read timeout value (for http) (default 15s)
+        Connection and read timeout value (for http) (default 15s)
   -ui-path string
-	http server URI for UI, empty turns off that part (more secure) (default
-	"/fortio/")
+        http server URI for UI, empty turns off that part (more secure)
+(default "/fortio/")
+  -unix-socket path
+        Unix domain socket path to use for physical connection
+  -user user:password
+        User credentials for basic authentication (for http). Input data format
+should be user:password
 </pre>
 </details>
 
@@ -214,12 +232,13 @@ See also the FAQ entry about [fortio flags for best results](https://github.com/
 * Start the internal servers:
 ```
 $ fortio server &
-Fortio 1.0.0 grpc 'ping' server listening on [::]:8079
-Fortio 1.0.0 https redirector server listening on [::]:8081
-Fortio 1.0.0 echo server listening on [::]:8080
+Fortio 1.1.0 grpc 'ping' server listening on [::]:8079
+Fortio 1.1.0 https redirector server listening on [::]:8081
+Fortio 1.1.0 echo server listening on [::]:8080
 UI started - visit:
-http://localhost:8080/fortio/   (or any host/ip reachable on this server)
-21:45:23 I fortio_main.go:195> All fortio 1.0.0 buildinfo go1.10 servers started!
+http://localhost:8080/fortio/
+(or any host/ip reachable on this server)
+14:57:12 I fortio_main.go:217> All fortio 1.1.0 unknown go1.10.3 servers started!
 ```
 
 * By default, Fortio's web/echo servers listen on port 8080 on all interfaces.
@@ -229,9 +248,38 @@ $ fortio server -http-port 10.10.10.10:8088
 UI starting - visit:
 http://10.10.10.10:8088/fortio/
 Https redirector running on :8081
-Fortio 1.0.0 grpc ping server listening on port :8079
-Fortio 1.0.0 echo server listening on port 10.10.10.10:8088
+Fortio 1.1.0 grpc ping server listening on port :8079
+Fortio 1.1.0 echo server listening on port 10.10.10.10:8088
 ```
+
+* You can use unix domain socket for any server/client:
+```
+$ fortio server --http-port /tmp/fortio-uds-http &
+Fortio 1.1.0 grpc 'ping' server listening on [::]:8079
+Fortio 1.1.0 https redirector server listening on [::]:8081
+Fortio 1.1.0 echo server listening on /tmp/fortio-uds-http
+UI started - visit:
+fortio curl -unix-socket=/tmp/fortio-uds-http http://localhost/fortio/
+14:58:45 I fortio_main.go:217> All fortio 1.1.0 unknown go1.10.3 servers started!
+$ fortio curl -unix-socket=/tmp/fortio-uds-http http://foo.bar/debug
+15:00:48 I http_client.go:428> Using unix domain socket /tmp/fortio-uds-http instead of foo.bar http
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=UTF-8
+Date: Wed, 08 Aug 2018 22:00:48 GMT
+Content-Length: 231
+
+Φορτίο version 1.1.0 unknown go1.10.3 echo debug server up for 2m3.4s on ldemailly-macbookpro.roam.corp.google.com - request from
+
+GET /debug HTTP/1.1
+
+headers:
+
+Host: foo.bar
+User-Agent: istio/fortio-1.1.0
+
+body:
+```
+
 * Simple grpc ping:
 ```
 $ fortio grpcping localhost
@@ -270,8 +318,8 @@ $ fortio server -cert /path/to/fortio/server.crt -key /path/to/fortio/server.key
 UI starting - visit:
 http://localhost:8080/fortio/
 Https redirector running on :8081
-Fortio 1.0.0 grpc ping server listening on port :8079
-Fortio 1.0.0 echo server listening on port localhost:8080
+Fortio 1.1.0 grpc ping server listening on port :8079
+Fortio 1.1.0 echo server listening on port localhost:8080
 Using server certificate /path/to/fortio/server.crt to construct TLS credentials
 Using server key /path/to/fortio/server.key to construct TLS credentials
 ```
@@ -307,7 +355,7 @@ Clock skew histogram usec : count 1 avg 12329.795 +/- 0 min 12329.795 max 12329.
 * Load (low default qps/threading) test:
 ```
 $ fortio load http://www.google.com
-Fortio 1.0.0 running at 8 queries per second, 8->8 procs, for 5s: http://www.google.com
+Fortio 1.1.0 running at 8 queries per second, 8->8 procs, for 5s: http://www.google.com
 19:10:33 I httprunner.go:84> Starting http test for http://www.google.com with 4 threads at 8.0 qps
 Starting at 8 qps with 4 thread(s) [gomax 8] for 5s : 10 calls each (total 40)
 19:10:39 I periodic.go:314> T002 ended after 5.056753279s : 10 calls. qps=1.9775534712220633
@@ -337,7 +385,7 @@ All done 40 calls (plus 4 warmup) 60.588 ms avg, 7.9 qps
 Uses `-s` to use multiple (h2/grpc) streams per connection (`-c`), request to hit the fortio ping grpc endpoint with a delay in replies of 0.25s and an extra payload for 10 bytes and auto save the json result:
 ```bash
 $ fortio load -a -grpc -ping -grpc-ping-delay 0.25s -payload "01234567890" -c 2 -s 4 https://fortio-stage.istio.io
-Fortio 1.0.0 running at 8 queries per second, 8->8 procs, for 5s: https://fortio-stage.istio.io
+Fortio 1.1.0 running at 8 queries per second, 8->8 procs, for 5s: https://fortio-stage.istio.io
 16:32:56 I grpcrunner.go:139> Starting GRPC Ping Delay=250ms PayloadLength=11 test for https://fortio-stage.istio.io with 4*2 threads at 8.0 qps
 16:32:56 I grpcrunner.go:261> stripping https scheme. grpc destination: fortio-stage.istio.io. grpc port: 443
 16:32:57 I grpcrunner.go:261> stripping https scheme. grpc destination: fortio-stage.istio.io. grpc port: 443
@@ -439,14 +487,14 @@ Content-Type: text/plain; charset=UTF-8
 Date: Mon, 08 Jan 2018 22:26:26 GMT
 Content-Length: 230
 
-Φορτίο version 1.0.0 echo debug server up for 39s on ldemailly-macbookpro - request from [::1]:65055
+Φορτίο version 1.1.0 echo debug server up for 39s on ldemailly-macbookpro - request from [::1]:65055
 
 GET /debug HTTP/1.1
 
 headers:
 
 Host: localhost:8080
-User-Agent: istio/fortio-1.0.0
+User-Agent: istio/fortio-1.1.0
 Foo: Bar
 
 body:

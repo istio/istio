@@ -73,7 +73,23 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	// DO NOT CALL PLUGINS for this cluster.
 	clusters = append(clusters, buildBlackHoleCluster())
 
-	return clusters, nil // TODO: normalize/dedup/order
+	return normalizeClusters(clusters), nil
+}
+
+// resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
+// for any clusters that share the same name the first cluster is kept and the others are discarded.
+func normalizeClusters(clusters []*v2.Cluster) []*v2.Cluster {
+	have := make(map[string]bool)
+	out := make([]*v2.Cluster, 0, len(clusters))
+	for _, cluster := range clusters {
+		if !have[cluster.Name] {
+			out = append(out, cluster)
+		} else {
+			log.Warnf("duplicate cluster name: %q", cluster.Name)
+		}
+		have[cluster.Name] = true
+	}
+	return out
 }
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext,
@@ -82,6 +98,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	for _, service := range services {
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
 			hosts := buildClusterHosts(env, service, port.Port)
 
 			// create default cluster
@@ -89,7 +108,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
 
-			updateEds(env, defaultCluster, service.Hostname)
+			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
 			clusters = append(clusters, defaultCluster)
 
@@ -101,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
-					updateEds(env, subsetCluster, service.Hostname)
+					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(subsetCluster, destinationRule.TrafficPolicy, port)
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port)
@@ -123,7 +142,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	return clusters
 }
 
-func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
+func updateEds(cluster *v2.Cluster) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
@@ -401,18 +420,6 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-// ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
-var ALPNH2Only = []string{"h2"}
-
-// ALPNInMeshH2 advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-// Once Envoy supports client-side ALPN negotiation, this should be {"istio", "h2", "http/1.1"}.
-var ALPNInMeshH2 = []string{"istio", "h2"}
-
-// ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
-// The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMesh = []string{"istio"}
-
 func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
@@ -450,7 +457,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		}
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		}
 	case networking.TLSSettings_MUTUAL, networking.TLSSettings_ISTIO_MUTUAL:
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
@@ -484,13 +491,13 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings) 
 		if cluster.Http2ProtocolOptions != nil {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 			if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMeshH2
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			} else {
-				cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNH2Only
+				cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		} else if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
 			// This is in-mesh cluster, advertise it with ALPN.
-			cluster.TlsContext.CommonTlsContext.AlpnProtocols = ALPNInMesh
+			cluster.TlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 		}
 	}
 }

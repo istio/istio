@@ -103,6 +103,7 @@ var checkAttributesOkGet = `
 var reportAttributesOkGet = `
 {
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
   "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
@@ -161,6 +162,7 @@ var reportAttributesOkGet = `
 `
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToPeer(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/7867")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestPeerJwtBoundToPeer, t)
 	// In the Envoy config, principal_binding binds to peer
 	s.SetFiltersBeforeMixer(authnConfig)

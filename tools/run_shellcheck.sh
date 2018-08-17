@@ -2,13 +2,14 @@
 #
 # Runs shellcheck on all shell scripts in the istio repository.
 
+if ! command -v shellcheck > /dev/null; then
+    echo 'error: ShellCheck is not installed'
+    echo 'Visit https://github.com/koalaman/shellcheck#installing'
+    exit 1
+fi
+
 TOOLS_DIR="$(cd "$(dirname "${0}")" && pwd -P)"
 ISTIO_ROOT="$(cd "$(dirname "${TOOLS_DIR}")" && pwd -P)"
-
-# Set global rule exclusions here, separated by comma (e.g. SC1090,SC1091).
-# See https://github.com/koalaman/shellcheck/wiki for details on each code's
-# corresponding rule.
-EXCLUDES=""
 
 # All files ending in .sh.
 SH_FILES=$( \
@@ -26,5 +27,9 @@ SHEBANG_FILES=$( \
             head -n 1 "$f" | grep -q '^#!.*sh' && echo "$f";
         done)
 
+# Set global rule exclusions with the "exclude" flag, separated by comma (e.g.
+# "--exclude=SC1090,SC1091"). See https://github.com/koalaman/shellcheck/wiki
+# for details on each code's corresponding rule.
+
 echo "${SH_FILES}" "${SHEBANG_FILES}" \
-    | xargs shellcheck --exclude="${EXCLUDES}"
+    | xargs shellcheck

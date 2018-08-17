@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 
 package config
 
