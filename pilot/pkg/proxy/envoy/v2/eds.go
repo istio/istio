@@ -144,13 +144,15 @@ func newEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsCluster) error {
+func updateCluster(clusterName string, edsCluster *EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var hostname model.Hostname
-	//var ports model.PortList
+	var ports model.PortList
 	var labels model.LabelsCollection
 	var instances []*model.ServiceInstance
 	var err error
+
+	// This is a gross hack but Costin will insist on supporting everything from ancient Greece
 	if strings.Index(clusterName, "outbound") == 0 ||
 		strings.Index(clusterName, "inbound") == 0 { //new style cluster names
 		var p int
@@ -159,11 +161,22 @@ func (s *DiscoveryServer) updateCluster(clusterName string, edsCluster *EdsClust
 		labels = edsCluster.discovery.env.IstioConfigStore.SubsetToLabels(subsetName, hostname)
 		instances, err = edsCluster.discovery.env.ServiceDiscovery.InstancesByPort(hostname, p, labels)
 		if len(instances) == 0 {
-			s.env.PushStatus.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
-			//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+			adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
+		}
+		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
+	} else {
+		hostname, ports, labels = model.ParseServiceKey(clusterName)
+		var portName string
+		if len(ports) > 0 {
+			portName = ports.GetNames()[0]
+		}
+		instances, err = edsCluster.discovery.env.ServiceDiscovery.Instances(hostname, ports.GetNames(), labels)
+		if len(instances) == 0 {
+			adsLog.Warnf("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, portName, labels)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 	}
+
 	if err != nil {
 		adsLog.Warnf("endpoints for service cluster %q returned error %q", clusterName, err)
 		return err
@@ -330,7 +343,7 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			if err := s.updateCluster(clusterName, c); err != nil {
+			if err := updateCluster(clusterName, c); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
 				continue
 			}
@@ -357,8 +370,8 @@ func (s *DiscoveryServer) pushEds(con *XdsConnection) error {
 	}
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
-	adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
-		con.ConID, len(con.Clusters), endpoints, emptyClusters)
+	adsLog.Infof("EDS: PUSH for %s %q clusters %d endpoints %d empty %d %v",
+		con.ConID, con.PeerAddr, len(con.Clusters), endpoints, emptyClusters, empty)
 	return nil
 }
 

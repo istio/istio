@@ -34,7 +34,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
-	proxy := &model.Proxy{
+	proxy := model.Proxy{
 		ClusterID: "some-cluster-id",
 		Type:      model.Router,
 		IPAddress: "6.6.6.6",
@@ -44,7 +44,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 	env := buildEnv()
 
-	clusters, err := configgen.BuildClusters(env, proxy, env.PushStatus)
+	clusters, err := configgen.BuildClusters(env, proxy)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(2))
@@ -57,7 +57,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(gomega.Equal(time.Duration(10000000001)))
 }
 
-func buildEnv() *model.Environment {
+func buildEnv() model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -112,7 +112,7 @@ func buildEnv() *model.Environment {
 		},
 	)
 
-	env := &model.Environment{
+	env := model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

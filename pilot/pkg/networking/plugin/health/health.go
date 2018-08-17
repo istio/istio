@@ -48,8 +48,8 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 			},
 			Headers: []*envoy_api_v2_route.HeaderMatcher{
 				{
-					Name:                 ":path",
-					HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
+					Name:  ":path",
+					Value: probe.Path,
 				},
 			},
 		}),
@@ -120,7 +120,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }
 
@@ -133,6 +133,6 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service,
+func (Plugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service,
 	servicePort *model.Port, cluster *xdsapi.Cluster) {
 }

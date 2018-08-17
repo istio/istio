@@ -15,6 +15,6 @@ spec:
           - path: /test/{{ $i }}/.*
             backend:
               serviceName: a
-              servicePort: 80
+              servicePort: http
 ---
 {{ end }}

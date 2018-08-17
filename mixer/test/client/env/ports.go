@@ -54,7 +54,6 @@ const (
 	DynamicAttributeTest
 	DynamicListenerTest
 	PilotPluginTest
-	PilotPluginTCPTest
 
 	// The number of total tests. has to be the last one.
 	maxTestNum

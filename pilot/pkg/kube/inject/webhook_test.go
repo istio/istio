@@ -24,12 +24,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+	msgdiff "gopkg.in/d4l3k/messagediff.v1"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -40,8 +43,6 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/kubernetes/pkg/apis/core"
-
-	"github.com/gogo/protobuf/jsonpb"
 
 	"istio.io/istio/galley/pkg/crd/validation/testcerts"
 	"istio.io/istio/pilot/pkg/model"
@@ -308,10 +309,10 @@ func TestInject(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		input := filepath.Join("testdata/webhook", c.inputFile)
-		want := filepath.Join("testdata/webhook", c.wantFile)
+		input := filepath.Join("testdata", c.inputFile)
+		want := filepath.Join("testdata", c.wantFile)
 		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
-			wh := createTestWebhookFromFile("testdata/webhook/TestWebhookInject_template.yaml", t)
+			wh := createTestWebhookFromFile("testdata/TestWebhookInject_template.yaml", t)
 			podYAML := util.ReadFile(input, t)
 			podJSON, err := yaml.YAMLToJSON(podYAML)
 			if err != nil {
@@ -420,8 +421,8 @@ func TestHelmInject(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		input := filepath.Join("testdata/webhook", c.inputFile)
-		want := filepath.Join("testdata/webhook", c.wantFile)
+		input := filepath.Join("testdata", c.inputFile)
+		want := filepath.Join("testdata", c.wantFile)
 		t.Run(c.inputFile, func(t *testing.T) {
 			// Split multi-part yaml documents. Input and output will have the same number of parts.
 			inputYAMLs := splitYamlDoc(input, t)
@@ -464,7 +465,7 @@ func TestHelmInject(t *testing.T) {
 					}
 
 					// Compare the patched deployment with the one we expected.
-					compareDeployments(patchedDeployment, wantDeployment, c.wantFile, t)
+					compareDeployments(patchedDeployment, wantDeployment, t)
 				})
 			}
 		})
@@ -561,7 +562,7 @@ func splitYamlDoc(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
 	yamlDoc := util.ReadFile(yamlFile, t)
 	stringParts := strings.Split(string(yamlDoc), yamlSeparator)
-	byteParts := make([][]byte, 0)
+	byteParts := [][]byte{}
 	for _, stringPart := range stringParts {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
@@ -596,7 +597,7 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 		return [][]byte{[]byte(yamlDoc)}
 	case "List":
 		// Split apart the list into separate yaml documents.
-		out := make([][]byte, 0)
+		out := [][]byte{}
 		list := metav1.List{}
 		if err := yaml.Unmarshal([]byte(yamlDoc), &list); err != nil {
 			t.Fatal(err)
@@ -668,7 +669,7 @@ func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deploymen
 	return &deployment
 }
 
-func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
+func compareDeployments(got, want *extv1beta1.Deployment, t *testing.T) {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
 	annotations(got)[sidecarAnnotationStatusKey] = annotations(want)[sidecarAnnotationStatusKey]
@@ -686,7 +687,7 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.Image = wantIstioProxy.Image
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
-	envVars := make([]corev1.EnvVar, 0)
+	envVars := []corev1.EnvVar{}
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
 			env.ValueFrom.FieldRef.APIVersion = ""
@@ -695,18 +696,21 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	}
 	gotIstioProxy.Env = envVars
 
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
+	// Now that we've scrubbed fields we don't care about, compare the objects.
+	if !reflect.DeepEqual(got, want) {
+		fatalDeploymentsNotEqual("deployments are not equivalent.", got, want, t)
 	}
-	gotString, err := marshaler.MarshalToString(got)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantString, err := marshaler.MarshalToString(want)
-	if err != nil {
-		t.Fatal(err)
-	}
-	util.CompareBytes([]byte(gotString), []byte(wantString), name, t)
+}
+
+func fatalDeploymentsNotEqual(message string, got, want *extv1beta1.Deployment, t *testing.T) {
+	t.Helper()
+
+	s, _ := msgdiff.PrettyDiff(got, want)
+	t.Logf("difference: %s", s)
+
+	gotJSON := toJSON(got, t)
+	wantJSON := toJSON(want, t)
+	t.Fatalf("%s\nWanted: %s\nGot: %s", message, string(wantJSON), string(gotJSON))
 }
 
 func annotations(d *extv1beta1.Deployment) map[string]string {
@@ -823,9 +827,7 @@ func createWebhook(t testing.TB, sidecarTemplate string) (*Webhook, func()) {
 
 	// mesh
 	mesh := model.DefaultMeshConfig()
-	m := jsonpb.Marshaler{
-		Indent: "  ",
-	}
+	m := jsonpb.Marshaler{}
 	var meshBytes bytes.Buffer
 	if err := m.Marshal(&meshBytes, &mesh); err != nil { // nolint: vetshadow
 		cleanup()

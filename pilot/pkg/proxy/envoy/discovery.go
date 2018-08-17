@@ -112,7 +112,6 @@ var (
 
 var (
 	// Variables associated with clear cache squashing.
-	clearCacheMutex sync.Mutex
 
 	// lastClearCache is the time we last pushed
 	lastClearCache time.Time
@@ -120,15 +119,13 @@ var (
 	// lastClearCacheEvent is the time of the last config event
 	lastClearCacheEvent time.Time
 
-	// clearCacheEvents is the counter of 'clearCache' calls
-	clearCacheEvents int
-
 	// clearCacheTimerSet is true if we are in squash mode, and a timer is already set
 	clearCacheTimerSet bool
 
+	clearCacheMutex sync.Mutex
+
 	// clearCacheTime is the max time to squash a series of events.
 	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
-	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
 	clearCacheTime = 1
 
 	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
@@ -437,15 +434,11 @@ func (ds *DiscoveryService) clearCache() {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
-	clearCacheEvents++
-
 	// If last config change was > 1 second ago, push.
 	if time.Since(lastClearCacheEvent) > 1*time.Second {
-		log.Infof("Push %d: %v since last change, %v since last push",
-			clearCacheEvents,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
 		lastClearCache = time.Now()
+		log.Infof("Cleared discovery service cache after 1 sec of quiet")
 		V2ClearCache()
 		return
 	}
@@ -456,8 +449,7 @@ func (ds *DiscoveryService) clearCache() {
 	// also push
 
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
-		log.Infof("Timer push %d: %v since last change, %v since last push",
-			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
+		log.Infof("Cleared discovery service cache after %v", time.Since(lastClearCache))
 		lastClearCache = time.Now()
 		V2ClearCache()
 		return

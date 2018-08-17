@@ -42,7 +42,7 @@ dependencies:
     # repository: file://../galley
     condition: galley.enabled
   - name: kiali
-    version: 0.5.0
+    version: 0.3.0.Alpha
     condition: kiali.enabled
   - name: certmanager
     version: 0.1.0

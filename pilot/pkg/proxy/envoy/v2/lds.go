@@ -24,19 +24,14 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, onConnect bool, version string) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-
-	rawListeners, err := s.generateRawListeners(con, push)
+	rawListeners, err := s.generateRawListeners(con)
 	if err != nil {
 		return err
 	}
 	con.HTTPListeners = rawListeners
-	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
-	if version != versionInfo() {
-		// Just report for now - after debugging we can suppress the push.
-		adsLog.Warnf("LDS: overlap %s %s %s", con.ConID, version, versionInfo())
-	}
+	response := ldsDiscoveryResponse(rawListeners, *con.modelNode)
 	err = con.send(response)
 	if err != nil {
 		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
@@ -45,12 +40,12 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode.ID, con.PeerAddr, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode, con.PeerAddr, len(rawListeners))
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.Listener, error) {
-	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, con.modelNode, push)
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection) ([]*xdsapi.Listener, error) {
+	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, *con.modelNode)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
@@ -72,10 +67,10 @@ func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.P
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy, version string) *xdsapi.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy) *xdsapi.DiscoveryResponse {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     ListenerType,
-		VersionInfo: version,
+		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
 	for _, ll := range ls {

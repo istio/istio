@@ -34,6 +34,8 @@ import (
 )
 
 const (
+	u1              = "normal-user"
+	u2              = "test-user"
 	bookinfoYaml    = "samples/bookinfo/platform/kube/bookinfo.yaml"
 	bookinfoGateway = "bookinfo-gateway.yaml"
 	modelDir        = "tests/apps/bookinfo/output"
@@ -44,14 +46,6 @@ const (
 )
 
 var (
-	u1 = user{
-		username:      "normal-user",
-		sessionCookie: "eyJ1c2VyIjoibm9ybWFsLXVzZXIifQ.Di_G8A.9xNK4BEiyV0-vPOB3mWF6_PXKrw",
-	}
-	u2 = user{
-		username:      "test-user",
-		sessionCookie: "eyJ1c2VyIjoidGVzdC11c2VyIn0.Di_NWg.BQ9nq-xSfqKqsT2Rd-Uh2Hg4b0I",
-	}
 	tc                *testConfig
 	baseConfig        *framework.CommonConfig
 	targetConfig      *framework.CommonConfig
@@ -60,11 +54,6 @@ var (
 	flagTargetVersion = flag.String("target_version", "0.5.1", "Target version to upgrade to.")
 	flagSmoothCheck   = flag.Bool("smooth_check", false, "Whether to check the upgrade is smooth.")
 )
-
-type user struct {
-	username      string
-	sessionCookie string
-}
 
 type testConfig struct {
 	*framework.CommonConfig
@@ -83,7 +72,7 @@ func (t *testConfig) Setup() error {
 			return err
 		}
 		content := string(ori)
-		content = strings.Replace(content, "jason", u2.username, -1)
+		content = strings.Replace(content, "jason", u2, -1)
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
 			log.Errorf("Failed to write into new rule file %s", dest)
@@ -186,7 +175,7 @@ func setUpDefaultRouting() error {
 	return probeGateway(testRetryTimes)
 }
 
-func checkRoutingResponse(user user, version, gateway, modelFile string) (int, error) {
+func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
 	startT := time.Now()
 	cookies := []http.Cookie{
 		{
@@ -194,8 +183,8 @@ func checkRoutingResponse(user user, version, gateway, modelFile string) (int, e
 			Value: "bar",
 		},
 		{
-			Name:  "session",
-			Value: user.sessionCookie,
+			Name:  "user",
+			Value: user,
 		},
 	}
 	resp, err := getWithCookie(fmt.Sprintf("%s/productpage", gateway), cookies)

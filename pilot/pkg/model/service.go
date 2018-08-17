@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
 	"time"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -747,9 +748,6 @@ func IsValidSubsetKey(s string) bool {
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
 	parts := strings.Split(s, "|")
-	if len(parts) < 4 {
-		return
-	}
 	direction = TrafficDirection(parts[0])
 	port, _ = strconv.Atoi(parts[1])
 	subsetName = parts[2]

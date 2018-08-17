@@ -203,18 +203,6 @@ func (m *AccessLogFilter) Validate() error {
 			}
 		}
 
-	case *AccessLogFilter_ResponseFlagFilter:
-
-		if v, ok := interface{}(m.GetResponseFlagFilter()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return AccessLogFilterValidationError{
-					Field:  "ResponseFlagFilter",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
 	default:
 		return AccessLogFilterValidationError{
 			Field:  "FilterSpecifier",
@@ -763,73 +751,3 @@ func (e HeaderFilterValidationError) Error() string {
 }
 
 var _ error = HeaderFilterValidationError{}
-
-// Validate checks the field values on ResponseFlagFilter with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *ResponseFlagFilter) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	for idx, item := range m.GetFlags() {
-		_, _ = idx, item
-
-		if _, ok := _ResponseFlagFilter_Flags_InLookup[item]; !ok {
-			return ResponseFlagFilterValidationError{
-				Field:  fmt.Sprintf("Flags[%v]", idx),
-				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX]",
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// ResponseFlagFilterValidationError is the validation error returned by
-// ResponseFlagFilter.Validate if the designated constraints aren't met.
-type ResponseFlagFilterValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e ResponseFlagFilterValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sResponseFlagFilter.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = ResponseFlagFilterValidationError{}
-
-var _ResponseFlagFilter_Flags_InLookup = map[string]struct{}{
-	"LH":   {},
-	"UH":   {},
-	"UT":   {},
-	"LR":   {},
-	"UR":   {},
-	"UF":   {},
-	"UC":   {},
-	"UO":   {},
-	"NR":   {},
-	"DI":   {},
-	"FI":   {},
-	"RL":   {},
-	"UAEX": {},
-}

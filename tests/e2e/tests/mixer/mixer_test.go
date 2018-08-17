@@ -36,7 +36,6 @@ import (
 	"github.com/prometheus/common/model"
 
 	"istio.io/fortio/fhttp"
-
 	// flog "istio.io/fortio/log"
 	"istio.io/fortio/periodic"
 	"istio.io/istio/pkg/log"
@@ -52,7 +51,6 @@ const (
 	bookinfoRatingsv2Yaml = "bookinfo-ratings-v2"
 	bookinfoDbYaml        = "bookinfo-db"
 	sleepYaml             = "samples/sleep/sleep"
-	mixerTestDataDir      = "tests/e2e/tests/mixer/testdata"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -79,9 +77,6 @@ const (
 	reportPath = "/istio.mixer.v1.Mixer/Report"
 
 	testRetryTimes = 5
-
-	redisInstallDir  = "stable/redis"
-	redisInstallName = "redis-release"
 )
 
 type testConfig struct {
@@ -112,7 +107,6 @@ var (
 	routeReviewsV3Rule       = "virtual-service-reviews-v3"
 	tcpDbRule                = "virtual-service-ratings-db"
 	bookinfoGateway          = "bookinfo-gateway"
-	redisQuotaRule           = "mixer-rule-ratings-redis-quota"
 
 	defaultRules []string
 	rules        []string
@@ -131,27 +125,22 @@ func (t *testConfig) Setup() (err error) {
 	}()
 
 	drs := []*string{&bookinfoGateway, &destinationRuleAll, &routeAllRule}
+
 	for _, dr := range drs {
-		*dr = filepath.Join(bookinfoSampleDir, networkingDir, *dr)
+		*dr = filepath.Join(networkingDir, *dr)
 		defaultRules = append(defaultRules, *dr)
 	}
 
 	rs := []*string{&rateLimitRule, &denialRule, &ingressDenialRule, &newTelemetryRule,
 		&kubeenvTelemetryRule}
 	for _, r := range rs {
-		*r = filepath.Join(bookinfoSampleDir, policyDir, *r)
+		*r = filepath.Join(policyDir, *r)
 		rules = append(rules, *r)
 	}
 
 	rs = []*string{&routeReviewsVersionsRule, &routeReviewsV3Rule, &tcpDbRule}
 	for _, r := range rs {
-		*r = filepath.Join(bookinfoSampleDir, networkingDir, *r)
-		rules = append(rules, *r)
-	}
-
-	rs = []*string{&redisQuotaRule}
-	for _, r := range rs {
-		*r = filepath.Join(mixerTestDataDir, *r)
+		*r = filepath.Join(networkingDir, *r)
 		rules = append(rules, *r)
 	}
 
@@ -212,7 +201,7 @@ func copyRuleToFilesystem(t *testConfig, rule string) error {
 }
 
 func getSourceRulePath(rule string) string {
-	return util.GetResourcePath(filepath.Join(rule + "." + yamlExtension))
+	return util.GetResourcePath(filepath.Join(bookinfoSampleDir, rule+"."+yamlExtension))
 }
 
 func getDestinationRulePath(t *testConfig, rule string) string {
@@ -904,11 +893,6 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		fatalf(t, "Could not create replace reviews routing rule: %v", err)
 	}
-	defer func() {
-		if err := deleteRoutingConfig(routeReviewsV3Rule); err != nil {
-			t.Fatalf("Could not delete reviews routing rule: %v", err)
-		}
-	}()
 
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
 	if err := applyMixerRule(rateLimitRule); err != nil {
@@ -1009,152 +993,6 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
 	// less than 10, don't fail this test).
 	want = math.Floor(want200s * .25)
-
-	// check successes
-	if got < want {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
-	}
-	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
-	want200s = math.Ceil(want200s * 1.5)
-	if got > want200s {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
-	}
-}
-
-func TestRedisQuota(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
-		fatalf(t, "Could not create replace reviews routing rule: %v", err)
-	}
-	defer func() {
-		if err := deleteRoutingConfig(routeReviewsV3Rule); err != nil {
-			t.Fatalf("Could not delete reviews routing rule: %v", err)
-		}
-	}()
-
-	if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 2, tc.Kube.KubeConfig); err != nil {
-		fatalf(t, "Could not scale up istio-policy pod: %v", err)
-	}
-	defer func() {
-		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
-			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
-		}
-	}()
-
-	if err := tc.Kube.DeployTiller(); err != nil {
-		fatalf(t, "Failed to deploy helm tiller.")
-	}
-
-	setValue := "--set usePassword=false,persistence.enabled=false"
-	if err := util.HelmInstall(redisInstallDir, redisInstallName, tc.Kube.Namespace, setValue); err != nil {
-		fatalf(t, "Helm install %s failed, setValue=%s", redisInstallDir, setValue)
-	}
-	defer func() {
-		if err := util.HelmDelete(redisInstallName); err != nil {
-			t.Logf("Could not delete %s: %v", redisInstallName, err)
-		}
-	}()
-
-	allowRuleSync()
-
-	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
-	if err := applyMixerRule(redisQuotaRule); err != nil {
-		fatalf(t, "could not create required mixer rule: %v", err)
-	}
-	defer func() {
-		if err := deleteMixerRule(redisQuotaRule); err != nil {
-			t.Logf("could not clear rule: %v", err)
-		}
-	}()
-
-	allowRuleSync()
-
-	// setup prometheus API
-	promAPI, err := promAPI()
-	if err != nil {
-		fatalf(t, "Could not build prometheus API client: %v", err)
-	}
-
-	// establish baseline
-	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
-
-	_ = sendTraffic(t, "Warming traffic...", 150)
-	allowPrometheusSync()
-	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
-	// check if at least one more prior429 was reported
-	if prior429s-initPrior429s < 1 {
-		fatalf(t, "no 429 is allotted time: prior429s:%v", prior429s)
-	}
-
-	res := sendTraffic(t, "Sending traffic...", 300)
-	allowPrometheusSync()
-
-	totalReqs := res.DurationHistogram.Count
-	succReqs := float64(res.RetCodes[http.StatusOK])
-	badReqs := res.RetCodes[http.StatusBadRequest]
-	actualDuration := res.ActualDuration.Seconds() // can be a bit more than requested
-
-	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s - %+v)",
-		totalReqs, res.ActualQPS, succReqs, succReqs/actualDuration, badReqs, res.RetCodes)
-
-	// consider only successful requests (as recorded at productpage service)
-	callsToRatings := succReqs
-
-	// the rate-limit is 1 rps
-	want200s := 1. * actualDuration
-
-	// everything in excess of 200s should be 429s (ideally)
-	want429s := callsToRatings - want200s
-
-	t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration, want429s, want429s/actualDuration)
-
-	// if we received less traffic than the expected enforced limit to ratings
-	// then there is no way to determine if the rate limit was applied at all
-	// and for how much traffic. log all metrics and abort test.
-	if callsToRatings < want200s {
-		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "istio_requests_total"))
-		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
-	}
-
-	_, _, value := fetchRequestCount(t, promAPI, "ratings")
-	log.Infof("promvalue := %s", value.String())
-
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
-	if err != nil {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Could not find 429s: %v", err)
-		got = 0 // want to see 200 rate even if no 429s were recorded
-	}
-
-	want := math.Floor(want429s * 0.95)
-
-	got = (got - prior429s) / 2
-
-	t.Logf("Actual 429s: %f (%f rps)", got, got/actualDuration)
-
-	// check resource exhausted
-	if got < want {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
-	}
-
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
-	if err != nil {
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Could not find successes value: %v", err)
-		got = 0
-	}
-
-	got = (got - prior200s) / 2
-
-	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got, got/actualDuration)
-
-	// establish some baseline to protect against flakiness due to randomness in routing
-	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
-	// less than 10, don't fail this test).
-	want = math.Floor(want200s * 0.95)
 
 	// check successes
 	if got < want {
@@ -1270,7 +1108,6 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	}
 
 	value := val.(model.Vector)
-	valueCount := 0.0
 	for _, sample := range value {
 		metric := sample.Metric
 		nameCount := len(labels)
@@ -1280,11 +1117,8 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 			}
 		}
 		if nameCount == 0 {
-			valueCount += float64(sample.Value)
+			return float64(sample.Value), nil
 		}
-	}
-	if valueCount > 0.0 {
-		return valueCount, nil
 	}
 	return 0, fmt.Errorf("value not found for %#v", labels)
 }

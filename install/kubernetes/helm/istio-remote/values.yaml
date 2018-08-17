@@ -1,12 +1,12 @@
 # Common settings.
 global:
-  # Default hub for Istio images.
+  # Default repository for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: gcr.io/istio-release
+  hub: docker.io/istionightly
 
   # Default tag for Istio images.
-  tag: release-1.0-latest-daily
+  tag: nightly-master
 
   proxy:
     image: proxyv2
@@ -69,7 +69,7 @@ global:
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
-    hub: quay.io/coreos
+    repository: quay.io/coreos/hyperkube
     tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
@@ -95,9 +95,6 @@ global:
   imagePullSecrets:
     # - private-registry-key
 
-  # If true, create a headless service and endpoint for istio-pilot with the remotePilotAddress and
-  # sets the MeshConfig configmap discoveryAddress to 'istio-pilot.<namespace>'
-  remotePilotCreateSvcEndpoint: false
 
   # Remote Istio endpoints. Can be hostnames or IP addresses
   # The Pilot address is required. The others are optional.

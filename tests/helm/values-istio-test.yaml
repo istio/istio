@@ -64,12 +64,12 @@ gateways:
       name: tcp-iperf-tls
 
 pilot:
-  replicaCount: 1
+  replicaCount: 2
   # Override for 0.8 upgrade
   #image: costinm/pilot:costin-dev
 
 ingress:
-  enabled: true
+  enabled: false
 
 prometheus:
   enabled: true
@@ -79,8 +79,8 @@ sidecar-injector:
 
 grafana:
   enabled: true
-  #image: gcr.io/istio-release/grafana:release-1.0-20180710-09-15
-
+  # Temp: release 1.0 not working
+  #image: costinm/grafana:costin-dev2
 
 zipkin:
   enabled: true
@@ -89,10 +89,4 @@ servicegraph:
   enabled: true
 
 prometheus:
-  enabled: true
-
-kiali:
-  enabled: true
-
-certmanager:
   enabled: true

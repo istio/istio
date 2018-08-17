@@ -22,10 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/mixer/pkg/config/crd"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -83,8 +79,7 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://"+path, groupVersion)
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://" + path)
 	if err != nil {
 		return nil, err
 	}

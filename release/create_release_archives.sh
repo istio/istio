@@ -111,9 +111,6 @@ pushd "${OUTPUT_PATH}"
 ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
-  -o -name "*.yml" \
-  -o -name "*.cfg" \
-  -o -name "*.j2" \
   -o -name "cleanup*" \
   -o -name "*.md" \
   -o -name "*.conf" \

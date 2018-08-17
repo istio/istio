@@ -13,7 +13,7 @@ spec:
       - path: /http
         backend:
           serviceName: a
-          servicePort: 80
+          servicePort: http
       - path: /pasta
         backend:
           serviceName: b
@@ -21,7 +21,7 @@ spec:
       - path: /.*
         backend:
           serviceName: a
-          servicePort: 7070
+          servicePort: grpc
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -52,7 +52,7 @@ spec:
       - path: /c
         backend:
           serviceName: c
-          servicePort: 80
+          servicePort: http
   - host: foo.bar.com
     http:
       paths:
@@ -72,4 +72,4 @@ spec:
       paths:
       - backend:
           serviceName: a
-          servicePort: 7070
+          servicePort: grpc

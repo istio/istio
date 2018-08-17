@@ -61,7 +61,7 @@ var updateConfigSet = []*model.Config{
 				{
 					Port: &networking.Port{
 						Number:   80,
-						Protocol: "HTTP2",
+						Protocol: "HTTPS",
 						Name:     "http",
 					},
 					Hosts: []string{"*.example.com"},
@@ -123,7 +123,7 @@ func TestMonitorForChange(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		gateway := c[0].Spec.(*networking.Gateway)
-		if gateway.Servers[0].Port.Protocol != "HTTP2" {
+		if gateway.Servers[0].Port.Protocol != "HTTPS" {
 			return errors.New("Protocol has not been updated")
 		}
 

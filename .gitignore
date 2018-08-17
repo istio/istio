@@ -56,7 +56,7 @@ install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml
 install/kubernetes/istio-galley.yaml
 install/kubernetes/istio-auth-galley.yaml
-samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
+samples/bookinfo/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes
 istio.VERSION

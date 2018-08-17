@@ -1,8 +1,8 @@
-hash: cdc4c19aae1352d73c2502f514b7a44822d5afcf77acaef0bcfb4c143c41aec5
-updated: 2018-07-06T11:44:46.987142209-07:00
+hash: 6b630b5325d46765595365cef71c4c551f4a516a9dd83058fc447dcb5cdc1125
+updated: 2018-06-27T15:06:45.79764699-07:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 5d0d8a33fe313b196d65a9726c1f26f3833b6069
+  version: 5c1d0b213ee055a9f480ecba170a2be619585f32
 - name: github.com/gogo/googleapis
   version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
   subpackages:
@@ -28,7 +28,7 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/lyft/protoc-gen-validate
-  version: f9d2b11e44149635b23a002693b76512b01ae515
+  version: cae364899cd8c08b83bfdcabf4ce4dd4a68ca6da
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus

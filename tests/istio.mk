@@ -178,7 +178,7 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -186,7 +186,7 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
+		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}

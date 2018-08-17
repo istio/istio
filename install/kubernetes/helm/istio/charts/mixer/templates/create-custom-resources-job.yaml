@@ -22,9 +22,6 @@ rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
   verbs: ["create", "get", "list", "watch", "patch"]
-- apiGroups: ["rbac.istio.io"] # istio RBAC watcher
-  resources: ["*"]
-  verbs: ["create", "get", "list", "watch", "patch"]
 - apiGroups: ["networking.istio.io"] # needed to create mixer destination rules
   resources: ["*"]
   verbs: ["*"]
@@ -63,7 +60,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-mixer-post-install-1.0
+  name: istio-mixer-post-install
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
@@ -76,7 +73,7 @@ metadata:
 spec:
   template:
     metadata:
-      name: istio-mixer-post-install-1.0
+      name: istio-mixer-post-install
       labels:
         app: {{ template "mixer.name" . }}
         release: {{ .Release.Name }}
@@ -84,7 +81,7 @@ spec:
       serviceAccountName: istio-mixer-post-install-account
       containers:
         - name: hyperkube
-          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
           command: [ "/bin/bash", "/tmp/mixer/run.sh", "/tmp/mixer/custom-resources.yaml" ]
           volumeMounts:
             - mountPath: "/tmp/mixer"

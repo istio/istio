@@ -21,7 +21,7 @@ spec:
     spec:
       serviceAccountName: kiali-service-account
       containers:
-      - image: "{{ .Values.hub }}/kiali:{{ .Values.tag }}"
+      - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         name: kiali
         command:
         - "/opt/kiali/kiali"

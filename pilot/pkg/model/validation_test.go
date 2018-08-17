@@ -1132,28 +1132,6 @@ func TestValidateServer(t *testing.T) {
 				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
-		{"no tls on HTTPS",
-			&networking.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "https", Protocol: "https"},
-			},
-			"must have TLS"},
-		{"tls on HTTP",
-			&networking.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
-			},
-			"cannot have TLS"},
-		{"tls redirect on HTTP",
-			&networking.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
-				Tls: &networking.Server_TLSOptions{
-					HttpsRedirect: true,
-				},
-			},
-			""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2278,20 +2256,16 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "discovery type static, cidr addresses with endpoints", in: networking.ServiceEntry{
+		{name: "discovery type not none, cidr addresses", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
-			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
-			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: true},
+			valid: false},
 
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},

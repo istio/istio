@@ -73,11 +73,6 @@ func intrinsics() []FunctionMetadata {
 			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.BOOL, config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
-		{
-			Name:          "ADD",
-			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
-			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
-		},
 	}
 }
 

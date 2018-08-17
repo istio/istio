@@ -246,19 +246,19 @@ func (t *testConfig) Teardown() (err error) {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
-		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	version string, injectProxy bool, headless bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -280,7 +280,6 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"headless":        strconv.FormatBool(headless),
-			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},

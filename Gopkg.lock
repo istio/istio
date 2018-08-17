@@ -285,7 +285,7 @@
     "pkg/server",
     "pkg/util"
   ]
-  revision = "8cef83f9eabf344b48191d3b9929287988782e54"
+  revision = "8da69c22276922e7f517b8b04d474f799f5cae1c"
 
 [[projects]]
   name = "github.com/evanphx/json-patch"
@@ -1303,9 +1303,10 @@
     "mixer/v1/config/client",
     "networking/v1alpha3",
     "policy/v1beta1",
-    "rbac/v1alpha1"
+    "rbac/v1alpha1",
+    "routing/v1alpha1"
   ]
-  revision = "6a128c56f81639e234cc34dbf40af9532008e467"
+  revision = "76f27f20f13caf683e95ff80218a710ca1936285"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1603,6 +1604,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a53387525fe93d996ca46dc1e3c4f78a55f011cd5da37dd3abc997d48fb822a4"
+  inputs-digest = "272679d85f8c24e3619d83e085f795ba348c94d2e9acce9acf4e996942b2599c"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -53,8 +53,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		Controller:       s.MemRegistry.controller,
 	})
 
-	mux.HandleFunc("/debug/edsz", s.edsz)
-	mux.HandleFunc("/debug/adsz", s.adsz)
+	mux.HandleFunc("/debug/edsz", edsz)
+	mux.HandleFunc("/debug/adsz", adsz)
 	mux.HandleFunc("/debug/cdsz", cdsz)
 	mux.HandleFunc("/debug/syncz", Syncz)
 
@@ -64,7 +64,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
-	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
 }
 
 // NewMemServiceDiscovery builds an in-memory MemServiceDiscovery
@@ -82,7 +81,6 @@ func NewMemServiceDiscovery(services map[model.Hostname]*model.Service, versions
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
 	ProxyID         string `json:"proxy,omitempty"`
-	ProxyVersion    string `json:"proxy_version,omitempty"`
 	ClusterSent     string `json:"cluster_sent,omitempty"`
 	ClusterAcked    string `json:"cluster_acked,omitempty"`
 	ListenerSent    string `json:"listener_sent,omitempty"`
@@ -103,10 +101,8 @@ func Syncz(w http.ResponseWriter, req *http.Request) {
 	for _, con := range adsClients {
 		con.mu.RLock()
 		if con.modelNode != nil {
-			proxyVersion, _ := con.modelNode.GetProxyVersion()
 			syncz = append(syncz, SyncStatus{
 				ProxyID:         con.modelNode.ID,
-				ProxyVersion:    proxyVersion,
 				ClusterSent:     con.ClusterNonceSent,
 				ClusterAcked:    con.ClusterNonceAcked,
 				ListenerSent:    con.ListenerNonceSent,
@@ -565,11 +561,11 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
-func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
+func adsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
+		adsPushAll()
 		fmt.Fprintf(w, "Pushed to %d servers", len(adsClients))
 		return
 	}
@@ -615,22 +611,6 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
-// PushStatusHandler dumps the last PushStatus
-func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
-	if model.LastPushStatus == nil {
-		return
-	}
-	out, err := model.LastPushStatus.JSON()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "unable to marshal push information: %v", err)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	w.Write(out)
-	w.WriteHeader(http.StatusOK)
-}
-
 func writeAllADS(w io.Writer) {
 	adsClientsMutex.RLock()
 	defer adsClientsMutex.RUnlock()
@@ -661,12 +641,12 @@ func writeAllADS(w io.Writer) {
 
 // edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (9093).
-func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
+func edsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 
 	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
+		PushAll()
 	}
 
 	edsClusterMutex.Lock()

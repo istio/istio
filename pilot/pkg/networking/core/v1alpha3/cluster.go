@@ -49,7 +49,7 @@ const (
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus) ([]*v2.Cluster, error) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(env model.Environment, proxy model.Proxy) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
 	services, err := env.Services()
@@ -58,7 +58,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		return nil, err
 	}
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push, services)...)
+	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, services)...)
 	for _, c := range clusters {
 		// Envoy requires a non-zero connect timeout
 		if c.ConnectTimeout == 0 {
@@ -66,7 +66,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		}
 	}
 	if proxy.Type == model.Sidecar {
-		instances, err := env.GetProxyServiceInstances(proxy)
+		instances, err := env.GetProxyServiceInstances(&proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err
@@ -78,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		}
 
 		managementPorts := env.ManagementPorts(proxy.IPAddress)
-		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts, serviceAccounts)...)
+		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, instances, managementPorts, serviceAccounts)...)
 	}
 
 	// Add a blackhole cluster for catching traffic to unresolved routes
@@ -88,7 +88,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	return clusters, nil // TODO: normalize/dedup/order
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus,
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env model.Environment, proxy model.Proxy,
 	services []*model.Service) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 	serviceAccounts, err := getServiceAccounts(env, proxy)
@@ -124,7 +124,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					applyTrafficPolicy(subsetCluster, subset.TrafficPolicy, port, env.Mesh, serviceAccounts)
 					// call plugins
 					for _, p := range configgen.Plugins {
-						p.OnOutboundCluster(env, proxy, push, service, port, subsetCluster)
+						p.OnOutboundCluster(env, proxy, service, port, subsetCluster)
 					}
 					clusters = append(clusters, subsetCluster)
 				}
@@ -138,7 +138,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(env, proxy, push, service, port, defaultCluster)
+				p.OnOutboundCluster(env, proxy, service, port, defaultCluster)
 			}
 		}
 	}
@@ -146,7 +146,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	return clusters
 }
 
-func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
+func updateEds(env model.Environment, cluster *v2.Cluster, serviceName model.Hostname) {
 	if cluster.Type != v2.Cluster_EDS {
 		return
 	}
@@ -160,7 +160,7 @@ func updateEds(env *model.Environment, cluster *v2.Cluster, serviceName model.Ho
 	}
 }
 
-func buildClusterHosts(env *model.Environment, service *model.Service, port int) []*core.Address {
+func buildClusterHosts(env model.Environment, service *model.Service, port int) []*core.Address {
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
@@ -180,7 +180,7 @@ func buildClusterHosts(env *model.Environment, service *model.Service, port int)
 	return hosts
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushStatus,
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(env model.Environment, proxy model.Proxy,
 	instances []*model.ServiceInstance,
 	managementPorts []*model.Port, serviceAccounts []string) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
@@ -200,7 +200,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		for _, p := range configgen.Plugins {
-			p.OnInboundCluster(env, proxy, push, instance.Service, instance.Endpoint.ServicePort, localCluster)
+			p.OnInboundCluster(env, proxy, instance.Service, instance.Endpoint.ServicePort, localCluster)
 		}
 
 		// When users specify circuit breakers, they need to be set on the receiver end
@@ -231,8 +231,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	return clusters
 }
 
-func getServiceAccounts(env *model.Environment, proxy *model.Proxy) ([]string, error) {
-	instances, err := env.GetProxyServiceInstances(proxy)
+func getServiceAccounts(env model.Environment, proxy model.Proxy) ([]string, error) {
+	instances, err := env.GetProxyServiceInstances(&proxy)
 	if err != nil {
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return nil, err
@@ -570,7 +570,7 @@ func buildBlackHoleCluster() *v2.Cluster {
 	return cluster
 }
 
-func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
+func buildDefaultCluster(env model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
 	hosts []*core.Address, serviceAccounts []string) *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name:  name,
@@ -587,7 +587,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	return cluster
 }
 
-func buildDefaultTrafficPolicy(env *model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
+func buildDefaultTrafficPolicy(env model.Environment, discoveryType v2.Cluster_DiscoveryType) *networking.TrafficPolicy {
 	lbPolicy := DefaultLbType
 	if discoveryType == v2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH

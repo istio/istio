@@ -9,21 +9,45 @@ objects.
 
 A ServiceRole specification includes a list of rules (permissions). Each rule has
 the following standard fields:
+* services: a list of services.
+* methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
+* paths: HTTP paths or gRPC methods. Note that gRPC methods should be
+  presented in the form of "packageName.serviceName/methodName".
 
-  * services: a list of services.
-  * methods: HTTP methods. In the case of gRPC, this field is ignored because the value is always "POST".
-  * paths: HTTP paths or gRPC methods. Note that gRPC methods should be
-    presented in the form of "packageName.serviceName/methodName".
+In addition to the standard fields, operators can use custom fields in the "constraints"
+section. The name of a custom field must match one of the "properties" in the "action" part
+of the "authorization" template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 
-In addition to the standard fields, operators can also use custom keys in the `constraints` field,
-the supported keys are listed in the "constraints and properties" page.
+For example, suppose we define an instance of the "authorization" template, named "requestcontext".
+
+```yaml
+apiVersion: "config.istio.io/v1alpha1"
+kind: authorization
+metadata:
+  name: requestcontext
+  namespace: istio-system
+spec:
+  subject:
+    user: source.user | ""
+    groups: ""
+    properties:
+      service: source.service | ""
+      namespace: source.namespace | ""
+  action:
+    namespace: destination.namespace | ""
+    service: destination.service | ""
+    method: request.method | ""
+    path: request.path | ""
+    properties:
+      version: request.headers["version"] | ""
+```
 
 Below is an example of ServiceRole object "product-viewer", which has "read" ("GET" and "HEAD")
 access to "products.svc.cluster.local" service at versions "v1" and "v2". "path" is not specified,
 so it applies to any path in the service.
 
 ```yaml
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "config.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: products-viewer
@@ -33,26 +57,25 @@ spec:
   - services: ["products.svc.cluster.local"]
     methods: ["GET", "HEAD"]
     constraints:
-    - key: "destination.labels[version]"
+    - key: "version"
       value: ["v1", "v2"]
 ```
 
 A ServiceRoleBinding specification includes two parts:
+* "roleRef" refers to a ServiceRole object in the same namespace.
+* A list of "subjects" that are assigned the roles.
 
- * The `roleRef` field that refers to a ServiceRole object in the same namespace.
- * A list of `subjects` that are assigned the roles.
-
-In addition to a simple `user` field, operators can also use custom keys in the `properties` field,
-the supported keys are listed in the "constraints and properties" page.
+A subject is represented with a set of "properties". The name of a property must match one of
+the fields ("user" or "groups" or one of the "properties") in the "subject" part of the "authorization"
+template (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 
 Below is an example of ServiceRoleBinding object "test-binding-products", which binds two subjects
 to ServiceRole "product-viewer":
-
-  * User "alice@yahoo.com"
-  * Services in "abc" namespace.
+* User "alice@yahoo.com"
+* "reviews" service in "abc" namespace.
 
 ```yaml
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "config.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: test-binding-products
@@ -61,7 +84,8 @@ spec:
   subjects:
   - user: alice@yahoo.com
   - properties:
-      source.namespace: "abc"
+      service: "reviews"
+      namespace: "abc"
   roleRef:
     kind: ServiceRole
     name: "products-viewer"
@@ -112,7 +136,7 @@ func (x EnforcementMode) String() string {
 	return proto.EnumName(EnforcementMode_name, int32(x))
 }
 func (EnforcementMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{0}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{0}
 }
 
 type RbacConfig_Mode int32
@@ -148,7 +172,7 @@ func (x RbacConfig_Mode) String() string {
 	return proto.EnumName(RbacConfig_Mode_name, int32(x))
 }
 func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5, 0}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{5, 0}
 }
 
 // ServiceRole specification contains a list of access rules (permissions).
@@ -166,7 +190,7 @@ func (m *ServiceRole) Reset()         { *m = ServiceRole{} }
 func (m *ServiceRole) String() string { return proto.CompactTextString(m) }
 func (*ServiceRole) ProtoMessage()    {}
 func (*ServiceRole) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{0}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{0}
 }
 func (m *ServiceRole) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServiceRole.Unmarshal(m, b)
@@ -216,7 +240,7 @@ type AccessRule struct {
 	// If set to ["*"] or not specified, it applies to any method.
 	Methods []string `protobuf:"bytes,3,rep,name=methods,proto3" json:"methods,omitempty"`
 	// Optional. Extra constraints in the ServiceRole specification.
-	// The above ServiceRole example shows an example of constraint "version".
+	// The above ServiceRole examples shows an example of constraint "version".
 	Constraints          []*AccessRule_Constraint `protobuf:"bytes,4,rep,name=constraints,proto3" json:"constraints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
@@ -227,7 +251,7 @@ func (m *AccessRule) Reset()         { *m = AccessRule{} }
 func (m *AccessRule) String() string { return proto.CompactTextString(m) }
 func (*AccessRule) ProtoMessage()    {}
 func (*AccessRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{1}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{1}
 }
 func (m *AccessRule) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessRule.Unmarshal(m, b)
@@ -275,7 +299,9 @@ func (m *AccessRule) GetConstraints() []*AccessRule_Constraint {
 	return nil
 }
 
-// Definition of a custom constraint. The supported keys are listed in the "constraint and properties" page.
+// Definition of a custom constraint. The key of a custom constraint must match
+// one of the "properties" in the "action" part of the "authorization" template
+// (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 type AccessRule_Constraint struct {
 	// Key of the constraint.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -294,7 +320,7 @@ func (m *AccessRule_Constraint) Reset()         { *m = AccessRule_Constraint{} }
 func (m *AccessRule_Constraint) String() string { return proto.CompactTextString(m) }
 func (*AccessRule_Constraint) ProtoMessage()    {}
 func (*AccessRule_Constraint) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{1, 0}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{1, 0}
 }
 func (m *AccessRule_Constraint) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AccessRule_Constraint.Unmarshal(m, b)
@@ -349,7 +375,7 @@ func (m *ServiceRoleBinding) Reset()         { *m = ServiceRoleBinding{} }
 func (m *ServiceRoleBinding) String() string { return proto.CompactTextString(m) }
 func (*ServiceRoleBinding) ProtoMessage()    {}
 func (*ServiceRoleBinding) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{2}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{2}
 }
 func (m *ServiceRoleBinding) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServiceRoleBinding.Unmarshal(m, b)
@@ -390,16 +416,19 @@ func (m *ServiceRoleBinding) GetMode() EnforcementMode {
 	return EnforcementMode_ENFORCED
 }
 
-// Subject defines an identity. The identity is either a user or identified by a set of `properties`.
-// The supported keys in `properties` are listed in "constraint and properties" page.
+// Subject defines an identity or a group of identities. The identity is either a user or
+// a group or identified by a set of "properties". The name of the "properties" must match
+// the "properties" in the "subject" part of the "authorization" template
+// (https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto).
 type Subject struct {
 	// Optional. The user name/ID that the subject represents.
 	User string `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	// $hide_from_docs
 	// Optional. The group that the subject belongs to.
 	Group string `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
 	// Optional. The set of properties that identify the subject.
-	// The above ServiceRoleBinding example shows an example of property "source.namespace".
+	// In the above ServiceRoleBinding example, the second subject has two properties:
+	//     service: "reviews"
+	//     namespace: "abc"
 	Properties           map[string]string `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
@@ -410,7 +439,7 @@ func (m *Subject) Reset()         { *m = Subject{} }
 func (m *Subject) String() string { return proto.CompactTextString(m) }
 func (*Subject) ProtoMessage()    {}
 func (*Subject) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{3}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{3}
 }
 func (m *Subject) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Subject.Unmarshal(m, b)
@@ -469,7 +498,7 @@ func (m *RoleRef) Reset()         { *m = RoleRef{} }
 func (m *RoleRef) String() string { return proto.CompactTextString(m) }
 func (*RoleRef) ProtoMessage()    {}
 func (*RoleRef) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{4}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{4}
 }
 func (m *RoleRef) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RoleRef.Unmarshal(m, b)
@@ -513,10 +542,10 @@ func (m *RoleRef) GetName() string {
 // services in the default namespace.
 //
 // ```yaml
-// apiVersion: "config.istio.io/v1alpha2"
+// apiVersion: "config.istio.io/v1alpha1"
 // kind: RbacConfig
 // metadata:
-//   name: default
+//   name: istio-rbac-config
 //   namespace: istio-system
 // spec:
 //   mode: ON_WITH_INCLUSION
@@ -541,7 +570,7 @@ func (m *RbacConfig) Reset()         { *m = RbacConfig{} }
 func (m *RbacConfig) String() string { return proto.CompactTextString(m) }
 func (*RbacConfig) ProtoMessage()    {}
 func (*RbacConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{5}
 }
 func (m *RbacConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RbacConfig.Unmarshal(m, b)
@@ -597,7 +626,7 @@ func (m *RbacConfig_Target) Reset()         { *m = RbacConfig_Target{} }
 func (m *RbacConfig_Target) String() string { return proto.CompactTextString(m) }
 func (*RbacConfig_Target) ProtoMessage()    {}
 func (*RbacConfig_Target) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_e9690b9bec9faeab, []int{5, 0}
+	return fileDescriptor_rbac_c2f246655623fef3, []int{5, 0}
 }
 func (m *RbacConfig_Target) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RbacConfig_Target.Unmarshal(m, b)
@@ -645,9 +674,9 @@ func init() {
 	proto.RegisterEnum("istio.rbac.v1alpha1.RbacConfig_Mode", RbacConfig_Mode_name, RbacConfig_Mode_value)
 }
 
-func init() { proto.RegisterFile("rbac/v1alpha1/rbac.proto", fileDescriptor_rbac_e9690b9bec9faeab) }
+func init() { proto.RegisterFile("rbac/v1alpha1/rbac.proto", fileDescriptor_rbac_c2f246655623fef3) }
 
-var fileDescriptor_rbac_e9690b9bec9faeab = []byte{
+var fileDescriptor_rbac_c2f246655623fef3 = []byte{
 	// 580 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x7f, 0x6b, 0xda, 0x50,
 	0x14, 0x6d, 0x12, 0xab, 0xf5, 0x3a, 0xda, 0xec, 0xad, 0x1b, 0x41, 0xca, 0x26, 0x61, 0x8c, 0x52,

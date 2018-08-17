@@ -171,13 +171,6 @@ func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
-// KubeScale kubectl scale a pod specified using typeName
-func KubeScale(namespace, typeName string, replicaCount int, kubeconfig string) error {
-	kubecommand := fmt.Sprintf("kubectl scale -n %s --replicas=%d %s --kubeconfig=%s", namespace, replicaCount, typeName, kubeconfig)
-	_, err := Shell(kubecommand)
-	return err
-}
-
 // HelmInit init helm with a service account
 func HelmInit(serviceAccount string) error {
 	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)

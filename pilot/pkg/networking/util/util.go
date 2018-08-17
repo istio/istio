@@ -39,10 +39,6 @@ const (
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {
-	if len(addr) == 0 {
-		return nil
-	}
-
 	cidr := &core.CidrRange{
 		AddressPrefix: addr,
 		PrefixLen: &types.UInt32Value{

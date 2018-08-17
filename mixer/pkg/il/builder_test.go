@@ -348,33 +348,6 @@ var builderTests = []builderTest{
 		},
 	},
 	{
-		n: "adds",
-		i: func(b *Builder) {
-			b.AddString()
-		},
-		e: []uint32{
-			uint32(AddS),
-		},
-	},
-	{
-		n: "addi",
-		i: func(b *Builder) {
-			b.AddInteger()
-		},
-		e: []uint32{
-			uint32(AddI),
-		},
-	},
-	{
-		n: "addd",
-		i: func(b *Builder) {
-			b.AddDouble()
-		},
-		e: []uint32{
-			uint32(AddD),
-		},
-	},
-	{
 		n: "labels",
 		i: func(b *Builder) {
 			l := b.AllocateLabel()

@@ -8,7 +8,7 @@ resources:
     zone: {{ properties['zone'] }}
     cluster:
       name: {{ properties['gkeClusterName'] }}
-      initialClusterVersion: 1.10.5
+      initialClusterVersion: 1.9
       legacyAbac:
         enabled: false
       initialNodeCount: {{ properties['initialNodeCount'] }}
@@ -81,61 +81,81 @@ resources:
       - key: startup-script
         value: |
           #!/bin/bash -x
-
-          apt-get update && apt-get install -y git google-cloud-sdk curl kubectl
-
+          apt-get update && apt-get install -y git curl
+          # NOTE: Due to a bug in kubectl (https://github.com/kubernetes/kubectl/issues/384 
+          # and https://github.com/istio/issues/issues/261) we have to force an earlier
+          # version of kubectl than 1.10.0. 
+          KUBECTL=/usr/local/bin/kubectl
+          curl -L -o $KUBECTL https://storage.googleapis.com/kubernetes-release/release/v1.9.6/bin/linux/amd64/kubectl
+          chmod +x /usr/local/bin/kubectl
           export HOME=/root
-          cd /root/
-
+          gcloud components update -q
+          gcloud components install beta -q
           gcloud container clusters get-credentials {{ properties['gkeClusterName'] }} --zone {{ properties['zone'] }}
-          kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
-
-          wget https://github.com/istio/istio/releases/download/{{ properties['installIstioRelease'] }}/istio-{{ properties['installIstioRelease'] }}-linux.tar.gz
-          tar xzf istio-{{ properties['installIstioRelease'] }}-linux.tar.gz
-
-          wget -P /root/helm/ https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-linux-amd64.tar.gz
-          tar xf /root/helm/helm-v2.9.1-linux-amd64.tar.gz  -C /root/helm/
-
-          export PATH="$PATH:/root/istio-{{ properties['installIstioRelease'] }}/bin::/root/helm/linux-amd64/"
-          cd /root/istio-{{ properties['installIstioRelease'] }}
-
-          kubectl create ns istio-system
-
-          ISTIO_OPTIONS=" --set global.proxy.image=proxyv2 "
+          $KUBECTL create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
+          curl -L https://raw.githubusercontent.com/istio/istio/master/release/downloadIstioCandidate.sh | ISTIO_VERSION={{ properties['installIstioRelease'] }} sh -
+          cd istio-{{ properties['installIstioRelease'] }}
 
           {% if  properties['enableMutualTLS'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set global.mtls.enabled=true"
+            $KUBECTL apply -f install/kubernetes/istio-auth.yaml
+          {% else %}
+            $KUBECTL apply -f install/kubernetes/istio.yaml
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set sidecar-injector.enabled=true"
+            # Setup automatic istio sidecar injection for the default namespace.
+            {% if properties['installIstioRelease'] == "0.5.1" %}
+              # Note that the original 0.5.1-tagged version of this script had
+              # a timing bug; here we pull one commit later.
+              curl -s https://raw.githubusercontent.com/istio/istio/41203341818c4dada2ea5385cfedc7859c01e957/install/kubernetes/webhook-create-signed-cert.sh -o ./install/kubernetes/webhook-create-signed-cert.sh && chmod +x ./install/kubernetes/webhook-create-signed-cert.sh
+              curl -s https://raw.githubusercontent.com/istio/istio/0.5.1/install/kubernetes/webhook-patch-ca-bundle.sh -o ./install/kubernetes/webhook-patch-ca-bundle.sh && chmod +x ./install/kubernetes/webhook-patch-ca-bundle.sh
+
+            {% endif %}
+
+            ./install/kubernetes/webhook-create-signed-cert.sh \
+                --service istio-sidecar-injector \
+                    --namespace istio-system \
+                    --secret sidecar-injector-certs
+            $KUBECTL apply -f install/kubernetes/istio-sidecar-injector-configmap-release.yaml
+            cat install/kubernetes/istio-sidecar-injector.yaml | \
+                ./install/kubernetes/webhook-patch-ca-bundle.sh > \
+                install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            $KUBECTL apply -f install/kubernetes/istio-sidecar-injector-with-ca-bundle.yaml
+            # Wait for the deployment to finish
+            $KUBECTL rollout status -n istio-system deploy/istio-sidecar-injector
+            $KUBECTL label namespace default istio-injection=enabled
           {% endif %}
 
           {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set prometheus.enabled=true"
+            {% if properties['installIstioRelease'] == '0.5.1' %}
+              # Unfortunately the default prometheus RBAC rules have two small
+              # omissions - correct that before proceeding.
+              # See https://github.com/istio/istio/pull/3393 and
+              # https://github.com/istio/istio/issues/3149#issuecomment-365431877
+              # for more details.
+              awk -v s="  - nodes/proxy" 'NR==257{print s}1' install/kubernetes/addons/prometheus.yaml \
+                  | awk -v s="  namespace: istio-system" 'NR==245{print s}1' - \
+                  | $KUBECTL apply -f -
+            {% else %}
+              $KUBECTL apply -f install/kubernetes/addons/prometheus.yaml
+            {% endif %}
           {% endif %}
 
           {% if  properties['enableGrafana'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set grafana.enabled=true"
+            $KUBECTL apply -f install/kubernetes/addons/grafana.yaml
           {% endif %}
 
-          {% if  properties['enableTracing'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set tracing.enabled=true "
+          {% if  properties['enableZipkin'] %}
+            $KUBECTL apply -f install/kubernetes/addons/zipkin.yaml
           {% endif %}
 
           {% if  properties['enableServiceGraph'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set servicegraph.enabled=true"
+            $KUBECTL apply -f install/kubernetes/addons/servicegraph.yaml
           {% endif %}
 
-          helm template install/kubernetes/helm/istio --name istio --namespace istio-system $ISTIO_OPTIONS  > istio.yaml
-
-          kubectl apply -f istio.yaml
-          kubectl label namespace default istio-injection=enabled
-
-          sleep 150
-
-          kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-          bin/istioctl create -f samples/bookinfo/networking/bookinfo-gateway.yaml
+          {% if  properties['enableBookInfoSample'] %}
+            $KUBECTL apply -f samples/bookinfo/kube/bookinfo.yaml
+          {% endif %}
 
           gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
           gcloud -q compute instances delete {{ CLUSTER_NAME }}-vm --zone {{ properties['zone'] }}
