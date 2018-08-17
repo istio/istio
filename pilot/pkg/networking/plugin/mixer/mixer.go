@@ -346,7 +346,6 @@ func addDestinationServiceAttributes(attrs attributes, push *model.PushContext, 
 	if destinationHostname == "" {
 		return attrs
 	}
-	attrs["destination.service"] = attrStringValue(string(destinationHostname)) // DEPRECATED. Remove when fully out of use.
 	attrs["destination.service.host"] = attrStringValue(string(destinationHostname))
 
 	svc := push.ServiceByHostname[destinationHostname]
