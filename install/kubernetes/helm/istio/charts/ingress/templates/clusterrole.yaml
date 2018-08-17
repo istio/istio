@@ -9,7 +9,7 @@ metadata:
   name: istio-ingress-{{ .Release.Namespace }}
 rules:
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "ingresses"]
+  resources: ["ingresses"]
   verbs: ["get", "watch", "list", "update"]
 - apiGroups: [""]
   resources: ["configmaps", "pods", "endpoints", "services"]

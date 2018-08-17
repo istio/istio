@@ -12,7 +12,7 @@ metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
 rules:
 - apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
+  resources: ["virtualservices", "destinationrules", "gateways"]
   verbs: ["get", "watch", "list", "update"]
 ---
 {{- end }}
