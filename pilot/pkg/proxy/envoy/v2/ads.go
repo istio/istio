@@ -399,7 +399,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node.Id == "" {
+			if discReq.Node == nil || discReq.Node.Id == "" {
 				adsLog.Infof("Missing node id %s", discReq.String())
 				continue
 			}
