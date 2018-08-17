@@ -136,7 +136,7 @@ static_resources:
 {
   "connection.mtls": true,
   "destination.principal": "cluster.local/ns/default/sa/server",
-	"source.principal": "cluster.local/ns/default/sa/client",
+  "source.principal": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -216,7 +216,7 @@ static_resources:
 {
   "connection.mtls": true,
   "destination.principal": "cluster.local/ns/default/sa/server",
-	"source.principal": "cluster.local/ns/default/sa/client",
+  "source.principal": "cluster.local/ns/default/sa/client",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
