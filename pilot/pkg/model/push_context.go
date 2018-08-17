@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -73,7 +74,7 @@ type PushContext struct {
 	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*Config
+	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	//TODO: gateways              []*networking.Gateway
 
@@ -94,6 +95,12 @@ type ProxyPushStatus struct {
 type PushMetric struct {
 	Name  string
 	gauge prometheus.Gauge
+}
+
+type combinedDestinationRule struct {
+	subsets map[string]bool // list of subsets seen so far
+	// We are not doing ports
+	config *Config
 }
 
 func newPushMetric(name, help string) *PushMetric {
@@ -187,6 +194,18 @@ var (
 	DuplicatedDomains = newPushMetric(
 		"pilot_vservice_dup_domain",
 		"Virtual services with dup domains.",
+	)
+
+	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
+	DuplicatedClusters = newPushMetric(
+		"pilot_duplicate_envoy_clusters",
+		"Duplicate envoy clusters caused by service entries with same hostname",
+	)
+
+	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
+	DuplicatedSubsets = newPushMetric(
+		"pilot_destrule_subsets",
+		"Duplicate subsets across destination rules for same host",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
@@ -397,21 +416,45 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	hosts := make([]Hostname, len(configs))
-	byHosts := make(map[Hostname]*Config, len(configs))
+	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		byHosts[hosts[i]] = &configs[i]
+		if mdr, exists := combinedDestinationRuleMap[hosts[i]]; exists {
+			// we have an another destination rule for same host.
+			// concatenate both of them -- essentially add subsets from one to other.
+			for _, subset := range rule.Subsets {
+				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+					mdr.subsets[subset.Name] = true
+					combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+					combinedRule.Subsets = append(combinedRule.Subsets, subset)
+				} else {
+					ps.Add(DuplicatedSubsets, string(hosts[i]), nil,
+						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+							subset.Name, string(hosts[i])))
+				}
+
+			}
+			continue
+		}
+
+		combinedDestinationRuleMap[hosts[i]] = &combinedDestinationRule{
+			config: &configs[i],
+		}
+		for _, subset := range rule.Subsets {
+			combinedDestinationRuleMap[hosts[i]].subsets[subset.Name] = true
+		}
 	}
 
 	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = byHosts
+	ps.destinationRuleByHosts = combinedDestinationRuleMap
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c]
+		return ps.destinationRuleByHosts[c].config
 	}
 	return nil
 }
