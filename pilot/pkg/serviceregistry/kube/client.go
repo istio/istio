@@ -27,10 +27,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/log"
-	// import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	// Initialize all known client auth plugins.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 // ResolveConfig checks whether to use the in-cluster or out-of-cluster config
@@ -62,10 +60,13 @@ func ResolveConfig(kubeconfig string) (string, error) {
 
 		// if it's an empty file, switch to in-cluster config
 		if info.Size() == 0 {
-			log.Info("using in-cluster configuration")
+			log.Info("empty kubeconfig file, switch to in-cluster configuration")
 			return "", nil
 		}
+	} else {
+		log.Info("using in-cluster configuration")
 	}
+
 	return kubeconfig, nil
 }
 
