@@ -67,18 +67,18 @@ spec:
           - MUTUAL_TLS
           - --discoveryAddress
           {{- if $.Values.global.istioNamespace }}
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:15005
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15011
           {{- else }}
-          - istio-pilot:15005
+          - istio-pilot:15011
           {{- end }}
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
           {{- if $.Values.global.istioNamespace }}
-          - istio-pilot.{{ $.Values.global.istioNamespace }}:8080
+          - istio-pilot.{{ $.Values.global.istioNamespace }}:15010
           {{- else }}
-          - istio-pilot:8080
+          - istio-pilot:15010
           {{- end }}
         {{- end }}
           resources:
