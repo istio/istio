@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -35,6 +36,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -68,8 +70,6 @@ import (
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
-	// CopilotTimeout when to cancel remote gRPC call to copilot
-	CopilotTimeout = 5 * time.Second
 )
 
 var (
@@ -165,15 +165,6 @@ type Server struct {
 	kubeRegistry     *kube.Controller
 }
 
-func createInterface(kubeconfig string) (kubernetes.Interface, error) {
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-
-	if err != nil {
-		return nil, err
-	}
-	return kubernetes.NewForConfig(restConfig)
-}
-
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args PilotArgs) (*Server, error) {
 	// If the namespace isn't set, try looking it up from the environment.
@@ -227,18 +218,17 @@ func NewServer(args PilotArgs) (*Server, error) {
 }
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
-// If Port == 0, a port number is automatically chosen. This method returns the address on which the server is
-// listening for incoming connections. Content serving is started by this method, but is executed asynchronously.
-// Serving can be cancelled at any time by closing the provided stop channel.
-func (s *Server) Start(stop <-chan struct{}) (net.Addr, error) {
+// If Port == 0, a port number is automatically chosen. Content serving is started by this method,
+// but is executed asynchronously. Serving can be cancelled at any time by closing the provided stop channel.
+func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
 		if err := fn(stop); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return s.HTTPListeningAddr, nil
+	return nil
 }
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
@@ -322,7 +312,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*v1.Confi
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), fmt.Sprintf("\"%s\" not found", name)) {
+		if errors.IsNotFound(err) {
 			defaultMesh := model.DefaultMeshConfig()
 			return nil, &defaultMesh, nil
 		}
@@ -397,11 +387,8 @@ func (s *Server) initMixerSan(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) getKubeCfgFile(args *PilotArgs) (kubeCfgFile string) {
-	if kubeCfgFile == "" {
-		kubeCfgFile = args.Config.KubeConfig
-	}
-	return
+func (s *Server) getKubeCfgFile(args *PilotArgs) string {
+	return args.Config.KubeConfig
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -415,18 +402,23 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if needToCreateClient && args.Config.FileDir == "" {
-		var client kubernetes.Interface
-		var kuberr error
-
 		kubeCfgFile := s.getKubeCfgFile(args)
-		client, kuberr = createInterface(kubeCfgFile)
-
+		client, kuberr := createInterface(kubeCfgFile)
 		if kuberr != nil {
 			return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 		}
 		s.kubeClient = client
 	}
 	return nil
+}
+
+func createInterface(kubeconfig string) (kubernetes.Interface, error) {
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubernetes.NewForConfig(restConfig)
 }
 
 type mockController struct{}
@@ -808,13 +800,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			<-stop
 			model.JwtKeyResolver.Close()
 
-			err = s.httpServer.Close()
+			ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+			err = s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
-			s.grpcServer.Stop()
+			s.grpcServer.GracefulStop()
 			if s.secureGRPCServer != nil {
-				s.secureGRPCServer.Stop()
+				s.secureGRPCServer.GracefulStop()
 			}
 		}()
 
