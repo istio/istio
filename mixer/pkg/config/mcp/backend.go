@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,8 +42,9 @@ import (
 var scope = log.RegisterScope("mcp", "Mixer MCP client stack", 0)
 
 const (
-	mixerNodeID      = ""
-	eventChannelSize = 4096
+	mixerNodeID           = ""
+	eventChannelSize      = 4096
+	requiredCertCheckFreq = 500 * time.Millisecond
 )
 
 // Register registers this module as a StoreBackend.
@@ -145,6 +147,24 @@ func (b *backend) Init(kinds []string) error {
 		address := b.serverAddress
 		if strings.Contains(address, ":") {
 			address = strings.Split(address, ":")[0]
+		}
+
+		requiredFiles := []string{b.credOptions.CertificateFile, b.credOptions.KeyFile, b.credOptions.CACertificateFile}
+		log.Infof("Secure MSP configured. Waiting for required certificate files to become available: %v", requiredFiles)
+		for len(requiredFiles) > 0 {
+			if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+				log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredCertCheckFreq)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(requiredCertCheckFreq):
+					// retry
+				}
+				continue
+			}
+
+			log.Infof("%v found", requiredFiles[0])
+			requiredFiles = requiredFiles[1:]
 		}
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)

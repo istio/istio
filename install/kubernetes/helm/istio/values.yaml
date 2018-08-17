@@ -157,6 +157,11 @@ global:
   # and this options must be set off.
   crds: true
 
+  # Use the Mesh Control Protocol (MCP) for configuring Mixer policy
+  # and telemetry deployments. Requires galley (`--set
+  # galley.enabled=true`).
+  useMixerMCP: false
+
 #
 # ingress configuration
 #
@@ -526,7 +531,7 @@ kiali:
     secretName: kiali
     usernameKey: username
     passphraseKey: passphrase
-    
+
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:
 
