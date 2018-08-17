@@ -22,14 +22,18 @@ import (
 
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/mcp/creds"
+
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/kube/source"
+	"istio.io/istio/galley/pkg/metadata"
+
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/mcp/server"
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime"
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -41,6 +45,8 @@ type Server struct {
 	processor  *runtime.Processor
 	mcp        *server.Server
 	listener   net.Listener
+	controlZ   *ctrlz.Server
+	stopCh     chan struct{}
 
 	// probes
 	livenessProbe  probe.Controller
@@ -59,7 +65,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		logConfigure:          log.Configure,
 		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
-		newSource:             kube.NewSource,
+		newSource:             source.New,
 		netListen:             net.Listen,
 	}
 }
@@ -89,14 +95,31 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	distributor := snapshot.New()
 	s.processor = runtime.NewProcessor(src, distributor)
 
-	s.mcp = server.New(distributor, resource.Types.TypeURLs())
-
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
+	s.stopCh = make(chan struct{})
+	var checker *server.ListAuthChecker
+	if !a.Insecure {
+
+		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
+		if err != nil {
+			return nil, err
+		}
+
+		watcher, err := creds.WatchFiles(s.stopCh, a.CertificateFile, a.KeyFile, a.CACertificateFile)
+		if err != nil {
+			return nil, err
+		}
+		credentials := creds.CreateForServer(watcher)
+
+		grpcOptions = append(grpcOptions, grpc.Creds(credentials))
+	}
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
+
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker)
 
 	// get the network stuff setup
 	network := "tcp"
@@ -129,7 +152,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		s.readinessProbe.Start()
 	}
 
-	go ctrlz.Run(a.IntrospectionOptions, nil)
+	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
 }
@@ -165,9 +188,18 @@ func (s *Server) Wait() error {
 
 // Close cleans up resources used by the server.
 func (s *Server) Close() error {
+	if s.stopCh != nil {
+		close(s.stopCh)
+		s.stopCh = nil
+	}
+
 	if s.shutdown != nil {
 		s.grpcServer.GracefulStop()
 		_ = s.Wait()
+	}
+
+	if s.controlZ != nil {
+		s.controlZ.Close()
 	}
 
 	if s.processor != nil {

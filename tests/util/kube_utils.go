@@ -29,14 +29,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	"golang.org/x/net/context/ctxhttp"
-	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 
 	"istio.io/istio/pkg/log"
 )
@@ -155,6 +150,16 @@ func KubeApply(namespace, yamlFileName string, kubeconfig string) error {
 	return err
 }
 
+// KubeGetYaml kubectl get yaml content for given resource.
+func KubeGetYaml(namespace, resource, name string, kubeconfig string) (string, error) {
+	if namespace == "" {
+		namespace = "default"
+	}
+	cmd := fmt.Sprintf("kubectl get %s %s -n %s -o yaml --kubeconfig=%s --export", resource, name, namespace, kubeconfig)
+
+	return Shell(cmd)
+}
+
 // KubeApplyContentSilent kubectl apply from contents silently
 func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) error {
 	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
@@ -168,6 +173,13 @@ func KubeApplyContentSilent(namespace, yamlContents string, kubeconfig string) e
 // KubeApplySilent kubectl apply from file silently
 func KubeApplySilent(namespace, yamlFileName string, kubeconfig string) error {
 	_, err := ShellSilent(kubeCommand("apply", namespace, yamlFileName, kubeconfig))
+	return err
+}
+
+// KubeScale kubectl scale a pod specified using typeName
+func KubeScale(namespace, typeName string, replicaCount int, kubeconfig string) error {
+	kubecommand := fmt.Sprintf("kubectl scale -n %s --replicas=%d %s --kubeconfig=%s", namespace, replicaCount, typeName, kubeconfig)
+	_, err := Shell(kubecommand)
 	return err
 }
 
@@ -187,6 +199,14 @@ func HelmInstallDryRun(chartDir, chartName, namespace, setValue string) error {
 //       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
 func HelmInstall(chartDir, chartName, namespace, setValue string) error {
 	_, err := Shell("helm install %s --name %s --namespace %s %s", chartDir, chartName, namespace, setValue)
+	return err
+}
+
+// HelmTemplate helm template from a chart for a given namespace
+//      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
+func HelmTemplate(chartDir, chartName, namespace, setValue, outfile string) error {
+	_, err := Shell("helm template %s --name %s --namespace %s %s > %s", chartDir,
+		chartName, namespace, setValue, outfile)
 	return err
 }
 
@@ -755,60 +775,26 @@ func CheckPodRunning(n, name string, kubeconfig string) error {
 }
 
 // CreateMultiClusterSecrets will create the secrets and configmap associated with the remote cluster
-func CreateMultiClusterSecrets(namespace string, KubeClient kubernetes.Interface, RemoteKubeConfig string, localKubeConfig string) error {
+func CreateMultiClusterSecrets(namespace string, RemoteKubeConfig string, localKubeConfig string) error {
 	const (
-		secretName    = "remote-cluster"
-		configMapName = "clusterregistry"
+		secretLabel = "istio/multiCluster"
+		labelValue  = "true"
 	)
-	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", secretName, RemoteKubeConfig, namespace, localKubeConfig)
-	// The cluster name is derived from the filename used to create the secret we will need it for the configmap
 	filename := filepath.Base(RemoteKubeConfig)
+
+	_, err := ShellMuteOutput("kubectl create secret generic %s --from-file %s -n %s --kubeconfig=%s", filename, RemoteKubeConfig, namespace, localKubeConfig)
 	if err != nil {
 		return err
 	}
-	log.Infof("Secret remote-cluster created\n")
-	remoteCluster := &v1.ConfigMap{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      configMapName,
-			Namespace: namespace,
-		},
-	}
+	log.Infof("Secret %s created\n", filename)
 
-	remoteClusterData := v1alpha1.Cluster{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "Cluster",
-			APIVersion: "clusterregistry.k8s.io/v1alpha1",
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
-			Annotations: map[string]string{"config.istio.io/accessConfigSecret": secretName,
-				"config.istio.io/accessConfigSecretNamespace": namespace,
-				"config.istio.io/platform":                    "Kubernetes"},
-			ClusterName: "",
-		},
-		Spec: v1alpha1.ClusterSpec{
-			KubernetesAPIEndpoints: v1alpha1.KubernetesAPIEndpoints{
-				ServerEndpoints: nil,
-				CABundle:        nil,
-			},
-			AuthInfo: v1alpha1.AuthInfo{},
-		},
-	}
-
-	dataBytes, err1 := yaml.Marshal(remoteClusterData)
-	if err1 != nil {
-		return err1
-	}
-
-	data := map[string]string{}
-	data[filename] = string(dataBytes)
-	remoteCluster.Data = data
-
-	_, err = KubeClient.CoreV1().ConfigMaps(namespace).Create(remoteCluster)
+	// label the secret for use as istio/multiCluster config
+	_, err = ShellMuteOutput("kubectl label secret %s %s=%s -n %s --kubeconfig=%s",
+		filename, secretLabel, labelValue, namespace, localKubeConfig)
 	if err != nil {
 		return err
 	}
-	log.Infof("Configmap created\n")
+
+	log.Infof("Secret %s labelled with %s=%s\n", filename, secretLabel, labelValue)
 	return nil
 }

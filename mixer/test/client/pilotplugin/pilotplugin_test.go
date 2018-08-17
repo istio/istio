@@ -38,7 +38,8 @@ import (
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 )
 
-const envoyConf = `
+const (
+	envoyConf = `
 admin:
   access_log_path: {{.AccessLogPath}}
   address:
@@ -51,7 +52,10 @@ node:
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
-    cluster_names: ["xds"]
+    api_type: GRPC
+    grpc_services:
+      envoy_grpc:
+        cluster_name: xds
 static_resources:
   clusters:
   - name: xds
@@ -86,9 +90,38 @@ static_resources:
         port_value: {{.Ports.MixerPort}}
 `
 
-const checkAttributesOkGet = `
+	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
+  "context.protocol": "http",
+  "context.reporter.kind": "outbound",
+  "context.reporter.uid": "kubernetes://pod2.ns2",
+  "destination.service.host": "svc.ns3",
+  "destination.service.name": "svc",
+  "destination.service.namespace": "ns3",
+  "destination.service.uid": "istio://ns3/services/svc",
+  "source.uid": "kubernetes://pod2.ns2",
+  "source.namespace": "ns2",
+  "request.headers": {
+     ":method": "GET",
+     ":path": "/echo",
+     ":authority": "*",
+     "x-forwarded-proto": "http",
+     "x-request-id": "*"
+  },
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http"
+}
+`
+	checkAttributesOkInbound = `
+{
+  "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
   "context.reporter.uid": "kubernetes://pod1.ns2",
@@ -96,11 +129,10 @@ const checkAttributesOkGet = `
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "request.headers": {
      ":method": "GET",
@@ -117,66 +149,22 @@ const checkAttributesOkGet = `
   "request.scheme": "http"
 }
 `
-const reportAttributesOkOutbound = `
+	reportAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
+  "context.proxy_error_code": "-",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
+  "destination.service.uid": "istio://ns3/services/svc",
   "source.uid": "kubernetes://pod2.ns2",
   "source.namespace": "ns2",
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "*",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  },
-  "request.host": "*",
-  "request.path": "/echo",
-  "request.time": "*",
-  "request.useragent": "Go-http-client/1.1",
-  "request.method": "GET",
-  "request.scheme": "http",
-  "request.size": 0,
-  "request.total_size": "*",
-  "response.time": "*",
-  "response.size": 0,
-  "response.duration": "*",
-  "response.code": 200,
-  "response.headers": {
-     "date": "*",
-     "content-length": "0",
-     ":status": "200",
-     "server": "envoy"
-  },
-  "response.total_size": "*"
-}`
-
-const reportAttributesOkInbound = `
-{
-  "connection.mtls": false,
-  "context.protocol": "http",
-  "context.reporter.kind": "inbound",
-  "context.reporter.uid": "kubernetes://pod1.ns2",
-  "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
-  "destination.port": "*",
-  "destination.namespace": "ns2",
-  "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
-  "destination.service.host": "svc.ns3",
-  "destination.service.name": "svc",
-  "destination.service.namespace": "ns3",
-  "destination.service.uid": "svcuid",
-  "source.uid": "kubernetes://pod2.ns2",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "request.headers": {
@@ -208,6 +196,55 @@ const reportAttributesOkInbound = `
   "response.total_size": "*"
 }`
 
+	reportAttributesOkInbound = `
+{
+  "connection.mtls": false,
+  "origin.ip": "[127 0 0 1]",
+  "context.protocol": "http",
+  "context.proxy_error_code": "-",
+  "context.reporter.kind": "inbound",
+  "context.reporter.uid": "kubernetes://pod1.ns2",
+  "destination.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 127 0 0 1]",
+  "destination.port": "*",
+  "destination.namespace": "ns2",
+  "destination.uid": "kubernetes://pod1.ns2",
+  "destination.service.host": "svc.ns3",
+  "destination.service.name": "svc",
+  "destination.service.namespace": "ns3",
+  "destination.service.uid": "istio://ns3/services/svc",
+  "source.uid": "kubernetes://pod2.ns2",
+  "check.cache_hit": false,
+  "quota.cache_hit": false,
+  "request.headers": {
+     ":method": "GET",
+     ":path": "/echo",
+     ":authority": "*",
+     "x-forwarded-proto": "http",
+     "x-istio-attributes": "-",
+     "x-request-id": "*"
+  },
+  "request.host": "*",
+  "request.path": "/echo",
+  "request.time": "*",
+  "request.useragent": "Go-http-client/1.1",
+  "request.method": "GET",
+  "request.scheme": "http",
+  "request.size": 0,
+  "request.total_size": "*",
+  "response.time": "*",
+  "response.size": 0,
+  "response.duration": "*",
+  "response.code": 200,
+  "response.headers": {
+     "date": "*",
+     "content-length": "0",
+     ":status": "200",
+     "server": "envoy"
+  },
+  "response.total_size": "*"
+}`
+)
+
 func TestPilotPlugin(t *testing.T) {
 	s := env.NewTestSetup(env.PilotPluginTest, t)
 	s.EnvoyTemplate = envoyConf
@@ -237,7 +274,8 @@ func TestPilotPlugin(t *testing.T) {
 	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	s.VerifyCheck("http", checkAttributesOkGet)
+	s.VerifyCheck("http-outbound", checkAttributesOkOutbound)
+	s.VerifyCheck("http-inbound", checkAttributesOkInbound)
 	s.VerifyTwoReports("http", reportAttributesOkOutbound, reportAttributesOkInbound)
 }
 
@@ -245,12 +283,6 @@ type mock struct{}
 
 func (mock) ID(*core.Node) string {
 	return id
-}
-func (mock) GetServiceAttributes(host model.Hostname) (*model.ServiceAttributes, error) {
-	if host == svc.Hostname {
-		return &model.ServiceAttributes{Name: "svc", Namespace: "ns3", UID: "svcuid"}, nil
-	}
-	return nil, nil
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
@@ -271,13 +303,26 @@ const (
 )
 
 var (
-	svc  = model.Service{Hostname: "svc.ns3"}
+	svc = model.Service{
+		Hostname: "svc.ns3",
+		Attributes: model.ServiceAttributes{
+			Name:      "svc",
+			Namespace: "ns3",
+			UID:       "istio://ns3/services/svc",
+		},
+	}
 	mesh = &model.Environment{
 		Mesh: &meshconfig.MeshConfig{
-			MixerCheckServer:  "mixer_server:9091",
-			MixerReportServer: "mixer_server:9091",
+			MixerCheckServer:            "mixer_server:9091",
+			MixerReportServer:           "mixer_server:9091",
+			EnableClientSidePolicyCheck: true,
 		},
 		ServiceDiscovery: mock{},
+	}
+	pushContext = model.PushContext{
+		ServiceByHostname: map[model.Hostname]*model.Service{
+			model.Hostname("svc.ns3"): &svc,
+		},
 	}
 	serverParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -290,6 +335,7 @@ var (
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
+		Push:            &pushContext,
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -302,6 +348,7 @@ var (
 			},
 		},
 		Service: &svc,
+		Push:    &pushContext,
 	}
 )
 

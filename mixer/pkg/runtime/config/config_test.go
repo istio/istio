@@ -13,10 +13,10 @@
 // limitations under the License.
 
 // nolint
-//go:generate protoc testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
-//go:generate protoc testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl1.proto -otestdata/tmpl1.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/tmpl2.proto -otestdata/tmpl2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg.proto -otestdata/adptCfg.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh testdata/adptCfg2.proto -otestdata/adptCfg2.descriptor -I$GOPATH/src/istio.io/istio/vendor/istio.io/api -I.
 
 package config
 
@@ -1884,7 +1884,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 's1' not found in message 'InstanceMsg'",
 	},
 	{
@@ -2921,7 +2921,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
 	},
 	{

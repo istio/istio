@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/mixer/test/client/env"
@@ -110,10 +110,10 @@ func startEnvoy() error {
 		BinaryPath:            util.IstioBin + "/envoy",
 		ServiceCluster:        "test",
 		CustomConfigFile:      util.IstioSrc + "/tools/deb/envoy_bootstrap_v2.json",
-		DiscoveryRefreshDelay: ptypes.DurationProto(10 * time.Second), // crash if not set
-		ConnectTimeout:        ptypes.DurationProto(5 * time.Second),  // crash if not set
-		DrainDuration:         ptypes.DurationProto(30 * time.Second), // crash if 0
-
+		DiscoveryRefreshDelay: types.DurationProto(10 * time.Second), // crash if not set
+		ConnectTimeout:        types.DurationProto(5 * time.Second),  // crash if not set
+		DrainDuration:         types.DurationProto(30 * time.Second), // crash if 0
+		StatNameLength:        189,
 	}
 	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil)
 	if err != nil {
@@ -157,7 +157,7 @@ func startPilot() error {
 
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "localhost:9091",
-			RdsRefreshDelay: ptypes.DurationProto(10 * time.Millisecond),
+			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
 		},
 		Config: bootstrap.ConfigArgs{
 			KubeConfig: util.IstioSrc + "/.circleci/config",
@@ -185,8 +185,7 @@ func startPilot() error {
 	}
 
 	// Start the server.
-	_, err = s.Start(stop)
-	if err != nil {
+	if err := s.Start(stop); err != nil {
 		return err
 	}
 	return nil

@@ -15,7 +15,6 @@
 package external
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -48,6 +47,7 @@ type ServiceEntryStore struct {
 	// Endpoints table. Key is the fqdn of the service, ':', port
 	instances map[string][]*model.ServiceInstance
 
+	changeMutex  sync.RWMutex
 	lastChange   time.Time
 	updateNeeded bool
 }
@@ -68,10 +68,10 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 			serviceEntry := config.Spec.(*networking.ServiceEntry)
 
 			// Recomputing the index here is too expensive.
-			c.storeMutex.Lock()
+			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
-			c.storeMutex.Unlock()
+			c.changeMutex.Unlock()
 
 			services := convertServices(serviceEntry, config.CreationTimestamp.Time)
 			for _, handler := range c.serviceHandlers {
@@ -123,6 +123,8 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
+// THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
+// DO NOT USE
 func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service, error) {
 	for _, service := range d.getServices() {
 		if service.Hostname == hostname {
@@ -131,22 +133,6 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 	}
 
 	return nil, nil
-}
-
-// GetServiceAttributes retrieves the custom attributes of a service if it exists.
-func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		svcs := convertServices(serviceEntry, config.CreationTimestamp.Time)
-		for _, s := range svcs {
-			if s.Hostname == hostname {
-				return &model.ServiceAttributes{
-					Name:      hostname.String(),
-					Namespace: config.Namespace}, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("service not found")
 }
 
 func (d *ServiceEntryStore) getServices() []*model.Service {
@@ -212,7 +198,7 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 	defer d.storeMutex.RUnlock()
 	out := []*model.ServiceInstance{}
 
-	instances, found := d.instances[hostname.String()]
+	instances, found := d.instances[string(hostname)]
 	if found {
 		for _, instance := range instances {
 			if instance.Service.Hostname == hostname &&
@@ -229,36 +215,48 @@ func (d *ServiceEntryStore) InstancesByPort(hostname model.Hostname, port int,
 // update will iterate all ServiceEntries, convert to ServiceInstance (expensive),
 // and populate the 'by host' and 'by ip' maps.
 func (d *ServiceEntryStore) update() {
-	d.storeMutex.RLock()
+	d.changeMutex.RLock()
 	if !d.updateNeeded {
+		d.changeMutex.RUnlock()
 		return
 	}
-	d.storeMutex.RUnlock()
+	d.changeMutex.RUnlock()
 
-	d.storeMutex.Lock()
-	defer d.storeMutex.Unlock()
-	d.instances = map[string][]*model.ServiceInstance{}
-	d.ip2instance = map[string][]*model.ServiceInstance{}
+	di := map[string][]*model.ServiceInstance{}
+	dip := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
 		serviceEntry := config.Spec.(*networking.ServiceEntry)
 		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp.Time) {
-			key := instance.Service.Hostname.String()
-			out, found := d.instances[key]
+			key := string(instance.Service.Hostname)
+			out, found := di[key]
 			if !found {
 				out = []*model.ServiceInstance{}
 			}
 			out = append(out, instance)
-			d.instances[key] = out
+			di[key] = out
 
-			byip, found := d.instances[instance.Endpoint.Address]
+			byip, found := di[instance.Endpoint.Address]
 			if !found {
 				byip = []*model.ServiceInstance{}
 			}
 			byip = append(byip, instance)
-			d.ip2instance[instance.Endpoint.Address] = byip
+			dip[instance.Endpoint.Address] = byip
 		}
 	}
+
+	d.storeMutex.Lock()
+	d.instances = di
+	d.ip2instance = dip
+	d.storeMutex.Unlock()
+
+	// Without this pilot will become very unstable even with few 100 ServiceEntry
+	// objects - the N_clusters * N_update generates too much garbage
+	// ( yaml to proto)
+	// This is reset on any change in ServiceEntries
+	d.changeMutex.Lock()
+	d.updateNeeded = false
+	d.changeMutex.Unlock()
 }
 
 // returns true if an instance's port matches with any in the provided list

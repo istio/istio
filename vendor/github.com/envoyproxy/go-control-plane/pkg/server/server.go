@@ -363,3 +363,15 @@ func (s *server) FetchListeners(ctx context.Context, req *v2.DiscoveryRequest) (
 	req.TypeUrl = cache.ListenerType
 	return s.Fetch(ctx, req)
 }
+
+func (s *server) IncrementalAggregatedResources(_ discovery.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
+	return errors.New("not implemented")
+}
+
+func (s *server) IncrementalClusters(_ v2.ClusterDiscoveryService_IncrementalClustersServer) error {
+	return errors.New("not implemented")
+}
+
+func (s *server) IncrementalRoutes(_ v2.RouteDiscoveryService_IncrementalRoutesServer) error {
+	return errors.New("not implemented")
+}

@@ -239,7 +239,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			Spec: &rbacproto.ServiceRoleBinding{
 				Subjects: []*rbacproto.Subject{
 					{
-						User: "user",
+						User: "*",
+					},
+					{
+						Properties: map[string]string{
+							"source.principal": "user",
+						},
 					},
 				},
 				RoleRef: &rbacproto.RoleRef{
@@ -254,10 +259,11 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				Subjects: []*rbacproto.Subject{
 					{
 						Properties: map[string]string{
-							"request.auth.claims[iss]": "test-iss",
-							"request.headers[key]":     "value",
-							"source.ip":                "192.1.2.0/24",
-							"source.namespace":         "test-ns",
+							"request.auth.claims[groups]": "group*",
+							"request.auth.claims[iss]":    "test-iss",
+							"request.headers[key]":        "value",
+							"source.ip":                   "192.1.2.0/24",
+							"source.namespace":            "test-ns",
 						},
 					},
 				},
@@ -360,16 +366,30 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				AndIds: &policy.Principal_Set{
 					Ids: []*policy.Principal{
 						{
-							Identifier: &policy.Principal_Authenticated_{
-								Authenticated: &policy.Principal_Authenticated{
-									Name: "user",
+							Identifier: &policy.Principal_Any{
+								Any: true,
+							},
+						},
+					},
+				},
+			},
+		},
+			{
+				Identifier: &policy.Principal_AndIds{
+					AndIds: &policy.Principal_Set{
+						Ids: []*policy.Principal{
+							{
+								Identifier: &policy.Principal_Metadata{
+									Metadata: generateMetadataStringMatcher(
+										[]string{"source.principal"}, &metadata.StringMatcher{
+											MatchPattern: &metadata.StringMatcher_Exact{Exact: "user"}}),
 								},
 							},
 						},
 					},
 				},
 			},
-		}},
+		},
 	}
 
 	policy2 := &policy.Policy{
@@ -484,9 +504,14 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataStringMatcher(
-									[]string{"request.auth.claims", "iss"}, &metadata.StringMatcher{
-										MatchPattern: &metadata.StringMatcher_Exact{Exact: "test-iss"}}),
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, "group*"),
+							},
+						},
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "iss"}, "test-iss"),
 							},
 						},
 						{
@@ -810,8 +835,8 @@ func TestGenerateMetadataStringMatcher(t *testing.T) {
 			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "aa"}},
 			{Segment: &metadata.MetadataMatcher_PathSegment_Key{Key: "bb"}},
 		},
-		Value: &metadata.MetadataMatcher_Value{
-			MatchPattern: &metadata.MetadataMatcher_Value_StringMatch{
+		Value: &metadata.ValueMatcher{
+			MatchPattern: &metadata.ValueMatcher_StringMatch{
 				StringMatch: &metadata.StringMatcher{
 					MatchPattern: &metadata.StringMatcher_Regex{
 						Regex: "regex",
@@ -841,12 +866,12 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}),
 		},
 		{
-			k: "request.auth.claims[iss]", v: "test-iss*",
-			expect: generateMetadataStringMatcher([]string{attrRequestClaims, "iss"}, &metadata.StringMatcher{
-				MatchPattern: &metadata.StringMatcher_Prefix{
-					Prefix: "test-iss",
-				},
-			}),
+			k: "request.auth.claims[groups]", v: "group*",
+			expect: generateMetadataListMatcher([]string{attrRequestClaims, "groups"}, "group*"),
+		},
+		{
+			k: "request.auth.claims[iss]", v: "test-iss",
+			expect: generateMetadataListMatcher([]string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user",
@@ -943,10 +968,10 @@ func generatePrincipal(principalName string) *policy.Principal {
 			AndIds: &policy.Principal_Set{
 				Ids: []*policy.Principal{
 					{
-						Identifier: &policy.Principal_Authenticated_{
-							Authenticated: &policy.Principal_Authenticated{
-								Name: principalName,
-							},
+						Identifier: &policy.Principal_Metadata{
+							Metadata: generateMetadataStringMatcher(
+								[]string{"source.principal"}, &metadata.StringMatcher{
+									MatchPattern: &metadata.StringMatcher_Exact{Exact: principalName}}),
 						},
 					},
 				},

@@ -7,6 +7,7 @@ defaults: &defaults
     - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
+    SKIP_CLEANUP: true
 
 # org context settings. If developing on a clone, please configure:
 
@@ -19,10 +20,11 @@ integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
   environment:
-    CHANGE_MINIKUBE_NONE_USER: true
-    HUB: docker.io/dnerepo
-    TAG: dontpush
-    GOPATH: /go
+    - CHANGE_MINIKUBE_NONE_USER: true
+    - GOPATH: /go
+    - SKIP_CLEANUP: true
+    - KUBECONFIG: /go/out/minikube.conf
+    - TEST_ENV: minikube-none
 
 # Common procedure to initialize working directory
 initWorkingDir: &initWorkingDir
@@ -140,10 +142,6 @@ jobs:
 
   e2e-mixer-noauth-v1alpha3-v2:
     <<: *integrationDefaults
-    environment:
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
-            - GOPATH: /go
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -282,10 +280,6 @@ jobs:
 
   e2e-pilot-auth-v1alpha3-v2:
     <<: *integrationDefaults
-    environment:
-            - GOPATH: /go
-            - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube-none
     steps:
       - <<: *initWorkingDir
       - checkout
@@ -349,12 +343,11 @@ jobs:
           command: |
             make localTestEnv
             cd /go/src/istio.io/istio
-            # Not failing if coverage number changes - integration tests are still not counted,
-            MAXPROCS=6 bin/codecov.sh || true
+            MAXPROCS=6 bin/codecov.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.txt
+          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.cov
       - store_artifacts:
           path: /go/out/codecov
 
@@ -432,6 +425,15 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
+  shellcheck:
+    docker:
+      - image: koalaman/shellcheck-alpine:v0.5.0
+    steps:
+      - checkout
+      - run:
+          name: Check Scripts
+          command: /root/project/tools/run_shellcheck.sh
+
   lint:
     <<: *defaults
     environment:
@@ -441,6 +443,12 @@ jobs:
       - checkout
       - run: make sync
       - run: make lint
+# TODO: https://github.com/istio/istio/issues/7861
+# We can re-enable this after it runs for 1 week straight as a non-required gate, and by consulting with the
+# test-infra team.
+#      - run:
+#          name: Check Scripts
+#          command: /go/src/istio.io/istio/tools/run_shellcheck.sh
       # Make sure that any modification to vendor is correct. Always use the latest version of dep.
       - run:
           name: Creating vendor diff
@@ -565,6 +573,7 @@ workflows:
 
   all:
     jobs:
+      - shellcheck
       - lint
       - build
       - test

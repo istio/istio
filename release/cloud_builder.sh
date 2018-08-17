@@ -71,48 +71,49 @@ fi
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd $ROOT
+cd "$ROOT"
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)"
-echo gopath is $GOPATH
+GOPATH="$(cd "$ROOT/../../.." && pwd)"
+export GOPATH
+echo gopath is "$GOPATH"
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-MAKE_TARGETS=istio-archive
+MAKE_TARGETS=(istio-archive)
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  MAKE_TARGETS="sidecar.deb ${MAKE_TARGETS}"
+  MAKE_TARGETS+=(sidecar.deb)
 fi
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  MAKE_TARGETS="docker.save ${MAKE_TARGETS}"
+  MAKE_TARGETS+=(docker.save)
 fi
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
   VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${TEST_DOCKER_HUB} HUB=${TEST_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION ISTIO_GCS=$TEST_PATH make istio-archive
-  cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/
+  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
   mkdir -p "${OUTPUT_PATH}/gcr.io"
-  cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/gcr.io/
+  cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/gcr.io/"
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make ${MAKE_TARGETS}
-cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make "${MAKE_TARGETS[@]}"
+cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/"
 mkdir -p "${OUTPUT_PATH}/docker.io"
-cp ${ISTIO_OUT}/archive/istio-*z* ${OUTPUT_PATH}/docker.io/
+cp "${ISTIO_OUT}"/archive/istio-*z* "${OUTPUT_PATH}/docker.io/"
 
 if [[ -n "${TEST_DOCKER_HUB}" ]]; then
 # this copy is being done here instead of above because we
 # are conservative, if new artifacts are created we don't
 # inadvertently clobber them
-  cp ${OUTPUT_PATH}/gcr.io/istio-*z* ${OUTPUT_PATH}/
+  cp "${OUTPUT_PATH}"/gcr.io/istio-*z* "${OUTPUT_PATH}/"
 fi
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  cp -r ${ISTIO_OUT}/docker ${OUTPUT_PATH}/
+  cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
 fi
 
 if [ "${BUILD_DEBIAN}" == "true" ]; then
   mkdir -p "${OUTPUT_PATH}/deb"
-  cp ${ISTIO_OUT}/istio-sidecar.deb ${OUTPUT_PATH}/deb/
+  cp "${ISTIO_OUT}/istio-sidecar.deb" "${OUTPUT_PATH}/deb/"
 fi
 
 # log where git thinks the build might be dirty

@@ -17,7 +17,15 @@ package inject
 const (
 	sidecarTemplateDelimBegin = "[["
 	sidecarTemplateDelimEnd   = "]]"
-	parameterizedTemplate     = `
+
+	// nolint: lll
+	parameterizedTemplate = `
+[[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
+[[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]
+[[- $includeOutboundIPRangesKey     := "traffic.sidecar.istio.io/includeOutboundIPRanges" -]]
+[[- $excludeOutboundIPRangesKey     := "traffic.sidecar.istio.io/excludeOutboundIPRanges" -]]
+[[- $includeInboundPortsKey         := "traffic.sidecar.istio.io/includeInboundPorts" -]]
+[[- $excludeInboundPortsKey         := "traffic.sidecar.istio.io/excludeInboundPorts" -]]
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -27,35 +35,15 @@ initContainers:
   - "-u"
   - {{ .SidecarProxyUID }}
   - "-m"
-  - [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+  - [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
   - "-i"
-  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges") -]]
-  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeOutboundIPRanges"]]"
-  [[ else -]]
-  - "{{ .IncludeIPRanges }}"
-  [[ end -]]
+  - "[[ annotation .ObjectMeta $includeOutboundIPRangesKey "{{ .IncludeIPRanges }}" ]]"
   - "-x"
-  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges") -]]
-  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeOutboundIPRanges" ]]"
-  [[ else -]]
-  - "{{ .ExcludeIPRanges }}"
-  [[ end -]]
+  - "[[ annotation .ObjectMeta $excludeOutboundIPRangesKey "{{ .ExcludeIPRanges }}" ]]"
   - "-b"
-  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts") -]]
-  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/includeInboundPorts" ]]"
-  [[ else -]]
-  - [[ range .Spec.Containers -]]
-      [[ range .Ports -]]
-        [[ .ContainerPort -]],
-      [[ end -]]
-    [[ end -]]
-  [[ end ]]
+  - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
-  [[ if (isset .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts") -]]
-  - "[[ index .ObjectMeta.Annotations "traffic.sidecar.istio.io/excludeInboundPorts" ]]"
-  [[ else -]]
-  - "{{ .ExcludeInboundPorts }}"
-  [[ end -]]
+  - "[[ annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}" ]]"
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -84,11 +72,7 @@ initContainers:
 {{ end -}}
 containers:
 - name: istio-proxy
-  image: [[ if (isset .ObjectMeta.Annotations "sidecar.istio.io/proxyImage") -]]
-  "[[ index .ObjectMeta.Annotations "sidecar.istio.io/proxyImage" ]]"
-  [[ else -]]
-  {{ .ProxyImage }}
-  [[ end -]]
+  image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
   args:
   - proxy
   - sidecar
@@ -138,7 +122,7 @@ containers:
       fieldRef:
         fieldPath: metadata.name
   - name: ISTIO_META_INTERCEPTION_MODE
-    value: [[ or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String ]]
+    value: [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
@@ -154,13 +138,13 @@ containers:
     {{ else -}}
     privileged: false
     readOnlyRootFilesystem: true
-    [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     capabilities:
       add:
       - NET_ADMIN
     [[ end -]]
     {{ end -}}
-    [[ if ne (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
+    [[ if ne (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
     [[ end -]]
   restartPolicy: Always

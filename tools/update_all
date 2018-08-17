@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 # update and rebuild from source
 set -e
 set -x

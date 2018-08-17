@@ -25,8 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -69,17 +68,6 @@ var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
-var (
-	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pilot_no_ip",
-		Help: "Pods not found in the endpoint table, possibly invalid.",
-	}, []string{"node"})
-)
-
-func init() {
-	prometheus.MustRegister(ipNotFound)
-}
-
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
@@ -100,6 +88,10 @@ type Controller struct {
 	nodes     cacheHandler
 
 	pods *PodCache
+
+	// Env is set by server to point to the environment, to allow the controller to
+	// use env data and push status. It may be null in tests.
+	Env *model.Environment
 }
 
 type cacheHandler struct {
@@ -119,37 +111,19 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		queue:        NewQueue(1 * time.Second),
 	}
 
-	out.services = out.createInformer(&v1.Service{}, "Service", options.ResyncPeriod,
-		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Services(options.WatchedNamespace).List(opts)
-		},
-		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Services(options.WatchedNamespace).Watch(opts)
-		})
+	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
 
-	out.endpoints = out.createInformer(&v1.Endpoints{}, "Endpoints", options.ResyncPeriod,
-		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Endpoints(options.WatchedNamespace).List(opts)
-		},
-		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Endpoints(options.WatchedNamespace).Watch(opts)
-		})
+	svcInformer := sharedInformers.Core().V1().Services().Informer()
+	out.services = out.createCacheHandler(svcInformer, "Service")
 
-	out.nodes = out.createInformer(&v1.Node{}, "Node", options.ResyncPeriod,
-		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Nodes().List(opts)
-		},
-		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Nodes().Watch(opts)
-		})
+	epInformer := sharedInformers.Core().V1().Endpoints().Informer()
+	out.endpoints = out.createCacheHandler(epInformer, "Endpoints")
 
-	out.pods = newPodCache(out.createInformer(&v1.Pod{}, "Pod", options.ResyncPeriod,
-		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Pods(options.WatchedNamespace).List(opts)
-		},
-		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Pods(options.WatchedNamespace).Watch(opts)
-		}))
+	nodeInformer := sharedInformers.Core().V1().Nodes().Informer()
+	out.nodes = out.createCacheHandler(nodeInformer, "Node")
+
+	podInformer := sharedInformers.Core().V1().Pods().Informer()
+	out.pods = newPodCache(out.createCacheHandler(podInformer, "Pod"))
 
 	return out
 }
@@ -163,24 +137,14 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	return nil
 }
 
-// createInformer registers handlers for a specific event.
+// createCacheHandler registers handlers for a specific event.
 // Current implementation queues the events in queue.go, and the handler is run with
 // some throttling.
 // Used for Service, Endpoint, Node and Pod.
 // See config/kube for CRD events.
 // See config/ingress for Ingress objects
-func (c *Controller) createInformer(
-	o runtime.Object,
-	otype string,
-	resyncPeriod time.Duration,
-	lf cache.ListFunc,
-	wf cache.WatchFunc) cacheHandler {
+func (c *Controller) createCacheHandler(informer cache.SharedIndexInformer, otype string) cacheHandler {
 	handler := &ChainHandler{funcs: []Handler{c.notify}}
-
-	// TODO: finer-grained index (perf)
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{ListFunc: lf, WatchFunc: wf}, o,
-		resyncPeriod, cache.Indexers{})
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -256,23 +220,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 
 	svc := convertService(*item, c.domainSuffix)
 	return svc, nil
-}
-
-// GetServiceAttributes returns istio attributes for a service in the registry if it is present
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("GetServiceAttributes() => error %v", err)
-		return nil, err
-	}
-	if _, exists := c.serviceByKey(name, namespace); exists {
-		return &model.ServiceAttributes{
-			Name:      name,
-			Namespace: namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", namespace, name),
-		}, nil
-	}
-	return nil, fmt.Errorf("service not exist for hostname %q", hostname)
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -562,13 +509,24 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 
 				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
+				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
+				out = append(out, nrEP...)
+				if len(nrEP) > 0 && c.Env != nil {
+					c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+				}
 			}
 		}
 	}
 	if len(out) == 0 {
-		log.Errorf("ip not found, listeners will be broken %v %v", proxyIP, proxy.ID, out)
-		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
+		if c.Env != nil {
+			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
+			status := c.Env.PushContext
+			if status == nil {
+				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
+			}
+		} else {
+			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
+		}
 	}
 	return out, nil
 }

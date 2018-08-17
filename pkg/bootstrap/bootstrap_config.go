@@ -26,8 +26,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -37,9 +36,6 @@ const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
 	DefaultCfgDir     = "/var/lib/istio/envoy/envoy_bootstrap_tmpl.json"
-
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 )
 
 var (
@@ -52,11 +48,11 @@ func configFile(config string, epoch int) string {
 }
 
 // convertDuration converts to golang duration and logs errors
-func convertDuration(d *duration.Duration) time.Duration {
+func convertDuration(d *types.Duration) time.Duration {
 	if d == nil {
 		return 0
 	}
-	dur, _ := ptypes.Duration(d)
+	dur, _ := types.DurationFromProto(d)
 	return dur
 }
 
@@ -67,7 +63,7 @@ func args(config *meshconfig.ProxyConfig, node, fname string, epoch int, cliarg 
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", config.ServiceCluster,
 		"--service-node", node,
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"--max-obj-name-len", fmt.Sprint(config.StatNameLength),
 	}
 
 	for _, v := range cliarg {
@@ -205,25 +201,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	if err != nil {
 		return "", err
 	}
-	StoreHostPort(h, p, "pilot_address", opts)
-
-	// Default values for the grpc address.
-	// TODO: take over the DiscoveryAddress or add a separate mesh config option
-	// Default value
-	grpcPort := "15010"
-	if config.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		grpcPort = "15011"
-	}
-	grpcHost := h // Use pilot host
-
-	grpcAddress := opts["pilot_grpc"]
-	if grpcAddress != nil {
-		grpcHost, grpcPort, err = GetHostPort("gRPC", grpcAddress.(string))
-		if err != nil {
-			return "", err
-		}
-	}
-	StoreHostPort(grpcHost, grpcPort, "pilot_grpc_address", opts)
+	StoreHostPort(h, p, "pilot_grpc_address", opts)
 
 	if config.ZipkinAddress != "" {
 		h, p, err = GetHostPort("Zipkin", config.ZipkinAddress)

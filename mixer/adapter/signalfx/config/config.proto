@@ -15,13 +15,68 @@
 syntax = "proto3";
 
 // $title: SignalFx
-// $description: Adapter that sends Istio metrics to SignalFx
+// $description: Adapter that sends metrics to SignalFx.
 // $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/signalfx.html
 
-// The `signalfx` adapter collects Istio metrics and sends them to
-// [SignalFx](https://signalfx.com).
+// The `signalfx` adapter collects Istio metrics and trace spans and sends them
+// to [SignalFx](https://signalfx.com).
 //
-// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/)
+// and [tracespan template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/tracespan/).
+//
+// If sending trace spans, this adapter can make use of certain conventions in
+// the tracespan format that is configured to send to this adapter.  Here is an
+// example tracespan spec that will work well:
+//
+// ```yaml
+// apiVersion: config.istio.io/v1alpha2
+// kind: tracespan
+// metadata:
+//   name: signalfx
+// spec:
+//   traceId: request.headers["x-b3-traceid"] | ""
+//   spanId: request.headers["x-b3-spanid"] | ""
+//   parentSpanId: request.headers["x-b3-parentspanid"] | ""
+//   # If the path contains query parameters, they will be split off and put into
+//   # tags such that the span name sent to SignalFx will consist only of the path
+//   # itself.
+//   spanName: request.path | "/"
+//   startTime: request.time
+//   endTime: response.time
+//   # If this is >=500, the span will get an 'error' tag
+//   httpStatusCode: response.code | 0
+//   clientSpan: context.reporter.kind == "outbound"
+//   # Span tags below that do not have comments are useful but optional and will
+//   # be passed to SignalFx unmodified. The tags that have comments are interpreted
+//   # in a special manner, but are still optional.
+//   spanTags:
+//     # This is used to determine whether the span pertains to the client or
+//     # server side of the request.
+//     context.reporter.local: context.reporter.local
+//     # This gets put into the remoteEndpoint.ipv4 field
+//     destination.ip: destination.ip | ip("0.0.0.0")
+//     # This gets flattened out to individual tags of the form
+//     # 'destination.labels.<key>: <value>'.
+//     destination.labels: destination.labels
+//     # This gets put into the remoteEndpoint.name field
+//     destination.name: destination.name | "unknown"
+//     destination.namespace: destination.namespace | "unknown"
+//     request.host: request.host | ""
+//     request.method: request.method | ""
+//     request.path: request.path | ""
+//     request.size: request.size | 0
+//     request.useragent: request.useragent | ""
+//     response.size: response.size | 0
+//     # This gets put into the localEndpoint.name field
+//     source.name: source.name | "unknown"
+//     # This gets put into the localEndpoint.ipv4 field
+//     source.ip: source.ip | ip("0.0.0.0")
+//     source.namespace: source.namespace | "unknown"
+//     # This gets flattened out to individual tags of the form
+//     # 'source.labels.<key>: <value>'.
+//     source.labels: source.labels
+//     source.version: source.labels["version"] | "unknown"
+//  ```
 package adapter.signalfx.config;
 
 import "gogoproto/gogo.proto";
@@ -75,4 +130,23 @@ message Params {
     // This will be rounded to the nearest second and rounded values less than
     // one second are not valid. Defaults to 10 seconds if not specified.
     google.protobuf.Duration datapoint_interval = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+    // Optional.  If set to false, metrics won't be sent (but trace spans will
+    // be sent, unless otherwise disabled).
+    bool enable_metrics = 5;
+
+    // Optional.  If set to false, trace spans won't be sent (but metrics will
+    // be sent, unless otherwise disabled).
+    bool enable_tracing = 6;
+
+    // Optional.  The number of trace spans that the adapter will buffer before
+    // dropping them.  This defaults to 1000 spans but can be configured higher
+    // if needed.  An error message will be logged if spans are dropped.
+    uint32 tracing_buffer_size = 7;
+
+    // Optional. The uniform probability ([0.0, 1.0]) that a given span gets
+    // sampled if its parent was not already sampled.  Child spans will always
+    // be sampled if their parent is.  If not provided, defaults to sending all
+    // spans.
+    double tracing_sample_probability = 8;
 }

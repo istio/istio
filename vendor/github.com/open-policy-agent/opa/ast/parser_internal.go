@@ -151,7 +151,7 @@ func makeRule(loc *Location, head, rest interface{}) (interface{}, error) {
 	sl := rest.([]interface{})
 
 	rules := []*Rule{
-		&Rule{
+		{
 			Location: loc,
 			Head:     head.(*Head),
 			Body:     sl[0].(Body),

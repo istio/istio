@@ -123,6 +123,16 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetStreamIdleTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "StreamIdleTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -497,16 +507,6 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
 				Field:  "Subject",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	if v, ok := interface{}(m.GetSan()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
-				Field:  "San",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}

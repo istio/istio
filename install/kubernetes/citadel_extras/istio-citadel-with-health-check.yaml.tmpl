@@ -1,0 +1,63 @@
+################################
+# Citadel cluster-wide
+################################
+# Service account for Citadel
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-citadel-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+  labels:
+    istio: citadel
+spec:
+  ports:
+    - port: 8060
+  selector:
+    istio: citadel
+---
+# Citadel watching all namespaces
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: citadel
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-citadel-service-account
+      containers:
+      - name: citadel
+        image: {CITADEL_HUB}/citadel:{CITADEL_TAG}
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --append-dns-names=true
+          - --citadel-storage-namespace={ISTIO_NAMESPACE}
+          - --grpc-port=8060
+          - --grpc-hostname=citadel
+          - --self-signed-ca=true
+          - --liveness-probe-path=/tmp/ca.liveness # path to the liveness health check status file
+          - --liveness-probe-interval=60s # interval for health check file update
+          - --probe-check-interval=15s    # interval for health status check
+        livenessProbe:
+          exec:
+            command:
+            - /usr/local/bin/istio_ca
+            - probe
+            - --probe-path=/tmp/ca.liveness # path to the liveness health check status file
+            - --interval=125s               # the maximum time gap allowed between the file mtime and the current sys clock.
+          initialDelaySeconds: 60
+          periodSeconds: 60
+---

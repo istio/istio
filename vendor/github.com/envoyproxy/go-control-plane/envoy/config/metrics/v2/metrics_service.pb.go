@@ -15,6 +15,7 @@
 		TagSpecifier
 		StatsdSink
 		DogStatsdSink
+		HystrixSink
 */
 package v2
 

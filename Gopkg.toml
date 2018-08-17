@@ -109,7 +109,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  branch = "master"
+  branch = "revert_grpc_version_update"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -197,7 +197,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
-  version = "0.7.1"
+  version = "0.8.2"
 
 [[constraint]]
   branch = "master"
@@ -297,10 +297,7 @@ ignored = [
 
 [[constraint]]
   name = "istio.io/api"
-  # TODO: Setting this to release-1.0 to associate istio.io/istio and istio.io/api release-1.0 branches.
-  # Once 1.0 is released, and the changes start getting merged into master, this constraint needs to be
-  # reverted back to master.
-  branch = "release-1.0"
+  branch = "master"
 
 # fortio is latest tagged by default
 
@@ -322,7 +319,7 @@ ignored = [
 
 [[constraint]]
   name = "k8s.io/helm"
-  version = "2.8.2"
+  version = "2.9.1"
 
 [[constraint]]
   name = "k8s.io/ingress"
@@ -356,6 +353,12 @@ ignored = [
     name = "github.com/gogo/protobuf"
     non-go = false
     unused-packages = false
+  [[prune.project]]
+    name = "github.com/dchest/siphash"
+    non-go = false
+  [[prune.project]]
+    name = "github.com/signalfx/com_signalfx_metrics_protobuf"
+    non-go = false
 
 
 [[constraint]]

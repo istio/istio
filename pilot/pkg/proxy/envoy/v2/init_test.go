@@ -28,6 +28,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/googleapis/google/rpc"
+	proto "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -35,6 +36,10 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
+
+var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
+	"ISTIO_PROXY_VERSION": &proto.Value{Kind: &proto.Value_StringValue{StringValue: "1.0"}}, // actual value doesn't matter
+}}
 
 // Extract cluster load assignment from a discovery response.
 func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssignment, error) {
@@ -136,7 +141,8 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:       v2.EndpointType,
 		ResourceNames: clusters,
@@ -152,7 +158,8 @@ func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryS
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.EndpointType,
 		ErrorDetail: &rpc.Status{Message: "NOPE!"},
@@ -170,7 +177,8 @@ func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryS
 func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &core.Node{
-			Id: sidecarId(app3Ip, "app3"),
+			Id:       sidecarId(app3Ip, "app3"),
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:       v2.EndpointType,
 		ResponseNonce: res.Nonce,
@@ -187,7 +195,8 @@ func sendLDSReq(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggrega
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl: v2.ListenerType})
 	if err != nil {
@@ -201,7 +210,8 @@ func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggreg
 	err := ldsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.ListenerType,
 		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
@@ -216,7 +226,8 @@ func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryServ
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:       v2.RouteType,
 		ResourceNames: routes})
@@ -231,7 +242,8 @@ func sendRDSNack(node string, routes []string, rdsstr ads.AggregatedDiscoverySer
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl:     v2.RouteType,
 		ErrorDetail: &rpc.Status{Message: "NOPE!"}})
@@ -246,7 +258,8 @@ func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggrega
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		TypeUrl: v2.ClusterType})
 	if err != nil {
@@ -260,7 +273,8 @@ func sendCDSNack(node string, edsstr ads.AggregatedDiscoveryService_StreamAggreg
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
-			Id: node,
+			Id:       node,
+			Metadata: nodeMetadata,
 		},
 		ErrorDetail: &rpc.Status{Message: "NOPE!"},
 		TypeUrl:     v2.ClusterType})

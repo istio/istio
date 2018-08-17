@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.opencensus.io/plugin/ochttp"
-	"go.opencensus.io/plugin/ochttp/propagation/b3"
 	"go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/adapter/stackdriver/config"
@@ -106,11 +105,11 @@ func (h *handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 
 	numExported := 0
 	for _, val := range values {
-		parentContext, ok := extractParentContext(val)
+		parentContext, ok := adapter.ExtractParentContext(val.TraceId, val.ParentSpanId)
 		if !ok {
 			continue
 		}
-		spanContext, ok := extractSpanContext(val, parentContext)
+		spanContext, ok := adapter.ExtractSpanContext(val.SpanId, parentContext)
 		if !ok {
 			continue
 		}
@@ -138,30 +137,6 @@ func (h *handler) HandleTraceSpan(_ context.Context, values []*tracespan.Instanc
 	}
 
 	return
-}
-
-func extractParentContext(val *tracespan.Instance) (trace.SpanContext, bool) {
-	var (
-		parentContext trace.SpanContext
-		ok            bool
-	)
-	if parentContext.TraceID, ok = b3.ParseTraceID(val.TraceId); !ok {
-		return trace.SpanContext{}, false
-	}
-	parentContext.SpanID, _ = b3.ParseSpanID(val.ParentSpanId)
-	return parentContext, true
-}
-
-func extractSpanContext(val *tracespan.Instance, parent trace.SpanContext) (trace.SpanContext, bool) {
-	var (
-		spanContext trace.SpanContext
-		ok          bool
-	)
-	spanContext.TraceID = parent.TraceID
-	if spanContext.SpanID, ok = b3.ParseSpanID(val.SpanId); !ok {
-		return trace.SpanContext{}, false
-	}
-	return spanContext, true
 }
 
 func buildSpanData(val *tracespan.Instance, parentContext trace.SpanContext, spanContext trace.SpanContext) *trace.SpanData {

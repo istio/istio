@@ -25,11 +25,13 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	cpb "istio.io/api/policy/v1beta1"
 	adapter2 "istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
@@ -79,7 +81,8 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://" + path)
+	groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
+	s, err := store.NewRegistry(config.StoreInventory()...).NewStore("fs://"+path, groupVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +288,7 @@ func TestValidator(t *testing.T) {
 }
 
 func TestValidatorToRememberValidation(t *testing.T) {
-	t.SkipNow()
+	t.Skip("https://github.com/istio/istio/issues/7696")
 	for _, c := range []struct {
 		title string
 		ev1   *store.Event

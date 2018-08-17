@@ -64,24 +64,4 @@ Configure `istioctl` to use the locally mapped port for the Istio api server
 istioctl context-create --api-server http://localhost:8080
 ```
 
-You can create basic routing rules using istioctl from the `samples/bookinfo/consul` directory:
-
-```
-istioctl create -f route-rule-all-v1.yaml
-```
-
-This will set a rule to display no stars by default.
-
-```
-istioctl replace -f route-rule-reviews-v3.yaml
-```
-
-This will set a rule to display red stars by default.
-
-```
-istioctl create -f route-rule-reviews-test-v2.yaml
-```
-
-This will display black stars - but only if you login as user `jason` (no password), otherwise only red stars will be shown.
-
 If you are an advanced consul and docker network user, you may choose to configure your own envoymesh network dns and consul port mapping and istio-apiserver ipv4_address in the `istio.yaml` file.

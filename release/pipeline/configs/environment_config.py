@@ -15,44 +15,52 @@ limitations under the License.
 
 EMAIL_LIST = ['istio-release@google.com']
 
-#Make the release on the 3ed Thursday of the mounth.
-#It will run on at 17:15 GST
-MONTHLY_RELEASE_TRIGGER = '15 17 * * 4#3'
-
-AIRFLOW_CONFIG = dict(
-    PROJECT_ID='istio-release',
-    RELEASE_PROJECT_ID='istio-io',
-    MFEST_URL='https://github.com/istio/green-builds',
-    MFEST_FILE='build.xml',
-    MFEST_COMMIT='master@{{{timestamp}}}',
-    VERSION='{major}.{minor}.{patch}-pre{date}-{rc}',
+# fixed airflow configuration for the istio dags
+airflow_fixed_config = dict(
+    CHECK_GREEN_SHA_AGE='true',
+    GCR_STAGING_DEST='istio-release',
     GCS_BUILD_BUCKET='istio-release-pipeline-data',
     GCS_STAGING_BUCKET='istio-prerelease',
-    GCS_DAILY_PATH='daily-build/{VERSION}',
-    GCS_MONTHLY_STAGE_PATH='prerelease/{VERSION}',
-    GCS_MONTHLY_RELEASE_PATH='istio-release/releases/{VERSION}',
-    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
-    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile',
     GITHUB_ORG='istio',
-    PROD_GITHUB_ORG='istio',
     GITHUB_REPO='istio',
-    GCR_STAGING_DEST='istio-release',
-    GCR_RELEASE_DEST='istio-io',
-    GCS_GITHUB_PATH='istio-secrets/github.txt.enc',
-    DOCKER_HUB='istio')
+    MFEST_FILE='build.xml',
+    MFEST_URL='https://github.com/istio/green-builds',
+    PROJECT_ID='istio-release',
+    SVC_ACCT='202987436673-compute@developer.gserviceaccount.com',
+    TOKEN_FILE='/var/run/secrets/kubernetes.io/serviceaccount/tokenFile')
 
 
-def get_airflow_config(version, timestamp, major, minor, patch, date, rc):
+def GetDefaultAirflowConfig(branch, gcs_path, mfest_commit, pipeline_type,
+			verify_consistency, version):
   """Return a dict of the configuration for the Pipeline."""
-  config = dict(AIRFLOW_CONFIG)
-  if version is not None:
-    config['VERSION'] = version
-  else:
-    config['VERSION'] = config['VERSION'].format(
-        major=major, minor=minor, patch=patch, date=date, rc=rc)
-  config['MFEST_COMMIT'] = config['MFEST_COMMIT'].format(timestamp=timestamp)
-  # This works becuse python format ignores keywork args that arn't pressent.
-  for k, v in config.items():
-    if k not in ['VERSION', 'MFEST_COMMIT']:
-      config[k] = v.format(VERSION=config['VERSION'])
+  config = dict(airflow_fixed_config)
+
+  # direct config
+  config['BRANCH']             = branch
+  config['GCS_STAGING_PATH']   = gcs_path
+  config['MFEST_COMMIT']       = mfest_commit
+  config['PIPELINE_TYPE']      = pipeline_type
+  config['VERIFY_CONSISTENCY'] = verify_consistency
+  config['VERSION']            = version
+
+
+  # derivative and more convoluted config
+
+
+  # build path is of the form         '{gcs_build_bucket}/{gcs_path}',
+  config['GCS_BUILD_PATH']          = '%s/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  # full staging path is of the form  '{gcs_staging_bucket}/{gcs_path}',
+  config['GCS_FULL_STAGING_PATH']   = '%s/%s' % (config['GCS_STAGING_BUCKET'], gcs_path)
+  # release tools path is of the form '{gcs_build_bucket}/release-tools/{gcs_path}',
+  config['GCS_RELEASE_TOOLS_PATH']  = '%s/release-tools/%s' % (config['GCS_BUILD_BUCKET'], gcs_path)
+  #                                   'https://github.com/{github_org}/{github_repo}.git',
+  config['ISTIO_REPO']              = 'https://github.com/%s/%s.git' % (config['GITHUB_ORG'], config['GITHUB_REPO'])
+
   return config
+
+
+def GetDefaultAirflowConfigKeys():
+  """Return a list of the keys of configuration for the Pipeline."""
+  dc = GetDefaultAirflowConfig(branch="", gcs_path="", mfest_commit="", pipeline_type="",
+			verify_consistency="", version="")
+  return list(dc.keys())
