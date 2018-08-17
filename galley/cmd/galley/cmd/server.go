@@ -48,6 +48,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		"Maximum number of outstanding RPCs per connection")
 	cmd.PersistentFlags().BoolVarP(&sa.Insecure, "insecure", "", sa.Insecure,
 		"Use insecure gRPC communication")
+	cmd.PersistentFlags().StringVarP(&sa.AuthChecker, "authChecker", "", sa.AuthChecker,
+		"The type of auth checker to invoke, currently only list(ListAuthChecker) is supported.")
 	cmd.PersistentFlags().StringVarP(&sa.CertificateFile, "certFile", "", sa.CertificateFile,
 		"The location of the certificate file for mutual TLS")
 	cmd.PersistentFlags().StringVarP(&sa.KeyFile, "keyFile", "", sa.KeyFile,

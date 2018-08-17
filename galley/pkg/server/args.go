@@ -32,6 +32,8 @@ const (
 
 	defaultConfigMapFolder = "/etc/istio/config/"
 	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
+
+	defaultAuthChecker = "list"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -56,6 +58,9 @@ type Args struct {
 
 	// Insecure gRPC service is used for the MCP server. CertificateFile and KeyFile is ignored.
 	Insecure bool
+
+	// Type of auth checker to invoke.
+	AuthChecker string
 
 	// CertificateFile to use for mTLS gRPC.
 	CertificateFile string
@@ -90,6 +95,7 @@ func DefaultArgs() *Args {
 		MaxReceivedMessageSize: 1024 * 1024,
 		MaxConcurrentStreams:   1024,
 		Insecure:               false,
+		AuthChecker:            defaultAuthChecker,
 		CertificateFile:        defaultCertFile,
 		KeyFile:                defaultCertKey,
 		CACertificateFile:      defaultCACertFile,
@@ -112,6 +118,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
 	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
+	fmt.Fprintf(buf, "AuthChecker: %s\n", a.AuthChecker)
 	fmt.Fprintf(buf, "KeyFile: %s\n", a.KeyFile)
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CACertificateFile)
