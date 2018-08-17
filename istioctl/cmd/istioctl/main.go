@@ -257,9 +257,10 @@ See https://istio.io/docs/reference/ for an overview of Istio routing.
 				// fill up revision
 				if config.ResourceVersion == "" {
 					current, exists := configClient.Get(config.Type, config.Name, config.Namespace)
-					if exists {
-						config.ResourceVersion = current.ResourceVersion
+					if !exists {
+						return errors.New("revision is required")
 					}
+					config.ResourceVersion = current.ResourceVersion
 				}
 
 				var newRev string
