@@ -251,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 			vhostDomains[vsvcHost] = true
 			host := route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", v.Name, port),
-				Domains: []string{vsvcHost, fmt.Sprintf("%d:%d", vsvcHost, port)},
+				Domains: []string{vsvcHost, fmt.Sprintf("%s:%d", vsvcHost, port)},
 				Routes:  routes,
 			}
 
