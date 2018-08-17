@@ -45,14 +45,17 @@
             port: 9093
           initialDelaySeconds: 5
           periodSeconds: 5
+{{- if .Values.global.sofamesh.sidecar.policy }}              
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
         args:
         - proxy
+        - --binaryPath
+        - {{ $.Values.global.sofamesh.binaryPath }}  
         - --serviceCluster
         - istio-policy
         - --templateFile
@@ -92,6 +95,7 @@
           readOnly: true
         - name: uds-socket
           mountPath: /sock
+{{- end }}
 {{- end }}
 
 {{- define "telemetry_container" }}
@@ -140,14 +144,17 @@
             port: 9093
           initialDelaySeconds: 5
           periodSeconds: 5
+{{- if .Values.global.sofamesh.sidecar.telemetry }}              
       - name: istio-proxy
-        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
         args:
         - proxy
+        - --binaryPath
+        - {{ $.Values.global.sofamesh.binaryPath }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile
@@ -188,7 +195,7 @@
         - name: uds-socket
           mountPath: /sock
 {{- end }}
-
+{{- end }}
 
 {{- $mixers := list "policy" "telemetry" }}
 {{- range $idx, $mname := $mixers }}

@@ -8,6 +8,4 @@ If you prefer to install Istio from checking out the [istio/istio](https://githu
 
 * istio.yaml - use this generated file for installation without authentication enabled
 * istio-auth.yaml - use this generated file for installation with authentication enabled
-* templates - directory contains the templates used to generate istio.yaml and istio-auth.yaml
-* addons - directory contains optional components (Prometheus, Grafana, Service Graph, Zipkin, Zipkin to Stackdriver)
 * helm - directory contains the Istio helm release configuration files.  This directory also requires running `updateVersion.sh` to generate some of the configuration files.

@@ -53,7 +53,7 @@ data:
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
       configPath: "/etc/istio/proxy"
-      binaryPath: "/usr/local/bin/envoy"
+      binaryPath: "{{ .Values.global.sofamesh.binaryPath }}"
       # The pseudo service name used for Envoy.
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy

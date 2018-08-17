@@ -2,8 +2,8 @@ FROM istionightly/base_debug
 ARG proxy_version
 ARG istio_version
 
-# Install Envoy.
-ADD envoy /usr/local/bin/envoy
+# Install Mosn.
+ADD mosn /usr/local/bin/mosn
 
 # Environment variables indicating this proxy's version/capabilities as opaque string
 ENV ISTIO_META_ISTIO_PROXY_VERSION "1.0.0"
@@ -21,12 +21,12 @@ ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
-RUN chmod 755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
+RUN chmod 755 /usr/local/bin/mosn /usr/local/bin/pilot-agent
 
 # Sudoers used to allow tcpdump and other debug utilities.
 RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
-# The pilot-agent will bootstrap Envoy.
+# The pilot-agent will bootstrap Mosn.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

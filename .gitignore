@@ -38,7 +38,6 @@ install/kubernetes/addons/zipkin-to-stackdriver.yaml
 install/kubernetes/addons/zipkin.yaml
 install/kubernetes/istio-demo.yaml
 install/kubernetes/istio-demo-auth.yaml
-install/kubernetes/istio-auth.yaml
 install/kubernetes/istio-auth-multicluster.yaml
 install/kubernetes/istio-mixer-with-health-check.yaml
 install/kubernetes/istio-mixer-validator.yaml
@@ -50,7 +49,6 @@ install/kubernetes/istio-one-namespace.yaml
 install/kubernetes/istio-sidecar-injector-configmap-debug.yaml
 install/kubernetes/istio-sidecar-injector-configmap-release.yaml
 install/kubernetes/istio-sidecar-injector.yaml
-install/kubernetes/istio.yaml
 install/kubernetes/istio-all.yaml
 install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml

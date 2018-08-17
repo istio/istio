@@ -7,6 +7,7 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
+    app: {{ $spec.labels.istio }}
     chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
     release: {{ $.Release.Name }}
     heritage: {{ $.Release.Service }}
@@ -31,7 +32,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ $spec.labels.istio }}
-          image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
+          image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := $spec.ports }}
@@ -40,6 +41,8 @@ spec:
           args:
           - proxy
           - router
+          - --binaryPath
+          - {{ $.Values.global.sofamesh.binaryPath }}
           - -v
           - "2"
           - --discoveryRefreshDelay

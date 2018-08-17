@@ -13,8 +13,10 @@ spec:
   ports:
   - name: grpc-mixer
     port: 9091
+    targetPort: 9092
   - name: grpc-mixer-mtls
     port: 15004
+    targetPort: 9092
   - name: http-monitoring
     port: 9093
 {{- if eq $mname "telemetry" }}

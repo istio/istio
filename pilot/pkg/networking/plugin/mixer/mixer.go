@@ -346,7 +346,7 @@ func buildInboundXFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs a
 	return nil
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfig(node *model.Proxy, filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*types.Struct)
 	}

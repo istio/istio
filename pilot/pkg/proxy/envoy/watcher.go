@@ -24,7 +24,6 @@ import (
 	"os/exec"
 	"path"
 	"time"
-	"strings"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -240,35 +239,12 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 	}
 }
 
-func (proxy envoy) args4Mosn(fname string, epoch int) []string {
+func (proxy envoy) args(fname string, epoch int) []string {
 	return []string{ "start",
 		"--config", fname,
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
 	}
-}
-
-func (proxy envoy) args(fname string, epoch int) []string {
-	startupArgs := []string{"-c", fname,
-		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(proxy.config.DrainDuration) / time.Second)),
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.config.ParentShutdownDuration) / time.Second)),
-		"--service-cluster", proxy.config.ServiceCluster,
-		"--service-node", proxy.node,
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
-	}
-
-	startupArgs = append(startupArgs, proxy.extraArgs...)
-
-	if proxy.config.Concurrency > 0 {
-		startupArgs = append(startupArgs, "--concurrency", fmt.Sprint(proxy.config.Concurrency))
-	}
-
-	if len(proxy.config.AvailabilityZone) > 0 {
-		startupArgs = append(startupArgs, []string{"--service-zone", proxy.config.AvailabilityZone}...)
-	}
-
-	return startupArgs
 }
 
 func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error {
@@ -290,18 +266,9 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		fname = out
 	}
 
-	// spin up a new Envoy process
-	var args []string
-	if strings.HasSuffix(strings.ToLower(proxy.config.BinaryPath), "mosnd") {
-		args = proxy.args4Mosn(fname, epoch)
-		log.Infof("Mosn command: %v", args)
-	}else {
-		args := proxy.args(fname, epoch)
-		if len(proxy.config.CustomConfigFile) == 0 {
-			args = append(args, "--v2-config-only")
-		}
-		log.Infof("Envoy command: %v", args)
-	}
+	// spin up a new Mosn process
+	args := proxy.args(fname, epoch)
+	log.Infof("Mosn command: %v", args)
 
 	/* #nosec */
 	cmd := exec.Command(proxy.config.BinaryPath, args...)

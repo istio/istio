@@ -120,7 +120,7 @@ ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 DOCKER_PROXY_CFG?=Dockerfile.proxy
 
 # scratch dir for building isolated images. Please don't remove it again - using
-# ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
+# ISTIO_DOCKER results in slowdown, all files (including multiple copies of mosn) will be
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
 DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
@@ -128,23 +128,23 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
 # dir where tar.gz files from docker.save are stored
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
-# Populate the git version for istio/proxy (i.e. Envoy)
+# Populate the git version for istio/proxy (i.e. Mosn)
 ifeq ($(PROXY_REPO_SHA),)
   export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
 
-# Envoy binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
-export ISTIO_ENVOY_DEBUG_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
-export ISTIO_ENVOY_RELEASE_URL ?= https://storage.googleapis.com/istio-build/proxy/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+# Mosn binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
+ISTIO_MOSN_VERSION ?= ${PROXY_REPO_SHA}
+export ISTIO_MOSN_DEBUG_URL ?= http://storage.googleapis.com/sofa-mesh/proxy/mosn-debug-$(ISTIO_MOSN_VERSION).tar.gz
+export ISTIO_MOSN_RELEASE_URL ?= http://storage.googleapis.com/sofa-mesh/proxy/mosn-alpha-$(ISTIO_MOSN_VERSION).tar.gz
 
-# Variables for the extracted debug/release Envoy artifacts.
-export ISTIO_ENVOY_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
-export ISTIO_ENVOY_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_VERSION}
-export ISTIO_ENVOY_DEBUG_PATH ?= ${ISTIO_ENVOY_DEBUG_DIR}/${ISTIO_ENVOY_DEBUG_NAME}
-export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
-export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
-export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
+# Variables for the extracted debug/release Mosn artifacts.
+export ISTIO_MOSN_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
+export ISTIO_MOSN_DEBUG_NAME ?= mosn-debug-${ISTIO_MOSN_VERSION}
+export ISTIO_MOSN_DEBUG_PATH ?= ${ISTIO_MOSN_DEBUG_DIR}/${ISTIO_MOSN_DEBUG_NAME}
+export ISTIO_MOSN_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
+export ISTIO_MOSN_RELEASE_NAME ?= mosn-${ISTIO_MOSN_VERSION}
+export ISTIO_MOSN_RELEASE_PATH ?= ${ISTIO_MOSN_RELEASE_DIR}/${ISTIO_MOSN_RELEASE_NAME}
 
 GO_VERSION_REQUIRED:=1.9
 
@@ -206,7 +206,7 @@ check-tree:
 		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
 		exit 1; fi
 
-# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+# Downloads mosn, based on the SHA defined in the base pilot Dockerfile
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 
 # Sync target will pull from master and sync the modules. It is the first step of the
@@ -221,10 +221,10 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | ${ISTIO_OUT}
 	ISTIO_OUT=${ISTIO_OUT} bin/init.sh
 	touch $(ISTIO_OUT)/istio_is_init
 
-# init.sh downloads envoy
-${ISTIO_OUT}/envoy: init
-${ISTIO_ENVOY_DEBUG_PATH}: init
-${ISTIO_ENVOY_RELEASE_PATH}: init
+# init.sh downloads mosn
+${ISTIO_OUT}/mosn: init
+${ISTIO_MOSN_DEBUG_PATH}: init
+${ISTIO_MOSN_RELEASE_PATH}: init
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps

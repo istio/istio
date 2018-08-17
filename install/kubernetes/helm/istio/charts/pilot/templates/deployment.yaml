@@ -32,7 +32,7 @@ spec:
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.sofamesh.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
@@ -95,9 +95,9 @@ spec:
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
-{{- if .Values.sidecar }}
+{{- if .Values.global.sofamesh.sidecar.pilot }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/proxyv2:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.sofamesh.hub }}/proxyv2:{{ .Values.global.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -106,6 +106,8 @@ spec:
           - containerPort: 15011
           args:
           - proxy
+          - --binaryPath
+          - {{ .Values.global.sofamesh.binaryPath }}
           - --serviceCluster
           - istio-pilot
           - --templateFile
