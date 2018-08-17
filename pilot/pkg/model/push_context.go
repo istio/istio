@@ -196,12 +196,6 @@ var (
 		"Virtual services with dup domains.",
 	)
 
-	// DuplicatedClusters tracks duplicate clusters seen while computing CDS
-	DuplicatedClusters = newPushMetric(
-		"pilot_duplicate_envoy_clusters",
-		"Duplicate envoy clusters caused by service entries with same hostname",
-	)
-
 	// DuplicatedSubsets tracks duplicate subsets that we rejected while merging multiple destination rules for same host
 	DuplicatedSubsets = newPushMetric(
 		"pilot_destrule_subsets",
