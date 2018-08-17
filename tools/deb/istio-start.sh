@@ -46,9 +46,9 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
 
 # If set, override the default
-CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy MUTUAL_TLS"
+CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "MUTUAL_TLS")
 if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
-  CONTROL_PLANE_AUTH_POLICY="--controlPlaneAuthPolicy ${ISTIO_CP_AUTH}"
+  CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "${ISTIO_CP_AUTH}")
 fi
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
@@ -69,7 +69,7 @@ fi
 
 if [[ ${1-} != "run" ]] ; then
   # Update iptables, based on config file
-  ${ISTIO_BIN_BASE}/istio-iptables.sh
+  "${ISTIO_BIN_BASE}/istio-iptables.sh"
 fi
 
 EXEC_USER=${EXEC_USER:-istio-proxy}
@@ -83,19 +83,24 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
   PILOT_ADDRESS=istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
 fi
 
-if [ ${EXEC_USER} == ${USER:-} ] ; then
+# If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
+ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
+# Split ISTIO_AGENT_FLAGS by spaces.
+IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
+
+if [ ${EXEC_USER} == "${USER:-}" ] ; then
   # if started as istio-proxy (or current user), do a normal start, without
   # redirecting stderr.
-  INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} \
-    --serviceCluster $SVC \
-    --discoveryAddress ${PILOT_ADDRESS} \
-    $CONTROL_PLANE_AUTH_POLICY
+  INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} "${ISTIO_BIN_BASE}/pilot-agent" proxy "${ISTIO_AGENT_FLAGS_ARRAY[@]}" \
+    --serviceCluster "$SVC" \
+    --discoveryAddress "${PILOT_ADDRESS}" \
+    "${CONTROL_PLANE_AUTH_POLICY[@]}"
 else
 
 # Will run: ${ISTIO_BIN_BASE}/envoy -c $ENVOY_CFG --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster $SVC --service-node 'sidecar~${ISTIO_SVC_IP}~${POD_NAME}.${NS}.svc.cluster.local~${NS}.svc.cluster.local' $ISTIO_DEBUG >${ISTIO_LOG_DIR}/istio.log" istio-proxy
-exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS:-} \
+exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} \
     --serviceCluster $SVC \
     --discoveryAddress ${PILOT_ADDRESS} \
-    $CONTROL_PLANE_AUTH_POLICY \
+    ${CONTROL_PLANE_AUTH_POLICY[*]} \
     2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}
 fi
