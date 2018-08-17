@@ -6,7 +6,7 @@ die () {
 }
 
 WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT="$(dirname $WD)"
+ROOT="$(dirname "$WD")"
 
 if [ ! -e "$ROOT/Gopkg.lock" ]; then
   echo "Please run 'dep ensure' first"

@@ -69,7 +69,7 @@ fi
 
 if [[ ${1-} != "run" ]] ; then
   # Update iptables, based on config file
-  ${ISTIO_BIN_BASE}/istio-iptables.sh
+  "${ISTIO_BIN_BASE}/istio-iptables.sh"
 fi
 
 EXEC_USER=${EXEC_USER:-istio-proxy}
@@ -88,9 +88,12 @@ ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
 IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
 
+if [ ${EXEC_USER} == "${USER:-}" ] ; then
   # if started as istio-proxy (or current user), do a normal start, without
   # redirecting stderr.
-  INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} ${ISTIO_BIN_BASE}/pilot-agent proxy "${ISTIO_AGENT_FLAGS_ARRAY[@]}" \
+  INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} "${ISTIO_BIN_BASE}/pilot-agent" proxy "${ISTIO_AGENT_FLAGS_ARRAY[@]}" \
+    --serviceCluster "$SVC" \
+    --discoveryAddress "${PILOT_ADDRESS}" \
     "${CONTROL_PLANE_AUTH_POLICY[@]}"
 else
 
