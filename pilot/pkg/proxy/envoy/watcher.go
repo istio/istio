@@ -35,11 +35,6 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-const (
-	// MaxClusterNameLength is the maximum cluster name length
-	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
-)
-
 // convertDuration converts to golang duration and logs errors
 func convertDuration(d *types.Duration) time.Duration {
 	if d == nil {
@@ -245,7 +240,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
-		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"--max-obj-name-len", fmt.Sprint(proxy.config.StatNameLength),
 	}
 
 	startupArgs = append(startupArgs, proxy.extraArgs...)

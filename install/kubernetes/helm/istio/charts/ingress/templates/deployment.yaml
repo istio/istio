@@ -55,12 +55,12 @@ spec:
           - --controlPlaneAuthPolicy
           - MUTUAL_TLS
           - --discoveryAddress
-          - istio-pilot:15005
+          - istio-pilot:15011
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
           - --discoveryAddress
-          - istio-pilot:8080
+          - istio-pilot:15010
         {{- end }}
           resources:
 {{- if .Values.resources }}

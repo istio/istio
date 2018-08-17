@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -118,6 +119,9 @@ type Backend interface {
 
 	Stop()
 
+	// WaitForSynced blocks and awaits for the caches to be fully populated until timeout.
+	WaitForSynced(time.Duration) error
+
 	// Watch creates a channel to receive the events.
 	Watch() (<-chan BackendEvent, error)
 
@@ -133,6 +137,9 @@ type Store interface {
 	Init(kinds map[string]proto.Message) error
 
 	Stop()
+
+	// WaitForSynced blocks and awaits for the caches to be fully populated until timeout.
+	WaitForSynced(time.Duration) error
 
 	// Watch creates a channel to receive the events. A store can conduct a single
 	// watch channel at the same time. Multiple calls lead to an error.
@@ -184,6 +191,13 @@ func (s *store) Init(kinds map[string]proto.Message) error {
 	}
 	s.kinds = kinds
 	return nil
+}
+
+// WaitForSynced awaits for the backend to sync.
+func (s *store) WaitForSynced(timeout time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.backend.WaitForSynced(timeout)
 }
 
 // Watch creates a channel to receive the events.
