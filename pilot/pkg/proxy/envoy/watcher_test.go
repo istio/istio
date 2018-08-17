@@ -237,6 +237,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"--allow-unknown-fields",
 		"-l", "trace",
 		"--concurrency", "8",
 		"--service-zone", "my-zone",
