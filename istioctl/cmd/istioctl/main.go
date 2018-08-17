@@ -140,7 +140,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",
-		Short:             "Istio control interface",
+		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
 		Long: `
