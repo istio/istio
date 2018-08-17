@@ -1884,7 +1884,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 's1' not found in message 'InstanceMsg'",
 	},
 	{
@@ -2921,7 +2921,7 @@ TemplatesDynamic:
 Attributes:
   template.attr: BOOL
 `,
-		wantErr: "instance='i1.instance.default'.params: config does not conforms to schema of template " +
+		wantErr: "instance='i1.instance.default'.params: config does not conform to schema of template " +
 			"'t1.default': fieldEncoder 'badFld' not found in message 'InstanceMsg'",
 	},
 	{
