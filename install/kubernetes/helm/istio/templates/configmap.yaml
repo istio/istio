@@ -97,13 +97,13 @@ data:
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15005
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15007
+      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
 {{- end }}
