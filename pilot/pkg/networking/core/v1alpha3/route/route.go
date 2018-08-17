@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -85,7 +86,6 @@ type VirtualHostWrapper struct {
 // BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
 // services from the service registry. Services are indexed by FQDN hostnames.
 func BuildVirtualHostsFromConfigAndRegistry(
-	node *model.Proxy,
 	configStore model.IstioConfigStore,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
@@ -96,7 +96,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	virtualServices := configStore.VirtualServices(meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(node, configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildVirtualHostsForVirtualService(configStore, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -165,7 +165,6 @@ func separateVSHostsAndServices(virtualService model.Config,
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
 func buildVirtualHostsForVirtualService(
-	node *model.Proxy,
 	configStore model.IstioConfigStore,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -197,7 +196,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
+		routes, err := BuildHTTPRoutesForVirtualService(virtualService, serviceRegistry, port, proxyLabels, gatewayName, configStore)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -243,7 +242,6 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
 func BuildHTTPRoutesForVirtualService(
-	node *model.Proxy,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	port int,
@@ -261,14 +259,14 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]route.Route, 0, len(vs.Http))
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+			if r := translateRoute(http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 				out = append(out, *r)
 			}
 			break // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			// TODO: https://github.com/istio/istio/issues/4239
 			for _, match := range http.Match {
-				if r := translateRoute(node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
+				if r := translateRoute(http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames, configStore); r != nil {
 					out = append(out, *r)
 				}
 			}
@@ -303,7 +301,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
+func translateRoute(in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	vsName string,
 	serviceRegistry map[model.Hostname]*model.Service,
@@ -339,11 +337,9 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			}}
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy: translateRetryPolicy(in.Retries),
-		}
-		if _, is10Proxy := node.GetProxyVersion(); !is10Proxy {
-			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
+			Cors:         translateCORSPolicy(in.CorsPolicy),
+			RetryPolicy:  translateRetryPolicy(in.Retries),
+			UseWebsocket: &types.BoolValue{Value: in.WebsocketUpgrade},
 		}
 		if in.Timeout != nil {
 			d := util.GogoDurationToDuration(in.Timeout)
@@ -488,13 +484,15 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
+		out.Value = m.Exact
 	case *networking.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
+		out.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
+		out.Regex = &types.BoolValue{Value: true}
 	case *networking.StringMatch_Regex:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_RegexMatch{RegexMatch: m.Regex}
+		out.Value = m.Regex
+		out.Regex = &types.BoolValue{Value: true}
 	}
 
 	return out

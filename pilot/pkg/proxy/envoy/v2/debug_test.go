@@ -135,9 +135,6 @@ func verifySyncStatus(t *testing.T, gotStatus []v2.SyncStatus, nodeID string, wa
 	// This makes this test contaminated by others
 	for _, ss := range gotStatus {
 		if ss.ProxyID == nodeID {
-			if ss.ProxyVersion == "" {
-				t.Errorf("ProxyVersion should always be set for %v", nodeID)
-			}
 			if (ss.ClusterSent != "") != wantSent {
 				t.Errorf("wanted ClusterSent set %v got %v for %v", wantSent, ss.ClusterSent, nodeID)
 			}

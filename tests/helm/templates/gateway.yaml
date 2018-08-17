@@ -19,7 +19,6 @@ spec:
     - "fortio.{{ .Values.domain }}"
     - "fortio2.{{ .Values.domain }}"
     - "fortiotls.{{ .Values.domain }}"
-    - "fortiottls.{{ .Values.domain }}"
     - "fortionoistio.{{ .Values.domain }}"
     - "fortionoistio1.{{ .Values.domain }}"
     - "bookinfo.{{ .Values.domain }}"
@@ -33,12 +32,6 @@ spec:
       number: 5201
       protocol: TCP
       name: tcp-iperf3
-    hosts:
-    - "*"
-  - port:
-      number: 5202
-      protocol: TCP
-      name: tcp-iperf3-noistio
     hosts:
     - "*"
   - port:

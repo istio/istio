@@ -49,39 +49,11 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if d := m.GetTimeout(); d != nil {
-		dur := *d
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return HealthCheckValidationError{
-				Field:  "Timeout",
-				Reason: "value must be greater than 0s",
-			}
-		}
-
-	}
-
 	if m.GetInterval() == nil {
 		return HealthCheckValidationError{
 			Field:  "Interval",
 			Reason: "value is required",
 		}
-	}
-
-	if d := m.GetInterval(); d != nil {
-		dur := *d
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return HealthCheckValidationError{
-				Field:  "Interval",
-				Reason: "value must be greater than 0s",
-			}
-		}
-
 	}
 
 	if v, ok := interface{}(m.GetIntervalJitter()).(interface{ Validate() error }); ok {

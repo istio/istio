@@ -1,0 +1,114 @@
+// 
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+//
+
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+
+package istio.routing.v1alpha1;
+
+option go_package = "istio.io/api/routing/v1alpha1";
+
+// HTTPFaultInjection can be used to specify one or more faults to inject
+// while forwarding http requests to the destination specified in the route
+// rule.  Fault specification is part of a route rule. Faults include
+// aborting the Http request from downstream service, and/or delaying
+// proxying of requests. A fault rule MUST HAVE delay or abort or both.
+//
+// *Note:* Delay and abort faults are independent of one another, even if
+// both are specified simultaneously.
+message HTTPFaultInjection {
+  // Delay requests before forwarding, emulating various failures such as
+  // network issues, overloaded upstream service, etc.
+  Delay delay = 1;
+
+  // Abort Http request attempts and return error codes back to downstream
+  // service, giving the impression that the upstream service is faulty.
+  Abort abort = 2;
+
+  // Delay specification is used to inject latency into the request
+  // forwarding path. The following example will introduce a 5 second delay
+  // in 10% of the requests to the "v1" version of the "reviews"
+  // service.
+  //
+  //     metadata:
+  //       name: my-rule
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       route:
+  //       - labels:
+  //           version: v1
+  //       httpFault:
+  //         delay:
+  //           percent: 10
+  //           fixedDelay: 5s
+  //
+  // The _fixedDelay_ field is used to indicate the amount of delay in
+  // seconds. An optional _percent_ field, a value between 0 and 100, can
+  // be used to only delay a certain percentage of requests. If left
+  // unspecified, all request will be delayed.
+  message Delay {
+    // percentage of requests on which the delay will be injected (0-100)
+    float percent = 1;
+    oneof http_delay_type {
+      // REQUIRED. Add a fixed delay before forwarding the request. Format: 1h/1m/1s/1ms. MUST be >=1ms.
+      google.protobuf.Duration fixed_delay = 2;
+      // (-- Add a delay (based on an exponential function) before forwarding
+      // the request. mean delay needed to derive the exponential delay
+      // values --)
+      google.protobuf.Duration exponential_delay = 3 ;
+    }
+    // (-- Specify delay duration as part of Http request.
+    // TODO: The semantics and syntax of the headers is undefined. --)
+    string override_header_name = 4 ;
+  }
+
+  // Abort specification is used to prematurely abort a request with a
+  // pre-specified error code. The following example will return an HTTP
+  // 400 error code for 10% of the requests to the "ratings" service "v1".
+  //
+  //     metadata:
+  //       name: my-rule
+  //     spec:
+  //       destination:
+  //         name: reviews
+  //       route:
+  //       - labels:
+  //           version: v1
+  //       httpFault:
+  //         abort:
+  //           percent: 10
+  //           httpStatus: 400
+  //
+  // The _httpStatus_ field is used to indicate the HTTP status code to
+  // return to the caller. The optional _percent_ field, a value between 0
+  // and 100, is used to only abort a certain percentage of requests. If
+  // not specified, all requests are aborted.
+  message Abort {
+    // percentage of requests to be aborted with the error code provided (0-100).
+    float percent = 1;
+    oneof error_type {
+      string grpc_status = 2 ;
+      string http2_error = 3 ;
+      // REQUIRED. HTTP status code to use to abort the Http request.
+      int32 http_status = 4;
+    }
+    // (-- Specify abort code as part of Http request.
+    // TODO: The semantics and syntax of the headers is undefined. --)
+    string override_header_name = 5 ;
+  }
+}

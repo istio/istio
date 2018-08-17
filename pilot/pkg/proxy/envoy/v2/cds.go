@@ -61,13 +61,13 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection) error {
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
 	// The response can't be easily read due to 'any' marshalling.
-	adsLog.Infof("CDS: PUSH for %s %q, Clusters: %d",
-		con.modelNode.ID, con.PeerAddr, len(rawClusters))
+	adsLog.Infof("CDS: PUSH for %s %q, Response: %d",
+		con.modelNode, con.PeerAddr, len(rawClusters))
 	return nil
 }
 
 func (s *DiscoveryServer) generateRawClusters(con *XdsConnection) ([]*xdsapi.Cluster, error) {
-	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, con.modelNode, s.env.PushStatus)
+	rawClusters, err := s.ConfigGenerator.BuildClusters(s.env, *con.modelNode)
 	if err != nil {
 		adsLog.Warnf("CDS: Failed to generate clusters for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "cds_builderr"}).Add(1)

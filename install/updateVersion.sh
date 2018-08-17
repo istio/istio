@@ -220,17 +220,6 @@ function gen_platforms_files() {
     done
 }
 
-function gen_citadel_extra_files() {
-    SRC_DIR=$ROOT/install/kubernetes/citadel_extras
-    DEST=$DEST_DIR/install/kubernetes
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
-    $SRC_DIR/istio-citadel-plugin-certs.yaml.tmpl > $DEST/istio-citadel-plugin-certs.yaml
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
-    $SRC_DIR/istio-citadel-with-health-check.yaml.tmpl > $DEST/istio-citadel-with-health-check.yaml
-    sed -e "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|;s|image: {CITADEL_HUB}/\(.*\):{CITADEL_TAG}|image: ${CITADEL_HUB}/\1:${CITADEL_TAG}|" \
-    $SRC_DIR/istio-citadel-standalone.yaml.tmpl > $DEST/istio-citadel-standalone.yaml
-}
-
 #
 # Script work begins here
 #
@@ -261,6 +250,3 @@ gen_istio_files
 
 # Generate platform files (consul)
 gen_platforms_files
-
-# Generate extra Citadel files from their templates
-gen_citadel_extra_files

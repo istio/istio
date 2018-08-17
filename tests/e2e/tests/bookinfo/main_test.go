@@ -35,6 +35,8 @@ import (
 )
 
 const (
+	u1                                 = "normal-user"
+	u2                                 = "test-user"
 	bookinfoSampleDir                  = "samples/bookinfo"
 	yamlExtension                      = "yaml"
 	deploymentDir                      = "platform/kube"
@@ -63,14 +65,6 @@ const (
 )
 
 var (
-	u1 = user{
-		username:      "normal-user",
-		sessionCookie: "eyJ1c2VyIjoibm9ybWFsLXVzZXIifQ.Di_G8A.9xNK4BEiyV0-vPOB3mWF6_PXKrw",
-	}
-	u2 = user{
-		username:      "test-user",
-		sessionCookie: "eyJ1c2VyIjoidGVzdC11c2VyIn0.Di_NWg.BQ9nq-xSfqKqsT2Rd-Uh2Hg4b0I",
-	}
 	tc *testConfig
 	tf = &framework.TestFlags{
 		Ingress: true,
@@ -142,7 +136,7 @@ func preprocessRule(t *testConfig, version, rule string) error {
 		return err
 	}
 	content := string(ori)
-	content = strings.Replace(content, "jason", u2.username, -1)
+	content = strings.Replace(content, "jason", u2, -1)
 
 	err = os.MkdirAll(filepath.Dir(dest), 0700)
 	if err != nil {
@@ -241,7 +235,7 @@ func setUpDefaultRouting() error {
 	return nil
 }
 
-func checkRoutingResponse(user user, version, gateway, modelFile string) (int, error) {
+func checkRoutingResponse(user, version, gateway, modelFile string) (int, error) {
 	startT := time.Now()
 	cookies := []http.Cookie{
 		{
@@ -249,8 +243,8 @@ func checkRoutingResponse(user user, version, gateway, modelFile string) (int, e
 			Value: "bar",
 		},
 		{
-			Name:  "session",
-			Value: user.sessionCookie,
+			Name:  "user",
+			Value: user,
 		},
 	}
 	resp, err := getWithCookie(fmt.Sprintf("%s/productpage", gateway), cookies)
@@ -274,7 +268,7 @@ func checkRoutingResponse(user user, version, gateway, modelFile string) (int, e
 	return duration, err
 }
 
-func checkHTTPResponse(gateway, expr string, count int) (int, error) {
+func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/productpage", gateway))
 	if err != nil {
 		return -1, err

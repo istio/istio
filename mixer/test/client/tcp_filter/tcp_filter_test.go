@@ -33,35 +33,13 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "origin.ip": "[127 0 0 1]",
-  "connection.id": "*"
-}
-`
-
-// Report attributes from a good POST request
-const reportAttributesOkPostOpen = `
-{
-  "context.protocol": "tcp",
-  "context.time": "*",
-  "mesh1.ip": "[1 1 1 1]",
-  "source.ip": "[127 0 0 1]",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "destination.ip": "[127 0 0 1]",
-  "destination.port": "*",
-  "connection.mtls": false,
-  "origin.ip": "[127 0 0 1]",
-  "check.cache_hit": false,
-  "quota.cache_hit": false,
-  "connection.received.bytes": "*",
-  "connection.received.bytes_total": "*",
-  "connection.sent.bytes": "*",
-  "connection.sent.bytes_total": "*",
   "connection.id": "*",
   "connection.event": "open"
 }
 `
-const reportAttributesOkPostClose = `
+
+// Report attributes from a good POST request
+const reportAttributesOkPost = `
 {
   "context.protocol": "tcp",
   "context.time": "*",
@@ -72,7 +50,6 @@ const reportAttributesOkPostClose = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
-  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
@@ -95,7 +72,6 @@ const reportAttributesFailPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
   "connection.received.bytes": "*",
@@ -121,7 +97,7 @@ var expectedStats = map[string]int{
 	"tcp_mixer_filter.total_remote_check_calls":          2,
 	"tcp_mixer_filter.total_remote_quota_calls":          0,
 	"tcp_mixer_filter.total_remote_report_calls":         2,
-	"tcp_mixer_filter.total_report_calls":                3,
+	"tcp_mixer_filter.total_report_calls":                2,
 }
 
 func TestTCPMixerFilter(t *testing.T) {
@@ -140,7 +116,7 @@ func TestTCPMixerFilter(t *testing.T) {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyCheck(tag, checkAttributesOkPost)
-	s.VerifyTwoReports(tag, reportAttributesOkPostOpen, reportAttributesOkPostClose)
+	s.VerifyReport(tag, reportAttributesOkPost)
 
 	tag = "MixerFail"
 	s.SetMixerCheckStatus(rpc.Status{

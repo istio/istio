@@ -1,0 +1,12 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin
+spec:
+  hosts:
+    - "httpbin.org"
+  ports:
+    - number: 80
+      name: http-port
+      protocol: HTTP
+  resolution: NONE

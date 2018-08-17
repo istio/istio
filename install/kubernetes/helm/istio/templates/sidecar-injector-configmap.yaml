@@ -109,7 +109,7 @@ data:
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
         - --controlPlaneAuthPolicy
-        - {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/controlPlaneAuthPolicy\") .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
+        - {{ "[[ .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
         env:
         - name: POD_NAME
           valueFrom:
@@ -137,21 +137,16 @@ data:
             capabilities:
               add:
               - NET_ADMIN
-            runAsGroup: 1337
             {{ "[[ else -]]" }}
             runAsUser: 1337
             {{ "[[ end -]]" }}
         restartPolicy: Always
         resources:
-          {{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\") -]]" }}
-          requests:
-            cpu: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyCPU\" ]]\"" }}
-            memory: {{ "\"[[ index .ObjectMeta.Annotations \"sidecar.istio.io/proxyMemory\" ]]\"" }}
-        {{ "[[ else -]]" }}
 {{- if .Values.global.proxy.resources }}
 {{ toYaml .Values.global.proxy.resources | indent 10 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 10 }}
 {{- end }}
-        {{ "[[ end -]]" }}
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy

@@ -73,10 +73,6 @@ type (
 	}
 )
 
-// ensure our types implement the requisite interfaces
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
 ///////////////// Configuration Methods ///////////////
 
 func (b *builder) SetQuotaTypes(quotaTypes map[string]*quota.Type) {

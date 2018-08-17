@@ -13,6 +13,7 @@ import (
 	_ "istio.io/api/networking/v1alpha3"
 	_ "istio.io/api/policy/v1beta1"
 	_ "istio.io/api/rbac/v1alpha1"
+	_ "istio.io/api/routing/v1alpha1"
 )
 
 // Types of known resources.

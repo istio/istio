@@ -1,9 +1,13 @@
+{{- if .Values.global.rbacEnabled -}}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: certmanager
   labels:
-    app: certmanager
+    app: {{ template "certmanager.name" . }}
+    chart: {{ template "certmanager.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 rules:
   - apiGroups: ["certmanager.k8s.io"]
     resources: ["certificates", "issuers", "clusterissuers"]
@@ -25,12 +29,16 @@ kind: ClusterRoleBinding
 metadata:
   name: certmanager
   labels:
-    app: certmanager
+    app: {{ template "certmanager.name" . }}
+    chart: {{ template "certmanager.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: certmanager
 subjects:
-  - name: certmanager
-    namespace: {{ .Release.Namespace }}
+  - name: {{ template "certmanager.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace | quote }}
     kind: ServiceAccount
+{{- end -}}

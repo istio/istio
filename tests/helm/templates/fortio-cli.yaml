@@ -254,7 +254,7 @@ spec:
   template:
     metadata:
       labels:
-        name: cli-fortio-noistio1
+        name: ncli-fortio-noistio1
         app: acli-fortio-noistio1
         version: cli-fortio-noistio1
     spec:

@@ -94,24 +94,24 @@ items:
   - kind:        "ServiceRole"
     singular:    "servicerole"
     plural:      "serviceroles"
-    group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
 
   - kind:        "ServiceRoleBinding"
     clusterScoped: false
     singular:      "servicerolebinding"
     plural:        "servicerolebindings"
-    group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
     proto:         "istio.rbac.v1alpha1.ServiceRoleBinding"
 
   - kind:        "Rbac"
     listKind:    "rbacList"
     singular:    "rbac"
     plural:      "rbacs"
-    group:       "rbac.istio.io"
-    version:     "v1alpha1"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
 
 # Types from Mixer

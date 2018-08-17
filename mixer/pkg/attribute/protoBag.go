@@ -54,23 +54,21 @@ type ProtoBag struct {
 
 // NewProtoBag creates a new proto-based attribute bag.
 func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
+	scope.Debugf("Creating bag with attributes: %v", proto)
+
 	// build the message-level dictionary
 	d := make(map[string]int32, len(proto.Words))
 	for i, name := range proto.Words {
 		d[name] = slotToIndex(i)
 	}
 
-	out := &ProtoBag{
+	return &ProtoBag{
 		proto:           proto,
 		globalDict:      globalDict,
 		globalWordList:  globalWordList,
 		messageDict:     d,
 		referencedAttrs: make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, 16),
 	}
-
-	scope.Debugf("Creating bag with attributes: %v", out)
-
-	return out
 }
 
 // StringMap wraps a map[string]string and reference counts it

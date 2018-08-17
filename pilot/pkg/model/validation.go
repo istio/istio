@@ -411,30 +411,7 @@ func validateServer(server *networking.Server) (errs error) {
 			}
 		}
 	}
-	portErr := validateServerPort(server.Port)
-	if portErr != nil {
-		errs = appendErrors(errs, portErr)
-	}
-	errs = appendErrors(errs, validateTLSOptions(server.Tls))
-
-	// If port is HTTPS or TLS, make sure that server has TLS options
-	if portErr == nil {
-		protocol := ParseProtocol(server.Port.Protocol)
-		if protocol.IsTLS() && server.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
-		} else if !protocol.IsTLS() && server.Tls != nil {
-			// only tls redirect is allowed if this is a HTTP server
-			if protocol.IsHTTP() {
-				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
-					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
-					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
-				}
-			} else {
-				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
-			}
-		}
-	}
-	return errs
+	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -1342,10 +1319,9 @@ func validateTLSMatch(match *networking.TLSMatchAttributes) (errs error) {
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	}
-	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
 	}
-
 	if match.Port != 0 {
 		errs = appendErrors(errs, ValidatePort(int(match.Port)))
 	}
@@ -1362,18 +1338,17 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 		errs = appendErrors(errs, validateTCPMatch(match))
 	}
 	if len(tcp.Route) != 1 {
-		errs = appendErrors(errs, errors.New("TCP route must have exactly one destination"))
+		errs = appendErrors(errs, errors.New("TLS route must have exactly one destination"))
 	}
 	errs = appendErrors(errs, validateDestinationWeights(tcp.Route))
 	return
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
-	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPv4Subnet(destinationSubnet))
+	if match.DestinationSubnet != "" {
+		errs = appendErrors(errs, ValidateIPv4Subnet(match.DestinationSubnet))
 	}
-
-	if len(match.SourceSubnet) > 0 {
+	if match.SourceSubnet != "" {
 		errs = appendErrors(errs, ValidateIPv4Subnet(match.SourceSubnet))
 	}
 	if match.Port != 0 {
@@ -1671,8 +1646,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 	}
 
 	if cidrFound {
-		if serviceEntry.Resolution != networking.ServiceEntry_NONE && serviceEntry.Resolution != networking.ServiceEntry_STATIC {
-			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE/STATIC resolution types"))
+		if serviceEntry.Resolution != networking.ServiceEntry_NONE {
+			errs = appendErrors(errs, fmt.Errorf("CIDR addresses are allowed only for NONE resolution types"))
 		}
 	}
 

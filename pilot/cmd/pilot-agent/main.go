@@ -159,17 +159,10 @@ var (
 						// namespace of pilot is not part of discovery address use
 						// pod namespace e.g. istio-pilot:15005
 						ns = os.Getenv("POD_NAMESPACE")
-					} else if len(parts) == 2 {
+					} else {
 						// namespace is found in the discovery address
 						// e.g. istio-pilot.istio-system:15005
 						ns = parts[1]
-					} else {
-						// discovery address is a remote address. For remote clusters
-						// only support the default config, or env variable
-						ns = os.Getenv("ISTIO_NAMESPACE")
-						if ns == "" {
-							ns = "istio-system"
-						}
 					}
 				}
 				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)

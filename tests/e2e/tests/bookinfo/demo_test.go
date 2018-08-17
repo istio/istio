@@ -27,13 +27,8 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-type user struct {
-	username      string
-	sessionCookie string
-}
-
 type userVersion struct {
-	user    user
+	user    string
 	version string
 	model   string
 }
@@ -181,8 +176,8 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 			Value: "bar",
 		},
 		{
-			Name:  "session",
-			Value: u1.sessionCookie,
+			Name:  "user",
+			Value: "normal-user",
 		},
 	}
 
@@ -253,7 +248,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -277,7 +272,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -323,7 +318,7 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+	_, err = checkHTTPResponse(u1, getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

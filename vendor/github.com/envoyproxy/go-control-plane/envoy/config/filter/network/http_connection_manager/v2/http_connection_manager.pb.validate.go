@@ -503,6 +503,16 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetSan()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManager_SetCurrentClientCertDetailsValidationError{
+				Field:  "San",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for Cert
 
 	// no validation rules for Dns

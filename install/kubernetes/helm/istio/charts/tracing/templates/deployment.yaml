@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: "{{ .Values.hub }}/all-in-one:{{ .Values.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}

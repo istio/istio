@@ -20,15 +20,9 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
-	"fmt"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-)
-
-const (
-	wildcardIP = "0.0.0.0"
 )
 
 var (
@@ -42,69 +36,51 @@ var (
 	}
 )
 
-func TestOutboundListenerConflict_HTTPWithCurrentTCP(t *testing.T) {
+func TestOutboundListenerConflict_HTTP(t *testing.T) {
 	// The oldest service port is TCP.  We should encounter conflicts when attempting to add the HTTP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1,com", wildcardIP, model.ProtocolHTTP, tnow.Add(1*time.Second)),
-		buildService("test2,com", wildcardIP, model.ProtocolTCP, tnow),
-		buildService("test3,com", wildcardIP, model.ProtocolHTTP, tnow.Add(2*time.Second)))
+		buildService(model.ProtocolHTTP, tnow.Add(1*time.Second)),
+		buildService(model.ProtocolTCP, tnow),
+		buildService(model.ProtocolHTTP, tnow.Add(2*time.Second)))
 }
 
-func TestOutboundListenerConflict_TCPWithCurrentHTTP(t *testing.T) {
+func TestOutboundListenerConflict_TCP(t *testing.T) {
 	// The oldest service port is HTTP.  We should encounter conflicts when attempting to add the TCP ports. Purposely
 	// storing the services out of time order to test that it's being sorted properly.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", wildcardIP, model.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", wildcardIP, model.ProtocolHTTP, tnow),
-		buildService("test3.com", wildcardIP, model.ProtocolTCP, tnow.Add(2*time.Second)))
+		buildService(model.ProtocolTCP, tnow.Add(1*time.Second)),
+		buildService(model.ProtocolHTTP, tnow),
+		buildService(model.ProtocolTCP, tnow.Add(2*time.Second)))
 }
 
 func TestOutboundListenerConflict_Unordered(t *testing.T) {
 	// Ensure that the order is preserved when all the times match. The first service in the list wins.
 	testOutboundListenerConflict(t,
-		buildService("test1.com", wildcardIP, model.ProtocolHTTP, tzero),
-		buildService("test2.com", wildcardIP, model.ProtocolTCP, tzero),
-		buildService("test3.com", wildcardIP, model.ProtocolTCP, tzero))
-}
-
-func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
-	services := []*model.Service{
-		buildService("test1.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(1*time.Second)),
-		buildService("test2.com", "1.2.3.4", model.ProtocolTCP, tnow),
-		buildService("test3.com", "1.2.3.4", model.ProtocolTCP, tnow.Add(2*time.Second)),
-	}
-	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, services...)
-	if len(listeners) != 1 {
-		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-	}
-	// The filter chains should all be merged into one.
-	if len(listeners[0].FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
-	}
-	verifyOutboundTCPListenerHostname(t, listeners[0], "test2.com")
-
-	oldestService := getOldestService(services...)
-	oldestProtocol := oldestService.Ports[0].Protocol
-	if oldestProtocol != model.ProtocolHTTP && isHTTPListener(listeners[0]) {
-		t.Fatal("expected TCP listener, found HTTP")
-	} else if oldestProtocol == model.ProtocolHTTP && !isHTTPListener(listeners[0]) {
-		t.Fatal("expected HTTP listener, found TCP")
-	}
-
-	if p.outboundListenerParams[0].Service != oldestService {
-		t.Fatalf("listener conflict failed to preserve listener for the oldest service")
-	}
+		buildService(model.ProtocolHTTP, tzero),
+		buildService(model.ProtocolTCP, tzero),
+		buildService(model.ProtocolTCP, tzero))
 }
 
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
-	oldestService := getOldestService(services...)
-
 	p := &fakePlugin{}
-	listeners := buildOutboundListeners(p, services...)
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+
+	env := buildListenerEnv()
+
+	var oldestService *model.Service
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service: s,
+		}
+		if oldestService == nil || s.CreationTime.Before(oldestService.CreationTime) {
+			oldestService = s
+		}
+	}
+	listeners := configgen.buildSidecarOutboundListeners(env, proxy, instances, services)
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
@@ -125,47 +101,6 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 }
 
-func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname model.Hostname) {
-	t.Helper()
-	if len(l.FilterChains) != 1 {
-		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
-	}
-	fc := l.FilterChains[0]
-	if len(fc.Filters) != 1 {
-		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
-	}
-	f := fc.Filters[0]
-	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	statPrefix := f.Config.Fields["stat_prefix"].GetStringValue()
-	if statPrefix != expectedStatPrefix {
-		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
-	}
-}
-
-func getOldestService(services ...*model.Service) *model.Service {
-	var oldestService *model.Service
-	for _, s := range services {
-		if oldestService == nil || s.CreationTime.Before(oldestService.CreationTime) {
-			oldestService = s
-		}
-	}
-	return oldestService
-}
-
-func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
-
-	env := buildListenerEnv()
-
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service: s,
-		}
-	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, instances, services)
-}
-
 type fakePlugin struct {
 	outboundListenerParams []*plugin.InputParams
 }
@@ -179,11 +114,11 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnOutboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
-func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnInboundCluster(env model.Environment, node model.Proxy, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
@@ -200,11 +135,11 @@ func isHTTPListener(listener *xdsapi.Listener) bool {
 	return false
 }
 
-func buildService(hostname string, ip string, protocol model.Protocol, creationTime time.Time) *model.Service {
+func buildService(protocol model.Protocol, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
-		Hostname:     model.Hostname(hostname),
-		Address:      ip,
+		Hostname:     "*.example.org",
+		Address:      "1.1.1.1",
 		ClusterVIPs:  make(map[string]string),
 		Ports: model.PortList{
 			&model.Port{
@@ -224,7 +159,6 @@ func buildListenerEnv() model.Environment {
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushStatus:       model.NewStatus(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

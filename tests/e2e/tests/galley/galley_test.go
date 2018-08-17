@@ -175,10 +175,10 @@ func TestValidation(t *testing.T) {
 		{"config-v1alpha2-QuotaSpecBinding-invalid", false},
 		{"config-v1alpha2-QuotaSpecBinding-valid", true},
 
-		{"rbac-v1alpha1-ServiceRole-invalid", false},
-		{"rbac-v1alpha1-ServiceRole-valid", true},
-		{"rbac-v1alpha1-ServiceRoleBinding-invalid", false},
-		{"rbac-v1alpha1-ServiceRoleBinding-valid", true},
+		{"config-v1alpha2-ServiceRole-invalid", false},
+		{"config-v1alpha2-ServiceRole-valid", true},
+		{"config-v1alpha2-ServiceRoleBinding-invalid", false},
+		{"config-v1alpha2-ServiceRoleBinding-valid", true},
 
 		{"authentication-v1alpha1-Policy-invalid", false},
 		{"authentication-v1alpha1-Policy-valid", true},

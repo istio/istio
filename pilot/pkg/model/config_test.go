@@ -15,6 +15,7 @@
 package model_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -312,6 +313,32 @@ func TestResolveHostname(t *testing.T) {
 			t.Errorf("ResolveHostname(%v, %v) => got %q, want %q", test.meta, test.svc, got, test.want)
 		}
 	}
+}
+
+type errorStore struct{}
+
+func (errorStore) ConfigDescriptor() model.ConfigDescriptor {
+	return model.IstioConfigTypes
+}
+
+func (errorStore) Get(typ, name, namespace string) (*model.Config, bool) {
+	return nil, false
+}
+
+func (errorStore) List(typ, namespace string) ([]model.Config, error) {
+	return nil, errors.New("fail")
+}
+
+func (errorStore) Create(config model.Config) (string, error) {
+	return "", errors.New("fail more")
+}
+
+func (errorStore) Update(config model.Config) (string, error) {
+	return "", errors.New("yes, fail again")
+}
+
+func (errorStore) Delete(typ, name, namespace string) error {
+	return errors.New("just keep failing")
 }
 
 func TestAuthenticationPolicyConfig(t *testing.T) {
@@ -678,126 +705,5 @@ func addRbacConfigToStore(configType, name, namespace string, store model.IstioC
 	}
 	if _, err := store.Create(config); err != nil {
 		t.Error(err)
-	}
-}
-
-type fakeStore struct {
-	model.ConfigStore
-	cfg map[string][]model.Config
-	err error
-}
-
-func (l *fakeStore) List(typ, namespace string) ([]model.Config, error) {
-	ret := l.cfg[typ]
-	return ret, l.err
-}
-
-func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
-	ns := "ns1"
-	l := &fakeStore{
-		cfg: map[string][]model.Config{
-			model.QuotaSpecBinding.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Namespace: ns,
-						Domain:    "cluster.local",
-					},
-					Spec: &mccpb.QuotaSpecBinding{
-						Services: []*mccpb.IstioService{
-							{
-								Name:      "a",
-								Namespace: ns,
-							},
-						},
-						QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
-							{
-								Name: "request-count",
-							},
-							{
-								Name: "does-not-exist",
-							},
-						},
-					},
-				},
-			},
-			model.QuotaSpec.Type: {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &mccpb.QuotaSpec{
-						Rules: []*mccpb.QuotaRule{
-							{
-								Quotas: []*mccpb.Quota{
-									{
-										Quota:  "requestcount",
-										Charge: 100,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: model.Hostname("a." + ns + ".svc.cluster.local"),
-		},
-	})
-
-	if len(cfgs) != 1 {
-		t.Fatalf("did not find 1 matched quota")
-	}
-}
-
-func TestMatchesDestHost(t *testing.T) {
-	for _, tst := range []struct {
-		destinationHost string
-		svc             string
-		ans             bool
-	}{
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "myhost.ns.cluster.local",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*.ns.*",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*.ns2.*",
-			ans:             false,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "myhost.ns2.cluster.local",
-			ans:             false,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "ns.*.svc.cluster",
-			ans:             false,
-		},
-	} {
-		t.Run(fmt.Sprintf("%s-%s", tst.destinationHost, tst.svc), func(t *testing.T) {
-			ans := model.MatchesDestHost(tst.destinationHost, model.ConfigMeta{}, &mccpb.IstioService{
-				Service: tst.svc,
-			})
-			if ans != tst.ans {
-				t.Fatalf("want: %v, got: %v", tst.ans, ans)
-			}
-		})
 	}
 }

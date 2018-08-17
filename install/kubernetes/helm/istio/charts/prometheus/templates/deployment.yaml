@@ -24,7 +24,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
             - '--storage.tsdb.retention=6h'

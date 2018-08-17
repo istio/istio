@@ -51,7 +51,7 @@ message IstioService {
 
   // Optional one or more labels that uniquely identify the service version.
   //
-  // *Note:* When used for a VirtualService destination, labels MUST be empty.
+  // *Note:* When used for a RouteRule destination, labels MUST be empty.
   //
   map<string, string> labels = 5;
 }

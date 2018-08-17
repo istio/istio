@@ -275,23 +275,6 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: redisquotas.config.istio.io
-  labels:
-    package: redisquota
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: redisquota
-    plural: redisquotas
-    singular: redisquota
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
   name: servicecontrols.config.istio.io
   labels:
     app: {{ template "mixer.name" . }}
@@ -671,34 +654,13 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: rbacconfigs.rbac.istio.io
+  name: serviceroles.config.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: rbac.istio.io
-  names:
-    kind: RbacConfig
-    plural: rbacconfigs
-    singular: rbacconfig
-    categories:
-    - istio-io
-    - rbac-istio-io
-  scope: Namespaced
-  version: v1alpha1
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: serviceroles.rbac.istio.io
-  labels:
-    app: {{ template "mixer.name" . }}
-    package: istio.io.mixer
-    istio: rbac
-spec:
-  group: rbac.istio.io
+  group: config.istio.io
   names:
     kind: ServiceRole
     plural: serviceroles
@@ -707,19 +669,19 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
-  version: v1alpha1
+  version: v1alpha2
 ---
 
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: servicerolebindings.rbac.istio.io
+  name: servicerolebindings.config.istio.io
   labels:
     app: {{ template "mixer.name" . }}
     package: istio.io.mixer
     istio: rbac
 spec:
-  group: rbac.istio.io
+  group: config.istio.io
   names:
     kind: ServiceRoleBinding
     plural: servicerolebindings
@@ -728,7 +690,7 @@ spec:
     - istio-io
     - rbac-istio-io
   scope: Namespaced
-  version: v1alpha1
+  version: v1alpha2
 ---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1

@@ -69,6 +69,17 @@ var (
 	azDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 )
 
+var (
+	ipNotFound = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pilot_no_ip",
+		Help: "Pods not found in the endpoint table, possibly invalid.",
+	}, []string{"node"})
+)
+
+func init() {
+	prometheus.MustRegister(ipNotFound)
+}
+
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
@@ -89,10 +100,6 @@ type Controller struct {
 	nodes     cacheHandler
 
 	pods *PodCache
-
-	// Env is set by server to point to the environment, to allow the controller to
-	// use env data and push status. It may be null in tests.
-	Env *model.Environment
 }
 
 type cacheHandler struct {
@@ -555,24 +562,13 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				}
 
 				out = append(out, getEndpoints(ss.Addresses, proxyIP, c, port, svcPort, svc)...)
-				nrEP := getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)
-				out = append(out, nrEP...)
-				if len(nrEP) > 0 && c.Env != nil {
-					c.Env.PushStatus.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
-				}
+				out = append(out, getEndpoints(ss.NotReadyAddresses, proxyIP, c, port, svcPort, svc)...)
 			}
 		}
 	}
 	if len(out) == 0 {
-		if c.Env != nil {
-			c.Env.PushStatus.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
-			status := c.Env.PushStatus
-			if status == nil {
-				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
-			}
-		} else {
-			log.Infof("Missing env, empty list of services for pod %s", proxy.ID)
-		}
+		log.Errorf("ip not found, listeners will be broken %v %v", proxyIP, proxy.ID, out)
+		ipNotFound.With(prometheus.Labels{"node": proxy.ID}).Add(1)
 	}
 	return out, nil
 }
