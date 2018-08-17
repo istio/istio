@@ -214,9 +214,15 @@ func (s *DiscoveryServer) ClearCacheFunc() func() {
 		// TODO: propagate K8S version and use it instead
 		versionMutex.Lock()
 		s.env.PushContext = push
-		version = time.Now().Format(time.RFC3339)
+		if err = s.ConfigGenerator.BuildSharedPushState(s.env); err == nil {
+			version = time.Now().Format(time.RFC3339)
+		}
 		versionMutex.Unlock()
 
+		if err != nil {
+			adsLog.Errorf("XDS: Failed to rebuild share state in configgen: %v", err)
+			return
+		}
 		adsLog.Infof("Context init for push %v %s", initContextTime, version)
 
 		go s.AdsPushAll(versionInfo(), push)
