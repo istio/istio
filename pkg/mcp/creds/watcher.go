@@ -33,14 +33,14 @@ import (
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
 
 const (
-	// DefaultCertDir is the default directory in which MCP options reside.
-	DefaultCertDir = "/etc/istio/certs/"
-	// DefaultCertificateFile is the default name to use for the certificate file.
-	DefaultCertificateFile = "cert-chain.pem"
-	// DefaultKeyFile is the default name to use for the key file.
-	DefaultKeyFile = "key.pem"
-	// DefaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
-	DefaultCACertificateFile = "root-cert.pem"
+	// defaultCertDir is the default directory in which MCP options reside.
+	defaultCertDir = "/etc/istio/certs/"
+	// defaultCertificateFile is the default name to use for the certificate file.
+	defaultCertificateFile = "cert-chain.pem"
+	// defaultKeyFile is the default name to use for the key file.
+	defaultKeyFile = "key.pem"
+	// defaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
+	defaultCACertificateFile = "root-cert.pem"
 )
 
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
@@ -65,9 +65,9 @@ type CertificateWatcher struct {
 // Internally WatchFolder will call WatchFiles.
 func WatchFolder(stop <-chan struct{}, folder string) (*CertificateWatcher, error) {
 	cred := &Options{
-		CertificateFile:   path.Join(folder, DefaultCertificateFile),
-		KeyFile:           path.Join(folder, DefaultKeyFile),
-		CACertificateFile: path.Join(folder, DefaultCACertificateFile),
+		CertificateFile:   path.Join(folder, defaultCertificateFile),
+		KeyFile:           path.Join(folder, defaultKeyFile),
+		CACertificateFile: path.Join(folder, defaultCACertificateFile),
 	}
 	return WatchFiles(stop, cred)
 }
@@ -85,9 +85,9 @@ type Options struct {
 // DefaultOptions returns default credential options.
 func DefaultOptions() *Options {
 	return &Options{
-		CertificateFile:   filepath.Join(DefaultCertDir, DefaultCertificateFile),
-		KeyFile:           filepath.Join(DefaultCertDir, DefaultKeyFile),
-		CACertificateFile: filepath.Join(DefaultCertDir, DefaultCACertificateFile),
+		CertificateFile:   filepath.Join(defaultCertDir, defaultCertificateFile),
+		KeyFile:           filepath.Join(defaultCertDir, defaultKeyFile),
+		CACertificateFile: filepath.Join(defaultCertDir, defaultCACertificateFile),
 	}
 }
 
