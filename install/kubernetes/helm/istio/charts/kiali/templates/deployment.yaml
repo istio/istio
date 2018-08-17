@@ -47,7 +47,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.dashboard.secretName }}
-              key: {{ .Values.dashboard.passphraseKey }}
+              key: {{ .Values.dashboard.passwordKey }}
         - name: PROMETHEUS_SERVICE_URL
           value: http://prometheus:9090
 {{- if .Values.dashboard.grafanaURL }}
