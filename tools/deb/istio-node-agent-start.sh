@@ -38,8 +38,8 @@ fi
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
-NS=${ISTIO_NAMESPACE:-default}
-SVC=${ISTIO_SERVICE:-rawvm}
+export NS=${ISTIO_NAMESPACE:-default}
+export SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
 EXEC_USER=${EXEC_USER:-istio-proxy}
