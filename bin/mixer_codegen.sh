@@ -101,12 +101,12 @@ if [ "$opttemplate" = true ]; then
     "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
   )
 
-  TMPL_GEN_MAP=""
+  TMPL_GEN_MAP=()
   TMPL_PROTOC_MAPPING=""
 
   for i in "${template_mappings[@]}"
   do
-    TMPL_GEN_MAP+="-m $i "
+    TMPL_GEN_MAP+=("-m" "$i")
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
@@ -136,8 +136,7 @@ if [ "$opttemplate" = true ]; then
     die "template generation failure: $err";
   fi
 
-  IFS=" " read -r -a TMPL_GEN_MAP_ARRAY <<< "$TMPL_GEN_MAP"
-  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP_ARRAY[@]}"
+  go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
   err=$($protoc "${IMPORTS[@]}" "$TMPL_PLUGIN" "$templateHSP")
   if [ ! -z "$err" ]; then
