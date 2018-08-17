@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -409,13 +410,13 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 // This also allows tests to inject a config without having the mock.
 func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
-	hosts := make([]Hostname, len(configs))
+	hosts := make([]Hostname, 0)
 	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		hosts[i] = ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		if mdr, exists := combinedDestinationRuleMap[hosts[i]]; exists {
+		resolvedHost := ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
+		if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
 			// we have an another destination rule for same host.
 			// concatenate both of them -- essentially add subsets from one to other.
 			for _, subset := range rule.Subsets {
@@ -433,14 +434,18 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			continue
 		}
 
-		combinedDestinationRuleMap[hosts[i]] = &combinedDestinationRule{
-			config: &configs[i],
+		combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
+			subsets: make(map[string]bool),
+			config:  &configs[i],
 		}
 		for _, subset := range rule.Subsets {
-			combinedDestinationRuleMap[hosts[i]].subsets[subset.Name] = true
+			combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = true
 		}
+		hosts = append(hosts, resolvedHost)
 	}
 
+	// presort it so that we don't sort it for each DestinationRule call.
+	sort.Sort(Hostnames(hosts))
 	ps.destinationRuleHosts = hosts
 	ps.destinationRuleByHosts = combinedDestinationRuleMap
 }
