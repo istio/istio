@@ -8,8 +8,8 @@
 HUB=gcr.io/istio-testing
 VERSION=$(date +%Y-%m-%d)
 
-docker build --no-cache -t $HUB/go_generate_dependency:$VERSION -f Dockerfile.go_generate_dependency .
+docker build --no-cache -t "$HUB/go_generate_dependency:$VERSION" -f Dockerfile.go_generate_dependency .
 
 gcloud auth configure-docker
 
-docker push $HUB/go_generate_dependency:$VERSION
+docker push "$HUB/go_generate_dependency:$VERSION"
