@@ -82,7 +82,7 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -162,7 +162,7 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -237,7 +237,7 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}
@@ -312,7 +312,7 @@ static_resources:
 {{- end }}
                   mixer_attributes:
                     attributes:
-                      destination.service:
+                      destination.service.host:
                         string_value: istio-pilot.{{ .PodNamespace }}.svc.cluster.local
                       destination.uid:
                         string_value: kubernetes://{{ .PodName }}.{{ .PodNamespace }}

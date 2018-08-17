@@ -44,9 +44,6 @@ type listener struct {
 
 	resyncPeriod time.Duration
 
-	// Client for accessing the resources dynamically
-	Client dynamic.Interface
-
 	// The dynamic resource interface for accessing custom resources dynamically.
 	iface dynamic.ResourceInterface
 
@@ -80,7 +77,6 @@ func newListener(
 		spec:         spec,
 		resyncPeriod: resyncPeriod,
 		iface:        iface,
-		Client:       client,
 		processor:    processor,
 	}, nil
 }
