@@ -245,7 +245,7 @@ ident                         : dest.istio-system
 [tcheck] InstanceBuilderFn() <= (SUCCESS)
 [tcheck] DispatchCheck => context exists: 'true'
 [tcheck] DispatchCheck => handler exists: 'true'
-[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
 `,
 	},
@@ -319,7 +319,7 @@ ident                         : dest.istio-system
 [treport] InstanceBuilderFn() <= (SUCCESS)
 [treport] DispatchReport => context exists: 'true'
 [treport] DispatchReport => handler exists: 'true'
-[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}]'
+[treport] DispatchReport => instances: '[&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}]'
 [treport] DispatchReport <= (SUCCESS)
 
 `,
@@ -545,7 +545,7 @@ ident                         : dest.istio-system
 [tquota] InstanceBuilderFn() <= (SUCCESS)
 [tquota] DispatchQuota => context exists: 'true'
 [tquota] DispatchQuota => handler exists: 'true'
-[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}' ` +
+[tquota] DispatchQuota => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}' ` +
 			`qArgs:{dedup:'42', amount:'64', best:'true'}
 [tquota] DispatchQuota <= (SUCCESS)
 			`,
@@ -631,7 +631,7 @@ attr.string                   : bar
 ident                         : dest.istio-system
 '
 [tapa] InstanceBuilderFn() <= (SUCCESS)
-[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},},},}'
+[tapa] DispatchGenAttrs => instance: '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}'
 [tapa] DispatchGenAttrs => attrs:    '---
 attr.string                   : bar
 ident                         : dest.istio-system
