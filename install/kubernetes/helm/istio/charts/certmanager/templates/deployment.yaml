@@ -2,23 +2,19 @@ apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
   name: certmanager
-  namespace: {{ .Release.Namespace | quote }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "certmanager.name" . }}
-    chart: {{ template "certmanager.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    {{- template "common_labels" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
-      app: {{ template "certmanager.name" . }}
-      release: {{ .Release.Name }}
+      app: certmanager
   template:
     metadata:
       labels:
-        app: {{ template "certmanager.name" . }}
-        release: {{ .Release.Name }}
+        app: certmanager
 {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
 {{- end }}
@@ -27,22 +23,17 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ template "certmanager.serviceAccountName" . }}
+      serviceAccountName: certmanager
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        - name: certmanager
+          image: "{{ .Values.hub }}/cert-manager-controller:{{ .Values.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
-        {{- if .Values.clusterResourceNamespace }}
-          - --cluster-resource-namespace={{ .Values.clusterResourceNamespace }}
-        {{- else }}
           - --cluster-resource-namespace=$(POD_NAMESPACE)
-        {{- end }}
-        {{- if .Values.leaderElection.namespace }}
-          - --leader-election-namespace={{ .Values.leaderElection.namespace }}
-        {{- else }}
           - --leader-election-namespace=$(POD_NAMESPACE)
-        {{- end }}
         {{- if .Values.extraArgs }}
 {{ toYaml .Values.extraArgs | indent 10 }}
         {{- end }}

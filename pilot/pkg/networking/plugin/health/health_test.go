@@ -56,8 +56,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
-									Name:  ":path",
-									Value: "/health",
+									Name:                 ":path",
+									HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "/health"},
 								},
 							},
 						}),
@@ -85,8 +85,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
-									Name:  ":path",
-									Value: "/health",
+									Name:                 ":path",
+									HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "/health"},
 								},
 							},
 						}),
@@ -122,8 +122,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
-									Name:  ":path",
-									Value: "/ready",
+									Name:                 ":path",
+									HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "/ready"},
 								},
 							},
 						}),
@@ -136,8 +136,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
-									Name:  ":path",
-									Value: "/live",
+									Name:                 ":path",
+									HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "/live"},
 								},
 							},
 						}),
@@ -174,8 +174,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 							},
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
-									Name:  ":path",
-									Value: "/health",
+									Name:                 ":path",
+									HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "/health"},
 								},
 							},
 						}),

@@ -1,4 +1,4 @@
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRole
 metadata:
   name: ratings-viewer
@@ -8,14 +8,14 @@ spec:
   - services: ["ratings.default.svc.cluster.local"]
     methods: ["GET"]
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: "rbac.istio.io/v1alpha1"
 kind: ServiceRoleBinding
 metadata:
   name: bind-ratings
   namespace: default
 spec:
   subjects:
-  - user: "spiffe://cluster.local/ns/default/sa/bookinfo-reviews"
+  - user: "cluster.local/ns/default/sa/bookinfo-reviews"
   roleRef:
     kind: ServiceRole
     name: "ratings-viewer"

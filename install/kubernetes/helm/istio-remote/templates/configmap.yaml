@@ -76,7 +76,7 @@ data:
     {{- if .Values.global.remoteZipkinAddress }}
       #
       # Zipkin trace collector
-      zipkinAddress: zipkin.{{ .Release.Namespace }}:9411
+      zipkinAddress: {{ .Values.global.remoteZipkinAddress }}:9411
     {{- end }}
 
     {{- if .Values.global.proxy.envoyStatsd.enabled }}
@@ -85,18 +85,28 @@ data:
       statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
 
+    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}:15005
+      {{- if .Values.global.remotePilotCreateSvcEndpoint }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: {{ .Values.global.remotePilotAddress }}:15007
+      {{- if .Values.global.remotePilotCreateSvcEndpoint }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
     {{- end }}

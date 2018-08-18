@@ -21,5 +21,6 @@ spec:
       protocol: TLS
     hosts:
     - www.google.com
+    - www.bing.com
     tls:
       mode: PASSTHROUGH

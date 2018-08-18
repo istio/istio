@@ -41,9 +41,10 @@ USER_NAME=""
 BUILD_FILE=""
 ORG="istio"
 
-source ${SCRIPTPATH}/json_parse_shared.sh
+# shellcheck source=release/json_parse_shared.sh
+source "${SCRIPTPATH}/json_parse_shared.sh"
 
-function usage() { 
+function usage() {
   echo "$0
     -b <build> repo xml file used to create release
     -d <date>  date of release (optional, defaults to current ${DATE_STRING} )
@@ -68,9 +69,9 @@ while getopts b:d:e:k:n:o:p:t:v: arg ; do
     p) PRODUCT="${PRODUCT}";;
     t) TOKEN="${OPTARG}";;
     v) VERSION="${OPTARG}";;
-    *) usage;; 
+    *) usage;;
   esac
-done 
+done
 
 [[ ! -f "${BUILD_FILE}" ]] && usage
 [[ -z "${DATE_STRING}" ]] && usage
@@ -94,12 +95,14 @@ function create_tag_reference() {
   # $2 REPO
   # $3 SHA
   # uses external PRODUCT, VERSION, USER_NAME, USER_EMAIL, DATE_STRING
-  
-  local REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
-  local RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
+
+  local REQUEST_FILE
+  REQUEST_FILE="$(mktemp /tmp/github.request.XXXX)"
+  local RESPONSE_FILE
+  RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 
   # STEP 1: create an annotated tag.
-cat << EOF > ${REQUEST_FILE}
+cat << EOF > "${REQUEST_FILE}"
 {
   "tag": "${VERSION}",
   "message": "${PRODUCT} Release ${VERSION}",
@@ -115,9 +118,9 @@ EOF
 
   # disabling command tracing during curl call so token isn't logged
   set +o xtrace
-  TOKEN=$(< $KEYFILE)
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
-    -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
+  TOKEN=$(< "$KEYFILE")
+  curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
+    -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/tags"
   set -o xtrace
 
@@ -127,18 +130,19 @@ EOF
   # "url": "https://api.github.com/repos/:user/:repo/git/commits/9737165d9451c289d8e42f0fb03137f9030d4541"
   # it's safer to distinguish the two "url" fields than the two "sha" fields
 
-  local TAG_SHA=$(parse_json_for_url_hex_suffix ${RESPONSE_FILE} "url" "/git/tags")
+  local TAG_SHA
+  TAG_SHA=$(parse_json_for_url_hex_suffix "${RESPONSE_FILE}" "url" "/git/tags")
   if [[ -z "${TAG_SHA}" ]]; then
     echo "Did not find SHA for created tag ${VERSION}"
-    cat ${REQUEST_FILE}
-    cat ${RESPONSE_FILE}
+    cat "${REQUEST_FILE}"
+    cat "${RESPONSE_FILE}"
     exit 1
   fi
 
   echo "Created annotated tag ${VERSION} for SHA ${3} on ${1}/${2}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
-cat << EOF > ${REQUEST_FILE}
+cat << EOF > "${REQUEST_FILE}"
 {
   "ref": "refs/tags/${VERSION}",
   "sha": "${TAG_SHA}"
@@ -147,21 +151,22 @@ EOF
 
   # disabling command tracing during curl call so token isn't logged
   set +o xtrace
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
-    -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
+  curl -s -S -X POST -o "${RESPONSE_FILE}" -H "Accept: application/vnd.github.v3+json" --retry 3 \
+    -H "Content-Type: application/json" -T "${REQUEST_FILE}" -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/refs"
   set -o xtrace
 
-  local REF=$(parse_json_for_string ${RESPONSE_FILE} "ref")
+  local REF
+  REF=$(parse_json_for_string "${RESPONSE_FILE}" "ref")
   if [[ -z "${REF}" ]]; then
     echo "Did not find REF for created ref ${VERSION}"
-    cat ${REQUEST_FILE}
-    cat ${RESPONSE_FILE}
+    cat "${REQUEST_FILE}"
+    cat "${RESPONSE_FILE}"
     exit 1
   fi
-  
-  rm ${REQUEST_FILE}
-  rm ${RESPONSE_FILE}
+
+  rm "${REQUEST_FILE}"
+  rm "${RESPONSE_FILE}"
 }
 
 
@@ -171,8 +176,8 @@ EOF
 
 ORG_REPOS=(api istio proxy)
 
-for GITREPO in ${ORG_REPOS[@]}; do
-  SHA=`grep $ORG/$GITREPO $BUILD_FILE  | cut -f 6 -d \"`
+for GITREPO in "${ORG_REPOS[@]}"; do
+  SHA=$(grep "$ORG/$GITREPO" "$BUILD_FILE"  | cut -f 6 -d \")
   if [[ -n "${SHA}" ]]; then
     create_tag_reference "${ORG}" "${GITREPO}" "${SHA}"
   else

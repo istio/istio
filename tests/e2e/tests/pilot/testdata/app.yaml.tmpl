@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.service}}
+---
 # Test service without the proxy
 apiVersion: v1
 kind: Service
@@ -54,6 +59,9 @@ spec:
         sidecar.istio.io/inject: "false"
 {{end}}
     spec:
+{{if eq .serviceAccount "true"}}
+      serviceAccountName: {{.service}}
+{{end}}
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}

@@ -1,12 +1,12 @@
 # Common settings.
 global:
-  # Default repository for Istio images.
+  # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: docker.io/istionightly
+  hub: gcr.io/istio-release
 
   # Default tag for Istio images.
-  tag: nightly-master
+  tag: release-1.0-latest-daily
 
   proxy:
     image: proxyv2
@@ -69,7 +69,7 @@ global:
 
   # Not recommended for user to configure this. Hyperkube image to use when creating custom resources
   hyperkube:
-    repository: quay.io/coreos/hyperkube
+    hub: quay.io/coreos
     tag: v1.7.6_coreos.0
 
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
@@ -95,6 +95,9 @@ global:
   imagePullSecrets:
     # - private-registry-key
 
+  # If true, create a headless service and endpoint for istio-pilot with the remotePilotAddress and
+  # sets the MeshConfig configmap discoveryAddress to 'istio-pilot.<namespace>'
+  remotePilotCreateSvcEndpoint: false
 
   # Remote Istio endpoints. Can be hostnames or IP addresses
   # The Pilot address is required. The others are optional.
@@ -125,6 +128,13 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low prioroty class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
 
 #
 # sidecar-injector webhook configuration

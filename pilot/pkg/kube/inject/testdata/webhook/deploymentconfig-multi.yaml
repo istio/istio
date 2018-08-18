@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: List
+items:
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      name: frontend
+    spec:
+      selector:
+        app: hello
+        tier: frontend
+      ports:
+        - protocol: "TCP"
+          port: 80
+          targetPort: 80
+      type: LoadBalancer
+
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      name: hello
+    spec:
+      replicas: 7
+      template:
+        metadata:
+          labels:
+            app: hello
+            tier: backend
+            track: stable
+        spec:
+          containers:
+            - name: hello
+              image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+              ports:
+                - name: http
+                  containerPort: 80
+      triggers:
+        - type: "ConfigChange"
+        - type: "ImageChange"
+          imageChangeParams:
+            automatic: true
+            containerNames:
+              - "helloworld"
+            from:
+              kind: "ImageStreamTag"
+              name: "hello-go-gke:1.0"
+      strategy:
+        type: "Rolling"
+      paused: false
+      revisionHistoryLimit: 2
+      minReadySeconds: 0

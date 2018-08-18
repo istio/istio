@@ -1,27 +1,44 @@
+
+#apiVersion: extensions/v1beta1
+#kind: Ingress
+#metadata:
+#  name: secured-ingress
+#  annotations:
+#    kubernetes.io/ingress.class: istio
+#spec:
+#  tls:
+#    - secretName: istio-ingress-certs
+#  rules:
+#  - http:
+#      paths:
+#      - path: /http
+#        backend:
+#          serviceName: a
+#          servicePort: 80
+#      - path: /pasta
+#        backend:
+#          serviceName: b
+#          servicePort: 8080
+#      - path: /.*
+#        backend:
+#          serviceName: a
+#          servicePort: 7070
+---
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: secured-ingress
+  name: merge-foo1
   annotations:
     kubernetes.io/ingress.class: istio
 spec:
-  tls:
-    - secretName: istio-ingress-certs
   rules:
-  - http:
+  - host: fortio.{{ .Values.domain }}
+    http:
       paths:
-      - path: /http
+      - path: /lucky2
         backend:
           serviceName: a
-          servicePort: http
-      - path: /pasta
-        backend:
-          serviceName: b
           servicePort: 8080
-      - path: /.*
-        backend:
-          serviceName: a
-          servicePort: grpc
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
@@ -31,13 +48,14 @@ metadata:
     kubernetes.io/ingress.class: istio
 spec:
   rules:
-  - http:
+  - host: httpbin.{{ .Values.domain }}
+    http:
       paths:
-      - path: /lucky
+      - path: /lucky1
         backend:
-          serviceName: a
+          serviceName: c
           servicePort: 8080
-      - path: /lo.*
+      - path: /b.*
         backend:
           serviceName: b
           servicePort: 80
@@ -52,24 +70,15 @@ spec:
       - path: /c
         backend:
           serviceName: c
-          servicePort: http
-  - host: foo.bar.com
+          servicePort: 80
+      - path: /.*
+        backend:
+          serviceName: httpbin
+          servicePort: 8000
+  - host: fortiotls.{{ .Values.domain }}
     http:
       paths:
       - path: /foo
         backend:
           serviceName: a
           servicePort: 8080
-  - host: "*.baz.com"
-    http:
-      paths:
-      - path: /bar
-        backend:
-          serviceName: a
-          servicePort: 8080
-  - host: api.company.com
-    http:
-      paths:
-      - backend:
-          serviceName: a
-          servicePort: grpc

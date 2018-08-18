@@ -16,8 +16,12 @@ package dynamic
 
 import (
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	"github.com/gogo/protobuf/types"
+	"github.com/pkg/errors"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -92,6 +96,85 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 					vVal.Value = &v1beta1.Value_DoubleValue{ev}
 					return nil
 				}
+			case v1beta1.TIMESTAMP:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.Evaluate(bag)
+					if er != nil {
+						return er
+					}
+					var ok bool
+					var v time.Time
+
+					if v, ok = ev.(time.Time); !ok {
+						return incorrectTypeError(vt, ev, "time.Time")
+					}
+
+					ts, er := types.TimestampProto(v)
+					if er != nil {
+						return errors.Errorf("invalid timestamp: %v", er)
+					}
+					vVal.Value = &v1beta1.Value_TimestampValue{&v1beta1.TimeStamp{ts}}
+					return nil
+				}
+			case v1beta1.IP_ADDRESS:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.Evaluate(bag)
+					if er != nil {
+						return er
+					}
+					var ok bool
+					var v net.IP
+
+					if v, ok = ev.(net.IP); !ok {
+						return incorrectTypeError(vt, ev, "[]byte")
+					}
+
+					vVal.Value = &v1beta1.Value_IpAddressValue{IpAddressValue: &v1beta1.IPAddress{Value: v}}
+					return nil
+				}
+			case v1beta1.DURATION:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.Evaluate(bag)
+					if er != nil {
+						return er
+					}
+
+					// for expression of type v1beta1.DURATION,
+					// expr.Evaluate ensures that only time.Duration is returned.
+					// safe to cast
+					v := ev.(time.Duration)
+
+					vVal.Value = &v1beta1.Value_DurationValue{
+						DurationValue: &v1beta1.Duration{Value: types.DurationProto(v)}}
+					return nil
+				}
+			case v1beta1.URI:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.EvaluateString(bag)
+					if er != nil {
+						return er
+					}
+					vVal.Value = &v1beta1.Value_UriValue{UriValue: &v1beta1.Uri{Value: ev}}
+					return nil
+				}
+			case v1beta1.DNS_NAME:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.EvaluateString(bag)
+					if er != nil {
+						return er
+					}
+					vVal.Value = &v1beta1.Value_DnsNameValue{DnsNameValue: &v1beta1.DNSName{Value: ev}}
+					return nil
+				}
+			case v1beta1.EMAIL_ADDRESS:
+				enc = func(bag attribute.Bag, vVal *v1beta1.Value) error {
+					ev, er := expr.EvaluateString(bag)
+					if er != nil {
+						return er
+					}
+					vVal.Value = &v1beta1.Value_EmailAddressValue{EmailAddressValue: &v1beta1.EmailAddress{Value: ev}}
+					return nil
+				}
 			default:
 				return nil, fmt.Errorf("unsupported type: %v", vt)
 			}
@@ -135,4 +218,8 @@ func marshalValWithSize(vVal *v1beta1.Value, ba []byte) ([]byte, error) {
 	ba = extendSlice(ba, msgSize)
 	_, err := vVal.MarshalTo(ba[startIdx:])
 	return ba, err
+}
+
+func incorrectTypeError(vt v1beta1.ValueType, got interface{}, want string) error {
+	return fmt.Errorf("incorrect type for %v. got: %T, want: %s", vt, got, want)
 }

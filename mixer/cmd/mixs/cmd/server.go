@@ -37,8 +37,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		},
 	}
 
-	// TODO: need to pick appropriate defaults for all these settings below
-
 	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", sa.APIPort,
 		"TCP port to use for Mixer's gRPC API, if the address option is not specified")
 	serverCmd.PersistentFlags().StringVarP(&sa.APIAddress, "address", "", sa.APIAddress,

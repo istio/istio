@@ -25,8 +25,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -41,13 +39,9 @@ const (
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
-// service specified by hostname and port, if defined.
-// If not, it generates and output a policy that is equivalent to the legacy flag
-// and/or service annotation. Once these legacy flags/config deprecated,
-// this function can be placed by a call to store.AuthenticationPolicyByDestination
-// directly.
-func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(hostname, port)
+// service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
+func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service, port *Port) *authn.Policy {
+	config := store.AuthenticationPolicyByDestination(service, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -55,9 +49,7 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 		}
 	}
 
-	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
-		hostname, port.Port, mesh.AuthPolicy)
-	return legacyAuthenticationPolicyToPolicy(mesh.AuthPolicy)
+	return nil
 }
 
 // ConstructSdsSecretConfig constructs SDS Sececret Configuration.
@@ -113,20 +105,6 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	}
 
 	return ret
-}
-
-// If input legacy is MeshConfig_MUTUAL_TLS, return a authentication policy equivalent to it. Else,
-// returns nil (implies no authentication is used)
-func legacyAuthenticationPolicyToPolicy(legacy meshconfig.MeshConfig_AuthPolicy) *authn.Policy {
-	if legacy == meshconfig.MeshConfig_MUTUAL_TLS {
-		return &authn.Policy{
-			Peers: []*authn.PeerAuthenticationMethod{{
-				Params: &authn.PeerAuthenticationMethod_Mtls{
-					&authn.MutualTls{},
-				}}},
-		}
-	}
-	return nil
 }
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.

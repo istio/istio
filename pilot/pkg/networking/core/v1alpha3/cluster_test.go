@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -34,7 +34,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
-	proxy := model.Proxy{
+	proxy := &model.Proxy{
 		ClusterID: "some-cluster-id",
 		Type:      model.Router,
 		IPAddress: "6.6.6.6",
@@ -42,9 +42,9 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		Metadata:  make(map[string]string),
 	}
 
-	env := buildEnv()
+	env := buildEnvForClustersWithRingHashLb()
 
-	clusters, err := configgen.BuildClusters(env, proxy)
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(clusters)).To(gomega.Equal(2))
@@ -57,7 +57,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g.Expect(cluster.ConnectTimeout).To(gomega.Equal(time.Duration(10000000001)))
 }
 
-func buildEnv() model.Environment {
+func buildEnvForClustersWithRingHashLb() *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -76,7 +76,7 @@ func buildEnv() model.Environment {
 	}, nil)
 
 	meshConfig := &meshconfig.MeshConfig{
-		ConnectTimeout: &duration.Duration{
+		ConnectTimeout: &types.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
@@ -84,13 +84,23 @@ func buildEnv() model.Environment {
 
 	ttl := time.Duration(time.Nanosecond * 100)
 	configStore := &fakes.IstioConfigStore{}
-	configStore.DestinationRuleReturns(
-		&model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:    model.DestinationRule.Type,
-				Version: model.DestinationRule.Version,
-				Name:    "acme",
-			},
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
 			Spec: &networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -109,16 +119,113 @@ func buildEnv() model.Environment {
 					},
 				},
 			},
-		},
-	)
+		}})
 
-	env := model.Environment{
+	return env
+}
+
+func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	configgen := core.NewConfigGenerator([]plugin.Plugin{})
+	proxy := &model.Proxy{
+		ClusterID: "some-cluster-id",
+		Type:      model.Sidecar,
+		IPAddress: "6.6.6.6",
+		Domain:    "com",
+		Metadata:  make(map[string]string),
+	}
+
+	env := buildEnvForClustersWithIstioMutualWithSNI("foo.com")
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(clusters)).To(gomega.Equal(3))
+
+	cluster := clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.com"))
+
+	// Check if SNI values are being automatically populated
+	env = buildEnvForClustersWithIstioMutualWithSNI("")
+
+	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(clusters)).To(gomega.Equal(3))
+
+	cluster = clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
+	g.Expect(cluster.TlsContext.GetSni()).To(gomega.Equal("foo.example.org"))
+}
+
+func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environment {
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{
+		{
+			Hostname:    "foo.example.org",
+			Address:     "1.1.1.1",
+			ClusterVIPs: make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "default",
+					Port:     8080,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+		},
+	}, nil)
+
+	meshConfig := &meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+	}
+
+	configStore := &fakes.IstioConfigStore{}
+
+	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
 		Mesh:             meshConfig,
 		MixerSAN:         []string{},
 	}
+
+	env.PushContext = model.NewStatus()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
+			Spec: &networking.DestinationRule{
+				Host: "*.example.org",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Port: &networking.PortSelector_Number{Number: 8080},
+									},
+									Tls: &networking.TLSSettings{
+										Mode: networking.TLSSettings_ISTIO_MUTUAL,
+										Sni:  sniValue,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}})
 
 	return env
 }

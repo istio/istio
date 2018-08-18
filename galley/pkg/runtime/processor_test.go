@@ -22,9 +22,17 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/mcp/snapshot"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
+
+var testSchema = func() *resource.Schema {
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Empty")
+	return b.Build()
+}()
+
+var emptyInfo = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
 
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
@@ -61,14 +69,11 @@ func TestProcessor_Start_Error(t *testing.T) {
 }
 
 func TestProcessor_Stop(t *testing.T) {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
-
 	src := NewInMemorySource()
 	distributor := snapshot.New()
 	strategy := newPublishingStrategyWithDefaults()
 
-	p := newProcessor(src, distributor, strategy, schema, nil)
+	p := newProcessor(src, distributor, strategy, testSchema, nil)
 
 	err := p.Start()
 	if err != nil {
@@ -82,22 +87,18 @@ func TestProcessor_Stop(t *testing.T) {
 }
 
 func TestProcessor_EventAccumulation(t *testing.T) {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
-	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
-
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
 
-	p := newProcessor(src, distributor, strategy, schema, nil)
+	p := newProcessor(src, distributor, strategy, testSchema, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
+	k1 := resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "r1"}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -109,16 +110,14 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 }
 
 func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
-	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
+	info, _ := testSchema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
 
-	p := newProcessor(src, distributor, strategy, schema, nil)
+	p := newProcessor(src, distributor, strategy, testSchema, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -136,9 +135,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 }
 
 func TestProcessor_Publishing(t *testing.T) {
-	schema := resource.NewSchema()
-	schema.Register("type.googleapis.com/google.protobuf.Empty", true)
-	info, _ := schema.Lookup("type.googleapis.com/google.protobuf.Empty")
+	info, _ := testSchema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
@@ -150,7 +147,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
 
-	p := newProcessor(src, distributor, strategy, schema, hookFn)
+	p := newProcessor(src, distributor, strategy, testSchema, hookFn)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

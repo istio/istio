@@ -42,7 +42,7 @@ function usage() {
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
-  exit ${2:-1}
+  exit "${2:-1}"
 }
 
 while getopts d:i:o:v: arg ; do
@@ -64,13 +64,13 @@ BIN_DIR="${COMMON_FILES_DIR}/bin"
 mkdir -p "${BIN_DIR}"
 
 # On mac, brew install gnu-tar gnu-cp
-# and set CP=gcp TAR=gtar
+# and set CP="gcp" TAR="gtar"
 
 if [[ -z "${CP}" ]] ; then
-  CP=cp
+  CP="cp"
 fi
 if [[ -z "${TAR}" ]] ; then
-  TAR=tar
+  TAR="tar"
 fi
 
 function create_linux_archive() {
@@ -111,6 +111,9 @@ pushd "${OUTPUT_PATH}"
 ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
+  -o -name "*.yml" \
+  -o -name "*.cfg" \
+  -o -name "*.j2" \
   -o -name "cleanup*" \
   -o -name "*.md" \
   -o -name "*.conf" \
@@ -138,7 +141,7 @@ for unwanted_manifest in \
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
 done
 
-ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
 # Changing dir such that tar and zip files are
 # created with right hiereachy
@@ -148,4 +151,4 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf $TEMP_DIR
+rm -rf "$TEMP_DIR"

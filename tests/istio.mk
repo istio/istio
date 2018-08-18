@@ -43,6 +43,8 @@ e2e_docker: push
 
 endif
 
+E2E_TIMEOUT ?= 25
+
 # If set outside, it appears it is not possible to modify the variable.
 E2E_ARGS ?=
 
@@ -109,7 +111,7 @@ e2e_galley_run: out_dir
 	go test -v -timeout 25m ./tests/e2e/tests/galley -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
 e2e_dashboard_run: out_dir
-	go test -v -timeout 25m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
+	go test -v -timeout 25m ./tests/e2e/tests/dashboard -args ${E2E_ARGS} ${EXTRA_E2E_ARGS} -use_galley_config_validator -cluster_wide
 
 e2e_bookinfo_run: out_dir
 	go test -v -timeout 60m ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} ${EXTRA_E2E_ARGS}
@@ -177,19 +179,19 @@ test/local/e2e_galley: out_dir istioctl generate_yaml
 
 # v1alpha3+envoyv2 test without MTLS
 test/local/noauth/e2e_pilotv2: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=false --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
+		--auth_enable=false --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 # v1alpha3+envoyv2 test with MTLS
 test/local/auth/e2e_pilotv2: out_dir generate_yaml
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/pilot \
-		--auth_enable=true --egress=false --ingress=false --rbac_enable=true --cluster_wide \
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
+		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
-	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 test/local/cloudfoundry/e2e_pilotv2: out_dir
 	sudo apt update
@@ -217,3 +219,34 @@ junit-report: out_dir ${ISTIO_BIN}/go-junit-report
 # This assume istio runs in istio-system namespace, and 'skip-cleanup' was used in tests.
 dumpsys: out_dir
 	tools/dump_kubernetes.sh --output-directory ${OUT_DIR}/logs --error-if-nasty-logs
+
+# Run once for each cluster, to install helm on the cluster
+helm/init: ${HELM}
+	kubectl apply -n kube-system -f install/kubernetes/helm/helm-service-account.yaml
+	helm init --upgrade --service-account tiller
+
+# Install istio for the first time
+helm/install:
+	${HELM} install \
+	  install/kubernetes/helm/istio \
+	  --name istio-system --namespace istio-system \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS}
+
+# Upgrade istio. Options must be set:
+#  "make helm/upgrade HELM_ARGS="--values myoverride.yaml"
+helm/upgrade:
+	${HELM} upgrade \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS} \
+	  istio-system install/kubernetes/helm/istio
+
+# Delete istio installed with helm
+# Note that for Helm 2.10, the CRDs are not cleared
+helm/delete:
+	${HELM} delete --purge istio-system
+	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

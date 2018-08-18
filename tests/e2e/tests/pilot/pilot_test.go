@@ -36,12 +36,12 @@ import (
 )
 
 const (
-	defaultRetryBudget      = 50
+	defaultRetryBudget      = 10
 	retryDelay              = time.Second
 	httpOK                  = "200"
 	ingressAppName          = "ingress"
 	ingressContainerName    = "ingress"
-	defaultPropagationDelay = 10 * time.Second
+	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
 )
 
@@ -152,16 +152,44 @@ func runRetriableTest(t *testing.T, cluster, testName string, retries int, f fun
 	})
 }
 
+type resource struct {
+	// Kind of the resource
+	Kind string
+	// Name of the resource
+	Name string
+}
+
 // deployableConfig is a collection of configs that are applied/deleted as a single unit.
 type deployableConfig struct {
-	Namespace  string
-	YamlFiles  []string
+	Namespace string
+	YamlFiles []string
+	// List of resources must be removed during deployableConfig setup, and restored
+	// during teardown. These resources must exist before deployableConfig setup runs, and should be
+	// in the same namespace defined above. Typically, they are added by the default Istio installation
+	// (e.g the default global authentication policy) and need to be modified for tests.
+	Removes    []resource
 	applied    []string
+	removed    []string
 	kubeconfig string
 }
 
 // Setup pushes the config and waits for it to propagate to all nodes in the cluster.
 func (c *deployableConfig) Setup() error {
+	c.removed = []string{}
+	for _, r := range c.Removes {
+		content, err := util.KubeGetYaml(c.Namespace, r.Kind, r.Name, c.kubeconfig)
+		if err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		if err := util.KubeDeleteContents(c.Namespace, content, c.kubeconfig); err != nil {
+			// Run the teardown function now and return
+			_ = c.Teardown()
+			return err
+		}
+		c.removed = append(c.removed, content)
+	}
 	c.applied = []string{}
 	// Apply the configs.
 	for _, yamlFile := range c.YamlFiles {
@@ -192,6 +220,10 @@ func (c *deployableConfig) TeardownNoDelay() error {
 	var err error
 	for _, yamlFile := range c.applied {
 		err = multierr.Append(err, util.KubeDelete(c.Namespace, yamlFile, c.kubeconfig))
+	}
+	// Restore configs that was removed
+	for _, yaml := range c.removed {
+		err = multierr.Append(err, util.KubeApplyContents(c.Namespace, yaml, c.kubeconfig))
 	}
 	c.applied = []string{}
 	return err
@@ -246,19 +278,19 @@ func (t *testConfig) Teardown() (err error) {
 func getApps(tc *testConfig) []framework.App {
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false),
-		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool) framework.App {
+	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -280,6 +312,7 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"istioNamespace":  tc.Kube.Namespace,
 			"injectProxy":     strconv.FormatBool(injectProxy),
 			"headless":        strconv.FormatBool(headless),
+			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
 		},

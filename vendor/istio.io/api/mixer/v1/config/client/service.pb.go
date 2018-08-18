@@ -33,7 +33,7 @@ type IstioService struct {
 	Service string `protobuf:"bytes,4,opt,name=service,proto3" json:"service,omitempty"`
 	// Optional one or more labels that uniquely identify the service version.
 	//
-	// *Note:* When used for a RouteRule destination, labels MUST be empty.
+	// *Note:* When used for a VirtualService destination, labels MUST be empty.
 	//
 	Labels map[string]string `protobuf:"bytes,5,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }

@@ -20,10 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -409,29 +407,29 @@ func TestValidateProxyAddress(t *testing.T) {
 
 func TestValidateDuration(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: -1},
+			duration: &types.Duration{Seconds: 1, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: -11, Nanos: -1},
+			duration: &types.Duration{Seconds: -11, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 1},
+			duration: &types.Duration{Nanos: 1},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Seconds: 1, Nanos: 1},
+			duration: &types.Duration{Seconds: 1, Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -445,55 +443,55 @@ func TestValidateDuration(t *testing.T) {
 
 func TestValidateParentAndDrain(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent duration.Duration
-		Drain  duration.Duration
+		Parent types.Duration
+		Drain  types.Duration
 		Valid  bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  true,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1},
-			Drain:  duration.Duration{Seconds: 2},
+			Parent: types.Duration{Seconds: 1},
+			Drain:  types.Duration{Seconds: 2},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1, Nanos: 1000000},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: 2, Nanos: 1000000},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: -2},
-			Drain:  duration.Duration{Seconds: 1},
+			Parent: types.Duration{Seconds: -2},
+			Drain:  types.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: -1},
+			Parent: types.Duration{Seconds: 2},
+			Drain:  types.Duration{Seconds: -1},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  duration.Duration{Seconds: 10},
+			Parent: types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  types.Duration{Seconds: 10},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 10},
-			Drain:  duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Parent: types.Duration{Seconds: 10},
+			Drain:  types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
@@ -507,21 +505,21 @@ func TestValidateParentAndDrain(t *testing.T) {
 
 func TestValidateRefreshDelay(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 36001},
+			duration: &types.Duration{Seconds: 36001},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 1},
+			duration: &types.Duration{Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -535,21 +533,21 @@ func TestValidateRefreshDelay(t *testing.T) {
 
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
-		duration *duration.Duration
+		duration *types.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &duration.Duration{Seconds: 1},
+			duration: &types.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &duration.Duration{Seconds: 31},
+			duration: &types.Duration{Seconds: 31},
 			isValid:  false,
 		},
 		{
-			duration: &duration.Duration{Nanos: 99999},
+			duration: &types.Duration{Nanos: 99999},
 			isValid:  false,
 		},
 	}
@@ -570,9 +568,9 @@ func TestValidateMeshConfig(t *testing.T) {
 		MixerCheckServer:  "10.0.0.100",
 		MixerReportServer: "10.0.0.100",
 		ProxyListenPort:   0,
-		ConnectTimeout:    ptypes.DurationProto(-1 * time.Second),
+		ConnectTimeout:    types.DurationProto(-1 * time.Second),
 		AuthPolicy:        -1,
-		RdsRefreshDelay:   ptypes.DurationProto(-1 * time.Second),
+		RdsRefreshDelay:   types.DurationProto(-1 * time.Second),
 		DefaultConfig:     &meshconfig.ProxyConfig{},
 	}
 
@@ -602,10 +600,10 @@ func TestValidateProxyConfig(t *testing.T) {
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
 		ProxyAdminPort:         0,
-		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  ptypes.DurationProto(-1 * time.Second),
-		ConnectTimeout:         ptypes.DurationProto(-1 * time.Second),
+		DrainDuration:          types.DurationProto(-1 * time.Second),
+		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
+		DiscoveryRefreshDelay:  types.DurationProto(-1 * time.Second),
+		ConnectTimeout:         types.DurationProto(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
 		ZipkinAddress:          "10.0.0.100",
@@ -1119,6 +1117,12 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"domain"},
+		{"invalid short name host",
+			&networking.Server{
+				Hosts: []string{"foo"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"short names"},
 		{"invalid port",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
@@ -1132,6 +1136,28 @@ func TestValidateServer(t *testing.T) {
 				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
+		{"no tls on HTTPS",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 10000, Name: "https", Protocol: "https"},
+			},
+			"must have TLS"},
+		{"tls on HTTP",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
+				Tls:   &networking.Server_TLSOptions{Mode: networking.Server_TLSOptions_SIMPLE},
+			},
+			"cannot have TLS"},
+		{"tls redirect on HTTP",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 10000, Name: "http", Protocol: "http"},
+				Tls: &networking.Server_TLSOptions{
+					HttpsRedirect: true,
+				},
+			},
+			""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1864,7 +1890,28 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 		},
 			valid: true},
+		{name: "invalid traffic policy, nil entries", in: networking.TrafficPolicy{},
+			valid: false},
 
+		{name: "invalid traffic policy, missing port in port level settings", in: networking.TrafficPolicy{
+			PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+				{
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: &networking.LoadBalancerSettings_Simple{
+							Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+						},
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+					},
+					OutlierDetection: &networking.OutlierDetection{
+						ConsecutiveErrors: 5,
+					},
+				},
+			},
+		},
+			valid: false},
 		{name: "invalid traffic policy, bad connection pool", in: networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2256,16 +2303,20 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 			valid: true},
 
-		{name: "discovery type not none, cidr addresses", in: networking.ServiceEntry{
+		{name: "discovery type static, cidr addresses with endpoints", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
 			Addresses: []string{"172.1.2.16/16"},
 			Ports: []*networking.Port{
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 				{Number: 8080, Protocol: "http", Name: "http-valid2"},
 			},
+			Endpoints: []*networking.ServiceEntry_Endpoint{
+				{Address: "1.1.1.1", Ports: map[string]uint32{"http-valid1": 8080}},
+				{Address: "2.2.2.2", Ports: map[string]uint32{"http-valid2": 9080}},
+			},
 			Resolution: networking.ServiceEntry_STATIC,
 		},
-			valid: false},
+			valid: true},
 
 		{name: "discovery type static", in: networking.ServiceEntry{
 			Hosts:     []string{"google.com"},
@@ -2911,6 +2962,18 @@ func TestValidateRbacConfig(t *testing.T) {
 			caseName: "success proto",
 			name:     DefaultRbacConfigName,
 			in:       &rbac.RbacConfig{Mode: rbac.RbacConfig_ON},
+		},
+		{
+			caseName:     "empty exclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_EXCLUSION},
+			expectErrMsg: "exclusion cannot be null (use 'exclusion: {}' for none)",
+		},
+		{
+			caseName:     "empty inclusion",
+			name:         DefaultRbacConfigName,
+			in:           &rbac.RbacConfig{Mode: rbac.RbacConfig_ON_WITH_INCLUSION},
+			expectErrMsg: "inclusion cannot be null (use 'inclusion: {}' for none)",
 		},
 	}
 	for _, c := range cases {

@@ -190,9 +190,19 @@ func (i *baseDocEqIndex) Lookup(resolver ValueResolver) (*IndexResult, error) {
 	return result, nil
 }
 
+func indexedOperator(expr *Expr) bool {
+	if expr.IsEquality() {
+		return true
+	}
+	if expr.Operator().Compare(Equal.Ref()) == 0 {
+		return true
+	}
+	return false
+}
+
 func (i *baseDocEqIndex) getRefAndValue(expr *Expr) (Ref, Value, bool) {
 
-	if !expr.IsEquality() || expr.Negated {
+	if !indexedOperator(expr) || expr.Negated {
 		return nil, nil, false
 	}
 

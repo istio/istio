@@ -22,14 +22,3 @@ Create chart name and version as used by the chart label.
 {{- define "certmanager.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "certmanager.serviceAccountName" -}}
-{{- if .Values.global.rbacEnabled -}}
-    {{ default (include "certmanager.fullname" .) .Values.serviceAccountName }}
-{{- else -}}
-    {{ default "default" .Values.serviceAccountName }}
-{{- end -}}
-{{- end -}}

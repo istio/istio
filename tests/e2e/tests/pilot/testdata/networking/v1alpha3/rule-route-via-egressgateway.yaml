@@ -6,6 +6,7 @@ spec:
   hosts:
     - "*.bookinfo.com"
     - www.google.com
+    - www.bing.com
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
   - istio-egressgateway
@@ -43,6 +44,7 @@ spec:
         port: 443
         sniHosts:
         - www.google.com
+        - www.bing.com
       route:
       - destination:
           host: istio-egressgateway.istio-system.svc.cluster.local
@@ -57,5 +59,16 @@ spec:
       route:
       - destination:
           host: www.google.com
+          port:
+            number: 443
+    - match:
+      - gateways:
+        - istio-egressgateway
+        port: 443
+        sniHosts:
+        - www.bing.com
+      route:
+      - destination:
+          host: www.bing.com
           port:
             number: 443

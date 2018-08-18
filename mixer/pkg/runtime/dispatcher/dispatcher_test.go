@@ -380,7 +380,7 @@ ident                         : dest.istio-system
 	},
 
 	{
-		name: "BasicQuotaError2",
+		name: "QuotaRequestUnknownQuota",
 		config: []string{
 			data.HandlerAQuota1,
 			data.InstanceQuota1,
@@ -391,9 +391,36 @@ ident                         : dest.istio-system
 			Quota:           "XXX",
 			BestEffort:      true,
 			DeduplicationID: "42",
-			Amount:          64,
+			Amount:          10697,
 		},
-		err: `requested quota 'XXX' is invalid`,
+		expectedQuotaResult: adapter.QuotaResult{
+			Amount:        10697,
+			ValidDuration: time.Minute,
+		},
+	},
+
+	{
+		name: "QuotaRequestConditionalUnmatchedQuota",
+		config: []string{
+			data.HandlerAQuota1,
+			data.InstanceQuota1WithSpec,
+			data.RuleQuota1Conditional,
+		},
+		variety: tpb.TEMPLATE_VARIETY_QUOTA,
+		qma: &QuotaMethodArgs{
+			Quota:           "iquota1",
+			BestEffort:      true,
+			DeduplicationID: "42",
+			Amount:          10697,
+		},
+		attr: map[string]interface{}{
+			"attr.string": "XXX",
+			"ident":       "dest.istio-system",
+		},
+		expectedQuotaResult: adapter.QuotaResult{
+			Amount:        10697,
+			ValidDuration: time.Minute,
+		},
 	},
 
 	{

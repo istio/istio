@@ -18,25 +18,42 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	gogo_types "github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-func TestToProto(t *testing.T) {
+func TestToProto_Success(t *testing.T) {
 	spec := map[string]interface{}{}
 
-	s := resource.NewSchema()
-	s.Register("type.googleapis.com/google.protobuf.Empty", true)
-	i, _ := s.Lookup("type.googleapis.com/google.protobuf.Empty")
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Empty")
+	s := b.Build()
+	i := s.Get("type.googleapis.com/google.protobuf.Empty")
 
 	p, err := toProto(i, spec)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var expected = &types.Empty{}
+	var expected = &gogo_types.Empty{}
 	if !reflect.DeepEqual(p, expected) {
 		t.Fatalf("Mismatch\nExpected:\n%+v\nActual:\n%+v\n", expected, p)
+	}
+}
+
+func TestToProto_Error(t *testing.T) {
+	spec := map[string]interface{}{
+		"value": 23,
+	}
+
+	b := resource.NewSchemaBuilder()
+	b.Register("type.googleapis.com/google.protobuf.Any")
+	s := b.Build()
+	i := s.Get("type.googleapis.com/google.protobuf.Any")
+
+	_, err := toProto(i, spec)
+	if err == nil {
+		t.Fatalf("expected error not found")
 	}
 }

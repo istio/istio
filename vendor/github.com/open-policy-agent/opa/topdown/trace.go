@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/topdown/builtins"
 )
 
 // Op defines the types of tracing events.
@@ -34,6 +35,13 @@ const (
 
 	// FailOp is emitted when an expression evaluates to false.
 	FailOp Op = "Fail"
+
+	// NoteOp is emitted when an expression invokes a tracing built-in function.
+	NoteOp Op = "Note"
+
+	// IndexOp is emitted during an expression evaluation to represent lookup
+	// matches.
+	IndexOp Op = "Index"
 )
 
 // Event contains state associated with a tracing event.
@@ -43,6 +51,7 @@ type Event struct {
 	QueryID  uint64        // Identifies the query this event belongs to.
 	ParentID uint64        // Identifies the parent query this event belongs to.
 	Locals   *ast.ValueMap // Contains local variable bindings from the query context.
+	Message  string        // Contains message for Note events.
 }
 
 // HasRule returns true if the Event contains an ast.Rule.
@@ -143,6 +152,9 @@ func PrettyTrace(w io.Writer, trace []*Event) {
 
 func formatEvent(event *Event, depth int) string {
 	padding := formatEventPadding(event, depth)
+	if event.Op == NoteOp {
+		return fmt.Sprintf("%v%v %q", padding, event.Op, event.Message)
+	}
 	return fmt.Sprintf("%v%v %v", padding, event.Op, event.Node)
 }
 
@@ -180,4 +192,30 @@ func (ds depths) GetOrSet(qid uint64, pqid uint64) int {
 		ds[qid] = depth
 	}
 	return depth
+}
+
+func builtinTrace(bctx BuiltinContext, args []*ast.Term, iter func(*ast.Term) error) error {
+
+	str, err := builtins.StringOperand(args[0].Value, 1)
+	if err != nil {
+		return handleBuiltinErr(ast.Trace.Name, bctx.Location, err)
+	}
+
+	if bctx.Tracer == nil || !bctx.Tracer.Enabled() {
+		return iter(ast.BooleanTerm(true))
+	}
+
+	evt := &Event{
+		Op:       NoteOp,
+		QueryID:  bctx.QueryID,
+		ParentID: bctx.ParentID,
+		Message:  string(str),
+	}
+	bctx.Tracer.Trace(evt)
+
+	return iter(ast.BooleanTerm(true))
+}
+
+func init() {
+	RegisterBuiltinFunc(ast.Trace.Name, builtinTrace)
 }

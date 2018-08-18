@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/mixer/adapter/signalfx/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/tracespan"
 )
 
 func TestGetInfo(t *testing.T) {
@@ -33,8 +34,10 @@ func TestGetInfo(t *testing.T) {
 		t.Fatalf("GetInfo().Name=%s; want %s", i.Name, "signalfx")
 	}
 
-	if !reflect.DeepEqual(i.SupportedTemplates, []string{metric.TemplateName}) {
-		t.Fatalf("GetInfo().SupportedTemplates=%v; want %v", i.SupportedTemplates, []string{metric.TemplateName})
+	want := []string{metric.TemplateName, tracespan.TemplateName}
+
+	if !reflect.DeepEqual(i.SupportedTemplates, want) {
+		t.Fatalf("GetInfo().SupportedTemplates=%v; want %v", i.SupportedTemplates, want)
 	}
 }
 
@@ -74,6 +77,7 @@ func TestValidation(t *testing.T) {
 			config.Params{
 				AccessToken:       "abcd",
 				DatapointInterval: 5 * time.Second,
+				TracingBufferSize: 1000,
 				Metrics: []*config.Params_MetricConfig{
 					{
 						Name: "bytes_sent",

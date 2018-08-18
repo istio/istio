@@ -23,8 +23,6 @@ rules:
   - watch
 - apiGroups: ["config.istio.io"]
   resources:
-  - routerules
-  - destinationpolicies
   - rules
   - circonuses
   - deniers
@@ -50,6 +48,8 @@ rules:
   - quotas
   - reportnothings
   - servicecontrolreports
+  - quotaspecs
+  - quotaspecbindings
   verbs:
   - get
   - list

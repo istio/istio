@@ -14,4 +14,3 @@ spec:
       - destination:
           host: c
           subset: v1
-      websocketUpgrade: true

@@ -213,7 +213,12 @@ func (m *LocalityLbEndpoints) Validate() error {
 
 	}
 
-	// no validation rules for Priority
+	if m.GetPriority() > 128 {
+		return LocalityLbEndpointsValidationError{
+			Field:  "Priority",
+			Reason: "value must be less than or equal to 128",
+		}
+	}
 
 	return nil
 }
@@ -257,7 +262,12 @@ func (m *Endpoint_HealthCheckConfig) Validate() error {
 		return nil
 	}
 
-	// no validation rules for PortValue
+	if m.GetPortValue() > 65535 {
+		return Endpoint_HealthCheckConfigValidationError{
+			Field:  "PortValue",
+			Reason: "value must be less than or equal to 65535",
+		}
+	}
 
 	return nil
 }
