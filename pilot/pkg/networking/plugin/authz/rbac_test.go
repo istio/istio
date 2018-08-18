@@ -18,17 +18,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	rbacconfig "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/gogo/protobuf/types"
 )
 
 func newIstioStoreWithConfigs(configs []model.Config, t *testing.T) model.IstioConfigStore {
@@ -232,6 +233,17 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-3"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"allow-group"},
+						Methods:  []string{"GET"},
+					},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -270,6 +282,21 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				RoleRef: &rbacproto.RoleRef{
 					Kind: "ServiceRole",
 					Name: "service-role-2",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-3"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						Group:      "group*",
+						Properties: map[string]string{},
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-3",
 				},
 			},
 		},
@@ -545,6 +572,48 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		}},
 	}
 
+	policy3 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{
+						{
+							Rule: &policy.Permission_OrRules{
+								OrRules: &policy.Permission_Set{
+									Rules: []*policy.Permission{
+										{
+											Rule: &policy.Permission_Header{
+												Header: &route.HeaderMatcher{
+													Name: ":method",
+													HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+														ExactMatch: "GET",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{
+						{
+							Identifier: &policy.Principal_Metadata{
+								Metadata: generateMetadataListMatcher(
+									[]string{attrRequestClaims, "groups"}, "group*"),
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -556,6 +625,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-2": policy2,
+		},
+	}
+	expectRbac3 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-3": policy3,
 		},
 	}
 	testCases := []struct {
@@ -598,6 +673,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac: expectRbac2,
+		},
+		{
+			name: "test group",
+			service: &serviceMetadata{
+				name: "allow-group",
+			},
+			rbac: expectRbac3,
 		},
 	}
 

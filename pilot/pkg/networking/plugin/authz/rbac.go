@@ -77,7 +77,7 @@ const (
 // serviceMetadata is a collection of different kind of information about a service.
 type serviceMetadata struct {
 	name       string            // full qualified service name, e.g. "productpage.default.svc.cluster.local
-	labels     map[string]string // labels of the service instance
+	labels     map[string]string // labels of the service instance from Pilot, which can be k8s labels for the service
 	attributes map[string]string // additional attributes of the service
 }
 
@@ -463,6 +463,8 @@ func convertRbacRulesToFilterConfig(
 				// Generate the policy if the service is matched to the services specified in ServiceRole.
 				rbacLog.Debugf("matched AccessRule[%d]", i)
 				permissions = append(permissions, convertToPermission(rule))
+			} else {
+				rbacLog.Debugf("Not matched to AccessRule[%d]: %s\n", i, rule.String())
 			}
 		}
 		if len(permissions) == 0 {
@@ -573,7 +575,12 @@ func convertToPrincipal(subject *rbacproto.Subject) *policyproto.Principal {
 	}
 
 	if subject.Group != "" {
-		rbacLog.Errorf("ignored Subject.group %s, not implemented", subject.Group)
+		if subject.Properties["request.auth.claims[groups]"] == "" {
+			// Treat subject.Group as the request.auth.claims[groups] property if no existing
+			// request.auth.claims[groups] has been defined for the subject
+			rbacLog.Debugf("Treat subject.Group (%s) as the request.auth.claims[groups]\n", subject.Group)
+			subject.Properties["request.auth.claims[groups]"] = subject.Group
+		}
 	}
 
 	if len(subject.Properties) != 0 {
@@ -671,6 +678,9 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 	return &policyproto.Permission{Rule: orRules}
 }
 
+// Create a Principal based on the key and the value.
+// key: the key of a subject property.
+// value: the value of a subject property.
 func principalForKeyValue(key, value string) *policyproto.Principal {
 	switch {
 	case key == attrSrcIP:
