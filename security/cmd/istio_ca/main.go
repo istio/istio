@@ -356,7 +356,8 @@ func runCA() {
 
 		ch := make(chan struct{})
 
-		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
+		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" and
+		// "alpha.istio.io/canonical-serviceaccounts" annotations
 		serviceController := kube.NewServiceController(cs.CoreV1(), opts.listenedNamespace, reg)
 		serviceController.Run(ch)
 

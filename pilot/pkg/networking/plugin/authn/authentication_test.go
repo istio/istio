@@ -17,6 +17,7 @@ package authn
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -28,6 +29,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	jwtfilter "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -518,6 +520,8 @@ func TestBuildAuthNFilter(t *testing.T) {
 }
 
 func TestOnInboundFilterChains(t *testing.T) {
+	refreshDelay := 15 * time.Second
+
 	tlsContext := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
 			TlsCertificates: []*auth.TlsCertificate{
@@ -548,13 +552,16 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: &types.BoolValue{Value: true},
 	}
 	cases := []struct {
-		name     string
-		in       *authn.Policy
-		expected []plugin.FilterChain
+		name           string
+		in             *authn.Policy
+		serviceAccount string
+		meshConfig     *meshconfig.MeshConfig
+		expected       []plugin.FilterChain
 	}{
 		{
-			name: "NoAuthnPolicy",
-			in:   nil,
+			name:       "NoAuthnPolicy",
+			in:         nil,
+			meshConfig: &meshconfig.MeshConfig{},
 			// No need to set up filter chain, default one is okay.
 			expected: nil,
 		},
@@ -571,7 +578,8 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
-			expected: nil,
+			meshConfig: &meshconfig.MeshConfig{},
+			expected:   nil,
 		},
 		{
 			name: "mTLSWithNilParamMode",
@@ -582,6 +590,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meshConfig: &meshconfig.MeshConfig{},
 			expected: []plugin.FilterChain{
 				{
 					TLSContext: tlsContext,
@@ -601,6 +610,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meshConfig: &meshconfig.MeshConfig{},
 			// Only one filter chain with mTLS settings should be generated.
 			expected: []plugin.FilterChain{
 				{
@@ -621,6 +631,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 				},
 			},
+			meshConfig: &meshconfig.MeshConfig{},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			expected: []plugin.FilterChain{
 				{
@@ -640,9 +651,74 @@ func TestOnInboundFilterChains(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "mTLS policy using SDS",
+			in: &authn.Policy{
+				Peers: []*authn.PeerAuthenticationMethod{
+					{
+						Params: &authn.PeerAuthenticationMethod_Mtls{},
+					},
+				},
+			},
+			meshConfig: &meshconfig.MeshConfig{
+				SdsUdsPath: "/tmp/sdsuds.sock",
+				//SdsRefreshDelay: ptypes.DurationProto(refreshDelay),
+				SdsRefreshDelay: types.DurationProto(refreshDelay),
+			},
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			expected: []plugin.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+								{
+									Name: "spiffe://cluster.local/ns/bar/sa/foo",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType: core.ApiConfigSource_GRPC,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+															GoogleGrpc: &core.GrpcService_GoogleGrpc{
+																TargetUri:  "/tmp/sdsuds.sock",
+																StatPrefix: model.SDSStatPrefix,
+																CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+																	&core.GrpcService_GoogleGrpc_CallCredentials{
+																		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+																			GoogleComputeEngine: &types.Empty{},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+												RefreshDelay: &refreshDelay,
+											},
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+								ValidationContext: &auth.CertificateValidationContext{
+									TrustedCa: &core.DataSource{
+										Specifier: &core.DataSource_Filename{
+											Filename: model.CARootCertPath,
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: &types.BoolValue{true},
+					},
+				},
+			},
+		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.serviceAccount, c.meshConfig); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

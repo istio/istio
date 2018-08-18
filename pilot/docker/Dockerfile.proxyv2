@@ -17,6 +17,9 @@ ADD pilot-agent /usr/local/bin/pilot-agent
 ADD envoy_pilot.yaml.tmpl /etc/istio/proxy/envoy_pilot.yaml.tmpl
 ADD envoy_policy.yaml.tmpl /etc/istio/proxy/envoy_policy.yaml.tmpl
 ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
+
+ADD ca-root-cert.pem /etc/istio/certs/ca-root-cert.pem
+
 ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json

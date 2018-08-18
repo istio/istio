@@ -1,4 +1,4 @@
-# This yaml brings up node agent as a DaemonSet, which takes FlexVolume driver connection.
+# This yaml brings up node agent as a DaemonSet.
 # A detailed tutorial will be added soon.
 apiVersion: extensions/v1beta1
 kind: DaemonSet
@@ -11,41 +11,14 @@ spec:
         app: nodeagent
         version: v1
     spec:
-      initContainers:
-      - name: flexvol-driver
-        image: gcr.io/istio-testing/flexvol:latest
-        volumeMounts:
-        - name: flexvol-driver-host
-          mountPath: /host/driver
       containers:
       - name: nodeagent
-        image: gcr.io/istio-testing/nodeagent:latest
+        image: "{{ .Values.global.hub }}/node-agent-k8s:{{ .Values.global.tag }}"
         imagePullPolicy: IfNotPresent
-        command: ["/main"]
-        args: ["--ca-address=istio-citadel.istio-system.svc.cluster.local:8060"]
         volumeMounts:
-        - name: test-mgmt
-          mountPath: /tmp/udsuspver
-        - name: test-workload
-          mountPath: /tmp/nodeagent
-        - name: istio-certs
-          mountPath: /etc/certs
+        - mountPath: /var/run/sds
+          name: sdsudspath
       volumes:
-        - name: test-mgmt
-          hostPath:
-            # directory location on host for the mgmt api between flexvolume driver and nodeagent
-            type: DirectoryOrCreate
-            path: /tmp/udsuspver
-        - name: test-workload
-          hostPath:
-            # directory location on host for the uds between nodeagent and workload
-            type: DirectoryOrCreate
-            path: /tmp/nodeagent
-        - name: flexvol-driver-host
-          hostPath:
-            type: DirectoryOrCreate
-            path: /home/kubernetes/flexvolume/nodeagent~uds
-        - name: istio-certs
-          secret:
-            optional: false
-            secretName: istio.default # TODO(incfly): use other secret names for provision root key cert
+      - name: sdsudspath
+        hostPath:
+          path: /var/run/sds

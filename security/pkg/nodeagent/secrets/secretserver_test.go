@@ -16,7 +16,6 @@ package secrets
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -106,27 +105,5 @@ func TestNewSecretServer_FileMode(t *testing.T) {
 		if !bytes.Equal(root, rootBytes) {
 			t.Errorf("unexpecte root for %v, want\n%v\ngot\n%v", host, string(root), string(rootBytes))
 		}
-	}
-}
-
-func TestNewSecretServer_WorkloadAPI(t *testing.T) {
-	ss, err := NewSecretServer(&Config{Mode: SecretDiscoveryServiceAPI})
-	if err != nil {
-		t.Errorf("failed to create SDS mode secret server err (%v)", err)
-	}
-	if ss == nil {
-		t.Errorf("secretServer should not be nil")
-	}
-}
-
-func TestNewSecretServer_Unsupported(t *testing.T) {
-	actual, err := NewSecretServer(&Config{Mode: SecretDiscoveryServiceAPI + 1})
-	expectedErr := fmt.Errorf("mode: 2 is not supported")
-	if err == nil || err.Error() != expectedErr.Error() {
-		t.Errorf("error message mismatch got %v want %v", err, expectedErr)
-	}
-
-	if actual != nil {
-		t.Errorf("server should be nil")
 	}
 }

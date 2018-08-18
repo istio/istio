@@ -24,7 +24,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
 # static files/directories that are copied from source tree
-
+NODE_AGENT_K8S_FILES:=security/docker/roots.pem
 NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
                        security/docker/app.js
 
@@ -56,7 +56,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # tell make which files are copied form go/out
 DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
-                             istio_ca node_agent galley
+                             istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $$< $$(@D)))
 
@@ -66,7 +66,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 
 # tell make which files are copied from the source tree
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
-                          $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) \
+                          $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES) $(NODE_AGENT_K8S_FILES) \
                           pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
 $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
         $(eval $(ISTIO_DOCKER)/$(notdir $(FILE)): $(FILE) | $(ISTIO_DOCKER); cp $(FILE) $$(@D)))
@@ -83,9 +83,11 @@ docker.proxy_debug: pilot/docker/Dockerfile.proxyv2
 docker.proxy_debug: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxy_debug: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxy_debug: security/docker/ca-root-cert.pem
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyd
 	cp ${ISTIO_ENVOY_DEBUG_PATH} $(DOCKER_BUILD_TOP)/proxyd/envoy
 	cp pilot/docker/*.yaml.tmpl $(DOCKER_BUILD_TOP)/proxyd/
+	cp security/docker/ca-root-cert.pem $(DOCKER_BUILD_TOP)/proxyd/
 	# Not using $^ to avoid 2 copies of envoy
 	cp tools/deb/envoy_bootstrap_v2.json tools/deb/istio-iptables.sh $(ISTIO_OUT)/pilot-agent pilot/docker/Dockerfile.proxyv2 $(DOCKER_BUILD_TOP)/proxyd/
 	time (cd $(DOCKER_BUILD_TOP)/proxyd && \
@@ -108,6 +110,7 @@ docker.proxyv2: pilot/docker/envoy_pilot.yaml.tmpl
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: tools/deb/istio-iptables.sh
 docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
+docker.proxyv2: security/docker/ca-root-cert.pem
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 	cp $^ $(DOCKER_BUILD_TOP)/proxyv2/
 	time (cd $(DOCKER_BUILD_TOP)/proxyv2 && \
@@ -192,12 +195,14 @@ $(GALLEY_DOCKER): galley/docker/Dockerfile$$(suffix $$@) $(ISTIO_DOCKER)/galley 
 
 docker.citadel:         $(ISTIO_DOCKER)/istio_ca     $(ISTIO_DOCKER)/ca-certificates.tgz
 docker.citadel-test:    $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key
+docker.node-agent-k8s:   $(ISTIO_DOCKER)/node_agent_k8s
+$(foreach FILE,$(NODE_AGENT_K8S_FILES),$(eval docker.node-agent-k8s: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 docker.node-agent:      $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent $(ISTIO_DOCKER)/istio_ca.key \
                         $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key
 $(foreach FILE,$(NODE_AGENT_TEST_FILES),$(eval docker.node-agent-test: $(ISTIO_DOCKER)/$(notdir $(FILE))))
 
-SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent docker.node-agent-test
+SECURITY_DOCKER:=docker.citadel docker.citadel-test docker.node-agent-k8s docker.node-agent docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@) | $(ISTIO_DOCKER)
 	$(DOCKER_RULE)
 

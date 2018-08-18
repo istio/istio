@@ -12,35 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+// Package model contains data models for nodeagent.
+package model
 
-import (
-	"net/http"
+import "time"
 
-	"github.com/spf13/cobra"
+// SecretItem is the cached item in in-memory secret store.
+type SecretItem struct {
+	CertificateChain []byte
+	PrivateKey       []byte
 
-	"istio.io/istio/pilot/pkg/request"
-)
+	// SpiffeID passed from envoy.
+	SpiffeID string
 
-var (
-	requestCmd = &cobra.Command{
-		Use:   "request <method> <path> [<body>]",
-		Short: "Makes an HTTP request to the Envoy admin API",
-		Args:  cobra.MinimumNArgs(2),
-		RunE: func(c *cobra.Command, args []string) error {
-			command := &request.Command{
-				Address: "127.0.0.1:15000",
-				Client:  &http.Client{},
-			}
-			body := ""
-			if len(args) >= 3 {
-				body = args[2]
-			}
-			return command.Do(args[0], args[1], body)
-		},
-	}
-)
+	// Credential token passed from envoy, caClient uses this token to send
+	// CSR to CA to sign certificate.
+	Token string
 
-func init() {
-	rootCmd.AddCommand(requestCmd)
+	// Version is used(together with token and SpiffeID) to identify discovery request from
+	// envoy which is used only for confirm purpose.
+	Version string
+
+	CreatedTime time.Time
 }

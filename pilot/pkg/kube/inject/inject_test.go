@@ -471,6 +471,7 @@ func newTestParams() *Params {
 		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
 		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
 		ImagePullPolicy:     "IfNotPresent",
+		SDSAPIEnabled:       false,
 		Verbosity:           DefaultVerbosity,
 		SidecarProxyUID:     DefaultSidecarProxyUID,
 		Version:             "12345678",
