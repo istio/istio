@@ -52,7 +52,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: {{ .Values.security.secretName }}
-                key: {{ .Values.security.passwordKey }}
+                key: {{ .Values.security.passphraseKey }}
           - name: GF_AUTH_BASIC_ENABLED
             value: "true"
           - name: GF_AUTH_ANONYMOUS_ENABLED

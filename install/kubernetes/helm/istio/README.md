@@ -86,7 +86,7 @@ $ echo -n 'admin' | base64
 YWRtaW4=
 ```
 
-Encode password, you can chage the password to the password as you want:
+Encode passphrase, you can chage the passphrase to the passphrase as you want:
 ```
 $ echo -n '1f2d1e2e67df' | base64
 MWYyZDFlMmU2N2Rm
@@ -110,7 +110,7 @@ metadata:
 type: Opaque
 data:
   username: YWRtaW4=
-  password: MWYyZDFlMmU2N2Rm
+  passphrase: MWYyZDFlMmU2N2Rm
 EOF
 ```
 

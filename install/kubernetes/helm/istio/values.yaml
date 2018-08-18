@@ -411,7 +411,7 @@ grafana:
     enabled: false
     secretName: grafana
     usernameKey: username
-    passwordKey: password
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
