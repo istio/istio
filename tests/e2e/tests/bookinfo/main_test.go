@@ -65,11 +65,11 @@ const (
 var (
 	u1 = user{
 		username:      "normal-user",
-		sessionCookie: "eyJ1c2VyIjoibm9ybWFsLXVzZXIifQ.Di_G8A.9xNK4BEiyV0-vPOB3mWF6_PXKrw",
+		sessionCookie: "eyJ1c2VyIjoibm9ybWFsLXVzZXIifQ.DlkrOg.1H1njRTWsTxNXH2Hk3iLnxenGVQ",
 	}
 	u2 = user{
 		username:      "test-user",
-		sessionCookie: "eyJ1c2VyIjoidGVzdC11c2VyIn0.Di_NWg.BQ9nq-xSfqKqsT2Rd-Uh2Hg4b0I",
+		sessionCookie: "eyJ1c2VyIjoidGVzdC11c2VyIn0.DlkvPA.oPmahjAJkFSjPr4NWcbhaP_maZA",
 	}
 	tc *testConfig
 	tf = &framework.TestFlags{
