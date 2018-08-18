@@ -23,7 +23,21 @@ import (
 )
 
 // The Istio authn envoy config
+// nolint
 const authnConfig = `
+- name: jwt-auth
+  config: {
+     "rules": [ 
+       {
+         "issuer": "issuer@foo.com",
+         "local_jwks": {
+           "inline_string": '{ "keys" : [ {"e":   "AQAB", "kid": "DHFbpoIUqrY8t2zpA2qXfCmr5VO5ZEr4RzHU_-envvQ", "kty": "RSA","n":   "xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ"}]}'
+         },
+         "audiences": ["aud1"],
+         "forward_payload_header": "test-jwt-payload-output"
+       }
+     ]
+  }
 - name: istio_authn
   config: {
     "policy": {
@@ -35,24 +49,29 @@ const authnConfig = `
           }
         }
       ]
-    },
-    "jwt_output_payload_locations": {
-      "issuer@foo.com": "sec-istio-auth-jwt-output"
     }
   }
 `
 
 const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
 
-const secIstioAuthUserinfoHeaderValue = `
-{
-  "iss": "issuer@foo.com",
-  "sub": "sub@foo.com",
-  "aud": "aud1",
-  "non-string-will-be-ignored": 1512754205,
-  "some-other-string-claims": "some-claims-kept"
-}
-`
+const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
+	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
+	`"sub":"sub@foo.com"}`
+
+// jwt is formed from the value in secIstioAuthUserinfoHeaderValue
+const jwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZ" +
+	"kNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJhdWQ" +
+	"iOiJhdWQxIiwiZXhwIjoyMDAwMDAwMDAwMCwiaWF0IjoxNTAwMDAwMDAw" +
+	"LCJpc3MiOiJpc3N1ZXJAZm9vLmNvbSIsInNvbWUtb3RoZXItc3RyaW5nL" +
+	"WNsYWltcyI6InNvbWUtY2xhaW1zLWtlcHQiLCJzdWIiOiJzdWJAZm9vLm" +
+	"NvbSJ9.VYQdAqzlzpVBoKQMkmwm4oCX-wgMieR7rEpJiOggYocEJbEINr" +
+	"ZSMas9bJ0CQXdv5UWR6NiO-p1Ko1Zol1X5Ma93Aego18vygY1K1bZ5whX" +
+	"qVtbkpDe5tUaPNP58uKWsh8g3EA2Mpr1jF7RgGCYmiW_LlWJnLlBMEvbb" +
+	"pkBFy43Yfzn_wpLHNBTO8cUGHGMErBeBSe2jUYmdOda1s51rGmS-CuQDL" +
+	"GMeJPmc2l50AOO0tnNbSp3S3KfeyF918uDFfDRLYp7j16cx71ETXfLsrX" +
+	"UkcLOLthIYGpuD0RgvLi5soHDpV_uNO8FDiOPMs8y60EUQUcuSKZZHTS_" +
+	"hzONkhg"
 
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
@@ -118,7 +137,6 @@ var reportAttributesOkGet = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -131,7 +149,7 @@ var reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 741,
+  "request.total_size": 515,
   "response.total_size": 99,
   "response.time": "*",
   "response.size": 0,
@@ -156,7 +174,6 @@ var reportAttributesOkGet = `
 `
 
 func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/7867")
 	s := env.NewTestSetup(env.CheckReportIstioAuthnAttributesTestOriginJwtBoundToPeer, t)
 	// In the Envoy config, no binding to origin, binds to peer by default.
 	s.SetFiltersBeforeMixer(authnConfig)
@@ -178,6 +195,7 @@ func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
 	headers := map[string]string{}
 	headers[secIstioAuthUserInfoHeaderKey] =
 		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
+	headers["Authorization"] = "Bearer " + jwt
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
