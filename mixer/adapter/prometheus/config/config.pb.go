@@ -82,7 +82,7 @@ type Params struct {
 	// Optional. The rate at which to expire metrics from the adapter. This option controls the amount of metric data
 	// that the adapter will maintain over its lifetime.
 	//
-	// EXPERIMENTAL: This feature only be used in advanced cases.
+	// EXPERIMENTAL: This feature should only be used in advanced cases.
 	//
 	// Example config stanza:
 	// ```yaml
@@ -382,8 +382,10 @@ type Params_MetricsExpirationPolicy struct {
 	// Required. Describes the desired lifetime of a metric. If the metric is not updated at any point during this duration, it
 	// will be removed from the set of metrics exported by the handler.
 	MetricsExpiryDuration time.Duration `protobuf:"bytes,1,opt,name=metrics_expiry_duration,json=metricsExpiryDuration,stdduration" json:"metrics_expiry_duration"`
-	// Required. Describes the interval in which metrics will be checked to see if they have been stale for longer that the configured
+	// Optional. Describes the interval in which metrics will be checked to see if they have been stale for longer that the configured
 	// `metrics_expiry_duration`. This should be generally be set to a duration much shorter than the configured `metrics_expiry_duration`.
+	// This bounds the total amount of additional time (beyond the desired lifetime) that a metric may be exported.
+	// If a value is not explicitly provided, this value will default to half of the configured `metrics_expiry_duration`.
 	ExpiryCheckIntervalDuration time.Duration `protobuf:"bytes,2,opt,name=expiry_check_interval_duration,json=expiryCheckIntervalDuration,stdduration" json:"expiry_check_interval_duration"`
 }
 

@@ -42,7 +42,7 @@ shape here, it will not be populated at runtime.</p>
 <p>Optional. The rate at which to expire metrics from the adapter. This option controls the amount of metric data
 that the adapter will maintain over its lifetime.</p>
 
-<p>EXPERIMENTAL: This feature only be used in advanced cases.</p>
+<p>EXPERIMENTAL: This feature should only be used in advanced cases.</p>
 
 <p>Example config stanza:</p>
 
@@ -385,8 +385,10 @@ will be removed from the set of metrics exported by the handler.</p>
 <td><code>expiryCheckIntervalDuration</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Required. Describes the interval in which metrics will be checked to see if they have been stale for longer that the configured
-<code>metrics_expiry_duration</code>. This should be generally be set to a duration much shorter than the configured <code>metrics_expiry_duration</code>.</p>
+<p>Optional. Describes the interval in which metrics will be checked to see if they have been stale for longer that the configured
+<code>metrics_expiry_duration</code>. This should be generally be set to a duration much shorter than the configured <code>metrics_expiry_duration</code>.
+This bounds the total amount of additional time (beyond the desired lifetime) that a metric may be exported.
+If a value is not explicitly provided, this value will default to half of the configured <code>metrics_expiry_duration</code>.</p>
 
 </td>
 </tr>

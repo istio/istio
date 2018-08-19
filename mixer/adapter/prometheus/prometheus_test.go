@@ -19,6 +19,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -591,7 +592,37 @@ func TestMetricExpiration(t *testing.T) {
 			}
 		})
 	}
+}
 
+func BenchmarkKey(b *testing.B) {
+	pl := prometheus.Labels(map[string]string{
+		"a":      "14.5",
+		"c":      "hello",
+		"f":      "cannonball",
+		"b":      "kubernetes",
+		"g":      "istio",
+		"d":      "system",
+		"magic":  "15ms",
+		"lots":   "tons",
+		"of":     "0.0001",
+		"fun":    "isn't it?",
+		"test":   "production",
+		"joy":    "sadness",
+		"allocs": "zero"})
+
+	keys := make([]string, 0, len(pl))
+	// ensure stable order
+	for k := range pl {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		key("testMetric", "gauge", pl, keys)
+	}
 }
 
 func metricValue(m *dto.Metric) float64 {

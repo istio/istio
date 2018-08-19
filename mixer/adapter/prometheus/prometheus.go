@@ -47,9 +47,10 @@ type (
 	// of config that produced the collector.
 	// sha is used to confirm a cache hit.
 	cinfo struct {
-		c    prometheus.Collector
-		sha  [sha1.Size]byte
-		kind config.Params_MetricInfo_Kind
+		c            prometheus.Collector
+		sha          [sha1.Size]byte
+		kind         config.Params_MetricInfo_Kind
+		sortedLabels []string
 	}
 
 	builder struct {
@@ -180,6 +181,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			mname = m.Name
 		}
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
+		ci.sortedLabels = make([]string, len(m.LabelNames))
+		copy(ci.sortedLabels, m.LabelNames)
+		sort.Strings(ci.sortedLabels)
+
 		switch m.Kind {
 		case config.GAUGE:
 			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
@@ -243,7 +248,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 			}
 			pl := promLabels(val.Dimensions)
 			if h.labelsCache != nil {
-				h.labelsCache.Set(key(val.Name, "gauge", pl), &cacheEntry{vec, pl})
+				h.labelsCache.Set(key(val.Name, "gauge", pl, ci.sortedLabels), &cacheEntry{vec, pl})
 			}
 			vec.With(pl).Set(amt)
 		case config.COUNTER:
@@ -255,7 +260,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 			}
 			pl := promLabels(val.Dimensions)
 			if h.labelsCache != nil {
-				h.labelsCache.Set(key(val.Name, "counter", pl), &cacheEntry{vec, pl})
+				h.labelsCache.Set(key(val.Name, "counter", pl, ci.sortedLabels), &cacheEntry{vec, pl})
 			}
 			vec.With(pl).Add(amt)
 		case config.DISTRIBUTION:
@@ -267,7 +272,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 			}
 			pl := promLabels(val.Dimensions)
 			if h.labelsCache != nil {
-				h.labelsCache.Set(key(val.Name, "distribution", pl), &cacheEntry{vec, pl})
+				h.labelsCache.Set(key(val.Name, "distribution", pl, ci.sortedLabels), &cacheEntry{vec, pl})
 			}
 			vec.With(pl).Observe(amt)
 		}
@@ -276,23 +281,12 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 	return result.ErrorOrNil()
 }
 
-func key(name, kind string, labels prometheus.Labels) uint64 {
-	keys := make([]string, 0, len(labels))
-	// ensure stable order
-	for k := range labels {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+func key(name, kind string, labels prometheus.Labels, sortedLabelKeys []string) uint64 {
 	buf := pool.GetBuffer()
-	buf.Reset()
 	buf.WriteString(name + ":" + kind)
-	for _, k := range keys {
-		buf.WriteString(k)         // nolint: gas
-		buf.WriteString("=")       // nolint: gas
-		buf.WriteString(labels[k]) // nolint: gas
-		buf.WriteString(";")       // nolint: gas
+	for _, k := range sortedLabelKeys {
+		buf.WriteString(k + "=" + labels[k] + ";") // nolint: gas
 	}
-
 	h := fnv.New64()
 	h.Write(buf.Bytes())
 	pool.PutBuffer(buf)
