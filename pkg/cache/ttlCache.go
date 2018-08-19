@@ -57,6 +57,11 @@ type entry struct {
 
 // EvictionCallback is a function that will be called on entry eviction
 // from an ExpiringCache.
+//
+// This callback will be invoked immediately after the entry is deleted
+// from the `sync.Map` that backs this cache (using `Map.Delete()`). No
+// locks are held during the invocation of this callback. The callback
+// should not result in blocking calls to long-running operations, however.
 type EvictionCallback func(key, value interface{})
 
 // NewTTL creates a new cache with a time-based eviction model.
