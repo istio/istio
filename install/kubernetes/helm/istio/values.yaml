@@ -524,7 +524,7 @@ kiali:
   dashboard:
     secretName: kiali
     usernameKey: username
-    passwordKey: password
+    passphraseKey: passphrase
     
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:

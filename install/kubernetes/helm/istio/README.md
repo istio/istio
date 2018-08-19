@@ -56,7 +56,7 @@ $ helm init --service-account tiller
    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
    ```
 
-4. If you are enabling `kiali`, you need to create the secret that contains the username and password for `kiali` dashboard:
+4. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
    ```
    $ echo -n 'admin' | base64
    YWRtaW4=
@@ -74,7 +74,7 @@ $ helm init --service-account tiller
    type: Opaque
    data:
      username: YWRtaW4=
-     password: MWYyZDFlMmU2N2Rm
+     passphrase: MWYyZDFlMmU2N2Rm
    EOF
    ```
 
