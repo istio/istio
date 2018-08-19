@@ -125,10 +125,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 			ce = ce.Appendf("metricsExpiryDuration",
 				"metricsExpiryDuration %v is invalid, must be > 0", b.cfg.MetricsExpirationPolicy.MetricsExpiryDuration)
 		}
-		if b.cfg.MetricsExpirationPolicy.ExpiryCheckIntervalDuration <= 0 {
-			ce = ce.Appendf("expiryCheckIntervalDuration",
-				"expiryCheckIntervalDuration %v is invalid, must be > 0", b.cfg.MetricsExpirationPolicy.ExpiryCheckIntervalDuration)
-		}
 	}
 	return
 }
@@ -219,9 +215,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 	var expiryCache cache.ExpiringCache
 	if cfg.MetricsExpirationPolicy != nil {
+		checkDuration := cfg.MetricsExpirationPolicy.ExpiryCheckIntervalDuration
+		if checkDuration == 0 {
+			checkDuration = cfg.MetricsExpirationPolicy.MetricsExpiryDuration / 2
+		}
 		expiryCache = cache.NewTTLWithCallback(
 			cfg.MetricsExpirationPolicy.MetricsExpiryDuration,
-			cfg.MetricsExpirationPolicy.ExpiryCheckIntervalDuration,
+			checkDuration,
 			deleteOldMetrics)
 	}
 

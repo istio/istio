@@ -248,7 +248,7 @@ func TestValidate_withExpirationPolicy(t *testing.T) {
 		{"No Policy", nil, false},
 		{"Good Policy", expPolicy(10*time.Minute, 1*time.Second), false},
 		{"Missing Expiration", &config.Params_MetricsExpirationPolicy{ExpiryCheckIntervalDuration: 1 * time.Minute}, true},
-		{"Missing Interval", &config.Params_MetricsExpirationPolicy{MetricsExpiryDuration: 1 * time.Minute}, true},
+		{"Missing Interval", &config.Params_MetricsExpirationPolicy{MetricsExpiryDuration: 1 * time.Minute}, false},
 	}
 
 	for _, v := range tests {
@@ -521,6 +521,7 @@ func TestComputeSha(t *testing.T) {
 func TestMetricExpiration(t *testing.T) {
 
 	testPolicy := expPolicy(50*time.Millisecond, 10*time.Millisecond)
+	altPolicy := expPolicy(50*time.Millisecond, 0)
 
 	cases := []struct {
 		name             string
@@ -532,6 +533,7 @@ func TestMetricExpiration(t *testing.T) {
 	}{
 		{"No expiration", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, nil, 0},
 		{"Single metric expiration (counter)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
+		{"Single metric expiration (counter, alt policy)", metricInfos{counter}, metricInsts{counterVal}, metricInsts{}, altPolicy, 100 * time.Millisecond},
 		{"Single metric expiration (gauge)", metricInfos{gaugeWithLabels}, metricInsts{gaugeWithLabelsVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
 		{"Single metric expiration (histogram)", metricInfos{histogram}, metricInsts{histogramVal}, metricInsts{}, testPolicy, 100 * time.Millisecond},
 		{"Preserve non-stale metrics", metricInfos{counter}, metricInsts{counterVal}, metricInsts{counterVal2}, testPolicy, 100 * time.Millisecond},
