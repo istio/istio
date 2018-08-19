@@ -146,7 +146,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		for _, host := range virtualHostWrapper.VirtualServiceHosts {
 			virtualHosts = append(virtualHosts, route.VirtualHost{
 				Name:    fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port),
-				Domains: []string{host},
+				Domains: []string{host, fmt.Sprintf("%s:%d", host, virtualHostWrapper.Port)},
 				Routes:  virtualHostWrapper.Routes,
 			})
 		}
