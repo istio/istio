@@ -288,7 +288,7 @@ func key(name, kind string, labels prometheus.Labels, sortedLabelKeys []string) 
 		buf.WriteString(k + "=" + labels[k] + ";") // nolint: gas
 	}
 	h := fnv.New64()
-	h.Write(buf.Bytes())
+	buf.WriteTo(h)
 	pool.PutBuffer(buf)
 	return h.Sum64()
 }
