@@ -117,13 +117,32 @@ func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (
 
 // HandleServicecontrolReport handles reporting metrics and logs.
 func (h *handler) HandleServicecontrolReport(ctx context.Context, instances []*servicecontrolreport.Instance) error {
-	// TODO: this is inefficient as it dispatches each report individually, instead of grouping them by the service
+	reports := map[string][]*servicecontrolreport.Instance{}
+	svcProcs := map[string]*serviceProcessor{}
+
 	for _, instance := range instances {
-		svcProc, err := h.getServiceProcessor(instance.ApiService)
+		// Group report instances and processors by service name.
+		serviceFullName := instance.ApiService
+		reportsByService := []*servicecontrolreport.Instance{}
+		if report, ok := reports[serviceFullName]; ok {
+			reportsByService = report
+		}
+		reportsByService = append(reportsByService, instance)
+		reports[serviceFullName] = reportsByService
+
+		if _, ok := svcProcs[serviceFullName]; ok {
+			// Processor already exist.
+			continue
+		}
+		svcProc, err := h.getServiceProcessor(serviceFullName)
 		if err != nil {
 			return err
 		}
-		if err = svcProc.ProcessReport(ctx, []*servicecontrolreport.Instance{instance}); err != nil {
+		svcProcs[serviceFullName] = svcProc
+	}
+
+	for svc, proc := range svcProcs {
+		if err := proc.ProcessReport(ctx, reports[svc]); err != nil {
 			return err
 		}
 	}
