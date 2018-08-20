@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2017-2018 Istio Authors
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
 // $title: Traffic Routing
-// $description: Configuration affecting traffic routing
+// $description: Configuration affecting traffic routing.
 // $location: https://istio.io/docs/reference/config/istio.networking.v1alpha3.html
 // $aliases:
 // $  - /docs/reference/config/istio.routing.v1alpha1/
@@ -917,7 +917,7 @@ message HTTPFaultInjection {
 
   // Delay specification is used to inject latency into the request
   // forwarding path. The following example will introduce a 5 second delay
-  // in 10% of the requests to the "v1" version of the "reviews"
+  // in 1 out of every 1000 requests to the "v1" version of the "reviews"
   // service from all pods with label env: prod
   //
   // ```yaml
@@ -938,17 +938,19 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       delay:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         fixedDelay: 5s
   // ```
   //
-  // The _fixedDelay_ field is used to indicate the amount of delay in
-  // seconds. An optional _percent_ field, a value between 0 and 100, can
-  // be used to only delay a certain percentage of requests. If left
-  // unspecified, all request will be delayed.
+  // The _fixedDelay_ field is used to indicate the amount of delay in seconds.
+  // The optional _percentage_ field can be used to only delay a certain
+  // percentage of requests. If left unspecified, all request will be delayed.
   message Delay {
     // Percentage of requests on which the delay will be injected (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof http_delay_type {
       // REQUIRED. Add a fixed delay before forwarding the request. Format:
@@ -958,11 +960,14 @@ message HTTPFaultInjection {
       // $hide_from_docs
       google.protobuf.Duration exponential_delay = 3 ;
     }
+
+    // Percentage of requests on which the delay will be injected.
+    Percent percentage = 5;
   }
 
   // Abort specification is used to prematurely abort a request with a
-  // pre-specified error code. The following example will return an HTTP
-  // 400 error code for 10% of the requests to the "ratings" service "v1".
+  // pre-specified error code. The following example will return an HTTP 400
+  // error code for 1 out of every 1000 requests to the "ratings" service "v1".
   //
   // ```yaml
   // apiVersion: networking.istio.io/v1alpha3
@@ -979,17 +984,20 @@ message HTTPFaultInjection {
   //         subset: v1
   //     fault:
   //       abort:
-  //         percent: 10
+  //         percentage:
+  //           value: 0.001
   //         httpStatus: 400
   // ```
   //
   // The _httpStatus_ field is used to indicate the HTTP status code to
-  // return to the caller. The optional _percent_ field, a value between 0
-  // and 100, is used to only abort a certain percentage of requests. If
-  // not specified, all requests are aborted.
+  // return to the caller. The optional _percentage_ field can be used to only
+  // abort a certain percentage of requests. If not specified, all requests are
+  // aborted.
   message Abort {
     // Percentage of requests to be aborted with the error code provided (0-100).
-    int32 percent = 1;
+    // Use of integer `percent` value is deprecated. Use the double `percentage`
+    // field instead.
+    int32 percent = 1 [deprecated=true];
 
     oneof error_type {
       // REQUIRED. HTTP status code to use to abort the Http request.
@@ -1001,6 +1009,9 @@ message HTTPFaultInjection {
       // $hide_from_docs
       string http2_error = 4;
     }
+
+    // Percentage of requests to be aborted with the error code provided.
+    Percent percentage = 5;
   }
 }
 
@@ -1013,4 +1024,9 @@ message PortSelector {
     // $hide_from_docs
     string name = 2;
   }
+}
+
+// Percent specifies a percentage in the range of [0.0, 100.0].
+message Percent {
+  double value = 1;
 }
