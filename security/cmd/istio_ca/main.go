@@ -151,7 +151,7 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "istio_ca",
-		Short: "Istio Certificate Authority (CA)",
+		Short: "Istio Certificate Authority (CA).",
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},
@@ -224,11 +224,13 @@ func init() {
 		defaultWorkloadMinCertGracePeriod, "The minimum workload certificate rotation grace period.")
 
 	// gRPC server for signing CSRs.
-	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "DEPRECATED, use --grpc-host-identities.")
 	flags.StringVar(&opts.grpcHosts, "grpc-host-identities", "istio-ca,istio-citadel",
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
 		"If unspecified, Citadel will not serve GRPC requests.")
+
+	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "deprecated")
+	flags.MarkDeprecated("grpc-hostname", "please use --grpc-host-identities instead")
 
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 

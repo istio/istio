@@ -11,8 +11,8 @@ metadata:
     release: {{ $.Release.Name }}
   name: {{ $key }}-{{ $.Release.Namespace }}
 rules:
-- apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "virtualservices", "destinationrules", "gateways"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["virtualservices", "destinationrules", "gateways"]
   verbs: ["get", "watch", "list", "update"]
 ---
 {{- end }}

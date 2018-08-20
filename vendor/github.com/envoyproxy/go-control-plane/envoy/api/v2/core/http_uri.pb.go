@@ -6,13 +6,13 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import time "time"
 
-import types "github.com/gogo/protobuf/types"
+import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -21,6 +21,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 var _ = time.Kitchen
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy external URI descriptor
 type HttpUri struct {
@@ -42,13 +48,44 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout *time.Duration `protobuf:"bytes,3,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	Timeout              *time.Duration `protobuf:"bytes,3,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *HttpUri) Reset()                    { *m = HttpUri{} }
-func (m *HttpUri) String() string            { return proto.CompactTextString(m) }
-func (*HttpUri) ProtoMessage()               {}
-func (*HttpUri) Descriptor() ([]byte, []int) { return fileDescriptorHttpUri, []int{0} }
+func (m *HttpUri) Reset()         { *m = HttpUri{} }
+func (m *HttpUri) String() string { return proto.CompactTextString(m) }
+func (*HttpUri) ProtoMessage()    {}
+func (*HttpUri) Descriptor() ([]byte, []int) {
+	return fileDescriptor_http_uri_a8729bd15bcc4a68, []int{0}
+}
+func (m *HttpUri) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HttpUri) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HttpUri.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *HttpUri) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HttpUri.Merge(dst, src)
+}
+func (m *HttpUri) XXX_Size() int {
+	return m.Size()
+}
+func (m *HttpUri) XXX_DiscardUnknown() {
+	xxx_messageInfo_HttpUri.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HttpUri proto.InternalMessageInfo
 
 type isHttpUri_HttpUpstreamType interface {
 	isHttpUri_HttpUpstreamType()
@@ -131,7 +168,7 @@ func _HttpUri_OneofSizer(msg proto.Message) (n int) {
 	// http_upstream_type
 	switch x := m.HttpUpstreamType.(type) {
 	case *HttpUri_Cluster:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Cluster)))
 		n += len(x.Cluster)
 	case nil:
@@ -175,12 +212,15 @@ func (m *HttpUri) MarshalTo(dAtA []byte) (int, error) {
 	if m.Timeout != nil {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintHttpUri(dAtA, i, uint64(types.SizeOfStdDuration(*m.Timeout)))
-		n2, err := types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
+		i = encodeVarintHttpUri(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
+		n2, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n2
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -213,8 +253,11 @@ func (m *HttpUri) Size() (n int) {
 		n += m.HttpUpstreamType.Size()
 	}
 	if m.Timeout != nil {
-		l = types.SizeOfStdDuration(*m.Timeout)
+		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)
 		n += 1 + l + sovHttpUri(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -356,7 +399,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 			if m.Timeout == nil {
 				m.Timeout = new(time.Duration)
 			}
-			if err := types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.Timeout, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -372,6 +415,7 @@ func (m *HttpUri) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -486,9 +530,11 @@ var (
 	ErrIntOverflowHttpUri   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptorHttpUri) }
+func init() {
+	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_a8729bd15bcc4a68)
+}
 
-var fileDescriptorHttpUri = []byte{
+var fileDescriptor_http_uri_a8729bd15bcc4a68 = []byte{
 	// 279 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x31, 0x4e, 0xf3, 0x30,
 	0x14, 0xc7, 0xfb, 0x92, 0xaf, 0x5f, 0xa8, 0x61, 0xc1, 0x42, 0x22, 0xb4, 0x52, 0x88, 0x90, 0x90,

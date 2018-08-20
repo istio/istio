@@ -97,7 +97,6 @@ static_resources:
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -130,7 +129,6 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -161,7 +159,6 @@ static_resources:
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -211,7 +208,6 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -292,9 +288,6 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) Instances(_ model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, nil
-}
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }

@@ -43,15 +43,16 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-discovery",
-		Short:        "Istio Pilot",
+		Short:        "Istio Pilot.",
 		Long:         "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 		SilenceUsage: true,
 	}
 
 	discoveryCmd = &cobra.Command{
 		Use:   "discovery",
-		Short: "Start Istio proxy discovery service",
+		Short: "Start Istio proxy discovery service.",
 		RunE: func(c *cobra.Command, args []string) error {
+			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
@@ -74,8 +75,7 @@ var (
 			}
 
 			// Start the server
-			_, err = discoveryServer.Start(stop)
-			if err != nil {
+			if err := discoveryServer.Start(stop); err != nil {
 				return fmt.Errorf("failed to start discovery service: %v", err)
 			}
 
@@ -132,7 +132,7 @@ func init() {
 		"HTTP address to use for the exposing pilot self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
-	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discovery_cache", true,
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
 	// TODO (rshriram): Need v1/v2 endpoints and option to selectively
 	// enable webhook for specific xDS config (cds/lds/etc).

@@ -15,7 +15,6 @@
 package cloudfoundry
 
 import (
-	"errors"
 	"fmt"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -106,11 +105,6 @@ func (sd *ServiceDiscovery) GetService(hostname model.Hostname) (*model.Service,
 		}
 	}
 	return nil, nil
-}
-
-// Instances implements a service catalog operation
-func (sd *ServiceDiscovery) Instances(hostname model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, errors.New("not implemented. use InstancesByPort instead")
 }
 
 // InstancesByPort implements a service catalog operation

@@ -190,7 +190,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 
 func startLocalPilot(s *bootstrap.Server, stop chan struct{}) {
 	// Start the server
-	_, _ = s.Start(stop)
+	s.Start(stop)
 }
 
 // Test availability of local API Server

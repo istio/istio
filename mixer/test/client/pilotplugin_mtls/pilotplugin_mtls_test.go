@@ -111,7 +111,6 @@ static_resources:
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
   "context.reporter.uid": "kubernetes://pod2.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -136,10 +135,10 @@ static_resources:
 	// See issue https://github.com/istio/proxy/issues/1910
 	// "source.principal": "cluster.local/ns/default/sa/client",
 	// "source.user": "cluster.local/ns/default/sa/client",
-	// "connection.requested_server_name": "istio.io",
 	checkAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -149,7 +148,6 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -180,7 +178,6 @@ static_resources:
   "context.reporter.uid": "kubernetes://pod2.ns2",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -224,6 +221,7 @@ static_resources:
 	reportAttributesOkInbound = `
 {
   "connection.mtls": true,
+  "connection.requested_server_name": "istio.io",
   "destination.principal": "cluster.local/ns/default/sa/server",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
@@ -234,7 +232,6 @@ static_resources:
   "destination.port": "*",
   "destination.namespace": "ns2",
   "destination.uid": "kubernetes://pod1.ns2",
-  "destination.service": "svc.ns3",
   "destination.service.host": "svc.ns3",
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
@@ -315,9 +312,6 @@ func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, 
 	return nil, nil
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
-func (mock) Instances(_ model.Hostname, _ []string, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, nil
-}
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
@@ -401,6 +395,9 @@ func makeListener(port uint16, route string) (*v2.Listener, *hcm.HttpConnectionM
 			Address: core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 				Address:       "127.0.0.1",
 				PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(port)}}}},
+			ListenerFilters: []listener.ListenerFilter{{
+				Name: "envoy.listener.tls_inspector",
+			}},
 		}, &hcm.HttpConnectionManager{
 			CodecType:  hcm.AUTO,
 			StatPrefix: route,

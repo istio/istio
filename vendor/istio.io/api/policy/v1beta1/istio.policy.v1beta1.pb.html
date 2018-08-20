@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 15
+number_of_entries: 17
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -46,6 +46,14 @@ Must match the <code>name</code> of a <a href="#Handler-name">Handler</a>.</p>
 <a href="#Instance-name">Instance</a>s.
 Referenced instances are evaluated by resolving the attributes/literals for all the fields.
 The constructed objects are then passed to the <code>handler</code> referenced within this action.</p>
+
+</td>
+</tr>
+<tr id="Action-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional. A handle to refer to the results of the action.</p>
 
 </td>
 </tr>
@@ -558,6 +566,100 @@ name starts with &ldquo;ratings&rdquo;</li>
 <td><code><a href="#Action">Action[]</a></code></td>
 <td>
 <p>Optional. The actions that will be executed when match evaluates to <code>true</code>.</p>
+
+</td>
+</tr>
+<tr id="Rule-request_header_operations">
+<td><code>requestHeaderOperations</code></td>
+<td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
+<td>
+<p>Optional. Templatized operations on the request headers using attributes produced by the
+rule actions.</p>
+
+</td>
+</tr>
+<tr id="Rule-response_header_operations">
+<td><code>responseHeaderOperations</code></td>
+<td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
+<td>
+<p>Optional. Templatized operations on the response headers using attributes produced by the
+rule actions.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate</h2>
+<section>
+<p>A template for an HTTP header manipulation.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-HeaderOperationTemplate-name">
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. Header name.</p>
+
+</td>
+</tr>
+<tr id="Rule-HeaderOperationTemplate-values">
+<td><code>values</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Optional. Header values to replace or append.</p>
+
+</td>
+</tr>
+<tr id="Rule-HeaderOperationTemplate-operation">
+<td><code>operation</code></td>
+<td><code><a href="#Rule-HeaderOperationTemplate-Operation">Rule.HeaderOperationTemplate.Operation</a></code></td>
+<td>
+<p>Optional. Header operation type. Default operation is to replace the value of the header by name.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Rule-HeaderOperationTemplate-Operation">Rule.HeaderOperationTemplate.Operation</h2>
+<section>
+<p>Header operation type.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Rule-HeaderOperationTemplate-Operation-REPLACE">
+<td><code>REPLACE</code></td>
+<td>
+<p>replaces the header with the given name</p>
+
+</td>
+</tr>
+<tr id="Rule-HeaderOperationTemplate-Operation-REMOVE">
+<td><code>REMOVE</code></td>
+<td>
+<p>removes the header with the given name (the value is ignored)</p>
+
+</td>
+</tr>
+<tr id="Rule-HeaderOperationTemplate-Operation-APPEND">
+<td><code>APPEND</code></td>
+<td>
+<p>appends the values to the existing values (preserving existing values)</p>
 
 </td>
 </tr>
