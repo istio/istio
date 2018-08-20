@@ -147,11 +147,10 @@ func TestSvc2Svc(t *testing.T) {
 			t.Fatalf("Pod readyness failed after %v - last error: %s", timeToWaitForPods, res)
 		}
 		ready := 0
-		for i := range podList {
-			pod := podList[i]
+		for i, pod := range podList {
 			res, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio curl http://echosrv:8080/echo", ns, pod)
 			if err != nil {
-				log.Infof("Pod %i %s not ready: %s", i, pod, res)
+				log.Infof("Pod %d %s not ready: %s", i, pod, res)
 			} else {
 				ready++
 			}
