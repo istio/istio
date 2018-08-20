@@ -79,7 +79,6 @@ items:
             requests:
               cpu: 10m
           securityContext:
-            privileged: false
             readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:
@@ -200,7 +199,6 @@ items:
             requests:
               cpu: 10m
           securityContext:
-            privileged: false
             readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:

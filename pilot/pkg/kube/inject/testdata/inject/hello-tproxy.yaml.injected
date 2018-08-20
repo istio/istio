@@ -79,7 +79,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy

@@ -150,7 +150,9 @@ containers:
     privileged: true
     readOnlyRootFilesystem: false
     {{ else -}}
-    privileged: false
+	{{ if eq .Privileged true -}}
+    privileged: true
+    {{ end -}}
     readOnlyRootFilesystem: true
     [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     capabilities:
