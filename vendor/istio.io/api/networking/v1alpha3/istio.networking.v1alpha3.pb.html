@@ -2183,6 +2183,17 @@ connection error/failure events qualify as an error.</p>
 
 </td>
 </tr>
+<tr id="OutlierDetection-consecutive_gateway_failure">
+<td><code>consecutiveGatewayFailure</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Number of gateway errors before a host is ejected from the connection
+pool. Defaults to 5. When the upstream host is accessed over HTTP, a
+502, 503 or 504 return code qualifies as an error. When the upstream
+host is accessed over an opaque TCP connection, this setting is ignored.</p>
+
+</td>
+</tr>
 <tr id="OutlierDetection-interval">
 <td><code>interval</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>

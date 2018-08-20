@@ -554,6 +554,9 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier.ConsecutiveErrors < 0 {
 		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
 	}
+	if outlier.ConsecutiveGatewayFailure < 0 {
+		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive gateway errors cannot be negative"))
+	}
 	if outlier.Interval != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
 	}

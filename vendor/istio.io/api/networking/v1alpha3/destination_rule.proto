@@ -422,6 +422,12 @@ message OutlierDetection {
   // connection error/failure events qualify as an error.
   int32 consecutive_errors = 1;
 
+  // Number of gateway errors before a host is ejected from the connection
+  // pool. Defaults to 5. When the upstream host is accessed over HTTP, a
+  // 502, 503 or 504 return code qualifies as an error. When the upstream 
+  // host is accessed over an opaque TCP connection, this setting is ignored.
+  int32 consecutive_gateway_failure = 5;
+
   // Time interval between ejection sweep analysis. format:
   // 1h/1m/1s/1ms. MUST BE >=1ms. Default is 10s.
   google.protobuf.Duration interval = 2;
