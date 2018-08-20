@@ -121,7 +121,7 @@ allowed:
 
 	gotAddedFile := <-fake.added
 	if gotAddedFile != file {
-		t.Fatalf("watched wrong file: got %v want %v", gotAddedFile, file)
+		t.Fatalf("access list watcher read the wrong file: got %v want %v", gotAddedFile, file)
 	}
 
 	updated := `

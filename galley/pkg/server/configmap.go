@@ -60,10 +60,10 @@ var (
 	watchEventHandledProbe func()
 )
 
-func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.ListAuthChecker, error) {
+func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
 
 	// Do the initial read.
-	list, err := readAccessList(accesslistfile)
+	list, err := readAccessList(accessListFile)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 
 	// TODO: https://github.com/istio/istio/issues/7877
 	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
-	if err = watcher.Add(accesslistfile); err != nil {
-		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accesslistfile, err)
+	if err = watcher.Add(accessListFile); err != nil {
+		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accessListFile, err)
 	}
 
 	// Coordinate the goroutines for orderly shutdown
@@ -93,8 +93,8 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 			select {
 			case e := <-watcher.Events():
 				if e.Op&fsnotify.Write == fsnotify.Write {
-					if list, err = readAccessList(accesslistfile); err != nil {
-						log.Errorf("Error reading access list %q: %v", accesslistfile, err)
+					if list, err = readAccessList(accessListFile); err != nil {
+						log.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
 						checker.Set(list.Allowed...)
 					}
@@ -132,15 +132,15 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 	return checker, nil
 }
 
-func readAccessList(accesslistfile string) (accessList, error) {
-	b, err := readFile(accesslistfile)
+func readAccessList(accessListFile string) (accessList, error) {
+	b, err := readFile(accessListFile)
 	if err != nil {
-		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accesslistfile, err)
+		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accessListFile, err)
 	}
 
 	var list accessList
 	if err = yaml.Unmarshal(b, &list); err != nil {
-		return accessList{}, fmt.Errorf("unable to parse access list file %q: %v", accesslistfile, err)
+		return accessList{}, fmt.Errorf("unable to parse access list file %q: %v", accessListFile, err)
 	}
 
 	return list, nil
