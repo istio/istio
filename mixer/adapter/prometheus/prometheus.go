@@ -23,7 +23,9 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"hash/fnv"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,7 +37,9 @@ import (
 
 	"istio.io/istio/mixer/adapter/prometheus/config"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/pkg/cache"
 )
 
 type (
@@ -43,9 +47,10 @@ type (
 	// of config that produced the collector.
 	// sha is used to confirm a cache hit.
 	cinfo struct {
-		c    prometheus.Collector
-		sha  [sha1.Size]byte
-		kind config.Params_MetricInfo_Kind
+		c            prometheus.Collector
+		sha          [sha1.Size]byte
+		kind         config.Params_MetricInfo_Kind
+		sortedLabels []string
 	}
 
 	builder struct {
@@ -59,6 +64,13 @@ type (
 	handler struct {
 		srv     Server
 		metrics map[string]*cinfo
+
+		labelsCache cache.ExpiringCache
+	}
+
+	cacheEntry struct {
+		vec    prometheus.Collector
+		labels prometheus.Labels
 	}
 )
 
@@ -107,7 +119,16 @@ func (b *builder) clearState() {
 
 func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
 func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.cfg = cfg.(*config.Params) }
-func (b *builder) Validate() *adapter.ConfigErrors        { return nil }
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	if b.cfg.MetricsExpirationPolicy != nil {
+		if b.cfg.MetricsExpirationPolicy.MetricsExpiryDuration <= 0 {
+			ce = ce.Appendf("metricsExpiryDuration",
+				"metricsExpiryDuration %v is invalid, must be > 0", b.cfg.MetricsExpirationPolicy.MetricsExpiryDuration)
+		}
+	}
+	return
+}
+
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
 	cfg := b.cfg
@@ -156,6 +177,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			mname = m.Name
 		}
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
+		ci.sortedLabels = make([]string, len(m.LabelNames))
+		copy(ci.sortedLabels, m.LabelNames)
+		sort.Strings(ci.sortedLabels)
+
 		switch m.Kind {
 		case config.GAUGE:
 			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
@@ -188,7 +213,19 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, err
 	}
 
-	return &handler{b.srv, b.metrics}, metricErr.ErrorOrNil()
+	var expiryCache cache.ExpiringCache
+	if cfg.MetricsExpirationPolicy != nil {
+		checkDuration := cfg.MetricsExpirationPolicy.ExpiryCheckIntervalDuration
+		if checkDuration == 0 {
+			checkDuration = cfg.MetricsExpirationPolicy.MetricsExpiryDuration / 2
+		}
+		expiryCache = cache.NewTTLWithCallback(
+			cfg.MetricsExpirationPolicy.MetricsExpiryDuration,
+			checkDuration,
+			deleteOldMetrics)
+	}
+
+	return &handler{b.srv, b.metrics, expiryCache}, metricErr.ErrorOrNil()
 }
 
 func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
@@ -209,7 +246,11 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Name, err))
 				continue
 			}
-			vec.With(promLabels(val.Dimensions)).Set(amt)
+			pl := promLabels(val.Dimensions)
+			if h.labelsCache != nil {
+				h.labelsCache.Set(key(val.Name, "gauge", pl, ci.sortedLabels), &cacheEntry{vec, pl})
+			}
+			vec.With(pl).Set(amt)
 		case config.COUNTER:
 			vec := collector.(*prometheus.CounterVec)
 			amt, err := promValue(val.Value)
@@ -217,7 +258,11 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Name, err))
 				continue
 			}
-			vec.With(promLabels(val.Dimensions)).Add(amt)
+			pl := promLabels(val.Dimensions)
+			if h.labelsCache != nil {
+				h.labelsCache.Set(key(val.Name, "counter", pl, ci.sortedLabels), &cacheEntry{vec, pl})
+			}
+			vec.With(pl).Add(amt)
 		case config.DISTRIBUTION:
 			vec := collector.(*prometheus.HistogramVec)
 			amt, err := promValue(val.Value)
@@ -225,11 +270,40 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 				result = multierror.Append(result, fmt.Errorf("could not get value for metric %s: %v", val.Name, err))
 				continue
 			}
-			vec.With(promLabels(val.Dimensions)).Observe(amt)
+			pl := promLabels(val.Dimensions)
+			if h.labelsCache != nil {
+				h.labelsCache.Set(key(val.Name, "distribution", pl, ci.sortedLabels), &cacheEntry{vec, pl})
+			}
+			vec.With(pl).Observe(amt)
 		}
 	}
 
 	return result.ErrorOrNil()
+}
+
+func key(name, kind string, labels prometheus.Labels, sortedLabelKeys []string) uint64 {
+	buf := pool.GetBuffer()
+	buf.WriteString(name + ":" + kind)
+	for _, k := range sortedLabelKeys {
+		buf.WriteString(k + "=" + labels[k] + ";") // nolint: gas
+	}
+	h := fnv.New64()
+	h.Write(buf.Bytes())
+	pool.PutBuffer(buf)
+	return h.Sum64()
+}
+
+func deleteOldMetrics(key, value interface{}) {
+	if entry, ok := value.(*cacheEntry); ok {
+		switch v := entry.vec.(type) {
+		case *prometheus.CounterVec:
+			v.Delete(entry.labels)
+		case *prometheus.GaugeVec:
+			v.Delete(entry.labels)
+		case *prometheus.HistogramVec:
+			v.Delete(entry.labels)
+		}
+	}
 }
 
 func (h *handler) Close() error { return h.srv.Close() }
