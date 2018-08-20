@@ -150,7 +150,7 @@ containers:
     privileged: true
     readOnlyRootFilesystem: false
     {{ else -}}
-	{{ if eq .Privileged true -}}
+    {{ if eq .Privileged true -}}
     privileged: true
     {{ end -}}
     readOnlyRootFilesystem: true
