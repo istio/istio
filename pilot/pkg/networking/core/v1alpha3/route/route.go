@@ -331,8 +331,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		PerFilterConfig: make(map[string]*types.Struct),
 	}
 
-	_, is10Proxy := node.GetProxyVersion()
-
 	if redirect := in.Redirect; redirect != nil {
 		out.Action = &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -346,7 +344,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			Cors:        translateCORSPolicy(in.CorsPolicy),
 			RetryPolicy: translateRetryPolicy(in.Retries),
 		}
-		if !is10Proxy {
+		if !util.Is1xProxy(node) {
 			action.UseWebsocket = &types.BoolValue{Value: in.WebsocketUpgrade}
 		}
 
@@ -354,7 +352,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			d := util.GogoDurationToDuration(in.Timeout)
 			// timeout
 			action.Timeout = &d
-			if is10Proxy {
+			if util.Is1xProxy(node) {
 				action.MaxGrpcTimeout = &d
 			}
 		} else {
@@ -362,7 +360,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			// to reason about than assuming some defaults.
 			d := 0 * time.Second
 			action.Timeout = &d
-			if is10Proxy {
+			if util.Is1xProxy(node) {
 				action.MaxGrpcTimeout = &d
 			}
 		}
@@ -574,7 +572,6 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 // BuildDefaultHTTPRoute builds a default route.
 func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
-	_, is10Proxy := node.GetProxyVersion()
 
 	defaultRoute := &route.Route{
 		Match: translateRouteMatch(nil),
@@ -589,7 +586,7 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 		},
 	}
 
-	if is10Proxy {
+	if util.Is1xProxy(node) {
 		defaultRoute.Action = &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},

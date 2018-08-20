@@ -356,7 +356,7 @@ var (
 			ID:   "pod1.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
@@ -369,7 +369,7 @@ var (
 			ID:   "pod2.ns2",
 			Type: model.Sidecar,
 			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.0",
+				"ISTIO_PROXY_VERSION": "1.1",
 			},
 		},
 		Service: &svc,
