@@ -524,7 +524,7 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 		if !service.External() {
 			for _, port := range service.Ports {
 				hosts := make([]*host, 0)
-				instances, err := ds.Instances(service.Hostname, []string{port.Name}, nil)
+				instances, err := ds.InstancesByPort(service.Hostname, port.Port, nil)
 				if err != nil {
 					// If client experiences an error, 503 error will tell envoy to keep its current
 					// cache and try again later

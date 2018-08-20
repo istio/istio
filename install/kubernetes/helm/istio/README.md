@@ -56,7 +56,29 @@ $ helm init --service-account tiller
    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
    ```
 
-4. To install the chart with the release name `istio` in namespace `istio-system`:
+4. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
+   ```
+   $ echo -n 'admin' | base64
+   YWRtaW4=
+   $ echo -n '1f2d1e2e67df' | base64
+   MWYyZDFlMmU2N2Rm
+   $ NAMESPACE=istio-system
+   $ cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: kiali
+     namespace: $NAMESPACE
+     labels:
+       app: kiali
+   type: Opaque
+   data:
+     username: YWRtaW4=
+     passphrase: MWYyZDFlMmU2N2Rm
+   EOF
+   ```
+
+5. To install the chart with the release name `istio` in namespace `istio-system`:
     - With [automatic sidecar injection](https://istio.io/docs/setup/kubernetes/sidecar-injection/#automatic-sidecar-injection) (requires Kubernetes >=1.9.0):
     ```
     $ helm install install/kubernetes/helm/istio --name istio --namespace istio-system

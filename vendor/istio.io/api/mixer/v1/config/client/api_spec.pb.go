@@ -75,23 +75,34 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //   namespace: default
 // spec:
 //   attributes:
-//     api.service: petstore.swagger.io
-//     api.version: 1.0.0
+//     attributes:
+//       api.service:
+//         stringValue: petstore.swagger.io
+//       api.version:
+//         stringValue: 1.0.0
 //   patterns:
 //   - attributes:
-//       api.operation: findPets
+//       attributes:
+//         api.operation:
+//           stringValue: findPets
 //     httpMethod: GET
 //     uriTemplate: /api/pets
 //   - attributes:
-//       api.operation: addPet
+//       attributes:
+//         api.operation:
+//           stringValue: addPet
 //     httpMethod: POST
 //     uriTemplate: /api/pets
 //   - attributes:
-//       api.operation: findPetById
+//       attributes:
+//         api.operation:
+//           stringValue: findPetById
 //     httpMethod: GET
 //     uriTemplate: /api/pets/{id}
 //   - attributes:
-//       api.operation: deletePet
+//       attributes:
+//         api.operation:
+//           stringValue: deletePet
 //     httpMethod: DELETE
 //     uriTemplate: /api/pets/{id}
 //   api_keys:

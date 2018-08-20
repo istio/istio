@@ -242,30 +242,6 @@ func (fake *ServiceDiscovery) GetServiceAttributesReturnsOnCall(i int, result1 *
 	}{result1, result2}
 }
 
-func (fake *ServiceDiscovery) Instances(hostname model.Hostname, ports []string, labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	var portsCopy []string
-	if ports != nil {
-		portsCopy = make([]string, len(ports))
-		copy(portsCopy, ports)
-	}
-	fake.instancesMutex.Lock()
-	ret, specificReturn := fake.instancesReturnsOnCall[len(fake.instancesArgsForCall)]
-	fake.instancesArgsForCall = append(fake.instancesArgsForCall, struct {
-		hostname model.Hostname
-		ports    []string
-		labels   model.LabelsCollection
-	}{hostname, portsCopy, labels})
-	fake.recordInvocation("Instances", []interface{}{hostname, portsCopy, labels})
-	fake.instancesMutex.Unlock()
-	if fake.InstancesStub != nil {
-		return fake.InstancesStub(hostname, ports, labels)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.instancesReturns.result1, fake.instancesReturns.result2
-}
-
 func (fake *ServiceDiscovery) InstancesCallCount() int {
 	fake.instancesMutex.RLock()
 	defer fake.instancesMutex.RUnlock()

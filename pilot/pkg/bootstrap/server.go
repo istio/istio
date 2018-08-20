@@ -273,9 +273,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			return err
 		}
 	}
-	if s.clusterStore != nil {
-		log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
-	}
+	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 
 	return err
 }
@@ -341,17 +339,16 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		return nil
 	}
 	var mesh *meshconfig.MeshConfig
+	var err error
+
 	if args.Mesh.ConfigFile != "" {
-		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+		mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
-		} else {
-			mesh = fileMesh
 		}
 	}
 
 	if mesh == nil {
-		var err error
 		// Config file either wasn't specified or failed to load - use a default mesh.
 		if _, mesh, err = GetMeshConfig(s.kubeClient, kube.IstioNamespace, kube.IstioConfigMap); err != nil {
 			log.Warnf("failed to read mesh configuration: %v", err)
