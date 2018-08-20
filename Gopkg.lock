@@ -1571,11 +1571,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:74bbe5c4890ebab42b113ab87e7c84475f39d1040b9aec6e7e7fa60f549fe393"
+  digest = "1:84d1a62934b7e6dafebad2d2fc49e2d70982e47b911e109449bf292dc4612c78"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
-    "common/v1alpha1",
     "envoy/config/filter/http/authn/v2alpha1",
     "envoy/config/filter/http/jwt_auth/v2alpha1",
     "mcp/v1alpha1",
@@ -1588,7 +1587,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "beaacd1cd58e4cee821e391563b030bb067c7866"
+  revision = "214c7598afb74f7f4dea49f77e45832c49382a15"
 
 [[projects]]
   digest = "1:a0934c59fa838e950c6b4b114e13376349d4eb3e054d86322f70ac42a15d3d95"

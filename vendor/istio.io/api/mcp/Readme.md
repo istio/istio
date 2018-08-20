@@ -1,7 +1,8 @@
 # Mesh Configuration Protocol Protos
 
 This folder contains the proto buffers used by the Mesh Configuration Protocol, 
-an ADS-inspired protocol for transferring configuration among Istio components 
+an [XDS](https://github.com/envoyproxy/data-plane-api/blob/master/XDS_PROTOCOL.md#streaming-grpc-subscriptions)
+inspired protocol for transferring configuration among Istio components 
 during runtime.
 
 The protocol buffers in this folder are not used for configuring Istio. 
