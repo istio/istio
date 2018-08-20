@@ -189,12 +189,20 @@ message Jwt {
   message TriggerRule {
     // List of paths to be excluded from the request. The rule is satisfied if
     // request path does not match to any of the path in this list.
+<<<<<<< HEAD
     repeated StringMatch excluded_paths = 1;
+=======
+    repeated istio.common.v1alpha1.StringMatch excluded_paths = 1;
+>>>>>>> update api sha. add unit test for dictionary race.
 
     // List of paths that the request must include. If the list is not empty, the
     // rule is satisfied if request path matches at least one of the path in the list.
     // If the list is empty, the rule is ignored, in other words the rule is always satisfied.
+<<<<<<< HEAD
     repeated StringMatch included_paths = 2;
+=======
+    repeated istio.common.v1alpha1.StringMatch included_paths = 2;
+>>>>>>> update api sha. add unit test for dictionary race.
   }
 
   // List of trigger rules to decide if this JWT should be used to validate the
