@@ -19,7 +19,7 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/log"
@@ -30,10 +30,40 @@ type accessList struct {
 	Allowed []string
 }
 
-func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.ListAuthChecker, error) {
+type fileWatcher interface {
+	Add(path string) error
+	Close() error
+	Events() chan fsnotify.Event
+	Errors() chan error
+}
+
+type fsNotifyWatcher struct {
+	*fsnotify.Watcher
+}
+
+func (w *fsNotifyWatcher) Add(path string) error       { return w.Watcher.Add(path) }
+func (w *fsNotifyWatcher) Close() error                { return w.Watcher.Close() }
+func (w *fsNotifyWatcher) Events() chan fsnotify.Event { return w.Watcher.Events }
+func (w *fsNotifyWatcher) Errors() chan error          { return w.Watcher.Errors }
+
+func newFsnotifyWatcher() (fileWatcher, error) {
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	return &fsNotifyWatcher{Watcher: w}, nil
+}
+
+var (
+	newFileWatcher         = newFsnotifyWatcher
+	readFile               = ioutil.ReadFile
+	watchEventHandledProbe func()
+)
+
+func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
 
 	// Do the initial read.
-	list, err := readAccessList(accesslistfile)
+	list, err := readAccessList(accessListFile)
 	if err != nil {
 		return nil, err
 	}
@@ -41,15 +71,15 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 	checker := server.NewListAuthChecker()
 	checker.Set(list.Allowed...)
 
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newFileWatcher()
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: https://github.com/istio/istio/issues/7877
 	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
-	if err = watcher.Watch(accesslistfile); err != nil {
-		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accesslistfile, err)
+	if err = watcher.Add(accessListFile); err != nil {
+		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accessListFile, err)
 	}
 
 	// Coordinate the goroutines for orderly shutdown
@@ -61,15 +91,17 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 
 		for {
 			select {
-			case e := <-watcher.Event:
-				if e.IsCreate() || e.IsModify() {
-					if list, err = readAccessList(accesslistfile); err != nil {
-						log.Errorf("Error reading access list %q: %v", accesslistfile, err)
+			case e := <-watcher.Events():
+				if e.Op&fsnotify.Write == fsnotify.Write {
+					if list, err = readAccessList(accessListFile); err != nil {
+						log.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
 						checker.Set(list.Allowed...)
 					}
 				}
-
+				if watchEventHandledProbe != nil {
+					watchEventHandledProbe()
+				}
 			case <-stopCh:
 				return
 			}
@@ -83,7 +115,7 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 
 		for {
 			select {
-			case e := <-watcher.Error:
+			case e := <-watcher.Errors():
 				log.Errorf("error event while watching access list file: %v", e)
 
 			case <-stopCh:
@@ -100,15 +132,15 @@ func watchAccessList(stopCh <-chan struct{}, accesslistfile string) (*server.Lis
 	return checker, nil
 }
 
-func readAccessList(accesslistfile string) (accessList, error) {
-	b, err := ioutil.ReadFile(accesslistfile)
+func readAccessList(accessListFile string) (accessList, error) {
+	b, err := readFile(accessListFile)
 	if err != nil {
-		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accesslistfile, err)
+		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accessListFile, err)
 	}
 
 	var list accessList
 	if err = yaml.Unmarshal(b, &list); err != nil {
-		return accessList{}, fmt.Errorf("unable to parse access list file %q: %v", accesslistfile, err)
+		return accessList{}, fmt.Errorf("unable to parse access list file %q: %v", accessListFile, err)
 	}
 
 	return list, nil
