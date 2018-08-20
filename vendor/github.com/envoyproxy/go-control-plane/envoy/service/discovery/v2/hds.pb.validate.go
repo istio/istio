@@ -411,13 +411,13 @@ func (m *ClusterHealthCheck) Validate() error {
 
 	}
 
-	for idx, item := range m.GetEndpoints() {
+	for idx, item := range m.GetLocalityEndpoints() {
 		_, _ = idx, item
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return ClusterHealthCheckValidationError{
-					Field:  fmt.Sprintf("Endpoints[%v]", idx),
+					Field:  fmt.Sprintf("LocalityEndpoints[%v]", idx),
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -468,13 +468,13 @@ func (m *HealthCheckSpecifier) Validate() error {
 		return nil
 	}
 
-	for idx, item := range m.GetHealthCheck() {
+	for idx, item := range m.GetClusterHealthChecks() {
 		_, _ = idx, item
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return HealthCheckSpecifierValidationError{
-					Field:  fmt.Sprintf("HealthCheck[%v]", idx),
+					Field:  fmt.Sprintf("ClusterHealthChecks[%v]", idx),
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}

@@ -6,8 +6,8 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import io "io"
 
@@ -15,6 +15,12 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type ThriftProxy_TransportType int32
 
@@ -42,7 +48,7 @@ func (x ThriftProxy_TransportType) String() string {
 	return proto.EnumName(ThriftProxy_TransportType_name, int32(x))
 }
 func (ThriftProxy_TransportType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorThriftProxy, []int{0, 0}
+	return fileDescriptor_thrift_proxy_3f82c9dfca1db902, []int{0, 0}
 }
 
 type ThriftProxy_ProtocolType int32
@@ -77,7 +83,7 @@ func (x ThriftProxy_ProtocolType) String() string {
 	return proto.EnumName(ThriftProxy_ProtocolType_name, int32(x))
 }
 func (ThriftProxy_ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorThriftProxy, []int{0, 1}
+	return fileDescriptor_thrift_proxy_3f82c9dfca1db902, []int{0, 1}
 }
 
 // [#protodoc-title: Extensions Thrift Proxy]
@@ -91,13 +97,44 @@ type ThriftProxy struct {
 	// The human readable prefix to use when emitting statistics.
 	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The route table for the connection manager is static and is specified in this property.
-	RouteConfig *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig          *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
-func (m *ThriftProxy) Reset()                    { *m = ThriftProxy{} }
-func (m *ThriftProxy) String() string            { return proto.CompactTextString(m) }
-func (*ThriftProxy) ProtoMessage()               {}
-func (*ThriftProxy) Descriptor() ([]byte, []int) { return fileDescriptorThriftProxy, []int{0} }
+func (m *ThriftProxy) Reset()         { *m = ThriftProxy{} }
+func (m *ThriftProxy) String() string { return proto.CompactTextString(m) }
+func (*ThriftProxy) ProtoMessage()    {}
+func (*ThriftProxy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_thrift_proxy_3f82c9dfca1db902, []int{0}
+}
+func (m *ThriftProxy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ThriftProxy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ThriftProxy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ThriftProxy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ThriftProxy.Merge(dst, src)
+}
+func (m *ThriftProxy) XXX_Size() int {
+	return m.Size()
+}
+func (m *ThriftProxy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ThriftProxy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ThriftProxy proto.InternalMessageInfo
 
 func (m *ThriftProxy) GetTransport() ThriftProxy_TransportType {
 	if m != nil {
@@ -173,6 +210,9 @@ func (m *ThriftProxy) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -201,6 +241,9 @@ func (m *ThriftProxy) Size() (n int) {
 	if m.RouteConfig != nil {
 		l = m.RouteConfig.Size()
 		n += 1 + l + sovThriftProxy(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -359,6 +402,7 @@ func (m *ThriftProxy) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -474,10 +518,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptorThriftProxy)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_thrift_proxy_3f82c9dfca1db902)
 }
 
-var fileDescriptorThriftProxy = []byte{
+var fileDescriptor_thrift_proxy_3f82c9dfca1db902 = []byte{
 	// 422 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x90, 0x3f, 0x6f, 0xd3, 0x40,
 	0x18, 0x87, 0x7b, 0x8e, 0x29, 0xcd, 0xeb, 0x34, 0x32, 0x27, 0x24, 0xac, 0x0c, 0x96, 0x95, 0x29,

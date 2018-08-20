@@ -15,7 +15,7 @@
 syntax = "proto3";
 
 // $title: Mixer Adapter Model
-// $description: Definitions used to create adapters and templates
+// $description: Definitions used to create adapters and templates.
 
 // This package defines the service and types used by adapter code to serve requests from Mixer.
 // This package also defines the types that are used to create Mixer templates.

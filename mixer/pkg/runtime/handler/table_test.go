@@ -168,7 +168,7 @@ func TestCleanup_Basic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -279,7 +279,7 @@ func TestCleanup_NoChange(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -347,7 +347,7 @@ func TestCleanup_CloseError(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
@@ -382,7 +382,7 @@ func TestCleanup_ClosePanic(t *testing.T) {
 	expected := `
 [acheck] NewBuilder =>
 [acheck] NewBuilder <=
-[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},}'
+[acheck] HandlerBuilder.SetAdapterConfig => '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
 [acheck] HandlerBuilder.SetAdapterConfig <=
 [acheck] HandlerBuilder.Validate =>
 [acheck] HandlerBuilder.Validate <= (SUCCESS)
