@@ -134,6 +134,7 @@ type Params struct {
 	Version         string                 `json:"version"`
 	EnableCoreDump  bool                   `json:"enableCoreDump"`
 	DebugMode       bool                   `json:"debugMode"`
+	Privileged      bool                   `json:"privileged"`
 	Mesh            *meshconfig.MeshConfig `json:"-"`
 	ImagePullPolicy string                 `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only redirect outbound traffic to Envoy for these IP
