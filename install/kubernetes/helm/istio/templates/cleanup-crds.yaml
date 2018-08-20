@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+metadata:
+  name: istio-cleanup-crds-service-account
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "1"
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: istio-cleanup-crds-{{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "1"
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-cleanup-crds-{{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "2"
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-cleanup-crds-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-cleanup-crds-service-account
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: istio-cleanup-crds
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "3"
+  labels:
+    app: {{ template "istio.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  template:
+    metadata:
+      name: istio-cleanup-crds
+      labels:
+        app: {{ template "istio.name" . }}
+        chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-cleanup-crds-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command:
+          - /bin/bash
+          - -c
+          - >
+              kubectl get crd | grep "istio.io" |  while read -r entry; do
+                name=$(echo $entry | awk '{print $1}');
+                kubectl delete crd $name;
+              done
+      restartPolicy: OnFailure

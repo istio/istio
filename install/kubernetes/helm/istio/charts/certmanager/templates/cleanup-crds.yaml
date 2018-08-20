@@ -1,0 +1,110 @@
+# The reason for creating a ServiceAccount and ClusterRole specifically for this
+# post-delete hooked job is because the certmanager ServiceAccount is being deleted
+# before this hook is launched.
+#
+# It's also important that the ServiceAccount, ClusterRole and ClusterRoleBinding
+# will be ready before running the hooked Job therefore the hook weights.
+
+apiVersion: v1
+kind: ServiceAccount
+{{- if .Values.global.imagePullSecrets }}
+imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+  - name: {{ . }}
+{{- end }}
+{{- end }}
+metadata:
+  name: certmanager-cleanup-crds-service-account
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "1"
+  labels:
+    app: {{ template "certmanager.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: certmanager-cleanup-crds-{{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "1"
+  labels:
+    app: {{ template "certmanager.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: certmanager-cleanup-crds-{{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "2"
+  labels:
+    app: {{ template "certmanager.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: certmanager-cleanup-crds-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: certmanager-cleanup-crds-service-account
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: certmanager-cleanup-crds
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "3"
+  labels:
+    app: {{ template "certmanager.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  template:
+    metadata:
+      name: certmanager-cleanup-crds
+      labels:
+        app: {{ template "certmanager.name" . }}
+        chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: certmanager-cleanup-crds-service-account
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command:
+          - /bin/bash
+          - -c
+          - >
+              kubectl delete crd clusterissuers.certmanager.k8s.io;
+              kubectl delete crd issuers.certmanager.k8s.io;
+              kubectl delete crd certificates.certmanager.k8s.io;
+      restartPolicy: OnFailure
