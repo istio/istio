@@ -37,7 +37,10 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # If set, newly injected sidecars will have core dumps enabled.
+    #If set to true, istio-proxy container will have privileged securityContext
+    priviledged: false
+
+    # If set, newly injected sidecars will have core dumps enabled and priviledged securityContext
     enableCoreDump: false
 
     # istio egress capture whitelist
@@ -322,7 +325,6 @@ sidecarInjectorWebhook:
   replicaCount: 1
   image: sidecar_injector
   enableNamespacesByDefault: false
-  priviledged: false
 
 #
 # galley configuration
