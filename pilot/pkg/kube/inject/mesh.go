@@ -79,7 +79,7 @@ initContainers:
   image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
   resources: {}
-  security:
+  securityContext:
     privileged: true
 {{ end -}}
 containers:
