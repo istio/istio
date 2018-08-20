@@ -93,6 +93,7 @@ static_resources:
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "outbound",
@@ -121,6 +122,7 @@ static_resources:
 	checkAttributesOkInbound = `
 {
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.reporter.kind": "inbound",
@@ -152,6 +154,7 @@ static_resources:
 	reportAttributesOkOutbound = `
 {
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
@@ -199,6 +202,7 @@ static_resources:
 	reportAttributesOkInbound = `
 {
   "connection.mtls": false,
+  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "context.protocol": "http",
   "context.proxy_error_code": "-",
