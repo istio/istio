@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"testing"
 
+	"io/ioutil"
+
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -59,19 +61,8 @@ const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
 	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
 	`"sub":"sub@foo.com"}`
 
-// jwt is formed from the value in secIstioAuthUserinfoHeaderValue
-const jwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZ" +
-	"kNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJhdWQ" +
-	"iOiJhdWQxIiwiZXhwIjoyMDAwMDAwMDAwMCwiaWF0IjoxNTAwMDAwMDAw" +
-	"LCJpc3MiOiJpc3N1ZXJAZm9vLmNvbSIsInNvbWUtb3RoZXItc3RyaW5nL" +
-	"WNsYWltcyI6InNvbWUtY2xhaW1zLWtlcHQiLCJzdWIiOiJzdWJAZm9vLm" +
-	"NvbSJ9.VYQdAqzlzpVBoKQMkmwm4oCX-wgMieR7rEpJiOggYocEJbEINr" +
-	"ZSMas9bJ0CQXdv5UWR6NiO-p1Ko1Zol1X5Ma93Aego18vygY1K1bZ5whX" +
-	"qVtbkpDe5tUaPNP58uKWsh8g3EA2Mpr1jF7RgGCYmiW_LlWJnLlBMEvbb" +
-	"pkBFy43Yfzn_wpLHNBTO8cUGHGMErBeBSe2jUYmdOda1s51rGmS-CuQDL" +
-	"GMeJPmc2l50AOO0tnNbSp3S3KfeyF918uDFfDRLYp7j16cx71ETXfLsrX" +
-	"UkcLOLthIYGpuD0RgvLi5soHDpV_uNO8FDiOPMs8y60EUQUcuSKZZHTS_" +
-	"hzONkhg"
+// jwtPath stores the JWT formed from the value in secIstioAuthUserinfoHeaderValue
+const jwtPath = "../test_data/jwt_token_example_1.jwt"
 
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
@@ -195,7 +186,13 @@ func TestAuthnCheckReportAttributesOriginJwtNoBoundToOrigin(t *testing.T) {
 	headers := map[string]string{}
 	headers[secIstioAuthUserInfoHeaderKey] =
 		base64.StdEncoding.EncodeToString([]byte(secIstioAuthUserinfoHeaderValue))
-	headers["Authorization"] = "Bearer " + jwt
+
+	jwt, err := ioutil.ReadFile(jwtPath)
+	if err != nil {
+		t.Fatalf("Failed to read the JWT file: %v", err)
+	}
+
+	headers["Authorization"] = "Bearer " + string(jwt[:])
 
 	if _, _, err := env.HTTPGetWithHeaders(url, headers); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
