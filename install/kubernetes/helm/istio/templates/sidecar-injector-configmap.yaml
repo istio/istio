@@ -61,6 +61,7 @@ data:
             - "NET_RAW"
           privileged: false
           allowPrivilegeEscalation: false
+        restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - args:
         - -c
