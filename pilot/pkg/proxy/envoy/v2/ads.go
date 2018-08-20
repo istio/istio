@@ -206,7 +206,7 @@ type XdsConnection struct {
 	ListenerNonceSent, ListenerNonceAcked string
 	RouteNonceSent, RouteNonceAcked       string
 	EndpointNonceSent, EndpointNonceAcked string
-	RoutePercent, EndpointPercent         int
+	EndpointPercent                       int
 
 	// current list of clusters monitored by the client
 	Clusters []string
