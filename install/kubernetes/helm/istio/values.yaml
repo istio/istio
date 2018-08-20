@@ -322,6 +322,7 @@ sidecarInjectorWebhook:
   replicaCount: 1
   image: sidecar_injector
   enableNamespacesByDefault: false
+  priviledged: false
 
 #
 # galley configuration
