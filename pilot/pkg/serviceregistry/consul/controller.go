@@ -15,7 +15,6 @@
 package consul
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hashicorp/consul/api"
@@ -114,13 +113,6 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	return nil, fmt.Errorf("NOT IMPLEMENTED")
-}
-
 // InstancesByPort retrieves instances for a service that match
 // any of the supplied labels. All instances match an empty tag list.
 func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
@@ -203,7 +195,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	// Need to get service account of service registered with consul
 	// Currently Consul does not have service account or equivalent concept
 	// As a step-1, to enabling istio security in Consul, We assume all the services run in default service account

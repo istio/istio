@@ -24,6 +24,6 @@ func NewServiceAccounts() model.ServiceAccounts {
 	return &serviceAccounts{}
 }
 
-func (sa *serviceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (sa *serviceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	return nil
 }

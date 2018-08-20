@@ -239,8 +239,7 @@ func newPilot(namespace string, t *testing.T) (*bootstrap.Server, model.ConfigSt
 
 	// Start the server
 	stop := make(chan struct{})
-	_, err = server.Start(stop)
-	if err != nil {
+	if err := server.Start(stop); err != nil {
 		t.Fatal(err)
 	}
 
