@@ -33,7 +33,6 @@ const checkAttributesOkPost = `
   "target.uid": "POD222",
   "target.namespace": "XYZ222",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "connection.id": "*"
 }
@@ -51,7 +50,6 @@ const reportAttributesOkPostOpen = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "connection.mtls": false,
-  "connection.requested_server_name": "",
   "origin.ip": "[127 0 0 1]",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -84,7 +82,6 @@ const reportAttributesOkPostClose = `
   "connection.duration": "*",
   "connection.id": "*",
   "connection.event": "close",
-  "connection.requested_server_name": ""
 }
 `
 
@@ -112,7 +109,6 @@ const reportAttributesFailPost = `
   "check.error_message": "UNAUTHENTICATED",
   "connection.id": "*",
   "connection.event": "close",
-  "connection.requested_server_name": ""
 }
 `
 

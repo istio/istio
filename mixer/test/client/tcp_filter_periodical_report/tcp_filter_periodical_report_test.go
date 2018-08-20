@@ -42,7 +42,6 @@ const openReportAttributesOkPost = `
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
   "connection.event": "open",
-  "connection.requested_server_name": ""
 }
 `
 const deltaReportAttributesOkPost = `
@@ -65,7 +64,6 @@ const deltaReportAttributesOkPost = `
   "connection.sent.bytes_total": 0,
   "connection.id": "*",
   "connection.event": "continue",
-  "connection.requested_server_name": ""
 }
 `
 const finalReportAttributesOkPost = `
@@ -89,7 +87,6 @@ const finalReportAttributesOkPost = `
   "connection.duration": "*",
   "connection.id": "*",
   "connection.event": "close",
-  "connection.requested_server_name": ""
 }
 `
 
