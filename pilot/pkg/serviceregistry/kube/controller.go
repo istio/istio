@@ -338,79 +338,6 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return probes
 }
 
-// Instances implements a service catalog operation
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Get actual service by name
-	name, namespace, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-
-	item, exists := c.serviceByKey(name, namespace)
-	if !exists {
-		return nil, nil
-	}
-
-	// Locate all ports in the actual service
-	svc := convertService(*item, c.domainSuffix)
-	if svc == nil {
-		return nil, nil
-	}
-	svcPorts := make(map[string]*model.Port)
-	for _, port := range ports {
-		if svcPort, exists := svc.Ports.Get(port); exists {
-			svcPorts[port] = svcPort
-		}
-	}
-
-	// TODO: single port service missing name
-	for _, item := range c.endpoints.informer.GetStore().List() {
-		ep := *item.(*v1.Endpoints)
-		if ep.Name == name && ep.Namespace == namespace {
-			var out []*model.ServiceInstance
-			for _, ss := range ep.Subsets {
-				for _, ea := range ss.Addresses {
-					labels, _ := c.pods.labelsByIP(ea.IP)
-					// check that one of the input labels is a subset of the labels
-					if !labelsList.HasSubsetOf(labels) {
-						continue
-					}
-
-					pod, exists := c.pods.getPodByIP(ea.IP)
-					az, sa, uid := "", "", ""
-					if exists {
-						az, _ = c.GetPodAZ(pod)
-						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
-						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-					}
-
-					// identify the port by name
-					for _, port := range ss.Ports {
-						if svcPort, exists := svcPorts[port.Name]; exists {
-							out = append(out, &model.ServiceInstance{
-								Endpoint: model.NetworkEndpoint{
-									Address:     ea.IP,
-									Port:        int(port.Port),
-									ServicePort: svcPort,
-									UID:         uid,
-								},
-								Service:          svc,
-								Labels:           labels,
-								AvailabilityZone: az,
-								ServiceAccount:   sa,
-							})
-						}
-					}
-				}
-			}
-			return out, nil
-		}
-	}
-	return nil, nil
-}
-
 // InstancesByPort implements a service catalog operation
 func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -565,7 +492,7 @@ func getEndpoints(addr []v1.EndpointAddress, proxyIP string, c *Controller,
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
@@ -580,13 +507,18 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []st
 		return nil
 	}
 
+	instances := make([]*model.ServiceInstance, 0)
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
-	instances, err := c.Instances(hostname, ports, model.LabelsCollection{})
-	if err != nil {
-		log.Warnf("Instances(%s) error: %v", hostname, err)
-		return nil
+	for _, port := range ports {
+		svcinstances, err := c.InstancesByPort(hostname, port, model.LabelsCollection{})
+		if err != nil {
+			log.Warnf("InstancesByPort(%s:%d) error: %v", hostname, port, err)
+			return nil
+		}
+		instances = append(instances, svcinstances...)
 	}
+
 	for _, si := range instances {
 		if si.ServiceAccount != "" {
 			saSet[si.ServiceAccount] = true
