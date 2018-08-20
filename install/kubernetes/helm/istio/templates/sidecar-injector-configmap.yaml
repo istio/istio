@@ -43,10 +43,14 @@ data:
             - NET_ADMIN
           privileged: true
         restartPolicy: Always
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if and (.Values.global.proxy.enableCoreDump) (ne .Values.global.proxy.maxNumCoreDumps "0") }}
       - args:
         - -c
+      {{- if eq .Values.global.proxy.maxNumCoreDumps "unlimited" }}
+        - sysctl -w kernel.core_pattern=/var/istio/proxy/core.%e.%p.%t && ulimit -c unlimited
+      {{- else }}
         - sysctl -w kernel.core_pattern=/var/istio/proxy/core.proxy && ulimit -c unlimited
+      {{- end }}
         command:
           - /bin/sh
         image: {{ .Values.global.hub }}/proxy_init:{{ .Values.global.tag }}

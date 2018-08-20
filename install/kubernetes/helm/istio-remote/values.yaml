@@ -28,7 +28,14 @@ global:
     accessLogFile: "/dev/stdout"
 
     # If set, newly injected sidecars will have core dumps enabled.
-    enableCoreDump: false
+    # Deprecated, use maxNumCoreDumps below.
+    enableCoreDump: true
+    # Maximum number of coredumps to store (must be string due to helm numerical value handling inconsistencies):
+    #  0: no coredumps generated or stored
+    #  1: always overwrite <core_path>/core.proxy with most recent core.
+    #  unlimited: store all cores with timestamp at <core_path>/core.<timestamp>
+    # Any other value is currently unsupported and results in same behavior as value 1.
+    maxNumCoreDumps: "1"
 
     # istio egress capture whitelist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
