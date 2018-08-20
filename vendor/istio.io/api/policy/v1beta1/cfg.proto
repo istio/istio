@@ -124,6 +124,34 @@ message Rule {
 
   // Optional. The actions that will be executed when match evaluates to `true`.
   repeated Action actions = 2;
+
+  // A template for an HTTP header manipulation.
+  message HeaderOperationTemplate {
+
+    // Required. Header name.
+    string name = 1;
+
+    // Optional. Header values to replace or append.
+    repeated string values = 2;
+
+    // Header operation type.
+    enum Operation {
+      REPLACE = 0;  // replaces the header with the given name
+      REMOVE = 1;   // removes the header with the given name (the value is ignored)
+      APPEND = 2;   // appends the values to the existing values (preserving existing values)
+    }
+
+    // Optional. Header operation type. Default operation is to replace the value of the header by name.
+    Operation operation = 3;
+  }
+
+  // Optional. Templatized operations on the request headers using attributes produced by the
+  // rule actions.
+  repeated HeaderOperationTemplate request_header_operations = 3;
+
+  // Optional. Templatized operations on the response headers using attributes produced by the
+  // rule actions.
+  repeated HeaderOperationTemplate response_header_operations = 4;
 }
 
 // Action describes which [Handler][istio.policy.v1beta1.Handler] to invoke and what data to pass to it for processing.
@@ -146,6 +174,9 @@ message Action {
   // Referenced instances are evaluated by resolving the attributes/literals for all the fields.
   // The constructed objects are then passed to the `handler` referenced within this action.
   repeated string instances = 3;
+
+  // Optional. A handle to refer to the results of the action.
+  string name = 4;
 }
 
 // An Instance tells Mixer how to create instances for particular template.

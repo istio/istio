@@ -191,30 +191,6 @@ func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
 	return nil
 }
 
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty label list.
-func (c *Controller) Instances(hostname model.Hostname, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	var instances, tmpInstances []*model.ServiceInstance
-	var errs error
-	for _, r := range c.GetRegistries() {
-		var err error
-		tmpInstances, err = r.Instances(hostname, ports, labels)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if len(tmpInstances) > 0 {
-			if errs != nil {
-				log.Warnf("Instances() found match but encountered an error: %v", errs)
-			}
-			instances = append(instances, tmpInstances...)
-		}
-	}
-	if len(instances) > 0 {
-		errs = nil
-	}
-	return instances, errs
-}
-
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) InstancesByPort(hostname model.Hostname, port int,
@@ -300,7 +276,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	for _, r := range c.GetRegistries() {
 		if svcAccounts := r.GetIstioServiceAccounts(hostname, ports); svcAccounts != nil {
 			return svcAccounts

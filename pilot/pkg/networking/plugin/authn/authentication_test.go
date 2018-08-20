@@ -711,7 +711,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
-						RequireClientCertificate: &types.BoolValue{true},
+						RequireClientCertificate: &types.BoolValue{Value: true},
 					},
 				},
 			},

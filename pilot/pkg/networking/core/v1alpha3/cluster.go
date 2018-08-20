@@ -117,7 +117,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			// create default cluster
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{port.Name})
+			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
 			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts, serviceAccounts)
 
 			updateEds(defaultCluster)
@@ -196,7 +196,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		accounts := []string{}
 		for _, port := range instance.Service.Ports {
 			if port.Port == instance.Endpoint.Port {
-				accounts = append(accounts, env.ServiceAccounts.GetIstioServiceAccounts(instance.Service.Hostname, []string{port.Name})...)
+				accounts = append(accounts, env.ServiceAccounts.GetIstioServiceAccounts(instance.Service.Hostname, []int{port.Port})...)
 				break
 			}
 		}
@@ -249,7 +249,7 @@ func getServiceAccounts(env *model.Environment, proxy *model.Proxy) ([]string, e
 	for _, si := range instances {
 		for _, port := range si.Service.Ports {
 			if port.Port == si.Endpoint.Port {
-				serviceAccounts = append(serviceAccounts, env.ServiceAccounts.GetIstioServiceAccounts(si.Service.Hostname, []string{port.Name})...)
+				serviceAccounts = append(serviceAccounts, env.ServiceAccounts.GetIstioServiceAccounts(si.Service.Hostname, []int{port.Port})...)
 				break
 			}
 		}

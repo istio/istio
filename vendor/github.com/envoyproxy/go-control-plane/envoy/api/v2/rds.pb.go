@@ -6,11 +6,13 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-import envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+import route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 import _ "github.com/gogo/googleapis/google/api"
-import google_protobuf1 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
+import types "github.com/gogo/protobuf/types"
+
+import bytes "bytes"
 
 import context "golang.org/x/net/context"
 import grpc "google.golang.org/grpc"
@@ -22,6 +24,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 type RouteConfiguration struct {
 	// The name of the route configuration. For example, it might match
 	// :ref:`route_config_name
@@ -29,7 +37,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_config.filter.network.http_connection_manager.v2.Rds`.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// An array of virtual hosts that make up the route table.
-	VirtualHosts []envoy_api_v2_route.VirtualHost `protobuf:"bytes,2,rep,name=virtual_hosts,json=virtualHosts" json:"virtual_hosts"`
+	VirtualHosts []route.VirtualHost `protobuf:"bytes,2,rep,name=virtual_hosts,json=virtualHosts" json:"virtual_hosts"`
 	// Optionally specifies a list of HTTP headers that the connection manager
 	// will consider to be internal only. If they are found on external requests they will be cleaned
 	// prior to filter invocation. See :ref:`config_http_conn_man_headers_x-envoy-internal` for more
@@ -41,7 +49,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,4,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each response
 	// that the connection manager encodes.
 	ResponseHeadersToRemove []string `protobuf:"bytes,5,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
@@ -51,7 +59,7 @@ type RouteConfiguration struct {
 	// :ref:`envoy_api_msg_route.RouteAction`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*envoy_api_v2_core.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,6,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
 	// An optional boolean that specifies whether the clusters that the route
 	// table refers to will be validated by the cluster manager. If set to true
 	// and a route refers to a non-existent cluster, the route table will not
@@ -65,13 +73,44 @@ type RouteConfiguration struct {
 	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.rds>`
 	// option. Users may which to override the default behavior in certain cases (for example when
 	// using CDS with a static route table).
-	ValidateClusters *google_protobuf1.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
+	ValidateClusters     *types.BoolValue `protobuf:"bytes,7,opt,name=validate_clusters,json=validateClusters" json:"validate_clusters,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *RouteConfiguration) Reset()                    { *m = RouteConfiguration{} }
-func (m *RouteConfiguration) String() string            { return proto.CompactTextString(m) }
-func (*RouteConfiguration) ProtoMessage()               {}
-func (*RouteConfiguration) Descriptor() ([]byte, []int) { return fileDescriptorRds, []int{0} }
+func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
+func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
+func (*RouteConfiguration) ProtoMessage()    {}
+func (*RouteConfiguration) Descriptor() ([]byte, []int) {
+	return fileDescriptor_rds_49b8428ed0bf9596, []int{0}
+}
+func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RouteConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RouteConfiguration.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RouteConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteConfiguration.Merge(dst, src)
+}
+func (m *RouteConfiguration) XXX_Size() int {
+	return m.Size()
+}
+func (m *RouteConfiguration) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteConfiguration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteConfiguration proto.InternalMessageInfo
 
 func (m *RouteConfiguration) GetName() string {
 	if m != nil {
@@ -80,7 +119,7 @@ func (m *RouteConfiguration) GetName() string {
 	return ""
 }
 
-func (m *RouteConfiguration) GetVirtualHosts() []envoy_api_v2_route.VirtualHost {
+func (m *RouteConfiguration) GetVirtualHosts() []route.VirtualHost {
 	if m != nil {
 		return m.VirtualHosts
 	}
@@ -94,7 +133,7 @@ func (m *RouteConfiguration) GetInternalOnlyHeaders() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetResponseHeadersToAdd() []*envoy_api_v2_core.HeaderValueOption {
+func (m *RouteConfiguration) GetResponseHeadersToAdd() []*core.HeaderValueOption {
 	if m != nil {
 		return m.ResponseHeadersToAdd
 	}
@@ -108,14 +147,14 @@ func (m *RouteConfiguration) GetResponseHeadersToRemove() []string {
 	return nil
 }
 
-func (m *RouteConfiguration) GetRequestHeadersToAdd() []*envoy_api_v2_core.HeaderValueOption {
+func (m *RouteConfiguration) GetRequestHeadersToAdd() []*core.HeaderValueOption {
 	if m != nil {
 		return m.RequestHeadersToAdd
 	}
 	return nil
 }
 
-func (m *RouteConfiguration) GetValidateClusters() *google_protobuf1.BoolValue {
+func (m *RouteConfiguration) GetValidateClusters() *types.BoolValue {
 	if m != nil {
 		return m.ValidateClusters
 	}
@@ -190,6 +229,9 @@ func (this *RouteConfiguration) Equal(that interface{}) bool {
 	if !this.ValidateClusters.Equal(that1.ValidateClusters) {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 
@@ -218,7 +260,7 @@ func NewRouteDiscoveryServiceClient(cc *grpc.ClientConn) RouteDiscoveryServiceCl
 }
 
 func (c *routeDiscoveryServiceClient) StreamRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_StreamRoutesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[0], c.cc, "/envoy.api.v2.RouteDiscoveryService/StreamRoutes", opts...)
+	stream, err := c.cc.NewStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[0], "/envoy.api.v2.RouteDiscoveryService/StreamRoutes", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +291,7 @@ func (x *routeDiscoveryServiceStreamRoutesClient) Recv() (*DiscoveryResponse, er
 }
 
 func (c *routeDiscoveryServiceClient) IncrementalRoutes(ctx context.Context, opts ...grpc.CallOption) (RouteDiscoveryService_IncrementalRoutesClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[1], c.cc, "/envoy.api.v2.RouteDiscoveryService/IncrementalRoutes", opts...)
+	stream, err := c.cc.NewStream(ctx, &_RouteDiscoveryService_serviceDesc.Streams[1], "/envoy.api.v2.RouteDiscoveryService/IncrementalRoutes", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +323,7 @@ func (x *routeDiscoveryServiceIncrementalRoutesClient) Recv() (*IncrementalDisco
 
 func (c *routeDiscoveryServiceClient) FetchRoutes(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryResponse, error) {
 	out := new(DiscoveryResponse)
-	err := grpc.Invoke(ctx, "/envoy.api.v2.RouteDiscoveryService/FetchRoutes", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/envoy.api.v2.RouteDiscoveryService/FetchRoutes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -493,6 +535,9 @@ func (m *RouteConfiguration) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -545,6 +590,9 @@ func (m *RouteConfiguration) Size() (n int) {
 	if m.ValidateClusters != nil {
 		l = m.ValidateClusters.Size()
 		n += 1 + l + sovRds(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -646,7 +694,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.VirtualHosts = append(m.VirtualHosts, envoy_api_v2_route.VirtualHost{})
+			m.VirtualHosts = append(m.VirtualHosts, route.VirtualHost{})
 			if err := m.VirtualHosts[len(m.VirtualHosts)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -706,7 +754,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ResponseHeadersToAdd = append(m.ResponseHeadersToAdd, &envoy_api_v2_core.HeaderValueOption{})
+			m.ResponseHeadersToAdd = append(m.ResponseHeadersToAdd, &core.HeaderValueOption{})
 			if err := m.ResponseHeadersToAdd[len(m.ResponseHeadersToAdd)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -766,7 +814,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.RequestHeadersToAdd = append(m.RequestHeadersToAdd, &envoy_api_v2_core.HeaderValueOption{})
+			m.RequestHeadersToAdd = append(m.RequestHeadersToAdd, &core.HeaderValueOption{})
 			if err := m.RequestHeadersToAdd[len(m.RequestHeadersToAdd)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -798,7 +846,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ValidateClusters == nil {
-				m.ValidateClusters = &google_protobuf1.BoolValue{}
+				m.ValidateClusters = &types.BoolValue{}
 			}
 			if err := m.ValidateClusters.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -816,6 +864,7 @@ func (m *RouteConfiguration) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -930,9 +979,9 @@ var (
 	ErrIntOverflowRds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptorRds) }
+func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_rds_49b8428ed0bf9596) }
 
-var fileDescriptorRds = []byte{
+var fileDescriptor_rds_49b8428ed0bf9596 = []byte{
 	// 526 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x3f, 0x6f, 0xd3, 0x40,
 	0x14, 0xef, 0x25, 0xa1, 0xa8, 0x97, 0x20, 0xd1, 0x4b, 0xda, 0x86, 0x08, 0x39, 0x51, 0xc4, 0x10,

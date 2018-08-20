@@ -63,7 +63,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, cluster, "HTTPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
