@@ -6,10 +6,12 @@ package envoy_type
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import binary "encoding/binary"
+import bytes "bytes"
+
+import encoding_binary "encoding/binary"
 
 import io "io"
 
@@ -17,6 +19,12 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Fraction percentages support several fixed denominator values.
 type FractionalPercent_DenominatorType int32
@@ -51,18 +59,49 @@ func (x FractionalPercent_DenominatorType) String() string {
 	return proto.EnumName(FractionalPercent_DenominatorType_name, int32(x))
 }
 func (FractionalPercent_DenominatorType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorPercent, []int{1, 0}
+	return fileDescriptor_percent_9c3a09dc29f751a8, []int{1, 0}
 }
 
 // Identifies a percentage, in the range [0.0, 100.0].
 type Percent struct {
-	Value float64 `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Percent) Reset()                    { *m = Percent{} }
-func (m *Percent) String() string            { return proto.CompactTextString(m) }
-func (*Percent) ProtoMessage()               {}
-func (*Percent) Descriptor() ([]byte, []int) { return fileDescriptorPercent, []int{0} }
+func (m *Percent) Reset()         { *m = Percent{} }
+func (m *Percent) String() string { return proto.CompactTextString(m) }
+func (*Percent) ProtoMessage()    {}
+func (*Percent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_percent_9c3a09dc29f751a8, []int{0}
+}
+func (m *Percent) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Percent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Percent.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Percent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Percent.Merge(dst, src)
+}
+func (m *Percent) XXX_Size() int {
+	return m.Size()
+}
+func (m *Percent) XXX_DiscardUnknown() {
+	xxx_messageInfo_Percent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Percent proto.InternalMessageInfo
 
 func (m *Percent) GetValue() float64 {
 	if m != nil {
@@ -82,13 +121,44 @@ type FractionalPercent struct {
 	Numerator uint32 `protobuf:"varint,1,opt,name=numerator,proto3" json:"numerator,omitempty"`
 	// Specifies the denominator. If the denominator specified is less than the numerator, the final
 	// fractional percentage is capped at 1 (100%).
-	Denominator FractionalPercent_DenominatorType `protobuf:"varint,2,opt,name=denominator,proto3,enum=envoy.type.FractionalPercent_DenominatorType" json:"denominator,omitempty"`
+	Denominator          FractionalPercent_DenominatorType `protobuf:"varint,2,opt,name=denominator,proto3,enum=envoy.type.FractionalPercent_DenominatorType" json:"denominator,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
+	XXX_unrecognized     []byte                            `json:"-"`
+	XXX_sizecache        int32                             `json:"-"`
 }
 
-func (m *FractionalPercent) Reset()                    { *m = FractionalPercent{} }
-func (m *FractionalPercent) String() string            { return proto.CompactTextString(m) }
-func (*FractionalPercent) ProtoMessage()               {}
-func (*FractionalPercent) Descriptor() ([]byte, []int) { return fileDescriptorPercent, []int{1} }
+func (m *FractionalPercent) Reset()         { *m = FractionalPercent{} }
+func (m *FractionalPercent) String() string { return proto.CompactTextString(m) }
+func (*FractionalPercent) ProtoMessage()    {}
+func (*FractionalPercent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_percent_9c3a09dc29f751a8, []int{1}
+}
+func (m *FractionalPercent) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FractionalPercent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FractionalPercent.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *FractionalPercent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FractionalPercent.Merge(dst, src)
+}
+func (m *FractionalPercent) XXX_Size() int {
+	return m.Size()
+}
+func (m *FractionalPercent) XXX_DiscardUnknown() {
+	xxx_messageInfo_FractionalPercent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FractionalPercent proto.InternalMessageInfo
 
 func (m *FractionalPercent) GetNumerator() uint32 {
 	if m != nil {
@@ -131,6 +201,9 @@ func (this *Percent) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *FractionalPercent) Equal(that interface{}) bool {
@@ -158,6 +231,9 @@ func (this *FractionalPercent) Equal(that interface{}) bool {
 	if this.Denominator != that1.Denominator {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (m *Percent) Marshal() (dAtA []byte, err error) {
@@ -178,8 +254,11 @@ func (m *Percent) MarshalTo(dAtA []byte) (int, error) {
 	if m.Value != 0 {
 		dAtA[i] = 0x9
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
 		i += 8
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -209,6 +288,9 @@ func (m *FractionalPercent) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintPercent(dAtA, i, uint64(m.Denominator))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -227,6 +309,9 @@ func (m *Percent) Size() (n int) {
 	if m.Value != 0 {
 		n += 9
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -238,6 +323,9 @@ func (m *FractionalPercent) Size() (n int) {
 	}
 	if m.Denominator != 0 {
 		n += 1 + sovPercent(uint64(m.Denominator))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -292,7 +380,7 @@ func (m *Percent) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Value = float64(math.Float64frombits(v))
 		default:
@@ -307,6 +395,7 @@ func (m *Percent) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -395,6 +484,7 @@ func (m *FractionalPercent) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -509,9 +599,9 @@ var (
 	ErrIntOverflowPercent   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/type/percent.proto", fileDescriptorPercent) }
+func init() { proto.RegisterFile("envoy/type/percent.proto", fileDescriptor_percent_9c3a09dc29f751a8) }
 
-var fileDescriptorPercent = []byte{
+var fileDescriptor_percent_9c3a09dc29f751a8 = []byte{
 	// 283 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x48, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0x2f, 0x48, 0x2d, 0x4a, 0x4e, 0xcd, 0x2b, 0xd1, 0x2b,
