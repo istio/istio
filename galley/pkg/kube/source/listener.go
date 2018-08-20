@@ -173,16 +173,16 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 
 	if uns, ok := obj.(*unstructured.Unstructured); ok {
 		u = uns
-	}
 
-	// https://github.com/kubernetes/kubernetes/pull/63972
-	// k8s machinery does not always preserve TypeMeta in list operations. Restore it
-	// using aprior knowledge of the GVK for this listener.
-	u.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   l.spec.Group,
-		Version: l.spec.Version,
-		Kind:    l.spec.Kind,
-	})
+		// https://github.com/kubernetes/kubernetes/pull/63972
+		// k8s machinery does not always preserve TypeMeta in list operations. Restore it
+		// using aprior knowledge of the GVK for this listener.
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   l.spec.Group,
+			Version: l.spec.Version,
+			Kind:    l.spec.Kind,
+		})
+	}
 
 	if scope.DebugEnabled() {
 		scope.Debugf("Sending event: [%v] from: %s", c, l.spec.CanonicalResourceName())
