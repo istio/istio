@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"85d30eed4dc57749b5734f2ddee1ba14f602161e3d211c405a0925e53093646c","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"cf8e923d548717ca9b4dc9ef7ebc89c6f3ee8829760562897475b1ce777b488e","initContainers":["istio-init","enable-core-dump"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -118,8 +118,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
-        securityContext:
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory
