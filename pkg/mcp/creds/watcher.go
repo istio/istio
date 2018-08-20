@@ -24,10 +24,40 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/log"
+)
+
+type fileWatcher interface {
+	Add(path string) error
+	Close() error
+	Events() chan fsnotify.Event
+	Errors() chan error
+}
+
+type fsNotifyWatcher struct {
+	*fsnotify.Watcher
+}
+
+func (w *fsNotifyWatcher) Add(path string) error       { return w.Watcher.Add(path) }
+func (w *fsNotifyWatcher) Close() error                { return w.Watcher.Close() }
+func (w *fsNotifyWatcher) Events() chan fsnotify.Event { return w.Watcher.Events }
+func (w *fsNotifyWatcher) Errors() chan error          { return w.Watcher.Errors }
+
+func newFsnotifyWatcher() (fileWatcher, error) {
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	return &fsNotifyWatcher{Watcher: w}, nil
+}
+
+var (
+	newFileWatcher         = newFsnotifyWatcher
+	readFile               = ioutil.ReadFile
+	watchEventHandledProbe func()
 )
 
 var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
@@ -139,21 +169,21 @@ func (c *CertificateWatcher) start() error {
 	// TODO: https://github.com/istio/istio/issues/7877
 	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
 	//
-	certFileWatcher, err := fsnotify.NewWatcher()
+	certFileWatcher, err := newFsnotifyWatcher()
 	if err != nil {
 		return err
 	}
 
-	keyFileWatcher, err := fsnotify.NewWatcher()
+	keyFileWatcher, err := newFsnotifyWatcher()
 	if err != nil {
 		return err
 	}
 
-	if err = certFileWatcher.Watch(c.options.CertificateFile); err != nil {
+	if err = certFileWatcher.Add(c.options.CertificateFile); err != nil {
 		return err
 	}
 
-	if err = keyFileWatcher.Watch(c.options.KeyFile); err != nil {
+	if err = keyFileWatcher.Add(c.options.KeyFile); err != nil {
 		_ = certFileWatcher.Close()
 		return err
 	}
@@ -178,33 +208,28 @@ func (c *CertificateWatcher) start() error {
 	return nil
 }
 
-func (c *CertificateWatcher) watch(
-	exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func (c *CertificateWatcher) watch(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
 	for {
 		select {
-		case e := <-certFileWatcher.Event:
-			if e.IsCreate() || e.IsModify() {
+		case e := <-certFileWatcher.Events():
+			if e.Op&fsnotify.Write == fsnotify.Write {
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
 				}
 				c.set(&cert)
 			}
-			break
-
-		case e := <-keyFileWatcher.Event:
-			if e.IsCreate() || e.IsModify() {
+		case e := <-keyFileWatcher.Events():
+			if e.Op&fsnotify.Write == fsnotify.Write {
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
 				}
 				c.set(&cert)
 			}
-			break
-
 		case <-c.stopCh:
 			scope.Debug("stopping watch of certificate file changes")
 			return
@@ -212,21 +237,16 @@ func (c *CertificateWatcher) watch(
 	}
 }
 
-func (c *CertificateWatcher) watchErrors(
-	exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func (c *CertificateWatcher) watchErrors(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 
 	defer exitSignal.Done()
 
 	for {
 		select {
-		case e := <-keyFileWatcher.Error:
+		case e := <-keyFileWatcher.Errors():
 			scope.Errorf("error event while watching key file: %v", e)
-			break
-
-		case e := <-certFileWatcher.Error:
+		case e := <-certFileWatcher.Errors():
 			scope.Errorf("error event while watching cert file: %v", e)
-			break
-
 		case <-c.stopCh:
 			scope.Debug("stopping watch of certificate file errors")
 			return
@@ -234,7 +254,7 @@ func (c *CertificateWatcher) watchErrors(
 	}
 }
 
-func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher *fsnotify.Watcher) {
+func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
 	exitSignal.Wait()
 	_ = certFileWatcher.Close()
 	_ = keyFileWatcher.Close()
