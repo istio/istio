@@ -56,7 +56,9 @@ data:
           capabilities:
             add:
             - NET_ADMIN
-          privileged:  {{ .Values.sidecarInjectorWebhook.priviledged }}
+          {{ if .Values.sidecarInjectorWebhook.priviledged }}
+          priviledge: true
+          {{end }}
         restartPolicy: Always
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - args:
@@ -68,8 +70,8 @@ data:
         imagePullPolicy: IfNotPresent
         name: enable-core-dump
         resources: {}
-        securityContext:
-          privileged:  {{ .Values.sidecarInjectorWebhook.priviledged }}
+          securityContext:
+            privileged: true
       {{ end }}
       containers:
       - name: istio-proxy
@@ -132,7 +134,9 @@ data:
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          privileged:  {{ .Values.sidecarInjectorWebhook.priviledged }}
+          {{ if .Values.sidecarInjectorWebhook.priviledged }}
+          privileged: true
+          {{end }}
           readOnlyRootFilesystem: true
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
