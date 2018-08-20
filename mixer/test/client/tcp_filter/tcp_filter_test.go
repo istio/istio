@@ -81,7 +81,7 @@ const reportAttributesOkPostClose = `
   "connection.sent.bytes_total": "*",
   "connection.duration": "*",
   "connection.id": "*",
-  "connection.event": "close",
+  "connection.event": "close"
 }
 `
 
@@ -108,7 +108,7 @@ const reportAttributesFailPost = `
   "check.error_code": 16,
   "check.error_message": "UNAUTHENTICATED",
   "connection.id": "*",
-  "connection.event": "close",
+  "connection.event": "close"
 }
 `
 
