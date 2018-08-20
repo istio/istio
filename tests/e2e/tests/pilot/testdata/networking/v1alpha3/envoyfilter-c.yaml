@@ -15,7 +15,8 @@ spec:
     filterName: envoy.fault
     filterConfig:
       abort:
-        percent: 100
+        percentage:
+          value: 100.0
         httpStatus: 444
       headers:
         name: envoyfilter-test
