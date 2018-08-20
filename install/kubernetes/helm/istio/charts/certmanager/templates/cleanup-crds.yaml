@@ -5,6 +5,7 @@
 # It's also important that the ServiceAccount, ClusterRole and ClusterRoleBinding
 # will be ready before running the hooked Job therefore the hook weights.
 
+{{- if .Values.global.crdsPostDeleteHookEnabled }}
 apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
@@ -108,3 +109,4 @@ spec:
               kubectl delete crd issuers.certmanager.k8s.io;
               kubectl delete crd certificates.certmanager.k8s.io;
       restartPolicy: OnFailure
+{{- end }}

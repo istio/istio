@@ -333,3 +333,8 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+  
+  # Specifies whether the CRDs cleanup post-delete hook should be enabled or not. 
+  # If set to false, the CRDs cleanup post-delete hook will be disabled, and the 
+  # CRDs need to be manually deleted before the second installation.
+  crdsPostDeleteHookEnabled: true

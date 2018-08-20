@@ -1,3 +1,4 @@
+{{- if .Values.global.crdsPostDeleteHookEnabled }}
 apiVersion: v1
 kind: ServiceAccount
 {{- if .Values.global.imagePullSecrets }}
@@ -102,3 +103,4 @@ spec:
                 kubectl delete crd $name;
               done
       restartPolicy: OnFailure
+{{- end }}
