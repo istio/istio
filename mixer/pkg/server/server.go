@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"istio.io/istio/mixer/pkg/config/crd"
@@ -260,6 +262,17 @@ func (s *Server) Run() {
 		// notify closer we're done
 		s.shutdown <- err
 	}()
+
+	go interruptHandler(s)
+}
+
+func interruptHandler(s *Server) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	sig := <-sigs
+	log.Infof("Received %v signal; attempting graceful stop...", sig)
+	s.server.GracefulStop()
+	s.shutdown <- fmt.Errorf("shutdown due to %v signal", sig)
 }
 
 // Wait waits for the server to exit.
