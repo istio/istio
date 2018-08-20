@@ -66,7 +66,7 @@ func TestTemplates(t *testing.T) {
 		{
 			name:          "error bad fds string",
 			DescriptorStr: notFileDescriptorSet,
-			wantErr:       "proto: can't skip unknown wire type 7 for descriptor.FileDescriptorSet",
+			wantErr:       "unexpected EOF",
 		},
 		{
 			name:          "error unsupported template name",
@@ -119,7 +119,7 @@ func TestAdapters(t *testing.T) {
 		{
 			name:          "error bad adapter config",
 			DescriptorStr: notFileDescriptorSet, // bogus
-			wantErr:       "can't skip unknown wire type 7 for descriptor.FileDescriptorSet",
+			wantErr:       "unexpected EOF",
 		},
 		{
 			name:          "empty descriptor",

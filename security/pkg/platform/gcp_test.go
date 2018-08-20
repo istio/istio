@@ -162,12 +162,6 @@ func TestGetDialOptions(t *testing.T) {
 		if len(options) != len(c.expectedOptions) {
 			t.Errorf("%s: Wrong dial options size. Expected %v, Actual %v", id, len(c.expectedOptions), len(options))
 		}
-
-		for index, option := range c.expectedOptions {
-			if reflect.ValueOf(options[index]).Pointer() != reflect.ValueOf(option).Pointer() {
-				t.Errorf("%s: Wrong option found", id)
-			}
-		}
 	}
 }
 

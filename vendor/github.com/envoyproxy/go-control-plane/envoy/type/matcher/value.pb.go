@@ -15,6 +15,12 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Specifies the way to match a ProtobufWkt::Value. Primitive values and ListValue are supported.
 // StructValue is not supported and is always not matched.
 type ValueMatcher struct {
@@ -27,13 +33,44 @@ type ValueMatcher struct {
 	//	*ValueMatcher_BoolMatch
 	//	*ValueMatcher_PresentMatch
 	//	*ValueMatcher_ListMatch
-	MatchPattern isValueMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	MatchPattern         isValueMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
+	XXX_unrecognized     []byte                      `json:"-"`
+	XXX_sizecache        int32                       `json:"-"`
 }
 
-func (m *ValueMatcher) Reset()                    { *m = ValueMatcher{} }
-func (m *ValueMatcher) String() string            { return proto.CompactTextString(m) }
-func (*ValueMatcher) ProtoMessage()               {}
-func (*ValueMatcher) Descriptor() ([]byte, []int) { return fileDescriptorValue, []int{0} }
+func (m *ValueMatcher) Reset()         { *m = ValueMatcher{} }
+func (m *ValueMatcher) String() string { return proto.CompactTextString(m) }
+func (*ValueMatcher) ProtoMessage()    {}
+func (*ValueMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_value_e8e88d61fb6314a5, []int{0}
+}
+func (m *ValueMatcher) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValueMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValueMatcher.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ValueMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueMatcher.Merge(dst, src)
+}
+func (m *ValueMatcher) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValueMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueMatcher proto.InternalMessageInfo
 
 type isValueMatcher_MatchPattern interface {
 	isValueMatcher_MatchPattern()
@@ -233,28 +270,28 @@ func _ValueMatcher_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.MatchPattern.(type) {
 	case *ValueMatcher_NullMatch_:
 		s := proto.Size(x.NullMatch)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_DoubleMatch:
 		s := proto.Size(x.DoubleMatch)
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_StringMatch:
 		s := proto.Size(x.StringMatch)
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case *ValueMatcher_BoolMatch:
-		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += 1
 	case *ValueMatcher_PresentMatch:
-		n += proto.SizeVarint(5<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += 1
 	case *ValueMatcher_ListMatch:
 		s := proto.Size(x.ListMatch)
-		n += proto.SizeVarint(6<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -266,24 +303,86 @@ func _ValueMatcher_OneofSizer(msg proto.Message) (n int) {
 
 // NullMatch is an empty message to specify a null value.
 type ValueMatcher_NullMatch struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ValueMatcher_NullMatch) Reset()                    { *m = ValueMatcher_NullMatch{} }
-func (m *ValueMatcher_NullMatch) String() string            { return proto.CompactTextString(m) }
-func (*ValueMatcher_NullMatch) ProtoMessage()               {}
-func (*ValueMatcher_NullMatch) Descriptor() ([]byte, []int) { return fileDescriptorValue, []int{0, 0} }
+func (m *ValueMatcher_NullMatch) Reset()         { *m = ValueMatcher_NullMatch{} }
+func (m *ValueMatcher_NullMatch) String() string { return proto.CompactTextString(m) }
+func (*ValueMatcher_NullMatch) ProtoMessage()    {}
+func (*ValueMatcher_NullMatch) Descriptor() ([]byte, []int) {
+	return fileDescriptor_value_e8e88d61fb6314a5, []int{0, 0}
+}
+func (m *ValueMatcher_NullMatch) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ValueMatcher_NullMatch) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ValueMatcher_NullMatch.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ValueMatcher_NullMatch) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueMatcher_NullMatch.Merge(dst, src)
+}
+func (m *ValueMatcher_NullMatch) XXX_Size() int {
+	return m.Size()
+}
+func (m *ValueMatcher_NullMatch) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueMatcher_NullMatch.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ValueMatcher_NullMatch proto.InternalMessageInfo
 
 // Specifies the way to match a list value.
 type ListMatcher struct {
 	// Types that are valid to be assigned to MatchPattern:
 	//	*ListMatcher_OneOf
-	MatchPattern isListMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	MatchPattern         isListMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
-func (m *ListMatcher) Reset()                    { *m = ListMatcher{} }
-func (m *ListMatcher) String() string            { return proto.CompactTextString(m) }
-func (*ListMatcher) ProtoMessage()               {}
-func (*ListMatcher) Descriptor() ([]byte, []int) { return fileDescriptorValue, []int{1} }
+func (m *ListMatcher) Reset()         { *m = ListMatcher{} }
+func (m *ListMatcher) String() string { return proto.CompactTextString(m) }
+func (*ListMatcher) ProtoMessage()    {}
+func (*ListMatcher) Descriptor() ([]byte, []int) {
+	return fileDescriptor_value_e8e88d61fb6314a5, []int{1}
+}
+func (m *ListMatcher) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ListMatcher) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ListMatcher.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *ListMatcher) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListMatcher.Merge(dst, src)
+}
+func (m *ListMatcher) XXX_Size() int {
+	return m.Size()
+}
+func (m *ListMatcher) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListMatcher.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListMatcher proto.InternalMessageInfo
 
 type isListMatcher_MatchPattern interface {
 	isListMatcher_MatchPattern()
@@ -356,7 +455,7 @@ func _ListMatcher_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.MatchPattern.(type) {
 	case *ListMatcher_OneOf:
 		s := proto.Size(x.OneOf)
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
 	case nil:
@@ -392,6 +491,9 @@ func (m *ValueMatcher) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn1
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -491,6 +593,9 @@ func (m *ValueMatcher_NullMatch) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -515,6 +620,9 @@ func (m *ListMatcher) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn6
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -547,6 +655,9 @@ func (m *ValueMatcher) Size() (n int) {
 	_ = l
 	if m.MatchPattern != nil {
 		n += m.MatchPattern.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -602,6 +713,9 @@ func (m *ValueMatcher_ListMatch) Size() (n int) {
 func (m *ValueMatcher_NullMatch) Size() (n int) {
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -610,6 +724,9 @@ func (m *ListMatcher) Size() (n int) {
 	_ = l
 	if m.MatchPattern != nil {
 		n += m.MatchPattern.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -848,6 +965,7 @@ func (m *ValueMatcher) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -898,6 +1016,7 @@ func (m *ValueMatcher_NullMatch) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -980,6 +1099,7 @@ func (m *ListMatcher) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1094,9 +1214,11 @@ var (
 	ErrIntOverflowValue   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptorValue) }
+func init() {
+	proto.RegisterFile("envoy/type/matcher/value.proto", fileDescriptor_value_e8e88d61fb6314a5)
+}
 
-var fileDescriptorValue = []byte{
+var fileDescriptor_value_e8e88d61fb6314a5 = []byte{
 	// 349 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0x4d, 0x4b, 0xc3, 0x30,
 	0x18, 0xc7, 0x17, 0xe7, 0xa6, 0x7b, 0xba, 0x5d, 0x02, 0xbe, 0xb0, 0x43, 0x37, 0x07, 0xc2, 0xf0,
