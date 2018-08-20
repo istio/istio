@@ -436,7 +436,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, vsName, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(in.Fault))
+		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
 	}
 
 	return out
@@ -604,35 +604,23 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance
 // to an envoy.type.FractionalPercent instance.
 func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.FractionalPercent {
-	fp := xdstype.FractionalPercent{}
-	switch {
-	case p.Value >= 1.0:
-		fp.Numerator = uint32(p.Value)
-		fp.Denominator = xdstype.FractionalPercent_HUNDRED
-	case p.Value >= 0.01:
-		fp.Numerator = uint32(p.Value * 100)
-		fp.Denominator = xdstype.FractionalPercent_TEN_THOUSAND
-	case p.Value >= 0.0001:
-		fp.Numerator = uint32(p.Value * 10000)
-		fp.Denominator = xdstype.FractionalPercent_MILLION
-	default:
-		fp.Numerator = 0
-		fp.Denominator = xdstype.FractionalPercent_HUNDRED
+	return &xdstype.FractionalPercent{
+		Numerator:   uint32(p.Value * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
 	}
-	return &fp
 }
 
 // translateIntegerToFractionalPercent translates an int32 instance to an
 // envoy.type.FractionalPercent instance.
 func translateIntegerToFractionalPercent(p int32) *xdstype.FractionalPercent {
 	return &xdstype.FractionalPercent{
-		Numerator:   uint32(p),
-		Denominator: xdstype.FractionalPercent_HUNDRED,
+		Numerator:   uint32(p * 10000),
+		Denominator: xdstype.FractionalPercent_MILLION,
 	}
 }
 
 // translateFault translates networking.HTTPFaultInjection into Envoy's HTTPFault
-func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
+func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	if in == nil {
 		return nil
 	}
@@ -640,10 +628,14 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
 		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
-		if in.Delay.Percentage != nil {
-			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
+		if util.Is11Proxy(node) {
+			if in.Delay.Percentage != nil {
+				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
+			} else {
+				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			}
 		} else {
-			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			out.Delay.Percent = uint32(in.Delay.Percent)
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
@@ -659,10 +651,14 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 
 	if in.Abort != nil {
 		out.Abort = &xdshttpfault.FaultAbort{}
-		if in.Abort.Percentage != nil {
-			out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
+		if util.Is11Proxy(node) {
+			if in.Abort.Percentage != nil {
+				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
+			} else {
+				out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
+			}
 		} else {
-			out.Abort.Percentage = translateIntegerToFractionalPercent(in.Abort.Percent)
+			out.Abort.Percent = uint32(in.Abort.Percent)
 		}
 		switch a := in.Abort.ErrorType.(type) {
 		case *networking.HTTPFaultInjection_Abort_HttpStatus:
