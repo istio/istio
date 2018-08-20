@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -274,9 +273,6 @@ func TestAwsGetDialOptions(t *testing.T) {
 		"Bad DialOptions": {
 			expectedErr:  "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
 			rootCertFile: "testdata/cert-chain-good_not_exist.pem",
-			expectedOptions: []grpc.DialOption{
-				grpc.WithTransportCredentials(creds),
-			},
 		},
 	}
 
@@ -301,12 +297,6 @@ func TestAwsGetDialOptions(t *testing.T) {
 		if len(options) != len(c.expectedOptions) {
 			t.Fatalf("%s: Wrong dial options size. Expected %v, Actual %v",
 				id, len(c.expectedOptions), len(options))
-		}
-
-		for index, option := range c.expectedOptions {
-			if reflect.ValueOf(options[index]).Pointer() != reflect.ValueOf(option).Pointer() {
-				t.Errorf("%s: Wrong option found", id)
-			}
 		}
 	}
 }

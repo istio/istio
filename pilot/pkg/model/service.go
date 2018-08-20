@@ -390,26 +390,6 @@ type ServiceDiscovery interface {
 	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
 
-	// Instances retrieves instances for a service and its ports that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider the example of catalog.mystore.com as described in NetworkEndpoints
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> NetworkEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> NetworkEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
-	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
-
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//
@@ -471,7 +451,7 @@ type ServiceDiscovery interface {
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
-	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
+	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
 // Matches returns true if this Hostname "matches" the other hostname. Hostnames match if:

@@ -6,10 +6,9 @@ package core
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/gogo/protobuf/types"
-import google_protobuf1 "github.com/gogo/protobuf/types"
-import _ "github.com/lyft/protoc-gen-validate/validate"
 import _ "github.com/gogo/protobuf/gogoproto"
+import types "github.com/gogo/protobuf/types"
+import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import bytes "bytes"
 
@@ -19,6 +18,12 @@ import io "io"
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Envoy supports :ref:`upstream priority routing
 // <arch_overview_http_routing_priority>` both at the route and the virtual
@@ -46,7 +51,9 @@ var RoutingPriority_value = map[string]int32{
 func (x RoutingPriority) String() string {
 	return proto.EnumName(RoutingPriority_name, int32(x))
 }
-func (RoutingPriority) EnumDescriptor() ([]byte, []int) { return fileDescriptorBase, []int{0} }
+func (RoutingPriority) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{0}
+}
 
 // HTTP request method.
 type RequestMethod int32
@@ -89,7 +96,9 @@ var RequestMethod_value = map[string]int32{
 func (x RequestMethod) String() string {
 	return proto.EnumName(RequestMethod_name, int32(x))
 }
-func (RequestMethod) EnumDescriptor() ([]byte, []int) { return fileDescriptorBase, []int{1} }
+func (RequestMethod) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{1}
+}
 
 type SocketOption_SocketState int32
 
@@ -117,7 +126,7 @@ func (x SocketOption_SocketState) String() string {
 	return proto.EnumName(SocketOption_SocketState_name, int32(x))
 }
 func (SocketOption_SocketState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptorBase, []int{8, 0}
+	return fileDescriptor_base_56e1a3946b1570d0, []int{8, 0}
 }
 
 // Identifies location of where either Envoy runs or where upstream hosts run.
@@ -136,13 +145,44 @@ type Locality struct {
 	// When used for locality of upstream hosts, this field further splits zone
 	// into smaller chunks of sub-zones so they can be load balanced
 	// independently.
-	SubZone string `protobuf:"bytes,3,opt,name=sub_zone,json=subZone,proto3" json:"sub_zone,omitempty"`
+	SubZone              string   `protobuf:"bytes,3,opt,name=sub_zone,json=subZone,proto3" json:"sub_zone,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Locality) Reset()                    { *m = Locality{} }
-func (m *Locality) String() string            { return proto.CompactTextString(m) }
-func (*Locality) ProtoMessage()               {}
-func (*Locality) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{0} }
+func (m *Locality) Reset()         { *m = Locality{} }
+func (m *Locality) String() string { return proto.CompactTextString(m) }
+func (*Locality) ProtoMessage()    {}
+func (*Locality) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{0}
+}
+func (m *Locality) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Locality) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Locality.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Locality) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Locality.Merge(dst, src)
+}
+func (m *Locality) XXX_Size() int {
+	return m.Size()
+}
+func (m *Locality) XXX_DiscardUnknown() {
+	xxx_messageInfo_Locality.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Locality proto.InternalMessageInfo
 
 func (m *Locality) GetRegion() string {
 	if m != nil {
@@ -189,19 +229,50 @@ type Node struct {
 	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Opaque metadata extending the node identifier. Envoy will pass this
 	// directly to the management server.
-	Metadata *google_protobuf.Struct `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *types.Struct `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
 	// Locality specifying where the Envoy instance is running.
 	Locality *Locality `protobuf:"bytes,4,opt,name=locality" json:"locality,omitempty"`
 	// This is motivated by informing a management server during canary which
 	// version of Envoy is being tested in a heterogeneous fleet. This will be set
 	// by Envoy in management server RPCs.
-	BuildVersion string `protobuf:"bytes,5,opt,name=build_version,json=buildVersion,proto3" json:"build_version,omitempty"`
+	BuildVersion         string   `protobuf:"bytes,5,opt,name=build_version,json=buildVersion,proto3" json:"build_version,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Node) Reset()                    { *m = Node{} }
-func (m *Node) String() string            { return proto.CompactTextString(m) }
-func (*Node) ProtoMessage()               {}
-func (*Node) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{1} }
+func (m *Node) Reset()         { *m = Node{} }
+func (m *Node) String() string { return proto.CompactTextString(m) }
+func (*Node) ProtoMessage()    {}
+func (*Node) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{1}
+}
+func (m *Node) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Node) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Node.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Node) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Node.Merge(dst, src)
+}
+func (m *Node) XXX_Size() int {
+	return m.Size()
+}
+func (m *Node) XXX_DiscardUnknown() {
+	xxx_messageInfo_Node.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Node proto.InternalMessageInfo
 
 func (m *Node) GetId() string {
 	if m != nil {
@@ -217,7 +288,7 @@ func (m *Node) GetCluster() string {
 	return ""
 }
 
-func (m *Node) GetMetadata() *google_protobuf.Struct {
+func (m *Node) GetMetadata() *types.Struct {
 	if m != nil {
 		return m.Metadata
 	}
@@ -259,15 +330,46 @@ func (m *Node) GetBuildVersion() string {
 type Metadata struct {
 	// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
 	// namespace is reserved for Envoy's built-in filters.
-	FilterMetadata map[string]*google_protobuf.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	FilterMetadata       map[string]*types.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
-func (m *Metadata) Reset()                    { *m = Metadata{} }
-func (m *Metadata) String() string            { return proto.CompactTextString(m) }
-func (*Metadata) ProtoMessage()               {}
-func (*Metadata) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{2} }
+func (m *Metadata) Reset()         { *m = Metadata{} }
+func (m *Metadata) String() string { return proto.CompactTextString(m) }
+func (*Metadata) ProtoMessage()    {}
+func (*Metadata) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{2}
+}
+func (m *Metadata) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Metadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Metadata.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Metadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Metadata.Merge(dst, src)
+}
+func (m *Metadata) XXX_Size() int {
+	return m.Size()
+}
+func (m *Metadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_Metadata.DiscardUnknown(m)
+}
 
-func (m *Metadata) GetFilterMetadata() map[string]*google_protobuf.Struct {
+var xxx_messageInfo_Metadata proto.InternalMessageInfo
+
+func (m *Metadata) GetFilterMetadata() map[string]*types.Struct {
 	if m != nil {
 		return m.FilterMetadata
 	}
@@ -279,13 +381,44 @@ type RuntimeUInt32 struct {
 	// Default value if runtime value is not available.
 	DefaultValue uint32 `protobuf:"varint,2,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// Runtime key to get value for comparison. This value is used if defined.
-	RuntimeKey string `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
+	RuntimeKey           string   `protobuf:"bytes,3,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RuntimeUInt32) Reset()                    { *m = RuntimeUInt32{} }
-func (m *RuntimeUInt32) String() string            { return proto.CompactTextString(m) }
-func (*RuntimeUInt32) ProtoMessage()               {}
-func (*RuntimeUInt32) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{3} }
+func (m *RuntimeUInt32) Reset()         { *m = RuntimeUInt32{} }
+func (m *RuntimeUInt32) String() string { return proto.CompactTextString(m) }
+func (*RuntimeUInt32) ProtoMessage()    {}
+func (*RuntimeUInt32) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{3}
+}
+func (m *RuntimeUInt32) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RuntimeUInt32) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RuntimeUInt32.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RuntimeUInt32) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RuntimeUInt32.Merge(dst, src)
+}
+func (m *RuntimeUInt32) XXX_Size() int {
+	return m.Size()
+}
+func (m *RuntimeUInt32) XXX_DiscardUnknown() {
+	xxx_messageInfo_RuntimeUInt32.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RuntimeUInt32 proto.InternalMessageInfo
 
 func (m *RuntimeUInt32) GetDefaultValue() uint32 {
 	if m != nil {
@@ -310,13 +443,44 @@ type HeaderValue struct {
 	// The same :ref:`format specifier <config_access_log_format>` as used for
 	// :ref:`HTTP access logging <config_access_log>` applies here, however
 	// unknown header values are replaced with the empty string instead of `-`.
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HeaderValue) Reset()                    { *m = HeaderValue{} }
-func (m *HeaderValue) String() string            { return proto.CompactTextString(m) }
-func (*HeaderValue) ProtoMessage()               {}
-func (*HeaderValue) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{4} }
+func (m *HeaderValue) Reset()         { *m = HeaderValue{} }
+func (m *HeaderValue) String() string { return proto.CompactTextString(m) }
+func (*HeaderValue) ProtoMessage()    {}
+func (*HeaderValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{4}
+}
+func (m *HeaderValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HeaderValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HeaderValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *HeaderValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValue.Merge(dst, src)
+}
+func (m *HeaderValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *HeaderValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeaderValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HeaderValue proto.InternalMessageInfo
 
 func (m *HeaderValue) GetKey() string {
 	if m != nil {
@@ -338,13 +502,44 @@ type HeaderValueOption struct {
 	Header *HeaderValue `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
 	// Should the value be appended? If true (default), the value is appended to
 	// existing values.
-	Append *google_protobuf1.BoolValue `protobuf:"bytes,2,opt,name=append" json:"append,omitempty"`
+	Append               *types.BoolValue `protobuf:"bytes,2,opt,name=append" json:"append,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
 }
 
-func (m *HeaderValueOption) Reset()                    { *m = HeaderValueOption{} }
-func (m *HeaderValueOption) String() string            { return proto.CompactTextString(m) }
-func (*HeaderValueOption) ProtoMessage()               {}
-func (*HeaderValueOption) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{5} }
+func (m *HeaderValueOption) Reset()         { *m = HeaderValueOption{} }
+func (m *HeaderValueOption) String() string { return proto.CompactTextString(m) }
+func (*HeaderValueOption) ProtoMessage()    {}
+func (*HeaderValueOption) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{5}
+}
+func (m *HeaderValueOption) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HeaderValueOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HeaderValueOption.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *HeaderValueOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HeaderValueOption.Merge(dst, src)
+}
+func (m *HeaderValueOption) XXX_Size() int {
+	return m.Size()
+}
+func (m *HeaderValueOption) XXX_DiscardUnknown() {
+	xxx_messageInfo_HeaderValueOption.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HeaderValueOption proto.InternalMessageInfo
 
 func (m *HeaderValueOption) GetHeader() *HeaderValue {
 	if m != nil {
@@ -353,7 +548,7 @@ func (m *HeaderValueOption) GetHeader() *HeaderValue {
 	return nil
 }
 
-func (m *HeaderValueOption) GetAppend() *google_protobuf1.BoolValue {
+func (m *HeaderValueOption) GetAppend() *types.BoolValue {
 	if m != nil {
 		return m.Append
 	}
@@ -366,13 +561,44 @@ type DataSource struct {
 	//	*DataSource_Filename
 	//	*DataSource_InlineBytes
 	//	*DataSource_InlineString
-	Specifier isDataSource_Specifier `protobuf_oneof:"specifier"`
+	Specifier            isDataSource_Specifier `protobuf_oneof:"specifier"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *DataSource) Reset()                    { *m = DataSource{} }
-func (m *DataSource) String() string            { return proto.CompactTextString(m) }
-func (*DataSource) ProtoMessage()               {}
-func (*DataSource) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{6} }
+func (m *DataSource) Reset()         { *m = DataSource{} }
+func (m *DataSource) String() string { return proto.CompactTextString(m) }
+func (*DataSource) ProtoMessage()    {}
+func (*DataSource) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{6}
+}
+func (m *DataSource) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DataSource) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DataSource.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DataSource) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DataSource.Merge(dst, src)
+}
+func (m *DataSource) XXX_Size() int {
+	return m.Size()
+}
+func (m *DataSource) XXX_DiscardUnknown() {
+	xxx_messageInfo_DataSource.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DataSource proto.InternalMessageInfo
 
 type isDataSource_Specifier interface {
 	isDataSource_Specifier()
@@ -486,15 +712,15 @@ func _DataSource_OneofSizer(msg proto.Message) (n int) {
 	// specifier
 	switch x := m.Specifier.(type) {
 	case *DataSource_Filename:
-		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.Filename)))
 		n += len(x.Filename)
 	case *DataSource_InlineBytes:
-		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineBytes)))
 		n += len(x.InlineBytes)
 	case *DataSource_InlineString:
-		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.InlineString)))
 		n += len(x.InlineString)
 	case nil:
@@ -514,13 +740,44 @@ type TransportSocket struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Implementation specific configuration which depends on the implementation being instantiated.
 	// See the supported transport socket implementations for further documentation.
-	Config *google_protobuf.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *types.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *TransportSocket) Reset()                    { *m = TransportSocket{} }
-func (m *TransportSocket) String() string            { return proto.CompactTextString(m) }
-func (*TransportSocket) ProtoMessage()               {}
-func (*TransportSocket) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{7} }
+func (m *TransportSocket) Reset()         { *m = TransportSocket{} }
+func (m *TransportSocket) String() string { return proto.CompactTextString(m) }
+func (*TransportSocket) ProtoMessage()    {}
+func (*TransportSocket) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{7}
+}
+func (m *TransportSocket) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TransportSocket) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TransportSocket.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *TransportSocket) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransportSocket.Merge(dst, src)
+}
+func (m *TransportSocket) XXX_Size() int {
+	return m.Size()
+}
+func (m *TransportSocket) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransportSocket.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TransportSocket proto.InternalMessageInfo
 
 func (m *TransportSocket) GetName() string {
 	if m != nil {
@@ -529,7 +786,7 @@ func (m *TransportSocket) GetName() string {
 	return ""
 }
 
-func (m *TransportSocket) GetConfig() *google_protobuf.Struct {
+func (m *TransportSocket) GetConfig() *types.Struct {
 	if m != nil {
 		return m.Config
 	}
@@ -552,13 +809,44 @@ type SocketOption struct {
 	Value isSocketOption_Value `protobuf_oneof:"value"`
 	// The state in which the option will be applied. When used in BindConfig
 	// STATE_PREBIND is currently the only valid value.
-	State SocketOption_SocketState `protobuf:"varint,6,opt,name=state,proto3,enum=envoy.api.v2.core.SocketOption_SocketState" json:"state,omitempty"`
+	State                SocketOption_SocketState `protobuf:"varint,6,opt,name=state,proto3,enum=envoy.api.v2.core.SocketOption_SocketState" json:"state,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
-func (m *SocketOption) Reset()                    { *m = SocketOption{} }
-func (m *SocketOption) String() string            { return proto.CompactTextString(m) }
-func (*SocketOption) ProtoMessage()               {}
-func (*SocketOption) Descriptor() ([]byte, []int) { return fileDescriptorBase, []int{8} }
+func (m *SocketOption) Reset()         { *m = SocketOption{} }
+func (m *SocketOption) String() string { return proto.CompactTextString(m) }
+func (*SocketOption) ProtoMessage()    {}
+func (*SocketOption) Descriptor() ([]byte, []int) {
+	return fileDescriptor_base_56e1a3946b1570d0, []int{8}
+}
+func (m *SocketOption) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SocketOption) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SocketOption.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *SocketOption) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SocketOption.Merge(dst, src)
+}
+func (m *SocketOption) XXX_Size() int {
+	return m.Size()
+}
+func (m *SocketOption) XXX_DiscardUnknown() {
+	xxx_messageInfo_SocketOption.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SocketOption proto.InternalMessageInfo
 
 type isSocketOption_Value interface {
 	isSocketOption_Value()
@@ -678,10 +966,10 @@ func _SocketOption_OneofSizer(msg proto.Message) (n int) {
 	// value
 	switch x := m.Value.(type) {
 	case *SocketOption_IntValue:
-		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(x.IntValue))
 	case *SocketOption_BufValue:
-		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(len(x.BufValue)))
 		n += len(x.BufValue)
 	case nil:
@@ -695,6 +983,7 @@ func init() {
 	proto.RegisterType((*Locality)(nil), "envoy.api.v2.core.Locality")
 	proto.RegisterType((*Node)(nil), "envoy.api.v2.core.Node")
 	proto.RegisterType((*Metadata)(nil), "envoy.api.v2.core.Metadata")
+	proto.RegisterMapType((map[string]*types.Struct)(nil), "envoy.api.v2.core.Metadata.FilterMetadataEntry")
 	proto.RegisterType((*RuntimeUInt32)(nil), "envoy.api.v2.core.RuntimeUInt32")
 	proto.RegisterType((*HeaderValue)(nil), "envoy.api.v2.core.HeaderValue")
 	proto.RegisterType((*HeaderValueOption)(nil), "envoy.api.v2.core.HeaderValueOption")
@@ -733,6 +1022,9 @@ func (this *Locality) Equal(that interface{}) bool {
 	if this.SubZone != that1.SubZone {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *Node) Equal(that interface{}) bool {
@@ -769,6 +1061,9 @@ func (this *Node) Equal(that interface{}) bool {
 	if this.BuildVersion != that1.BuildVersion {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *Metadata) Equal(that interface{}) bool {
@@ -798,6 +1093,9 @@ func (this *Metadata) Equal(that interface{}) bool {
 			return false
 		}
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *RuntimeUInt32) Equal(that interface{}) bool {
@@ -823,6 +1121,9 @@ func (this *RuntimeUInt32) Equal(that interface{}) bool {
 		return false
 	}
 	if this.RuntimeKey != that1.RuntimeKey {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -852,6 +1153,9 @@ func (this *HeaderValue) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *HeaderValueOption) Equal(that interface{}) bool {
@@ -877,6 +1181,9 @@ func (this *HeaderValueOption) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.Append.Equal(that1.Append) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -907,6 +1214,9 @@ func (this *DataSource) Equal(that interface{}) bool {
 	} else if this.Specifier == nil {
 		return false
 	} else if !this.Specifier.Equal(that1.Specifier) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -1008,6 +1318,9 @@ func (this *TransportSocket) Equal(that interface{}) bool {
 	if !this.Config.Equal(that1.Config) {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *SocketOption) Equal(that interface{}) bool {
@@ -1048,6 +1361,9 @@ func (this *SocketOption) Equal(that interface{}) bool {
 		return false
 	}
 	if this.State != that1.State {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -1133,6 +1449,9 @@ func (m *Locality) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintBase(dAtA, i, uint64(len(m.SubZone)))
 		i += copy(dAtA[i:], m.SubZone)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1189,6 +1508,9 @@ func (m *Node) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintBase(dAtA, i, uint64(len(m.BuildVersion)))
 		i += copy(dAtA[i:], m.BuildVersion)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1235,6 +1557,9 @@ func (m *Metadata) MarshalTo(dAtA []byte) (int, error) {
 			}
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1263,6 +1588,9 @@ func (m *RuntimeUInt32) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintBase(dAtA, i, uint64(len(m.RuntimeKey)))
 		i += copy(dAtA[i:], m.RuntimeKey)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -1293,6 +1621,9 @@ func (m *HeaderValue) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintBase(dAtA, i, uint64(len(m.Value)))
 		i += copy(dAtA[i:], m.Value)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -1332,6 +1663,9 @@ func (m *HeaderValueOption) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n5
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1356,6 +1690,9 @@ func (m *DataSource) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += nn6
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -1417,6 +1754,9 @@ func (m *TransportSocket) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n7
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1463,6 +1803,9 @@ func (m *SocketOption) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintBase(dAtA, i, uint64(m.State))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1507,6 +1850,9 @@ func (m *Locality) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovBase(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1533,6 +1879,9 @@ func (m *Node) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovBase(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1552,6 +1901,9 @@ func (m *Metadata) Size() (n int) {
 			n += mapEntrySize + 1 + sovBase(uint64(mapEntrySize))
 		}
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1564,6 +1916,9 @@ func (m *RuntimeUInt32) Size() (n int) {
 	l = len(m.RuntimeKey)
 	if l > 0 {
 		n += 1 + l + sovBase(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1579,6 +1934,9 @@ func (m *HeaderValue) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovBase(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1593,6 +1951,9 @@ func (m *HeaderValueOption) Size() (n int) {
 		l = m.Append.Size()
 		n += 1 + l + sovBase(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1601,6 +1962,9 @@ func (m *DataSource) Size() (n int) {
 	_ = l
 	if m.Specifier != nil {
 		n += m.Specifier.Size()
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1639,6 +2003,9 @@ func (m *TransportSocket) Size() (n int) {
 		l = m.Config.Size()
 		n += 1 + l + sovBase(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
@@ -1660,6 +2027,9 @@ func (m *SocketOption) Size() (n int) {
 	}
 	if m.State != 0 {
 		n += 1 + sovBase(uint64(m.State))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1821,6 +2191,7 @@ func (m *Locality) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1944,7 +2315,7 @@ func (m *Node) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Metadata == nil {
-				m.Metadata = &google_protobuf.Struct{}
+				m.Metadata = &types.Struct{}
 			}
 			if err := m.Metadata.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2024,6 +2395,7 @@ func (m *Node) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2089,10 +2461,10 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.FilterMetadata == nil {
-				m.FilterMetadata = make(map[string]*google_protobuf.Struct)
+				m.FilterMetadata = make(map[string]*types.Struct)
 			}
 			var mapkey string
-			var mapvalue *google_protobuf.Struct
+			var mapvalue *types.Struct
 			for iNdEx < postIndex {
 				entryPreIndex := iNdEx
 				var wire uint64
@@ -2163,7 +2535,7 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvalue = &google_protobuf.Struct{}
+					mapvalue = &types.Struct{}
 					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
 						return err
 					}
@@ -2197,6 +2569,7 @@ func (m *Metadata) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2295,6 +2668,7 @@ func (m *RuntimeUInt32) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2403,6 +2777,7 @@ func (m *HeaderValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2501,7 +2876,7 @@ func (m *HeaderValueOption) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Append == nil {
-				m.Append = &google_protobuf1.BoolValue{}
+				m.Append = &types.BoolValue{}
 			}
 			if err := m.Append.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2519,6 +2894,7 @@ func (m *HeaderValueOption) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2657,6 +3033,7 @@ func (m *DataSource) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2751,7 +3128,7 @@ func (m *TransportSocket) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Config == nil {
-				m.Config = &google_protobuf.Struct{}
+				m.Config = &types.Struct{}
 			}
 			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2769,6 +3146,7 @@ func (m *TransportSocket) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2955,6 +3333,7 @@ func (m *SocketOption) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -3069,9 +3448,9 @@ var (
 	ErrIntOverflowBase   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptorBase) }
+func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_base_56e1a3946b1570d0) }
 
-var fileDescriptorBase = []byte{
+var fileDescriptor_base_56e1a3946b1570d0 = []byte{
 	// 970 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0xcf, 0x6e, 0xeb, 0xc4,
 	0x17, 0xee, 0xe4, 0x5f, 0x93, 0x93, 0xa4, 0x75, 0xe7, 0x56, 0xbd, 0xfd, 0xf5, 0xde, 0x46, 0x95,
