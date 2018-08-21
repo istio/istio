@@ -129,14 +129,17 @@ DOCKER_BUILD_TOP:=${ISTIO_OUT}/docker_build
 ISTIO_DOCKER_TAR:=${ISTIO_OUT}/docker
 
 # Populate the git version for istio/proxy (i.e. Mosn)
+
 ifeq ($(PROXY_REPO_SHA),)
   export PROXY_REPO_SHA:=$(shell grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
 endif
-
 # Mosn binary variables Keep the default URLs up-to-date with the latest push from istio/proxy.
-ISTIO_MOSN_VERSION ?= ${PROXY_REPO_SHA}
-export ISTIO_MOSN_DEBUG_URL ?= http://storage.googleapis.com/sofa-mesh/proxy/mosn-debug-$(ISTIO_MOSN_VERSION).tar.gz
-export ISTIO_MOSN_RELEASE_URL ?= http://storage.googleapis.com/sofa-mesh/proxy/mosn-alpha-$(ISTIO_MOSN_VERSION).tar.gz
+ifeq ($(ISTIO_MOSN_VERSION),)
+  export ISTIO_MOSN_VERSION:=$(shell grep MOSN_VERSION istio.deps  -A 4 | grep version | cut -f 4 -d '"')
+endif
+export ISTIO_MOSN_DEBUG_URL ?= https://github.com/alipay/sofa-mosn/releases/download/${ISTIO_MOSN_VERSION}/mosn
+export ISTIO_MOSN_RELEASE_URL ?= https://github.com/alipay/sofa-mosn/releases/download/${ISTIO_MOSN_VERSION}/mosn
+export ISTIO_MOSN
 
 # Variables for the extracted debug/release Mosn artifacts.
 export ISTIO_MOSN_DEBUG_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/debug
@@ -148,7 +151,7 @@ export ISTIO_MOSN_RELEASE_PATH ?= ${ISTIO_MOSN_RELEASE_DIR}/${ISTIO_MOSN_RELEASE
 
 GO_VERSION_REQUIRED:=1.9
 
-HUB?=istio
+HUB?=docker.io/sofastack
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif

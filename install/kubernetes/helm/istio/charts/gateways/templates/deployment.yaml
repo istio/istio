@@ -32,7 +32,7 @@ spec:
 {{- end }}
       containers:
         - name: {{ $spec.labels.istio }}
-          image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           ports:
             {{- range $key, $val := $spec.ports }}

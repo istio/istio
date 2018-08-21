@@ -3,7 +3,7 @@ global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
   # Daily builds from prow are on gcr.io, and nightly builds from circle on docker.io/istionightly
-  hub: docker.io/istio
+  hub: docker.io/sofastack
 
   # Default tag for Istio images.
   tag: 1.0.0
@@ -22,7 +22,6 @@ global:
   k8sIngressHttps: false
 
   sofamesh:
-    hub: docker.io/sofa-mesh
     binaryPath: /usr/local/bin/mosn
     sidecar:
       pilot: false

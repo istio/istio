@@ -47,7 +47,7 @@
           periodSeconds: 5
 {{- if .Values.global.sofamesh.sidecar.policy }}              
       - name: istio-proxy
-        image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
@@ -146,7 +146,7 @@
           periodSeconds: 5
 {{- if .Values.global.sofamesh.sidecar.telemetry }}              
       - name: istio-proxy
-        image: "{{ $.Values.global.sofamesh.hub }}/proxyv2:{{ $.Values.global.tag }}"
+        image: "{{ $.Values.global.hub }}/proxyv2:{{ $.Values.global.tag }}"
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
