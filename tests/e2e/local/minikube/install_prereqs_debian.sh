@@ -26,17 +26,20 @@ fi
 
 #Install Kvm2
 echo "Installing KVM2 as required"
-sudo apt-get install libvirt-bin
+sudo modprobe kvm > /dev/null 2>&1
+sudo apt-get install libvirt-bin > /dev/null 2>&1
 sudo apt-get install libvirt-daemon-system libvirt-dev libvirt-clients virt-manager
 sudo apt-get install qemu-kvm
 sudo systemctl stop libvirtd
 sudo systemctl start libvirtd
 sudo usermod -a -G libvirt "$(whoami)"
+newgrp libvirt
 curl -LO https://storage.googleapis.com/minikube/releases/latest/docker-machine-driver-kvm2 && chmod +x docker-machine-driver-kvm2 && sudo mv docker-machine-driver-kvm2 /usr/local/bin/
 # We run following commands only for making scripts resilient to failures. Hence
 # ignoring any errors from them too.
 sudo virsh net-autostart default > /dev/null 2>&1
 sudo virsh net-start default > /dev/null 2>&1
+
 
 # Install kubectl
 echo "Checking and Installing Kubectl as required"
