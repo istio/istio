@@ -151,7 +151,11 @@ containers:
     {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
     {{ end -}}
+    {{ if eq .DebugMode true -}}
+    readOnlyRootFilesystem: false
+    {{ else }}
     readOnlyRootFilesystem: true
+    {{ end }}
     [[ if eq (or (index .ObjectMeta.Annotations "sidecar.istio.io/interceptionMode") .ProxyConfig.InterceptionMode.String) "TPROXY" -]]
     capabilities:
       add:

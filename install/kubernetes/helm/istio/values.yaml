@@ -40,7 +40,7 @@ global:
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
 
-    # If set, newly injected sidecars will have core dumps enabled and privileged securityContext
+    # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
     # istio egress capture whitelist
