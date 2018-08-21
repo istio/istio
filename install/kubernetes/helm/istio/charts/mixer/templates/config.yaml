@@ -237,8 +237,8 @@ spec:
     httpAuthority: request.headers[":authority"] | request.host | ""
     xForwardedFor: request.headers["x-forwarded-for"] | "0.0.0.0"
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
-    gRpcStatus: response.grpc_status | ""
-    gRpcMessage: response.grpc_message | ""
+    grpcStatus: response.grpc_status | ""
+    grpcMessage: response.grpc_message | ""
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
