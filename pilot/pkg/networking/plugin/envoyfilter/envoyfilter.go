@@ -54,7 +54,7 @@ func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plug
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext,
+func (envoyfilterplugin) OnOutboundCluster(env *model.Environment, push *model.PushContext,
 	service *model.Service, servicePort *model.Port, cluster *xdsapi.Cluster) {
 	// do nothing
 }

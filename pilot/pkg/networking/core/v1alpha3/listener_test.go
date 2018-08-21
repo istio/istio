@@ -183,7 +183,7 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
@@ -229,7 +229,7 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushContext:      model.NewStatus(),
+		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,
