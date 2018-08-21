@@ -83,10 +83,10 @@ var (
 	missesTotal    = stats.Int64("mixer/checkcache/cache_misses_total", "The number of times a cache lookup operation failed to find an entry in the cache.", stats.UnitDimensionless)
 	evictionsTotal = stats.Int64("mixer/checkcache/cache_evictions_total", "The number of entries that have been evicted from the cache.", stats.UnitDimensionless)
 
-	writesView    = newView(writesTotal, []tag.Key{}, view.Sum())
-	hitsView      = newView(hitsTotal, []tag.Key{}, view.Sum())
-	missesView    = newView(missesTotal, []tag.Key{}, view.Sum())
-	evictionsView = newView(evictionsTotal, []tag.Key{}, view.Sum())
+	writesView    = newView(writesTotal, []tag.Key{}, view.LastValue())
+	hitsView      = newView(hitsTotal, []tag.Key{}, view.LastValue())
+	missesView    = newView(missesTotal, []tag.Key{}, view.LastValue())
+	evictionsView = newView(evictionsTotal, []tag.Key{}, view.LastValue())
 )
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
