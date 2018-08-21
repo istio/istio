@@ -370,7 +370,7 @@ func (e *Ephemeral) processDynamicInstanceConfigs(templates map[string]*Template
 			enc, err = b.Build(getTemplatesMsgFullName(template.PackageName), params)
 			if err != nil {
 				appendErr(errs, fmt.Sprintf("instance='%s'.params", instanceName),
-					monitoringCtx, monitoring.InstanceErrs, "config does not conforms to schema of template '%s': %v",
+					monitoringCtx, monitoring.InstanceErrs, "config does not conform to schema of template '%s': %v",
 					inst.Template, err.Error())
 				continue
 			}
