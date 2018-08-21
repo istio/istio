@@ -12,3 +12,20 @@ spec:
     port: 20001
   selector:
     app: kiali
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiali-jaeger
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali
+spec:
+  type: NodePort
+  ports:
+  - name: jaeger
+    protocol: TCP
+    nodePort: 32439
+    port: 20002
+  selector:
+    app: kiali
