@@ -265,7 +265,7 @@ func (c *CertificateWatcher) watchErrors(exitSignal sync.WaitGroup, certFileWatc
 	}
 }
 
-func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
+func closeWatchers(exitSignal sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) { // nolint: interfacer
 	exitSignal.Wait()
 	_ = certFileWatcher.Close()
 	_ = keyFileWatcher.Close()
