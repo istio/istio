@@ -60,11 +60,15 @@ type AttributesServer struct {
 	// to the attribute handling pipeline within Mixer and to set the response
 	// details.
 	Handler AttributesHandler
+
+	// CheckGlobalDict indicates whether to check if proxy global dictionary
+	// is ahead of the one in mixer.
+	checkGlobalDict bool
 }
 
 // NewAttributesServer creates an AttributesServer. All channels are set to
 // default length.
-func NewAttributesServer(handler AttributesHandler) *AttributesServer {
+func NewAttributesServer(handler AttributesHandler, checkDict bool) *AttributesServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -75,6 +79,7 @@ func NewAttributesServer(handler AttributesHandler) *AttributesServer {
 		globalDict,
 		false,
 		handler,
+		checkDict,
 	}
 }
 
@@ -85,6 +90,9 @@ func NewAttributesServer(handler AttributesHandler) *AttributesServer {
 func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
 	if a.GenerateGRPCError {
 		return nil, errors.New("error handling check call")
+	}
+	if a.checkGlobalDict && req.GlobalWordCount > uint32(len(a.GlobalDict)) {
+		return nil, fmt.Errorf("global dictionary mismatch: proxy %d and mixer %d", req.GlobalWordCount, len(a.GlobalDict))
 	}
 
 	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
