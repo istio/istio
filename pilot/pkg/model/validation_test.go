@@ -1753,7 +1753,8 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
+					ConsecutiveErrors:         5,
+					ConsecutiveGatewayFailure: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1772,7 +1773,8 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
+					ConsecutiveErrors:         5,
+					ConsecutiveGatewayFailure: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1796,7 +1798,8 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
+							ConsecutiveErrors:         5,
+							ConsecutiveGatewayFailure: 5,
 						},
 					},
 				},
@@ -1816,7 +1819,8 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
+							ConsecutiveErrors:         5,
+							ConsecutiveGatewayFailure: 5,
 						},
 					},
 				},
@@ -1837,7 +1841,8 @@ func TestValidateDestinationRule(t *testing.T) {
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveErrors: 5,
+					ConsecutiveErrors:         5,
+					ConsecutiveGatewayFailure: 5,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -1853,7 +1858,8 @@ func TestValidateDestinationRule(t *testing.T) {
 							Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 						},
 						OutlierDetection: &networking.OutlierDetection{
-							ConsecutiveErrors: 5,
+							ConsecutiveErrors:         5,
+							ConsecutiveGatewayFailure: 5,
 						},
 					},
 				},
@@ -1886,7 +1892,8 @@ func TestValidateTrafficPolicy(t *testing.T) {
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 			},
 			OutlierDetection: &networking.OutlierDetection{
-				ConsecutiveErrors: 5,
+				ConsecutiveErrors:         5,
+				ConsecutiveGatewayFailure: 5,
 			},
 		},
 			valid: true},
@@ -1906,7 +1913,8 @@ func TestValidateTrafficPolicy(t *testing.T) {
 						Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
 					},
 					OutlierDetection: &networking.OutlierDetection{
-						ConsecutiveErrors: 5,
+						ConsecutiveErrors:         5,
+						ConsecutiveGatewayFailure: 5,
 					},
 				},
 			},
@@ -1920,7 +1928,8 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
-				ConsecutiveErrors: 5,
+				ConsecutiveErrors:         5,
+				ConsecutiveGatewayFailure: 5,
 			},
 		},
 			valid: false},
@@ -2014,14 +2023,19 @@ func TestValidateOutlierDetection(t *testing.T) {
 		valid bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
-			ConsecutiveErrors:  5,
-			Interval:           &types.Duration{Seconds: 2},
-			BaseEjectionTime:   &types.Duration{Seconds: 2},
-			MaxEjectionPercent: 50,
+			ConsecutiveErrors:         5,
+			ConsecutiveGatewayFailure: 5,
+			Interval:                  &types.Duration{Seconds: 2},
+			BaseEjectionTime:          &types.Duration{Seconds: 2},
+			MaxEjectionPercent:        50,
 		}, valid: true},
 
 		{name: "invalid outlier detection, bad consecutive errors", in: networking.OutlierDetection{
 			ConsecutiveErrors: -1},
+			valid: false},
+
+		{name: "invalid outlier detection, bad consecutive gateway failures", in: networking.OutlierDetection{
+			ConsecutiveGatewayFailure: -1},
 			valid: false},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
