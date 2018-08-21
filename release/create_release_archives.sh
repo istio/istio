@@ -55,9 +55,9 @@ while getopts d:i:o:v: arg ; do
   esac
 done
 
-[[ -z "${BASE_DIR}"  ]] && usage
-[[ -z "${OUTPUT_PATH}"  ]] && usage
-[[ -z "${VER_STRING}"   ]] && usage
+[[ -z "${BASE_DIR}"    ]] && usage
+[[ -z "${OUTPUT_PATH}" ]] && usage
+[[ -z "${VER_STRING}"  ]] && usage
 
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
@@ -66,12 +66,8 @@ mkdir -p "${BIN_DIR}"
 # On mac, brew install gnu-tar gnu-cp
 # and set CP="gcp" TAR="gtar"
 
-if [[ -z "${CP}" ]] ; then
-  CP="cp"
-fi
-if [[ -z "${TAR}" ]] ; then
-  TAR="tar"
-fi
+CP=${CP:-"cp"}
+TAR=${TAR:-"tar"}
 
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
