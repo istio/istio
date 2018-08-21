@@ -80,7 +80,6 @@ items:
               cpu: 10m
           securityContext:
             privileged: false
-            readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
@@ -215,7 +214,6 @@ items:
               cpu: 10m
           securityContext:
             privileged: false
-            readOnlyRootFilesystem: true
             runAsUser: 1337
           volumeMounts:
           - mountPath: /etc/istio/proxy
