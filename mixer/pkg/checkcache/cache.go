@@ -121,7 +121,6 @@ func (cc *Cache) Close() error {
 
 // Get looks up an attribute bag in the cache.
 func (cc *Cache) Get(attrs attribute.Bag) (Value, bool) {
-	defer func() { cc.recordStats() }()
 	cc.keyShapesLock.RLock()
 	shapes := cc.keyShapes
 	cc.keyShapesLock.RUnlock()
@@ -140,24 +139,27 @@ func (cc *Cache) Get(attrs attribute.Bag) (Value, bool) {
 					// Entry expired. This happens because the underlying ExpiringCache only lazily cleans up
 					// expired entries. Since we want to be more precise, we do our own freshness check and throw
 					// out stale results
+					cc.recordStats()
 					return Value{}, false
 				}
 
 				// got a match!
+				cc.recordStats()
 				return result.(Value), true
 			}
 		}
 	}
 
+	cc.recordStats()
 	return Value{}, false
 }
 
 // Set enters a new value in the cache.
 func (cc *Cache) Set(attrs attribute.Bag, value Value) {
-	defer func() { cc.recordStats() }()
 	now := cc.getTime()
 	if value.Expiration.Before(now) {
 		// value is already expired, don't add it
+		cc.recordStats()
 		return
 	}
 
@@ -169,6 +171,7 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 	for _, shape := range shapes {
 		if shape.isCompatible(attrs) {
 			cc.cache.SetWithExpiration(shape.makeKey(attrs), value, value.Expiration.Sub(now))
+			cc.recordStats()
 			return
 		}
 	}
@@ -182,6 +185,7 @@ func (cc *Cache) Set(attrs attribute.Bag, value Value) {
 	cc.keyShapesLock.Unlock()
 
 	cc.cache.SetWithExpiration(shape.makeKey(attrs), value, value.Expiration.Sub(now))
+	cc.recordStats()
 }
 
 func (cc *Cache) recordStats() {
