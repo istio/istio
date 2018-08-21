@@ -131,6 +131,7 @@ const reportAttributesOkGet = `
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
   "request.scheme": "http",
+  "request.url_path": "/echo",
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "target.name": "target-name",

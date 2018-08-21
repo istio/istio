@@ -115,7 +115,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	checkAttributesOkInbound = `
@@ -146,7 +147,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	reportAttributesOkOutbound = `
@@ -183,6 +185,7 @@ static_resources:
   "request.scheme": "http",
   "request.size": 0,
   "request.total_size": "*",
+  "request.url_path": "/echo",
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",
@@ -231,6 +234,7 @@ static_resources:
   "request.scheme": "http",
   "request.size": 0,
   "request.total_size": "*",
+  "request.url_path": "/echo",
   "response.time": "*",
   "response.size": 0,
   "response.duration": "*",

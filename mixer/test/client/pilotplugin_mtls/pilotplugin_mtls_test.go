@@ -129,7 +129,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	// See issue https://github.com/istio/proxy/issues/1910
@@ -165,7 +166,8 @@ static_resources:
   "request.time": "*",
   "request.useragent": "Go-http-client/1.1",
   "request.method": "GET",
-  "request.scheme": "http"
+  "request.scheme": "http",
+  "request.url_path": "/echo"
 }
 `
 	reportAttributesOkOutbound = `
@@ -212,7 +214,8 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo"
 }`
 
 	// See issue https://github.com/istio/proxy/issues/1910
@@ -264,7 +267,8 @@ static_resources:
      ":status": "200",
      "server": "envoy"
   },
-  "response.total_size": "*"
+  "response.total_size": "*",
+  "request.url_path": "/echo"
 }`
 )
 
