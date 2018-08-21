@@ -124,6 +124,10 @@ type (
 		ActionsDynamic []*ActionDynamic
 
 		ActionsStatic []*ActionStatic
+
+		RequestHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
+
+		ResponseHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
 	}
 
 	// ActionDynamic configuration. Fully resolved.
@@ -132,6 +136,8 @@ type (
 		Handler *HandlerDynamic
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceDynamic
+		// Name of the action
+		Name string
 	}
 
 	// ActionStatic configuration. Fully resolved.
@@ -141,6 +147,9 @@ type (
 
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceStatic
+
+		// Name of the action
+		Name string
 	}
 
 	// Template contains info about a template

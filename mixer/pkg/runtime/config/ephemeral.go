@@ -607,6 +607,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionStatic{
 					Handler:   sahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsStat = append(actionsStat, action)
@@ -665,6 +666,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionDynamic{
 					Handler:   dahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsDynamic = append(actionsDynamic, action)
@@ -683,6 +685,8 @@ func (e *Ephemeral) processRuleConfigs(
 			ActionsStatic:  actionsStat,
 			ActionsDynamic: actionsDynamic,
 			Match:          cfg.Match,
+			RequestHeaderOperations:  cfg.RequestHeaderOperations,
+			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
 
 		rules = append(rules, rule)
